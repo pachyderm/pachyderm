@@ -5630,7 +5630,7 @@ type APIClient interface {
 	RunLoadTestDefault(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error)
 	// RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
 	RenderTemplate(ctx context.Context, in *RenderTemplateRequest, opts ...grpc.CallOption) (*RenderTemplateResponse, error)
-	// ListTask lists pipeline tasks under the given etcd prefix
+	// ListTask lists PPS tasks
 	ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error)
 }
 
@@ -6136,7 +6136,7 @@ type APIServer interface {
 	RunLoadTestDefault(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
 	// RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
 	RenderTemplate(context.Context, *RenderTemplateRequest) (*RenderTemplateResponse, error)
-	// ListTask lists pipeline tasks under the given etcd prefix
+	// ListTask lists PPS tasks
 	ListTask(*task.ListTaskRequest, API_ListTaskServer) error
 }
 

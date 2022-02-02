@@ -30,3 +30,9 @@ message Claim {}
 message TestTask {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
+
+message TaskKey {
+  string namespace = 1;
+  string group = 2;
+  string key = 3;
+}

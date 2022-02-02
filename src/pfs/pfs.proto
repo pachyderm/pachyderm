@@ -527,6 +527,6 @@ service API {
   // RunLoadTestDefault runs the default load tests.
   rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
 
-  // ListTask lists storage tasks under the given etcd prefix
+  // ListTask lists PFS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }

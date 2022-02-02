@@ -10,7 +10,7 @@ import (
 )
 
 // ListTask lists tasks in the given namespace and group
-func (c APIClient) ListTask(service string, namespace string) (infos []*task.TaskInfo, retErr error) {
+func (c APIClient) ListTask(service string, namespace, group string) (infos []*task.TaskInfo, retErr error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
 	defer func() {
@@ -20,7 +20,10 @@ func (c APIClient) ListTask(service string, namespace string) (infos []*task.Tas
 	}()
 
 	req := &task.ListTaskRequest{
-		Namespace: namespace,
+		Group: &task.Group{
+			Namespace: namespace,
+			Group:     group,
+		},
 	}
 	var stream interface {
 		Recv() (*task.TaskInfo, error)

@@ -775,7 +775,7 @@ service API {
   // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
   rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}
 
-  // ListTask lists pipeline tasks under the given etcd prefix
+  // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
 

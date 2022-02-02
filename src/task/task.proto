@@ -13,9 +13,15 @@ enum State {
   CLAIMED = 4; // not a real state used by task logic
 }
 
+message Group {
+  string namespace = 1;
+  string group = 2;
+}
+
 message TaskInfo {
   string id = 1 [(gogoproto.customname) = "ID"];
-  string full_key = 3;
+  Group group = 2;
+  string key = 3;
   string input_type = 4;
   State state = 5;
   string reason = 6;
@@ -23,6 +29,6 @@ message TaskInfo {
 }
 
 message ListTaskRequest {
-  string namespace = 1;
+  Group group = 1;
 }
 

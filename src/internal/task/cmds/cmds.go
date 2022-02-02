@@ -17,19 +17,28 @@ func Cmds() []*cobra.Command {
 	var output string
 	outputFlags := cmdutil.OutputFlags(&raw, &output)
 
+	var group string
 	listTask := &cobra.Command{
 		Hidden: true, // don't show in the list of commands
-		Use:    "{{alias}} <service> <task/name/space>",
+		Use:    "{{alias}} <service> [<namespace>]",
 		Short:  "Return info about tasks in a namespace.",
 		Long:   "Return info about tasks in a namespace.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+			var namespace string
+			if len(args) > 1 {
+				namespace = args[1]
+			}
+			if namespace == "" && group != "" {
+				return errors.Errorf("must set a task namespace to list a group")
+			}
+
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
 
-			taskInfos, err := client.ListTask(args[0], args[1])
+			taskInfos, err := client.ListTask(args[0], namespace, group)
 			if err != nil {
 				return err
 			}
@@ -45,6 +54,7 @@ func Cmds() []*cobra.Command {
 		}),
 	}
 	listTask.Flags().AddFlagSet(outputFlags)
+	listTask.Flags().StringVarP(&group, "group", "g", "", "The group to list within the namespace")
 	commands = append(commands, cmdutil.CreateAlias(listTask, "list task"))
 
 	return commands

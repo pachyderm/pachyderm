@@ -13,9 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -53,72 +51,32 @@ func (es *etcdService) NewSource(namespace string) Source {
 	return newEtcdSource(namespaceEtcd)
 }
 
-func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
-	if err != nil {
-		return 0, 0, errors.EnsureStack(err)
+func (es *etcdService) List(ctx context.Context, namespace, group string, cb func(*TaskKey, *Task, bool) error) error {
+	if namespace == "" && group != "" {
+		return errors.New("must provide a task namespace to list a group")
 	}
-	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
-	if err != nil {
-		return 0, 0, errors.EnsureStack(err)
-	}
-	return nTasks, nClaims, nil
-}
-
-func (es *etcdService) ListTaskF(ctx context.Context, namespace string, f func(string, *Task, bool) error) error {
-	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	prefix := path.Join(namespace, group)
+	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, prefix)
 	var taskData Task
 	var claim Claim
-	etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
+	return etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
 		var claimed bool
 		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(key, &claim) == nil {
 			claimed = true
 		}
-		return f(path.Join(namespace, key), &taskData, claimed)
+		fullKey := path.Join(prefix, key)
+		// namespace/group/doerID/taskID
+		// namespace might have slashes
+		keyParts := strings.Split(fullKey, "/")
+		if len(keyParts) < 4 {
+			return errors.Errorf("malformed task key %s", fullKey)
+		}
+		return cb(&TaskKey{
+			Key:       fullKey,
+			Namespace: path.Join(keyParts[:len(keyParts)-3]...),
+			Group:     keyParts[len(keyParts)-3],
+		}, &taskData, claimed)
 	})
-	return nil
-}
-
-func translateTaskState(state State) taskapi.State {
-	switch state {
-	case State_RUNNING:
-		return taskapi.State_RUNNING
-	case State_SUCCESS:
-		return taskapi.State_SUCCESS
-	case State_FAILURE:
-		return taskapi.State_FAILURE
-	}
-	return taskapi.State_UNKNOWN
-}
-
-func HandleList(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send func(info *taskapi.TaskInfo) error) error {
-	var marshaler jsonpb.Marshaler
-	return errors.EnsureStack(svc.ListTaskF(ctx, req.Namespace, func(key string, data *Task, claimed bool) error {
-		var state taskapi.State
-		if claimed {
-			state = taskapi.State_CLAIMED
-		} else {
-			state = translateTaskState(data.State)
-		}
-		var input types.DynamicAny
-		if err := types.UnmarshalAny(data.Input, &input); err != nil {
-			return errors.EnsureStack(err)
-		}
-		inputJSON, err := marshaler.MarshalToString(input.Message)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		info := &taskapi.TaskInfo{
-			ID:        data.ID,
-			FullKey:   key,
-			State:     state,
-			Reason:    data.Reason,
-			InputType: data.Input.TypeUrl,
-			InputData: inputJSON,
-		}
-		return errors.EnsureStack(send(info))
-	}))
 }
 
 type namespaceEtcd struct {

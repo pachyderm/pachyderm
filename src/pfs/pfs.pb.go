@@ -4086,7 +4086,7 @@ type APIClient interface {
 	RunLoadTest(ctx context.Context, in *RunLoadTestRequest, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load tests.
 	RunLoadTestDefault(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*RunLoadTestResponse, error)
-	// ListTask lists storage tasks under the given etcd prefix
+	// ListTask lists PFS tasks
 	ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error)
 }
 
@@ -4889,7 +4889,7 @@ type APIServer interface {
 	RunLoadTest(context.Context, *RunLoadTestRequest) (*RunLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load tests.
 	RunLoadTestDefault(context.Context, *types.Empty) (*RunLoadTestResponse, error)
-	// ListTask lists storage tasks under the given etcd prefix
+	// ListTask lists PFS tasks
 	ListTask(*task.ListTaskRequest, API_ListTaskServer) error
 }
 

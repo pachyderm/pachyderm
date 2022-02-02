@@ -425,7 +425,7 @@ func (c *pfsBuilderClient) CheckStorage(ctx context.Context, req *pfs.CheckStora
 	return nil, unsupportedError("CheckStorage")
 }
 func (c *pfsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pfs.API_ListTaskClient, error) {
-	return nil, unsupportedError("RunLoadTestDefault")
+	return nil, unsupportedError("ListTask")
 }
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
@@ -507,7 +507,7 @@ func (c *ppsBuilderClient) RenderTemplate(ctx context.Context, req *pps.RenderTe
 	return nil, unsupportedError("RenderTemplate")
 }
 func (c *ppsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pps.API_ListTaskClient, error) {
-	return nil, unsupportedError("RunLoadTestDefault")
+	return nil, unsupportedError("ListTask")
 }
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {
