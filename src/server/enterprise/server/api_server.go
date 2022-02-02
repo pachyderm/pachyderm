@@ -347,9 +347,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 }
 
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
-	if req.Namespace == "" {
-		req.Namespace = "default"
-	}
 	if err := a.setPauseState(ctx, true); err != nil {
 		return nil, err
 	}
@@ -396,7 +393,7 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string) 
 	}
 	// Updating the spec rolls the deployment, killing each pod and causing
 	// a new one to start.
-	d.Spec.Template.Annotations["kubectl.kubrnetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+	d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
 		return errors.Errorf("could not update pachd deployment: %v", err)
 	}

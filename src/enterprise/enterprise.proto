@@ -98,15 +98,11 @@ message HeartbeatResponse{}
 message DeactivateRequest{}
 message DeactivateResponse{}
 
-message PauseRequest{
-  string namespace = 1;
-}
+message PauseRequest{}
 message PauseResponse{}
 
 message UnpauseRequest{}
 message UnpauseResponse{}
-
-message PauseRecord {}
 
 service API {
   // Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
