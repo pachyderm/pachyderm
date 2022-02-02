@@ -247,3 +247,5 @@ export {
   IAPIService_IListProject,
 } from './proto/projects/projects_grpc_pb';
 export * from './proto/projects/projects_pb';
+export {GRPC_MAX_MESSAGE_LENGTH} from './services/pfs/lib/constants';
+export {STREAM_OVERHEAD_LENGTH} from './services/pfs/lib/FileClient';

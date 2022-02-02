@@ -13,8 +13,8 @@ export interface FileClientConstructorArgs extends ServiceArgs {
   plugins: GRPCPlugin[];
 }
 
-// We need to account for some overhead in the stream data
-const STREAM_OVERHEAD_LENGTH = 29;
+// We need to account for some overhead in the stream data for putFileFromBytes
+export const STREAM_OVERHEAD_LENGTH = 17;
 
 export class FileClient<T> {
   protected client: APIClient;
@@ -32,7 +32,8 @@ export class FileClient<T> {
   }
 
   putFileFromBytes(path: string, bytes: Buffer, callback?: () => void) {
-    const messageLength = GRPC_MAX_MESSAGE_LENGTH - STREAM_OVERHEAD_LENGTH;
+    const messageLength =
+      GRPC_MAX_MESSAGE_LENGTH - STREAM_OVERHEAD_LENGTH - path.length;
     const write = (chunk: Buffer, end: number) => {
       if (chunk.length <= 0) {
         if (callback) callback();
