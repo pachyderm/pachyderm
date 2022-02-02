@@ -596,7 +596,7 @@ func updateClientEndpoint(reqPachdAddress string, c *client.APIClient) (map[stri
 	}
 	pachdAddress, err := grpcutil.ParsePachdAddress(reqPachdAddress)
 	if err != nil {
-		return nil, fmt.Errorf("either empty or poorly formatted cluster endpoint")
+		return nil, errors.WithStack(fmt.Errorf("either empty or poorly formatted cluster endpoint"))
 	}
 
 	// Check if same pachd address as current client
