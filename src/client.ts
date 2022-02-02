@@ -3,7 +3,6 @@ import {Metadata} from '@grpc/grpc-js';
 import createCredentials from './createCredentials';
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
 import auth from './services/auth';
-import {ModifyFile} from './services/ModifyFile';
 import pfs from './services/pfs';
 import pps from './services/pps';
 import projects from './services/projects';
@@ -83,6 +82,7 @@ const client = ({
           pachdAddress,
           channelCredentials,
           credentialMetadata,
+          plugins,
         }),
         plugins,
       );
@@ -126,14 +126,6 @@ const client = ({
         plugins,
       );
       return projectsService;
-    },
-    modifyFile: () => {
-      return new ModifyFile({
-        pachdAddress,
-        channelCredentials,
-        credentialMetadata,
-        plugins,
-      });
     },
     attachCredentials: ({
       authToken = '',

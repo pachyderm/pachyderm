@@ -13,7 +13,7 @@ import {
   CommitObject,
   commitFromObject,
   triggerFromObject,
-} from '../builders/pfs';
+} from '../../builders/pfs';
 import {
   ServiceArgs,
   CreateBranchArgs,
@@ -27,8 +27,10 @@ import {
   ListCommitArgs,
   StartCommitRequestArgs,
   SubscribeCommitRequestArgs,
-} from '../lib/types';
-import {APIClient} from '../proto/pfs/pfs_grpc_pb';
+  RenewFileSetRequestArgs,
+  AddFileSetRequestArgs,
+} from '../../lib/types';
+import {APIClient} from '../../proto/pfs/pfs_grpc_pb';
 import {
   BranchInfo,
   CommitInfo,
@@ -58,16 +60,21 @@ import {
   ListBranchRequest,
   DeleteBranchRequest,
   DeleteRepoRequest,
-} from '../proto/pfs/pfs_pb';
-import streamToObjectArray from '../utils/streamToObjectArray';
+  AddFileSetRequest,
+  RenewFileSetRequest,
+} from '../../proto/pfs/pfs_pb';
+import streamToObjectArray from '../../utils/streamToObjectArray';
+import {RPC_DEADLINE_MS} from '../constants/rpc';
 
-import {GRPC_MAX_MESSAGE_LENGTH} from './constants/pfs';
-import {RPC_DEADLINE_MS} from './constants/rpc';
+import {FileSet} from './clients/FileSet';
+import {ModifyFile} from './clients/ModifyFile';
+import {GRPC_MAX_MESSAGE_LENGTH} from './lib/constants';
 
 const pfs = ({
   pachdAddress,
   channelCredentials,
   credentialMetadata,
+  plugins = [],
 }: ServiceArgs) => {
   const client = new APIClient(pachdAddress, channelCredentials, {
     /* eslint-disable @typescript-eslint/naming-convention */
@@ -534,6 +541,46 @@ const pfs = ({
           }
           return resolve({});
         });
+      });
+    },
+    addFileSet: ({fileSetId, commit}: AddFileSetRequestArgs) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const request = new AddFileSetRequest()
+          .setCommit(commitFromObject(commit))
+          .setFileSetId(fileSetId);
+
+        client.addFileSet(request, (err) => {
+          if (err) reject(err);
+          else resolve({});
+        });
+      });
+    },
+    renewFileSet: ({fileSetId, duration = 600}: RenewFileSetRequestArgs) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const request = new RenewFileSetRequest()
+          .setFileSetId(fileSetId)
+          .setTtlSeconds(duration);
+
+        client.renewFileSet(request, (err) => {
+          if (err) reject(err);
+          else resolve({});
+        });
+      });
+    },
+    modifyFile: async () => {
+      return new ModifyFile({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        plugins,
+      });
+    },
+    fileSet: async () => {
+      return new FileSet({
+        pachdAddress,
+        channelCredentials,
+        credentialMetadata,
+        plugins,
       });
     },
   };

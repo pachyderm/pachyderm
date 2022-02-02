@@ -1,5 +1,5 @@
-import client from '../../client';
-import {CommitState, FileType} from '../../proto/pfs/pfs_pb';
+import client from '../../../client';
+import {CommitState, FileType} from '../../../proto/pfs/pfs_pb';
 
 describe('services/pfs', () => {
   afterAll(async () => {
@@ -22,8 +22,9 @@ describe('services/pfs', () => {
         branch: {name: 'master', repo: {name: 'listFile'}},
       });
 
-      await client
-        .modifyFile()
+      const fileClient = await client.pfs().modifyFile();
+
+      await fileClient
         .setCommit(commit)
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
@@ -45,9 +46,9 @@ describe('services/pfs', () => {
       const commit = await client.pfs().startCommit({
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
+      const fileClient = await client.pfs().modifyFile();
 
-      await client
-        .modifyFile()
+      await fileClient
         .setCommit(commit)
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
@@ -66,9 +67,9 @@ describe('services/pfs', () => {
       const commit = await client.pfs().startCommit({
         branch: {name: 'master', repo: {name: 'getFile'}},
       });
+      const fileClient = await client.pfs().modifyFile();
 
-      await client
-        .modifyFile()
+      await fileClient
         .setCommit(commit)
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
@@ -89,9 +90,9 @@ describe('services/pfs', () => {
       const commit = await client.pfs().startCommit({
         branch: {name: 'master', repo: {name: 'inspectRepo'}},
       });
+      const fileClient = await client.pfs().modifyFile();
 
-      await client
-        .modifyFile()
+      await fileClient
         .setCommit(commit)
         .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
         .end();
