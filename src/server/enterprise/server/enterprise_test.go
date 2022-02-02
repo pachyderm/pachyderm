@@ -302,3 +302,43 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	require.YesError(t, err)
 	require.True(t, collection.IsErrNotFound(err))
 }
+
+func TestPauseUnpause(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	client := testutil.GetPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
+
+	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+}
+
+func TestDoublePauseUnpause(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	client := testutil.GetPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
+
+	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+	_, err = client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NotNil(t, err)
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NotNil(t, err)
+}
