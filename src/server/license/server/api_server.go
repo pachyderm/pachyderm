@@ -93,6 +93,9 @@ func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp
 func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivationCodeRequest) (resp *lc.GetActivationCodeResponse, retErr error) {
 	// Redact the activation code from the response
 	removeSecret := func(r *lc.GetActivationCodeResponse) *lc.GetActivationCodeResponse {
+		if r == nil {
+			return nil
+		}
 		copyResp := proto.Clone(r).(*lc.GetActivationCodeResponse)
 		copyResp.ActivationCode = ""
 		return copyResp

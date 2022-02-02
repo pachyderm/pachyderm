@@ -110,6 +110,9 @@ func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.Create
 
 func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
 	removeJSONConfig := func(r *identity.GetIDPConnectorResponse) *identity.GetIDPConnectorResponse {
+		if r == nil {
+			return nil
+		}
 		copyResp := proto.Clone(r).(*identity.GetIDPConnectorResponse)
 		copyResp.Connector.JsonConfig = ""
 		return copyResp
@@ -147,6 +150,9 @@ func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.Update
 
 func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
 	removeJSONConfig := func(r *identity.ListIDPConnectorsResponse) *identity.ListIDPConnectorsResponse {
+		if r == nil {
+			return nil
+		}
 		copyResp := proto.Clone(r).(*identity.ListIDPConnectorsResponse)
 		for _, c := range copyResp.Connectors {
 			c.JsonConfig = ""
@@ -214,6 +220,9 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 
 func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
 	removeSecret := func(r *identity.GetOIDCClientResponse) *identity.GetOIDCClientResponse {
+		if r == nil {
+			return nil
+		}
 		copyResp := proto.Clone(r).(*identity.GetOIDCClientResponse)
 		copyResp.Client.Secret = ""
 		return copyResp
@@ -231,6 +240,9 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 
 func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
 	removeSecret := func(r *identity.ListOIDCClientsResponse) *identity.ListOIDCClientsResponse {
+		if r == nil {
+			return nil
+		}
 		copyResp := proto.Clone(r).(*identity.ListOIDCClientsResponse)
 		for _, c := range copyResp.Clients {
 			c.Secret = ""
