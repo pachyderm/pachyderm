@@ -229,6 +229,13 @@ jobs:
             twine upload dist/*
 
   docker-build:
+    parameters:
+      pachctl_version:
+        type: string
+        # update this to build a different e.g. branch build of pachctl based on the git hash
+        # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
+        default: aaa7434c714fab6130c3982ebdaa8f279bd850c2
+
     executor: python
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -243,7 +250,7 @@ jobs:
           command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Build Docker image
-          command: docker build --build-arg PACHCTL_VERSION=2.0.0 -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
+          command: docker build --build-arg PACHCTL_VERSION=<< parameters.pachctl_version >> -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1

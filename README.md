@@ -146,6 +146,17 @@ In development mode, you will also need to remove the symlink created by `jupyte
 command. To find its location, you can run `jupyter labextension list` to figure out where the `labextensions`
 folder is located. Then you can remove the symlink named `jupyterlab-pachyderm` within that folder.
 
+## Locally building the docker image
+
+Useful if iterating on the Dockerfile locally or iterating on changes to a version of mount-server:
+
+```
+export PACHCTL_VERSION=aaa7434c714fab6130c3982ebdaa8f279bd850c2 # or whichever version you want
+docker build --build-arg PACHCTL_VERSION=$PACHCTL_VERSION -t pachyderm/notebooks-user:dev .
+docker run -ti -p 8888:8888 pachyderm/notebooks-user:dev
+```
+
+Navigate to the URL that's printed out by the docker container, then change `tree` to `lab` in your browser's address bar.
 
 ## Install
 
