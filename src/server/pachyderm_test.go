@@ -6531,6 +6531,121 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	}
 }
 
+func TestPipelineEnvVarJoinOn(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	repo1 := tu.UniqueString("TestPipelineEnvVarJoinOn_repo1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := tu.UniqueString("TestPipelineEnvVarJoinOn_repo2")
+	require.NoError(t, c.CreateRepo(repo2))
+
+	input := client.NewJoinInput(
+		client.NewPFSInput(repo1, "/(*)"),
+		client.NewPFSInput(repo2, "/(*)"),
+	)
+	input.Join[0].Pfs.Name = "repo1"
+	input.Join[1].Pfs.Name = "repo2"
+	input.Join[0].Pfs.JoinOn = "$1"
+	input.Join[1].Pfs.JoinOn = "$1"
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), "a", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), "a", strings.NewReader("bar")))
+
+	// create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/repo1-$PACH_DATUM_repo1_JOIN_ON",
+					"touch /pfs/out/repo2-$PACH_DATUM_repo2_JOIN_ON",
+				},
+			},
+			Input:  input,
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for job and get its datums
+	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+
+	// check the value of JOIN_ON env variable
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "repo1-a", &bytes.Buffer{}))
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "repo2-a", &bytes.Buffer{}))
+}
+
+func TestPipelineEnvVarGroupBy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	repo := tu.UniqueString("TestPipelineEnvVarGroupBy_repo")
+	require.NoError(t, c.CreateRepo(repo))
+
+	input := client.NewGroupInput(
+		client.NewPFSInput(repo, "/(*)-*"),
+	)
+	input.Group[0].Pfs.Name = "repo"
+	input.Group[0].Pfs.GroupBy = "$1"
+
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "a-1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "a-2", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "b-1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "b-2", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
+
+	// create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/$PACH_DATUM_repo_GROUP_BY",
+				},
+			},
+			Input:  input,
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for job to finish
+	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+
+	// check the value of the GROUP_BY env var
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "a", &bytes.Buffer{}))
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "b", &bytes.Buffer{}))
+}
+
 func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
