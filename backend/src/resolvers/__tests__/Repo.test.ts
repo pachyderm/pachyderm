@@ -51,6 +51,26 @@ describe('resolvers/Repo', () => {
       expect(data?.repos[0]?.id).toBe('cron');
       expect(data?.repos[1]?.id).toBe('processor');
     });
+
+    it('should return repo list filtered by globalId', async () => {
+      const {data} = await executeQuery<ReposQuery>(GET_REPOS_QUERY, {
+        args: {projectId: '1'},
+      });
+      expect(data?.repos.length).toBe(3);
+      expect(data?.repos[0]?.id).toBe('montage');
+      expect(data?.repos[1]?.id).toBe('edges');
+      expect(data?.repos[2]?.id).toBe('images');
+
+      const {data: filteredData} = await executeQuery<ReposQuery>(
+        GET_REPOS_QUERY,
+        {
+          args: {projectId: '1', jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a'},
+        },
+      );
+
+      expect(filteredData?.repos.length).toBe(1);
+      expect(filteredData?.repos[0]?.id).toBe('montage');
+    });
   });
 
   describe('createRepo', () => {

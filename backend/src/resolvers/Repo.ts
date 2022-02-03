@@ -1,3 +1,6 @@
+import {JobInfo} from '@pachyderm/node-pachyderm';
+
+import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {MutationResolvers, QueryResolvers, RepoResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline, repoInfoToGQLRepo} from './builders/pps';
@@ -19,7 +22,28 @@ const repoResolver: RepoResolver = {
     repo: async (_parent, {args: {id}}, {pachClient}) => {
       return repoInfoToGQLRepo(await pachClient.pfs().inspectRepo(id));
     },
-    repos: async (_parent, _args, {pachClient}) => {
+    repos: async (_parent, {args: {projectId, jobSetId}}, {pachClient}) => {
+      if (jobSetId) {
+        const jobs = await getJobsFromJobSet({
+          jobSet: await pachClient
+            .pps()
+            .inspectJobSet({id: jobSetId, projectId}),
+          projectId,
+          pachClient,
+        });
+
+        const jobPipelines = jobs.reduce((acc, job) => {
+          if (job.job?.pipeline?.name) {
+            return {...acc, [job.job?.pipeline?.name]: job};
+          }
+          return acc;
+        }, {} as {[key: string]: JobInfo.AsObject});
+
+        return (await pachClient.pfs().listRepo())
+          .filter((repo) => repo.repo?.name && jobPipelines[repo.repo?.name])
+          .map((repo) => repoInfoToGQLRepo(repo));
+      }
+
       return (await pachClient.pfs().listRepo()).map((repo) =>
         repoInfoToGQLRepo(repo),
       );

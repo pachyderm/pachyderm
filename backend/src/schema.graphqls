@@ -321,6 +321,7 @@ input PipelineQueryArgs {
 
 input PipelinesQueryArgs {
   projectId: String!
+  jobSetId: ID
 }
 
 input BranchQueryArgs {
@@ -335,6 +336,7 @@ input RepoQueryArgs {
 
 input ReposQueryArgs {
   projectId: String!
+  jobSetId: ID
 }
 
 input CommitsQueryArgs {

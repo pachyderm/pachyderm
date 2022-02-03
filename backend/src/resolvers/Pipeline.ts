@@ -1,7 +1,7 @@
+import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {MutationResolvers, QueryResolvers} from '@graphqlTypes';
 
 import {pipelineInfoToGQLPipeline} from './builders/pps';
-
 interface PipelineResolver {
   Query: {
     pipeline: QueryResolvers['pipeline'];
@@ -20,8 +20,24 @@ const pipelineResolver: PipelineResolver = {
 
       return pipelineInfoToGQLPipeline(pipeline);
     },
-    pipelines: async (_parent, _args, {pachClient}) => {
-      return (await pachClient.pps().listPipeline()).map((pipeline) =>
+    pipelines: async (_parent, {args: {jobSetId, projectId}}, {pachClient}) => {
+      let jq = '';
+
+      if (jobSetId) {
+        const jobs = await getJobsFromJobSet({
+          jobSet: await pachClient
+            .pps()
+            .inspectJobSet({id: jobSetId, projectId}),
+          projectId,
+          pachClient,
+        });
+
+        jq = `select(${jobs
+          .map((job) => `.pipeline.name == "${job.job?.pipeline?.name}"`)
+          .join(' or ')})`;
+      }
+
+      return (await pachClient.pps().listPipeline(jq)).map((pipeline) =>
         pipelineInfoToGQLPipeline(pipeline),
       );
     },

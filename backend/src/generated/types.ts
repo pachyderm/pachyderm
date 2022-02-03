@@ -429,6 +429,7 @@ export enum PipelineType {
 
 export type PipelinesQueryArgs = {
   projectId: Scalars['String'];
+  jobSetId?: Maybe<Scalars['ID']>;
 };
 
 export type Project = {
@@ -588,6 +589,7 @@ export type RepoQueryArgs = {
 
 export type ReposQueryArgs = {
   projectId: Scalars['String'];
+  jobSetId?: Maybe<Scalars['ID']>;
 };
 
 export type SchedulingSpec = {

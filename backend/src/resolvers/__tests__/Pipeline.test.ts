@@ -58,6 +58,15 @@ describe('Pipeline resolver', () => {
       expect(data?.pipelines[0]?.id).toBe('montage');
       expect(data?.pipelines[1]?.id).toBe('edges');
     });
+
+    it('should return pipeline list filtered by globalId', async () => {
+      const {data} = await executeQuery<PipelinesQuery>(GET_PIPELINES_QUERY, {
+        args: {projectId, jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a'},
+      });
+
+      expect(data?.pipelines.length).toBe(1);
+      expect(data?.pipelines[0]?.id).toBe('montage');
+    });
   });
 
   describe('createPipeline', () => {
