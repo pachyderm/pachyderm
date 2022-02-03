@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -410,4 +411,45 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 	}
 
 	return &ec.UnpauseResponse{}, nil
+}
+
+func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
+	pods := a.env.GetKubeClient().CoreV1().Pods(a.env.Namespace)
+	pp, err := pods.List(ctx, metav1.ListOptions{
+		LabelSelector: "app=pachd",
+	})
+	if err != nil {
+		return nil, errors.Errorf("could not get pachd pods: %v", err)
+	}
+	var sawPaused, sawUnpaused bool
+	for _, p := range pp.Items {
+		for _, c := range p.Spec.Containers {
+			if len(c.Command) == 0 {
+				continue
+			}
+			if c.Command[0] == "/pachd" {
+				if len(c.Command) == 3 && c.Command[1] == "--mode" && c.Command[2] == "paused" {
+					sawPaused = true
+				} else if len(c.Command) == 1 {
+					sawUnpaused = true
+				}
+			}
+		}
+	}
+	switch {
+	case sawUnpaused && sawPaused:
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_PARTIALLY_PAUSED,
+		}, nil
+	case sawUnpaused:
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_UNPAUSED,
+		}, nil
+	case sawPaused:
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_PAUSED,
+		}, nil
+	default:
+		return nil, fmt.Errorf("no paused or unpaused pachds found")
+	}
 }

@@ -594,6 +594,9 @@ func (c *enterpriseBuilderClient) Pause(ctx context.Context, req *enterprise.Pau
 func (c *enterpriseBuilderClient) Unpause(ctx context.Context, req *enterprise.UnpauseRequest, opts ...grpc.CallOption) (*enterprise.UnpauseResponse, error) {
 	return nil, unsupportedError("Unpause")
 }
+func (c *enterpriseBuilderClient) PauseStatus(ctx context.Context, req *enterprise.PauseStatusRequest, opts ...grpc.CallOption) (*enterprise.PauseStatusResponse, error) {
+	return nil, unsupportedError("PauseStatus")
+}
 
 func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
 	return nil, unsupportedError("GetVersion")

@@ -413,6 +413,9 @@ func (api *enterpriseServerAPI) Pause(ctx context.Context, req *enterprise.Pause
 func (api *enterpriseServerAPI) Unpause(ctx context.Context, req *enterprise.UnpauseRequest) (*enterprise.UnpauseResponse, error) {
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Unpause")
 }
+func (api *enterpriseServerAPI) PauseStatus(ctx context.Context, req *enterprise.PauseStatusRequest) (*enterprise.PauseStatusResponse, error) {
+	return nil, errors.Errorf("unhandled pachd mock enterprise.PauseStatus")
+}
 
 /* PFS Server Mocks */
 
