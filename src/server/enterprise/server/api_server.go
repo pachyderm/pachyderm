@@ -179,9 +179,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
 	// must not activate while paused
-	if paused, err := a.env.IsPaused(ctx); err != nil {
-		return nil, errors.Errorf("could not retrieve paused state")
-	} else if paused {
+	if a.env.IsPaused {
 		return nil, errors.New("cannot activate paused cluster; unpause first")
 	}
 	// Try to heartbeat before persisting the configuration
@@ -304,9 +302,7 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
 	// must not deactivate while paused
-	if paused, err := a.env.IsPaused(ctx); err != nil {
-		return nil, errors.Errorf("could not retrieve paused state")
-	} else if paused {
+	if a.env.IsPaused {
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
@@ -347,45 +343,17 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 }
 
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
-	if err := a.setPauseState(ctx, true); err != nil {
-		return nil, err
-	}
 	if err := scaleDownWorkers(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
+	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace, true); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
 	return &ec.PauseResponse{}, nil
 }
 
-func (a *apiServer) setPauseState(ctx context.Context, state bool) error {
-	return a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
-		var (
-			config ec.EnterpriseConfig
-			c      = a.configCol.ReadWrite(txCtx.SqlTx)
-		)
-		if err := c.Get(configKey, &config); err != nil {
-			if err != nil && !col.IsErrNotFound(err) {
-				return errors.EnsureStack(err)
-			}
-		}
-
-		if config.Paused == state {
-			return errors.EnsureStack(errors.Errorf("cluster pause state is already %v", state))
-		}
-
-		config.Paused = state
-
-		if err := c.Put(configKey, &config); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return nil
-	})
-}
-
-func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string) error {
+func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, paused bool) error {
 	dd := kc.AppsV1().Deployments(namespace)
 	d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
 	if err != nil {
@@ -393,6 +361,20 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string) 
 	}
 	// Updating the spec rolls the deployment, killing each pod and causing
 	// a new one to start.
+	for i, c := range d.Spec.Template.Spec.Containers {
+		if len(c.Command) == 0 {
+			continue
+		}
+		if c.Command[0] == "/pachd" {
+			if paused {
+				c.Command = []string{"/pachd", "--mode", "paused"}
+
+			} else {
+				c.Command = []string{"/pachd"}
+			}
+		}
+		d.Spec.Template.Spec.Containers[i] = c
+	}
 	d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
 		return errors.Errorf("could not update pachd deployment: %v", err)
@@ -423,10 +405,7 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
-	if err := a.setPauseState(ctx, false); err != nil {
-		return nil, err
-	}
-	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
+	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace, false); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 

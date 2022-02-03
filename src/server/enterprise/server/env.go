@@ -30,6 +30,7 @@ type Env struct {
 
 	BackgroundContext context.Context
 	Namespace         string
+	IsPaused          bool
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
@@ -104,22 +105,6 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 		}
 	}
 	return nil
-}
-
-// IsPaused returns true if the enterprise configuration indicates that this
-// cluster should be paused.
-func (env Env) IsPaused(ctx context.Context) (bool, error) {
-	var (
-		config    ec.EnterpriseConfig
-		configCol = EnterpriseConfigCollection(env.DB, env.Listener)
-	)
-	if err := configCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
-		if col.IsErrNotFound(err) {
-			return false, nil
-		}
-		return false, errors.EnsureStack(err)
-	}
-	return config.Paused, nil
 }
 
 // StopWorkers stops all workers

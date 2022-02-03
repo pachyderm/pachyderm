@@ -25,8 +25,6 @@ message EnterpriseConfig {
   string id = 2;
   // secret is a shared secret between this pachd and the license service
   string secret = 3;
-  // paused is true if this cluster should be paused
-  bool paused = 4;
 }
 
 // EnterpriseRecord is a protobuf we cache in etcd to store the 
