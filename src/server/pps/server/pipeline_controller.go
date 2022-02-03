@@ -588,20 +588,6 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 			case err != nil || nTasks == 0:
 				log.Errorf("tasks remaining for %q not known (possibly still being calculated): %v",
 					step.pipelineInfo.Pipeline.Name, err)
-				// schedule another step in scaleUpInterval, to check the tasks again
-				go func() {
-					time.Sleep(scaleUpInterval)
-					// Normally, it's necessary to acquire the mutex in step.pc.pcMgr and
-					// then read the latest pipelineController from pcMgr before calling
-					// Bump(), in order to avoid Bumping a dead pipelineController and
-					// dropping a Bump event. But in this case, we'd rather drop the Bump
-					// event. If this pipeline was recently updated, the new pipeline may
-					// not have autoscaling, or it may simply not make sense to trigger an
-					// update anymore.
-					if step.pc.ctx.Err() == nil {
-						step.pc.Bump(time.Time{}) // no ts, as it's not a new event
-					}
-				}()
 				return curScale // leave pipeline alone until until nTasks is available
 			case nTasks <= curScale:
 				return curScale // can't scale down w/o dropping work
@@ -611,6 +597,23 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 				return maxScale
 			}
 		}()
+
+		if targetScale < maxScale {
+			// schedule another step in scaleUpInterval, to check the tasks again
+			go func() {
+				time.Sleep(scaleUpInterval)
+				// Normally, it's necessary to acquire the mutex in step.pc.pcMgr and
+				// then read the latest pipelineController from pcMgr before calling
+				// Bump(), in order to avoid Bumping a dead pipelineController and
+				// dropping a Bump event. But in this case, we'd rather drop the Bump
+				// event. If this pipeline was recently updated, the new pipeline may
+				// not have autoscaling, or it may simply not make sense to trigger an
+				// update anymore.
+				if step.pc.ctx.Err() == nil {
+					step.pc.Bump(time.Time{}) // no ts, as it's not a new event
+				}
+			}()
+		}
 
 		if curScale == targetScale {
 			return false // no changes necessary
