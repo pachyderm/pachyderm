@@ -9,6 +9,7 @@ import {
 import {deriveObserversFromPlugins} from '../lib/deriverObserversFromPlugins';
 import {FileClient, FileClientConstructorArgs} from '../lib/FileClient';
 export class ModifyFile extends FileClient<Empty.AsObject> {
+  commit: Commit.AsObject | undefined;
   constructor({
     pachdAddress,
     channelCredentials,
@@ -43,15 +44,15 @@ export class ModifyFile extends FileClient<Empty.AsObject> {
   }
 
   autoCommit(branch: BranchObject) {
+    this.commit = new Commit().setBranch(branchFromObject(branch)).toObject();
     this.stream.write(
-      new ModifyFileRequest().setSetCommit(
-        new Commit().setBranch(branchFromObject(branch)),
-      ),
+      new ModifyFileRequest().setSetCommit(commitFromObject(this.commit)),
     );
     return this;
   }
 
   setCommit(commit: Commit.AsObject) {
+    this.commit = commit;
     this.stream.write(
       new ModifyFileRequest().setSetCommit(commitFromObject(commit)),
     );
