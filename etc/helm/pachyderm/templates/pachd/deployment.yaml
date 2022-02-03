@@ -89,6 +89,14 @@ spec:
         - name: STORAGE_BACKEND
           value: {{ include "pachyderm.storageBackend" . | quote }}
           {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
+        {{- if not (eq .Values.pachd.storageGCPeriod 0) }}
+        - name: STORAGE_GC_PERIOD
+          value: {{ .Values.pachd.storageGCPeriod | quote }}
+        {{- end }}
+        {{- if not (eq .Values.pachd.storageChunkGCPeriod 0) }}
+        - name: STORAGE_CHUNK_GC_PERIOD
+          value: {{ .Values.pachd.storageChunkGCPeriod | quote }}
+        {{- end }}
         - name: STORAGE_HOST_PATH
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
           {{- end }}
