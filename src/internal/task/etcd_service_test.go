@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -242,10 +241,7 @@ func TestListTask(t *testing.T) {
 				default:
 					require.Equal(t, taskapi.State_RUNNING, info.State)
 				}
-				// namespace/group/random/taskID
-				pathParts := strings.Split(info.Key, "/")
-				require.Equal(t, 4, len(pathParts))
-				asInt, err := strconv.Atoi(pathParts[1])
+				asInt, err := strconv.Atoi(info.Group.Group)
 				require.NoError(t, err)
 				require.Equal(t, asInt, g)
 			}
