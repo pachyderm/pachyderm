@@ -2165,7 +2165,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
 		}
-		tasks, claims, err := task.Count(ctx, driver.TaskNamespace(info), "", a.env.TaskService)
+		tasks, claims, err := task.Count(ctx, a.env.TaskService, driver.TaskNamespace(info), "")
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

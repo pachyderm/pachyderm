@@ -93,7 +93,7 @@ func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send f
 }
 
 // Count returns the number of tasks and claims in the given namespace and group (if nonempty)
-func Count(ctx context.Context, namespace, group string, service Service) (tasks int64, claims int64, retErr error) {
+func Count(ctx context.Context, service Service, namespace, group string) (tasks int64, claims int64, retErr error) {
 	retErr = errors.EnsureStack(service.List(ctx, namespace, group, func(_, _ string, _ *Task, claimed bool) error {
 		tasks++
 		if claimed {

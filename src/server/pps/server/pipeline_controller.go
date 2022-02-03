@@ -578,7 +578,7 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 			}
 
 			// Master is scheduled; see if tasks have been calculated
-			nTasks64, _, err := task.Count(ctx, driver.TaskNamespace(step.pipelineInfo), "", step.pc.env.TaskService)
+			nTasks64, _, err := task.Count(ctx, step.pc.env.TaskService, driver.TaskNamespace(step.pipelineInfo), "")
 			nTasks := int32(nTasks64) // for cmp. with curScale, if err != nil
 
 			// Set parallelism
