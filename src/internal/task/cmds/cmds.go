@@ -35,22 +35,11 @@ func Cmds() []*cobra.Command {
 			}
 			defer client.Close()
 
-			var taskInfos []*task.TaskInfo
-			if err = client.ListTask(args[0], namespace, group, func(ti *task.TaskInfo) error {
-				taskInfos = append(taskInfos, ti)
-				return nil
-			}); err != nil {
-				return err
-			}
-
 			// silently assume raw
 			e := cmdutil.Encoder(output, os.Stdout)
-			for _, taskInfo := range taskInfos {
-				if err := e.EncodeProto(taskInfo); err != nil {
-					return errors.EnsureStack(err)
-				}
-			}
-			return nil
+			return client.ListTask(args[0], namespace, group, func(ti *task.TaskInfo) error {
+				return errors.EnsureStack(e.EncodeProto(ti))
+			})
 		}),
 	}
 	listTask.Flags().AddFlagSet(outputFlags)
