@@ -1335,7 +1335,7 @@ $ {{alias}} foo@master^
 $ {{alias}} foo@master^2
 
 # list file under directory "dir[1]" on branch "master" in repo "foo"
-# the path is interpreted as a glob pattern: quote and protect regex characters
+# : quote and protect regex characters
 $ {{alias}} 'foo@master:dir\[1\]'`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])

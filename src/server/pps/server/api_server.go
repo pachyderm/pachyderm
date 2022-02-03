@@ -1572,7 +1572,8 @@ func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *
 }
 
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
-	add := make(map[string]struct{})
+	addRead := make(map[string]struct{})
+	addWrite := make(map[string]struct{})
 	remove := make(map[string]struct{})
 	var pipelineName string
 	// Figure out which repos 'pipeline' might no longer be using
@@ -1619,7 +1620,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			if _, ok := remove[repo]; ok {
 				delete(remove, repo)
 			} else {
-				add[repo] = struct{}{}
+				addRead[repo] = struct{}{}
+				if input.Cron != nil {
+					addWrite[repo] = struct{}{}
+				}
 			}
 			return nil
 		})
@@ -1631,7 +1635,8 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 
 	// make sure we don't touch the pipeline's permissions on its output repo
 	delete(remove, pipelineName)
-	delete(add, pipelineName)
+	delete(addRead, pipelineName)
+	delete(addWrite, pipelineName)
 
 	defer func() {
 		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipelineName)
@@ -1645,12 +1650,20 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
-	for repo := range add {
+	for repo := range addRead {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
 		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
+
+	for repo := range addWrite {
+		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
+		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
