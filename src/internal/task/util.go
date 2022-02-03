@@ -61,10 +61,10 @@ func translateTaskState(state State) taskapi.State {
 	return taskapi.State_UNKNOWN
 }
 
-// HandleList implements the functionality for an arbitrary service's ListTask gRPC
-func HandleList(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send func(info *taskapi.TaskInfo) error) error {
+// List implements the functionality for an arbitrary service's ListTask gRPC
+func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send func(info *taskapi.TaskInfo) error) error {
 	var marshaler jsonpb.Marshaler
-	return errors.EnsureStack(svc.List(ctx, req.Group.Namespace, req.Group.Group, func(key *TaskKey, data *Task, claimed bool) error {
+	return errors.EnsureStack(svc.List(ctx, req.Group.Namespace, req.Group.Group, func(namespace, group string, data *Task, claimed bool) error {
 		state := translateTaskState(data.State)
 		if claimed {
 			state = taskapi.State_CLAIMED
@@ -80,10 +80,9 @@ func HandleList(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, 
 		info := &taskapi.TaskInfo{
 			ID: data.ID,
 			Group: &taskapi.Group{
-				Group:     key.Group,
-				Namespace: key.Namespace,
+				Namespace: namespace,
+				Group:     group,
 			},
-			Key:       key.Key,
 			State:     state,
 			Reason:    data.Reason,
 			InputType: data.Input.TypeUrl,
@@ -95,7 +94,7 @@ func HandleList(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, 
 
 // Count returns the number of tasks and claims in the given namespace and group (if nonempty)
 func Count(ctx context.Context, namespace, group string, service Service) (tasks int64, claims int64, retErr error) {
-	retErr = errors.EnsureStack(service.List(ctx, namespace, group, func(_ *TaskKey, _ *Task, claimed bool) error {
+	retErr = errors.EnsureStack(service.List(ctx, namespace, group, func(_, _ string, _ *Task, claimed bool) error {
 		tasks++
 		if claimed {
 			claims++

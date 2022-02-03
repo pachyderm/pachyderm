@@ -51,7 +51,7 @@ func (es *etcdService) NewSource(namespace string) Source {
 	return newEtcdSource(namespaceEtcd)
 }
 
-func (es *etcdService) List(ctx context.Context, namespace, group string, cb func(*TaskKey, *Task, bool) error) error {
+func (es *etcdService) List(ctx context.Context, namespace, group string, cb func(string, string, *Task, bool) error) error {
 	if namespace == "" && group != "" {
 		return errors.New("must provide a task namespace to list a group")
 	}
@@ -64,17 +64,14 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(key, &claim) == nil {
 			claimed = true
 		}
+		// parse out namespace and group from key in case they weren't provided
 		fullKey := path.Join(prefix, key)
 		// namespace/group/doerID/taskID
 		keyParts := strings.Split(fullKey, "/")
 		if len(keyParts) != 4 {
 			return errors.Errorf("malformed task key %s", fullKey)
 		}
-		return cb(&TaskKey{
-			Key:       fullKey,
-			Namespace: keyParts[0],
-			Group:     keyParts[1],
-		}, &taskData, claimed)
+		return cb(keyParts[0], keyParts[1], &taskData, claimed)
 	}))
 }
 

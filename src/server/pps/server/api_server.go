@@ -3064,5 +3064,5 @@ func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateR
 }
 
 func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pps.API_ListTaskServer) error {
-	return task.HandleList(server.Context(), a.env.TaskService, req, server.Send)
+	return task.List(server.Context(), a.env.TaskService, req, server.Send)
 }

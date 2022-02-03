@@ -10,13 +10,11 @@ import (
 )
 
 // ListTask lists tasks in the given namespace and group
-func (c APIClient) ListTask(service string, namespace, group string) (infos []*task.TaskInfo, retErr error) {
+func (c APIClient) ListTask(service string, namespace, group string, cb func(*task.TaskInfo) error) (retErr error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
 	defer func() {
-		if retErr != nil {
-			retErr = grpcutil.ScrubGRPC(retErr)
-		}
+		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 
 	req := &task.ListTaskRequest{
@@ -35,21 +33,22 @@ func (c APIClient) ListTask(service string, namespace, group string) (infos []*t
 	case "pfs":
 		stream, err = c.PfsAPIClient.ListTask(ctx, req)
 	default:
-		return nil, errors.Errorf("%s is not a valid task service", service)
+		return errors.Errorf("%s is not a valid task service", service)
 	}
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return errors.EnsureStack(err)
 	}
-	var out []*task.TaskInfo
 	for {
 		ti, err := stream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return nil, errors.EnsureStack(err)
+			return errors.EnsureStack(err)
 		}
-		out = append(out, ti)
+		if err := cb(ti); err != nil {
+			return errors.EnsureStack(err)
+		}
 	}
-	return out, nil
+	return nil
 }

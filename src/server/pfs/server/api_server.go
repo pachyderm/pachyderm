@@ -723,7 +723,7 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 }
 
 func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pfs.API_ListTaskServer) error {
-	return task.HandleList(server.Context(), a.env.TaskService, req, server.Send)
+	return task.List(server.Context(), a.env.TaskService, req, server.Send)
 }
 
 // RunLoadTest implements the pfs.RunLoadTest RPC

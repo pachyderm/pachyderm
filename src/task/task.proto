@@ -21,11 +21,10 @@ message Group {
 message TaskInfo {
   string id = 1 [(gogoproto.customname) = "ID"];
   Group group = 2;
-  string key = 3;
-  string input_type = 4;
-  State state = 5;
-  string reason = 6;
-  string input_data = 7;
+  State state = 3;
+  string reason = 4;
+  string input_type = 5;
+  string input_data = 6;
 }
 
 message ListTaskRequest {

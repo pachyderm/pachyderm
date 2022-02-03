@@ -218,7 +218,7 @@ func TestListTask(t *testing.T) {
 				Namespace: namespace,
 				Group:     group,
 			}}
-			if err := HandleList(context.Background(), s, req, func(info *taskapi.TaskInfo) error {
+			if err := List(context.Background(), s, req, func(info *taskapi.TaskInfo) error {
 				out = append(out, info)
 				return nil
 			}); err != nil {
