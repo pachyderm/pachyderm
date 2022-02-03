@@ -107,6 +107,25 @@ func processUploadDatumsTask(pachClient *client.APIClient, task *UploadDatumsTas
 	return serializeUploadDatumsTaskResult(&UploadDatumsTaskResult{FileSetId: fileSetID})
 }
 
+func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
+	return withDatumFileSet(pachClient, func(s *datum.Set) error {
+		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
+			return s.UploadMeta(meta)
+		}))
+	})
+}
+
+func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
+		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.FileSetId, nil
+}
+
 func processComputeParallelDatumsTask(pachClient *client.APIClient, task *ComputeParallelDatumsTask) (*types.Any, error) {
 	var dits []datum.Iterator
 	if task.BaseFileSetId != "" {
@@ -167,6 +186,11 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 		DeleteFileSetId: deleteFileSetID,
 		Skipped:         skipped,
 	})
+}
+
+func skippableDatum(meta1, meta2 *datum.Meta) bool {
+	// If the hashes are equal and the second datum was processed, then skip it.
+	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
 func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*types.Any, error) {

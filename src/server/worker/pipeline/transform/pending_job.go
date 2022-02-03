@@ -2,8 +2,6 @@ package transform
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -12,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -176,6 +173,7 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer
 	})
 }
 
+// TODO: There is probably a way to reduce the boilerplate for running all of these preprocessing tasks.
 func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, error) {
 	var fileSetID string
 	if err := pj.logger.LogStep("creating full job datum file set", func() error {
@@ -344,30 +342,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 	return outputFileSetID, deleteFileSetID, skipped, nil
 }
 
-func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
-	return withDatumFileSet(pachClient, func(s *datum.Set) error {
-		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
-			return s.UploadMeta(meta)
-		}))
-	})
-}
-
-func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
-		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
-	})
-	if err != nil {
-		return "", err
-	}
-	return resp.FileSetId, nil
-}
-
-func skippableDatum(meta1, meta2 *datum.Meta) bool {
-	// If the hashes are equal and the second datum was processed, then skip it.
-	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
-}
-
+// TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
 func serializeUploadDatumsTask(task *UploadDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {

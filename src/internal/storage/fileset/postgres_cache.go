@@ -23,6 +23,7 @@ func CreatePostgresCacheV1(ctx context.Context, tx *pachsql.Tx) error {
 		ids UUID[] NOT NULL,
 		accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE INDEX ON storage.cache (accessed_at);
 `
 	_, err := tx.ExecContext(ctx, schema)
 	return errors.EnsureStack(err)
