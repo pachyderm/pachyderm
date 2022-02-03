@@ -68,7 +68,9 @@ const fileResolver: FileResolver = {
         branch: {name: branch, repo: {name: repo}},
       });
 
-      const fileClient = pachClient.modifyFile().setCommit(commit);
+      const fileClient = await pachClient.pfs().modifyFile();
+
+      await fileClient.setCommit(commit);
       files.forEach((file) => {
         fileClient.putFileFromURL(file.path, file.url);
       });
@@ -85,11 +87,8 @@ const fileResolver: FileResolver = {
         branch: {name: branch, repo: {name: repo}},
       });
 
-      await pachClient
-        .modifyFile()
-        .setCommit(deleteCommit)
-        .deleteFile(filePath)
-        .end();
+      const fileClient = await pachClient.pfs().modifyFile();
+      await fileClient.setCommit(deleteCommit).deleteFile(filePath).end();
 
       await pachClient.pfs().finishCommit({commit: deleteCommit});
 
