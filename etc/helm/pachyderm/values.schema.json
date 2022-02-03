@@ -353,11 +353,44 @@
                 }
             }
         },
-        "loki": {
+        "loki-stack": {
             "type": "object",
             "properties": {
-                "enabled": {
-                    "type": "boolean"
+                "grafana": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "loki": {
+                    "type": "object",
+                    "properties": {
+                        "persistence": {
+                            "type": "object",
+                            "properties": {
+                                "accessModes": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "annotations": {
+                                    "type": "object"
+                                },
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "size": {
+                                    "type": "string"
+                                },
+                                "storageClassName": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -488,6 +521,9 @@
                 },
                 "logLevel": {
                     "type": "string"
+                },
+                "lokiDeploy": {
+                    "type": "boolean"
                 },
                 "lokiLogging": {
                     "type": "boolean"
