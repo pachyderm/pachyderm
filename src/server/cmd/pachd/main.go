@@ -621,20 +621,22 @@ func doFullMode(config interface{}) (retErr error) {
 			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
-	go func(c chan os.Signal) {
-		<-c
-		log.Println("terminating; waiting for enterprise server to gracefully stop")
-		externalServer.Server.GracefulStop()
-		log.Println("gRPC server gracefully stopped")
-	}(interruptChan)
 
 	if err != nil {
 		return err
 	}
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
-		var healthServer *health.Server
-
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer := identity_server.NewIdentityServer(
+				identity_server.EnvFromServiceEnv(env),
+				true,
+			)
+			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -645,51 +647,6 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
-			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				e,
-				true,
-			)
-			if err != nil {
-				return err
-			}
-			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
-			env.SetEnterpriseServer(enterpriseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
-			return nil
-		}); err != nil {
-			return err
-		}
-		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("Transaction API", func() error {
-			transactionAPIServer, err = txnserver.NewAPIServer(
-				env,
-				txnEnv,
-			)
-			if err != nil {
-				return err
-			}
-			transactionclient.RegisterAPIServer(externalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				identity_server.EnvFromServiceEnv(env),
-				true,
-			)
-			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -722,6 +679,35 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		var transactionAPIServer txnserver.APIServer
+		if err := logGRPCServerSetup("Transaction API", func() error {
+			transactionAPIServer, err = txnserver.NewAPIServer(
+				env,
+				txnEnv,
+			)
+			if err != nil {
+				return err
+			}
+			transactionclient.RegisterAPIServer(externalServer.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				e,
+				true,
+			)
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
 			if err != nil {
@@ -732,7 +718,13 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		healthServer = health.NewServer()
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
+			return nil
+		}); err != nil {
+			return err
+		}
+		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
 			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
@@ -964,6 +956,13 @@ func doFullMode(config interface{}) (retErr error) {
 		http.Handle("/metrics", promhttp.Handler())
 		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
 	})
+	go func(c chan os.Signal) {
+		<-c
+		log.Println("terminating; waiting for enterprise server to gracefully stop")
+		externalServer.Server.GracefulStop()
+		internalServer.Server.GracefulStop()
+		log.Println("gRPC server gracefully stopped")
+	}(interruptChan)
 	return <-errChan
 }
 
@@ -1043,12 +1042,6 @@ func doPausedMode(config interface{}) (retErr error) {
 			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
-	go func(c chan os.Signal) {
-		<-c
-		log.Println("terminating; waiting for enterprise server to gracefully stop")
-		externalServer.Server.GracefulStop()
-		log.Println("gRPC server gracefully stopped")
-	}(interruptChan)
 
 	if err != nil {
 		return err
@@ -1287,6 +1280,13 @@ func doPausedMode(config interface{}) (retErr error) {
 		http.Handle("/metrics", promhttp.Handler())
 		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
 	})
+	go func(c chan os.Signal) {
+		<-c
+		log.Println("terminating; waiting for enterprise server to gracefully stop")
+		externalServer.Server.GracefulStop()
+		internalServer.Server.GracefulStop()
+		log.Println("gRPC server gracefully stopped")
+	}(interruptChan)
 	return <-errChan
 }
 
