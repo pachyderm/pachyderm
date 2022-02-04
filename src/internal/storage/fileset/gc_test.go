@@ -16,7 +16,7 @@ func TestGC(t *testing.T) {
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
 	s := NewTestStorage(t, db, tr)
-	gc := s.newGC()
+	gc := s.NewGC(time.Minute)
 	w := s.NewWriter(ctx, WithTTL(time.Hour))
 	require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
 	id, err := w.Close()

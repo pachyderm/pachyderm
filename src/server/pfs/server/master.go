@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	_ "github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -41,13 +40,26 @@ func (d *driver) master(ctx context.Context) {
 		}
 		defer masterLock.Unlock(masterCtx)
 		eg, ctx := errgroup.WithContext(masterCtx)
-		eg.Go(func() error {
-			return d.storage.GC(ctx)
-		})
-		eg.Go(func() error {
-			gc := chunk.NewGC(d.storage.ChunkStorage())
-			return gc.RunForever(ctx)
-		})
+		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
+		if trackerPeriod <= 0 {
+			d.log.Info("Skipping Storage GC")
+		} else {
+			d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
+			eg.Go(func() error {
+				gc := d.storage.NewGC(trackerPeriod)
+				return gc.RunForever(ctx)
+			})
+		}
+		chunkPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageChunkGCPeriod)
+		if chunkPeriod <= 0 {
+			d.log.Info("Skipping Chunk Storage GC")
+		} else {
+			d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
+			eg.Go(func() error {
+				gc := chunk.NewGC(d.storage.ChunkStorage(), chunkPeriod, d.log)
+				return gc.RunForever(ctx)
+			})
+		}
 		eg.Go(func() error {
 			return d.finishCommits(ctx)
 		})
