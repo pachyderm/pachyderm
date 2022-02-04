@@ -32,7 +32,9 @@ type Writer struct {
 	chunks *chunk.Storage
 	tmpID  string
 
-	mu     sync.Mutex
+	levelsMu sync.RWMutex
+	closedMu sync.Mutex
+
 	levels []*levelWriter
 	closed bool
 	root   *Index
@@ -49,17 +51,15 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.setupLevels()
 	return w.writeIndex(idx, 0)
 }
 
 func (w *Writer) setupLevels() {
 	// Setup the first index level.
-	if w.levels == nil {
+	if w.numLevels() == 0 {
 		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(0), chunk.WithRollingHashConfig(averageBits, 0))
-		w.levels = append(w.levels, &levelWriter{
+		w.createLevel(&levelWriter{
 			cw:  cw,
 			pbw: pbutil.NewWriter(cw),
 		})
@@ -67,7 +67,7 @@ func (w *Writer) setupLevels() {
 }
 
 func (w *Writer) writeIndex(idx *Index, level int) error {
-	l := w.levels[level]
+	l := w.getLevel(level)
 	var refDataRefs []*chunk.DataRef
 	if idx.Range != nil {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
@@ -93,12 +93,10 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
-		w.mu.Lock()
-		defer w.mu.Unlock()
 		if len(annotations) == 0 {
 			return nil
 		}
-		lw := w.levels[level]
+		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
 		idx := annotations[0].Data.(*data).idx
 		dataRef := annotations[0].NextDataRef
@@ -122,13 +120,13 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			ChunkRef: chunk.Reference(dataRef),
 		}
 		// Set the root index when the writer is closed and we are at the top index level.
-		if w.closed {
+		if w.isClosed() {
 			w.root = idx
 		}
 		// Create next index level if it does not exist.
-		if level == len(w.levels)-1 {
+		if level == w.numLevels()-1 {
 			cw := w.chunks.NewWriter(w.ctx, uuid.NewWithoutDashes(), w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
-			w.levels = append(w.levels, &levelWriter{
+			w.createLevel(&levelWriter{
 				cw:  cw,
 				pbw: pbutil.NewWriter(cw),
 			})
@@ -140,18 +138,14 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 
 // Close finishes the index, and returns the serialized top index level.
 func (w *Writer) Close() (ret *Index, retErr error) {
-	w.mu.Lock()
-	w.closed = true
-	w.mu.Unlock()
+	w.setClosed()
 
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
 	// created when the top level chunk writer has been closed and the number of
 	// annotations and chunks it has is one (one annotation in one chunk).
-	for i := 0; i < len(w.levels); i++ {
-		w.mu.Lock()
-		l := w.levels[i]
-		w.mu.Unlock()
+	for i := 0; i < w.numLevels(); i++ {
+		l := w.getLevel(i)
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
@@ -160,4 +154,34 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 		}
 	}
 	return w.root, nil
+}
+
+func (w *Writer) createLevel(l *levelWriter) {
+	w.levelsMu.Lock()
+	defer w.levelsMu.Unlock()
+	w.levels = append(w.levels, l)
+}
+
+func (w *Writer) getLevel(level int) *levelWriter {
+	w.levelsMu.RLock()
+	defer w.levelsMu.RUnlock()
+	return w.levels[level]
+}
+
+func (w *Writer) numLevels() int {
+	w.levelsMu.RLock()
+	defer w.levelsMu.RUnlock()
+	return len(w.levels)
+}
+
+func (w *Writer) isClosed() bool {
+	w.closedMu.Lock()
+	defer w.closedMu.Unlock()
+	return w.closed
+}
+
+func (w *Writer) setClosed() {
+	w.closedMu.Lock()
+	defer w.closedMu.Unlock()
+	w.closed = true
 }
