@@ -317,8 +317,31 @@ func TestPauseUnpause(t *testing.T) {
 
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
+	bo := backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
+	bo.Reset()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
 }
 
 func TestDoublePauseUnpause(t *testing.T) {
@@ -335,10 +358,34 @@ func TestDoublePauseUnpause(t *testing.T) {
 
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
+	time.Sleep(time.Second)
 	_, err = client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
-	require.NotNil(t, err)
+	require.NoError(t, err)
+	bo := backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
+	time.Sleep(time.Second)
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
-	require.NotNil(t, err)
+	require.NoError(t, err)
+	bo = backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
 }
