@@ -314,14 +314,8 @@ func (s *Storage) NewGC(d time.Duration) *track.GarbageCollector {
 }
 
 func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
-	_, err := s.store.Get(ctx, id)
-	if err != nil {
-		if errors.Is(err, ErrFileSetNotExists) {
-			return false, nil
-		}
-		return false, errors.EnsureStack(err)
-	}
-	return true, nil
+	exists, err := s.store.Exists(ctx, id)
+	return exists, errors.EnsureStack(err)
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {

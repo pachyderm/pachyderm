@@ -34,7 +34,7 @@ import (
 // Scheduling is based on maximizing fairness for the groups, and the schedulable unit is a task.
 type Service interface {
 	// NewDoer creates a Doer with the provided namespace and group.
-	NewDoer(namespace, group string) Doer
+	NewDoer(namespace, group string, cache Cache) Doer
 	// NewSource creates a Source with the provided namespace.
 	NewSource(namespace string) Source
 	// List calls a function on every task under a namespace and group
@@ -67,3 +67,8 @@ type CollectFunc = func(index int64, output *types.Any, _ error) error
 // If an error occurs, then it should be returned.
 // This error will be propagated back to the Doer that created the task.
 type ProcessFunc = func(ctx context.Context, input *types.Any) (output *types.Any, _ error)
+
+type Cache interface {
+	Get(ctx context.Context, key string) (output *types.Any, _ error)
+	Put(ctx context.Context, key string, output *types.Any) error
+}

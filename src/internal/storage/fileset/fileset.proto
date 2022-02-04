@@ -21,3 +21,7 @@ message Primitive {
   index.Index additive = 2;
   int64 size_bytes = 3;
 }
+
+message TestCacheValue {
+  string file_set_id = 1;
+}

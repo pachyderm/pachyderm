@@ -54,7 +54,7 @@ type Driver interface {
 	Pipelines() col.PostgresCollection
 
 	NewTaskSource() task.Source
-	NewTaskDoer(string) task.Doer
+	NewTaskDoer(string, task.Cache) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -271,10 +271,10 @@ func (d *driver) NewTaskSource() task.Source {
 	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskDoer(groupID string) task.Doer {
+func (d *driver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID)
+	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, cache)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {

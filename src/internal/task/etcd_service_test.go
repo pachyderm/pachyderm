@@ -117,7 +117,7 @@ func test(t *testing.T, s Service, workerFailProb, groupCancelProb, taskFailProb
 			}
 			ctx, cancel := context.WithCancel(errCtx)
 			defer cancel()
-			d := s.NewDoer("", strconv.Itoa(i))
+			d := s.NewDoer("", strconv.Itoa(i), nil)
 			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
 				if rand.Float64() < groupCancelProb {
 					created[i] = nil
@@ -178,7 +178,7 @@ func TestRunZeroTasks(t *testing.T) {
 	t.Parallel()
 	env := testetcd.NewEnv(t)
 	s := NewEtcdService(env.EtcdClient, "")
-	d := s.NewDoer("", "")
+	d := s.NewDoer("", "", nil)
 	require.NoError(t, DoBatch(context.Background(), d, nil, func(_ int64, _ *types.Any, _ error) error {
 		return errors.New("no tasks should exist")
 	}))
@@ -285,7 +285,7 @@ func TestListTask(t *testing.T) {
 			}
 			ctx, cancel := context.WithCancel(errCtx)
 			defer cancel()
-			d := s.NewDoer(testNamespace, strconv.Itoa(g))
+			d := s.NewDoer(testNamespace, strconv.Itoa(g), nil)
 			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
 				if err != nil {
 					if err.Error() != errTaskFailure.Error() {
