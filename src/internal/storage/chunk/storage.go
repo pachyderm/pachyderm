@@ -30,6 +30,7 @@ type Storage struct {
 	memCache      kv.GetPut
 	deduper       *miscutil.WorkDeduper
 	prefetchLimit int
+	gcPeriod      time.Duration
 
 	createOpts CreateOptions
 }

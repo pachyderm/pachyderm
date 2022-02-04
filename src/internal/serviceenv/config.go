@@ -109,6 +109,7 @@ type StorageConfiguration struct {
 	StoragePutFileConcurrencyLimit int    `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
 	StorageGCPolling               string `env:"STORAGE_GC_POLLING"`
 	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
+	StorageChunkGCPeriod           int64  `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`
 	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
 	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
 	StorageDiskCacheSize           int    `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
