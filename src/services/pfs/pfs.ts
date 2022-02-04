@@ -549,7 +549,7 @@ const pfs = ({
           .setCommit(commitFromObject(commit))
           .setFileSetId(fileSetId);
 
-        client.addFileSet(request, (err) => {
+        client.addFileSet(request, credentialMetadata, (err) => {
           if (err) reject(err);
           else resolve({});
         });
@@ -561,7 +561,7 @@ const pfs = ({
           .setFileSetId(fileSetId)
           .setTtlSeconds(duration);
 
-        client.renewFileSet(request, (err) => {
+        client.renewFileSet(request, credentialMetadata, (err) => {
           if (err) reject(err);
           else resolve({});
         });
