@@ -684,7 +684,6 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		// when not paused, start up all APIs
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
@@ -1098,6 +1097,26 @@ func doPausedMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer := identity_server.NewIdentityServer(
+				identity_server.EnvFromServiceEnv(env),
+				true,
+			)
+			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		var transactionAPIServer txnserver.APIServer
 		if err := logGRPCServerSetup("Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
@@ -1200,6 +1219,28 @@ func doPausedMode(config interface{}) (retErr error) {
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
 			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer := identity_server.NewIdentityServer(
+				identity_server.EnvFromServiceEnv(env),
+				false,
+			)
+			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, err := licenseserver.New(
+				licenseserver.EnvFromServiceEnv(env),
+			)
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
 			return nil
 		}); err != nil {
 			return err
