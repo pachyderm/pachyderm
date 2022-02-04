@@ -745,6 +745,12 @@
                         }
                     }
                 },
+                "storageChunkGCPeriod": {
+                    "type": "integer"
+                },
+                "storageGCPeriod": {
+                    "type": "integer"
+                },
                 "tls": {
                     "type": "object",
                     "properties": {
