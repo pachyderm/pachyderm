@@ -285,7 +285,7 @@ func TestListTask(t *testing.T) {
 			}
 			ctx, cancel := context.WithCancel(errCtx)
 			defer cancel()
-			d := s.NewDoer(testNamespace, strconv.Itoa(g))
+			d := s.NewDoer(testNamespace, strconv.Itoa(g), nil)
 			if err := DoBatch(ctx, d, inputs, func(j int64, output *types.Any, err error) error {
 				if err != nil {
 					if err.Error() != errTaskFailure.Error() {

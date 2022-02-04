@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -58,7 +59,7 @@ func TestPostgresCache(t *testing.T) {
 	for i := 0; i < maxSize; i++ {
 		putFileSet(i)
 	}
-	gc := storage.newGC()
+	gc := storage.NewGC(time.Second)
 	_, err := gc.RunOnce(ctx)
 	require.NoError(t, err)
 	for i := 0; i < maxSize; i++ {
