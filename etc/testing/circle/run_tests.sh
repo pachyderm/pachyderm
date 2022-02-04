@@ -85,6 +85,7 @@ case "${BUCKET}" in
     ;;
   PFS)
     make test-pfs-server
+    make test-fuse
     ;;
   PPS?)
     make docker-build-kafka

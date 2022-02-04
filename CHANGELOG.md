@@ -1,6 +1,11 @@
 
 # Changelog
 
+## 2.0.7
+- Make Watcher logic more robust, to avoid SubscribeJob missing a job event - #7273
+- Adding kubernetes Node Selectors + Tolerations to the helmchart for pachd & etcd - #7177
+- To avoid having Cron Pipelines break with Auth, provide Pipelines write access on their Cron input repos - #7279
+- Add nil pointer checks during log secret redactions, in case of errors - #7278
 ## 2.0.6
 - Stream lists from batched queries - #7243
 - Pass postgres secret reference from pachd to workers - #7235

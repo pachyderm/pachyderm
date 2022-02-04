@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -16,6 +14,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 )
@@ -51,17 +52,29 @@ func (es *etcdService) NewSource(namespace string) Source {
 	return newEtcdSource(namespaceEtcd)
 }
 
-func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
-	if err != nil {
-		return 0, 0, errors.EnsureStack(err)
+func (es *etcdService) List(ctx context.Context, namespace, group string, cb func(string, string, *Task, bool) error) error {
+	if namespace == "" && group != "" {
+		return errors.New("must provide a task namespace to list a group")
 	}
-	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
-	if err != nil {
-		return 0, 0, errors.EnsureStack(err)
-	}
-	return nTasks, nClaims, nil
+	prefix := path.Join(namespace, group)
+	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, prefix)
+	var taskData Task
+	var claim Claim
+	return errors.EnsureStack(etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
+		var claimed bool
+		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(key, &claim) == nil {
+			claimed = true
+		}
+		// parse out namespace and group from key in case they weren't provided
+		fullKey := strings.TrimPrefix(path.Join(prefix, key), "/")
+
+		// namespace/group/doerID/taskID
+		keyParts := strings.Split(fullKey, "/")
+		if len(keyParts) != 4 {
+			return errors.Errorf("malformed task key %s", fullKey)
+		}
+		return cb(keyParts[0], keyParts[1], &taskData, claimed)
+	}))
 }
 
 type namespaceEtcd struct {

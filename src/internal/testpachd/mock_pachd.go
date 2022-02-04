@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -449,6 +450,7 @@ type putCacheFunc func(context.Context, *pfs.PutCacheRequest) (*types.Empty, err
 type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
+type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -489,6 +491,7 @@ type mockPutCache struct{ handler putCacheFunc }
 type mockGetCache struct{ handler getCacheFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
+type mockListTaskPFS struct{ handler listTaskPFSFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -529,6 +532,7 @@ func (mock *mockPutCache) Use(cb putCacheFunc)                     { mock.handle
 func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
+func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -575,6 +579,7 @@ type mockPFSServer struct {
 	GetCache           mockGetCache
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
+	ListTask           mockListTaskPFS
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -811,6 +816,12 @@ func (api *pfsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTestDefault")
 }
+func (api *pfsServerAPI) ListTask(req *task.ListTaskRequest, server pfs.API_ListTaskServer) error {
+	if api.mock.ListTask.handler != nil {
+		return api.mock.ListTask.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.ListTask")
+}
 
 /* PPS Server Mocks */
 
@@ -842,6 +853,8 @@ type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 type runLoadTestPPSFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
+type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
+type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -871,6 +884,8 @@ type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 type mockRunLoadTestPPS struct{ handler runLoadTestPPSFunc }
 type mockRunLoadTestDefaultPPS struct{ handler runLoadTestDefaultPPSFunc }
+type mockRenderTemplate struct{ handler renderTemplateFunc }
+type mockListTaskPPS struct{ handler listTaskPPSFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -900,6 +915,8 @@ func (mock *mockGetLogs) Use(cb getLogsFunc)                             { mock.
 func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)             { mock.handler = cb }
 func (mock *mockRunLoadTestPPS) Use(cb runLoadTestPPSFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefaultPPS) Use(cb runLoadTestDefaultPPSFunc) { mock.handler = cb }
+func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.handler = cb }
+func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -935,6 +952,8 @@ type mockPPSServer struct {
 	ActivateAuth       mockActivateAuthPPS
 	RunLoadTest        mockRunLoadTestPPS
 	RunLoadTestDefault mockRunLoadTestDefaultPPS
+	RenderTemplate     mockRenderTemplate
+	ListTask           mockListTaskPPS
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1104,6 +1123,19 @@ func (api *ppsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 		return api.mock.RunLoadTestDefault.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunLoadTestDefault")
+}
+func (api *ppsServerAPI) ListTask(req *task.ListTaskRequest, server pps.API_ListTaskServer) error {
+	if api.mock.ListTask.handler != nil {
+		return api.mock.ListTask.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.ListTask")
+}
+
+func (api *ppsServerAPI) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
+	if api.mock.RenderTemplate.handler != nil {
+		return api.mock.RenderTemplate.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.RenderTemplate")
 }
 
 /* Transaction Server Mocks */

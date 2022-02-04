@@ -162,6 +162,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/GetCache":           authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
+	"/pfs_v2.API/ListTask":           authDisabledOr(authenticated),
 
 	//
 	// PPS API
@@ -201,6 +202,8 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/InspectSecret":      authDisabledOr(clusterPermissions(auth.Permission_SECRET_INSPECT)),
 	"/pps_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
+	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
+	"/pps_v2.API/ListTask":           authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI

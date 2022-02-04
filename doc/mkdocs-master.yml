@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/2.0.x/
+site_url: https://docs.pachyderm.com/2.1.x/
 docs_dir: docs/master/
 site_dir: site/master/
 
@@ -12,11 +12,12 @@ repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Copyright
-copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.6'
-pach_latest_version: '2.0.6'
-pach_major_minor_version: '2.0'
-search_index_version: '2.0.x'
+copyright: 'Copyright Pachyderm Inc, 2022'
+pach_featured_version: '2.1.0'
+pach_latest_version: '2.1.0'
+pach_major_minor_version: '2.1'
+search_index_version: 'master'
+
 
 # Configuration
 theme:
@@ -160,7 +161,9 @@ nav:
             - Create a Machine Learning Workflow: how-tos/developer-workflow/create-ml-workflow.md
         - Basic Data Operations: 
             - Overview: how-tos/basic-data-operations/index.md
-            - Ingest Your Data with pachctl: how-tos/basic-data-operations/load-data-into-pachyderm.md
+            - Ingest Your Data Into Pachyderm: 
+                - Load Data with pachctl: how-tos/basic-data-operations/load-data-into-pachyderm.md
+                - Use the SQL Ingest Tool: how-tos/basic-data-operations/sql-ingest.md
             - Export Your Data From Pachyderm:
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md

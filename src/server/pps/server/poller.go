@@ -82,15 +82,15 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 	dbPipelines := map[string]bool{}
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		if len(dbPipelines) == 0 {
-			// 1. Get the current set of pipeline RCs.
+			// 1. Get the current set of pipeline RCs, as a base set for stale RCs.
 			//
-			// We'll delete any RCs that don't correspond to a live pipeline after
-			// querying the database to determine the set of live pipelines, but we
-			// query k8s first to avoid a race (if we were to query the database
-			// first, and CreatePipeline(foo) were to run between querying the
-			// database and querying k8s, then we might delete the RC for brand-new
-			// pipeline 'foo'). Even if we do delete a live pipeline's RC, it'll be
-			// fixed in the next cycle)
+			// Pipelines are created in the database before their RC is created in
+			// k8s, so to garbage-collect stale RCs, we have to go the other way and
+			// query k8s first (if we were to query the database first, and
+			// CreatePipeline(foo) were to run between querying the database and
+			// querying k8s, then we might delete the RC for brand-new pipeline
+			// 'foo'). Though, even if we do delete a live pipeline's RC, it'll be
+			// fixed in the next cycle
 			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.env.Config.Namespace)
 			rcs, err := kc.List(ctx, metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
@@ -101,8 +101,10 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 				log.Errorf("error polling pipeline RCs: %v", err)
 			}
 
-			// 2. Replenish 'dbPipelines' with the set of pipelines currently in
-			// the database. Note that there may be zero, and dbPipelines may be empty
+			// 2. Replenish 'dbPipelines' with the set of pipelines currently in the
+			// database; it determines both which RCs (from above) are stale and also
+			// which pipelines need to be bumped. Note that there may be zero
+			// pipelines in the database, and dbPipelines may be empty.
 			if err := m.a.listPipelineInfo(ctx, nil, 0,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
@@ -262,7 +264,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 //                      ↓          │            ↓          │      ↓
 //                   db write──────╯       m.eventCh ──────╯   m.step()
 //
-// most of the other poll/monitor goroutines actually go through pollPipelines
+// Most of the other poll/monitor goroutines actually go through watchPipelines
 // (by writing to the database, which is then observed by the watch below)
 func (m *ppsMaster) watchPipelines(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
@@ -282,19 +284,26 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			if err != nil {
 				return errors.Wrap(err, "bad watch event key")
 			}
+			var e *pipelineEvent
 			switch event.Type {
 			case watch.EventPut:
-				m.eventCh <- &pipelineEvent{
+				e = &pipelineEvent{
 					eventType: writeEv,
 					pipeline:  pipelineName,
 					timestamp: time.Unix(event.Rev, 0),
 				}
 			case watch.EventDelete:
-				m.eventCh <- &pipelineEvent{
+				e = &pipelineEvent{
 					eventType: deleteEv,
 					pipeline:  pipelineName,
 					timestamp: time.Unix(event.Rev, 0),
 				}
+			}
+			select {
+			case m.eventCh <- e:
+				continue
+			case <-m.masterCtx.Done():
+				return errors.Wrap(err, "pipeline event arrived while master is restarting")
 			}
 		}
 		return nil // reset until ctx is cancelled (RetryUntilCancel)

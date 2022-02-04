@@ -54,6 +54,11 @@ func (a *InactiveAPIServer) AddPipelineWriterToRepoInTransaction(txnCtx *txncont
 	return auth.ErrNotActivated
 }
 
+// AddPipelineWriterToSourceRepoInTransaction implements the AddPipelineWriterToSourceRepoInTransaction internal API
+func (a *InactiveAPIServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
+	return auth.ErrNotActivated
+}
+
 // RemovePipelineReaderToRepoInTransaction implements the RemovePipelineReaderToRepoInTransaction internal API
 func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo, pipeline string) error {
 	return auth.ErrNotActivated
