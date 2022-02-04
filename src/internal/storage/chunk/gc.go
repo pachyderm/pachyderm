@@ -16,16 +16,12 @@ type GarbageCollector struct {
 }
 
 // NewGC returns a new garbage collector operating on s
-func NewGC(s *Storage) *GarbageCollector {
-	return &GarbageCollector{s: s, log: logrus.StandardLogger(), period: s.gcPeriod}
+func NewGC(s *Storage, d time.Duration, log *logrus.Logger) *GarbageCollector {
+	return &GarbageCollector{s: s, log: log, period: d}
 }
 
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
 func (gc *GarbageCollector) RunForever(ctx context.Context) error {
-	if gc.period <= 0 {
-		gc.log.Info("Skipping Chunk GC")
-		return nil
-	}
 	ticker := time.NewTicker(gc.period)
 	defer ticker.Stop()
 	for {

@@ -107,8 +107,8 @@ type StorageConfiguration struct {
 	StorageLevelFactor             int64  `env:"STORAGE_LEVEL_FACTOR"`
 	StorageUploadConcurrencyLimit  int    `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
 	StoragePutFileConcurrencyLimit int    `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
-	StorageGCPolling               string `env:"STORAGE_GC_POLLING"`
 	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
+	StorageGCPeriod                int64  `env:"STORAGE_GC_PERIOD,default=60"`
 	StorageChunkGCPeriod           int64  `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`
 	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
 	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`

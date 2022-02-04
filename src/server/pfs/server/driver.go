@@ -33,6 +33,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 )
@@ -68,6 +69,7 @@ type CommitStream interface {
 
 type driver struct {
 	env Env
+	log *logrus.Logger
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -106,6 +108,7 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		env:        env,
+		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)

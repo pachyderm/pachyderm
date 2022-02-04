@@ -4,7 +4,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 
@@ -86,6 +85,5 @@ func StorageOptions(conf *serviceenv.StorageConfiguration) ([]StorageOption, err
 		diskCache = obj.TracingObjClient("DiskCache", diskCache)
 		opts = append(opts, WithObjectCache(diskCache, conf.StorageDiskCacheSize))
 	}
-	opts = append(opts, func(s *Storage) { s.gcPeriod = time.Duration(conf.StorageChunkGCPeriod) * time.Second })
 	return opts, nil
 }

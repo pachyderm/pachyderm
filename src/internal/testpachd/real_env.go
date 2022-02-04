@@ -131,7 +131,6 @@ func DefaultConfigOptions(config *serviceenv.Configuration) {
 	config.StorageMemoryThreshold = units.GB
 	config.StorageShardThreshold = units.GB
 	config.StorageLevelFactor = 10
-	config.StorageGCPolling = "30s"
 	config.StorageCompactionMaxFanIn = 10
 	config.StorageMemoryCacheSize = 20
 }
