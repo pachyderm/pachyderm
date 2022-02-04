@@ -694,9 +694,8 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				e,
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
 				true,
 			)
 			if err != nil {
@@ -786,77 +785,6 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
 		txnEnv := txnenv.New()
-		var healthServer *health.Server
-
-		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err := authserver.NewAuthServer(
-				authserver.EnvFromServiceEnv(env, txnEnv),
-				false,
-				requireNoncriticalServers,
-				true,
-			)
-			if err != nil {
-				return err
-			}
-			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-
-		if err := logGRPCServerSetup("Enterprise API", func() error {
-			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
-				false,
-			)
-			if err != nil {
-				return err
-			}
-			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
-			env.SetEnterpriseServer(enterpriseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Admin API", func() error {
-			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
-			return nil
-		}); err != nil {
-			return err
-		}
-		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("Transaction API", func() error {
-			transactionAPIServer, err = txnserver.NewAPIServer(
-				env,
-				txnEnv,
-			)
-			if err != nil {
-				return err
-			}
-			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		healthServer = health.NewServer()
-		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		if err := logGRPCServerSetup("Health", func() error {
-			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				identity_server.EnvFromServiceEnv(env),
-				false,
-			)
-			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
 			if err != nil {
@@ -887,6 +815,46 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("Identity API", func() error {
+			idAPIServer := identity_server.NewIdentityServer(
+				identity_server.EnvFromServiceEnv(env),
+				false,
+			)
+			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Auth API", func() error {
+			authAPIServer, err := authserver.NewAuthServer(
+				authserver.EnvFromServiceEnv(env, txnEnv),
+				false,
+				requireNoncriticalServers,
+				true,
+			)
+			if err != nil {
+				return err
+			}
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			env.SetAuthServer(authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		var transactionAPIServer txnserver.APIServer
+		if err := logGRPCServerSetup("Transaction API", func() error {
+			transactionAPIServer, err = txnserver.NewAPIServer(
+				env,
+				txnEnv,
+			)
+			if err != nil {
+				return err
+			}
+			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(
 				licenseserver.EnvFromServiceEnv(env),
@@ -899,9 +867,36 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv),
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+		if err := logGRPCServerSetup("Health", func() error {
+			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Version API", func() error {
 			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := logGRPCServerSetup("Admin API", func() error {
+			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
 			return nil
 		}); err != nil {
 			return err
