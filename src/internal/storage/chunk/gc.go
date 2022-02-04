@@ -10,18 +10,19 @@ import (
 
 // GarbageCollector removes unused chunks from object storage
 type GarbageCollector struct {
-	s   *Storage
-	log *logrus.Logger
+	s      *Storage
+	log    *logrus.Logger
+	period time.Duration
 }
 
 // NewGC returns a new garbage collector operating on s
-func NewGC(s *Storage) *GarbageCollector {
-	return &GarbageCollector{s: s, log: logrus.StandardLogger()}
+func NewGC(s *Storage, d time.Duration, log *logrus.Logger) *GarbageCollector {
+	return &GarbageCollector{s: s, log: log, period: d}
 }
 
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
 func (gc *GarbageCollector) RunForever(ctx context.Context) error {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(gc.period)
 	defer ticker.Stop()
 	for {
 		if err := gc.RunOnce(ctx); err != nil {

@@ -12,6 +12,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )
@@ -35,6 +36,7 @@ type Env struct {
 
 	BackgroundContext context.Context
 	StorageConfig     serviceenv.StorageConfiguration
+	Logger            *logrus.Logger
 }
 
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {
@@ -62,5 +64,6 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 
 		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,
+		Logger:            env.Logger(),
 	}, nil
 }
