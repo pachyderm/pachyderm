@@ -23,11 +23,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
 	"golang.org/x/net/context"
 	"gopkg.in/yaml.v3"
 )
@@ -717,6 +720,10 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 	return &pfs.CheckStorageResponse{
 		ChunkObjectCount: int64(count),
 	}, nil
+}
+
+func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pfs.API_ListTaskServer) error {
+	return task.List(server.Context(), a.env.TaskService, req, server.Send)
 }
 
 // RunLoadTest implements the pfs.RunLoadTest RPC

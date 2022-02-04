@@ -61,6 +61,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+
+	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
 
 var mode string

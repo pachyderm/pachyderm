@@ -37,8 +37,8 @@ type Service interface {
 	NewDoer(namespace, group string) Doer
 	// NewSource creates a Source with the provided namespace.
 	NewSource(namespace string) Source
-	// TaskCount returns how many tasks are in a namespace and how many are claimed.
-	TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error)
+	// List calls a function on every task under a namespace and group
+	List(ctx context.Context, namespace, group string, cb func(namespace, group string, data *Task, claimed bool) error) error
 }
 
 // Doer is a doer of tasks.

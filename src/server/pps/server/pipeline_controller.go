@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -577,8 +578,7 @@ func (step *pcStep) scaleUpPipeline(ctx context.Context) (retErr error) {
 			}
 
 			// Master is scheduled; see if tasks have been calculated
-			taskService := step.pc.env.TaskService
-			nTasks64, _, err := taskService.TaskCount(ctx, driver.TaskNamespace(step.pipelineInfo))
+			nTasks64, _, err := task.Count(ctx, step.pc.env.TaskService, driver.TaskNamespace(step.pipelineInfo), "")
 			nTasks := int32(nTasks64) // for cmp. with curScale, if err != nil
 
 			// Set parallelism
