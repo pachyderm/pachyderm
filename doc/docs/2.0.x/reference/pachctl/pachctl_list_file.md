@@ -29,7 +29,7 @@ $ pachctl list file foo@master^
 $ pachctl list file foo@master^2
 
 # list file under directory "dir[1]" on branch "master" in repo "foo"
-# the path is interpreted as a glob pattern: quote and protect regex characters
+# : quote and protect regex characters
 $ pachctl list file 'foo@master:dir\[1\]'
 ```
 

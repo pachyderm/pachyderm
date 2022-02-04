@@ -133,32 +133,64 @@ func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
 }
 
+func (e ErrFileNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
 func (e ErrRepoNotFound) Error() string {
 	return fmt.Sprintf("repo %v not found", e.Repo)
+}
+
+func (e ErrRepoNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrRepoExists) Error() string {
 	return fmt.Sprintf("repo %v already exists", e.Repo)
 }
 
+func (e ErrRepoExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
+}
+
 func (e ErrBranchNotFound) Error() string {
 	return fmt.Sprintf("branch %q not found in repo %v", e.Branch.Name, e.Branch.Repo)
+}
+
+func (e ErrBranchNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrBranchExists) Error() string {
 	return fmt.Sprintf("branch %q already exists in repo %v", e.Branch.Name, e.Branch.Repo)
 }
 
+func (e ErrBranchExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
+}
+
 func (e ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit %v not found", e.Commit)
+}
+
+func (e ErrCommitNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrCommitSetNotFound) Error() string {
 	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
 }
 
+func (e ErrCommitSetNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
 func (e ErrCommitExists) Error() string {
 	return fmt.Sprintf("commit %v already exists", e.Commit)
+}
+
+func (e ErrCommitExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
 }
 
 func (e ErrCommitFinished) Error() string {
@@ -175,6 +207,10 @@ func (e ErrCommitDeleted) Error() string {
 
 func (e ErrParentCommitNotFound) Error() string {
 	return fmt.Sprintf("parent commit %v not found", e.Commit)
+}
+
+func (e ErrParentCommitNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrOutputCommitNotFinished) Error() string {

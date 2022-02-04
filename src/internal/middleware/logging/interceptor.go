@@ -11,7 +11,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -27,10 +29,17 @@ type logConfig struct {
 }
 
 func defaultLevel(err error) logrus.Level {
-	if err == nil {
+	switch status.Code(err) {
+	case codes.OK:
+		// status.Code(nil) returns OK
 		return logrus.InfoLevel
+	case codes.InvalidArgument, codes.OutOfRange:
+		return logrus.InfoLevel
+	case codes.NotFound, codes.AlreadyExists, codes.Unauthenticated:
+		return logrus.WarnLevel
+	default:
+		return logrus.ErrorLevel
 	}
-	return logrus.ErrorLevel
 }
 
 var defaultConfig = logConfig{level: defaultLevel}

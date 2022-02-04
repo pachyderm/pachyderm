@@ -181,6 +181,19 @@ ingress:
       crt: ""
       key: ""
 
+# locki-stack contains values that will be passed to the loki-stack subchart
+loki-stack:
+  loki:
+    persistence:
+      enabled: true
+      accessModes:
+      - ReadWriteOnce
+      size: 5Gi
+      storageClassName: standard
+      annotations: {}
+  grafana:
+    enabled: false
+
 pachd:
   enabled: true
   affinity: {}
@@ -198,6 +211,7 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
   metrics:

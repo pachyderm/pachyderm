@@ -108,33 +108,25 @@ func (pw *postgresWatcher) Close() {
 }
 
 // `forwardNotifications` is a blocking call that will forward all messages on
-// the 'buf' channel to the 'c' channel until the watcher is closed. It will
-// apply the 'startTime' timestamp as a lower bound on forwarded notifications.
-func (pw *postgresWatcher) forwardNotifications(ctx context.Context, startTime time.Time) {
+// the 'buf' channel to the 'c' channel until the watcher is closed.
+func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 	for {
-		// This allows for double notification on a matching timestamp which is
-		// better than missing a notification. This will _always_ happen on the last
-		// put event if a change is made while doing the list.
-		// We could try to use the postgres xmin value instead of the modified
-		// timestamp, but that has to detect wraparounds, which is non-trivial.
 		select {
 		case eventData := <-pw.buf:
-			if !eventData.time.Before(startTime) || eventData.err != nil {
+			select {
+			case pw.c <- eventData.WatchEvent(ctx, pw.db, pw.template):
+			case <-pw.done:
+				// watcher has been closed, safe to abort
+				return
+			case <-ctx.Done():
+				// watcher (or the read collection that created it) has been canceled -
+				// unregister the watcher and stop forwarding notifications.
 				select {
-				case pw.c <- eventData.WatchEvent(ctx, pw.db, pw.template):
+				case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+					pw.listener.Unregister(pw)
 				case <-pw.done:
-					// watcher has been closed, safe to abort
-					return
-				case <-ctx.Done():
-					// watcher (or the read collection that created it) has been canceled -
-					// unregister the watcher and stop forwarding notifications.
-					select {
-					case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
-						pw.listener.Unregister(pw)
-					case <-pw.done:
-					}
-					return
 				}
+				return
 			}
 		case <-pw.done:
 			// watcher has been closed, safe to abort

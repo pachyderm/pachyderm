@@ -19,7 +19,6 @@ kubectl apply -f etc/testing/pod-security-policy.yaml
 
 ./etc/testing/circle/build.sh
 
-./etc/testing/circle/launch-loki.sh
 ./etc/testing/circle/launch.sh
 
 # Run TestSimplePipeline
