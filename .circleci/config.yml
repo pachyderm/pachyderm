@@ -31,27 +31,22 @@ jobs:
     e2e-test:
         resource_class: xlarge
         machine:
-            image: ubuntu-2004:202107-02
+            image: ubuntu-2004:202111-01
         steps:
             - checkout
-            - browser-tools/install-chrome
-            - browser-tools/install-chromedriver
             - run: sudo sysctl fs.inotify.max_user_watches=524288
             - run: sudo sysctl -p
             - run: sudo apt-get update
             - run: sudo apt-get install -y libgbm-dev
-            - run: nvm install 16.11.0
-            - run: nvm alias default 16.11.0
-            - run: nvm use 16.11.0 && node -v
-            - run: nvm use 16.11.0 && npm ci
-            - run: nvm use 16.11.0 && cd backend && npm ci
-            - run: nvm use 16.11.0 && cd frontend && npm ci
-            - run: nvm use 16.11.0 && npm run check-version
+            - run: npm ci
+            - run: cd backend && npm ci
+            - run: cd frontend && npm ci
+            - run: npm run check-version
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-minikube.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
             - run: etc/testing/circle/setup-project.sh
-            - run: nvm use 16.11.0 && pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+            - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
     build:
         resource_class: xlarge
         docker:
