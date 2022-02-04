@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -450,6 +449,6 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 			Status: ec.PauseStatusResponse_PAUSED,
 		}, nil
 	default:
-		return nil, fmt.Errorf("no paused or unpaused pachds found")
+		return nil, errors.Errorf("no paused or unpaused pachds found")
 	}
 }
