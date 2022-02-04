@@ -14,7 +14,7 @@ import {useSearch} from './useSearch';
 export const useDefaultDropdown = () => {
   const {projectId} = useUrlState();
   const {jobSets} = useJobSets({projectId});
-  const {setUrlFromViewState} = useUrlQueryState();
+  const {updateViewState} = useUrlQueryState();
   const {closeDropdown, setSearchValue} = useSearch();
 
   const stateCounts = useMemo(
@@ -26,11 +26,8 @@ export const useDefaultDropdown = () => {
   const handleJobChipClick = useCallback(
     (value?: JobState) => {
       value
-        ? setUrlFromViewState(
-            {jobFilters: [value]},
-            jobsRoute({projectId}, false),
-          )
-        : setUrlFromViewState(
+        ? updateViewState({jobFilters: [value]}, jobsRoute({projectId}, false))
+        : updateViewState(
             {
               jobFilters: Object.values(JobState),
             },
@@ -39,7 +36,7 @@ export const useDefaultDropdown = () => {
 
       closeDropdown();
     },
-    [closeDropdown, projectId, setUrlFromViewState],
+    [closeDropdown, projectId, updateViewState],
   );
 
   const handleHistoryChipClick = useCallback(

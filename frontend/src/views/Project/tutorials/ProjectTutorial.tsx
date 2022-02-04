@@ -20,7 +20,7 @@ const TUTORIALS: TutorialMap = {
 
 const ProjectTutorial: React.FC = () => {
   const {projectId} = useUrlState();
-  const {viewState, setUrlFromViewState} = useUrlQueryState();
+  const {viewState, updateViewState} = useUrlQueryState();
 
   const [id, setActiveTutorial] = useLocalProjectSettings({
     projectId,
@@ -34,7 +34,7 @@ const ProjectTutorial: React.FC = () => {
   }, [viewState.tutorialId, setActiveTutorial, id]);
 
   const onClose = () => {
-    setUrlFromViewState({tutorialId: undefined});
+    updateViewState({tutorialId: undefined});
     setActiveTutorial(null);
   };
 

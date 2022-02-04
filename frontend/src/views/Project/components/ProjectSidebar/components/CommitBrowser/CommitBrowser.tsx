@@ -6,12 +6,10 @@ import {CSSTransition, TransitionGroup} from 'react-transition-group';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  fileBrowserRoute,
-  jobRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './CommitBrowser.module.css';
 import BranchBrowser from './components/BranchBrowser';
@@ -26,6 +24,7 @@ type CommitBrowserProps = {
 };
 
 const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
+  const {getPathToFileBrowser} = useFileBrowserNavigation();
   const {branchId, projectId, repoId} = useUrlState();
   const [hideAutoCommits, handleHideAutoCommitChange] = useLocalProjectSettings(
     {projectId, key: 'hide_auto_commits'},
@@ -117,7 +116,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                       </dt>
                       <dt className={styles.commitData}>
                         <Link
-                          to={fileBrowserRoute({
+                          to={getPathToFileBrowser({
                             projectId,
                             branchId,
                             repoId: repoId,

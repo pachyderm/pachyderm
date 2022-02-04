@@ -14,7 +14,7 @@ const useJobListStatusFilter = (
   jobs: (JobOverviewFragment | JobSetFieldsFragment)[],
   selectedFilters: JobFilters,
 ) => {
-  const {setUrlFromViewState} = useUrlQueryState();
+  const {updateViewState} = useUrlQueryState();
 
   const stateCounts = useMemo(() => countBy(jobs, (job) => job.state), [jobs]);
 
@@ -32,10 +32,10 @@ const useJobListStatusFilter = (
           }
           return result;
         }, []);
-        setUrlFromViewState({jobFilters: updatedJobFilters});
+        updateViewState({jobFilters: updatedJobFilters});
       }
     },
-    [setUrlFromViewState, selectedFilters],
+    [updateViewState, selectedFilters],
   );
 
   return {stateCounts, onChipClick};

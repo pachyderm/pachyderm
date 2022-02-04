@@ -42,7 +42,23 @@ const useUrlQueryState = () => {
     return getViewStateFromSearchParams(searchParams);
   }, [searchParams]);
 
-  const setUrlFromViewState = useCallback(
+  const getUpdatedSearchParams = useCallback(
+    (newState: Partial<UrlState>) => {
+      const newSearchParams = new URLSearchParams(search);
+
+      const updatedState: UrlState = {
+        ...viewState,
+        ...newState,
+      };
+
+      newSearchParams.set('view', btoa(JSON.stringify(updatedState)));
+
+      return newSearchParams;
+    },
+    [search, viewState],
+  );
+
+  const updateViewState = useCallback(
     (newState: Partial<UrlState>, path?: string) => {
       const searchParams = new URLSearchParams(window.location.search);
       const decodedViewState = getViewStateFromSearchParams(searchParams);
@@ -66,7 +82,8 @@ const useUrlQueryState = () => {
 
   return {
     viewState,
-    setUrlFromViewState,
+    updateViewState,
+    getUpdatedSearchParams,
   };
 };
 

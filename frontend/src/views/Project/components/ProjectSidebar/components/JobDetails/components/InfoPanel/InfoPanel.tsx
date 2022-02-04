@@ -1,23 +1,22 @@
 import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
-import {ButtonLink, DocumentSVG, Link, Icon} from '@pachyderm/components';
+import {DocumentSVG, Link, Icon} from '@pachyderm/components';
 import {
   fromUnixTime,
   formatDistanceToNow,
   formatDistanceStrict,
 } from 'date-fns';
-import React, {useCallback, useMemo} from 'react';
-import {useRouteMatch, Redirect, useLocation} from 'react-router';
+import React, {useMemo} from 'react';
+import {useRouteMatch, Redirect} from 'react-router';
 
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import JsonSpec from '@dash-frontend/components/JsonSpec';
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import {useJob} from '@dash-frontend/hooks/useJob';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
 import {
-  fileBrowserRoute,
   jobRoute,
   logsViewerJobRoute,
 } from '@dash-frontend/views/Project/utils/routes';
@@ -33,31 +32,13 @@ const InfoPanel = () => {
   const {
     params: {jobId, projectId, pipelineId},
   } = useRouteMatch<InfoPanelParams>();
-  const {pathname} = useLocation();
-  const {setUrlFromViewState} = useUrlQueryState();
+  const {getPathToFileBrowser} = useFileBrowserNavigation();
 
   const {job, loading, error} = useJob({
     id: jobId,
     pipelineName: pipelineId,
     projectId,
   });
-
-  const handleCommitClick = useCallback(() => {
-    if (job?.outputBranch) {
-      setUrlFromViewState(
-        {prevFileBrowserPath: pathname},
-        fileBrowserRoute(
-          {
-            projectId,
-            commitId: job.id,
-            branchId: job.outputBranch,
-            repoId: job.pipelineName,
-          },
-          false,
-        ),
-      );
-    }
-  }, [setUrlFromViewState, job, pathname, projectId]);
 
   const transformString = useMemo(() => {
     if (job?.transform) {
@@ -135,12 +116,17 @@ const InfoPanel = () => {
         data-testid="InfoPanel__id"
       >
         {job?.outputBranch ? (
-          <ButtonLink
-            onClick={handleCommitClick}
+          <Link
+            to={getPathToFileBrowser({
+              projectId,
+              commitId: job.id,
+              branchId: job.outputBranch,
+              repoId: job.pipelineName,
+            })}
             data-testid="InfoPanel__commitLink"
           >
             {job?.id}
-          </ButtonLink>
+          </Link>
         ) : (
           <>{job?.id}</>
         )}

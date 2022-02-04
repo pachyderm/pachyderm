@@ -13,7 +13,7 @@ const useSidebar = ({defaultSize}: {defaultSize?: string}) => {
   if (defaultSize === 'lg') sidebarSize = 534;
 
   const [isOpen, setIsOpen] = useState(false);
-  const {viewState, setUrlFromViewState} = useUrlQueryState();
+  const {viewState, updateViewState} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [sidebarWidthSetting, handleUpdateSidebarWidth] =
     useLocalProjectSettings({projectId, key: 'sidebar_width'});
@@ -58,11 +58,11 @@ const useSidebar = ({defaultSize}: {defaultSize?: string}) => {
 
   const onDragEnd = useCallback(() => {
     if (dragging) {
-      setUrlFromViewState({sidebarWidth});
+      updateViewState({sidebarWidth});
       handleUpdateSidebarWidth(sidebarWidth);
     }
     setDragging(false);
-  }, [dragging, handleUpdateSidebarWidth, setUrlFromViewState, sidebarWidth]);
+  }, [dragging, handleUpdateSidebarWidth, updateViewState, sidebarWidth]);
 
   useEffect(() => {
     setIsOpen(true);

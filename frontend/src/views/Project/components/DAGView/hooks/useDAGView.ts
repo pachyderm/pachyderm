@@ -79,7 +79,7 @@ export const useDAGView = (
   });
   const {overlay} = useSidebarInfo();
   const {selectedNode} = useRouteController();
-  const {viewState, setUrlFromViewState} = useUrlQueryState();
+  const {viewState, updateViewState} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
   const [dagDirectionSetting, setDagDirectionSetting] = useLocalProjectSettings(
     {projectId, key: 'dag_direction'},
@@ -104,7 +104,7 @@ export const useDAGView = (
 
   const handleChangeCenterOnSelect = (shouldCenter: boolean) => {
     setSkipCenterOnSelectSetting(!skipCenterOnSelectSetting);
-    setUrlFromViewState({
+    updateViewState({
       skipCenterOnSelect: !shouldCenter,
     });
   };
@@ -115,7 +115,7 @@ export const useDAGView = (
     dispatch({type: 'ROTATE'});
 
     const handleChangeDirection = (nextDirection: DagDirection) => {
-      setUrlFromViewState({
+      updateViewState({
         dagDirection: nextDirection,
       });
       setDagDirectionSetting(nextDirection);
@@ -129,7 +129,7 @@ export const useDAGView = (
         handleChangeDirection(DagDirection.DOWN);
         break;
     }
-  }, [dagDirection, setUrlFromViewState, setDagDirectionSetting]);
+  }, [dagDirection, updateViewState, setDagDirectionSetting]);
 
   const graphExtents = useMemo(() => {
     const nodes = flatten((dags || []).map((dag) => dag.nodes));

@@ -13,6 +13,7 @@ import {
   LINEAGE_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
+  FILE_BROWSER_PATH,
 } from '../../constants/projectPaths';
 import ProjectTutorial from '../../tutorials/ProjectTutorial';
 
@@ -65,7 +66,7 @@ const ProjectDetails: React.FC = () => {
           </Route>
         </>
       )}
-      <Route path={LINEAGE_PATH}>
+      <Route path={[FILE_BROWSER_PATH, LINEAGE_PATH]}>
         <ProjectSidebar />
         <ProjectTutorial />
       </Route>
