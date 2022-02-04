@@ -321,7 +321,7 @@ func TestPauseUnpause(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
-			return err
+			return errors.Errorf("could not get pause status %v", err)
 		}
 		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
 			return nil
@@ -335,7 +335,7 @@ func TestPauseUnpause(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
-			return err
+			return errors.Errorf("could not get pause status %v", err)
 		}
 		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
 			return nil
@@ -365,7 +365,7 @@ func TestDoublePauseUnpause(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
-			return err
+			return errors.Errorf("could not get pause status %v", err)
 		}
 		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
 			return nil
@@ -381,7 +381,7 @@ func TestDoublePauseUnpause(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
-			return err
+			return errors.Errorf("could not get pause status %v", err)
 		}
 		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
 			return nil
