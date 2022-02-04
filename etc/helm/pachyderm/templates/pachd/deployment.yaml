@@ -88,18 +88,18 @@ spec:
           #value:
         - name: STORAGE_BACKEND
           value: {{ include "pachyderm.storageBackend" . | quote }}
-          {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
-        {{- if not (eq .Values.pachd.storageGCPeriod 0) }}
+        {{- if ne 0 (int .Values.pachd.storageGCPeriod) }}
         - name: STORAGE_GC_PERIOD
           value: {{ .Values.pachd.storageGCPeriod | quote }}
         {{- end }}
-        {{- if not (eq .Values.pachd.storageChunkGCPeriod 0) }}
+        {{- if ne 0 (int .Values.pachd.storageChunkGCPeriod) }}
         - name: STORAGE_CHUNK_GC_PERIOD
           value: {{ .Values.pachd.storageChunkGCPeriod | quote }}
         {{- end }}
+        {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         - name: STORAGE_HOST_PATH
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
-          {{- end }}
+        {{- end }}
         - name: WORKER_IMAGE
           value: "{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         {{- if and (eq ( include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
