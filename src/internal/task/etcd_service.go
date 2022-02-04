@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 )
@@ -33,7 +34,7 @@ type etcdService struct {
 func NewEtcdService(etcdClient *etcd.Client, etcdPrefix string) Service {
 	return &etcdService{
 		etcdClient: etcdClient,
-		etcdPrefix: etcdPrefix,
+		etcdPrefix: path.Join(etcdPrefix, version.PrettyVersion()),
 	}
 }
 
@@ -223,6 +224,7 @@ func computeTaskID(input *types.Any) (string, error) {
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}
+	val = append(val, []byte(version.PrettyVersion())...)
 	sum := pachhash.Sum(val)
 	return pachhash.EncodeHash(sum[:]), nil
 }
