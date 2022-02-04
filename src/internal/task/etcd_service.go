@@ -65,7 +65,8 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 			claimed = true
 		}
 		// parse out namespace and group from key in case they weren't provided
-		fullKey := path.Join(prefix, key)
+		fullKey := strings.TrimPrefix(path.Join(prefix, key), "/")
+
 		// namespace/group/doerID/taskID
 		keyParts := strings.Split(fullKey, "/")
 		if len(keyParts) != 4 {

@@ -8,6 +8,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -70,12 +71,16 @@ func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send f
 			state = taskapi.State_CLAIMED
 		}
 		var input types.DynamicAny
+		var inputJSON string
 		if err := types.UnmarshalAny(data.Input, &input); err != nil {
-			return errors.EnsureStack(err)
-		}
-		inputJSON, err := marshaler.MarshalToString(input.Message)
-		if err != nil {
-			return errors.EnsureStack(err)
+			// unmarshalling might fail due to the input type not being registered,
+			// don't let this interfere with fetching or counting tasks
+			logrus.Warnf("couldn't unmarshal task input: %v", err)
+		} else {
+			inputJSON, err = marshaler.MarshalToString(input.Message)
+			if err != nil {
+				logrus.Warnf("couldn't marshal task input: %v", err)
+			}
 		}
 		info := &taskapi.TaskInfo{
 			ID: data.ID,
