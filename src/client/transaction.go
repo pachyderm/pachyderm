@@ -430,6 +430,9 @@ func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
 }
+func (c *pfsBuilderClient) ReadFileSet(ctx context.Context, req *pfs.ReadFileSetRequest, opts ...grpc.CallOption) (pfs.API_ReadFileSetClient, error) {
+	return nil, unsupportedError("ReadFileSet")
+}
 func (c *pfsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pfs.API_ListTaskClient, error) {
 	return nil, unsupportedError("ListTask")
 }

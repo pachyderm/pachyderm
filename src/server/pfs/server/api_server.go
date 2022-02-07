@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -467,6 +469,81 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 	uw.Delete(request.Path, request.Datum)
+	return nil
+}
+
+func (a *apiServer) ReadFileSet(request *pfs.ReadFileSetRequest, server pfs.API_ReadFileSetServer) error {
+	ctx := server.Context()
+	fsID, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return err
+	}
+	var opts []index.Option
+	var transforms []func(fileset.FileSet) fileset.FileSet
+	for _, filter := range request.Filters {
+		switch x := filter.Value.(type) {
+		case *pfs.FileSetFilter_PathRegexp:
+			re, err := regexp.Compile(x.PathRegexp)
+			if err != nil {
+				return err
+			}
+			prefix, _ := re.LiteralPrefix()
+			if prefix != "" {
+				opts = append(opts, index.WithPrefix(prefix))
+			}
+			transforms = append(transforms, func(x fileset.FileSet) fileset.FileSet {
+				return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+					return re.MatchString(idx.Path)
+				})
+			})
+		default:
+			return errors.Errorf("unsupported filter %T", filter.Value)
+		}
+	}
+	fileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*fsID}, opts...)
+	if err != nil {
+		return err
+	}
+	for _, transform := range transforms {
+		fileSet = transform(fileSet)
+	}
+	if err := fileSet.Iterate(ctx, func(f fileset.File) error {
+		idx := f.Index()
+		if err := server.Send(&pfs.ReadFileSetResponse{
+			Path: idx.Path,
+		}); err != nil {
+			return err
+		}
+		if !request.IncludeContents {
+			return nil
+		}
+		return miscutil.WithPipe(func(w io.Writer) error {
+			return f.Content(ctx, w)
+		}, func(r io.Reader) error {
+			var offset int64
+			buf := make([]byte, 1<<20)
+			for {
+				n, err := r.Read(buf)
+				if err != nil && err != io.EOF {
+					return err
+				}
+				if err := server.Send(&pfs.ReadFileSetResponse{
+					Path:   idx.Path,
+					Data:   buf[:n],
+					Offset: offset,
+				}); err != nil {
+					return err
+				}
+				offset += int64(n)
+				if err == io.EOF {
+					break
+				}
+			}
+			return nil
+		})
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 

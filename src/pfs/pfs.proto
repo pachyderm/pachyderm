@@ -457,6 +457,30 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
+message FileSetFilter {
+  oneof value {
+    string path_regexp = 1;
+  }
+}
+
+message FileSetTransform {
+  string add_prefix = 1;
+}
+
+message ReadFileSetRequest {
+  string fileset_id = 1;
+  bool include_contents = 2;
+
+  repeated FileSetFilter filters = 3;
+  repeated FileSetTransform transforms = 4; 
+}
+
+message ReadFileSetResponse {
+  string path = 1;
+  int64 offset = 2;
+  bytes data = 3;
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -538,6 +562,7 @@ service API {
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
+  rpc ReadFileSet(ReadFileSetRequest) returns (stream ReadFileSetResponse) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}

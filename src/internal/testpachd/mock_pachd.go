@@ -451,6 +451,7 @@ type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResp
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
+type readFileSetFunc func(*pfs.ReadFileSetRequest, pfs.API_ReadFileSetServer) error
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -492,6 +493,7 @@ type mockGetCache struct{ handler getCacheFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
+type mockReadFileSet struct{ handler readFileSetFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -533,6 +535,7 @@ func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handle
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
+func (mock *mockReadFileSet) Use(cb readFileSetFunc)               { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -580,6 +583,7 @@ type mockPFSServer struct {
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
 	ListTask           mockListTaskPFS
+	ReadFileSet        mockReadFileSet
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -821,6 +825,12 @@ func (api *pfsServerAPI) ListTask(req *task.ListTaskRequest, server pfs.API_List
 		return api.mock.ListTask.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListTask")
+}
+func (api *pfsServerAPI) ReadFileSet(req *pfs.ReadFileSetRequest, server pfs.API_ReadFileSetServer) error {
+	if api.mock.ReadFileSet.handler != nil {
+		return api.mock.ReadFileSet.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pfs.ReadFileSet")
 }
 
 /* PPS Server Mocks */
