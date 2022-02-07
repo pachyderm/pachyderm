@@ -26,6 +26,7 @@ type pendingJob struct {
 	commitInfo, metaCommitInfo *pfs.CommitInfo
 	baseMetaCommit             *pfs.Commit
 	noSkip                     bool
+	cache                      *cache
 }
 
 func (pj *pendingJob) writeJobInfo() error {
@@ -119,6 +120,13 @@ func (pj *pendingJob) clearJobStats() {
 	pj.ji.DataFailed = 0
 	pj.ji.DataRecovered = 0
 	pj.ji.DataTotal = 0
+}
+
+// TODO: Remove when job state transition operations are handled by a background process.
+func (pj *pendingJob) clearCache() {
+	if err := pj.cache.clear(pj.driver.PachClient().Ctx()); err != nil {
+		pj.logger.Logf("errored clearing job cache: %s", err)
+	}
 }
 
 func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func(datum.Deleter) error) error {

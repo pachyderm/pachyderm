@@ -21,9 +21,11 @@ func CreatePostgresCacheV1(ctx context.Context, tx *pachsql.Tx) error {
 		key text NOT NULL PRIMARY KEY,
 		value_pb BYTEA NOT NULL,
 		ids UUID[] NOT NULL,
-		accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+		accessed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		tag text
 	);
 	CREATE INDEX ON storage.cache (accessed_at);
+	CREATE INDEX ON storage.cache (tag);
 `
 	_, err := tx.ExecContext(ctx, schema)
 	return errors.EnsureStack(err)
@@ -49,25 +51,25 @@ func NewCache(db *pachsql.DB, tracker track.Tracker, maxSize int) *Cache {
 	}
 }
 
-func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID) error {
+func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID, tag string) error {
 	data, err := proto.Marshal(value)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	return dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
-		if err := c.put(tx, key, data, ids); err != nil {
+		if err := c.put(tx, key, data, ids, tag); err != nil {
 			return err
 		}
 		return c.applyEvictionPolicy(tx)
 	})
 }
 
-func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID) error {
+func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID, tag string) error {
 	_, err := tx.Exec(`
-		INSERT INTO storage.cache (key, value_pb, ids) 
-		VALUES ($1, $2, $3)
+		INSERT INTO storage.cache (key, value_pb, ids, tag)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (key) DO NOTHING
-	`, key, value, ids)
+	`, key, value, ids, tag)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -120,4 +122,13 @@ func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
 		return nil, errors.EnsureStack(err)
 	}
 	return value, nil
+}
+
+func (c *Cache) Clear(ctx context.Context, tagPrefix string) error {
+	// TODO: We may want to do this across multiple smaller transactions.
+	_, err := c.db.ExecContext(ctx, `
+		DELETE FROM storage.cache
+		WHERE tag LIKE $1 || '%'
+	`, tagPrefix)
+	return errors.EnsureStack(err)
 }
