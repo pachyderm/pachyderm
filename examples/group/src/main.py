@@ -9,6 +9,7 @@ purchase_paths = glob.glob(os.path.join("/pfs/purchases", "*.txt"))
 zipcode = "UNKNOWN"
 separator_line = "\nThis return store does not exist \n"
 store_id = 0
+
 if store_paths:
     print("Opening store_file...: " + store_paths[0])
     with open(store_paths[0], 'r') as store_json:    
@@ -39,5 +40,5 @@ for return_path in return_paths:
 with open("/pfs/out/"+str(store_id)+".txt", 'w') as revenue_file:   
     net_amount = order_total - return_total
     revenue_file.write(separator_line)
-    revenue_file.write("ORDER_AMOUNT|" + str(order_total) + "|RETURN_AMOUNT|" + str(return_total) + "|NET_AMOUNT|"+ str(net_amount) + "\n")
+    revenue_file.write("\nORDER_AMOUNT|" + str(order_total) + "|RETURN_AMOUNT|" + str(return_total) + "|NET_AMOUNT|"+ str(net_amount) + "\n")
 

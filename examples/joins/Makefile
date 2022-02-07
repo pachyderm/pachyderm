@@ -1,12 +1,19 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-joins-inner-outer
-CONTAINER_VERSION := 2.0.1
+CONTAINER_VERSION := 2.0.2
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
 	@docker build -t $(CONTAINER_TAG) . --platform=linux/amd64
 	@docker push $(CONTAINER_TAG)
+
+update-image:
+	$(eval IMAGE_SHA=$(shell docker build -t ${CONTAINER_TAG} --platform=linux/amd64 -q .))
+	$(eval IMAGE_TAG=$(shell echo $(IMAGE_SHA) |cut -c 8-20))
+	docker tag $(CONTAINER_TAG) $(CONTAINER_TAG).$(IMAGE_TAG)
+	pachctl update pipeline --jsonnet pipelines/outer/outer_join.jsonnet --arg tag=$(CONTAINER_VERSION).$(IMAGE_TAG) --arg suffix=jsonnet
+  
 
 setup:
 	mkdir -p ./stores ./purchases ./returns
