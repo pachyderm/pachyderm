@@ -303,6 +303,12 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	require.True(t, collection.IsErrNotFound(err))
 }
 
+/*
+   N.b.: for these tests to run successfully on Linux I needed to upgrade to the
+   latest kubectl and run port forwards in a _loop_.  I.e.:
+
+     while :; do  kubectl port-forward svc/pachd 30650:1650; done
+*/
 func TestPauseUnpause(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
