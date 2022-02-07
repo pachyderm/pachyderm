@@ -1,4 +1,4 @@
-import {useMemo, useState} from 'react';
+import {useCallback, useMemo, useState} from 'react';
 
 import {
   useGetDagQuery,
@@ -26,7 +26,7 @@ const useDeletePipelineButton = () => {
     );
   }, [pipelineId, dagData]);
 
-  const onDelete = () => {
+  const onDelete = useCallback(() => {
     if (pipelineId) {
       deletePipeline({
         variables: {
@@ -37,7 +37,7 @@ const useDeletePipelineButton = () => {
         },
       });
     }
-  };
+  }, [pipelineId, projectId, deletePipeline]);
 
   return {
     canDelete,

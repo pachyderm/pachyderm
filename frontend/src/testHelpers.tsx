@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
-import {Account} from '@graphqlTypes';
+import {Account, NodeType} from '@graphqlTypes';
 import {act} from '@testing-library/react';
 import userEvent, {ITypeOpts, TargetElement} from '@testing-library/user-event';
 import React, {ReactElement} from 'react';
@@ -8,14 +9,21 @@ import {BrowserRouter, Route} from 'react-router-dom';
 
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
+import {useProjectDagsData} from './hooks/useProjectDAGsData';
 import useRouteController from './hooks/useRouteController';
 import {UrlState} from './hooks/useUrlQueryState';
-import {Dag} from './lib/types';
+import useUrlState from './hooks/useUrlState';
+import {DagDirection} from './lib/types';
 import LoggedInProvider from './providers/LoggedInProvider';
-import {PROJECT_PATHS} from './views/Project/constants/projectPaths';
+import useDeletePipelineButton from './views/Project/components/ProjectSidebar/components/DeletePipelineButton/hooks/useDeletePipelineButton';
+import {LINEAGE_PATH} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';
 export {default as mockServer} from '@dash-backend/mock';
+
+// Two timeout intervals should ensure that new data
+// is hydrated if render is performed between events
+export const SUBSCRIPTION_TIMEOUT = SUBSCRIPTION_INTERVAL * 2;
 
 export const withContextProviders = (
   Component: React.ElementType,
@@ -34,17 +42,68 @@ export const withContextProviders = (
   };
 };
 
-export const MockDAG: React.FC<{dag: Dag}> = ({dag}) => {
+export const MockDag = () => {
+  const {projectId, jobId} = useUrlState();
   const {selectedNode, navigateToNode} = useRouteController();
+  const {dags, loading} = useProjectDagsData({
+    projectId,
+    nodeHeight: 60,
+    nodeWidth: 120,
+    direction: DagDirection.RIGHT,
+    jobSetId: jobId,
+  });
+  const {onDelete, updating} = useDeletePipelineButton();
+
+  if (loading || updating) return <span>Loading</span>;
 
   return (
-    <Route path={PROJECT_PATHS}>
-      Selected node: {selectedNode}
-      {dag.nodes.map((n) => (
-        <button key={n.name} onClick={() => navigateToNode(n)}>
-          {n.name}
-        </button>
-      ))}
+    <Route path={LINEAGE_PATH}>
+      <div>Selected node: {selectedNode}</div>
+      {(dags || []).map((dag, i) => {
+        return (
+          <div key={i}>
+            <div>
+              {i} id: {dag.id}
+            </div>
+            {dag.nodes.map((node, i) => {
+              return (
+                <div key={node.id}>
+                  <button onClick={() => navigateToNode(node)}>
+                    {i} node id: {node.id}
+                  </button>
+                  <span>
+                    {i} node name: {node.name}
+                  </span>
+                  <span>
+                    {i} node type: {node.type}
+                  </span>
+                  <span>
+                    {i} node state: {node.state}
+                  </span>
+                  {node.type === NodeType.PIPELINE && (
+                    <button onClick={onDelete}>delete {node.id}</button>
+                  )}
+                </div>
+              );
+            })}
+            {dag.links.map((link, i) => {
+              return (
+                <div key={link.id}>
+                  <span>
+                    {i} link source: {link.source}
+                  </span>
+                  <span>
+                    {i} link target: {link.target}
+                  </span>
+                  <span>
+                    {i} link state: {link.state}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
     </Route>
   );
 };

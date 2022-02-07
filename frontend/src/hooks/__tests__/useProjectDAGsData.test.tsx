@@ -1,89 +1,34 @@
-import {render, waitForElementToBeRemoved} from '@testing-library/react';
+import {
+  render,
+  waitForElementToBeRemoved,
+  waitFor,
+} from '@testing-library/react';
 import React from 'react';
-import {Route} from 'react-router';
 
-import {DagDirection} from '@dash-frontend/lib/types';
-import {withContextProviders} from '@dash-frontend/testHelpers';
-
-import {useProjectDagsData} from '../useProjectDAGsData';
-import useUrlState from '../useUrlState';
-
-const ProjectsComponent = () => {
-  const {projectId, jobId} = useUrlState();
-  const {dags, loading} = useProjectDagsData({
-    projectId,
-    nodeHeight: 60,
-    nodeWidth: 120,
-    direction: DagDirection.RIGHT,
-    jobSetId: jobId,
-  });
-
-  if (loading) return <span>Loading</span>;
-
-  return (
-    <div>
-      {(dags || []).map((dag, i) => {
-        return (
-          <div key={i}>
-            <div>
-              {i} id: {dag.id}
-            </div>
-            {dag.nodes.map((node, i) => {
-              return (
-                <div key={node.id}>
-                  <span>
-                    {i} node id: {node.id}
-                  </span>
-                  <span>
-                    {i} node name: {node.name}
-                  </span>
-                  <span>
-                    {i} node type: {node.type}
-                  </span>
-                  <span>
-                    {i} node state: {node.state}
-                  </span>
-                </div>
-              );
-            })}
-            {dag.links.map((link, i) => {
-              return (
-                <div key={link.id}>
-                  <span>
-                    {i} link source: {link.source}
-                  </span>
-                  <span>
-                    {i} link target: {link.target}
-                  </span>
-                  <span>
-                    {i} link state: {link.state}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
+import {
+  withContextProviders,
+  click,
+  MockDag,
+  SUBSCRIPTION_TIMEOUT,
+} from '@dash-frontend/testHelpers';
+import {
+  jobRoute,
+  lineageRoute,
+  pipelineRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 const TestBed = withContextProviders(() => {
-  return (
-    <Route path="/project/:projectId">
-      <ProjectsComponent />
-    </Route>
-  );
+  return <MockDag />;
 });
 
 describe('useProjects', () => {
   it('should get dag data', async () => {
-    window.history.replaceState('', '', '/project/1');
+    window.history.replaceState('', '', lineageRoute({projectId: 1}));
 
     const {findByText} = render(<TestBed />);
 
     await waitForElementToBeRemoved(await findByText('Loading'), {
-      timeout: 10000,
+      timeout: SUBSCRIPTION_TIMEOUT,
     });
 
     const node0Id = await findByText('0 node id: montage_repo');
@@ -140,12 +85,12 @@ describe('useProjects', () => {
   });
 
   it('should correctly render cron inputs', async () => {
-    window.history.replaceState('', '', '/project/3');
+    window.history.replaceState('', '', lineageRoute({projectId: 3}));
 
     const {findByText} = render(<TestBed />);
 
     await waitForElementToBeRemoved(await findByText('Loading'), {
-      timeout: 10000,
+      timeout: SUBSCRIPTION_TIMEOUT,
     });
 
     const cronLinkSource = await findByText('0 link source: cron_repo');
@@ -162,12 +107,12 @@ describe('useProjects', () => {
   });
 
   it('should send dag id as name of oldest repo', async () => {
-    window.history.replaceState('', '', '/project/2');
+    window.history.replaceState('', '', lineageRoute({projectId: 2}));
 
     const {findByText} = render(<TestBed />);
 
     await waitForElementToBeRemoved(await findByText('Loading'), {
-      timeout: 10000,
+      timeout: SUBSCRIPTION_TIMEOUT,
     });
 
     const id = await findByText('0 id: samples_repo');
@@ -175,19 +120,46 @@ describe('useProjects', () => {
   });
 
   it('should send dag id as jobset id for job sub-dags', async () => {
+    window.history.replaceState('', '', lineageRoute({projectId: 1}));
+
     window.history.replaceState(
       '',
       '',
-      '/project/1/jobs/33b9af7d5d4343219bc8e02ff44cd55a',
+      jobRoute({projectId: 1, jobId: '33b9af7d5d4343219bc8e02ff44cd55a'}),
     );
 
     const {findByText} = render(<TestBed />);
 
     await waitForElementToBeRemoved(await findByText('Loading'), {
-      timeout: 10000,
+      timeout: SUBSCRIPTION_TIMEOUT,
     });
 
     const id = await findByText('0 id: 33b9af7d5d4343219bc8e02ff44cd55a');
     expect(id).toBeInTheDocument();
+  });
+
+  it('should correctly reset the DAG when DAG nodes are deleted', async () => {
+    window.history.replaceState('', '', lineageRoute({projectId: 1}));
+
+    window.history.replaceState(
+      '',
+      '',
+      pipelineRoute({projectId: 1, pipelineId: 'montage'}),
+    );
+
+    const {findByText} = render(<TestBed />);
+
+    await waitForElementToBeRemoved(await findByText('Loading'), {
+      timeout: SUBSCRIPTION_TIMEOUT,
+    });
+
+    const deleteMontagePipeline = await findByText('delete montage');
+
+    await click(deleteMontagePipeline);
+
+    await waitFor(
+      () => expect(window.location.pathname).toBe(lineageRoute({projectId: 1})),
+      {timeout: SUBSCRIPTION_TIMEOUT},
+    );
   });
 });

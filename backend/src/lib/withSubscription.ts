@@ -1,6 +1,8 @@
 import {PubSub} from 'apollo-server-express';
 import noop from 'lodash/noop';
 
+import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
+
 import withCancel from './withCancel';
 
 type withSubscriptionParameters<T> = {
@@ -24,7 +26,7 @@ const withSubscription = <T>({
   resolver,
   intervalKey,
   onCancel = noop,
-  interval = 3000,
+  interval = SUBSCRIPTION_INTERVAL,
 }: withSubscriptionParameters<T>) => {
   const handleCancel = () => {
     intervalMap[intervalKey].count -= 1;

@@ -2,119 +2,130 @@ import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
-import {DagDirection} from '@dash-frontend/lib/types';
-import {MockDAG, withContextProviders} from '@dash-frontend/testHelpers';
 import {
-  NODE_HEIGHT,
-  NODE_WIDTH,
-} from '@dash-frontend/views/Project/constants/nodeSizes';
+  click,
+  MockDag,
+  SUBSCRIPTION_TIMEOUT,
+  withContextProviders,
+} from '@dash-frontend/testHelpers';
+import {
+  lineageRoute,
+  pipelineRoute,
+  repoRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 describe('useRouteController', () => {
   const projectId = '2';
 
-  const TestBed = withContextProviders(({id = '2'}: {id: string}) => {
-    const {dags = [], loading} = useProjectDagsData({
-      projectId: id,
-      nodeHeight: NODE_HEIGHT,
-      nodeWidth: NODE_WIDTH,
-      direction: DagDirection.RIGHT,
-    });
-
-    if (loading) {
-      return <>Loading...</>;
-    }
-
-    return <MockDAG dag={dags[0]} />;
-  });
+  const TestBed = withContextProviders(() => <MockDag />);
 
   afterEach(() => {
-    window.history.replaceState('', '', `/project/${projectId}`);
+    window.history.replaceState('', '', lineageRoute({projectId}));
   });
 
   it('should derive the correct selected repo from the url', async () => {
+    window.history.replaceState('', '', lineageRoute({projectId}));
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/repos/likelihoods/branch/master`,
+      repoRoute({projectId, repoId: 'likelihoods', branchId: 'master'}),
     );
 
     const {findByText} = render(<TestBed />);
 
     expect(
-      await findByText('Selected node: likelihoods_repo', {}, {timeout: 10000}),
+      await findByText(
+        'Selected node: likelihoods_repo',
+        {},
+        {timeout: SUBSCRIPTION_TIMEOUT},
+      ),
     ).toBeInTheDocument();
   });
 
   it('should derive the correct selected pipeline from the url', async () => {
+    window.history.replaceState('', '', lineageRoute({projectId}));
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipelines/likelihoods`,
+      pipelineRoute({projectId, pipelineId: 'likelihoods'}),
     );
 
     const {findByText} = render(<TestBed />);
 
     expect(
-      await findByText('Selected node: likelihoods', {}, {timeout: 10000}),
+      await findByText(
+        'Selected node: likelihoods',
+        {},
+        {timeout: SUBSCRIPTION_TIMEOUT},
+      ),
     ).toBeInTheDocument();
   });
 
   it('should update the url correctly when selecting a repo', async () => {
+    window.history.replaceState('', '', lineageRoute({projectId}));
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/pipelines/likelihoods`,
+      pipelineRoute({projectId, pipelineId: 'likelihoods'}),
     );
 
     const {findByText} = render(<TestBed />);
 
     const imagesRepo = await findByText(
-      'likelihoods_repo',
+      '2 node id: likelihoods_repo',
       {},
-      {timeout: 10000},
+      {timeout: SUBSCRIPTION_TIMEOUT},
     );
 
-    // TODO: replace with event helpers
-    userEvent.click(imagesRepo);
+    await click(imagesRepo);
 
     await waitFor(() =>
       expect(window.location.pathname).toBe(
-        `/project/${projectId}/repos/likelihoods/branch/master`,
+        repoRoute({projectId, repoId: 'likelihoods', branchId: 'master'}),
       ),
     );
   });
 
   it('should update the url correctly when selecting a pipeline', async () => {
+    window.history.replaceState('', '', lineageRoute({projectId}));
     window.history.replaceState(
       '',
       '',
-      `/project/${projectId}/repos/likelihoods/branch/master`,
+      repoRoute({projectId, repoId: 'likelihoods', branchId: 'master'}),
     );
 
     const {findByText} = render(<TestBed />);
 
-    const edgesPipeline = await findByText('likelihoods', {}, {timeout: 10000});
+    const likelihoodsPipeline = await findByText(
+      '1 node id: likelihoods',
+      {},
+      {timeout: SUBSCRIPTION_TIMEOUT},
+    );
 
-    // TODO: replace with event helpers
-    userEvent.click(edgesPipeline);
+    await click(likelihoodsPipeline);
 
     await waitFor(() =>
       expect(window.location.pathname).toBe(
-        `/project/${projectId}/pipelines/likelihoods`,
+        pipelineRoute({projectId, pipelineId: 'likelihoods'}),
       ),
     );
   });
 
   it('should not update the url when selecting an egress node', async () => {
-    window.history.replaceState('', '', '/project/5');
+    window.history.replaceState('', '', lineageRoute({projectId: '5'}));
 
-    const {findByText} = render(<TestBed id="5" />);
+    const {findByText} = render(<TestBed />);
 
-    const egress = await findByText('https://egress.com', {}, {timeout: 10000});
+    const egress = await findByText(
+      '5 node id: https://egress.com',
+      {},
+      {timeout: SUBSCRIPTION_TIMEOUT},
+    );
 
-    userEvent.click(egress);
+    await click(egress);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/project/5'));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(lineageRoute({projectId: '5'})),
+    );
   });
 });

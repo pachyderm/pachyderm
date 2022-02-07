@@ -7,7 +7,7 @@ import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
 import buildDags from '@dash-frontend/lib/dag';
 import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
 import {Dag, DagDirection} from '@dash-frontend/lib/types';
-import {projectRoute} from '@dash-frontend/views/Project/utils/routes';
+import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import useUrlState from './useUrlState';
 
@@ -61,7 +61,7 @@ export const useProjectDagsData = ({
           );
         })
       ) {
-        browserHistory.push(projectRoute({projectId}));
+        browserHistory.push(lineageRoute({projectId}));
       } else {
         client.reFetchObservableQueries();
       }
