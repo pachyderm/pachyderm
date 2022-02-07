@@ -24,17 +24,42 @@ MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
 CHLOGFILE = ${PWD}/../changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
-GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
-SKIP = #\# # To skip push to docker and github remove # in front of #
+GORELSNAP = --snapshot # uncomment --snapshot if you want to do a dry run.
+SKIP = \# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
 # Default upper bound for test timeouts
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
 
+# Get the machine and arch for local builds
+ifeq ($(OS),Windows_NT)
+	echo "Unsupported platfrom"
+	exit 1
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        TARGET_OS = linux
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        TARGET_OS = darwin
+    endif
+    UNAME_P := $(shell uname -p)
+    ifeq ($(UNAME_P),x86_64)
+        TARGET_ARCH = amd64
+    endif
+    ifneq ($(filter %86,$(UNAME_P)),)
+        TARGET_ARCH = amd64
+    endif
+    ifneq ($(filter arm%,$(UNAME_P)),)
+        TARGET_ARCH = arm64
+    endif
+endif
+
+
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
-	go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -85,22 +110,27 @@ release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
-	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
-	docker build -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
+	docker buildx use tmp-builder
+	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-proto:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
+	docker buildx use tmp-builder
+	docker buildx build --platform linux/$(TARGET_ARCH) $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
 docker-build-gpu:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
+	docker buildx use tmp-builder
+	docker buildx build --platform linux/$(TARGET_ARCH) $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	docker build -t kafka-demo etc/testing/kafka
+	docker buildx use tmp-builder
+	docker buildx build --platform linux/$(TARGET_ARCH) -t kafka-demo etc/testing/kafka
 
 docker-build-spout-test:
-	docker build -t spout-test etc/testing/spout
+	docker buildx use tmp-builder
+	docker buildx build --platform linux/$(TARGET_ARCH) -t spout-test etc/testing/spout
 
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
@@ -115,14 +145,26 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-tag:
-	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
-	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
-	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
+	docker tag pachyderm/pachd-amd64:latest pachyderm/pachd-amd64:$(VERSION)
+	docker tag pachyderm/worker-amd64:latest pachyderm/worker-amd64:$(VERSION)
+	docker tag pachyderm/pachctl-amd64:latest pachyderm/pachctl-amd64:$(VERSION)
+	docker tag pachyderm/pachd-arm64:latest pachyderm/pachd-arm64:$(VERSION)
+	docker tag pachyderm/worker-arm64:latest pachyderm/worker-arm64:$(VERSION)
+	docker tag pachyderm/pachctl-arm64:latest pachyderm/pachctl-arm64:$(VERSION)
+	docker manifest create pachyderm/pachd:$(VERSION) docker.io/pachyderm/pachd-amd64:$(VERSION) docker.io/pachyderm/pachd-arm64:$(VERSION)
+	docker manifest create pachyderm/worker:$(VERSION) docker.io/pachyderm/worker-amd64:$(VERSION) docker.io/pachyderm/worker-arm64:$(VERSION)
+	docker manifest create pachyderm/pachctl:$(VERSION) docker.io/pachyderm/pachctl-amd64:$(VERSION) docker.io/pachyderm/pachctl-arm64:$(VERSION)
 
 docker-push: docker-tag
-	$(SKIP) docker push pachyderm/pachd:$(VERSION)
-	$(SKIP) docker push pachyderm/worker:$(VERSION)
-	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker push pachyderm/pachd-amd64:$(VERSION)
+	$(SKIP) docker push pachyderm/worker-amd64:$(VERSION)
+	$(SKIP) docker push pachyderm/pachctl-amd64:$(VERSION)
+	$(SKIP) docker push pachyderm/pachd-arm64:$(VERSION)
+	$(SKIP) docker push pachyderm/worker-arm64:$(VERSION)
+	$(SKIP) docker push pachyderm/pachctl-arm64:$(VERSION)
+	$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
+	$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
+	$(SKIP) docker manifest push pachyderm/pachctl:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
