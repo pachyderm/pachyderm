@@ -58,11 +58,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/){target=_blank}
       storage:
         amazon:
           bucket: "bucket_name"      
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+          id: "AKIAIOSFODNN7EXAMPLE"                
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          region: "us-east-2"
       externalService:
         enabled: true
     ```
@@ -74,11 +74,11 @@ Install [AWS CLI](https://aws.amazon.com/cli/){target=_blank}
       storage:
         amazon:
           bucket: "bucket_name"                
-            # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-            id: "AKIAIOSFODNN7EXAMPLE"                
-            # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-            secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            region: "us-east-2"
+          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
+          id: "AKIAIOSFODNN7EXAMPLE"                
+          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          region: "us-east-2"
       # pachyderm enterprise key 
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:
@@ -152,37 +152,39 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
     pachd:
       storage:
         microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          # storage container name
+          container: "blah"
+          # storage account name
+          id: "AKIAIOSFODNN7EXAMPLE"
+          # storage account key
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       externalService:
         enabled: true
     ```
 === "Deploy Pachyderm with Console"
 
-   ```yaml    
+    ```yaml    
     deployTarget: "MICROSOFT"
     pachd:
       storage:
         microsoft:
-        # storage container name
-        container: "blah"
-        # storage account name
-        id: "AKIAIOSFODNN7EXAMPLE"
-        # storage account key
-        secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          # storage container name
+          container: "blah"
+          # storage account name
+          id: "AKIAIOSFODNN7EXAMPLE"
+          # storage account key
+          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       # pachyderm enterprise key
       enterpriseLicenseKey: "YOUR_ENTERPRISE_TOKEN"
     console:
       enabled: true
     ```
 
+
+
 Jump to [Helm install](#3-helm-install)
 
-## 3. [Helm Install](../helm_install/#install-the-pachyderm-helm-chart)
+## 3. [Helm Install](../helm_install/#install-pachyderms-helm-chart)
 - You will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell

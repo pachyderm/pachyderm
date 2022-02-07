@@ -7,14 +7,16 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
 )
@@ -33,16 +35,16 @@ type etcdService struct {
 func NewEtcdService(etcdClient *etcd.Client, etcdPrefix string) Service {
 	return &etcdService{
 		etcdClient: etcdClient,
-		etcdPrefix: etcdPrefix,
+		etcdPrefix: path.Join(etcdPrefix, version.PrettyVersion()),
 	}
 }
 
-func (es *etcdService) NewDoer(namespace, group string) Doer {
+func (es *etcdService) NewDoer(namespace, group string, cache Cache) Doer {
 	if group == "" {
 		group = uuid.NewWithoutDashes()
 	}
 	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return newEtcdDoer(namespaceEtcd, group)
+	return newEtcdDoer(namespaceEtcd, group, cache)
 }
 
 func (es *etcdService) NewSource(namespace string) Source {
@@ -50,17 +52,29 @@ func (es *etcdService) NewSource(namespace string) Source {
 	return newEtcdSource(namespaceEtcd)
 }
 
-func (es *etcdService) TaskCount(ctx context.Context, namespace string) (tasks int64, claims int64, _ error) {
-	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	nTasks, rev, err := namespaceEtcd.taskCol.ReadOnly(ctx).CountRev(0)
-	if err != nil {
-		return 0, 0, err
+func (es *etcdService) List(ctx context.Context, namespace, group string, cb func(string, string, *Task, bool) error) error {
+	if namespace == "" && group != "" {
+		return errors.New("must provide a task namespace to list a group")
 	}
-	nClaims, _, err := namespaceEtcd.claimCol.ReadOnly(ctx).CountRev(rev)
-	if err != nil {
-		return 0, 0, err
-	}
-	return nTasks, nClaims, nil
+	prefix := path.Join(namespace, group)
+	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, prefix)
+	var taskData Task
+	var claim Claim
+	return errors.EnsureStack(etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
+		var claimed bool
+		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(key, &claim) == nil {
+			claimed = true
+		}
+		// parse out namespace and group from key in case they weren't provided
+		fullKey := strings.TrimPrefix(path.Join(prefix, key), "/")
+
+		// namespace/group/doerID/taskID
+		keyParts := strings.Split(fullKey, "/")
+		if len(keyParts) != 4 {
+			return errors.Errorf("malformed task key %s", fullKey)
+		}
+		return cb(keyParts[0], keyParts[1], &taskData, claimed)
+	}))
 }
 
 type namespaceEtcd struct {
@@ -91,12 +105,14 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 type etcdDoer struct {
 	*namespaceEtcd
 	group string
+	cache Cache
 }
 
-func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string) Doer {
+func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, cache Cache) Doer {
 	return &etcdDoer{
 		namespaceEtcd: namespaceEtcd,
 		group:         group,
+		cache:         cache,
 	}
 }
 
@@ -112,7 +128,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 			eg.Wait()
 		}()
 		eg.Go(func() error {
-			return ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -128,6 +144,11 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if task.State == State_FAILURE {
 					err = errors.New(task.Reason)
 				}
+				if ed.cache != nil && err == nil {
+					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
+						fmt.Printf("errored putting task %v in cache: %v\n", key, err)
+					}
+				}
 				if err := cb(task.Index, task.Output, err); err != nil {
 					return err
 				}
@@ -141,13 +162,14 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				return nil
 			})
+			return errors.EnsureStack(err)
 		})
 		defer func() {
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
 				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
-				return ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix)
+				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
 			}); err != nil {
 				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
 			}
@@ -162,11 +184,21 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					if atomic.LoadInt64(&count) == 0 {
 						return nil
 					}
-					return eg.Wait()
+					return errors.EnsureStack(eg.Wait())
 				}
 				taskID, err := computeTaskID(input)
 				if err != nil {
 					return err
+				}
+				if ed.cache != nil {
+					output, err := ed.cache.Get(ctx, taskID)
+					if err == nil {
+						if err := cb(index, output, nil); err != nil {
+							return err
+						}
+						index++
+						continue
+					}
 				}
 				taskKey := path.Join(prefix, taskID)
 				task := &Task{
@@ -181,28 +213,31 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				atomic.AddInt64(&count, 1)
 			case <-ctx.Done():
-				return ctx.Err()
+				return errors.EnsureStack(ctx.Err())
 			}
 		}
 	})
 }
 
 func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, renewer *col.Renewer) error) error {
-	return ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+	err := ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 		if err := renewer.Put(ctx, path.Join(ed.group, uuid.NewWithoutDashes()), &Group{}); err != nil {
 			return err
 		}
-		return ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
+		err := ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
 			return cb(ctx, renewer)
 		})
+		return errors.EnsureStack(err)
 	})
+	return errors.EnsureStack(err)
 }
 
 func computeTaskID(input *types.Any) (string, error) {
 	val, err := proto.Marshal(input)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
+	val = append(val, []byte(version.PrettyVersion())...)
 	sum := pachhash.Sum(val)
 	return pachhash.EncodeHash(sum[:]), nil
 }
@@ -220,7 +255,7 @@ func newEtcdSource(namespaceEtcd *namespaceEtcd) Source {
 func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 	groups := make(map[string]map[string]struct{})
 	tq := newTaskQueue(ctx)
-	return es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+	err := es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
 		group, uuid := path.Split(string(e.Key))
 		group = strings.TrimRight(group, "/")
 		groupMap, ok := groups[group]
@@ -248,24 +283,25 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 				case taskFuncChan <- es.createTaskFunc(ctx, taskKey, cb):
 					return nil
 				case <-ctx.Done():
-					return ctx.Err()
+					return errors.EnsureStack(ctx.Err())
 				}
 			}); err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 				fmt.Printf("errored in group callback: %v\n", err)
 			}
 		})
 	})
+	return errors.EnsureStack(err)
 }
 
 func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(string) error) error {
 	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(group, watch.IgnorePut)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer claimWatch.Close()
 	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(group, watch.IgnoreDelete)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer taskWatch.Close()
 	for {
@@ -287,7 +323,7 @@ func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(str
 				return err
 			}
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		}
 	}
 }
@@ -297,14 +333,14 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 		if err := func() error {
 			task := &Task{}
 			if _, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-				return es.taskCol.ReadWrite(stm).Get(taskKey, task)
+				return errors.EnsureStack(es.taskCol.ReadWrite(stm).Get(taskKey, task))
 			}); err != nil {
 				return err
 			}
 			if task.State != State_RUNNING {
 				return nil
 			}
-			return es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
+			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
 				taskOutput, taskErr := cb(ctx, task.Input)
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
@@ -312,7 +348,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				}
 				task := &Task{}
 				_, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-					return es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
+					err := es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
 						if task.State != State_RUNNING {
 							return nil
 						}
@@ -324,9 +360,11 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 						}
 						return nil
 					})
+					return errors.EnsureStack(err)
 				})
 				return err
 			})
+			return errors.EnsureStack(err)
 		}(); err != nil {
 			// If the group context was canceled or the task was deleted / not claimed, then no error should be logged.
 			if errors.Is(ctx.Err(), context.Canceled) ||

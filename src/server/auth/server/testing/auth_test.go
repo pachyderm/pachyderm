@@ -2499,7 +2499,7 @@ func TestExtractAuthToken(t *testing.T) {
 				return nil
 			}
 		}
-		return fmt.Errorf("didn't find a token with hash %q", hash)
+		return errors.Errorf("didn't find a token with hash %q", hash)
 	}
 
 	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
@@ -2603,6 +2603,7 @@ func TestDebug(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				"sleep 15",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,

@@ -181,6 +181,19 @@ ingress:
       crt: ""
       key: ""
 
+# locki-stack contains values that will be passed to the loki-stack subchart
+loki-stack:
+  loki:
+    persistence:
+      enabled: true
+      accessModes:
+      - ReadWriteOnce
+      size: 5Gi
+      storageClassName: standard
+      annotations: {}
+  grafana:
+    enabled: false
+
 pachd:
   enabled: true
   affinity: {}
@@ -198,6 +211,7 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
   metrics:
@@ -404,6 +418,14 @@ pachd:
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
   ppsWorkerGRPCPort: 1080
+  # the number of seconds between pfs's garbage collection cycles. 
+  # if this value is set to 0, it will default to pachyderm's internal configuration.
+  # if this value is less than 0, it will turn off garbage collection.
+  storageGCPeriod: 0
+  # the number of seconds between chunk garbage colletion cycles.
+  # if this value is set to 0, it will default to pachyderm's internal configuration.
+  # if this value is less than 0, it will turn off chunk garbage collection.
+  storageChunkGCPeriod: 0
   # There are three options for TLS:
   # 1. Disabled
   # 2. Enabled, existingSecret, specify secret name

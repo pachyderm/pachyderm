@@ -163,9 +163,9 @@ func InitServiceEnv(config *Configuration) *NonblockingServiceEnv {
 		env.dbEg.Go(env.initDirectDBClient)
 	}
 	env.listener = env.newListener()
-	if env.config.LokiHost != "" && env.config.LokiPort != "" {
+	if lokiHost, lokiPort := os.Getenv(env.config.LokiHostVar), os.Getenv(env.config.LokiPortVar); lokiHost != "" && lokiPort != "" {
 		env.lokiClient = &loki.Client{
-			Address: fmt.Sprintf("http://%s", net.JoinHostPort(env.config.LokiHost, env.config.LokiPort)),
+			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
 		}
 	}
 	return env // env is not ready yet
@@ -198,7 +198,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 			// cluster id so we ignore the error.
 			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
 		} else if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		} else {
 			// We expect there to only be one value for this key
 			env.clusterId = string(resp.Kvs[0].Value)
@@ -501,7 +501,7 @@ func (env *NonblockingServiceEnv) Close() error {
 	eg.Go(env.GetEtcdClient().Close)
 	eg.Go(env.GetDBClient().Close)
 	eg.Go(env.GetPostgresListener().Close)
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 // AuthServer returns the registered Auth APIServer

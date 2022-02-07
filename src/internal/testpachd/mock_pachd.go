@@ -6,15 +6,20 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
+	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -440,9 +445,12 @@ type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty,
 type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
 type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error)
+type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
+type putCacheFunc func(context.Context, *pfs.PutCacheRequest) (*types.Empty, error)
+type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
-type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
+type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -478,9 +486,12 @@ type mockAddFileSet struct{ handler addFileSetFunc }
 type mockGetFileSet struct{ handler getFileSetFunc }
 type mockRenewFileSet struct{ handler renewFileSetFunc }
 type mockComposeFileSet struct{ handler composeFileSetFunc }
+type mockCheckStorage struct{ handler checkStorageFunc }
+type mockPutCache struct{ handler putCacheFunc }
+type mockGetCache struct{ handler getCacheFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
-type mockCheckStorage struct{ handler checkStorageFunc }
+type mockListTaskPFS struct{ handler listTaskPFSFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -516,9 +527,12 @@ func (mock *mockAddFileSet) Use(cb addFileSetFunc)                 { mock.handle
 func (mock *mockGetFileSet) Use(cb getFileSetFunc)                 { mock.handler = cb }
 func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)             { mock.handler = cb }
 func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handler = cb }
+func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
+func (mock *mockPutCache) Use(cb putCacheFunc)                     { mock.handler = cb }
+func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
-func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
+func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer
@@ -560,9 +574,12 @@ type mockPFSServer struct {
 	GetFileSet         mockGetFileSet
 	RenewFileSet       mockRenewFileSet
 	ComposeFileSet     mockComposeFileSet
+	CheckStorage       mockCheckStorage
+	PutCache           mockPutCache
+	GetCache           mockGetCache
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
-	CheckStorage       mockCheckStorage
+	ListTask           mockListTaskPFS
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -769,6 +786,24 @@ func (api *pfsServerAPI) ComposeFileSet(ctx context.Context, req *pfs.ComposeFil
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ComposeFileSet")
 }
+func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
+	if api.mock.CheckStorage.handler != nil {
+		return api.mock.CheckStorage.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock CheckStorage")
+}
+func (api *pfsServerAPI) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (*types.Empty, error) {
+	if api.mock.PutCache.handler != nil {
+		return api.mock.PutCache.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock PutCache")
+}
+func (api *pfsServerAPI) GetCache(ctx context.Context, req *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error) {
+	if api.mock.GetCache.handler != nil {
+		return api.mock.GetCache.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock GetCache")
+}
 func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTest.handler != nil {
 		return api.mock.RunLoadTest.handler(ctx, req)
@@ -781,11 +816,11 @@ func (api *pfsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.RunLoadTestDefault")
 }
-func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
-	if api.mock.CheckStorage.handler != nil {
-		return api.mock.CheckStorage.handler(ctx, req)
+func (api *pfsServerAPI) ListTask(req *task.ListTaskRequest, server pfs.API_ListTaskServer) error {
+	if api.mock.ListTask.handler != nil {
+		return api.mock.ListTask.handler(req, server)
 	}
-	return nil, errors.Errorf("unhandled pachd mock CheckStorage")
+	return errors.Errorf("unhandled pachd mock pfs.ListTask")
 }
 
 /* PPS Server Mocks */
@@ -818,6 +853,8 @@ type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 type runLoadTestPPSFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
+type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
+type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -847,6 +884,8 @@ type mockGetLogs struct{ handler getLogsFunc }
 type mockActivateAuthPPS struct{ handler activateAuthPPSFunc }
 type mockRunLoadTestPPS struct{ handler runLoadTestPPSFunc }
 type mockRunLoadTestDefaultPPS struct{ handler runLoadTestDefaultPPSFunc }
+type mockRenderTemplate struct{ handler renderTemplateFunc }
+type mockListTaskPPS struct{ handler listTaskPPSFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -876,6 +915,8 @@ func (mock *mockGetLogs) Use(cb getLogsFunc)                             { mock.
 func (mock *mockActivateAuthPPS) Use(cb activateAuthPPSFunc)             { mock.handler = cb }
 func (mock *mockRunLoadTestPPS) Use(cb runLoadTestPPSFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefaultPPS) Use(cb runLoadTestDefaultPPSFunc) { mock.handler = cb }
+func (mock *mockRenderTemplate) Use(cb renderTemplateFunc)               { mock.handler = cb }
+func (mock *mockListTaskPPS) Use(cb listTaskPPSFunc)                     { mock.handler = cb }
 
 type ppsServerAPI struct {
 	mock *mockPPSServer
@@ -911,6 +952,8 @@ type mockPPSServer struct {
 	ActivateAuth       mockActivateAuthPPS
 	RunLoadTest        mockRunLoadTestPPS
 	RunLoadTestDefault mockRunLoadTestDefaultPPS
+	RenderTemplate     mockRenderTemplate
+	ListTask           mockListTaskPPS
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1080,6 +1123,19 @@ func (api *ppsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 		return api.mock.RunLoadTestDefault.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunLoadTestDefault")
+}
+func (api *ppsServerAPI) ListTask(req *task.ListTaskRequest, server pps.API_ListTaskServer) error {
+	if api.mock.ListTask.handler != nil {
+		return api.mock.ListTask.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.ListTask")
+}
+
+func (api *ppsServerAPI) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
+	if api.mock.RenderTemplate.handler != nil {
+		return api.mock.RenderTemplate.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.RenderTemplate")
 }
 
 /* Transaction Server Mocks */
@@ -1253,7 +1309,17 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
 
-	server, err := grpcutil.NewServer(ctx, false)
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(logrus.StandardLogger())
+	server, err := grpcutil.NewServer(ctx, false,
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
 	if err != nil {
 		return nil, err
 	}

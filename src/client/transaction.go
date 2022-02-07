@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -10,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
@@ -413,14 +415,23 @@ func (c *pfsBuilderClient) RenewFileSet(ctx context.Context, req *pfs.RenewFileS
 func (c *pfsBuilderClient) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest, opts ...grpc.CallOption) (*pfs.CreateFileSetResponse, error) {
 	return nil, unsupportedError("ComposeFileSet")
 }
+func (c *pfsBuilderClient) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest, opts ...grpc.CallOption) (*pfs.CheckStorageResponse, error) {
+	return nil, unsupportedError("CheckStorage")
+}
+func (c *pfsBuilderClient) PutCache(ctx context.Context, req *pfs.PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("PutCache")
+}
+func (c *pfsBuilderClient) GetCache(ctx context.Context, req *pfs.GetCacheRequest, opts ...grpc.CallOption) (*pfs.GetCacheResponse, error) {
+	return nil, unsupportedError("GetCache")
+}
 func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTest")
 }
 func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
 }
-func (c *pfsBuilderClient) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest, opts ...grpc.CallOption) (*pfs.CheckStorageResponse, error) {
-	return nil, unsupportedError("CheckStorage")
+func (c *pfsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pfs.API_ListTaskClient, error) {
+	return nil, unsupportedError("ListTask")
 }
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
@@ -497,6 +508,12 @@ func (c *ppsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTest
 }
 func (c *ppsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
+}
+func (c *ppsBuilderClient) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest, opts ...grpc.CallOption) (*pps.RenderTemplateResponse, error) {
+	return nil, unsupportedError("RenderTemplate")
+}
+func (c *ppsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pps.API_ListTaskClient, error) {
+	return nil, unsupportedError("ListTask")
 }
 
 func (c *authBuilderClient) Activate(ctx context.Context, req *auth.ActivateRequest, opts ...grpc.CallOption) (*auth.ActivateResponse, error) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/stretchr/testify/require"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -506,6 +507,11 @@ func YesPanic(tb testing.TB, cb func(), msgAndArgs ...interface{}) {
 	}()
 
 	cb()
+}
+
+// Len asserts the the provided object x has length l ( len(x) == l )
+func Len(tb testing.TB, x interface{}, l int, msgAndArgs ...interface{}) {
+	require.Len(tb, x, l, msgAndArgs...)
 }
 
 func logMessage(tb testing.TB, msgAndArgs []interface{}) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 )
 
@@ -27,30 +28,31 @@ func NewFromObjectClient(objC obj.Client) Store {
 }
 
 func (s *objectAdapter) Put(ctx context.Context, key, value []byte) (retErr error) {
-	return s.objC.Put(ctx, string(key), bytes.NewReader(value))
+	return errors.EnsureStack(s.objC.Put(ctx, string(key), bytes.NewReader(value)))
 }
 
 func (s *objectAdapter) Get(ctx context.Context, key []byte, cb ValueCallback) (retErr error) {
 	return s.withBuffer(func(buf *bytes.Buffer) error {
 		if err := s.objC.Get(ctx, string(key), buf); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return cb(buf.Bytes())
 	})
 }
 
 func (s *objectAdapter) Delete(ctx context.Context, key []byte) error {
-	return s.objC.Delete(ctx, string(key))
+	return errors.EnsureStack(s.objC.Delete(ctx, string(key)))
 }
 
 func (s *objectAdapter) Exists(ctx context.Context, key []byte) (bool, error) {
-	return s.objC.Exists(ctx, string(key))
+	res, err := s.objC.Exists(ctx, string(key))
+	return res, errors.EnsureStack(err)
 }
 
 func (s *objectAdapter) Walk(ctx context.Context, prefix []byte, cb func(key []byte) error) error {
-	return s.objC.Walk(ctx, string(prefix), func(p string) error {
+	return errors.EnsureStack(s.objC.Walk(ctx, string(prefix), func(p string) error {
 		return cb([]byte(p))
-	})
+	}))
 }
 
 // withBuffer gets a buffer from the pool, calls cb with it, resets it, then returns it to the pool.

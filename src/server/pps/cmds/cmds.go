@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
@@ -91,7 +92,7 @@ If the job fails, the output commit will not be populated with data.`,
 				return errors.Wrap(err, "error from InspectJob")
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(jobInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -112,7 +113,7 @@ If the job fails, the output commit will not be populated with data.`,
 			e := cmdutil.Encoder(output, out)
 			for _, jobInfo := range jobInfos {
 				if err := e.EncodeProto(jobInfo); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 			return nil
@@ -242,7 +243,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
 						return clientsdk.ForEachJobSet(listJobSetClient, func(jobSetInfo *pps.JobSetInfo) error {
-							return e.EncodeProto(jobSetInfo)
+							return errors.EnsureStack(e.EncodeProto(jobSetInfo))
 						})
 					}
 
@@ -261,7 +262,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 					if raw {
 						e := cmdutil.Encoder(output, os.Stdout)
 						return client.ListJobFilterF(pipelineName, commits, historyCount, true, filter, func(ji *ppsclient.JobInfo) error {
-							return e.EncodeProto(ji)
+							return errors.EnsureStack(e.EncodeProto(ji))
 						})
 					}
 
@@ -455,7 +456,7 @@ each datum.`,
 			} else {
 				e := cmdutil.Encoder(output, os.Stdout)
 				printF = func(di *ppsclient.DatumInfo) error {
-					return e.EncodeProto(di)
+					return errors.EnsureStack(e.EncodeProto(di))
 				}
 			}
 			if pipelineInputPath != "" && len(args) == 1 {
@@ -509,7 +510,7 @@ each datum.`,
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(datumInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(datumInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -679,14 +680,18 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var registry string
 	var username string
 	var pipelinePath string
+	var jsonnetPath string
+	var jsonnetArgs []string
 	createPipeline := &cobra.Command{
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(false, pushImages, registry, username, pipelinePath, false)
+			return pipelineHelper(false, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, false)
 		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	createPipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	createPipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
@@ -697,10 +702,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, true)
+			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, true)
 		}),
 	}
-	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	updatePipeline.Flags().StringVar(&jsonnetPath, "jsonnet", "", "BETA: A Jsonnet template file (url or filepath) for one or more pipelines. \"-\" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)")
+	updatePipeline.Flags().StringSliceVar(&jsonnetArgs, "arg", nil, "Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arugments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once, or it may be passed a comma-separated list of 'param=value' pairs.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
@@ -744,7 +751,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			if raw {
-				return cmdutil.Encoder(output, os.Stdout).EncodeProto(pipelineInfo)
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(pipelineInfo))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -780,10 +787,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			createPipelineRequest := ppsutil.PipelineReqFromInfo(pipelineInfo)
 			f, err := ioutil.TempFile("", args[0])
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if err := cmdutil.Encoder(output, f).EncodeProto(createPipelineRequest); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
@@ -886,7 +893,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				e := cmdutil.Encoder(output, os.Stdout)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(pipelineInfo); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -894,7 +901,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				e := cmdutil.Encoder(output, os.Stdout)
 				for _, pipelineInfo := range pipelineInfos {
 					if err := e.EncodeProto(ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil
@@ -1007,7 +1014,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			defer client.Close()
 			fileBytes, err := ioutil.ReadFile(file)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 
 			_, err = client.PpsAPIClient.CreateSecret(
@@ -1124,17 +1131,17 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if len(args) == 0 {
 				resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
 			}
-			return filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
+			err = filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
 				}
@@ -1143,23 +1150,24 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				}
 				spec, err := ioutil.ReadFile(file)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
 					Spec: string(spec),
 					Seed: seed,
 				})
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
 			})
+			return errors.EnsureStack(err)
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
@@ -1181,12 +1189,12 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 		var err error
 		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	} else if url, err := url.Parse(pipelinePath); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := resp.Body.Close(); err != nil && retErr == nil {
@@ -1195,20 +1203,57 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 		}()
 		pipelineBytes, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	} else {
 		var err error
 		pipelineBytes, err = ioutil.ReadFile(pipelinePath)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	}
 	return pipelineBytes, nil
 }
 
-func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath string, update bool) error {
-	pipelineBytes, err := readPipelineBytes(pipelinePath)
+func evaluateJsonnetTemplate(client *client.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
+	templateBytes, err := readPipelineBytes(jsonnetPath)
+	if err != nil {
+		return nil, err
+	}
+	args, err := pachtmpl.ParseArgs(jsonnetArgs)
+	if err != nil {
+		return nil, err
+	}
+	res, err := client.RenderTemplate(client.Ctx(), &ppsclient.RenderTemplateRequest{
+		Template: string(templateBytes),
+		Args:     args,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return []byte(res.Json), nil
+}
+
+func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool) error {
+	// validate arguments
+	if pipelinePath != "" && jsonnetPath != "" {
+		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
+	}
+	if pipelinePath == "" && jsonnetPath == "" {
+		pipelinePath = "-" // default input
+	}
+	pc, err := pachdclient.NewOnUserMachine("user")
+	if err != nil {
+		return errors.Wrapf(err, "error connecting to pachd")
+	}
+	defer pc.Close()
+	// read/compute pipeline spec(s) (file, stdin, url, or via template)
+	var pipelineBytes []byte
+	if pipelinePath != "" {
+		pipelineBytes, err = readPipelineBytes(pipelinePath)
+	} else if jsonnetPath != "" {
+		pipelineBytes, err = evaluateJsonnetTemplate(pc, jsonnetPath, jsonnetArgs)
+	}
 	if err != nil {
 		return err
 	}
@@ -1216,13 +1261,6 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	if err != nil {
 		return err
 	}
-
-	pc, err := pachdclient.NewOnUserMachine("user")
-	if err != nil {
-		return errors.Wrapf(err, "error connecting to pachd")
-	}
-	defer pc.Close()
-
 	for {
 		request, err := pipelineReader.NextCreatePipelineRequest()
 		if errors.Is(err, io.EOF) {
@@ -1391,11 +1429,11 @@ func (arr ByCreationTime) Less(i, j int) bool {
 func validateJQConditionString(filter string) (string, error) {
 	q, err := gojq.Parse(filter)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	_, err = gojq.Compile(q)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return filter, nil
 }

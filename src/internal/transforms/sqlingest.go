@@ -48,7 +48,7 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 	if err := func() error {
 		ctx, cf := context.WithTimeout(ctx, 10*time.Second)
 		defer cf()
-		return db.PingContext(ctx)
+		return errors.EnsureStack(db.PingContext(ctx))
 	}(); err != nil {
 		return err
 	}
@@ -60,19 +60,19 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 	if err := bijectiveMap(params.InputDir, params.OutputDir, IdentityPM, func(r io.Reader, w io.Writer) error {
 		queryBytes, err := io.ReadAll(r)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		query := string(queryBytes)
 		log.Infof("Query: %q", query)
 		log.Info("Running query...")
 		rows, err := db.QueryContext(ctx, query)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		log.Infof("Query complete, begin reading rows...")
 		colNames, err := rows.Columns()
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		log.Infof("Column names: %v", colNames)
 		tw := writerFactory(w, colNames)
@@ -122,15 +122,15 @@ func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) er
 		return err
 	}
 	timestampComment := fmt.Sprintf("-- %d\n", timestamp)
-	contents := timestampComment + params.Query
+	contents := timestampComment + params.Query + "\n"
 	outputPath := filepath.Join(params.OutputDir, "0000")
-	return ioutil.WriteFile(outputPath, []byte(contents), 0755)
+	return errors.EnsureStack(ioutil.WriteFile(outputPath, []byte(contents), 0755))
 }
 
 func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
 	dirEnts, err := os.ReadDir(inputDir)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	for _, dirEnt := range dirEnts {
 		name := dirEnt.Name()

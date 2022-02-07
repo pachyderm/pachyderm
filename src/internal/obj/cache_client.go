@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -69,33 +70,34 @@ func (c *cacheClient) Get(ctx context.Context, p string, w io.Writer) error {
 	defer c.mu.Unlock()
 	if _, exists := c.cache.Get(p); exists {
 		cacheHitMetric.Inc()
-		return c.fast.Get(ctx, p, w)
+		return errors.EnsureStack(c.fast.Get(ctx, p, w))
 	}
 	cacheMissMetric.Inc()
 	if err := Copy(ctx, c.slow, c.fast, p, p); err != nil {
 		return err
 	}
 	c.cache.Add(p, struct{}{})
-	return c.fast.Get(ctx, p, w)
+	return errors.EnsureStack(c.fast.Get(ctx, p, w))
 }
 
 func (c *cacheClient) Put(ctx context.Context, p string, r io.Reader) error {
-	return c.slow.Put(ctx, p, r)
+	return errors.EnsureStack(c.slow.Put(ctx, p, r))
 }
 
 func (c *cacheClient) Delete(ctx context.Context, p string) error {
 	if err := c.slow.Delete(ctx, p); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return c.deleteFromCache(ctx, p)
 }
 
 func (c *cacheClient) Exists(ctx context.Context, p string) (bool, error) {
-	return c.slow.Exists(ctx, p)
+	res, err := c.slow.Exists(ctx, p)
+	return res, errors.EnsureStack(err)
 }
 
 func (c *cacheClient) Walk(ctx context.Context, p string, cb func(p string) error) error {
-	return c.slow.Walk(ctx, p, cb)
+	return errors.EnsureStack(c.slow.Walk(ctx, p, cb))
 }
 
 func (c *cacheClient) BucketURL() ObjectStoreURL {
@@ -124,10 +126,10 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 func (c *cacheClient) populate(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.fast.Walk(ctx, "", func(p string) error {
+	return errors.EnsureStack(c.fast.Walk(ctx, "", func(p string) error {
 		c.cache.Add(p, struct{}{})
 		return nil
-	})
+	}))
 }
 
 func (c *cacheClient) doPopulateOnce(ctx context.Context) {

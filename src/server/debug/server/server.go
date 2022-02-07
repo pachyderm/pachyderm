@@ -15,9 +15,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -27,10 +29,8 @@ import (
 	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	describe "k8s.io/kubectl/pkg/describe"
 )
-
-// TODO: Figure out how pipeline versions should come into play with this.
-// Right now we just collect the spec and jobs for the current pipeline version.
 
 const (
 	defaultDuration = time.Minute
@@ -106,7 +106,7 @@ func (s *debugServer) handleRedirect(
 					}
 					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(pachClient.Ctx(), f.Worker.Pod, metav1.GetOptions{})
 					if err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 					return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
 				}
@@ -150,10 +150,17 @@ func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
 		}),
 	})
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for _, pod := range pods.Items {
-		if err := s.collectLogs(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
+		prefix := join(pod.Labels["app"], pod.Name)
+		if err := s.collectDescribe(tw, pod.Name, prefix); err != nil {
+			return err
+		}
+		if err := s.collectLogs(tw, pod.Name, "", prefix); err != nil {
+			return err
+		}
+		if err := s.collectLogsLoki(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
 			return err
 		}
 	}
@@ -178,12 +185,12 @@ func (s *debugServer) handlePipelineRedirect(
 			return err
 		}
 	}
-	return s.forEachWorker(tw, pipelineInfo, func(pod *v1.Pod) error {
+	return s.forEachWorker(pipelineInfo, func(pod *v1.Pod) error {
 		return s.handleWorkerRedirect(tw, pod, collectWorker, redirect, prefix)
 	})
 }
 
-func (s *debugServer) forEachWorker(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
+func (s *debugServer) forEachWorker(pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
 	pods, err := s.getWorkerPods(pipelineInfo)
 	if err != nil {
 		return err
@@ -217,7 +224,7 @@ func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, e
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return podList.Items, nil
 }
@@ -292,14 +299,14 @@ func collectProfile(tw *tar.Writer, profile *debug.Profile, prefix ...string) er
 func writeProfile(w io.Writer, profile *debug.Profile) error {
 	if profile.Name == "cpu" {
 		if err := pprof.StartCPUProfile(w); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		duration := defaultDuration
 		if profile.Duration != nil {
 			var err error
 			duration, err = types.DurationFromProto(profile.Duration)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		time.Sleep(duration)
@@ -311,9 +318,9 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 		return errors.Errorf("unable to find profile %q", profile.Name)
 	}
 	if profile.Name == "goroutine" {
-		return p.WriteTo(w, 2)
+		return errors.EnsureStack(p.WriteTo(w, 2))
 	}
-	return p.WriteTo(w, 0)
+	return errors.EnsureStack(p.WriteTo(w, 0))
 }
 
 func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFunc {
@@ -323,7 +330,7 @@ func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFu
 			Filter:  filter,
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return grpcutil.NewStreamingBytesReader(profileC, nil), nil
 	}
@@ -347,7 +354,7 @@ func collectBinary(tw *tar.Writer, prefix ...string) error {
 	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
 		f, err := os.Open(os.Args[0])
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := f.Close(); retErr == nil {
@@ -355,7 +362,7 @@ func collectBinary(tw *tar.Writer, prefix ...string) error {
 			}
 		}()
 		_, err = io.Copy(w, f)
-		return err
+		return errors.EnsureStack(err)
 	}, prefix...)
 }
 
@@ -363,7 +370,7 @@ func redirectBinaryFunc(ctx context.Context) redirectFunc {
 	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
 		binaryC, err := c.Binary(ctx, &debug.BinaryRequest{Filter: filter})
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return grpcutil.NewStreamingBytesReader(binaryC, nil), nil
 	}
@@ -397,8 +404,16 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
 		}
+		// Collect the pachd describe output.
+		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
+			return err
+		}
 		// Collect the pachd container logs.
 		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd container logs from loki.
+		if err := s.collectLogsLoki(tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.
@@ -446,33 +461,43 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 		},
 	}
 	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
-		return pachClient.ListCommitF(repo, nil, nil, limit, false, func(ci *pfs.CommitInfo) error {
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
+		defer cancel()
+		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo:   repo,
+			Number: limit,
+			All:    true,
+		})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
 			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				compacting.XValues = append(compacting.XValues, float64(len(compacting.XValues)+1))
 				compacting.YValues = append(compacting.YValues, float64(compactingDuration))
 				validatingDuration, err := types.DurationFromProto(ci.Details.ValidatingTime)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				validating.XValues = append(validating.XValues, float64(len(validating.XValues)+1))
 				validating.YValues = append(validating.YValues, float64(validatingDuration))
 				finishingTime, err := types.TimestampFromProto(ci.Finishing)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				finishedTime, err := types.TimestampFromProto(ci.Finished)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				finishingDuration := finishedTime.Sub(finishingTime)
 				finishing.XValues = append(finishing.XValues, float64(len(finishing.XValues)+1))
 				finishing.YValues = append(finishing.YValues, float64(finishingDuration))
 			}
-			return s.marshaller.Marshal(w, ci)
+			return errors.EnsureStack(s.marshaller.Marshal(w, ci))
 		})
 	}, prefix...); err != nil {
 		return err
@@ -529,18 +554,32 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 		graph.Elements = []chart.Renderable{
 			chart.Legend(&graph),
 		}
-		return graph.Render(chart.PNG, w)
+		return errors.EnsureStack(graph.Render(chart.PNG, w))
 	}, prefix...)
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
-	return collectDebugFile(tw, "version", "", func(w io.Writer) error {
+	return collectDebugFile(tw, "version", "txt", func(w io.Writer) error {
 		version, err := pachClient.Version()
 		if err != nil {
 			return err
 		}
 		_, err = io.Copy(w, strings.NewReader(version+"\n"))
-		return err
+		return errors.EnsureStack(err)
+	}, prefix...)
+}
+
+func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...string) error {
+	return collectDebugFile(tw, "describe", "txt", func(w io.Writer) error {
+		pd := describe.PodDescriber{
+			Interface: s.env.GetKubeClient(),
+		}
+		output, err := pd.Describe(s.env.Config().Namespace, pod, describe.DescriberSettings{ShowEvents: true})
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		_, err = w.Write([]byte(output))
+		return errors.EnsureStack(err)
 	}, prefix...)
 }
 
@@ -548,7 +587,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(s.env.Context())
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := stream.Close(); retErr == nil {
@@ -556,14 +595,14 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 			}
 		}()
 		_, err = io.Copy(w, stream)
-		return err
+		return errors.EnsureStack(err)
 	}, prefix...); err != nil {
 		return err
 	}
 	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
 		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(s.env.Context())
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		defer func() {
 			if err := stream.Close(); retErr == nil {
@@ -571,7 +610,24 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 			}
 		}()
 		_, err = io.Copy(w, stream)
-		return err
+		return errors.EnsureStack(err)
+	}, prefix...)
+}
+
+func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, prefix ...string) error {
+	if os.Getenv(s.env.Config().LokiHostVar) == "" {
+		return nil
+	}
+	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
+		queryStr := `{pod="` + pod
+		if container != "" {
+			queryStr += `", container="` + container
+		}
+		queryStr += `"}`
+		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
+			_, err := w.Write([]byte(line))
+			return errors.EnsureStack(err)
+		})
 	}, prefix...)
 }
 
@@ -591,7 +647,7 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 			}
 			for _, fullPipelineInfo := range fullPipelineInfos {
 				if err := s.marshaller.Marshal(w, fullPipelineInfo); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 			return nil
@@ -601,7 +657,98 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		if err := s.collectCommits(tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
-		return s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...)
+		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
+			return err
+		}
+		if os.Getenv(s.env.Config().LokiHostVar) != "" {
+			if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
+				workerPrefix := join(podPrefix, pod)
+				if len(prefix) > 0 {
+					workerPrefix = join(prefix[0], workerPrefix)
+				}
+				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
+				if err := s.collectLogsLoki(tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+					return err
+				}
+				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
+				return s.collectLogsLoki(tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+			}); err != nil {
+				name := "loki"
+				if len(prefix) > 0 {
+					name = join(prefix[0], name)
+				}
+				return writeErrorFile(tw, err, name)
+			}
+		}
+		return nil
+	}
+}
+
+func (s *debugServer) forEachWorkerLoki(pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
+	pods, err := s.getWorkerPodsLoki(pipelineInfo)
+	if err != nil {
+		return err
+	}
+	for pod := range pods {
+		if err := cb(pod); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	pods := make(map[string]struct{})
+	if err := s.queryLoki(queryStr, func(labels loki.LabelSet, _ string) error {
+		pod, ok := labels["pod"]
+		if !ok {
+			return errors.Errorf("pod label missing from loki label set")
+		}
+		pods[pod] = struct{}{}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return pods, nil
+}
+
+// TODO: Need to bump up this default on the server side, it is too low as is.
+const maxLogs = 5000
+
+func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) error) error {
+	c, err := s.env.GetLokiClient()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	start := time.Now().Add(-(30 * 24 * time.Hour))
+	end := time.Now()
+	for {
+		// TODO: Need a real context.
+		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, end, "FORWARD", 0, 0, true)
+		if err != nil {
+			return err
+		}
+		streams, ok := resp.Data.Result.(loki.Streams)
+		if !ok {
+			return errors.Errorf("resp.Data.Result must be of type loki.Streams")
+		}
+		var numLogs int
+		for _, stream := range streams {
+			for _, entry := range stream.Entries {
+				numLogs++
+				if entry.Timestamp.After(start) {
+					start = entry.Timestamp
+				}
+				if err := cb(stream.Labels, entry.Line); err != nil {
+					return err
+				}
+			}
+		}
+		if numLogs < maxLogs {
+			return nil
+		}
+		start = start.Add(time.Nanosecond)
 	}
 }
 
@@ -638,15 +785,15 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 			if ji.Stats.DownloadTime != nil && ji.Stats.ProcessTime != nil && ji.Stats.UploadTime != nil {
 				downloadDuration, err := types.DurationFromProto(ji.Stats.DownloadTime)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				processDuration, err := types.DurationFromProto(ji.Stats.ProcessTime)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				uploadDuration, err := types.DurationFromProto(ji.Stats.UploadTime)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				download.XValues = append(download.XValues, float64(len(download.XValues)+1))
 				download.YValues = append(download.YValues, float64(downloadDuration))
@@ -655,7 +802,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 				upload.XValues = append(upload.XValues, float64(len(upload.XValues)+1))
 				upload.YValues = append(upload.YValues, float64(uploadDuration))
 			}
-			return s.marshaller.Marshal(w, ji)
+			return errors.EnsureStack(s.marshaller.Marshal(w, ji))
 		})
 	}, prefix...); err != nil {
 		return err
@@ -667,6 +814,10 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
+	// Collect the worker describe output.
+	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+		return err
+	}
 	// Collect the worker user and storage container logs.
 	userPrefix := client.PPSWorkerUserContainerName
 	sidecarPrefix := client.PPSWorkerSidecarContainerName
@@ -684,7 +835,7 @@ func redirectDumpFunc(ctx context.Context) redirectFunc {
 	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
 		dumpC, err := c.Dump(ctx, &debug.DumpRequest{Filter: filter})
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
 	}

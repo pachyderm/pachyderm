@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package client
 
 import (
@@ -47,6 +48,10 @@ func (ppl *proxyPostgresListener) setup() error {
 	return err
 }
 
+// TODO: for now, calls to Register() will block on the Listener being established
+// on the main pachd instance. This could become a bottleneck if many Watchers are
+// instantiated at once. Consider finer grained locking at the channel level using
+// a mechanism such as the "WorkDeduper" (src/internal/miscutil/work_deduper.go).
 func (ppl *proxyPostgresListener) Register(notifier col.Notifier) error {
 	ppl.mu.Lock()
 	defer ppl.mu.Unlock()
@@ -65,14 +70,28 @@ func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 	channel := notifier.Channel()
 	ctx, cancel := context.WithCancel(context.Background())
 	ppl.channelInfos[channel] = newChannelInfo(cancel, notifier)
+
+	var listenClient proxy.API_ListenClient
+	if err := func() error {
+		var err error
+		listenClient, err = ppl.client.Listen(ctx, &proxy.ListenRequest{
+			Channel: channel,
+		})
+		if err != nil {
+			return err
+		}
+		// wait for the first init event to be returned by the server
+		_, err = listenClient.Recv()
+		return err
+	}(); err != nil {
+		notifier.Error(err)
+		cancel()
+		delete(ppl.channelInfos, channel)
+		return
+	}
+
 	go func() {
 		if err := func() error {
-			listenClient, err := ppl.client.Listen(ctx, &proxy.ListenRequest{
-				Channel: channel,
-			})
-			if err != nil {
-				return err
-			}
 			for {
 				resp, err := listenClient.Recv()
 				if err != nil {

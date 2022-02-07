@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
@@ -26,7 +27,7 @@ import (
 type fileState int32
 
 const (
-	none  fileState = iota // we don't know about this file
+	_     fileState = iota // we don't know about this file (was "none" but linter complained)
 	meta                   // we have meta information (but not content for this file)
 	full                   // we have full content for this file
 	dirty                  // we have full content for this file and the user has written to it
@@ -44,10 +45,10 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
-	repoOpts map[string]*RepoOptions
-	branches map[string]string
-	commits  map[string]string
-	files    map[string]fileState
+	repoOpts map[string]*RepoOptions // key is mount name
+	branches map[string]string       // key is mount name
+	commits  map[string]string       // key is mount name
+	files    map[string]fileState    // key is {mount_name}/{path}
 	mu       sync.Mutex
 }
 
@@ -233,10 +234,13 @@ func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.Ino
 }
 
 func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
+	// https://github.com/hanwen/go-fuse/blob/master/fs/loopback.go#L57
+	swapped := (uint64(st.Dev) << 32) | (uint64(st.Dev) >> 32)
+	swappedRootDev := (r.rootDev << 32) | (r.rootDev >> 32)
 	return fs.StableAttr{
 		Mode: uint32(st.Mode),
 		Gen:  1,
-		Ino:  0, // let fuse generate this automatically
+		Ino:  (swapped ^ swappedRootDev) ^ st.Ino,
 	}
 }
 
@@ -519,25 +523,16 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 	return n, nil
 }
 
-func (n *loopbackNode) downloadRepos() (retErr error) {
-	if n.getFileState("") != none {
-		return nil
-	}
+func (n *loopbackNode) mkdirMountNames() (retErr error) {
 	defer func() {
 		if retErr == nil {
 			n.setFileState("", meta)
 		}
 	}()
-	ris, err := n.c().ListRepo()
-	if err != nil {
-		return err
-	}
-	ro := n.root().repoOpts
-	for _, ri := range ris {
-		if len(ro) > 0 && ro[ri.Repo.Name] == nil {
-			continue
-		}
-		p := n.repoPath(ri)
+	ros := n.root().repoOpts
+	// we only mount explicitly named repos now
+	for name := range ros {
+		p := n.namePath(name)
 		if err := os.MkdirAll(p, 0777); err != nil {
 			return errors.WithStack(err)
 		}
@@ -553,7 +548,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		// Already got this file, so we can just return
 		return nil
 	}
-	if err := n.downloadRepos(); err != nil {
+	if err := n.mkdirMountNames(); err != nil {
 		return err
 	}
 	path = n.trimPath(path)
@@ -566,21 +561,27 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	// Note, len(parts) < 1 should not actually be possible, but just in case
 	// no need to panic.
 	if len(parts) < 1 || parts[0] == "" {
-		return nil //already downloaded in downloadRepos
+		return nil // already downloaded in downloadRepos
 	}
-	branch := n.root().branch(parts[0])
-	commit, err := n.commit(parts[0])
+	name := parts[0]
+	branch := n.root().branch(name)
+	commit, err := n.commit(name)
 	if err != nil {
 		return err
 	}
 	if commit == "" {
 		return nil
 	}
-	if err := n.c().ListFile(client.NewCommit(parts[0], branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+	ro, ok := n.root().repoOpts[name]
+	if !ok {
+		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
+	}
+	repoName := ro.Repo
+	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(n.filePath(fi), 0777)
+			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
-		p := n.filePath(fi)
+		p := n.filePath(name, fi)
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially
@@ -598,7 +599,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			}
 		}()
 		if state < full {
-			return f.Truncate(int64(fi.SizeBytes))
+			return errors.EnsureStack(f.Truncate(int64(fi.SizeBytes)))
 		}
 		if err := n.c().GetFile(fi.File.Commit, fi.File.Path, f); err != nil {
 			return err
@@ -621,25 +622,33 @@ func (n *loopbackNode) trimTargetPath(path string) string {
 	return strings.TrimPrefix(path, "/")
 }
 
-func (n *loopbackNode) branch(repo string) string {
+func (n *loopbackNode) branch(name string) string {
 	// no need to lock mu for branches since we only ever read from it.
-	if branch, ok := n.root().branches[repo]; ok {
+	if branch, ok := n.root().branches[name]; ok {
 		return branch
 	}
 	return "master"
 }
 
-func (n *loopbackNode) commit(repo string) (string, error) {
+func (n *loopbackNode) commit(name string) (string, error) {
 	if commit, ok := func() (string, bool) {
 		n.root().mu.Lock()
 		defer n.root().mu.Unlock()
-		commit, ok := n.root().commits[repo]
+		commit, ok := n.root().commits[name]
 		return commit, ok
 	}(); ok {
 		return commit, nil
 	}
-	branch := n.root().branch(repo)
-	bi, err := n.root().c.InspectBranch(repo, branch)
+	ro, ok := n.root().repoOpts[name]
+	if !ok {
+		// often happens that something tries to access e.g.
+		// /pfs/.python_version or some file that can't exist at that level. not
+		// worth spamming the logs with this
+		return "", nil
+	}
+	repoName := ro.Repo
+	branch := n.root().branch(name)
+	bi, err := n.root().c.InspectBranch(repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}
@@ -649,19 +658,19 @@ func (n *loopbackNode) commit(repo string) (string, error) {
 	// You can access branches that don't exist, which allows you to create
 	// branches through the fuse mount.
 	if errutil.IsNotFoundError(err) {
-		n.root().commits[repo] = ""
+		n.root().commits[name] = ""
 		return "", nil
 	}
-	n.root().commits[repo] = bi.Head.ID
+	n.root().commits[name] = bi.Head.ID
 	return bi.Head.ID, nil
 }
 
-func (n *loopbackNode) repoPath(ri *pfs.RepoInfo) string {
-	return filepath.Join(n.root().rootPath, ri.Repo.Name)
+func (n *loopbackNode) namePath(name string) string {
+	return filepath.Join(n.root().rootPath, name)
 }
 
-func (n *loopbackNode) filePath(fi *pfs.FileInfo) string {
-	return filepath.Join(n.root().rootPath, fi.File.Commit.Branch.Repo.Name, fi.File.Path)
+func (n *loopbackNode) filePath(name string, fi *pfs.FileInfo) string {
+	return filepath.Join(n.root().rootPath, name, fi.File.Path)
 }
 
 func (n *loopbackNode) getFileState(path string) fileState {
@@ -677,10 +686,10 @@ func (n *loopbackNode) setFileState(path string, state fileState) {
 }
 
 func (n *loopbackNode) checkWrite(path string) syscall.Errno {
-	repo := strings.Split(n.trimPath(path), "/")[0]
+	name := strings.Split(n.trimPath(path), "/")[0]
 	ros := n.root().repoOpts
 	if len(ros) > 0 {
-		ro, ok := ros[repo]
+		ro, ok := ros[name]
 		if !ok || !ro.Write {
 			return syscall.EROFS
 		}

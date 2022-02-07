@@ -6,7 +6,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -70,11 +69,23 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 	}
 }
 
-// NewAPIServer creates an APIServer.
+// NewAPIServer creates an APIServer and runs the master loop in the background
 func NewAPIServer(env Env) (ppsiface.APIServer, error) {
+	srv, err := NewAPIServerNoMaster(env)
+	if err != nil {
+		return nil, err
+	}
+	apiServer := (srv).(*apiServer)
+	apiServer.validateKube(apiServer.env.BackgroundContext)
+	go apiServer.master()
+	return apiServer, nil
+}
+
+// NewAPIServerNoMaster creates an APIServer without running the master
+// loop in the background.
+func NewAPIServerNoMaster(env Env) (ppsiface.APIServer, error) {
 	config := env.Config
 	apiServer := &apiServer{
-		Logger:                log.NewLogger("pps.API", env.Logger),
 		env:                   env,
 		txnEnv:                env.TxnEnv,
 		etcdPrefix:            env.EtcdPrefix,
@@ -95,8 +106,6 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		peerPort:              config.PeerPort,
 		gcPercent:             config.GCPercent,
 	}
-	apiServer.validateKube(apiServer.env.BackgroundContext)
-	go apiServer.master()
 	return apiServer, nil
 }
 
@@ -110,7 +119,6 @@ func NewSidecarAPIServer(
 	peerPort uint16,
 ) (*apiServer, error) {
 	apiServer := &apiServer{
-		Logger:         log.NewLogger("pps.API", env.Logger),
 		env:            env,
 		txnEnv:         env.TxnEnv,
 		etcdPrefix:     env.EtcdPrefix,

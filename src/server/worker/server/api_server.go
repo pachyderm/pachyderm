@@ -4,6 +4,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 )
@@ -35,7 +36,7 @@ func NewAPIServer(driver driver.Driver, workerInterface WorkerInterface, workerN
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	status, err := a.workerInterface.GetStatus()
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	status.WorkerID = a.workerName
 	return status, nil

@@ -2492,13 +2492,13 @@ func TestUpdatePipeline(t *testing.T) {
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
 			case ppsutil.PipelineRcName(pipelineName, 1):
-				return fmt.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
+				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
 			case ppsutil.PipelineRcName(pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return fmt.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers("default").List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
@@ -2506,14 +2506,14 @@ func TestUpdatePipeline(t *testing.T) {
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
 			case ppsutil.PipelineRcName(pipelineName, 1):
-				return fmt.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
+				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
 			case ppsutil.PipelineRcName(pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return fmt.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
 		}
 		return nil
 	})
@@ -2566,13 +2566,13 @@ func TestUpdatePipeline(t *testing.T) {
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
 			case ppsutil.PipelineRcName(pipelineName, 1):
-				return fmt.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
+				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
 			case ppsutil.PipelineRcName(pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return fmt.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers("default").List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
@@ -2580,14 +2580,14 @@ func TestUpdatePipeline(t *testing.T) {
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
 			case ppsutil.PipelineRcName(pipelineName, 1):
-				return fmt.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
+				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
 			case ppsutil.PipelineRcName(pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return fmt.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
 		}
 		return nil
 	})
@@ -2894,7 +2894,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 		state := jobInfos[1].State
 		if state != pps.JobState_JOB_RUNNING {
-			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[1].Job.ID)
+			return errors.Errorf("wrong state: %v for %s", state, jobInfos[1].Job.ID)
 		}
 
 		state = jobInfos[0].State
@@ -3235,7 +3235,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
-			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+			return errors.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
 		}
 		return nil
 	})
@@ -3253,7 +3253,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
-			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+			return errors.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
 		}
 		return nil
 	})
@@ -3264,7 +3264,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
-			return fmt.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
+			return errors.Errorf("expected %q to be in PAUSED, but was in %s", pipeline,
 				pi.State)
 		}
 		return nil
@@ -3294,7 +3294,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 		pi, err := c.InspectPipeline(pipeline, false)
 		require.NoError(t, err)
 		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
-			return fmt.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
+			return errors.Errorf("expected %q to be in STANDBY, but was in %s", pipeline, pi.State)
 		}
 		return nil
 	})
@@ -3991,7 +3991,7 @@ func TestGetLogs(t *testing.T) {
 			require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 		}
 		if numLogs < 2 {
-			return fmt.Errorf("didn't get enough log lines")
+			return errors.Errorf("didn't get enough log lines")
 		}
 		if err := iter.Err(); err != nil {
 			return err
@@ -4176,7 +4176,7 @@ func TestManyLogs(t *testing.T) {
 			return iter.Err()
 		}
 		if numLogs != logsReceived {
-			return fmt.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
+			return errors.Errorf("received: %d log lines, expected: %d", logsReceived, numLogs)
 		}
 		return nil
 	})
@@ -4416,7 +4416,7 @@ func TestSystemResourceRequests(t *testing.T) {
 					)),
 				})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if len(podList.Items) < 1 {
 				return errors.Errorf("could not find pod for %s", app) // retry
@@ -4493,7 +4493,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 				)),
 			})
 		if err != nil {
-			return err // retry
+			return errors.EnsureStack(err) // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 			return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
@@ -4565,7 +4565,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 				)),
 			})
 		if err != nil {
-			return err // retry
+			return errors.EnsureStack(err) // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 			return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
@@ -4631,7 +4631,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 				)),
 			})
 		if err != nil {
-			return err // retry
+			return errors.EnsureStack(err) // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 			return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
@@ -4763,7 +4763,7 @@ func TestPipelineCrashing(t *testing.T) {
 			}
 		}
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(), &req)
-		return err
+		return errors.EnsureStack(err)
 	}
 	require.NoError(t, create(true))
 
@@ -4886,7 +4886,7 @@ func TestPodOpts(t *testing.T) {
 					)),
 				})
 			if err != nil {
-				return err // retry
+				return errors.EnsureStack(err) // retry
 			}
 			if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 				return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
@@ -4948,7 +4948,7 @@ func TestPodOpts(t *testing.T) {
 					)),
 				})
 			if err != nil {
-				return err // retry
+				return errors.EnsureStack(err) // retry
 			}
 			if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 				return errors.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
@@ -6531,6 +6531,121 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	}
 }
 
+func TestPipelineEnvVarJoinOn(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	repo1 := tu.UniqueString("TestPipelineEnvVarJoinOn_repo1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := tu.UniqueString("TestPipelineEnvVarJoinOn_repo2")
+	require.NoError(t, c.CreateRepo(repo2))
+
+	input := client.NewJoinInput(
+		client.NewPFSInput(repo1, "/(*)"),
+		client.NewPFSInput(repo2, "/(*)"),
+	)
+	input.Join[0].Pfs.Name = "repo1"
+	input.Join[1].Pfs.Name = "repo2"
+	input.Join[0].Pfs.JoinOn = "$1"
+	input.Join[1].Pfs.JoinOn = "$1"
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), "a", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), "a", strings.NewReader("bar")))
+
+	// create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/repo1-$PACH_DATUM_repo1_JOIN_ON",
+					"touch /pfs/out/repo2-$PACH_DATUM_repo2_JOIN_ON",
+				},
+			},
+			Input:  input,
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for job and get its datums
+	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+
+	// check the value of JOIN_ON env variable
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "repo1-a", &bytes.Buffer{}))
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "repo2-a", &bytes.Buffer{}))
+}
+
+func TestPipelineEnvVarGroupBy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create repos
+	repo := tu.UniqueString("TestPipelineEnvVarGroupBy_repo")
+	require.NoError(t, c.CreateRepo(repo))
+
+	input := client.NewGroupInput(
+		client.NewPFSInput(repo, "/(*)-*"),
+	)
+	input.Group[0].Pfs.Name = "repo"
+	input.Group[0].Pfs.GroupBy = "$1"
+
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "a-1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "a-2", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "b-1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "b-2", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(repo, commit.Branch.Name, commit.ID))
+
+	// create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/$PACH_DATUM_repo_GROUP_BY",
+				},
+			},
+			Input:  input,
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for job to finish
+	jobs, err := c.ListJob(pipeline, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.WaitJob(pipeline, jobs[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+
+	// check the value of the GROUP_BY env var
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "a", &bytes.Buffer{}))
+	require.NoError(t, c.GetFile(jobInfo.OutputCommit, "b", &bytes.Buffer{}))
+}
+
 func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -6622,14 +6737,14 @@ func TestService(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.StatusCode != 200 {
 			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
 		content, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if string(content) != "foo" {
 			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
@@ -6709,7 +6824,7 @@ func TestServiceEnvVars(t *testing.T) {
 				address = net.JoinHostPort(host, port)
 				return nil
 			}
-			return fmt.Errorf("no matching k8s service found")
+			return errors.Errorf("no matching k8s service found")
 		}, backoff.NewTestingBackOff())
 
 		require.NotEqual(t, "", address)
@@ -6725,14 +6840,14 @@ func TestServiceEnvVars(t *testing.T) {
 		if err != nil {
 			// sleep => don't spam retries. Seems to make test less flaky
 			time.Sleep(time.Second)
-			return err
+			return errors.EnsureStack(err)
 		}
 		if resp.StatusCode != 200 {
-			return fmt.Errorf("GET returned %d", resp.StatusCode)
+			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
 		envValue, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	})
@@ -8560,7 +8675,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 				)),
 			})
 		if err != nil {
-			return err // retry
+			return errors.EnsureStack(err) // retry
 		}
 		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Volumes) == 0 {
 			return errors.Errorf("could not find volumes for pipeline %s", pipelineInfo.Pipeline.Name)
@@ -9161,6 +9276,7 @@ func TestDebug(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				"sleep 15",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -9566,7 +9682,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 				Input:  input,
 				Update: update,
 			})
-		return err
+		return errors.EnsureStack(err)
 	}
 	require.NoError(t, create(false, dataRepo))
 
@@ -9800,6 +9916,61 @@ func TestStandbyTransitions(t *testing.T) {
 	flushEventsAndCheckRC(initialRC.ResourceVersion)
 }
 
+func TestDatumSetCache(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	c = c.WithDefaultTransformUser("1000")
+	require.NoError(t, c.DeleteAll())
+	dataRepo := tu.UniqueString("TestDatumSetCache_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	masterCommit := client.NewCommit(dataRepo, "master", "")
+	require.NoError(t, c.WithModifyFileClient(masterCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < 90; i++ {
+			require.NoError(t, mfc.PutFile(strconv.Itoa(i), strings.NewReader("")))
+		}
+		return nil
+	}))
+	pipeline := tu.UniqueString("TestDatumSetCache")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"sleep 1",
+				},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			DatumSetSpec: &pps.DatumSetSpec{Number: 1},
+		})
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				tu.DeletePod(t, "etcd")
+			}
+		}
+	}()
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	for i := 0; i < 5; i++ {
+		_, err := c.InspectFile(commitInfo.Commit, strconv.Itoa(i))
+		require.NoError(t, err)
+	}
+}
+
 func monitorReplicas(t testing.TB, pipeline string, n int) {
 	c := tu.GetPachClient(t)
 	kc := tu.GetKubeClient(t)
@@ -9810,7 +9981,7 @@ func monitorReplicas(t testing.TB, pipeline string, n int) {
 		for {
 			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(context.Background(), rcName, metav1.GetOptions{})
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if int(scale.Spec.Replicas) >= n {
 				enoughReplicas = true

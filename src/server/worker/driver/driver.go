@@ -41,7 +41,7 @@ import (
 // TaskNamespace returns the namespace used by the task package for this
 // pipeline.
 func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
-	return fmt.Sprintf("/pipeline-%s/v%d", pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	return fmt.Sprintf("/pipeline-%s", ppsdb.VersionKey(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 }
 
 // Driver provides an interface for common functions needed by worker code, and
@@ -54,7 +54,7 @@ type Driver interface {
 	Pipelines() col.PostgresCollection
 
 	NewTaskSource() task.Source
-	NewTaskDoer(string) task.Doer
+	NewTaskDoer(string, task.Cache) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -271,10 +271,10 @@ func (d *driver) NewTaskSource() task.Source {
 	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskDoer(groupID string) task.Doer {
+func (d *driver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID)
+	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, cache)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
@@ -457,7 +457,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
 		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
@@ -467,7 +467,7 @@ func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string)
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
 func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
-	return d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job))
+	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
@@ -496,6 +496,12 @@ func (d *driver) UserCodeEnv(
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+		if input.JoinOn != "" {
+			result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
+		}
+		if input.GroupBy != "" {
+			result = append(result, fmt.Sprintf("PACH_DATUM_%s_GROUP_BY=%s", input.Name, input.GroupBy))
+		}
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
 

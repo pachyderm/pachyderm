@@ -4,6 +4,7 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 type OperationsSpec struct {
@@ -44,14 +45,15 @@ func PutFile(env *Env, repo, branch, commit string, spec *PutFileSpec) error {
 	if err != nil {
 		return err
 	}
-	return c.WithModifyFileClient(c.Ctx(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
+	err = c.WithModifyFileClient(c.Ctx(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for _, file := range files {
 			if err := mf.PutFile(file.Path(), file); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 type DeleteFileSpec struct {
@@ -64,18 +66,19 @@ func DeleteFile(env *Env, repo, branch, commit string, spec *DeleteFileSpec) err
 		return err
 	}
 	c := env.Client()
-	return c.WithModifyFileClient(c.Ctx(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
+	err := c.WithModifyFileClient(c.Ctx(), client.NewCommit(repo, branch, commit), func(mf client.ModifyFile) error {
 		for i := 0; i < spec.Count; i++ {
 			p, err := nextDeletePath(env, spec)
 			if err != nil {
 				return err
 			}
 			if err := mf.DeleteFile(p); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		return nil
 	})
+	return errors.EnsureStack(err)
 }
 
 func nextDeletePath(env *Env, spec *DeleteFileSpec) (string, error) {

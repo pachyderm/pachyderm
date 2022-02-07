@@ -279,12 +279,12 @@ func HashToken(token string) string {
 func GetAuthToken(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return "", ErrNoMetadata
+		return "", errors.EnsureStack(ErrNoMetadata)
 	}
 	if len(md[ContextTokenKey]) > 1 {
 		return "", errors.Errorf("multiple authentication token keys found in context")
 	} else if len(md[ContextTokenKey]) == 0 {
-		return "", ErrNotSignedIn
+		return "", errors.EnsureStack(ErrNotSignedIn)
 	}
 	return md[ContextTokenKey][0], nil
 }

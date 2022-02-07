@@ -84,7 +84,7 @@ func (pq *PriorityQueue) insert(s *stream) error {
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	pq.queue[pq.size+1] = s
 	pq.size++

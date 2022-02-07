@@ -4,23 +4,25 @@ import (
 	"context"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/sirupsen/logrus"
 )
 
 // GarbageCollector removes unused chunks from object storage
 type GarbageCollector struct {
-	s   *Storage
-	log *logrus.Logger
+	s      *Storage
+	log    *logrus.Logger
+	period time.Duration
 }
 
 // NewGC returns a new garbage collector operating on s
-func NewGC(s *Storage) *GarbageCollector {
-	return &GarbageCollector{s: s, log: logrus.StandardLogger()}
+func NewGC(s *Storage, d time.Duration, log *logrus.Logger) *GarbageCollector {
+	return &GarbageCollector{s: s, log: log, period: d}
 }
 
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
 func (gc *GarbageCollector) RunForever(ctx context.Context) error {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(gc.period)
 	defer ticker.Stop()
 	for {
 		if err := gc.RunOnce(ctx); err != nil {
@@ -33,7 +35,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		case <-ticker.C:
 		}
 	}
@@ -46,7 +48,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	WHERE tombstone = true
 	`)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer func() {
 		if err := rows.Close(); retErr == nil {
@@ -56,7 +58,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	for rows.Next() {
 		var ent Entry
 		if err := rows.StructScan(&ent); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if !ent.Uploaded {
 			gc.log.Warnf("possibility for untracked chunk %s", chunkPath(ent.ChunkID, ent.Gen))
@@ -69,7 +71,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 			"gen":      ent.Gen,
 		}).Infof("deleting object for chunk entry")
 	}
-	return rows.Err()
+	return errors.EnsureStack(rows.Err())
 }
 
 func (gc *GarbageCollector) deleteOne(ctx context.Context, ent Entry) error {
@@ -80,7 +82,7 @@ func (gc *GarbageCollector) deleteOne(ctx context.Context, ent Entry) error {
 }
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, chunkID ID, gen uint64) error {
-	return gc.s.store.Delete(ctx, chunkKey(chunkID, gen))
+	return errors.EnsureStack(gc.s.store.Delete(ctx, chunkKey(chunkID, gen)))
 }
 
 func (gc *GarbageCollector) deleteEntry(ctx context.Context, chunkID ID, gen uint64) error {
@@ -88,5 +90,5 @@ func (gc *GarbageCollector) deleteEntry(ctx context.Context, chunkID ID, gen uin
 	DELETE FROM storage.chunk_objects
 	WHERE chunk_id = $1 AND gen = $2 AND tombstone = TRUE
 	`, chunkID, gen)
-	return err
+	return errors.EnsureStack(err)
 }

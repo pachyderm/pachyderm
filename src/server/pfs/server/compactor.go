@@ -194,7 +194,7 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 
 func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
-		return taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
+		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
 			switch {
 			case types.Is(input, &ShardTask{}):
 				shardTask, err := deserializeShardTask(input)
@@ -218,6 +218,7 @@ func compactionWorker(ctx context.Context, taskSource task.Source, storage *file
 				return nil, errors.Errorf("unrecognized any type (%v) in compaction worker", input.TypeUrl)
 			}
 		})
+		return errors.EnsureStack(err)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Printf("error in compaction worker: %v", err)
 		return nil
@@ -292,7 +293,7 @@ func processConcatTask(ctx context.Context, storage *fileset.Storage, task *Conc
 func serializeShardTask(task *ShardTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -303,7 +304,7 @@ func serializeShardTask(task *ShardTask) (*types.Any, error) {
 func deserializeShardTask(taskAny *types.Any) (*ShardTask, error) {
 	task := &ShardTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -311,7 +312,7 @@ func deserializeShardTask(taskAny *types.Any) (*ShardTask, error) {
 func serializeShardTaskResult(task *ShardTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -322,7 +323,7 @@ func serializeShardTaskResult(task *ShardTaskResult) (*types.Any, error) {
 func deserializeShardTaskResult(taskAny *types.Any) (*ShardTaskResult, error) {
 	task := &ShardTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -330,7 +331,7 @@ func deserializeShardTaskResult(taskAny *types.Any) (*ShardTaskResult, error) {
 func serializeCompactTask(task *CompactTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -341,7 +342,7 @@ func serializeCompactTask(task *CompactTask) (*types.Any, error) {
 func deserializeCompactTask(taskAny *types.Any) (*CompactTask, error) {
 	task := &CompactTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -349,7 +350,7 @@ func deserializeCompactTask(taskAny *types.Any) (*CompactTask, error) {
 func serializeCompactTaskResult(res *CompactTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(res)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(res),
@@ -360,7 +361,7 @@ func serializeCompactTaskResult(res *CompactTaskResult) (*types.Any, error) {
 func deserializeCompactTaskResult(any *types.Any) (*CompactTaskResult, error) {
 	res := &CompactTaskResult{}
 	if err := types.UnmarshalAny(any, res); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return res, nil
 }
@@ -368,7 +369,7 @@ func deserializeCompactTaskResult(any *types.Any) (*CompactTaskResult, error) {
 func serializeConcatTask(task *ConcatTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -379,7 +380,7 @@ func serializeConcatTask(task *ConcatTask) (*types.Any, error) {
 func deserializeConcatTask(taskAny *types.Any) (*ConcatTask, error) {
 	task := &ConcatTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
@@ -387,7 +388,7 @@ func deserializeConcatTask(taskAny *types.Any) (*ConcatTask, error) {
 func serializeConcatTaskResult(task *ConcatTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &types.Any{
 		TypeUrl: "/" + proto.MessageName(task),
@@ -398,7 +399,7 @@ func serializeConcatTaskResult(task *ConcatTaskResult) (*types.Any, error) {
 func deserializeConcatTaskResult(taskAny *types.Any) (*ConcatTaskResult, error) {
 	task := &ConcatTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }

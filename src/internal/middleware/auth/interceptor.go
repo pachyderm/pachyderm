@@ -2,9 +2,9 @@ package auth
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"github.com/sirupsen/logrus"
@@ -38,7 +38,6 @@ var authHandlers = map[string]authHandler{
 	"/auth_v2.API/GetOIDCLogin": unauthenticated,
 
 	// TODO: restrict GetClusterRoleBinding to cluster admins?
-	"/auth_v2.API/CreateRoleBinding":     authenticated,
 	"/auth_v2.API/GetRoleBinding":        authenticated,
 	"/auth_v2.API/ModifyRoleBinding":     authenticated,
 	"/auth_v2.API/RevokeAuthToken":       authenticated,
@@ -158,9 +157,12 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/AddFileSet":         authDisabledOr(authenticated),
 	"/pfs_v2.API/RenewFileSet":       authDisabledOr(authenticated),
 	"/pfs_v2.API/ComposeFileSet":     authDisabledOr(authenticated),
+	"/pfs_v2.API/CheckStorage":       authDisabledOr(authenticated),
+	"/pfs_v2.API/PutCache":           authDisabledOr(authenticated),
+	"/pfs_v2.API/GetCache":           authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
-	"/pfs_v2.API/CheckStorage":       authDisabledOr(authenticated),
+	"/pfs_v2.API/ListTask":           authDisabledOr(authenticated),
 
 	//
 	// PPS API
@@ -200,6 +202,8 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/InspectSecret":      authDisabledOr(clusterPermissions(auth.Permission_SECRET_INSPECT)),
 	"/pps_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pps_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
+	"/pps_v2.API/RenderTemplate":     authDisabledOr(authenticated),
+	"/pps_v2.API/ListTask":           authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
@@ -245,11 +249,11 @@ func (s ServerStreamWrapper) Context() context.Context {
 }
 
 func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
-	return s.stream.SetHeader(md)
+	return errors.EnsureStack(s.stream.SetHeader(md))
 }
 
 func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
-	return s.stream.SendHeader(md)
+	return errors.EnsureStack(s.stream.SendHeader(md))
 }
 
 func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
@@ -257,11 +261,11 @@ func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
 }
 
 func (s ServerStreamWrapper) SendMsg(m interface{}) error {
-	return s.stream.SendMsg(m)
+	return errors.EnsureStack(s.stream.SendMsg(m))
 }
 
 func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
-	return s.stream.RecvMsg(m)
+	return errors.EnsureStack(s.stream.RecvMsg(m))
 }
 
 // Interceptor checks the authentication metadata in unary and streaming RPCs
@@ -275,7 +279,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
-		return nil, fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
+		return nil, errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
@@ -298,7 +302,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
 		logrus.Errorf("no auth function for %q\n", info.FullMethod)
-		return fmt.Errorf("no auth function for %q, this is a bug", info.FullMethod)
+		return errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)

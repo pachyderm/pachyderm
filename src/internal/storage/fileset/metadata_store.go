@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
@@ -27,6 +28,7 @@ type MetadataStore interface {
 	Get(ctx context.Context, id ID) (*Metadata, error)
 	GetTx(tx *pachsql.Tx, id ID) (*Metadata, error)
 	DeleteTx(tx *pachsql.Tx, id ID) error
+	Exists(ctx context.Context, id ID) (bool, error)
 }
 
 // StoreTestSuite is a suite of tests for a Store.
@@ -55,12 +57,12 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) MetadataStore) {
 
 func setMetadata(ctx context.Context, mds MetadataStore, id ID, md *Metadata) error {
 	return dbutil.WithTx(ctx, mds.DB(), func(tx *pachsql.Tx) error {
-		return mds.SetTx(tx, id, md)
+		return errors.EnsureStack(mds.SetTx(tx, id, md))
 	})
 }
 
 func deleteMetadata(ctx context.Context, mds MetadataStore, id ID) error {
 	return dbutil.WithTx(ctx, mds.DB(), func(tx *pachsql.Tx) error {
-		return mds.DeleteTx(tx, id)
+		return errors.EnsureStack(mds.DeleteTx(tx, id))
 	})
 }

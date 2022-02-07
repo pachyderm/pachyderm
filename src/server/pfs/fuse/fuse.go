@@ -13,12 +13,51 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // Mount pfs to target, opts may be left nil.
 func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
+	if opts.RepoOptions == nil {
+		opts.RepoOptions = make(map[string]*RepoOptions)
+	}
+	if len(opts.RepoOptions) == 0 {
+		// Behavior of `pachctl mount` with no args is to mount everything. Make
+		// that explicit here before we pass in the configuration to avoid
+		// needing to special-case this deep within the FUSE implementation.
+		// (`pachctl mount-server` does _not_ have the same behavior. It mounts
+		// nothing to begin with.)
+		ris, err := c.ListRepo()
+		if err != nil {
+			return err
+		}
+		for _, ri := range ris {
+			// Behavior here is that we explicitly mount repos to mounts named
+			// by the repo name. This is different to `pachctl mount-server`
+			// which supports mounting different versions of the same repo at
+			// different named paths.
+			branch := "master"
+			bi, err := c.InspectBranch(ri.Repo.Name, branch)
+			if err != nil && !errutil.IsNotFoundError(err) {
+				return err
+			}
+			isOutputBranch := bi != nil && len(bi.Provenance) > 0
+			write := opts.Write
+			if isOutputBranch {
+				write = false
+			}
+			opts.RepoOptions[ri.Repo.Name] = &RepoOptions{
+				// mount name is same as repo name, i.e. mount it at a directory
+				// named the same as the repo itself
+				Name:   ri.Repo.Name,
+				Repo:   ri.Repo.Name,
+				Branch: branch,
+				Write:  write,
+			}
+		}
+	}
 	if err := opts.validate(c); err != nil {
 		return err
 	}

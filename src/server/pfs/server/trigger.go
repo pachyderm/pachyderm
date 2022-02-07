@@ -22,11 +22,11 @@ func (d *driver) triggerCommit(
 ) error {
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Branch.Repo, repoInfo); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	commitInfo := &pfs.CommitInfo{}
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, commitInfo); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	// Track any branches that are triggered and their new (alias) head commit
@@ -41,7 +41,7 @@ func (d *driver) triggerCommit(
 
 		bi := &pfs.BranchInfo{}
 		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, bi); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 
 		triggeredBranches[branch.Name] = nil
@@ -54,7 +54,7 @@ func (d *driver) triggerCommit(
 			if newHead != nil {
 				oldHead := &pfs.CommitInfo{}
 				if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
-					return nil, err
+					return nil, errors.EnsureStack(err)
 				}
 
 				triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)

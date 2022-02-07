@@ -35,8 +35,8 @@ type Env struct {
 	GetPachClient func(ctx context.Context) *client.APIClient
 
 	BackgroundContext context.Context
-	Logger            *logrus.Logger
 	StorageConfig     serviceenv.StorageConfiguration
+	Logger            *logrus.Logger
 }
 
 func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*Env, error) {

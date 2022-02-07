@@ -158,7 +158,7 @@ func (s *Storage) ComposeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*ID, e
 func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error) {
 	md, err := s.store.GetTx(tx, id)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	switch x := md.Value.(type) {
 	case *Metadata_Primitive:
@@ -178,7 +178,7 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		switch x := md.Value.(type) {
 		case *Metadata_Primitive:
@@ -247,7 +247,8 @@ func (s *Storage) Drop(ctx context.Context, id ID) error {
 // SetTTL sets the time-to-live for the fileset at id
 func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
 	oid := id.TrackerID()
-	return s.tracker.SetTTL(ctx, oid, ttl)
+	res, err := s.tracker.SetTTL(ctx, oid, ttl)
+	return res, errors.EnsureStack(err)
 }
 
 // SizeUpperBound returns an upper bound for the size of the data in the file set in bytes.
@@ -275,7 +276,7 @@ func (s *Storage) Size(ctx context.Context, id ID) (int64, error) {
 		total += index.SizeBytes(f.Index())
 		return nil
 	}); err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	return total, nil
 }
@@ -291,13 +292,7 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 	return cb(r.Context(), r)
 }
 
-// GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks
-func (s *Storage) GC(ctx context.Context) error {
-	return s.newGC().RunForever(ctx)
-}
-
-func (s *Storage) newGC() *track.GarbageCollector {
-	const period = 10 * time.Second
+func (s *Storage) NewGC(d time.Duration) *track.GarbageCollector {
 	tmpDeleter := renew.NewTmpDeleter()
 	chunkDeleter := s.chunks.NewDeleter()
 	filesetDeleter := &deleter{
@@ -315,18 +310,12 @@ func (s *Storage) newGC() *track.GarbageCollector {
 			return nil
 		}
 	})
-	return track.NewGarbageCollector(s.tracker, period, mux)
+	return track.NewGarbageCollector(s.tracker, d, mux)
 }
 
 func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
-	_, err := s.store.Get(ctx, id)
-	if err != nil {
-		if errors.Is(err, ErrFileSetNotExists) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	exists, err := s.store.Exists(ctx, id)
+	return exists, errors.EnsureStack(err)
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
@@ -353,10 +342,10 @@ func (s *Storage) newPrimitiveTx(tx *pachsql.Tx, prim *Primitive, ttl time.Durat
 		pointsTo = append(pointsTo, chunkID.TrackerID())
 	}
 	if err := s.store.SetTx(tx, id, md); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &id, nil
 }
@@ -389,10 +378,10 @@ func (s *Storage) newCompositeTx(tx *pachsql.Tx, comp *Composite, ttl time.Durat
 		pointsTo = append(pointsTo, id.TrackerID())
 	}
 	if err := s.store.SetTx(tx, id, md); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	if err := s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &id, nil
 }
@@ -400,7 +389,7 @@ func (s *Storage) newCompositeTx(tx *pachsql.Tx, comp *Composite, ttl time.Durat
 func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
 	md, err := s.store.Get(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {
@@ -423,5 +412,5 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, oid string) error {
 	if err != nil {
 		return err
 	}
-	return d.store.DeleteTx(tx, *id)
+	return errors.EnsureStack(d.store.DeleteTx(tx, *id))
 }

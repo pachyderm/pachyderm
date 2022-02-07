@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
@@ -15,7 +16,7 @@ type Renewer struct {
 func NewRenewer(ctx context.Context, tr track.Tracker, name string, ttl time.Duration) *Renewer {
 	renewFunc := func(ctx context.Context, x string, ttl time.Duration) error {
 		_, err := tr.SetTTL(ctx, x, ttl)
-		return err
+		return errors.EnsureStack(err)
 	}
 	composeFunc := renew.NewTmpComposer(tr, name)
 	return &Renewer{

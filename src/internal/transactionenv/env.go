@@ -125,62 +125,64 @@ func NewDirectTransaction(txnEnv *TransactionEnv, txnCtx *txncontext.Transaction
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	req := proto.Clone(original).(*pfs.CreateRepoRequest)
-	return t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	return t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	return t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req)
+	res, err := t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req)
+	return res, errors.EnsureStack(err)
 }
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
 	req := proto.Clone(original).(*pfs.FinishCommitRequest)
-	return t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest) error {
 	req := proto.Clone(original).(*pfs.SquashCommitSetRequest)
-	return t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
 	req := proto.Clone(original).(*pfs.CreateBranchRequest)
-	return t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
-	return t.txnEnv.serviceEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
 	req := proto.Clone(original).(*pps.StopJobRequest)
-	return t.txnEnv.serviceEnv.PpsServer().StopJobInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().StopJobInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
 	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
-	return t.txnEnv.serviceEnv.PpsServer().UpdateJobStateInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().UpdateJobStateInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
-	return t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
+	res, err := t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
+	return res, errors.EnsureStack(err)
 }
 
 func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	req := proto.Clone(original).(*auth.Resource)
-	return t.txnEnv.serviceEnv.AuthServer().DeleteRoleBindingInTransaction(t.txnCtx, req)
+	return errors.EnsureStack(t.txnEnv.serviceEnv.AuthServer().DeleteRoleBindingInTransaction(t.txnCtx, req))
 }
 
 type appendTransaction struct {
@@ -199,55 +201,55 @@ func newAppendTransaction(ctx context.Context, activeTxn *transaction.Transactio
 
 func (t *appendTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateRepo: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteRepo: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	res, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return res.Commit, nil
 }
 
 func (t *appendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{FinishCommit: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) SquashCommitSet(req *pfs.SquashCommitSetRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{SquashCommitSet: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateBranch: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) StopJob(req *pps.StopJobRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StopJob: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{UpdateJobState: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
-	return err
+	return errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
@@ -327,7 +329,7 @@ func (env *TransactionEnv) waitReady(ctx context.Context) error {
 	case <-env.initDone:
 		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.EnsureStack(ctx.Err())
 	}
 }
 

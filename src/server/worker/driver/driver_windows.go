@@ -56,12 +56,13 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 			src := filepath.Join(dir, input.Name)
 			dst := filepath.Join(d.InputDir(), input.Name)
 			if err := os.Rename(src, dst); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}
 
-	return os.Rename(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out"))
+	err := os.Rename(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out"))
+	return errors.EnsureStack(err)
 }
 
 func (d *driver) unmoveData(inputs []*common.Input, dir string) error {
@@ -74,7 +75,7 @@ func (d *driver) unmoveData(inputs []*common.Input, dir string) error {
 			continue // don't delete scratch space
 		}
 		if err := os.Rename(filepath.Join(d.InputDir(), entry.Name()), filepath.Join(dir, entry.Name())); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil

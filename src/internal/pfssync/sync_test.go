@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
@@ -23,7 +24,7 @@ func BenchmarkDownload(b *testing.B) {
 	require.NoError(b, env.PachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
 		for i := 0; i < 100; i++ {
 			if err := mf.PutFile(fmt.Sprintf("file%d", i), randutil.NewBytesReader(rand.New(rand.NewSource(0)), 500)); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 		return nil
@@ -39,7 +40,7 @@ func BenchmarkDownload(b *testing.B) {
 			require.NoError(b, WithDownloader(cacheClient, func(d Downloader) error {
 				for _, fi := range fis {
 					if err := d.Download(dir, fi.File); err != nil {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				return nil

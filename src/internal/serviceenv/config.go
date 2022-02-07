@@ -21,8 +21,8 @@ type GlobalConfiguration struct {
 	Namespace                      string `env:"PACH_NAMESPACE,default=default"`
 	StorageRoot                    string `env:"PACH_ROOT,default=/pach"`
 	GCPercent                      int    `env:"GC_PERCENT,default=50"`
-	LokiHost                       string `env:"LOKI_SERVICE_HOST"`
-	LokiPort                       string `env:"LOKI_SERVICE_PORT"`
+	LokiHostVar                    string `env:"LOKI_SERVICE_HOST_VAR,default=LOKI_SERVICE_HOST"`
+	LokiPortVar                    string `env:"LOKI_SERVICE_PORT_VAR,default=LOKI_SERVICE_PORT"`
 	OidcPort                       uint16 `env:"OIDC_PORT,default=1657"`
 	PGBouncerHost                  string `env:"PG_BOUNCER_HOST,required"`
 	PGBouncerPort                  int    `env:"PG_BOUNCER_PORT,required"`
@@ -102,17 +102,17 @@ type PachdSpecificConfiguration struct {
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold         int64  `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold          int64  `env:"STORAGE_SHARD_THRESHOLD"`
-	StorageLevelFactor             int64  `env:"STORAGE_LEVEL_FACTOR"`
-	StorageUploadConcurrencyLimit  int    `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
-	StoragePutFileConcurrencyLimit int    `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
-	StorageGCPolling               string `env:"STORAGE_GC_POLLING"`
-	StorageGCTimeout               string `env:"STORAGE_GC_TIMEOUT"`
-	StorageCompactionMaxFanIn      int    `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
-	StorageFileSetsMaxOpen         int    `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
-	StorageDiskCacheSize           int    `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
-	StorageMemoryCacheSize         int    `env:"STORAGE_MEMORY_CACHE_SIZE,default=100"`
+	StorageMemoryThreshold         int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageShardThreshold          int64 `env:"STORAGE_SHARD_THRESHOLD"`
+	StorageLevelFactor             int64 `env:"STORAGE_LEVEL_FACTOR"`
+	StorageUploadConcurrencyLimit  int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StoragePutFileConcurrencyLimit int   `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
+	StorageGCPeriod                int64 `env:"STORAGE_GC_PERIOD,default=60"`
+	StorageChunkGCPeriod           int64 `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`
+	StorageCompactionMaxFanIn      int   `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
+	StorageFileSetsMaxOpen         int   `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
+	StorageDiskCacheSize           int   `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
+	StorageMemoryCacheSize         int   `env:"STORAGE_MEMORY_CACHE_SIZE,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
