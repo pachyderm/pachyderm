@@ -40,9 +40,9 @@ func TestReadFileSet(t *testing.T) {
 	rfsClient, err := client.ReadFileSet(ctx, &pfs.ReadFileSetRequest{
 		FilesetId:       fsID,
 		IncludeContents: true,
-		Filters: []*pfs.FileSetFilter{
+		Transforms: []*pfs.FileSetTransform{
 			{
-				Value: &pfs.FileSetFilter_PathRegexp{PathRegexp: "/file2.txt"},
+				Value: &pfs.FileSetTransform_FilterPathRegexp{FilterPathRegexp: "/file2.txt"},
 			},
 		},
 	})

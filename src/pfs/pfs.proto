@@ -457,22 +457,19 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
-message FileSetFilter {
-  oneof value {
-    string path_regexp = 1;
-  }
-}
-
 message FileSetTransform {
-  string add_prefix = 1;
+  oneof value {
+    string filter_path_regexp = 1;
+    string filter_path_glob = 2;
+    string add_prefix = 3;
+  }
 }
 
 message ReadFileSetRequest {
   string fileset_id = 1;
   bool include_contents = 2;
 
-  repeated FileSetFilter filters = 3;
-  repeated FileSetTransform transforms = 4; 
+  repeated FileSetTransform transforms = 3; 
 }
 
 message ReadFileSetResponse {

@@ -480,10 +480,10 @@ func (a *apiServer) ReadFileSet(request *pfs.ReadFileSetRequest, server pfs.API_
 	}
 	var opts []index.Option
 	var transforms []func(fileset.FileSet) fileset.FileSet
-	for _, filter := range request.Filters {
-		switch x := filter.Value.(type) {
-		case *pfs.FileSetFilter_PathRegexp:
-			re, err := regexp.Compile(x.PathRegexp)
+	for _, spec := range request.Transforms {
+		switch x := spec.Value.(type) {
+		case *pfs.FileSetTransform_FilterPathRegexp:
+			re, err := regexp.Compile(x.FilterPathRegexp)
 			if err != nil {
 				return err
 			}
@@ -496,8 +496,23 @@ func (a *apiServer) ReadFileSet(request *pfs.ReadFileSetRequest, server pfs.API_
 					return re.MatchString(idx.Path)
 				})
 			})
+		case *pfs.FileSetTransform_FilterPathGlob:
+			// TODO: this should compile the glob to a regex, and the body of this loop factored into an inline function
+			// Then reuse the regex case above recursively.
+			if prefix := globLiteralPrefix(x.FilterPathGlob); prefix != "" {
+				opts = append(opts, index.WithPrefix(""))
+			}
+			globMatch, err := globMatchFunction(x.FilterPathGlob)
+			if err != nil {
+				return err
+			}
+			transforms = append(transforms, func(x fileset.FileSet) fileset.FileSet {
+				return fileset.NewIndexFilter(x, func(idx *index.Index) bool {
+					return globMatch(idx.Path)
+				})
+			})
 		default:
-			return errors.Errorf("unsupported filter %T", filter.Value)
+			return errors.Errorf("unsupported filter %T", spec.Value)
 		}
 	}
 	fileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*fsID}, opts...)
