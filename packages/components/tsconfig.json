@@ -1,13 +1,15 @@
 {
   "compilerOptions": {
     "baseUrl": "./src",
+    "target": "ESNext",
     "declaration": true,
     "noEmit": false,
-    "outDir": "./dist",
+    "outDir": "./dist"
   },
   "extends": "@pachyderm/config/ts.config.json",
   "include": [
     "./src/global.d.ts",
     "./src"
-  ]
+  ],
+  "exclude": ["node_modules", "dist"]
 }

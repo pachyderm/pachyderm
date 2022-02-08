@@ -1,17 +1,15 @@
 {
   "name": "@pachyderm/components",
-  "version": "1.17.13",
-  "main": "dist/index.js",
+  "version": "2.0.0",
+  "main": "dist/components.cjs.js",
+  "module": "dist/components.es.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "npm run clean && npm run build:src && npm run build:types",
-    "build:src": "NODE_ENV=production webpack",
+    "build": "vite build && tsc --emitDeclarationOnly",
     "build:storybook": "build-storybook -s public",
-    "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
-    "clean": "rm -rf dist",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:js": "eslint '{src,cypress}/**/*.{ts,tsx}'",
     "lint:css": "stylelint 'src/**/*.module.css'",
@@ -28,6 +26,7 @@
     "@storybook/addon-essentials": "^6.1.21",
     "@storybook/addon-links": "^6.1.1",
     "@storybook/react": "^6.1.21",
+    "@svgr/rollup": "^6.2.0",
     "@svgr/webpack": "^4.3.3",
     "@testing-library/jest-dom": "^5.11.8",
     "@testing-library/react": "^11.2.3",
@@ -83,6 +82,9 @@
     "stylelint": "^13.8.0",
     "tsconfig-paths-webpack-plugin": "^3.3.0",
     "typescript": "^4.2.4",
+    "vite": "^2.7.13",
+    "vite-dts": "^1.0.4",
+    "vite-tsconfig-paths": "^3.3.17",
     "xhr-mock": "^2.5.1"
   },
   "dependencies": {
