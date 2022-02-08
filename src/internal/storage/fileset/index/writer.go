@@ -33,7 +33,7 @@ type Writer struct {
 	tmpID  string
 
 	levelsMu sync.RWMutex
-	closedMu sync.Mutex
+	closedMu sync.RWMutex
 
 	levels []*levelWriter
 	closed bool
@@ -175,8 +175,8 @@ func (w *Writer) numLevels() int {
 }
 
 func (w *Writer) isClosed() bool {
-	w.closedMu.Lock()
-	defer w.closedMu.Unlock()
+	w.closedMu.RLock()
+	defer w.closedMu.RUnlock()
 	return w.closed
 }
 
