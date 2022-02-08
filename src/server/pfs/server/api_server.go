@@ -731,7 +731,7 @@ func (a *apiServer) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (res
 		}
 		fsids = append(fsids, *fsid)
 	}
-	if err := a.driver.putCache(ctx, req.Key, req.Value, fsids); err != nil {
+	if err := a.driver.putCache(ctx, req.Key, req.Value, fsids, req.Tag); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -743,6 +743,13 @@ func (a *apiServer) GetCache(ctx context.Context, req *pfs.GetCacheRequest) (res
 		return nil, err
 	}
 	return &pfs.GetCacheResponse{Value: value}, nil
+}
+
+func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) (resp *types.Empty, retErr error) {
+	if err := a.driver.clearCache(ctx, req.TagPrefix); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 // RunLoadTest implements the pfs.RunLoadTest RPC

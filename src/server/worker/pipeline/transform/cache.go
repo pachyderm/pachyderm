@@ -11,10 +11,14 @@ import (
 
 type cache struct {
 	pachClient *client.APIClient
+	tag        string
 }
 
-func newCache(pachClient *client.APIClient) *cache {
-	return &cache{pachClient: pachClient}
+func newCache(pachClient *client.APIClient, tag string) *cache {
+	return &cache{
+		pachClient: pachClient,
+		tag:        tag,
+	}
 }
 
 func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
@@ -65,6 +69,14 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		Key:        key,
 		Value:      output,
 		FileSetIds: fileSetIds,
+		Tag:        c.tag,
+	})
+	return errors.EnsureStack(err)
+}
+
+func (c *cache) clear(ctx context.Context) error {
+	_, err := c.pachClient.PfsAPIClient.ClearCache(ctx, &pfs.ClearCacheRequest{
+		TagPrefix: c.tag,
 	})
 	return errors.EnsureStack(err)
 }

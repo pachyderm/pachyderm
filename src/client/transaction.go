@@ -424,6 +424,9 @@ func (c *pfsBuilderClient) PutCache(ctx context.Context, req *pfs.PutCacheReques
 func (c *pfsBuilderClient) GetCache(ctx context.Context, req *pfs.GetCacheRequest, opts ...grpc.CallOption) (*pfs.GetCacheResponse, error) {
 	return nil, unsupportedError("GetCache")
 }
+func (c *pfsBuilderClient) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCache")
+}
 func (c *pfsBuilderClient) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTest")
 }
