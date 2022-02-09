@@ -54,6 +54,9 @@ else
     ifneq ($(filter arm%,$(UNAME_P)),)
         TARGET_ARCH = arm64
     endif
+    ifneq ($(filter aarch%,$(UNAME_P)),)
+        TARGET_ARCH = arm64
+    endif
 endif
 
 ifeq ($(TARGET_ARCH),amd64)

@@ -7,6 +7,7 @@ mkdir -p cached-deps
 architecture=""
 case $(uname -m) in
     x86_64) architecture="amd64" ;;
+    aarch64) architecture="arm64" ;;
     arm)    architecture="arm64" ;;
 esac
 
