@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -113,6 +115,15 @@ func (c *minioClient) BucketURL() ObjectStoreURL {
 		Scheme: "minio",
 		Bucket: fmt.Sprintf("%s/%s", u.Host, c.bucket),
 	}
+}
+
+func (c *minioClient) CreateSignedURL(_ context.Context, name string, ttl time.Duration) (string, error) {
+	reqParams := make(url.Values)
+	psURL, err := c.Client.PresignedGetObject(c.bucket, name, ttl, reqParams)
+	if err != nil {
+		return "", err
+	}
+	return psURL.String(), nil
 }
 
 func (c *minioClient) transformError(err error, objectPath string) error {
