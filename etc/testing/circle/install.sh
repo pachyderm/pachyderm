@@ -76,7 +76,7 @@ fi
 
 # Install goreleaser 
 if [ ! -f cached-deps/goreleaser ]; then
-  GORELEASER_VERSION=0.169.0
+  GORELEASER_VERSION=1.4.1
   curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
       | tar xzf - -C cached-deps goreleaser
 fi
