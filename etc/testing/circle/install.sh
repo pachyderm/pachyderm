@@ -68,7 +68,7 @@ fi
 # Install kubeval
 if [ ! -f cached-deps/kubeval ]; then
   KUBEVAL_VERSION=v0.16.1
-  go install github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
+  go get github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
       mv $(which kubeval) cached-deps/kubeval
 fi
 
