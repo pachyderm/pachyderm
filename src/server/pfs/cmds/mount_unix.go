@@ -6,11 +6,13 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
 	"syscall"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -129,10 +131,18 @@ func mountCmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
+
+			_, err = c.WhoAmI(context.Background(), &auth.WhoAmIRequest{})
+			if err != nil {
+				// exit process if we can't talk to pachyderm, whoever
+				// instantiates us is responsible for retrying
+				return fmt.Errorf("error calling WhoAmI to test Pachyderm connection: %s", err)
+			}
+
 			serverOpts := &fuse.ServerOptions{
 				MountDir: mountDir,
 			}
-			defer c.Close()
 			printWarning()
 			return fuse.Server(c, serverOpts)
 		}),
