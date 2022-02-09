@@ -142,7 +142,7 @@ func mountCmds() []*cobra.Command {
 					return fmt.Errorf("error calling WhoAmI to test Pachyderm connection: %s", err)
 				}
 			} else {
-				logrus.Info("Connected to Pachyderm, logged in as %s", user)
+				logrus.Infof("Connected to Pachyderm, logged in as %s", user)
 			}
 
 			serverOpts := &fuse.ServerOptions{
