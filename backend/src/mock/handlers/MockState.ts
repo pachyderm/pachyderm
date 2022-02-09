@@ -7,6 +7,7 @@ import {
   LogMessage,
   Project,
   Projects,
+  ModifyFileRequest,
 } from '@pachyderm/node-pachyderm';
 import cloneDeep from 'lodash/cloneDeep';
 
@@ -27,6 +28,7 @@ export type StateType = {
   repos: {[projectId: string]: RepoInfo[]};
   commits: {[projectId: string]: CommitInfo[]};
   files: Files;
+  fileSets: {[projectId: string]: {[fileSetId: string]: ModifyFileRequest[]}};
   error: ServiceError | null;
   pipelines: {
     [projectId: string]: PipelineInfo[];
@@ -53,6 +55,7 @@ const defaultState: StateType = {
   repos,
   commits,
   files,
+  fileSets: {},
   error: null,
   pipelines,
   jobs,

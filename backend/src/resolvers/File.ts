@@ -64,18 +64,12 @@ const fileResolver: FileResolver = {
       {args: {branch, files, repo}},
       {pachClient},
     ) => {
-      const commit = await pachClient.pfs().startCommit({
-        branch: {name: branch, repo: {name: repo}},
-      });
-
       const fileClient = await pachClient.pfs().modifyFile();
-
-      await fileClient.setCommit(commit);
+      fileClient.autoCommit({name: branch, repo: {name: repo}});
       files.forEach((file) => {
         fileClient.putFileFromURL(file.path, file.url);
       });
       await fileClient.end();
-      await pachClient.pfs().finishCommit({commit});
       return files.map((file) => file.url);
     },
     deleteFile: async (
@@ -83,16 +77,16 @@ const fileResolver: FileResolver = {
       {args: {repo, branch, filePath, force}},
       {pachClient},
     ) => {
-      const deleteCommit = await pachClient.pfs().startCommit({
+      const fileClient = await pachClient.pfs().fileSet();
+
+      const fileSetId = await fileClient.deleteFile(filePath).end();
+
+      const commit = await pachClient.pfs().startCommit({
         branch: {name: branch, repo: {name: repo}},
       });
-
-      const fileClient = await pachClient.pfs().modifyFile();
-      await fileClient.setCommit(deleteCommit).deleteFile(filePath).end();
-
-      await pachClient.pfs().finishCommit({commit: deleteCommit});
-
-      return deleteCommit.id;
+      await pachClient.pfs().addFileSet({fileSetId, commit});
+      await pachClient.pfs().finishCommit({commit});
+      return commit.id;
     },
   },
 };

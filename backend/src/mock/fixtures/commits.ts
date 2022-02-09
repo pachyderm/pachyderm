@@ -243,6 +243,7 @@ const commits: {[projectId: string]: CommitInfo[]} = {
   '5': nestedFolderCommits,
   default: [...tutorial],
   '7': [],
+  '6': [],
 };
 
 export default commits;

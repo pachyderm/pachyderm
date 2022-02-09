@@ -15,6 +15,7 @@ import {
   Commit,
   FileType,
   OriginKind,
+  CreateFileSetResponse,
 } from '@pachyderm/node-pachyderm';
 import {
   commitInfoFromObject,
@@ -69,6 +70,8 @@ const pfs = () => {
       | 'startCommit'
       | 'finishCommit'
       | 'deleteRepo'
+      | 'createFileSet'
+      | 'addFileSet'
     > => {
       return {
         listRepo: (call) => {
@@ -371,27 +374,76 @@ const pfs = () => {
         modifyFile: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
           let commit: Commit | undefined;
+          let autoCommit = false;
 
           call.on('error', (err) => {
             callback(err as ServiceError);
+            autoCommit = false;
           });
           call.on('end', () => {
-            callback(null, new Empty());
-          });
-          call.on('data', async (chunk: ModifyFileRequest) => {
-            commit = chunk.hasSetCommit() ? chunk.getSetCommit() : commit;
-            const addFile = chunk.getAddFile();
-            const deleteFile = chunk.getDeleteFile();
-
-            if (!commit) {
-              call.emit(
-                'error',
-                createServiceError({
-                  code: Status.CANCELLED,
-                  details: 'Commit must be set before adding files',
+            const commitInfo = MockState.state.commits[
+              projectId.toString()
+            ].find((commitInfo) => {
+              return commitInfo.getCommit()?.getId() === commit?.getId();
+            });
+            if (autoCommit && commitInfo) {
+              commitInfo.setFinished(
+                timestampFromObject({
+                  seconds: Math.ceil(Date.now() / 1000),
+                  nanos: 0,
                 }),
               );
             }
+            autoCommit = false;
+            callback(null, new Empty());
+          });
+          call.on('data', async (chunk: ModifyFileRequest) => {
+            if (!commit) {
+              commit = chunk.hasSetCommit() ? chunk.getSetCommit() : commit;
+              if (commit) {
+                if (
+                  !MockState.state['commits'][projectId.toString()].find(
+                    (commitInfo) =>
+                      commitInfo.getCommit()?.getId() === commit?.getId(),
+                  ) &&
+                  !commit?.getBranch()
+                ) {
+                  call.emit(
+                    'error',
+                    createServiceError({
+                      code: Status.CANCELLED,
+                      details: 'Commit must have a branch',
+                    }),
+                  );
+                } else {
+                  commit.setId(uniqueId());
+                  autoCommit = true;
+                  MockState.state['commits'][projectId.toString()].push(
+                    commitInfoFromObject({
+                      commit: commit.toObject(),
+                      sizeBytes: 0,
+                      description: '',
+                      started: {
+                        seconds: Math.ceil(Date.now() / 1000),
+                        nanos: 0,
+                      },
+                      originKind: OriginKind.USER,
+                    }),
+                  );
+                }
+              } else {
+                call.emit(
+                  'error',
+                  createServiceError({
+                    code: Status.CANCELLED,
+                    details: 'Commit must be set before adding files',
+                  }),
+                );
+              }
+            }
+            const addFile = chunk.getAddFile();
+            const deleteFile = chunk.getDeleteFile();
+
             if (addFile && commit) {
               const url = addFile.getUrl()?.getUrl();
               if (url) {
@@ -403,7 +455,7 @@ const pfs = () => {
                     path: addFile.getPath(),
                     branch: {
                       name: commit.getBranch()?.getName() || 'master',
-                      repo: commit.getBranch()?.getRepo,
+                      repo: commit.getBranch()?.getRepo()?.toObject(),
                     },
                   },
                   fileType: FileType.FILE,
@@ -462,6 +514,141 @@ const pfs = () => {
               };
             }
           });
+        },
+        createFileSet: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const fileSetId = uniqueId();
+          call.on('error', (err) => {
+            callback(err as ServiceError);
+          });
+          call.on('end', () => {
+            callback(null, new CreateFileSetResponse().setFileSetId(fileSetId));
+          });
+          call.on('data', async (chunk: ModifyFileRequest) => {
+            if (!MockState.state.fileSets[projectId.toString()]) {
+              MockState.state.fileSets[projectId.toString()] = {};
+            }
+            if (MockState.state.fileSets[projectId.toString()][fileSetId]) {
+              MockState.state.fileSets[projectId.toString()][fileSetId].push(
+                chunk,
+              );
+            } else {
+              MockState.state.fileSets[projectId.toString()][fileSetId] = [
+                chunk,
+              ];
+            }
+          });
+        },
+        addFileSet: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const fileSetId = call.request.getFileSetId();
+          const commit = call.request.getCommit();
+
+          if (!commit) {
+            call.emit(
+              'error',
+              createServiceError({
+                code: Status.CANCELLED,
+                details: 'Commit must be set',
+              }),
+            );
+          }
+
+          if (MockState.state.fileSets[projectId.toString()][fileSetId]) {
+            MockState.state.fileSets[projectId.toString()][fileSetId].forEach(
+              (request) => {
+                const addFile = request.getAddFile();
+                const deleteFile = request.getDeleteFile();
+
+                if (addFile && commit) {
+                  const url = addFile.getUrl()?.getUrl();
+                  if (url) {
+                    const sizeBytes = Math.floor(Math.random() * 1200);
+                    const fileInfo = fileInfoFromObject({
+                      committed: {
+                        seconds: Math.ceil(Date.now() / 1000),
+                        nanos: 0,
+                      },
+                      file: {
+                        commitId: commit.getId(),
+                        path: addFile.getPath(),
+                        branch: {
+                          name: commit.getBranch()?.getName() || 'master',
+                          repo: commit.getBranch()?.getRepo()?.toObject(),
+                        },
+                      },
+                      fileType: FileType.FILE,
+                      hash: uniqueId(),
+                      sizeBytes,
+                    });
+                    const dirPath = path.dirname(addFile.getPath());
+                    if (!MockState.state.files[projectId.toString()]) {
+                      MockState.state.files[projectId.toString()] = {};
+                    }
+                    if (
+                      MockState.state.files[projectId.toString()][dirPath] &&
+                      !MockState.state.files[projectId.toString()][
+                        dirPath
+                      ].some(
+                        (file) =>
+                          file.getFile()?.getPath() === addFile.getPath(),
+                      )
+                    ) {
+                      MockState.state.files[projectId.toString()][dirPath].push(
+                        fileInfo,
+                      );
+                    } else {
+                      MockState.state.files[projectId.toString()] = {
+                        ...MockState.state.files[projectId.toString()],
+                        [dirPath]: [fileInfo],
+                      };
+                    }
+                    const commitInfo = MockState.state.commits[
+                      projectId.toString()
+                    ].find((commitInfo) => {
+                      return (
+                        commitInfo.getCommit()?.getId() === commit?.getId()
+                      );
+                    });
+                    commitInfo
+                      ?.getDetails()
+                      ?.setSizeBytes(
+                        (commitInfo.getDetails()?.getSizeBytes() || 0) +
+                          sizeBytes,
+                      );
+                  } else {
+                    call.emit(
+                      'error',
+                      createServiceError({
+                        code: Status.INVALID_ARGUMENT,
+                        details: 'URL must be specified',
+                      }),
+                    );
+                  }
+                }
+                if (deleteFile && commit) {
+                  const pathToDelete = deleteFile.getPath();
+                  const dirPath = path.dirname(pathToDelete);
+                  const projectFiles =
+                    MockState.state.files[projectId.toString()];
+
+                  MockState.state.files[projectId.toString()] = {
+                    ...projectFiles,
+                    [dirPath]: projectFiles[dirPath].filter((file) => {
+                      return pathToDelete !== file.getFile()?.getPath();
+                    }),
+                  };
+                }
+              },
+            );
+            delete MockState.state.fileSets[projectId.toString()][fileSetId];
+            callback(null, new Empty());
+          } else {
+            callback({
+              code: Status.NOT_FOUND,
+              details: `A fileset with id ${fileSetId} does not exist`,
+            });
+          }
         },
         startCommit: (call, callback) => {
           const [projectId] = call.metadata.get('project-id');
