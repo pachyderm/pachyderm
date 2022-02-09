@@ -6,7 +6,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -133,7 +132,7 @@ func mountCmds() []*cobra.Command {
 			}
 			defer c.Close()
 
-			user, err := c.WhoAmI(context.Background(), &auth.WhoAmIRequest{})
+			user, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
 				if strings.Contains(fmt.Sprintf("%s", err), "the auth service is not activated") {
 					logrus.Info("Connected to Pachyderm cluster where auth is disabled")
