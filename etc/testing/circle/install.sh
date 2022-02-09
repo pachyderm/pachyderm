@@ -52,7 +52,7 @@ fi
 # To get the latest etcd version:
 # curl -Ls https://api.github.com/repos/etcd-io/etcd/releases | jq -r .[].tag_name
 if [ ! -f cached-deps/etcdctl ] ; then
-    ETCD_VERSION=v3.3.12
+    ETCD_VERSION=v3.5.1
     curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
         | tar xzf - --strip-components=1
         mv ./etcdctl cached-deps/etcdctl
