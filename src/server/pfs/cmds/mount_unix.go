@@ -139,7 +139,9 @@ func mountCmds() []*cobra.Command {
 				} else {
 					// exit process if we can't talk to pachyderm, whoever
 					// instantiates us is responsible for retrying
-					return fmt.Errorf("error calling WhoAmI to test Pachyderm connection: %s", err)
+					return errors.EnsureStack(
+						fmt.Errorf("error calling WhoAmI to test Pachyderm connection: %v", err),
+					)
 				}
 			} else {
 				logrus.Infof("Connected to Pachyderm, logged in as %s", user)
