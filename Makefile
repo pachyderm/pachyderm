@@ -56,6 +56,11 @@ else
     endif
 endif
 
+ifeq ($(TARGET_ARCH),amd64)
+	GOREL_FILE = "docker.yml"
+else
+	GOREL_FILE = "docker-arm64.yml"
+endif
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
@@ -112,7 +117,7 @@ release-pachctl:
 docker-build:
 	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
 	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/$(GOREL_FILE)
 
 docker-build-proto:
 	docker buildx build --platform linux/$(TARGET_ARCH) $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
@@ -434,6 +439,7 @@ check-buckets:
 	./etc/testing/circle/check_buckets.sh
 
 .PHONY: \
+	test_file \
 	install \
 	install-clean \
 	install-doc \
