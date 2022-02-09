@@ -3,6 +3,7 @@ package obj
 import (
 	"context"
 	"io"
+	"time"
 )
 
 // Client is an interface to object storage.
@@ -31,4 +32,8 @@ type Client interface {
 
 	// BucketURL returns the URL of the bucket this client uses.
 	BucketURL() ObjectStoreURL
+}
+
+type URLSigner interface {
+	CreateSignedURL(ctx context.Context, name string, ttl time.Duration) (string, error)
 }

@@ -462,6 +462,16 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
+message ReadFileSetRequest {
+  // TODO: take the ReadFileSetRequest from the other PR
+  string fileset_id = 1;
+}
+
+message ReadFileSetCDRResponse {
+  string path = 1;
+  bytes ref = 2;
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -544,6 +554,7 @@ service API {
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
   rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
+  rpc ReadFileSetCDR(ReadFileSetRequest) returns (stream ReadFileSetCDRResponse) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
