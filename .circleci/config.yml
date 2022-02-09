@@ -18,7 +18,7 @@ jobs:
       bucket:
         type: string
       resource_class:
-        tyler: string
+        type: string
     resource_class: << parameters.resource_class >>
     machine:
       image: ubuntu-2004:202101-01
