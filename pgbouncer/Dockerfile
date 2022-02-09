@@ -1,5 +1,5 @@
 FROM debian:stable
-RUN apt update && apt upgrade && apt install -y pgbouncer
+RUN apt update && apt -y upgrade && apt install -y pgbouncer
 COPY entrypoint.sh /entrypoint.sh
 # postgres user needs permission for /etc/pgbouncer so that the entrypoint script can write
 # the config file
