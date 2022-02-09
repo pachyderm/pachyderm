@@ -431,7 +431,7 @@ commands:
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
           name: Install pach
-          command: helm install pachd pach/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
+          command: helm install pachd pach/pachyderm --version 2.0.7 --set deployTarget=LOCAL,pachd.service.type=NodePort
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
