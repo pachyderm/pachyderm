@@ -76,8 +76,8 @@ fi
 if [ ! -f cached-deps/helm ]; then
   HELM_VERSION=3.5.4
   curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-${architecture}.tar.gz \
-      | tar xzf - linux-amd64/helm
-      mv ./linux-amd64/helm cached-deps/helm
+      | tar xzf - linux-${architecture}/helm
+      mv ./linux-${architecture}/helm cached-deps/helm
 fi
 
 # Install goreleaser 
@@ -94,4 +94,4 @@ if [ ! -f cached-deps/jq ]; then
 fi
 
 sudo rm -rf /usr/local/go
-curl -L https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
+curl -L https://golang.org/dl/go1.17.3.linux-${architecture}.tar.gz | sudo tar xzf - -C /usr/local/
