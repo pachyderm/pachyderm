@@ -134,7 +134,7 @@ func mountCmds() []*cobra.Command {
 
 			user, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
-				if strings.Contains(fmt.Sprintf("%s", err), "the auth service is not activated") {
+				if errors.Is(err, auth.ErrNotActivated) {
 					logrus.Info("Connected to Pachyderm cluster where auth is disabled")
 				} else {
 					// exit process if we can't talk to pachyderm, whoever
