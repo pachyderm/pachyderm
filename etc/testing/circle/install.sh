@@ -69,6 +69,7 @@ fi
 if [ ! -f cached-deps/kubeval ]; then
   KUBEVAL_VERSION=v0.16.1
   go get github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
+  go mod tidy
       mv $(which kubeval) cached-deps/kubeval
 fi
 
