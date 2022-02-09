@@ -295,6 +295,9 @@ export const UIIcons = () => {
         <SVGWrapper title="TrashSVG">
           <IconsSVG.TrashSVG />
         </SVGWrapper>
+        <SVGWrapper title="UpdatedCircleSVG">
+          <IconsSVG.UpdatedCircleSVG />
+        </SVGWrapper>
         <SVGWrapper title="UploadSVG">
           <IconsSVG.UploadSVG />
         </SVGWrapper>

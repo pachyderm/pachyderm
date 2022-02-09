@@ -24,7 +24,7 @@ export default defineConfig(() => ({
       },
     },
     sourcemap: true,
-    target: 'ESNext',
+    target: 'ES2018',
     // Leave minification up to applications.
     minify: false,
   },

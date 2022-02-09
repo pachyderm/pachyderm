@@ -63,6 +63,7 @@ export {ReactComponent as SupportSVG} from './support.svg';
 export {ReactComponent as TeamsSVG} from './teams.svg';
 export {ReactComponent as TerminalSVG} from './terminal.svg';
 export {ReactComponent as TrashSVG} from './trash.svg';
+export {ReactComponent as UpdatedCircleSVG} from './updatedCircle.svg';
 export {ReactComponent as UploadSVG} from './upload.svg';
 export {ReactComponent as UserSVG} from './user.svg';
 export {ReactComponent as ViewIconSVG} from './viewIcon.svg';

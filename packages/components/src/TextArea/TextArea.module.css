@@ -18,7 +18,7 @@
 .button {
   composes: button from '../Input/Input.module.css';
   top: auto;
-  bottom: calc((1.25rem - 1.5rem) / 2);
+  bottom: calc((0.5rem) / 2);
 }
 
 .wrapper {
