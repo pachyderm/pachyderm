@@ -31,7 +31,6 @@ const normalizeDAGData = async (
   nodeWidth: number,
   nodeHeight: number,
   direction: DagDirection = DagDirection.RIGHT,
-  jobSetId?: string,
 ) => {
   const elk = new ELK();
 
@@ -60,7 +59,7 @@ const normalizeDAGData = async (
           return [
             ...acc,
             {
-              id: objectHash({node: node, jobSetId, parent}),
+              id: objectHash({node: node, parent}),
               sources: [parentName],
               targets: [node.name],
               state,
@@ -84,7 +83,7 @@ const normalizeDAGData = async (
           ...acc,
           {
             // hashing here for consistency
-            id: objectHash(`${parentName}-${node.name}-${jobSetId}`),
+            id: objectHash(`${parentName}-${node.name}`),
             sources: [parentName],
             targets: [node.name],
             state,
@@ -232,14 +231,12 @@ const buildDags = async (
   nodeWidth: number,
   nodeHeight: number,
   direction = DagDirection.RIGHT,
-  jobSetId?: string,
 ) => {
   const {nodes, links} = await normalizeDAGData(
     vertices,
     nodeWidth,
     nodeHeight,
     direction,
-    jobSetId,
   );
   return disconnectedComponents(nodes, links).map((component) => {
     const componentRepos = vertices.filter((v) =>
@@ -249,9 +246,7 @@ const buildDags = async (
           c.name === v.name,
       ),
     );
-    const id = jobSetId
-      ? jobSetId
-      : minBy(componentRepos, (r) => r.createdAt)?.name || '';
+    const id = minBy(componentRepos, (r) => r.createdAt)?.name || '';
 
     const adjustedComponent = adjustDag(component, direction);
 

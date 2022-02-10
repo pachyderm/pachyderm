@@ -119,25 +119,6 @@ describe('useProjects', () => {
     expect(id).toBeInTheDocument();
   });
 
-  it('should send dag id as jobset id for job sub-dags', async () => {
-    window.history.replaceState('', '', lineageRoute({projectId: 1}));
-
-    window.history.replaceState(
-      '',
-      '',
-      jobRoute({projectId: 1, jobId: '33b9af7d5d4343219bc8e02ff44cd55a'}),
-    );
-
-    const {findByText} = render(<TestBed />);
-
-    await waitForElementToBeRemoved(await findByText('Loading'), {
-      timeout: SUBSCRIPTION_TIMEOUT,
-    });
-
-    const id = await findByText('0 id: 33b9af7d5d4343219bc8e02ff44cd55a');
-    expect(id).toBeInTheDocument();
-  });
-
   it('should correctly reset the DAG when DAG nodes are deleted', async () => {
     window.history.replaceState('', '', lineageRoute({projectId: 1}));
 
