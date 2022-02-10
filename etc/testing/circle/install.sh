@@ -68,9 +68,10 @@ fi
 # Install kubeval
 if [ ! -f cached-deps/kubeval ]; then
   KUBEVAL_VERSION=v0.16.1
+  go mod tidy
   go get github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
   go mod tidy
-      mv $(which kubeval) cached-deps/kubeval
+  mv $(which kubeval) cached-deps/kubeval
 fi
 
 # Install helm
