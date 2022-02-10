@@ -11,7 +11,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -131,21 +130,6 @@ func mountCmds() []*cobra.Command {
 				return err
 			}
 			defer c.Close()
-
-			user, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-			if err != nil {
-				if errors.Is(err, auth.ErrNotActivated) {
-					logrus.Info("Connected to Pachyderm cluster where auth is disabled")
-				} else {
-					// exit process if we can't talk to pachyderm, whoever
-					// instantiates us is responsible for retrying
-					return errors.EnsureStack(
-						fmt.Errorf("error calling WhoAmI to test Pachyderm connection: %v", err),
-					)
-				}
-			} else {
-				logrus.Infof("Connected to Pachyderm, logged in as %s", user)
-			}
 
 			serverOpts := &fuse.ServerOptions{
 				MountDir: mountDir,
