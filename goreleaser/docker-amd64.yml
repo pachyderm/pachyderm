@@ -83,11 +83,11 @@ release:
 dockers:
   -
     image_templates:
-      - pachyderm/pachd
-      - pachyderm/pachd:local
+      - pachyderm/pachd:latest-amd64
+      - pachyderm/pachd:local-amd64
+    use: buildx
     ids:
       - pachd
-    goos: linux
     goarch: amd64
     skip_push: false
     dockerfile: Dockerfile.pachd
@@ -96,57 +96,78 @@ dockers:
       - LICENSE
       - licenses
     build_flag_templates:
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{.Version}}-amd64"
+      - "--label=release={{.Version}}-amd64"
+      - "--platform=linux/amd64"
   -
     image_templates:
-      - pachyderm/pachctl
+      - pachyderm/pachctl:latest-amd64
+    use: buildx
     ids:
       - pachctl
-    goos: linux
     goarch: amd64
     skip_push: false
     dockerfile: Dockerfile.pachctl
     build_flag_templates:
       - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{.Version}}-amd64"
+      - "--label=release={{.Version}}-amd64"
+      - "--platform=linux/amd64"
     extra_files:
       - LICENSE
       - licenses
   -
     image_templates:
-      - pachyderm/worker
-      - pachyderm/worker:local
+      - pachyderm/worker:latest-amd64
+      - pachyderm/worker:local-amd64
+    use: buildx
     ids:
       - pachctl
       - worker_init
       - worker
-    goos: linux
     goarch: amd64
     skip_push: false
     dockerfile: Dockerfile.worker
     build_flag_templates:
       - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{.Version}}-amd64"
+      - "--label=release={{.Version}}-amd64"
+      - "--platform=linux/amd64"
     extra_files:
       - LICENSE
       - licenses
-  -
+-
     image_templates:
-      - pachyderm/pachtf
+      - pachyderm/pachtf:latest-amd64
+    use: buildx
     ids:
       - pachtf
-    goos: linux
     goarch: amd64
     skip_push: false
     dockerfile: Dockerfile.pachtf
     build_flag_templates:
       - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{.Version}}-amd64"
+      - "--label=release={{.Version}}-amd64"
+      - "--platform=linux/amd64"
     extra_files:
       - LICENSE
       - licenses
- 
+  -
+    image_templates:
+      - pachyderm/pachtf:latest-arm64
+    use: buildx
+    ids:
+      - pachtf
+    goarch: arm64
+    skip_push: false
+    dockerfile: Dockerfile.pachtf
+    build_flag_templates:
+      - "--progress=plain"
+      - "--label=version={{.Version}}-arm64"
+      - "--label=release={{.Version}}-arm64"
+      - "--platform=linux/arm64"
+    extra_files:
+      - LICENSE
+      - licenses
+  

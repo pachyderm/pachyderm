@@ -60,9 +60,9 @@ else
 endif
 
 ifeq ($(TARGET_ARCH),amd64)
-	GOREL_FILE = "docker.yml"
+	GOREL_FILE = "goreleaser/docker-amd64.yml"
 else
-	GOREL_FILE = "docker-arm64.yml"
+	GOREL_FILE = "goreleaser/docker-arm64.yml"
 endif
 
 install:
@@ -120,7 +120,7 @@ release-pachctl:
 docker-build:
 	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
 	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/$(GOREL_FILE)
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f $(GOREL_FILE)
 
 docker-build-proto:
 	docker buildx build --platform linux/$(TARGET_ARCH) $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
