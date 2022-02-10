@@ -136,7 +136,7 @@ dockers:
     extra_files:
       - LICENSE
       - licenses
--
+  -
     image_templates:
       - pachyderm/pachtf:latest-amd64
     use: buildx
