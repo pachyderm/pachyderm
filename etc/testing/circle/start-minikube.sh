@@ -2,6 +2,26 @@
 
 set -Eex
 
+function retry {
+  local retries=$1
+  shift
+
+  local count=0
+  until "$@"; do
+    exit=$?
+    wait=$((2 ** $count))
+    count=$(($count + 1))
+    if [ $count -lt $retries ]; then
+      echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
+      sleep $wait
+    else
+      echo "Retry $count/$retries exited $exit, no more retries left."
+      return $exit
+    fi
+  done
+  return 0
+}
+
 export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
 
 # Parse flags
@@ -22,7 +42,7 @@ while getopts ":v" opt; do
   esac
 done
 
-minikube start "${minikube_args[@]}"
+retry 2 minikube start "${minikube_args[@]}"
 
 # Try to connect for three minutes
 for _ in $(seq 36); do
