@@ -65,15 +65,6 @@ if [ ! -f cached-deps/etcdctl ] ; then
         mv ./etcdctl cached-deps/etcdctl
 fi
 
-# Install kubeval
-if [ ! -f cached-deps/kubeval ]; then
-  KUBEVAL_VERSION=v0.16.1
-  go mod tidy
-  go get github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
-  go mod tidy
-  mv $(which kubeval) cached-deps/kubeval
-fi
-
 # Install helm
 if [ ! -f cached-deps/helm ]; then
   HELM_VERSION=3.5.4
@@ -95,5 +86,13 @@ if [ ! -f cached-deps/jq ]; then
   curl -L https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64 > cached-deps/jq
 fi
 
+# Update go
 sudo rm -rf /usr/local/go
 curl -L https://golang.org/dl/go1.17.3.linux-${architecture}.tar.gz | sudo tar xzf - -C /usr/local/
+
+# Install kubeval
+if [ ! -f cached-deps/kubeval ]; then
+  KUBEVAL_VERSION=v0.16.1
+  go install github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
+  mv $(which kubeval) cached-deps/kubeval
+fi
