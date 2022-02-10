@@ -166,6 +166,8 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
+        - name: AUTH_CONFIG_FILE
+          value: /pachyderm-auth-config/authConfig.yaml
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
           value: {{ .Values.pachd.securityContext.enabled | quote }}    
         envFrom:
@@ -208,6 +210,8 @@ spec:
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
           name: pachyderm-storage-secret
+        - mountPath: /pachyderm-auth-config
+          name: pachyderm-auth-config
         {{- if .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
@@ -231,6 +235,9 @@ spec:
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret
+      - name: pachyderm-auth-config
+        secret:
+          secretName: pachyderm-auth-config
       {{- if .Values.pachd.tls.enabled }}
       - name: pachd-tls-cert
         secret:
