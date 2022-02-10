@@ -2,15 +2,15 @@ package fuse
 
 import (
 	"context"
-	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"golang.org/x/sys/unix"
 )
 
-func (f *loopbackFile) Allocate(ctx context.Context, off uint64, sz uint64, mode uint32) syscall.Errno {
+func (f *loopbackFile) Allocate(ctx context.Context, off uint64, sz uint64, mode uint32) unix.Errno {
 	// TODO: Handle `mode` parameter.
 
 	// From `man fcntl` on OSX:
@@ -52,15 +52,15 @@ func (f *loopbackFile) Allocate(ctx context.Context, off uint64, sz uint64, mode
 	}
 
 	// Linux version for reference:
-	// err := syscall.Fallocate(int(f.File.Fd()), mode, int64(off), int64(sz))
-	_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(f.fd), uintptr(syscall.F_PREALLOCATE), uintptr(unsafe.Pointer(&k)))
+	// err := unix.Fallocate(int(f.File.Fd()), mode, int64(off), int64(sz))
+	_, _, errno := unix.Syscall(unix.SYS_FCNTL, uintptr(f.fd), uintptr(unix.F_PREALLOCATE), uintptr(unsafe.Pointer(&k)))
 
 	return errno
 }
 
 // MacOS before High Sierra lacks utimensat() and UTIME_OMIT.
 // We emulate using utimes() and extra Getattr() calls.
-func (f *loopbackFile) utimens(a *time.Time, m *time.Time) syscall.Errno {
+func (f *loopbackFile) utimens(a *time.Time, m *time.Time) unix.Errno {
 	var attr fuse.AttrOut
 	if a == nil || m == nil {
 		errno := f.Getattr(context.Background(), &attr)
@@ -69,13 +69,13 @@ func (f *loopbackFile) utimens(a *time.Time, m *time.Time) syscall.Errno {
 		}
 	}
 	tv := Fill(a, m, &attr.Attr)
-	err := syscall.Futimes(int(f.fd), tv)
+	err := unix.Futimes(int(f.fd), tv)
 	return fs.ToErrno(err)
 }
 
-// Fill converts a and m to a syscall.Timeval slice that can be passed
-// to syscall.Utimes. Missing values (if any) are taken from attr
-func Fill(a *time.Time, m *time.Time, attr *fuse.Attr) []syscall.Timeval {
+// Fill converts a and m to a unix.Timeval slice that can be passed
+// to unix.Utimes. Missing values (if any) are taken from attr
+func Fill(a *time.Time, m *time.Time, attr *fuse.Attr) []unix.Timeval {
 	if a == nil {
 		a2 := time.Unix(int64(attr.Atime), int64(attr.Atimensec))
 		a = &a2
@@ -84,19 +84,19 @@ func Fill(a *time.Time, m *time.Time, attr *fuse.Attr) []syscall.Timeval {
 		m2 := time.Unix(int64(attr.Mtime), int64(attr.Mtimensec))
 		m = &m2
 	}
-	tv := make([]syscall.Timeval, 2)
+	tv := make([]unix.Timeval, 2)
 	tv[0] = timeToTimeval(a)
 	tv[1] = timeToTimeval(m)
 	return tv
 }
 
-// timeToTimeval - Convert time.Time to syscall.Timeval
+// timeToTimeval - Convert time.Time to unix.Timeval
 //
-// Note: This does not use syscall.NsecToTimespec because
+// Note: This does not use unix.NsecToTimespec because
 // that does not work properly for times before 1970,
 // see https://github.com/golang/go/issues/12777
-func timeToTimeval(t *time.Time) syscall.Timeval {
-	var tv syscall.Timeval
+func timeToTimeval(t *time.Time) unix.Timeval {
+	var tv unix.Timeval
 	tv.Usec = int32(t.Nanosecond() / 1000)
 	tv.Sec = t.Unix()
 	return tv

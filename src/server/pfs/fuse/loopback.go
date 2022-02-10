@@ -16,6 +16,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"golang.org/x/sys/unix"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -77,7 +78,7 @@ var _ = (fs.NodeUnlinker)((*loopbackNode)(nil))
 var _ = (fs.NodeRmdirer)((*loopbackNode)(nil))
 var _ = (fs.NodeRenamer)((*loopbackNode)(nil))
 
-func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.Errno {
+func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) unix.Errno {
 	s := syscall.Statfs_t{}
 	err := syscall.Statfs(n.path(), &s)
 	if err != nil {
@@ -87,7 +88,7 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 	return fs.OK
 }
 
-func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) unix.Errno {
 
 	st := syscall.Stat_t{}
 	err := syscall.Stat(r.rootPath, &st)
@@ -111,7 +112,7 @@ func (n *loopbackNode) path() string {
 	return filepath.Join(n.root().rootPath, path)
 }
 
-func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if err := n.download(p, meta); err != nil {
 		return nil, fs.ToErrno(err)
@@ -129,18 +130,18 @@ func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryO
 	return ch, 0
 }
 
-func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32, out *fuse.EntryOut) (*fs.Inode, unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
 	}
-	err := syscall.Mknod(p, mode, int(rdev))
+	err := unix.Mknod(p, mode, int(rdev))
 	if err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		unix.Rmdir(p)
 		return nil, fs.ToErrno(err)
 	}
 
@@ -152,7 +153,7 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 	return ch, 0
 }
 
-func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
@@ -166,7 +167,7 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		unix.Rmdir(p)
 		return nil, fs.ToErrno(err)
 	}
 
@@ -178,7 +179,7 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	return ch, 0
 }
 
-func (n *loopbackNode) Rmdir(ctx context.Context, name string) syscall.Errno {
+func (n *loopbackNode) Rmdir(ctx context.Context, name string) unix.Errno {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return errno
@@ -186,11 +187,11 @@ func (n *loopbackNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	if err := n.download(p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
-	err := syscall.Rmdir(p)
+	err := unix.Rmdir(p)
 	return fs.ToErrno(err)
 }
 
-func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno syscall.Errno) {
+func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return errno
@@ -203,7 +204,7 @@ func (n *loopbackNode) Unlink(ctx context.Context, name string) (errno syscall.E
 			n.setFileState(p, dirty)
 		}
 	}()
-	err := syscall.Unlink(p)
+	err := unix.Unlink(p)
 	return fs.ToErrno(err)
 }
 
@@ -214,7 +215,7 @@ func toLoopbackNode(op fs.InodeEmbedder) *loopbackNode {
 	return op.(*loopbackNode)
 }
 
-func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.InodeEmbedder, newName string, flags uint32) syscall.Errno {
+func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.InodeEmbedder, newName string, flags uint32) unix.Errno {
 	newParentLoopback := toLoopbackNode(newParent)
 	if flags&fs.RENAME_EXCHANGE != 0 {
 		return n.renameExchange(name, newParentLoopback, newName)
@@ -246,7 +247,7 @@ func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
 
 var _ = (fs.NodeCreater)((*loopbackNode)(nil))
 
-func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, nil, 0, errno
@@ -260,14 +261,14 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 		}
 	}()
 
-	fd, err := syscall.Open(p, int(flags)|os.O_CREATE, mode)
+	fd, err := unix.Open(p, int(flags)|os.O_CREATE, mode)
 	if err != nil {
 		return nil, nil, 0, fs.ToErrno(err)
 	}
 
 	st := syscall.Stat_t{}
 	if err := syscall.Fstat(fd, &st); err != nil {
-		syscall.Close(fd)
+		unix.Close(fd)
 		return nil, nil, 0, fs.ToErrno(err)
 	}
 
@@ -279,7 +280,7 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 	return ch, lf, 0, 0
 }
 
-func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fuse.EntryOut) (_ *fs.Inode, errno syscall.Errno) {
+func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fuse.EntryOut) (_ *fs.Inode, errno unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
@@ -296,13 +297,13 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 			n.setFileState(p, dirty)
 		}
 	}()
-	err := syscall.Symlink(target, p)
+	err := unix.Symlink(target, p)
 	if err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	st := syscall.Stat_t{}
 	if syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p)
+		unix.Unlink(p)
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -312,7 +313,7 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 	return ch, 0
 }
 
-func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name string, out *fuse.EntryOut) (_ *fs.Inode, errno syscall.Errno) {
+func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name string, out *fuse.EntryOut) (_ *fs.Inode, errno unix.Errno) {
 	p := filepath.Join(n.path(), name)
 	if errno := n.checkWrite(p); errno != 0 {
 		return nil, errno
@@ -324,7 +325,7 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 	if err := n.download(targetNode.path(), full); err != nil {
 		return nil, fs.ToErrno(err)
 	}
-	err := syscall.Link(targetNode.path(), p)
+	err := unix.Link(targetNode.path(), p)
 	if err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -335,7 +336,7 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 	}()
 	st := syscall.Stat_t{}
 	if syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p)
+		unix.Unlink(p)
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -345,12 +346,12 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 	return ch, 0
 }
 
-func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
+func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, unix.Errno) {
 	p := n.path()
 
 	for l := 256; ; l *= 2 {
 		buf := make([]byte, l)
-		sz, err := syscall.Readlink(p, buf)
+		sz, err := unix.Readlink(p, buf)
 		if err != nil {
 			return nil, fs.ToErrno(err)
 		}
@@ -361,7 +362,7 @@ func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 	}
 }
 
-func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno unix.Errno) {
 	p := n.path()
 	state := full
 	if isWrite(flags) {
@@ -380,7 +381,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 			}
 		}()
 	}
-	f, err := syscall.Open(p, int(flags), 0)
+	f, err := unix.Open(p, int(flags), 0)
 	if err != nil {
 		return nil, 0, fs.ToErrno(err)
 	}
@@ -388,26 +389,26 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 	return lf, 0, 0
 }
 
-func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
+func (n *loopbackNode) Opendir(ctx context.Context) unix.Errno {
 	if err := n.download(n.path(), meta); err != nil {
 		return fs.ToErrno(err)
 	}
-	fd, err := syscall.Open(n.path(), syscall.O_DIRECTORY, 0755)
+	fd, err := unix.Open(n.path(), unix.O_DIRECTORY, 0755)
 	if err != nil {
 		return fs.ToErrno(err)
 	}
-	syscall.Close(fd)
+	unix.Close(fd)
 	return fs.OK
 }
 
-func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
+func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, unix.Errno) {
 	if err := n.download(n.path(), meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
 	return fs.NewLoopbackDirStream(n.path())
 }
 
-func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) unix.Errno {
 	if f != nil {
 		return f.(fs.FileGetattrer).Getattr(ctx, out)
 	}
@@ -428,14 +429,14 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 
 var _ = (fs.NodeSetattrer)((*loopbackNode)(nil))
 
-func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
+func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) unix.Errno {
 	p := n.path()
 	fsa, ok := f.(fs.FileSetattrer)
 	if ok && fsa != nil {
 		fsa.Setattr(ctx, in, out)
 	} else {
 		if m, ok := in.GetMode(); ok {
-			if err := syscall.Chmod(p, m); err != nil {
+			if err := unix.Chmod(p, m); err != nil {
 				return fs.ToErrno(err)
 			}
 		}
@@ -451,7 +452,7 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 			if gok {
 				sgid = int(gid)
 			}
-			if err := syscall.Chown(p, suid, sgid); err != nil {
+			if err := unix.Chown(p, suid, sgid); err != nil {
 				return fs.ToErrno(err)
 			}
 		}
@@ -479,7 +480,7 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 		}
 
 		if sz, ok := in.GetSize(); ok {
-			if err := syscall.Truncate(p, int64(sz)); err != nil {
+			if err := unix.Truncate(p, int64(sz)); err != nil {
 				return fs.ToErrno(err)
 			}
 		}
@@ -503,8 +504,8 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 // root is at the given root. This node implements all NodeXxxxer
 // operations available.
 func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*loopbackRoot, error) {
-	var st syscall.Stat_t
-	err := syscall.Stat(root, &st)
+	var st unix.Stat_t
+	err := unix.Stat(root, &st)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -685,18 +686,18 @@ func (n *loopbackNode) setFileState(path string, state fileState) {
 	n.root().files[n.trimPath(path)] = state
 }
 
-func (n *loopbackNode) checkWrite(path string) syscall.Errno {
+func (n *loopbackNode) checkWrite(path string) unix.Errno {
 	name := strings.Split(n.trimPath(path), "/")[0]
 	ros := n.root().repoOpts
 	if len(ros) > 0 {
 		ro, ok := ros[name]
 		if !ok || !ro.Write {
-			return syscall.EROFS
+			return unix.EROFS
 		}
 		return 0
 	}
 	if !n.root().write {
-		return syscall.EROFS
+		return unix.EROFS
 	}
 	return 0
 }
