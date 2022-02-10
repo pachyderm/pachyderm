@@ -82,6 +82,6 @@ export const getAccountFromIdToken = async (
       });
     });
   } catch (e) {
-    throw new AuthenticationError(e);
+    throw new AuthenticationError(String(e));
   }
 };

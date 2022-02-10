@@ -129,7 +129,7 @@ const executeQuery = async <T>(
   try {
     data = await client.query<T>({query, variables, context});
   } catch (err) {
-    errors = err.graphQLErrors;
+    errors = (err as Record<string, unknown>).graphQLErrors as ApolloError[];
   }
 
   return {data: data?.data || null, errors};
@@ -166,7 +166,7 @@ const executeMutation = async <T>(
   try {
     data = await client.mutate<T>({mutation, variables, context});
   } catch (err) {
-    errors = err.graphQLErrors;
+    errors = (err as Record<string, any>).graphQLErrors as ApolloError[];
   }
 
   return {data: data?.data || null, errors};

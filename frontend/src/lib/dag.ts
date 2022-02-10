@@ -157,9 +157,9 @@ const normalizeDAGData = async (
       ...rest,
       source: sources[0],
       target: targets[0],
-      startPoint: sections[0].startPoint,
-      endPoint: sections[0].endPoint,
-      bendPoints: sections[0].bendPoints || [],
+      startPoint: sections?.[0].startPoint || {x: 0, y: 0},
+      endPoint: sections?.[0].endPoint || {x: 0, y: 0},
+      bendPoints: sections?.[0].bendPoints || [],
     };
   });
 

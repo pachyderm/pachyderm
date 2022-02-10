@@ -42,7 +42,7 @@ const authResolver: AuthResolver = {
 
         return config;
       } catch (e) {
-        throw new ApolloError(e);
+        throw new ApolloError(String(e));
       }
     },
   },
@@ -71,7 +71,7 @@ const authResolver: AuthResolver = {
 
         return {pachToken, idToken};
       } catch (e) {
-        throw new AuthenticationError(e);
+        throw new AuthenticationError(String(e));
       }
     },
   },
