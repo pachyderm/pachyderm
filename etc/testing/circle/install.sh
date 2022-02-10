@@ -6,9 +6,9 @@ mkdir -p cached-deps
 
 architecture=""
 case $(uname -m) in
-    x86_64) architecture="amd64" ;;
-    aarch64) architecture="arm64" ;;
-    arm)    architecture="arm64" ;;
+    x86_64) architecture="amd64" goreleaserarch="x86_64";;
+    aarch64) architecture="arm64" goreleaserarch="arm64";;
+    arm64)    architecture="arm64" goreleaserarch="arm64" ;;
 esac
 
 # Install deps
@@ -76,7 +76,7 @@ fi
 # Install goreleaser 
 if [ ! -f cached-deps/goreleaser ]; then
   GORELEASER_VERSION=1.4.1
-  curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
+  curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_${goreleaserarch}.tar.gz \
       | tar xzf - -C cached-deps goreleaser
 fi
 
