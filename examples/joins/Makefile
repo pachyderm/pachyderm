@@ -4,6 +4,7 @@ CONTAINER_NAME := example-joins-inner-outer
 CONTAINER_VERSION := 2.1.0
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
+# Build Tag Push a new image to Docker Hub
 docker-image:
 	@docker build -t $(CONTAINER_TAG) . --platform=linux/amd64
 	@docker push $(CONTAINER_TAG)

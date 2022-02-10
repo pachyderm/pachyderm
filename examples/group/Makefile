@@ -4,17 +4,19 @@ CONTAINER_NAME := example-group
 CONTAINER_VERSION := 2.1.0
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
+# Build Tag Push a new image to Docker Hub
 docker-image-group-retail:
 	@docker build -t $(CONTAINER_TAG) .  --platform linux/amd64
 	@docker push $(CONTAINER_TAG)
 
-# Make sure that you have run make setup-retail and make deploy-retail first
+# Make sure that you have run `make setup-retail` and `make deploy-retail` first
 dev-update-image-group-retail:
 	$(eval IMAGE_SHA=$(shell docker build -t ${CONTAINER_TAG} --platform=linux/amd64 -q .))
 	$(eval IMAGE_TAG=$(shell echo $(IMAGE_SHA) |cut -c 8-20))
 	docker tag $(CONTAINER_TAG) $(CONTAINER_TAG).$(IMAGE_TAG)
 	pachctl update pipeline --jsonnet pipelines/retail/retail_group.jsonnet --arg tag=$(CONTAINER_VERSION).$(IMAGE_TAG) --arg suffix=jsonnet
-  
+
+# Lab-1 Create mockup data for lab example  
 setup-lab:
 	mkdir -p ./labresults 
 	printf "PID|PATID1\nORC|ORD777888\nOBX|1|NM|2093-3^Cholesterol|196|mg/dL\nOBX|2|NM|2571-8^Triglyceride|100|mg/dL" \
@@ -30,17 +32,20 @@ setup-lab:
 	printf "PID|PATID3\nORC|ORD777893\nOBX|1|NM|2093-3^Cholesterol|187|mg/dL\nOBX|2|NM|2571-8^Triglyceride|92|mg/dL" \
 	>./labresults/T1606707635-LIPID-PATID3-CLIA24D9871328.txt
 
+# Lab-2 Populate initial repos with mock up data
 deploy-lab:
 	pachctl create repo labresults
 	pachctl put file -r labresults@master:/ -f labresults
 	pachctl list file labresults@master
 
+# Lab-3 Create pipelines
 create-lab:
 	pachctl create pipeline -f pipelines/lab/lab_group_by_hospital.json 
 	pachctl create pipeline -f pipelines/lab/lab_group_by_patient.json
 	pachctl create pipeline -f pipelines/lab/reduce_group_by_hospital.json 
 	pachctl create pipeline -f pipelines/lab/reduce_group_by_patient.json
 
+# Retail-1 Create mockup data for retail example
 setup-retail:
 	mkdir -p ./stores ./purchases ./returns
 	echo "Creating stores..."
@@ -77,6 +82,7 @@ setup-retail:
 	printf "ORDER_HEADER|W261452|2020-10-10\nSKU|0246|QTY|1|UNIT_PRICE|50.00\n" \
 	 >./returns/ORDERW261452_STOREID0.txt
 
+# Retail-2 Populate initial repos with mock up data
 deploy-retail:
 	pachctl create repo stores
 	pachctl create repo purchases
@@ -88,6 +94,7 @@ deploy-retail:
 	pachctl put file -r returns@master:/ -f returns
 	pachctl list file returns@master	
 
+# Retail-3 Create pipelines
 create-pipeline-retail:
 	pachctl create pipeline -f pipelines/retail/retail_group.json
 
