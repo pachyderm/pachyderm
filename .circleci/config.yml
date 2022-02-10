@@ -47,14 +47,14 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
          keys:
-         - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-         - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+         - pach-go-build-cache-v1--{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+         - pach-go-build-cache-v1-master--{{ arch }}-{{ checksum "current_week" }}
 
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
          keys:
-         - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+         - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh
       - when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
           condition:
@@ -89,7 +89,7 @@ jobs:
       - run: mkdir /home/circleci/bin
       - restore_cache:
           keys:
-            - go-mod-helm-v4-{{ checksum "go.sum" }}
+            - go-mod-helm-v4-{{ arch }}-{{ checksum "go.sum" }}
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
       - run: wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
       - run: make lint
@@ -97,7 +97,7 @@ jobs:
       - run: make kubeval-gcp
       - run: make kubeval-aws
       - save_cache:
-          key: go-mod-helm-v4-{{ checksum "go.sum" }}
+          key: go-mod-helm-v4-{{ arch }}-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
   helm-publish:
