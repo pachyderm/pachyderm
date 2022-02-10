@@ -148,26 +148,21 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-tag:
-	docker tag pachyderm/pachd:latest-amd64 pachyderm/pachd:$(VERSION)-amd64
-	docker tag pachyderm/worker:latest-amd64 pachyderm/worker:$(VERSION)-amd64
-	docker tag pachyderm/pachctl:latest-amd64 pachyderm/pachctl:$(VERSION)-amd64
-	docker tag pachyderm/pachd:latest-arm64 pachyderm/pachd:$(VERSION)-arm64
-	docker tag pachyderm/worker:latest-arm64 pachyderm/worker:$(VERSION)-arm64
-	docker tag pachyderm/pachctl:latest-arm64 pachyderm/pachctl:$(VERSION)-arm64
+	docker tag pachyderm/pachd:latest pachyderm/pachd:$(VERSION)-$(TARGET_ARCH)
+	docker tag pachyderm/worker:latest pachyderm/worker:$(VERSION)-$(TARGET_ARCH)
+	docker tag pachyderm/pachctl:latest pachyderm/pachctl:$(VERSION)-$(TARGET_ARCH)
+
 
 docker-push: docker-tag
-	$(SKIP) docker push pachyderm/pachd:$(VERSION)-amd64
-	$(SKIP) docker push pachyderm/worker:$(VERSION)-amd64
-	$(SKIP) docker push pachyderm/pachctl:$(VERSION)-amd64
-	$(SKIP) docker push pachyderm/pachd:$(VERSION)-arm64
-	$(SKIP) docker push pachyderm/worker:$(VERSION)-arm64
-	$(SKIP) docker push pachyderm/pachctl:$(VERSION)-arm64
-	$(SKIP) manifest create pachyderm/pachd:$(VERSION) docker.io/pachyderm/pachd:$(VERSION)-amd64 docker.io/pachyderm/pachd:$(VERSION)-arm64
-	$(SKIP) manifest create pachyderm/worker:$(VERSION) docker.io/pachyderm/worker:$(VERSION)-amd64 docker.io/pachyderm/worker:$(VERSION)-arm64
-	$(SKIP) docker manifest create pachyderm/pachctl:$(VERSION) docker.io/pachyderm/pachctl:$(VERSION)-amd64 docker.io/pachyderm/pachctl:$(VERSION)-arm64
-	$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
-	$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
-	$(SKIP) docker manifest push pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker push pachyderm/pachd:$(VERSION)-$(TARGET_ARCH)
+	$(SKIP) docker push pachyderm/worker:$(VERSION)-$(TARGET_ARCH)
+	$(SKIP) docker push pachyderm/pachctl:$(VERSION)-$(TARGET_ARCH)
+	#$(SKIP) manifest create pachyderm/pachd:$(VERSION) docker.io/pachyderm/pachd:$(VERSION)-amd64 docker.io/pachyderm/pachd:$(VERSION)-arm64
+	#$(SKIP) manifest create pachyderm/worker:$(VERSION) docker.io/pachyderm/worker:$(VERSION)-amd64 docker.io/pachyderm/worker:$(VERSION)-arm64
+	#$(SKIP) docker manifest create pachyderm/pachctl:$(VERSION) docker.io/pachyderm/pachctl:$(VERSION)-amd64 docker.io/pachyderm/pachctl:$(VERSION)-arm64
+	#$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
+	#$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
+	#$(SKIP) docker manifest push pachyderm/pachctl:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1

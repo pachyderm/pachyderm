@@ -83,8 +83,8 @@ release:
 dockers:
   -
     image_templates:
-      - pachyderm/pachd:latest-amd64
-      - pachyderm/pachd:local-amd64
+      - pachyderm/pachd:latest
+      - pachyderm/pachd:local
     use: buildx
     ids:
       - pachd
@@ -101,7 +101,7 @@ dockers:
       - "--platform=linux/amd64"
   -
     image_templates:
-      - pachyderm/pachctl:latest-amd64
+      - pachyderm/pachctl:latest
     use: buildx
     ids:
       - pachctl
@@ -118,8 +118,8 @@ dockers:
       - licenses
   -
     image_templates:
-      - pachyderm/worker:latest-amd64
-      - pachyderm/worker:local-amd64
+      - pachyderm/worker:latest
+      - pachyderm/worker:local
     use: buildx
     ids:
       - pachctl
@@ -138,7 +138,7 @@ dockers:
       - licenses
   -
     image_templates:
-      - pachyderm/pachtf:latest-amd64
+      - pachyderm/pachtf:latest
     use: buildx
     ids:
       - pachtf
