@@ -24,6 +24,7 @@ type BasicModalProps = {
   errorMessage?: string;
   successMessage?: string;
   small?: boolean;
+  cancelText?: string;
 };
 
 const BasicModal: React.FC<BasicModalProps> = ({
@@ -45,6 +46,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
   errorMessage = '',
   successMessage = '',
   small = false,
+  cancelText,
 }) => {
   const modalStatus =
     (updating && 'updating') ||
@@ -79,6 +81,7 @@ const BasicModal: React.FC<BasicModalProps> = ({
           disabled={disabled}
           onConfirm={onConfirm || onHide}
           onHide={onHide}
+          cancelText={cancelText}
         />
       ) : (
         <div className={styles.infoFooter} />

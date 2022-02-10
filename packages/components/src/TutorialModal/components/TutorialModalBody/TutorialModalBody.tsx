@@ -14,11 +14,12 @@ import {Story} from '../../lib/types';
 import useTutorialModal from './hooks/useTutorialModal';
 import styles from './TutorialModalBody.module.css';
 
-type TutorialModalBodyProps = {
+export type TutorialModalBodyProps = {
   stories: Story[];
   initialStory?: number;
-  iniitalTask?: number;
+  initialTask?: number;
   onTutorialComplete?: () => void;
+  onSkip?: () => void;
 };
 
 const NextTaskInstance: React.FC<{
@@ -51,8 +52,9 @@ const NextTaskInstance: React.FC<{
 const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
   stories,
   initialStory = 0,
-  iniitalTask = 0,
+  initialTask = 0,
   onTutorialComplete = noop,
+  onSkip = noop,
 }) => {
   const {
     currentStory,
@@ -67,7 +69,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
     setMinimized,
     taskSections,
     tutorialModalRef,
-  } = useTutorialModal(stories, initialStory, iniitalTask);
+  } = useTutorialModal(stories, initialStory, initialTask);
 
   const classes = classNames(styles.modal, {
     [styles.minimize]: minimized,
@@ -110,26 +112,36 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             Next Story
             <ArrowRightSVG />
           </Button>
-          <Button
-            className={styles.button}
-            buttonType="secondary"
-            onClick={() => setMinimized((prevValue) => !prevValue)}
-            data-testid={`TutorialModalBody__${
-              minimized ? 'maximize' : 'minimize'
-            }`}
-          >
-            {minimized ? (
-              <>
-                Maximize
-                <ChevronUpSVG />
-              </>
-            ) : (
-              <>
-                Minimize
-                <ChevronDownSVG />
-              </>
-            )}
-          </Button>
+          <div className={styles.rightButtons}>
+            <Button
+              className={styles.button}
+              buttonType="secondary"
+              onClick={onSkip}
+              data-testid={'TutorialModalBody__skipTutorial'}
+            >
+              Skip Tutorial
+            </Button>
+            <Button
+              className={styles.button}
+              buttonType="secondary"
+              onClick={() => setMinimized((prevValue) => !prevValue)}
+              data-testid={`TutorialModalBody__${
+                minimized ? 'maximize' : 'minimize'
+              }`}
+            >
+              {minimized ? (
+                <>
+                  Maximize
+                  <ChevronUpSVG />
+                </>
+              ) : (
+                <>
+                  Minimize
+                  <ChevronDownSVG />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         <div className={styles.body} ref={tutorialModalRef}>
           <SideBar

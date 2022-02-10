@@ -17,6 +17,7 @@ const TestComponent = () => {
         <Modal.Body>Body</Modal.Body>
         <Modal.Footer
           confirmText="Confirm"
+          cancelText="Skip"
           onConfirm={confirmMock}
           onHide={closeModal}
         >
@@ -76,7 +77,7 @@ describe('Modal', () => {
 
     await findByText('Header');
 
-    const cancelButton = await findByText('Cancel');
+    const cancelButton = await findByText('Skip');
     userEvent.click(cancelButton);
 
     act(() => {

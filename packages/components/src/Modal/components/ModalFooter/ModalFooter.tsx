@@ -16,6 +16,7 @@ export interface ModalProps {
   buttonType?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
   disabled?: boolean;
   className?: string;
+  cancelText?: string;
 }
 
 const ModalFooter: React.FC<ModalProps> = ({
@@ -27,6 +28,7 @@ const ModalFooter: React.FC<ModalProps> = ({
   buttonType = 'button',
   disabled = false,
   className = '',
+  cancelText = 'Cancel',
 }) => {
   return (
     <BootstrapModalFooter className={classnames(styles.base, className)}>
@@ -36,7 +38,7 @@ const ModalFooter: React.FC<ModalProps> = ({
           onClick={onHide}
           type="button"
         >
-          Cancel
+          {cancelText}
         </ButtonLink>
         <Button
           data-testid={confirmTestId || 'ModalFooter__confirm'}

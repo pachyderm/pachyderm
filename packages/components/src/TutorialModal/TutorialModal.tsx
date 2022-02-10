@@ -3,14 +3,15 @@ import React from 'react';
 import ProgressBar from 'ProgressBar';
 
 import TutorialModalBody from './components/TutorialModalBody';
-import {Story} from './lib/types';
+import {TutorialModalBodyProps} from './components/TutorialModalBody/TutorialModalBody';
 
-type TutorialModalProps = {
-  stories: Story[];
+interface TutorialModalProps
+  extends Pick<
+    TutorialModalBodyProps,
+    'stories' | 'initialTask' | 'onTutorialComplete' | 'onSkip'
+  > {
   initialStep?: number;
-  iniitalTask?: number;
-  onTutorialComplete?: () => void;
-};
+}
 
 const TutorialModal: React.FC<TutorialModalProps> = (props) => {
   return (

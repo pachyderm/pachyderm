@@ -276,4 +276,16 @@ describe('TutorialModal', () => {
     click(getByText('The next story'));
     expect(queryByText('Story 2 of 2')).toBeInTheDocument();
   });
+
+  it("should invoke onSkip callback when user clicks the 'Leave Tutorial' button", async () => {
+    const handleLeave = jest.fn();
+    const {findByTestId} = render(
+      <TutorialModal stories={stories} onSkip={handleLeave} />,
+    );
+
+    const skipButton = await findByTestId('TutorialModalBody__skipTutorial');
+    await click(skipButton);
+
+    expect(handleLeave).toHaveBeenCalled();
+  });
 });

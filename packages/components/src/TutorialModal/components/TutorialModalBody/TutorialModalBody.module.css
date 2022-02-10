@@ -59,10 +59,18 @@
   padding: 0 2rem;
 }
 
+.rightButtons {
+  z-index: 10;
+}
+
 .button {
   z-index: 10;
   font-weight: 400;
   width: auto;
+}
+
+.button + .button {
+  margin-left: 1rem;
 }
 
 .button:disabled {
