@@ -2,8 +2,6 @@
 import glob, json, os, shutil, sys
 
 store_id = str(os.environ.get('PACH_DATUM_stores_JOIN_ON'))
-print("\nENV VARIABLE - " + store_id + "\n")
-
 
 store_path  = os.path.join("/pfs/stores","STOREID"+store_id+".txt")
 return_paths = glob.glob(os.path.join("/pfs/returns", "*.txt"))
@@ -12,7 +10,7 @@ return_paths = glob.glob(os.path.join("/pfs/returns", "*.txt"))
 zipcode = "UNKNOWN"
 separator_line = "\nThis return store does not exist \n"
 if store_id != "None":
-    print("LAla - Opening store_file...: " + store_path )
+    print("Opening store_file...: " + store_path )
     with open(store_path, 'r') as store_json:    
         store = json.load(store_json)
         zipcode = store['address']['zipcode']

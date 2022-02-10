@@ -2,7 +2,9 @@
 
 import glob, json, os, shutil, sys
 
-store_path  = glob.glob(os.path.join("/pfs/stores", "*.txt"))[0]
+store_id = str(os.environ.get('PACH_DATUM_stores_JOIN_ON'))
+
+store_path  = os.path.join("/pfs/stores","STOREID"+store_id+".txt")
 purchase_path = glob.glob(os.path.join("/pfs/purchases", "*.txt"))[0]
 
 print("Opening store_file...: " + store_path)
