@@ -254,6 +254,23 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 	return response, response.Error
 }
 
+func (mm *MountManager) UnmountAll() error {
+	lr, err := mm.List()
+	if err != nil {
+		return err
+	}
+	for repo, rr := range lr {
+		for branch, br := range rr.Branches {
+			if br.Mount.State == "mounted" {
+				//TODO: Add Commit field here once we support mounting specific commits
+				mm.UnmountBranch(MountKey{Repo: repo, Branch: branch}, "")
+			}
+		}
+	}
+
+	return nil
+}
+
 func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
 	if err := opts.validate(c); err != nil {
 		return nil, err
@@ -418,6 +435,13 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 		_, err = mm.UnmountBranch(key, name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})
+	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		err := mm.UnmountAll()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
