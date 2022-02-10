@@ -1,13 +1,20 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-group
-CONTAINER_VERSION := 2.0.1
+CONTAINER_VERSION := 2.1.0
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
-docker-image:
+docker-image-group-retail:
 	@docker build -t $(CONTAINER_TAG) .  --platform linux/amd64
 	@docker push $(CONTAINER_TAG)
 
+# Make sure that you have run make setup-retail and make deploy-retail first
+dev-update-image-group-retail:
+	$(eval IMAGE_SHA=$(shell docker build -t ${CONTAINER_TAG} --platform=linux/amd64 -q .))
+	$(eval IMAGE_TAG=$(shell echo $(IMAGE_SHA) |cut -c 8-20))
+	docker tag $(CONTAINER_TAG) $(CONTAINER_TAG).$(IMAGE_TAG)
+	pachctl update pipeline --jsonnet pipelines/retail/retail_group.jsonnet --arg tag=$(CONTAINER_VERSION).$(IMAGE_TAG) --arg suffix=jsonnet
+  
 setup-lab:
 	mkdir -p ./labresults 
 	printf "PID|PATID1\nORC|ORD777888\nOBX|1|NM|2093-3^Cholesterol|196|mg/dL\nOBX|2|NM|2571-8^Triglyceride|100|mg/dL" \
@@ -27,10 +34,12 @@ deploy-lab:
 	pachctl create repo labresults
 	pachctl put file -r labresults@master:/ -f labresults
 	pachctl list file labresults@master
-	pachctl create pipeline -f lab_group_by_hospital.json 
-	pachctl create pipeline -f lab_group_by_patient.json
-	pachctl create pipeline -f reduce_group_by_hospital.json 
-	pachctl create pipeline -f reduce_group_by_patient.json
+
+create-lab:
+	pachctl create pipeline -f pipelines/lab/lab_group_by_hospital.json 
+	pachctl create pipeline -f pipelines/lab/lab_group_by_patient.json
+	pachctl create pipeline -f pipelines/lab/reduce_group_by_hospital.json 
+	pachctl create pipeline -f pipelines/lab/reduce_group_by_patient.json
 
 setup-retail:
 	mkdir -p ./stores ./purchases ./returns
@@ -78,7 +87,9 @@ deploy-retail:
 	pachctl list file purchases@master	
 	pachctl put file -r returns@master:/ -f returns
 	pachctl list file returns@master	
-	pachctl create pipeline -f retail_group.json
+
+create-pipeline-retail:
+	pachctl create pipeline -f pipelines/retail/retail_group.json
 
 
 
