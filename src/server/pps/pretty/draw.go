@@ -124,11 +124,11 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 	vs := make([]*vertex, 0)
 	upsertVertex := func(name string) *vertex {
 		v := newVertex(name)
-		if _, ok := vMap[v.label]; !ok {
-			vMap[v.label] = v
+		if _, ok := vMap[name]; !ok {
+			vMap[name] = v
 			vs = append(vs, v)
 		}
-		return vMap[v.label]
+		return vMap[name]
 	}
 	for _, pi := range pis {
 		pv := upsertVertex(pi.Pipeline.Name)
@@ -136,9 +136,10 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 			var name string
 			if input.Pfs != nil {
 				name = input.Pfs.Name
-			}
-			if input.Cron != nil {
+			} else if input.Cron != nil {
 				name = input.Cron.Name
+			} else {
+				return nil
 			}
 			iv := upsertVertex(name)
 			iv.addEdge(pv)
@@ -193,8 +194,7 @@ func renderPicture(layers [][]*vertex) string {
 		for j := 0; j < len(l); j++ {
 			v := l[j]
 
-			// spacing := v.rowOffset - boxWidth/2 - 1 - written // - 1 for the space taken by the bar "|"
-			spacing := max(0, v.rowOffset-boxWidth/2-1-written) // - 1 for the space taken by the bar "|"
+			spacing := v.rowOffset - boxWidth/2 - 1 - written // - 1 for the space taken by the bar "|"
 
 			boxPadding := strings.Repeat(" ", (boxWidth-len(v.label))/2)
 
