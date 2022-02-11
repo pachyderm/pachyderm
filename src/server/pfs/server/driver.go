@@ -235,7 +235,10 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 	}
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo, repoInfo); err != nil {
-		return nil, errors.EnsureStack(pfsserver.ErrRepoNotFound{Repo: repo})
+		if col.IsErrNotFound(err) {
+			return nil, pfsserver.ErrRepoNotFound{Repo: repo}
+		}
+		return nil, errors.EnsureStack(err)
 	}
 	if includeAuth {
 		resp, err := d.env.AuthServer.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
@@ -1831,7 +1834,10 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 
 	result := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, result); err != nil {
-		return nil, errors.EnsureStack(pfsserver.ErrBranchNotFound{Branch: branch})
+		if col.IsErrNotFound(err) {
+			return nil, pfsserver.ErrBranchNotFound{Branch: branch}
+		}
+		return nil, errors.EnsureStack(err)
 	}
 	return result, nil
 }
