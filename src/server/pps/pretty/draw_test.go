@@ -24,9 +24,9 @@ func sequentialConnectedDAG(layers [][]*vertex) []*vertex {
 
 func TestX(t *testing.T) {
 	layers := [][]*vertex{
-		{newVertex("a"), newVertex("b")},
-		{newVertex("c")},
-		{newVertex("d"), newVertex("e")},
+		{newVertex("configs"), newVertex("datas")},
+		{newVertex("clean")},
+		{newVertex("model"), newVertex("analysis")},
 	}
 	vs := sequentialConnectedDAG(layers)
 	drawMultiAlgos(vs)
@@ -34,8 +34,8 @@ func TestX(t *testing.T) {
 
 func TestV(t *testing.T) {
 	layers := [][]*vertex{
-		{newVertex("hello"), newVertex("b")},
-		{newVertex("c")},
+		{newVertex("configs"), newVertex("datas")},
+		{newVertex("transform")},
 	}
 	vs := sequentialConnectedDAG(layers)
 	drawMultiAlgos(vs)
@@ -43,9 +43,9 @@ func TestV(t *testing.T) {
 
 func TestDiamond(t *testing.T) {
 	layers := [][]*vertex{
-		{newVertex("a")},
-		{newVertex("b"), newVertex("c")},
-		{newVertex("d")},
+		{newVertex("datas")},
+		{newVertex("features"), newVertex("clean")},
+		{newVertex("model")},
 	}
 	vs := sequentialConnectedDAG(layers)
 	drawMultiAlgos(vs)
@@ -53,26 +53,26 @@ func TestDiamond(t *testing.T) {
 
 func TestChain(t *testing.T) {
 	layers := [][]*vertex{
-		{newVertex("a")},
-		{newVertex("b")},
-		{newVertex("c")},
-		{newVertex("d")},
+		{newVertex("stats")},
+		{newVertex("clean")},
+		{newVertex("enhance")},
+		{newVertex("dump")},
 	}
 	vs := sequentialConnectedDAG(layers)
 	drawMultiAlgos(vs)
 }
 
 func TestCrossLayer(t *testing.T) {
-	b := newVertex("b")
-	e := newVertex("e")
+	config := newVertex("configs")
+	model := newVertex("model")
 	layers := [][]*vertex{
-		{newVertex("a"), b},
-		{newVertex("c")},
-		{newVertex("d")},
-		{e},
+		{newVertex("raw_data"), config},
+		{newVertex("transform")},
+		{newVertex("dashboard")},
+		{model},
 	}
 	// add an extra connection from layer 3 -> 1
-	b.addEdge(e)
+	config.addEdge(model)
 	vs := sequentialConnectedDAG(layers)
 	drawMultiAlgos(vs)
 }
