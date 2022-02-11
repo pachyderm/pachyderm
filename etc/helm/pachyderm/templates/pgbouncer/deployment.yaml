@@ -60,7 +60,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: pachyderm/pgbouncer:1.16.1-1
+        image: pachyderm/pgbouncer:1.16.1-1b
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
