@@ -30,6 +30,8 @@ export const FILE_BROWSER_FILE_PATH = `/project/:projectId/repos/:repoId/branch/
 export const LOGS_VIEWER_PIPELINE_PATH = `/project/:projectId/pipelines/:pipelineId/logs`;
 export const LOGS_VIEWER_JOB_PATH = `/project/:projectId/jobs/:jobId/:pipelineId/logs`;
 
+export const TUTORIAL_PATH = [LINEAGE_PATH, FILE_BROWSER_PATH];
+
 export const PROJECT_PATHS = [
   LINEAGE_PATH,
   LINEAGE_JOB_PATH,

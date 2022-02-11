@@ -1,7 +1,8 @@
 import {BasicModal, TutorialModal} from '@pachyderm/components';
 import React from 'react';
-import {Prompt} from 'react-router';
+import {matchPath, Prompt} from 'react-router';
 
+import {TUTORIAL_PATH} from '../../constants/projectPaths';
 import {TutorialProps} from '../ProjectTutorial';
 
 import ExitSurvey from './ExitSurvey';
@@ -20,6 +21,7 @@ const ImageProcessing: React.FC<TutorialProps> = ({onClose}) => {
     closeConfirmationModal,
     handleSkipTutorial,
   } = useImageProcessing();
+
   return (
     <>
       <BasicModal
@@ -35,7 +37,17 @@ const ImageProcessing: React.FC<TutorialProps> = ({onClose}) => {
         {WARNING_MESSAGE}
       </BasicModal>
       {!isExitSurveyOpen && !isConfirmationModalOpen && (
-        <Prompt message={WARNING_MESSAGE} />
+        <Prompt
+          message={(location) => {
+            const match = matchPath(location.pathname, {
+              path: TUTORIAL_PATH,
+            });
+
+            const isLeavingTutorial = !match;
+
+            return isLeavingTutorial ? WARNING_MESSAGE : true;
+          }}
+        />
       )}
       {isExitSurveyOpen ? <ExitSurvey onTutorialClose={onClose} /> : null}
       <TutorialModal
