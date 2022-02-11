@@ -941,8 +941,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
+	var commitSet string
 	draw := &cobra.Command{
-		Use:   "{{alias}} [<pipeline>]",
+		Use:   "{{alias}}",
 		Short: "Draw a DAG",
 		Long:  "Draw a DAG",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
@@ -972,6 +973,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
+	// TODO: implement these flags
+	draw.Flags().StringVar(&commitSet, "c", "", "Commit at which you would to draw the DAG")
+	draw.Flags().StringVar(&commitSet, "f", "", "A debug dump file containing DAG info")
 	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
 
 	var (
