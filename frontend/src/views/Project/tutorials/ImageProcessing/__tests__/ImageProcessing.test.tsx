@@ -28,6 +28,18 @@ describe('Image Processing', () => {
     expect(tutorialTitle).toBeInTheDocument();
   });
 
+  it('should allow the user to skip the tutorial', async () => {
+    const {findByText, findByTestId, container} = render(<Tutorial />);
+
+    await click(await findByText('Skip Tutorial'));
+
+    await click(await findByText('Skip'));
+
+    await click(await findByTestId('ModalFooter__cancel'));
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
   it('should allow the user to complete the tutorial', async () => {
     const {
       findByRole,
@@ -35,7 +47,7 @@ describe('Image Processing', () => {
       findAllByRole,
       findByLabelText,
       findByTestId,
-      baseElement,
+      container,
     } = render(<Tutorial />);
 
     const minimize = async () => {
@@ -218,6 +230,6 @@ describe('Image Processing', () => {
     expect(surveyCloseButton).toBeInTheDocument();
     click(surveyCloseButton);
 
-    waitFor(() => expect(baseElement).not.toBeInTheDocument());
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });

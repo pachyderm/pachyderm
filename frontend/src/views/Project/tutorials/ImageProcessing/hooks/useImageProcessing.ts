@@ -1,15 +1,26 @@
-import {useState} from 'react';
+import {useModal} from '@pachyderm/components';
+import {useCallback} from 'react';
 
 const useImageProcessing = () => {
-  const [exitSurveyOpen, setExitSurveyOpen] = useState(false);
+  const {openModal: openExitSurvey, isOpen: isExitSurveyOpen} = useModal(false);
+  const {
+    openModal: openConfirmationModal,
+    isOpen: isConfirmationModalOpen,
+    closeModal: closeConfirmationModal,
+  } = useModal(false);
 
-  const onTutorialComplete = () => {
-    setExitSurveyOpen(true);
-  };
+  const handleSkipTutorial = useCallback(() => {
+    closeConfirmationModal();
+    openExitSurvey();
+  }, [closeConfirmationModal, openExitSurvey]);
 
   return {
-    exitSurveyOpen,
-    onTutorialComplete,
+    isExitSurveyOpen,
+    openExitSurvey,
+    openConfirmationModal,
+    isConfirmationModalOpen,
+    closeConfirmationModal,
+    handleSkipTutorial,
   };
 };
 

@@ -110,6 +110,7 @@ const IntroductionModal: React.FC<IntroductionModalProps> = ({
       actionable
       confirmText={pages[page].confirmText}
       onConfirm={onConfirm}
+      cancelText="Skip tutorial"
     >
       {pages[page].body}
     </BasicModal>

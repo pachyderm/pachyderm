@@ -30,6 +30,8 @@ const env = Object.keys(process.env)
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // vite will automatically set this to "development" if you are using the dev server.
+  mode: process.env.NODE_ENV,
   server: {
     proxy: {
       '/graphql': 'http://localhost:3000',

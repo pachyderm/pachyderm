@@ -1,5 +1,4 @@
 import React, {useCallback, useEffect} from 'react';
-import {Prompt} from 'react-router';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -18,9 +17,6 @@ type TutorialMap = {
 const TUTORIALS: TutorialMap = {
   'image-processing': ImageProcessing,
 };
-
-const WARNING_MESSAGE =
-  'Are you sure you want to leave? All tutorial progress will be lost.';
 
 const ProjectTutorial: React.FC = () => {
   const {projectId} = useUrlState();
@@ -74,12 +70,7 @@ const ProjectTutorial: React.FC = () => {
   if (id) {
     const Tutorial = TUTORIALS[id];
     if (Tutorial) {
-      return (
-        <>
-          <Prompt message={WARNING_MESSAGE} />
-          <Tutorial onClose={onClose} />
-        </>
-      );
+      return <Tutorial onClose={onClose} />;
     }
   }
   return null;
