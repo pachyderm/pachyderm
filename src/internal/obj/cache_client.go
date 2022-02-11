@@ -101,7 +101,8 @@ func (c *cacheClient) getFast(ctx context.Context, p string, w io.Writer) (bool,
 func (c *cacheClient) getSlow(ctx context.Context, p string, w io.Writer) error {
 	return miscutil.WithPipe(func(w2 io.Writer) error {
 		mw := io.MultiWriter(w, w2)
-		return c.slow.Get(ctx, p, mw)
+		err := c.slow.Get(ctx, p, mw)
+		return errors.EnsureStack(err)
 	}, func(r io.Reader) error {
 		if err := c.fast.Put(ctx, p, r); err != nil {
 			return errors.EnsureStack(err)
