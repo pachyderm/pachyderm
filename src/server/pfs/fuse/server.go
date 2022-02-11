@@ -723,13 +723,25 @@ func unmountingState(m *MountStateMachine) StateFn {
 		m.manager.root.mu.Lock()
 		defer m.manager.root.mu.Unlock()
 		// forget what we knew about the mount
+		logrus.Info("BEFORE CLEAN: ", m.MountState.Name)
+		logrus.Infof("repoOpts: %+v", m.manager.root.repoOpts)
+		logrus.Infof("branches: %+v", m.manager.root.branches)
+		logrus.Infof("commits: %+v", m.manager.root.commits)
+		logrus.Infof("files: %+v", m.manager.root.files)
 		delete(m.manager.root.repoOpts, m.MountState.Name)
 		cleanByPrefixStrings(m.manager.root.branches, m.MountState.Name)
 		cleanByPrefixStrings(m.manager.root.commits, m.MountState.Name)
 		cleanByPrefixFileStates(m.manager.root.files, m.MountState.Name)
+		logrus.Info("AFTER CLEAN: ", m.MountState.Name)
+		logrus.Infof("repoOpts: %+v", m.manager.root.repoOpts)
+		logrus.Infof("branches: %+v", m.manager.root.branches)
+		logrus.Infof("commits: %+v", m.manager.root.commits)
+		logrus.Infof("files: %+v", m.manager.root.files)
 	}()
 
 	// remove from loopback filesystem so that it actually disappears for the user
+	// XXX what if the user specifies the mount name as "../.."! :-O
+	// TODO XXX SECURITY need to sanitize this path before we rm -rf it
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
 	logrus.Infof("Path is %s", cleanPath)
 

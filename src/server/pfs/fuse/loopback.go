@@ -16,6 +16,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -113,6 +114,7 @@ func (n *loopbackNode) path() string {
 
 func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	p := filepath.Join(n.path(), name)
+	logrus.Infof("Lookup(%s) -> download(%s)", name, p)
 	if err := n.download(p, meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -120,12 +122,14 @@ func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryO
 	st := syscall.Stat_t{}
 	err := syscall.Lstat(p, &st)
 	if err != nil {
+		logrus.Infof("Lookup(%s) err %s", name, err)
 		return nil, fs.ToErrno(err)
 	}
 
 	out.Attr.FromStat(&st)
 	node := &loopbackNode{}
 	ch := n.NewInode(ctx, node, n.root().idFromStat(&st))
+	logrus.Infof("Lookup(%s) inode %+v", name, ch)
 	return ch, 0
 }
 
@@ -235,12 +239,12 @@ func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.Ino
 
 func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
 	// https://github.com/hanwen/go-fuse/blob/master/fs/loopback.go#L57
-	swapped := (uint64(st.Dev) << 32) | (uint64(st.Dev) >> 32)
-	swappedRootDev := (r.rootDev << 32) | (r.rootDev >> 32)
+	//swapped := (uint64(st.Dev) << 32) | (uint64(st.Dev) >> 32)
+	//swappedRootDev := (r.rootDev << 32) | (r.rootDev >> 32)
 	return fs.StableAttr{
 		Mode: uint32(st.Mode),
 		Gen:  1,
-		Ino:  (swapped ^ swappedRootDev) ^ st.Ino,
+		Ino:  0,
 	}
 }
 
@@ -370,6 +374,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 		}
 		state = dirty
 	}
+	logrus.Infof("Open() -> download(%s)", p)
 	if err := n.download(p, state); err != nil {
 		return nil, 0, fs.ToErrno(err)
 	}
@@ -389,6 +394,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 }
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
+	logrus.Infof("Opendir() -> download(%s)", n.path())
 	if err := n.download(n.path(), meta); err != nil {
 		return fs.ToErrno(err)
 	}
@@ -401,6 +407,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 }
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
+	logrus.Infof("Readdir() -> download(%s)", n.path())
 	if err := n.download(n.path(), meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -412,6 +419,7 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 		return f.(fs.FileGetattrer).Getattr(ctx, out)
 	}
 	p := n.path()
+	logrus.Infof("Getattr(%s) -> download(%s)", f, p)
 	if err := n.download(p, meta); err != nil {
 		return fs.ToErrno(err)
 	}
@@ -419,6 +427,7 @@ func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 	var err error
 	st := syscall.Stat_t{}
 	err = syscall.Lstat(p, &st)
+	logrus.Infof("Getattr(%s) -> Lstat(%s) -> %s", f, p, err)
 	if err != nil {
 		return fs.ToErrno(err)
 	}
@@ -544,6 +553,7 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(path string, state fileState) (retErr error) {
+	logrus.Infof("Starting download path=%s state=%s", path, state)
 	if n.getFileState(path) >= state {
 		// Already got this file, so we can just return
 		return nil
@@ -552,6 +562,7 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		return err
 	}
 	path = n.trimPath(path)
+	logrus.Infof("trimPath=%s", path)
 	parts := strings.Split(path, "/")
 	defer func() {
 		if retErr == nil {
@@ -561,11 +572,13 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	// Note, len(parts) < 1 should not actually be possible, but just in case
 	// no need to panic.
 	if len(parts) < 1 || parts[0] == "" {
+		logrus.Infof("early exit 1")
 		return nil // already downloaded in downloadRepos
 	}
 	name := parts[0]
 	branch := n.root().branch(name)
 	commit, err := n.commit(name)
+	logrus.Infof("name=%s, branch=%s, commit=%s", name, branch, commit)
 	if err != nil {
 		return err
 	}
@@ -577,18 +590,25 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
 	repoName := ro.Repo
+	logrus.Infof("repoOpts=%+v, repoName=%s", ro, repoName)
+	logrus.Infof("Iterating over files...")
 	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+		logrus.Infof("got file %+v", fi)
 		if fi.FileType == pfs.FileType_DIR {
+			logrus.Infof("directory")
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
 		p := n.filePath(name, fi)
+		logrus.Infof("filePath=%s", p)
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially
 		// because Mkdir should be pretty cheap.
+		logrus.Infof("mkdirall")
 		if err := os.MkdirAll(filepath.Dir(p), 0777); err != nil {
 			return errors.WithStack(err)
 		}
+		logrus.Infof("create(%s)", p)
 		f, err := os.Create(p)
 		if err != nil {
 			return errors.WithStack(err)
@@ -599,8 +619,10 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			}
 		}()
 		if state < full {
+			logrus.Infof("truncate(%s)", p)
 			return errors.EnsureStack(f.Truncate(int64(fi.SizeBytes)))
 		}
+		logrus.Infof("getFile(%s, %s)", fi.File.Commit, fi.File.Path)
 		if err := n.c().GetFile(fi.File.Commit, fi.File.Path, f); err != nil {
 			return err
 		}
@@ -682,6 +704,7 @@ func (n *loopbackNode) getFileState(path string) fileState {
 func (n *loopbackNode) setFileState(path string, state fileState) {
 	n.root().mu.Lock()
 	defer n.root().mu.Unlock()
+	logrus.Infof("setFileState path=%s state=%s trimPath=%s", path, state, n.trimPath(path))
 	n.root().files[n.trimPath(path)] = state
 }
 
