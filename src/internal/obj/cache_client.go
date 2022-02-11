@@ -107,7 +107,8 @@ func (c *cacheClient) getSlow(ctx context.Context, p string, w io.Writer) error 
 		return errors.EnsureStack(err)
 	}, func(r io.Reader) error {
 		if err := c.fast.Put(ctx, p, r); pacherr.IsNotExist(err) {
-			return err
+			// if the object could not be found, the first read will return a NotExist error
+			return errors.EnsureStack(err)
 		} else if err != nil {
 			c.log.Errorf("obj.cacheClient: writing to cache: %v", err)
 			return nil
