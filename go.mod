@@ -46,7 +46,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e
 	github.com/opentracing/opentracing-go v1.2.0
-	github.com/pachyderm/cdr v0.0.0-00010101000000-000000000000
+	github.com/pachyderm/cdr v0.0.0-20220210202933-72eea9b8545e
 	github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36
 	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
@@ -263,5 +263,3 @@ require (
 
 // until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
 replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26
-
-replace github.com/pachyderm/cdr => ../cdr

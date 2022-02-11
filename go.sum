@@ -1044,6 +1044,8 @@ github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/oracle/oci-go-sdk v7.1.0+incompatible/go.mod h1:VQb79nF8Z2cwLkLS35ukwStZIg5F66tcBccjip/j888=
+github.com/pachyderm/cdr v0.0.0-20220210202933-72eea9b8545e h1:b0sIOO+2XcsskNH36fxxv0btB93pXPQF3AQc2GZQ4Ig=
+github.com/pachyderm/cdr v0.0.0-20220210202933-72eea9b8545e/go.mod h1:SIXY4jKdeeBrHiqwo6t7F4PEG5i0B/0rBzWGnwP+saI=
 github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26 h1:v9CfWKjdh2onBrKWp1aVpkjUn7a7ux9JyjREEzAD8iA=
 github.com/pachyderm/dex v0.0.0-20211020185745-ebfeda600c26/go.mod h1:E6IFWtq4slh89pVZH0hDG7KKu6e7mn8wCemSEErgbRo=
 github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36 h1:BYlMmKAikMsokjseoeg/7ZIE5Z/kM7b54hIe6y2/n3c=
