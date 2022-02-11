@@ -234,13 +234,10 @@ func (n *loopbackNode) Rename(ctx context.Context, name string, newParent fs.Ino
 }
 
 func (r *loopbackRoot) idFromStat(st *syscall.Stat_t) fs.StableAttr {
-	// https://github.com/hanwen/go-fuse/blob/master/fs/loopback.go#L57
-	swapped := (uint64(st.Dev) << 32) | (uint64(st.Dev) >> 32)
-	swappedRootDev := (r.rootDev << 32) | (r.rootDev >> 32)
 	return fs.StableAttr{
 		Mode: uint32(st.Mode),
 		Gen:  1,
-		Ino:  (swapped ^ swappedRootDev) ^ st.Ino,
+		Ino:  0, // let fuse generate this automatically
 	}
 }
 
