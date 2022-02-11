@@ -941,6 +941,39 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
+	draw := &cobra.Command{
+		Use:   "{{alias}} [<pipeline>]",
+		Short: "Draw a DAG",
+		Long:  "Draw a DAG",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			// init client & get pipeline info
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrapf(err, "error connecting to pachd")
+			}
+			defer client.Close()
+
+			request := &ppsclient.ListPipelineRequest{History: 0, JqFilter: "", Details: true}
+
+			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			pipelineInfos, err := clientsdk.ListPipelineInfo(lpClient)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if picture, err := pretty.DrawFromPipelines(pipelineInfos); err != nil {
+				return err
+			} else {
+				fmt.Print(picture)
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
+
 	var (
 		all      bool
 		force    bool

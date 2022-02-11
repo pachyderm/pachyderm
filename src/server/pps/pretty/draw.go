@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
@@ -110,6 +111,45 @@ func Draw(commit pfs.CommitSet, src *os.FileInfo) {
 	draw(baseGraph(commit), layerLongestPath, simpleOrder)
 }
 
+func DrawFromPipelines(pis []*pps.PipelineInfo) (string, error) {
+	if g, err := makeGraph(pis); err != nil {
+		return "", err
+	} else {
+		return draw(g, layerLongestPath, simpleOrder), nil
+	}
+}
+
+func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
+	vMap := make(map[string]*vertex)
+	vs := make([]*vertex, 0)
+	upsertVertex := func(name string) *vertex {
+		v := newVertex(name)
+		if _, ok := vMap[v.label]; !ok {
+			vMap[v.label] = v
+			vs = append(vs, v)
+		}
+		return vMap[v.label]
+	}
+	for _, pi := range pis {
+		pv := upsertVertex(pi.Pipeline.Name)
+		if err := pps.VisitInput(pi.Details.Input, func(input *pps.Input) error {
+			var name string
+			if input.Pfs != nil {
+				name = input.Pfs.Name
+			}
+			if input.Cron != nil {
+				name = input.Cron.Name
+			}
+			iv := upsertVertex(name)
+			iv.addEdge(pv)
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return vs, nil
+}
+
 // TODO: fill graph from commit
 func baseGraph(commit pfs.CommitSet) []*vertex {
 	return make([]*vertex, 0)
@@ -152,7 +192,10 @@ func renderPicture(layers [][]*vertex) string {
 		// print the row of boxed vertices
 		for j := 0; j < len(l); j++ {
 			v := l[j]
-			spacing := v.rowOffset - boxWidth/2 - 1 - written // - 1 for the space taken by the bar "|"
+
+			// spacing := v.rowOffset - boxWidth/2 - 1 - written // - 1 for the space taken by the bar "|"
+			spacing := max(0, v.rowOffset-boxWidth/2-1-written) // - 1 for the space taken by the bar "|"
+
 			boxPadding := strings.Repeat(" ", (boxWidth-len(v.label))/2)
 
 			if v.label == "*" {
