@@ -385,6 +385,12 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 				n, err = putFileRaw(uw, p, t, src.Raw)
 			case *pfs.AddFile_Url:
 				n, err = putFileURL(ctx, uw, p, t, src.Url)
+			case *pfs.AddFile_Cdr:
+				ref := &cdr.Ref{}
+				if err := proto.Unmarshal(src.Cdr, ref); err != nil {
+					return bytesRead, err
+				}
+				n, err = putFileCDR(ctx, uw, p, t, src.Cdr)
 			default:
 				// need to write empty data to path
 				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
@@ -465,6 +471,16 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 			return uw.Put(dstPath, tag, true, r)
 		})
 	}
+}
+
+func putFileCDR(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, res *cdr.Resolver, ref *cdr.Ref) (int64, error) {
+	rc, err := res.Deref(ctx, ref)
+	if err != nil {
+		return 0, err
+	}
+	defer rc.Close()
+	err = uw.Put(dstPath, tag, true, rc)
+	return 0, err
 }
 
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
