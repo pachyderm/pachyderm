@@ -94,5 +94,5 @@ curl -L https://golang.org/dl/go1.17.3.linux-${architecture}.tar.gz | sudo tar x
 if [ ! -f cached-deps/kubeval ]; then
   KUBEVAL_VERSION=v0.16.1
   go install github.com/instrumenta/kubeval@${KUBEVAL_VERSION}
-  mv "$(which kubeval)" cached-deps/kubeval
+  mv "$(command -v kubeval)" cached-deps/kubeval
 fi
