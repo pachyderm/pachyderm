@@ -29,7 +29,6 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 	setStrIdx := func(s string, i int, r rune) string {
 		return s[:i] + string(r) + s[i+1:]
 	}
-
 	c := '+' // set the coordinate to "+" if there's an edge crossing
 	if re.src == re.dest {
 		if row[re.src] == ' ' {
@@ -56,9 +55,7 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 	} else { // diagonal
 		offset := vertIdx + srcEdgeCenterOffset
 		if vertIdx > vertDist/2 {
-			// offset = offset + vertDist/2
 			offset = offset + abs(re.src-re.dest) - vertDist - 1
-
 		}
 		if re.src > re.dest {
 			i := re.src - offset
