@@ -303,6 +303,7 @@ message AddFile {
   oneof source {
     google.protobuf.BytesValue raw = 3;
     URLSource url = 4;
+    bytes cdr = 5;
   }
 }
 
