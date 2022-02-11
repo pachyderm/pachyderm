@@ -430,6 +430,7 @@ message PutCacheRequest {
   string key = 1;
   google.protobuf.Any value = 2;
   repeated string file_set_ids = 3;
+  string tag = 4;
 }
 
 message GetCacheRequest {
@@ -438,6 +439,10 @@ message GetCacheRequest {
 
 message GetCacheResponse {
   google.protobuf.Any value = 1;
+}
+
+message ClearCacheRequest {
+  string tag_prefix = 1;
 }
 
 message ActivateAuthRequest {}
@@ -538,6 +543,7 @@ service API {
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
+  rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}

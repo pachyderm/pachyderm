@@ -132,7 +132,7 @@ func newDriver(env Env) (*driver, error) {
 	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
-	d.cache = fileset.NewCache(env.DB, tracker, 1000)
+	d.cache = fileset.NewCache(env.DB, tracker, 10000)
 	return d, nil
 }
 
@@ -235,7 +235,10 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 	}
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo, repoInfo); err != nil {
-		return nil, errors.EnsureStack(pfsserver.ErrRepoNotFound{Repo: repo})
+		if col.IsErrNotFound(err) {
+			return nil, pfsserver.ErrRepoNotFound{Repo: repo}
+		}
+		return nil, errors.EnsureStack(err)
 	}
 	if includeAuth {
 		resp, err := d.env.AuthServer.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{
@@ -1831,7 +1834,10 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 
 	result := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, result); err != nil {
-		return nil, errors.EnsureStack(pfsserver.ErrBranchNotFound{Branch: branch})
+		if col.IsErrNotFound(err) {
+			return nil, pfsserver.ErrBranchNotFound{Branch: branch}
+		}
+		return nil, errors.EnsureStack(err)
 	}
 	return result, nil
 }
@@ -2065,12 +2071,16 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 	return commit, nil
 }
 
-func (d *driver) putCache(ctx context.Context, key string, value *types.Any, fileSetIds []fileset.ID) error {
-	return d.cache.Put(ctx, key, value, fileSetIds)
+func (d *driver) putCache(ctx context.Context, key string, value *types.Any, fileSetIds []fileset.ID, tag string) error {
+	return d.cache.Put(ctx, key, value, fileSetIds, tag)
 }
 
 func (d *driver) getCache(ctx context.Context, key string) (*types.Any, error) {
 	return d.cache.Get(ctx, key)
+}
+
+func (d *driver) clearCache(ctx context.Context, tagPrefix string) error {
+	return d.cache.Clear(ctx, tagPrefix)
 }
 
 // TODO: Is this really necessary?

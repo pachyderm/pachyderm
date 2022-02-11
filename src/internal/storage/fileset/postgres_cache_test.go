@@ -31,7 +31,7 @@ func TestPostgresCache(t *testing.T) {
 	maxSize := 5
 	cache := newTestCache(t, db, tr, maxSize)
 	ids := make([]ID, maxSize+1)
-	putFileSet := func(i int) {
+	put := func(i int) {
 		id, err := storage.newWriter(ctx, WithTTL(track.ExpireNow)).Close()
 		require.NoError(t, err)
 		valueProto := &TestCacheValue{FileSetId: id.HexString()}
@@ -41,10 +41,14 @@ func TestPostgresCache(t *testing.T) {
 			TypeUrl: "/" + proto.MessageName(valueProto),
 			Value:   data,
 		}
-		require.NoError(t, cache.Put(ctx, strconv.Itoa(i), value, []ID{*id}))
+		tag := "odd"
+		if i%2 == 0 {
+			tag = "even"
+		}
+		require.NoError(t, cache.Put(ctx, strconv.Itoa(i), value, []ID{*id}, tag))
 		ids[i] = *id
 	}
-	checkFileSet := func(i int) {
+	checkExists := func(i int) {
 		value, err := cache.Get(ctx, strconv.Itoa(i))
 		require.NoError(t, err)
 		valueProto := &TestCacheValue{}
@@ -54,30 +58,44 @@ func TestPostgresCache(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, exists)
 	}
+	checkNotExists := func(i int) {
+		_, err := cache.Get(ctx, strconv.Itoa(i))
+		require.YesError(t, err)
+		exists, err := storage.exists(ctx, ids[0])
+		require.NoError(t, err)
+		require.False(t, exists)
+	}
 	// Fill the cache and confirm that the entries are retrievable and correct.
 	// Also, confirm the referenced file sets still exist after gc.
 	for i := 0; i < maxSize; i++ {
-		putFileSet(i)
+		put(i)
 	}
 	gc := storage.NewGC(time.Second)
 	_, err := gc.RunOnce(ctx)
 	require.NoError(t, err)
 	for i := 0; i < maxSize; i++ {
-		checkFileSet(i)
+		checkExists(i)
 	}
 	// Add one more entry to confirm that the oldest entry is evicted and the
 	// rest of the entries are retrievable and correct.
 	// Also, confirm the oldest entry's file set is deleted and the others
 	// still exist.
-	putFileSet(maxSize)
-	_, err = cache.Get(ctx, strconv.Itoa(0))
-	require.YesError(t, err)
+	put(maxSize)
 	_, err = gc.RunOnce(ctx)
 	require.NoError(t, err)
-	exists, err := storage.exists(ctx, ids[0])
-	require.NoError(t, err)
-	require.False(t, exists)
+	checkNotExists(0)
 	for i := 1; i < maxSize+1; i++ {
-		checkFileSet(i)
+		checkExists(i)
+	}
+	// Clear the odd index entries and confirm they no longer exist.
+	require.NoError(t, cache.Clear(ctx, "odd"))
+	_, err = gc.RunOnce(ctx)
+	require.NoError(t, err)
+	for i := 1; i < maxSize+1; i++ {
+		if i%2 != 0 {
+			checkNotExists(i)
+			continue
+		}
+		checkExists(i)
 	}
 }

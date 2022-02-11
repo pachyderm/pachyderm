@@ -894,6 +894,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	}); err != nil {
 		return nil, err
 	}
+	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
 	return &types.Empty{}, nil
 }
 
@@ -911,7 +912,17 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	}, nil); err != nil {
 		return nil, err
 	}
+	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
 	return &types.Empty{}, nil
+}
+
+// TODO: Remove when job state transition operations are handled by a background process.
+func clearJobCache(pachClient *client.APIClient, tagPrefix string) {
+	if _, err := pachClient.PfsAPIClient.ClearCache(pachClient.Ctx(), &pfs.ClearCacheRequest{
+		TagPrefix: tagPrefix,
+	}); err != nil {
+		logrus.Errorf("errored clearing job cache: %v", err)
+	}
 }
 
 // StopJobInTransaction is identical to StopJob except that it can run inside an
@@ -2399,6 +2410,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}); err != nil {
 		return err
 	}
+	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
 	return deleteErr
 }
 

@@ -448,6 +448,7 @@ type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.
 type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
 type putCacheFunc func(context.Context, *pfs.PutCacheRequest) (*types.Empty, error)
 type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error)
+type clearCacheFunc func(context.Context, *pfs.ClearCacheRequest) (*types.Empty, error)
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
@@ -489,6 +490,7 @@ type mockComposeFileSet struct{ handler composeFileSetFunc }
 type mockCheckStorage struct{ handler checkStorageFunc }
 type mockPutCache struct{ handler putCacheFunc }
 type mockGetCache struct{ handler getCacheFunc }
+type mockClearCache struct{ handler clearCacheFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
@@ -530,6 +532,7 @@ func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handle
 func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
 func (mock *mockPutCache) Use(cb putCacheFunc)                     { mock.handler = cb }
 func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handler = cb }
+func (mock *mockClearCache) Use(cb clearCacheFunc)                 { mock.handler = cb }
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
@@ -577,6 +580,7 @@ type mockPFSServer struct {
 	CheckStorage       mockCheckStorage
 	PutCache           mockPutCache
 	GetCache           mockGetCache
+	ClearCache         mockClearCache
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
 	ListTask           mockListTaskPFS
@@ -803,6 +807,12 @@ func (api *pfsServerAPI) GetCache(ctx context.Context, req *pfs.GetCacheRequest)
 		return api.mock.GetCache.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock GetCache")
+}
+func (api *pfsServerAPI) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) (*types.Empty, error) {
+	if api.mock.ClearCache.handler != nil {
+		return api.mock.ClearCache.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock ClearCache")
 }
 func (api *pfsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTest.handler != nil {

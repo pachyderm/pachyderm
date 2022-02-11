@@ -61,13 +61,21 @@ func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, err
 func (reg *registry) succeedJob(pj *pendingJob) error {
 	pj.logger.Logf("job successful, closing commits")
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FINISHING, "")
+	if err := ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FINISHING, ""); err != nil {
+		return err
+	}
+	pj.clearCache()
+	return nil
 }
 
 func (reg *registry) failJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("failing job with reason: %s", reason)
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	return ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason)
+	if err := ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_FAILURE, reason); err != nil {
+		return err
+	}
+	pj.clearCache()
+	return nil
 }
 
 func (reg *registry) killJob(pj *pendingJob, reason string) error {
@@ -99,6 +107,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		logger: reg.logger.WithJob(jobInfo.Job.ID),
 		ji:     jobInfo,
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,
+		cache:  newCache(reg.driver.PachClient(), ppsdb.JobKey(jobInfo.Job)),
 	}
 	if pj.ji.State == pps.JobState_JOB_CREATED {
 		pj.ji.State = pps.JobState_JOB_STARTING
@@ -265,7 +274,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		}
 	}
 	ctx := pachClient.Ctx()
-	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID, newCache(pachClient))
+	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID, pj.cache)
 	if err := func() error {
 		if err := pj.withParallelDatums(ctx, taskDoer, func(ctx context.Context, fileSetID string) error {
 			return reg.processDatums(ctx, pj, taskDoer, fileSetID)
