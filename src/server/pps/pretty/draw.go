@@ -2,6 +2,7 @@ package pretty
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strings"
@@ -16,12 +17,6 @@ const (
 	padding            = 10
 	layerVerticalSpace = 5
 )
-
-/*
-implement algorithm steps
-render on CLI
-plug into pachctl
-*/
 
 // renderEdge is used to describe the source and destination of an edge in terms of the x-axis.
 // The number of vertical lines spanned is calculated at each layer
@@ -42,32 +37,37 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 		}
 		return setStrIdx(row, re.src, c)
 	}
-
-	if vertDist > re.src-re.dest && (vertIdx > vertDist/2 || vertIdx < vertDist/2) { // vertical line
+	const srcEdgeCenterOffset = 1
+	if vertDist > abs(re.src-re.dest) && (vertIdx > vertDist/2 || vertIdx < vertDist/2) { // vertical line
 		return setStrIdx(row, (re.src+re.dest)/2, '|')
-	} else if vertDist < re.src-re.dest && vertIdx == vertDist/2 { // horizontal line
+	} else if vertDist < abs(re.src-re.dest) && vertIdx == vertDist/2 { // horizontal line
 		start, end := func(a, b int) (int, int) {
 			if a < b {
 				return a, b
 			}
-			return b, a
+			return b + 1, a + 1 // weird line
 		}(re.src, re.dest)
-		diags := vertDist - 1
-		start, end = start+diags/2, end-diags/2
+		diagCoverage := ceilDiv(vertDist, 2)
+		start, end = start+diagCoverage, end-diagCoverage
 		for i := start; i < end; i++ {
 			row = setStrIdx(row, i, '-')
 		}
 		return row
 	} else { // diagonal
-		const srcEdgeCenterOffset = 1
+		offset := vertIdx + srcEdgeCenterOffset
+		if vertIdx > vertDist/2 {
+			// offset = offset + vertDist/2
+			offset = offset + abs(re.src-re.dest) - vertDist - 1
+
+		}
 		if re.src > re.dest {
-			i := re.src - srcEdgeCenterOffset - vertIdx
+			i := re.src - offset
 			if row[i] == ' ' {
 				c = '/'
 			}
 			return setStrIdx(row, i, c)
 		} else {
-			i := re.src + srcEdgeCenterOffset + vertIdx
+			i := re.src + offset
 			if row[i] == ' ' {
 				c = '\\'
 			}
@@ -128,7 +128,7 @@ func draw(vertices []*vertex, lf layerer, of orderer) string {
 
 	assignCoordinates(layers)
 
-	picture := render(layers)
+	picture := renderPicture(layers)
 	return picture
 }
 
@@ -143,7 +143,7 @@ func assignCoordinates(layers [][]*vertex) {
 	}
 }
 
-func render(layers [][]*vertex) string {
+func renderPicture(layers [][]*vertex) string {
 	picture := ""
 	// index len(layers) is the top layer, so we traverse it from the last layer
 	for i := len(layers) - 1; i >= 0; i-- {
@@ -181,7 +181,6 @@ func render(layers [][]*vertex) string {
 				renderEdges[i].src == renderEdges[j].src && renderEdges[i].dest < renderEdges[j].dest
 		})
 
-		fmt.Printf("%v\n", renderEdges)
 		for j := 0; j < layerVerticalSpace; j++ {
 			row := strings.Repeat(" ", rowWidth(layers)) // TODO: calling rowWidth is expensive
 			for _, re := range renderEdges {
@@ -198,6 +197,9 @@ func render(layers [][]*vertex) string {
 func simpleOrder(layers [][]*vertex) {
 	return
 }
+
+// ==================================================
+// Layering Algorithms
 
 func layerLongestPath(vs []*vertex) [][]*vertex {
 	assigned := make(map[string]*vertex, 0)
@@ -216,13 +218,14 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 		for _, e := range v.edges {
 			diff := v.layer - e.layer
 			if diff > 1 {
+				u := &(*e) // don't understand why this is necessary
 				cbs = append(cbs, func() {
 					latest := v
 					for i := 0; i < diff-1; i++ {
 						d := dummyVertex()
-						d.addEdge(e)
+						d.addEdge(u)
 						addToLayer(d, v.layer-i-1)
-						latest.removeEdge(e)
+						latest.removeEdge(u)
 						latest.addEdge(d)
 						latest = d
 					}
@@ -262,6 +265,8 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 	return layers
 }
 
+// ==================================================
+
 func leaves(vs []*vertex) []*vertex {
 	ls := make([]*vertex, 0)
 	for _, v := range vs {
@@ -290,4 +295,15 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return x * -1
+	}
+	return x
+}
+
+func ceilDiv(x, y int) int {
+	return int(math.Ceil(float64(x) / float64(y)))
 }
