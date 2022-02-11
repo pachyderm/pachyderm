@@ -365,6 +365,7 @@ type modifyFileSource interface {
 // modifyFile reads from a modifyFileSource until io.EOF and writes changes to an UnorderedWriter.
 // SetCommit messages will result in an error.
 func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource) (int64, error) {
+	resolver := cdr.NewResolver()
 	var bytesRead int64
 	for {
 		msg, err := server.Recv()
@@ -386,11 +387,7 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			case *pfs.AddFile_Url:
 				n, err = putFileURL(ctx, uw, p, t, src.Url)
 			case *pfs.AddFile_Cdr:
-				ref := &cdr.Ref{}
-				if err := proto.Unmarshal(src.Cdr, ref); err != nil {
-					return bytesRead, err
-				}
-				n, err = putFileCDR(ctx, uw, p, t, src.Cdr)
+				n, err = putFileCDR(ctx, uw, p, t, resolver, src.Cdr)
 			default:
 				// need to write empty data to path
 				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
@@ -473,12 +470,17 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 	}
 }
 
-func putFileCDR(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, res *cdr.Resolver, ref *cdr.Ref) (int64, error) {
+func putFileCDR(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, res *cdr.Resolver, refData []byte) (int64, error) {
+	ref := &cdr.Ref{}
+	if err := proto.Unmarshal(refData, ref); err != nil {
+		return 0, err
+	}
 	rc, err := res.Deref(ctx, ref)
 	if err != nil {
 		return 0, err
 	}
 	defer rc.Close()
+	// TODO: count the bytes with some kind of counter writer here
 	err = uw.Put(dstPath, tag, true, rc)
 	return 0, err
 }
