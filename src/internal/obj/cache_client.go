@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -40,6 +40,7 @@ var _ Client = &cacheClient{}
 
 type cacheClient struct {
 	slow, fast Client
+	log        *logrus.Logger
 
 	mu           sync.Mutex
 	cache        *simplelru.LRU
@@ -55,6 +56,7 @@ func NewCacheClient(slow, fast Client, size int) Client {
 	client := &cacheClient{
 		slow: slow,
 		fast: fast,
+		log:  logrus.StandardLogger(),
 	}
 	cache, err := simplelru.NewLRU(size, client.onEvicted)
 	if err != nil {
@@ -104,8 +106,11 @@ func (c *cacheClient) getSlow(ctx context.Context, p string, w io.Writer) error 
 		err := c.slow.Get(ctx, p, mw)
 		return errors.EnsureStack(err)
 	}, func(r io.Reader) error {
-		if err := c.fast.Put(ctx, p, r); err != nil {
-			return errors.EnsureStack(err)
+		if err := c.fast.Put(ctx, p, r); pacherr.IsNotExist(err) {
+			return err
+		} else if err != nil {
+			c.log.Errorf("obj.cacheClient: writing to cache: %v", err)
+			return nil
 		}
 		c.mu.Lock()
 		c.cache.Add(p, struct{}{})
@@ -152,7 +157,7 @@ func (c *cacheClient) onEvicted(key, value interface{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.fast.Delete(ctx, p); err != nil && !pacherr.IsNotExist(err) {
-		log.Errorf("could not delete from cache's fast store: %v", err)
+		c.log.Errorf("could not delete from cache's fast store: %v", err)
 	}
 	cacheEvictionMetric.Inc()
 }
@@ -169,7 +174,7 @@ func (c *cacheClient) populate(ctx context.Context) error {
 func (c *cacheClient) doPopulateOnce(ctx context.Context) {
 	c.populateOnce.Do(func() {
 		if err := c.populate(ctx); err != nil {
-			log.Warnf("could not populate cache: %v", err)
+			c.log.Warnf("could not populate cache: %v", err)
 		}
 	})
 }
