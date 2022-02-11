@@ -151,8 +151,8 @@ func mountCmds() []*cobra.Command {
 			}
 			if all {
 				stdin := strings.NewReader(fmt.Sprintf(`
-		mount | grep fuse.%s | cut -f 3 -d " "
-		`, name))
+					mount | grep -w %s | grep fuse | cut -f 3 -d " "
+					`, name))
 				var stdout bytes.Buffer
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
