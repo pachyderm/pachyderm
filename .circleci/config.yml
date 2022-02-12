@@ -3,6 +3,14 @@ version: 2.1
 orbs:
   browser-tools: circleci/browser-tools@1.2.3
 
+parameters:
+  pachctl_version:
+    type: string
+    # update this to build a different e.g. branch build of pachctl based on the git hash
+    # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
+    default: bad620b0e52fad3824575a2d82ecdde91053b8ec
+    # ^ pachctl-mount-server-exit-on-auth-failure branch, see https://github.com/pachyderm/jupyterlab-pachyderm/pull/70
+
 jobs:
   test:
     parameters:
@@ -50,6 +58,8 @@ jobs:
             npm run eslint:check
             python -m pip install -e '.[dev]'
 
+            tail -F /tmp/pachctl-mount-server.log &
+
             # Run Python unit tests
             pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
 
@@ -71,10 +81,12 @@ jobs:
             . venv/bin/activate
             python3 -m pip install -e '.[dev]'
 
+            tail -F /tmp/pachctl-mount-server.log &
+
             # Start dev server in the background
             mkdir pfs
             PFS_MOUNT_DIR=$(pwd)/pfs python3 -m jupyterlab_pachyderm.dev_server &
-            sleep 1
+            sleep 10
 
             # Run integration tests
             PFS_MOUNT_DIR=$(pwd)/pfs pytest -v jupyterlab_pachyderm/tests/test_integrations.py
@@ -105,6 +117,8 @@ jobs:
             pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
             pachctl list repo
 
+            tail -F /tmp/pachctl-mount-server.log &
+            mkdir pfs
             PFS_MOUNT_DIR=$(pwd)/pfs CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
   frontend-test:
@@ -229,13 +243,6 @@ jobs:
             twine upload dist/*
 
   docker-build:
-    parameters:
-      pachctl_version:
-        type: string
-        # update this to build a different e.g. branch build of pachctl based on the git hash
-        # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
-        default: aaa7434c714fab6130c3982ebdaa8f279bd850c2
-
     executor: python
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -250,7 +257,7 @@ jobs:
           command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Build Docker image
-          command: docker build --build-arg PACHCTL_VERSION=<< parameters.pachctl_version >> -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
+          command: docker build --build-arg PACHCTL_VERSION=<<pipeline.parameters.pachctl_version>> -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
@@ -422,7 +429,7 @@ commands:
             sudo mv kubectl /usr/local/bin/kubectl
       - run:
           name: Install pachctl
-          command: curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v2.0.2/pachctl_2.0.2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+          command: curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv pachctl.tar.gz && sudo mv pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64/pachctl /usr/local/bin/
       - run:
           name: Setup helm
           command: helm repo add pach https://helm.pachyderm.com && helm repo update

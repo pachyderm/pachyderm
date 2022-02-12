@@ -148,8 +148,22 @@ folder is located. Then you can remove the symlink named `jupyterlab-pachyderm` 
 
 ## Locally building the docker image
 
-Useful if iterating on the Dockerfile locally or iterating on changes to a version of mount-server:
+Useful if iterating on the Dockerfile locally or iterating on changes to a version of mount-server.
 
+Create & activate venv:
+```
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Build `dist` directory:
+```
+python -m pip install --upgrade pip
+python -m pip install -r ci-requirements.txt
+python -m build
+```
+
+Build docker image:
 ```
 export PACHCTL_VERSION=aaa7434c714fab6130c3982ebdaa8f279bd850c2 # or whichever version you want
 docker build --build-arg PACHCTL_VERSION=$PACHCTL_VERSION -t pachyderm/notebooks-user:dev .

@@ -68,6 +68,7 @@ def test_list_repos(pachyderm_resources):
                 "status",
                 "mode",
                 "mountpoint",
+                "mount_key",
             }
 
 
@@ -88,11 +89,11 @@ def test_mount(pachyderm_resources):
             files
         )
 
-    # unmount
     r = requests.put(
         f"{BASE_URL}/repos/_unmount",
     )
     assert r.status_code == 200
+
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
