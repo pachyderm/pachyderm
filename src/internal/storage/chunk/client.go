@@ -160,6 +160,21 @@ func (c *trackedClient) Close() error {
 	return nil
 }
 
+func (c *trackedClient) LookupPaths(ctx context.Context, id ID) ([]string, error) {
+	var ents []Entry
+	if err := c.db.Select(&ents, `
+		SELECT chunk_id, gen
+		FROM storage.chunk_objects
+		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1`, id); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	ret := make([]string, len(ents))
+	for i := range ents {
+		ret[i] = chunkPath(ents[i].ChunkID, ents[i].Gen)
+	}
+	return ret, nil
+}
+
 // Check checks that there are entries for the chunk and they have successfully uploaded objects.
 func (c *trackedClient) Check(ctx context.Context, id ID, readChunk bool) error {
 	_, last, err := c.CheckEntries(ctx, id, 1, readChunk)

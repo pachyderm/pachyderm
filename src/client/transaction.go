@@ -436,6 +436,9 @@ func (c *pfsBuilderClient) RunLoadTestDefault(ctx context.Context, req *types.Em
 func (c *pfsBuilderClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (pfs.API_ListTaskClient, error) {
 	return nil, unsupportedError("ListTask")
 }
+func (c *pfsBuilderClient) ReadFileSetCDR(ctx context.Context, in *pfs.ReadFileSetRequest, opts ...grpc.CallOption) (pfs.API_ReadFileSetCDRClient, error) {
+	return nil, unsupportedError("ReadFileSetCDR")
+}
 
 func (c *ppsBuilderClient) InspectJobSet(ctx context.Context, req *pps.InspectJobSetRequest, opts ...grpc.CallOption) (pps.API_InspectJobSetClient, error) {
 	return nil, unsupportedError("InspectJobSet")

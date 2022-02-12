@@ -12,6 +12,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/cdr"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -32,6 +33,7 @@ import (
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
 
@@ -363,6 +365,7 @@ type modifyFileSource interface {
 // modifyFile reads from a modifyFileSource until io.EOF and writes changes to an UnorderedWriter.
 // SetCommit messages will result in an error.
 func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource) (int64, error) {
+	resolver := cdr.NewResolver()
 	var bytesRead int64
 	for {
 		msg, err := server.Recv()
@@ -383,6 +386,8 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 				n, err = putFileRaw(uw, p, t, src.Raw)
 			case *pfs.AddFile_Url:
 				n, err = putFileURL(ctx, uw, p, t, src.Url)
+			case *pfs.AddFile_Cdr:
+				n, err = putFileCDR(ctx, uw, p, t, resolver, src.Cdr)
 			default:
 				// need to write empty data to path
 				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
@@ -465,9 +470,66 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 	}
 }
 
+func putFileCDR(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, res *cdr.Resolver, refData []byte) (int64, error) {
+	ref := &cdr.Ref{}
+	if err := proto.Unmarshal(refData, ref); err != nil {
+		return 0, err
+	}
+	rc, err := res.Deref(ctx, ref)
+	if err != nil {
+		return 0, err
+	}
+	defer rc.Close()
+	// TODO: count the bytes with some kind of counter writer here
+	err = uw.Put(dstPath, tag, true, rc)
+	return 0, err
+}
+
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 	uw.Delete(request.Path, request.Datum)
 	return nil
+}
+
+func (a *apiServer) ReadFileSetCDR(request *pfs.ReadFileSetRequest, server pfs.API_ReadFileSetCDRServer) error {
+	ctx := server.Context()
+	fsID, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return err
+	}
+	fileSet, err := a.driver.storage.Open(ctx, []fileset.ID{*fsID})
+	if err != nil {
+		return err
+	}
+	return fileSet.Iterate(ctx, func(f fileset.File) error {
+		dataRefs := f.Index().File.DataRefs
+		refs := make([]*cdr.Ref, len(dataRefs))
+		// This errgroup might spawn too many for large files.
+		eg, ctx := errgroup.WithContext(ctx)
+		for i, dr := range dataRefs {
+			i := i
+			dr := dr
+			eg.Go(func() error {
+				ref, err := a.driver.storage.ChunkStorage().CDRFromDataRef(ctx, dr)
+				if err != nil {
+					return err
+				}
+				refs[i] = ref
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+		ref := cdr.CreateConcatRef(refs)
+		refData, err := proto.Marshal(ref)
+		if err != nil {
+			return err
+		}
+		return server.Send(&pfs.ReadFileSetCDRResponse{
+			Path: f.Index().Path,
+			Ref:  refData,
+		})
+	})
 }
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
