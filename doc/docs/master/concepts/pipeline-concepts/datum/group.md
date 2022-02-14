@@ -16,7 +16,7 @@ or to control the granularity of your datums through file name-matching.
 
 When you configure a group input, you must specify a glob pattern that
 includes a capture group. The capture group defines the specific string in
-the file path that is used to match files in other joined repos.
+the file path that is used to match files in other grouped repos.
 Capture groups work analogously to the [regex capture group](https://www.regular-expressions.info/refcapture.html){target=_blank}.
 You define the capture group inside parenthesis. Capture groups are numbered
 from left to right and can also be nested within each other. Numbering for
@@ -54,6 +54,8 @@ You can test your glob pattern and capture groups by using the
 `pachctl list datum -f <your_pipeline_spec.json>` command as described in
 [List Datum](../../datum/glob-pattern/#test-your-datums).
 
+!!! Important "Useful"
+    The content of the capture group defined in the `group_by` parameter is available to your pipeline's code in an environment variable: `PACH_DATUM_<input.name>_GROUP_BY`.
 ## Example
 
 For example, a repository `labresults` contains the lab results of patients. 
