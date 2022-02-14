@@ -1,16 +1,17 @@
 #!/usr/local/bin/python3
 import glob, json, os, shutil, sys
 
+store_id = str(os.environ.get('PACH_DATUM_stores_JOIN_ON'))
 
-store_paths  = glob.glob(os.path.join("/pfs/stores", "*.txt"))
+store_path  = os.path.join("/pfs/stores","STOREID"+store_id+".txt")
 return_paths = glob.glob(os.path.join("/pfs/returns", "*.txt"))
   
 
 zipcode = "UNKNOWN"
 separator_line = "\nThis return store does not exist \n"
-if store_paths:
-    print("Opening store_file...: " + store_paths[0])
-    with open(store_paths[0], 'r') as store_json:    
+if store_id != "None":
+    print("Opening store_file...: " + store_path )
+    with open(store_path, 'r') as store_json:    
         store = json.load(store_json)
         zipcode = store['address']['zipcode']
         # Add a text separator to identify in what store the purchase was made
@@ -23,7 +24,7 @@ os.makedirs("/pfs/out/"+zipcode, exist_ok=True)
 if return_paths: 
     out_filename =  os.path.basename(return_paths[0])
 else:
-    out_filename =  os.path.basename(store_paths[0])
+    out_filename =  os.path.basename(store_path)
 
 with open("/pfs/out/"+zipcode+"/"+ out_filename, 'w') as location_file:   
     location_file.write(separator_line)

@@ -1,13 +1,28 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-joins-inner-outer
-CONTAINER_VERSION := 2.0.1
+CONTAINER_VERSION := 2.1.0
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
+# Build Tag Push a new image to Docker Hub
 docker-image:
 	@docker build -t $(CONTAINER_TAG) . --platform=linux/amd64
 	@docker push $(CONTAINER_TAG)
 
+
+# This target can be used during the development/update of a pipeline's code. 
+# Change your python's file (check the `src` dir of this example) or update your template, then run the following target.
+# Your code will be built, tagged, and your pipeline updated all at once, using Minikube's local registry.
+# Make sure that you have run `make setup` and `make deploy` first to create your mockup data and repos.
+# Then run `make update-image join-type=inner` or `make update-image join-type=outer` depending on the type of join you are working on, every time your source code has updates.
+# In the case of an outer join, check the pipeline template outer_join.jsonnet to set your outer join as wished.
+update-image:
+	$(eval IMAGE_SHA=$(shell docker build -t ${CONTAINER_TAG} --platform=linux/amd64 -q .))
+	$(eval IMAGE_TAG=$(shell echo $(IMAGE_SHA) |cut -c 8-20))
+	docker tag $(CONTAINER_TAG) $(CONTAINER_TAG).$(IMAGE_TAG)
+	pachctl update pipeline --jsonnet pipelines/$(join-type)/$(join-type)_join.jsonnet --arg tag=$(CONTAINER_VERSION).$(IMAGE_TAG) --arg suffix=jsonnet
+
+# 1- Create mockup data  
 setup:
 	mkdir -p ./stores ./purchases ./returns
 	echo "Creating stores..."
@@ -44,7 +59,8 @@ setup:
 	printf "ORDER_HEADER|W261452|2020-10-10\nSKU|0246|QTY|1|UNIT_PRICE|50.00\n" \
 	 >./returns/ORDERW261452_STOREID0.txt
 
-create:
+# 2- Populate initial repos with mock up data
+deploy:
 	pachctl create repo stores
 	pachctl create repo purchases
 	pachctl create repo returns
@@ -55,3 +71,8 @@ create:
 	pachctl put file -r returns@master:/ -f returns
 	pachctl list file returns@master	
 
+# Run `make create-pipeline-join join-type=inner` or `make create-pipeline-join join-type=outer`
+# 3- Create pipelines
+create-pipeline-join:
+	pachctl create pipeline -f pipelines/$(join-type)/$(join-type)_join.json
+	pachctl create pipeline -f pipelines/$(join-type)/reduce_$(join-type).json

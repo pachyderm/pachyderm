@@ -1,20 +1,21 @@
->![pach_logo](../img/pach_logo.svg) INFO Pachyderm 2.0 introduces profound architectual changes to the product. As a result, our examples pre and post 2.0 are kept in two separate branches:
-> - Branch Master: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
-> - Branch 1.13.x: Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+>![pach_logo](../img/pach_logo.svg) INFO Each new minor version of Pachyderm introduces profound architectual changes to the product. For this reason, our examples are kept in separate branches:
+> - Branch Master: Examples using Pachyderm 2.1.x versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 
 # Group Pipelines 
->![pach_logo](./img/pach_logo.svg) The group functionality is available in version **1.12 and higher**.
+> The group functionality is available in version **1.12 and higher**.
 
 ## Intro
 
-- Our first examples will walk you through the use of a group input applied to the files in a single repository. 
-- Our second example will showcase a more complex group setting where information is grouped across three repositories.
+- Our first examples will walk you through the use of a group input applied to files living in a single repository. 
+- Our second example will showcase a more complex setup where information is grouped across three repositories.
 
 At the end of this page, you will understand how a group input aggregates the data and what their resulting datums look like. 
 
-You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you need to specify a `group_by` that will define the captured group (from your glob pattern) to consider grouping your files. 
+You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you need to specify a `group_by` that will define the captured group (from your glob pattern) to consider when grouping your files. 
 
->![pach_logo](./img/pach_logo.svg) Remember, in Pachyderm, the group operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
+> Remember, in Pachyderm, the group operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
 ## Getting ready
 
@@ -27,19 +28,19 @@ For these examples, we recommend being familiar with the following concepts:
 Additionally, make sure that you understand the concept of [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/). 
 
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
+- Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
 - Clone this repo.
-- Make sure Pachyderm is running. You should be able to connect to your Pachyderm cluster via the `pachctl` CLI. 
+- Make sure that Pachyderm is running. You should be able to connect to your Pachyderm cluster via the `pachctl` CLI. 
     Run a quick:
     ```shell
     $ pachctl version
 
     COMPONENT           VERSION
-    pachctl             2.0.1
-    pachd               2.0.1
+    pachctl             2.1.0
+    pachd               2.1.0
     ```
     Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the identical major & minor versions of your pachctl and pachd. 
 
@@ -48,7 +49,7 @@ Additionally, make sure that you understand the concept of [datum](https://docs.
 
 Our first example comes from a simple healthcare use case:
 
-* A patient gets test results, each of which can come from a different lab/hospital. Each of our files contains the test results from a particular lab/hospital for a given patient.
+* A patient gets test results, each lab result can come from a different lab/hospital. Each of our files contains the test results from a particular lab/hospital for a given patient.
 
 Let's take a look at the data structure and naming convention of our first example:  
 * Repo: `labresults` - Our file names follow the following "-" separated pattern: 
@@ -80,17 +81,17 @@ Following the 2 steps pattern described in our [datum processing documentation](
         - For group by patient: We group by PATID. 
         - For group by hospital: We group by CLIA.
 
-    1. **Pipeline**: Executes a set of command lines creating a new directory named after each capture group and copying the files that match the given group. (See our 2 pipelines:[`lab_group_by_hospital.json`](./lab_group_by_hospital.json) and [`lab_group_by_patient.json`](./lab_group_by_patient.json)).
+    1. **Pipeline**: Executes a set of command lines creating a new directory named after each capture group and copying the files that match the given group. (See our 2 pipelines:[`lab_group_by_hospital.json`](./pipelines/lab/lab_group_by_hospital.json) and [`lab_group_by_patient.json`](./pipelines/lab/lab_group_by_patient.json)).
 
     1. **Pipeline output repository**: `group_by_hospital`or `group_by_patient` depending on which use case you run.
 
         Each output repo will contain a list of sub-directories named after each capture group and populated with a copy of their matching files.
 
-- A following pipeline will then "glob" all files in each directory then merge their content into a final text file.
+- A following pipeline will "glob" all files in each directory, then merge their content into a final text file.
 
     1. Pipeline input repositories: The `group_by_hospital`or `group_by_patient` output repo becomes the input repo of the following pipeline.
 
-    1. Pipeline: The `reduce_group_by_hospital.json` or `reduce_group_by_patient.json` pipeline "globs" each directory ("glob": "/*") and merge the content of all their file into one txt file name after the directory name.
+    1. Pipeline: The `reduce_group_by_hospital.json` or `reduce_group_by_patient.json` pipeline "globs" each directory ("glob": "/*") and merge the content of all their file into one txt file named after the directory name.
 
     1. Pipeline output repository: The output repo `reduce_group_by_hospital` or `reduce_group_by_patient` will contain text files listing all lab results per lab/hospital or per patient.
 
@@ -98,21 +99,21 @@ Following the 2 steps pattern described in our [datum processing documentation](
 
 1. Prepare your data:
  
-    Let's first create our mock dataset and create/populate our initial input repository.
+    Let's create our mock dataset and populate our initial input repository.
     The setup target `setup-lab` of the `Makefile` in `pachyderm/examples/group` will create a directory (labresults) containing our example data.
     In the `examples/group` directory, run:
     ```shell
     make setup-lab
     ```
-    Optionally, you can run a `ls labresults/` to check what our data look like.
-1. Before we create our first pipelines, let's preview what our datums will look like by running the following command in the `examples/group` directory:
+    Optionally, you can run a `ls labresults/` to check what the data look like.
+1. Before creating our first pipelines, let's preview what our datums will look like by running the following command in the `examples/group` directory:
 
     ```shell
-    pachctl list datum -f lab_group_by_hospital.json 
+    pachctl list datum -f pipelines/lab/lab_group_by_hospital.json 
     ```
     or
     ```shell
-    pachctl list datum -f lab_group_by_patient.json 
+    pachctl list datum -f pipelines/lab/lab_group_by_patient.json 
     ```
     For example, in the case of a "group by patient", note that one datum is created for each patient ID. Each datum containing all the lab results for this patient:
         
@@ -123,21 +124,25 @@ Following the 2 steps pattern described in our [datum processing documentation](
     |PATID3|/T1606707579-LIPID-PATID3-CLIA24D9871327.txt <br> /T1606707635-LIPID-PATID3-CLIA24D9871328.txt |
     |PATID4|/T1606707597-LIPID-PATID4-CLIA24D9871327.txt|
 
-1. Create/populate Pachyderm's repository and create your pipelines:
+1. Populate Pachyderm's repository and create your pipelines:
 
     In the `examples/joins` directory, run:
     ```shell
     make deploy-lab
     ```
+    then: 
+    ```shell
+    make create-lab
+    ```
     or run:
     ```shell
     pachctl create repo labresults
     pachctl put file -r labresults@master:/ -f labresults
-    pachctl create pipeline -f lab_group_by_hospital.json 
-    pachctl create pipeline -f lab_group_by_patient.json
 
-    pachctl create pipeline -f reduce_group_by_hospital.json 
-	pachctl create pipeline -f reduce_group_by_patient.json
+    pachctl create pipeline -f pipelines/lab/lab_group_by_hospital.json 
+	pachctl create pipeline -f pipelines/lab/lab_group_by_patient.json
+	pachctl create pipeline -f pipelines/lab/reduce_group_by_hospital.json 
+	pachctl create pipeline -f pipelines/lab/reduce_group_by_patient.json
     ```
     Have a quick look at your input repository: 
     ```shell
@@ -203,7 +208,7 @@ We will group all purchases and returns for each store, then calculate the net a
     
     Each match (i.e., all purchases and returns having occurred at a given store along with the store information itself) will generate one datum.
 
-1. **Pipeline**: Executes a python code reading the `purchases` and `returns` for each matching STOREID and writing the corresponding net_amount to a text file named after the STOREID. (See our pipeline: [`retail_group.json`](./retail_group.json))
+1. **Pipeline**: Execute a python code reading the `purchases` and `returns` for each matching STOREID and writing the corresponding net_amount to a text file named after the STOREID. (See our pipeline: [`retail_group.json`](./pipelines/retail/retail_group.json))
 
 1. **Pipeline output repository**: `group_store_revenue`. The output repo will contain a list of text files named after each storeID and containing its net amount.
 
@@ -217,7 +222,7 @@ The following table lists the expected result (the "net amount") for each store.
 
 ***Example walkthrough***
 
-1. Let's create your new data:
+1. Let's create your mock up data:
 
     In the `examples/group` directory, run:
     ```shell
@@ -227,7 +232,7 @@ The following table lists the expected result (the "net amount") for each store.
     ```shell
     ls ./purchases
     ```
-1. Before we create our pipeline, let's preview what our datums will look like by running the following command in the `examples/group` directory:
+1. Before creating our pipeline, let's preview what our datums will look like by running the following command in the `examples/group` directory:
 
     ```shell
     pachctl list datum -f retail_group.json 
@@ -243,12 +248,17 @@ The following table lists the expected result (the "net amount") for each store.
     |4| STOREID4.txt|
     |5| STOREID4.txt<br> ORDERW080231_STOREID5.txt<br> ORDERW080528_STOREID5.txt<br> ORDERW080231_STOREID5.txt <br>ORDERW080528_STOREID5.txt|
 
-1. Create/populate Pachyderm’s repository and create your pipelines:
+1. Populate Pachyderm’s repository and create your pipeline:
 
     In the `examples/group` directory, run:
     ```shell
     make deploy-retail
     ```
+    then:
+    ```shell
+    make create-pipeline-retail
+    ```
+
     or run:
     ```shell
     pachctl create repo stores
@@ -257,7 +267,7 @@ The following table lists the expected result (the "net amount") for each store.
     pachctl put file -r stores@master:/ -f stores
     pachctl put file -r purchases@master:/ -f purchases
     pachctl put file -r returns@master:/ -f returns
-    pachctl create pipeline -f retail_group.json
+    pachctl create pipeline -f pipelines/retail/retail_group.json
     ```
     Check your repositories:
     ```shell

@@ -129,10 +129,11 @@ func mountCmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
+
 			serverOpts := &fuse.ServerOptions{
 				MountDir: mountDir,
 			}
-			defer c.Close()
 			printWarning()
 			return fuse.Server(c, serverOpts)
 		}),
