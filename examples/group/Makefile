@@ -9,7 +9,12 @@ docker-image-group-retail:
 	@docker build -t $(CONTAINER_TAG) .  --platform linux/amd64
 	@docker push $(CONTAINER_TAG)
 
-# Make sure that you have run `make setup-retail` and `make deploy-retail` first
+# This target can be used during the development/update of the pipeline's code of the retail example. 
+# Change your python's file (check the `src` dir of this example) or update your template, then run the following target.
+# Your code will be built, tagged, and your pipeline updated all at once, using Minikube's local registry.
+# Make sure that you have run `make setup-retail` and `make deploy-retail` first to create your mockup data and repos.
+# Then run `dev-update-image-group-retail` every time your source code has updates.
+# This target uses the pipeline template retail_group.jsonnet.
 dev-update-image-group-retail:
 	$(eval IMAGE_SHA=$(shell docker build -t ${CONTAINER_TAG} --platform=linux/amd64 -q .))
 	$(eval IMAGE_TAG=$(shell echo $(IMAGE_SHA) |cut -c 8-20))

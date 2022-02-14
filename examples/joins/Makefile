@@ -9,8 +9,13 @@ docker-image:
 	@docker build -t $(CONTAINER_TAG) . --platform=linux/amd64
 	@docker push $(CONTAINER_TAG)
 
-# Make sure that you have run `make setup` and `make deploy` first
-# Then run `make update-image join-type=inner` or `make update-image join-type=outer` depending on the type of join you are working on
+
+# This target can be used during the development/update of a pipeline's code. 
+# Change your python's file (check the `src` dir of this example) or update your template, then run the following target.
+# Your code will be built, tagged, and your pipeline updated all at once, using Minikube's local registry.
+# Make sure that you have run `make setup` and `make deploy` first to create your mockup data and repos.
+# Then run `make update-image join-type=inner` or `make update-image join-type=outer` depending on the type of join you are working on, every time your source code has updates.
+# In the case of an outer join, check the pipeline template outer_join.jsonnet to set your outer join as wished.
 update-image:
 	$(eval IMAGE_SHA=$(shell docker build -t ${CONTAINER_TAG} --platform=linux/amd64 -q .))
 	$(eval IMAGE_TAG=$(shell echo $(IMAGE_SHA) |cut -c 8-20))
