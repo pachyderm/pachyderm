@@ -13,7 +13,8 @@ type FetchAction<ResponseType> =
 
 interface fetchParams {
   method?: string;
-  body?: string;
+  body?: BodyInit;
+  headers?: Record<string, string>;
 }
 
 export interface useFetchParams<Type> extends fetchParams {

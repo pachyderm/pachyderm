@@ -19,6 +19,8 @@ import {
   LINEAGE_PIPELINE_JOB_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
+  PROJECT_FILE_UPLOAD_PATH,
+  LINEAGE_FILE_UPLOAD_PATH,
 } from '../constants/projectPaths';
 
 const generateRouteFn = <S extends string>(path: S) => {
@@ -76,4 +78,9 @@ export const fileBrowserRoute = generateRouteFn(FILE_BROWSER_PATH);
 export const logsViewerJobRoute = generateRouteFn(LOGS_VIEWER_JOB_PATH);
 export const logsViewerPipelneRoute = generateRouteFn(
   LOGS_VIEWER_PIPELINE_PATH,
+);
+
+export const fileUploadRoute = generateLineageOrProjectRouteFn(
+  PROJECT_FILE_UPLOAD_PATH,
+  LINEAGE_FILE_UPLOAD_PATH,
 );

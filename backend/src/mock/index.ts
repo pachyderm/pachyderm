@@ -6,6 +6,7 @@ import {URL} from 'url';
 import {Server, ServerCredentials, ServiceError} from '@grpc/grpc-js';
 import {
   AuthAPIService,
+  GRPC_MAX_MESSAGE_LENGTH,
   PfsAPIService,
   PpsAPIService,
   ProjectsAPIService,
@@ -41,7 +42,10 @@ const getAuthUrl = (path: string) => {
 };
 
 const createServer = () => {
-  const grpcServer = new Server();
+  const grpcServer = new Server({
+    'grpc.max_receive_message_length': GRPC_MAX_MESSAGE_LENGTH,
+    'grpc.max_send_message_length': GRPC_MAX_MESSAGE_LENGTH,
+  });
   const authApp = express();
   let authServer: http.Server;
   const state = cloneDeep(defaultState);

@@ -401,6 +401,9 @@ const pfs = () => {
             if (!commit) {
               commit = chunk.hasSetCommit() ? chunk.getSetCommit() : commit;
               if (commit) {
+                if (!MockState.state['commits'][projectId.toString()]) {
+                  MockState.state['commits'][projectId.toString()] = [];
+                }
                 if (
                   !MockState.state['commits'][projectId.toString()].find(
                     (commitInfo) =>
@@ -446,10 +449,16 @@ const pfs = () => {
 
             if (addFile && commit) {
               const url = addFile.getUrl()?.getUrl();
-              if (url) {
-                const sizeBytes = Math.floor(Math.random() * 1200);
+              const raw = addFile.getRaw();
+              if (url || raw) {
+                const sizeBytes = raw
+                  ? raw.getValue().length
+                  : Math.floor(Math.random() * 1200);
                 const fileInfo = fileInfoFromObject({
-                  committed: {seconds: Math.ceil(Date.now() / 1000), nanos: 0},
+                  committed: {
+                    seconds: Math.ceil(Date.now() / 1000),
+                    nanos: 0,
+                  },
                   file: {
                     commitId: commit.getId(),
                     path: addFile.getPath(),
@@ -496,7 +505,7 @@ const pfs = () => {
                   'error',
                   createServiceError({
                     code: Status.INVALID_ARGUMENT,
-                    details: 'URL must be specified',
+                    details: 'File data must be specified',
                   }),
                 );
               }

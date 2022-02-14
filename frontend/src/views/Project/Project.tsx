@@ -3,6 +3,7 @@ import {Helmet} from 'react-helmet';
 import {Route} from 'react-router';
 
 import FileBrowser from '../FileBrowser';
+import FileUpload from '../FileUpload';
 import JobLogsViewer from '../LogsViewers/JobLogsViewer/JobLogsViewer';
 import PipelineLogsViewer from '../LogsViewers/PipelineLogsViewer';
 
@@ -19,6 +20,8 @@ import {
   LOGS_VIEWER_JOB_PATH,
   LOGS_VIEWER_PIPELINE_PATH,
   LINEAGE_PATH,
+  PROJECT_FILE_UPLOAD_PATH,
+  LINEAGE_FILE_UPLOAD_PATH,
 } from './constants/projectPaths';
 import styles from './Project.module.css';
 
@@ -52,6 +55,9 @@ const Project: React.FC = () => {
         </Route>
         <Route path={LOGS_VIEWER_JOB_PATH}>
           <JobLogsViewer />
+        </Route>
+        <Route path={[PROJECT_FILE_UPLOAD_PATH, LINEAGE_FILE_UPLOAD_PATH]}>
+          <FileUpload />
         </Route>
       </div>
     </>

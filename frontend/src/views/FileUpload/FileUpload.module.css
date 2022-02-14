@@ -1,0 +1,131 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-top: 2.5rem;
+  flex-grow: 10;
+}
+
+.base {
+  padding-left: 1rem;
+  flex-grow: 10;
+}
+
+.header {
+  font-size: 1.875rem;
+  font-weight: 800;
+}
+
+.terminal {
+  font-size: var(--font-size-body-large);
+}
+
+.terminal >*:first-child {
+  font-weight: 700;
+}
+
+.prompt {
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding-right: 3rem;
+  display: inline-block;
+}
+
+.fileUploadInput {
+  left: 0;
+  top: 0;
+  position: absolute;
+	width: 0.1px;
+	height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.fileUpload {
+  width: 100%;
+  text-align: center;
+  border: 2px dashed var(--border-grey);
+  border-radius: 3px;
+  font-size: 1.25rem;
+  position: relative;
+  padding: 2rem;
+}
+
+.fileUploadLabel {
+  box-sizing: border-box;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border 300ms ease-in-out;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--pachyderm-plum);
+  background-color: var(--white);
+  color: var(--pachyderm-plum);
+  height: auto;
+  width: auto;
+  cursor: pointer;
+}
+
+.fileUploadText {
+  font-size: 0.875rem;
+}
+
+.fileUploadTextDisabled {
+  opacity: 0.5;
+}
+
+.footer {
+  margin-left: -1rem;
+  margin-right: -1rem;
+  margin-bottom: -1rem;
+  border-top: 1px solid var(--grey-20);
+  display: flex;
+  justify-content: flex-end;
+  align-content: center;
+  padding: 1rem;
+}
+
+.fileForm {
+  flex-grow: 1;
+}
+
+.fileButton:disabled {
+  opacity: 0.5;
+}
+
+.error {
+  color: var(--pachyderm-red);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 1023px) {
+  .base {
+    flex-direction: column;
+  }
+
+  .base  > * {
+    margin-top: 0.5rem;
+  }
+
+  .base > *:first-child {
+    margin-bottom: 0;
+  }
+
+  .fileForm {
+    margin-right: 8.625rem;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .fileForm {
+    margin-right: 1rem;
+  }
+}
+
+@media screen and (min-width: 1440px) {
+  .fileForm {
+    margin-right: 8.625rem;
+  }
+}

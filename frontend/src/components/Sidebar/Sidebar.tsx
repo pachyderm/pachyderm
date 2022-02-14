@@ -6,6 +6,7 @@ import {Route} from 'react-router';
 import {SidebarSize} from '@dash-frontend/lib/types';
 import DeletePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeletePipelineButton';
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
+import UploadFilesButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UploadFilesButton';
 import {
   PROJECT_REPO_PATH,
   PROJECT_PIPELINE_PATH,
@@ -83,6 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {onClose && (
           <div className={styles.sideBarToolbar}>
             <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
+              <UploadFilesButton />
               <DeleteRepoButton />
             </Route>
             <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>

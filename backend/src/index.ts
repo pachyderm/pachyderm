@@ -4,19 +4,24 @@ import path from 'path';
 
 import * as Sentry from '@sentry/node';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import {renderFile} from 'ejs';
-import express, {Express} from 'express';
+import express, {Express, urlencoded, json} from 'express';
 
 import gqlServer from '@dash-backend/gqlServer';
 import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
 import log from '@dash-backend/lib/log';
 
 import createWebsocketServer from './createWebsocketServer';
+import {handleFileUpload} from './handlers/handleFileUpload';
 
 const PORT = process.env.GRAPHQL_PORT || '3000';
 const FE_BUILD_DIRECTORY =
   process.env.FE_BUILD_DIRECTORY ||
   path.join(__dirname, '../../frontend/build');
+
+const noCors =
+  process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 
 const attachWebServer = (app: Express) => {
   // Attach all environment variables prefixed with REACT_APP
@@ -48,25 +53,28 @@ const attachWebServer = (app: Express) => {
   });
 };
 
-const attachDownloadHandler = (app: Express) => {
-  if (
-    process.env.NODE_ENV === 'development' ||
-    process.env.NODE_ENV === 'test'
-  ) {
-    app.use((_req, res, next) => {
+const attachFileHandlers = (app: Express) => {
+  app.use((_req, res, next) => {
+    if (
+      process.env.NODE_ENV === 'development' ||
+      process.env.NODE_ENV === 'test'
+    ) {
       res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4000');
-      res.setHeader('Access-Control-Allow-Methods', 'GET');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      next();
-    });
-  }
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    next();
+  });
 
   app.use(cookieParser());
   app.get('/download/:repoName/:branchName/:commitId/*', handleFileDownload);
+  app.post('/upload', noCors ? [] : cors(), handleFileUpload);
 };
 
 const createServer = () => {
   const app = express();
+  app.use(json());
+  app.use(urlencoded({extended: true}));
 
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
@@ -76,7 +84,7 @@ const createServer = () => {
 
   gqlServer.applyMiddleware({app});
 
-  attachDownloadHandler(app);
+  attachFileHandlers(app);
 
   if (process.env.NODE_ENV !== 'development') {
     attachWebServer(app);

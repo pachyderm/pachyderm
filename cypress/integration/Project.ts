@@ -10,7 +10,7 @@ describe('Project', () => {
   });
 
   it('should navigate to the project page', () => {
-    cy.findByText('Jobs');
+    cy.findByText('Jobs', {timeout: 8000});
     cy.findByText('Reset Canvas');
     cy.findByText('images');
     cy.findAllByText('edges').should('have.length', 2);

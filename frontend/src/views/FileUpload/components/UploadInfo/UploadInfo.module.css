@@ -1,0 +1,108 @@
+
+@keyframes successFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.base {
+  flex-grow: 3;
+  width: 100%;
+  margin-top: -3.5rem;
+  margin-right: -1rem;
+  background-color: var(--grey-2);
+}
+
+.emptyState {
+  color: var(--pachyderm-black)
+}
+
+.emptyStateText > span:first-child {
+  font-size: 0.875rem;
+}
+
+.emptyStateText > span:last-child {
+  font-size: 0.75rem;
+}
+
+.file {
+  display: flex;
+  justify-content: space-between;
+  border-radius: 2.4px;
+  background-color: var(--background-blue);
+  padding: 0.5rem 0.5rem 1rem 1rem;
+}
+
+.info {
+  padding-top: 0.5rem;
+}
+
+.name {
+  font-size: 1rem;
+  color: var(--pachyderm-black);
+}
+
+.size {
+  font-size: 0.875rem;
+  color: var(--pachyderm-black);
+}
+
+.status {
+  padding-left: 1rem;
+  font-size: 0.875rem;
+}
+
+.error {
+  color: var(--pachyderm-red);
+  font-weight: 500;
+}
+
+.cancelButton {
+  border: none;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background-color: transparent;
+}
+
+.loading {
+  font-style: italic;
+  color: #0F1012;
+}
+
+.success {
+  animation: successFadeOut 1s forwards;
+  animation-delay: 3s;
+}
+
+
+@media screen and (max-width: 1023px) {
+  .base {
+    background-color: transparent;
+  }
+
+  .emptyState {
+    visibility: hidden;
+    height: 0;
+    width: 0;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .base > * {
+    margin-top: 7.25rem;
+    margin-left: 0.5rem;
+    max-width: 550px;
+  }
+}
+
+
+@media screen and (min-width: 1440px) {
+  .base > * {
+    margin-left: 4rem;
+    max-width: 550px;
+  }
+}
