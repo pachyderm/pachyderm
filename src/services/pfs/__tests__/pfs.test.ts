@@ -334,4 +334,56 @@ describe('services/pfs', () => {
       expect(updatedRepos).toHaveLength(0);
     });
   });
+  describe('diffFile', () => {
+    it('should return a list of file diffs', async () => {
+      const client = await createSandbox('diffFile');
+
+      const commit1 = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'diffFile'}},
+      });
+
+      const fileClient1 = await client.pfs().modifyFile();
+      await fileClient1
+        .setCommit(commit1)
+        .putFileFromURL('at-at.png', 'http://imgur.com/8MN9Kg0.png')
+        .end();
+      await client.pfs().finishCommit({commit: commit1});
+
+      const commit2 = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'diffFile'}},
+      });
+      const fileClient2 = await client.pfs().modifyFile();
+      await fileClient2
+        .setCommit(commit2)
+        .putFileFromURL('liberty.png', 'http://imgur.com/46Q8nDz.png')
+        .end();
+      await client.pfs().finishCommit({commit: commit2});
+
+      const commitSet1 = await client
+        .pfs()
+        .inspectCommitSet({commitSet: commit1});
+
+      expect(commitSet1[0].details?.sizeBytes).toEqual(80588);
+
+      const commitSet2 = await client
+        .pfs()
+        .inspectCommitSet({commitSet: commit2});
+
+      expect(commitSet2[0].details?.sizeBytes).toEqual(139232);
+
+      const fileDiff1 = await client.pfs().diffFile({
+        commitId: commit2.id,
+        path: '/',
+        branch: {name: 'master', repo: {name: 'diffFile'}},
+      });
+      expect(fileDiff1[1].newFile?.sizeBytes).toEqual(139232 - 80588);
+
+      const fileDiff2 = await client.pfs().diffFile({
+        commitId: commit1.id,
+        path: '/',
+        branch: {name: 'master', repo: {name: 'diffFile'}},
+      });
+      expect(fileDiff2[1].newFile?.sizeBytes).toEqual(80588);
+    });
+  });
 });

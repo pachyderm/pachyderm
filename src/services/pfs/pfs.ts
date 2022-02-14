@@ -36,6 +36,7 @@ import {
   CommitInfo,
   CommitSetInfo,
   FileInfo,
+  DiffFileResponse,
   GetFileRequest,
   InspectFileRequest,
   InspectRepoRequest,
@@ -62,6 +63,7 @@ import {
   DeleteRepoRequest,
   AddFileSetRequest,
   RenewFileSetRequest,
+  DiffFileRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -96,6 +98,30 @@ const pfs = ({
       });
 
       return streamToObjectArray<FileInfo, FileInfo.AsObject>(stream);
+    },
+    diffFile: (
+      newFileObject: FileObject,
+      oldFileObject?: FileObject,
+      shallow = false,
+    ) => {
+      const diffFileRequest = new DiffFileRequest();
+
+      const newFile = fileFromObject(newFileObject);
+      diffFileRequest.setNewFile(newFile);
+      diffFileRequest.setShallow(shallow);
+
+      if (oldFileObject) {
+        const oldFile = fileFromObject(oldFileObject);
+        diffFileRequest.setOldFile(oldFile);
+      }
+
+      const stream = client.diffFile(diffFileRequest, credentialMetadata, {
+        deadline: Date.now() + RPC_DEADLINE_MS,
+      });
+
+      return streamToObjectArray<DiffFileResponse, DiffFileResponse.AsObject>(
+        stream,
+      );
     },
     getFile: (params: FileObject, tar = false) => {
       const getFileRequest = new GetFileRequest();
