@@ -46,7 +46,7 @@ func Cmds() []*cobra.Command {
 							// if not a string, preserve as is rather than error
 							var holder map[string]interface{}
 							if err := json.Unmarshal([]byte(inputString), &holder); err != nil {
-								return err
+								return errors.EnsureStack(err)
 							}
 							in["input_data"] = holder
 						}
