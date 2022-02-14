@@ -190,7 +190,13 @@ jobs:
       - run:
           name: Make release
           command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
-
+      - run:
+          name: Upload Release
+          command: |
+            echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
+            cd /home/circleci/dist-pach/pachctl/
+            gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
+            rm /home/circleci/gcpcreds.json
 
 
 workflows:
