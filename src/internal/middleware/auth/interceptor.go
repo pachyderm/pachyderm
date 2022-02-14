@@ -160,6 +160,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/CheckStorage":       authDisabledOr(authenticated),
 	"/pfs_v2.API/PutCache":           authDisabledOr(authenticated),
 	"/pfs_v2.API/GetCache":           authDisabledOr(authenticated),
+	"/pfs_v2.API/ClearCache":         authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
 	"/pfs_v2.API/ListTask":           authDisabledOr(authenticated),
