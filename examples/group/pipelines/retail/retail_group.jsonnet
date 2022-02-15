@@ -1,6 +1,15 @@
-{
+////
+// Template arguments:
+//
+// suffix : An arbitrary suffix appended to the name of this pipeline, for
+//          disambiguation when multiple instances are created.
+// tag : the tag of the docker image.
+////
+function(suffix, tag)
+  [
+ {
     "pipeline": {
-      "name": "group_store_revenue"
+      "name": "group_store_revenue_"+suffix
     },
     "description": "A pipeline that groups purchases and returns by storeId to calculate the gross_revenue minus returns of each store.",
     "input": {
@@ -33,7 +42,9 @@
    },
    "transform": {
     "cmd": [ "python", "main.py" ],
-    "image": "pachyderm/example-group:2.0.1"
+    "image": "pachyderm/example-group:"+tag
   }
 }
  
+
+]

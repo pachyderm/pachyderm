@@ -61,6 +61,9 @@ You can test your glob pattern and capture groups by using the
 `pachctl list datum -f <your_pipeline_spec.json>` command as described in
 [List Datum](../../datum/glob-pattern/#test-your-datums).
 
+!!! Important "Useful"
+    The content of the capture group defined in the `join_on` parameter is available to your pipeline's code in an environment variable: `PACH_DATUM_<input.name>_JOIN_ON`.
+    
 ## Inner Join
 Per default, a join input has an `inner-join` behavior.
 
@@ -144,8 +147,8 @@ To experiment further, see the full [joins example](https://github.com/pachyderm
 
 ## Outer Join
 
-Pachyderm also supports outer joins. Outer joins include everything a normal
-(inner) join does, and files that didn't match anything. Inputs can be set to
+Pachyderm also supports outer joins. Outer joins include everything an
+inner join does plus the files that didn't match anything. Inputs can be set to
 outer semantics independently. So while there isn't an explicit notion of
 "left" or "right" outer joins, you can still get those semantics, and even
 extend them to multiway joins.
@@ -154,9 +157,9 @@ extend them to multiway joins.
 
 Building off the example above, notice that there are 3 files in the
 `parameters` repo, `file6.txt`, `file7.txt` and `file8.txt`, which don't match
-any files in the `readings` repo. In a normal join those files are simply
-omitted, but if you still want to see them without a match you can use an outer
-join. The change to the pipeline spec is quite simple:
+any files in the `readings` repo. In an inner join, those files are
+omitted. If you still want to see the files without a match, you can use an outer
+join. The change to the pipeline spec is simple:
 
 ```json
  {
@@ -191,9 +194,16 @@ join. The change to the pipeline spec is quite simple:
  }
 ```
 
-Your code will still see the joined pairs that it saw before. In addition to
-those five datums your code will also see three new ones, one for each of the
-parameter files which didn't have a match. Note that this means your code needs
-to not crash when only some of the inputs are represented under `/pfs`.
+Your code will see the joined pairs that it saw before. In addition to
+those five datums, your code will also see three new ones: one for each of the
+parameter files which didn't have a match. Note that this means that your code needs
+to handle (not crash) the case where some of the inputs are represented under `/pfs`.
+
+Your code will see the joined pairs that it saw before. In addition to
+those five datums, your code will also see three new ones: 
+one for each `parameters` file that didn't match. Note that this means that your code needs
+to handle (not crash) the case where some of the inputs are represented under `/pfs`.
+
+
 
 To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.

@@ -124,6 +124,8 @@ particularly useful:
 | -------------------------- | --------------------------------------------- |
 | `PACH_JOB_ID`              | The ID of the current job. For example, <br> `PACH_JOB_ID=8991d6e811554b2a8eccaff10ebfb341`. |
 | `PACH_DATUM_ID`             | The ID of the current Datum.|
+|`PACH_DATUM_<input.name>_JOIN_ON`|Exposes the `join_on` match to the pipeline's job. |
+|`PACH_DATUM_<input.name>_GROUP_BY`|Expose the `group_by` match to the pipeline's job. |
 | `PACH_OUTPUT_COMMIT_ID`    | The ID of the commit in the output repo for <br> the current job. For example, <br> `PACH_OUTPUT_COMMIT_ID=a974991ad44d4d37ba5cf33b9ff77394`. |
 | `PPS_NAMESPACE`            | The PPS namespace. For example, <br> `PPS_NAMESPACE=default`. |
 | `PPS_SPEC_COMMIT`          | The hash of the pipeline specification commit.<br> This value is tied to the pipeline version. Therefore, jobs that use <br> the same version of the same pipeline have the same spec commit. <br> For example, `PPS_SPEC_COMMIT=3596627865b24c4caea9565fcde29e7d`. |
