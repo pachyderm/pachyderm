@@ -24,4 +24,4 @@ RUN chmod +x config.sh
 USER $NB_UID
 COPY dist dist
 WORKDIR /home/jovyan
-RUN pip install /app/dist/jupyterlab_pachyderm-0.1.0b3-py3-none-any.whl jupyterlab_pachyderm_theme==0.1.2 nbgitpuller
+RUN pip install `find /app/dist/ -name \*.whl` jupyterlab_pachyderm_theme==0.1.2 nbgitpuller
