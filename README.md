@@ -9,17 +9,19 @@
 [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io)
 [![CLA assistant](https://cla-assistant.io/readme/badge/pachyderm/pachyderm)](https://cla-assistant.io/pachyderm/pachyderm)
 
-# Pachyderm: The Data Foundation for Machine Learning
+# Pachyderm – The Leader in Data Versioning and Pipelines for MLOps
 
-Pachyderm provides the data layer that allows machine learning teams to productionize and scale their machine learning lifecycle. With Pachyderm’s industry leading data versioning, pipelines and lineage teams gain data driven automation, petabyte scalability and end-to-end reproducibility. Teams using Pachyderm get their ML projects to market faster, lower data processing and storage costs, and can more easily meet regulatory compliance requirements
+
+Pachyderm is the leader in data versioning and pipelines for MLOps.  We provide the data foundation that allows data science teams to automate and scale their machine learning lifecycle while guaranteeing reproducibility. With investment from Benchmark,  Microsoft M12, and others, Pachyderm, Inc. offers a commercial Pachyderm Enterprise Edition and an open source Pachyderm Community Edition. Pachyderm helps customers get their ML and AI projects to market faster, lower data processing and storage costs, and supports strict data governance requirements.
 
 ## Features
 
-- Automated Data Versioning: Pachyderm’s Data Versioning gives teams an automated and performant way to keep track of all data changes.
-- Data-Driven Pipelines: Pachyderm’s Containerized Pipelines speed data processing while lowering compute costs.
-- Immutable Data Lineage: Pachyderm’s data lineage provides an immutable record for all activities and assets in the ML lifecycle.
-- Console: The Pachyderm Console provides an intuitive visualization of your DAG (directed acyclic graph), and aids in reproducibility.
-- Notebooks: Pachyderm Notebooks provide an easy way to interact with Pachyderm data versioning and pipelines via Jupyter notebooks.
+- Automated Data Versioning — Pachyderm’s Data Versioning gives teams an automated and performant way to keep track of all data changes
+- Data-Driven Pipelines — Pachyderm’s Containerized Pipelines speed data processing while lowering compute costs
+- Immutable Data Lineage — Pachyderm’s Data Lineage provides an immutable record for all activities and assets in the ML lifecycle
+- Console — The Pachyderm Console provides an intuitive visualization of your DAG (directed acyclic graph) and aids in reproducibility
+- Notebooks — Pachyderm Notebooks provide an easy way to interact with Pachyderm Data Versioning and Pipelines via Jupyter notebooks
+- Enterprise Administration — Pachyderm provides robust tools for deploying and administering Pachyderm at scale across different teams in your organization
 
 
 ## Getting Started
