@@ -288,7 +288,10 @@ func (mm *MountManager) UnmountAll() error {
 		for branch, br := range rr.Branches {
 			if br.Mount.State == "mounted" {
 				//TODO: Add Commit field here once we support mounting specific commits
-				mm.UnmountBranch(MountKey{Repo: repo, Branch: branch}, "")
+				_, err = mm.UnmountBranch(MountKey{Repo: repo, Branch: branch}, "")
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -434,6 +437,8 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			}
 			// TODO: use response (serialize it to the client, it's polite to hand
 			// back the object you just modified in the API response)
+			// TODO: Only mount if the repo passed actually exists. Otherwise, results
+			// in weird behavior when trying to mount to "name" again.
 			_, err = mm.MountBranch(key, name, mode)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -497,7 +502,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 
-		clusterStatus, err := updateClientEndpoint(cfgReq.PachdAddress, mm.Client)
+		clusterStatus, err := mm.updateClientEndpoint(cfgReq.PachdAddress)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -609,7 +614,7 @@ func getClusterStatus(c *client.APIClient) (map[string]string, error) {
 	return map[string]string{"cluster_status": clusterStatus, "pachd_address": pachdAddress}, nil
 }
 
-func updateClientEndpoint(reqPachdAddress string, c *client.APIClient) (map[string]string, error) {
+func (mm *MountManager) updateClientEndpoint(reqPachdAddress string) (map[string]string, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, err
@@ -625,8 +630,8 @@ func updateClientEndpoint(reqPachdAddress string, c *client.APIClient) (map[stri
 
 	// Check if same pachd address as current client
 	var clusterStatus map[string]string
-	if reflect.DeepEqual(pachdAddress, c.GetAddress()) {
-		clusterStatus, err = getClusterStatus(c)
+	if reflect.DeepEqual(pachdAddress, mm.Client.GetAddress()) {
+		clusterStatus, err = getClusterStatus(mm.Client)
 		if err != nil {
 			return nil, err
 		}
@@ -643,7 +648,12 @@ func updateClientEndpoint(reqPachdAddress string, c *client.APIClient) (map[stri
 				return nil, err
 			}
 			if clusterStatus["cluster_address"] != "INVALID" {
-				logrus.Infof("Updating pachd address from %s to %s\n", c.GetAddress().Qualified(), pachdAddress.Qualified())
+				err := mm.UnmountAll()
+				if err != nil {
+					return nil, err
+				}
+
+				logrus.Infof("Updating pachd address from %s to %s\n", mm.Client.GetAddress().Qualified(), pachdAddress.Qualified())
 				cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified()}
 				err = cfg.Write()
 				if err != nil {
@@ -654,7 +664,7 @@ func updateClientEndpoint(reqPachdAddress string, c *client.APIClient) (map[stri
 				if err != nil {
 					return nil, err
 				}
-				*c = *(newClientPtr)
+				*(mm.Client) = *(newClientPtr)
 			}
 		}
 	}
