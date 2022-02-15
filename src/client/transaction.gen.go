@@ -324,12 +324,28 @@ func (c *unsupportedPfsBuilderClient) CheckStorage(_ context.Context, _ *pfs.Che
 	return nil, unsupportedError("CheckStorage")
 }
 
+func (c *unsupportedPfsBuilderClient) PutCache(_ context.Context, _ *pfs.PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("PutCache")
+}
+
+func (c *unsupportedPfsBuilderClient) GetCache(_ context.Context, _ *pfs.GetCacheRequest, opts ...grpc.CallOption) (*pfs.GetCacheResponse, error) {
+	return nil, unsupportedError("GetCache")
+}
+
+func (c *unsupportedPfsBuilderClient) ClearCache(_ context.Context, _ *pfs.ClearCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("ClearCache")
+}
+
 func (c *unsupportedPfsBuilderClient) RunLoadTest(_ context.Context, _ *pfs.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTest")
 }
 
 func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
+}
+
+func (c *unsupportedPfsBuilderClient) ListTask(_ context.Context, _ *taskapi.ListTaskRequest, opts ...grpc.CallOption) (pfs.API_ListTaskClient, error) {
+	return nil, unsupportedError("ListTask")
 }
 
 type unsupportedPpsBuilderClient struct{}
@@ -444,6 +460,14 @@ func (c *unsupportedPpsBuilderClient) RunLoadTest(_ context.Context, _ *pfs.RunL
 
 func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pfs.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
+}
+
+func (c *unsupportedPpsBuilderClient) RenderTemplate(_ context.Context, _ *pps.RenderTemplateRequest, opts ...grpc.CallOption) (*pps.RenderTemplateResponse, error) {
+	return nil, unsupportedError("RenderTemplate")
+}
+
+func (c *unsupportedPpsBuilderClient) ListTask(_ context.Context, _ *taskapi.ListTaskRequest, opts ...grpc.CallOption) (pps.API_ListTaskClient, error) {
+	return nil, unsupportedError("ListTask")
 }
 
 type unsupportedEnterpriseBuilderClient struct{}
