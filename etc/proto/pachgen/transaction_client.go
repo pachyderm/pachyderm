@@ -22,15 +22,23 @@ type TransactionClientGenerator struct {
 
 var funcs = map[string]interface{}{
 	"importPath": func(proto *descriptor.FileDescriptorProto) string {
-		return fmt.Sprintf("github.com/pachyderm/pachyderm/v2/src/%s", path.Dir(*proto.Name))
+		// if *proto.Package == "taskapi" {
+		// 	return `taskapi "github.com/pachyderm/pachyderm/v2/src/task"`
+		// }
+		packageName := *proto.Package
+		if packageName[len(packageName)-3:] == "_v2" {
+			packageName = packageName[:len(packageName)-3]
+		}
+		return fmt.Sprintf(`%s "github.com/pachyderm/pachyderm/v2/src/%s"`, packageName, path.Dir(*proto.Name))
 	},
-	"hasAPI": func(proto *descriptor.FileDescriptorProto) bool {
+	"shouldImport": func(proto *descriptor.FileDescriptorProto) bool {
 		for _, service := range proto.Service {
 			if *service.Name == "API" || *service.Name == "Debug" {
 				return true
 			}
 		}
-		return false
+		// special case because taskapi has no services defined
+		return *proto.Package == "taskapi"
 	},
 	"isAPI": func(proto *descriptor.ServiceDescriptorProto) bool {
 		return *proto.Name == "API" || *proto.Name == "Debug"
@@ -65,8 +73,8 @@ package client
 
 import (
 	"context"
-	{{range .Protos}}{{if hasAPI .}}
-	"{{importPath .}}"{{end}}{{end}}
+	{{range .Protos}}{{if shouldImport .}}
+	{{importPath .}}{{end}}{{end}}
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	types "github.com/gogo/protobuf/types"

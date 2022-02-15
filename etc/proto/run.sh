@@ -20,13 +20,6 @@ fi
 
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 
-# Build then run the bespoke pachyderm codegen plugin
-pushd etc/proto/pachgen > /dev/stderr
-go mod init > /dev/stderr
-go mod tidy > /dev/stderr
-go build -o "${GOPATH}/bin/protoc-gen-pach" > /dev/stderr
-popd > /dev/stderr
-
 mkdir -p v2/src
 
 # shellcheck disable=SC2044
@@ -59,8 +52,7 @@ protoc \
 
 popd > /dev/stderr
 
-
 # TODO (brendon): figure out how to configure protoc
 pushd v2 > /dev/stderr
-gofmt -w . > /dev/stderr
+gofmt -w src > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -
