@@ -61,6 +61,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -954,8 +955,10 @@ func doFullMode(config interface{}) (retErr error) {
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for enterprise server to gracefully stop")
-		externalServer.Server.GracefulStop()
-		internalServer.Server.GracefulStop()
+		var g, _ = errgroup.WithContext(ctx)
+		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		g.Wait()
 		log.Println("gRPC server gracefully stopped")
 	}(interruptChan)
 	return <-errChan
@@ -1278,8 +1281,10 @@ func doPausedMode(config interface{}) (retErr error) {
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for enterprise server to gracefully stop")
-		externalServer.Server.GracefulStop()
-		internalServer.Server.GracefulStop()
+		var g, _ = errgroup.WithContext(ctx)
+		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		g.Wait()
 		log.Println("gRPC server gracefully stopped")
 	}(interruptChan)
 	return <-errChan
