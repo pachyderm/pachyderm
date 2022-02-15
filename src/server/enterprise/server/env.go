@@ -49,9 +49,6 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 		BackgroundContext: senv.Context(),
 		Namespace:         senv.Config().Namespace,
 	}
-	if e.Namespace == "" {
-		e.Namespace = "default"
-	}
 	return e
 }
 
