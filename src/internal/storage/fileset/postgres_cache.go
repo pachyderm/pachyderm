@@ -125,10 +125,26 @@ func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
 }
 
 func (c *Cache) Clear(ctx context.Context, tagPrefix string) error {
-	// TODO: We may want to do this across multiple smaller transactions.
-	_, err := c.db.ExecContext(ctx, `
-		DELETE FROM storage.cache
+	var keys []string
+	if err := c.db.SelectContext(ctx, &keys, `
+		SELECT key
+		FROM storage.cache
 		WHERE tag LIKE $1 || '%'
-	`, tagPrefix)
-	return errors.EnsureStack(err)
+	`, tagPrefix); err != nil {
+		return errors.EnsureStack(err)
+	}
+	for _, key := range keys {
+		if err := dbutil.WithTx(ctx, c.db, func(tx *pachsql.Tx) error {
+			if _, err := tx.Exec(`
+				DELETE FROM storage.cache
+				WHERE key = $1
+			`, key); err != nil {
+				return errors.EnsureStack(err)
+			}
+			return errors.EnsureStack(c.tracker.DeleteTx(tx, cacheTrackerKey(key)))
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
