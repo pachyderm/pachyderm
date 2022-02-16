@@ -82,7 +82,12 @@ func main() {
 	switch {
 	case readiness:
 		cmdutil.Main(doReadinessCheck, &serviceenv.GlobalConfiguration{})
-	case mode == "full":
+	case mode == "full", mode == "", mode == "$(MODE)":
+		// Because of the way Kubernetes environment substitution works,
+		// a reference to an unset variable is not replaced with the
+		// empty string, but instead the reference is passed unchanged;
+		// because of this, '$(MODE)' should be recognized as an unset —
+		// i.e., default — mode.
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
 		cmdutil.Main(doEnterpriseMode, &serviceenv.GlobalConfiguration{})

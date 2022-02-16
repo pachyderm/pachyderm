@@ -58,4 +58,12 @@ rules:
   - list
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - update
+  - create
 {{ end -}}

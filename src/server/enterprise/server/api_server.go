@@ -10,6 +10,8 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -354,6 +356,49 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 }
 
 func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, paused bool) error {
+	cc := kc.CoreV1().ConfigMaps(namespace)
+	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// Since pachd-config is not managed by Helm, it may not exist.
+		c = &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pachd-config",
+				Namespace: namespace,
+			},
+			Data: make(map[string]string),
+		}
+		if paused {
+			c.Data["MODE"] = "paused"
+		} else {
+			c.Data["MODE"] = "full"
+		}
+		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
+			return errors.Errorf("could not create configmap: %w", err)
+		}
+	} else if err != nil {
+		return errors.Errorf("could not get configmap pachd-config: %w", err)
+	} else {
+		// Curiously, Get can return no error and an empty configmap!
+		// If this happens, need to set the name and namespace.
+		if c.ObjectMeta.Name == "" {
+			c.ObjectMeta = metav1.ObjectMeta{
+				Name:      "pachd-config",
+				Namespace: namespace,
+			}
+		}
+		if c.Data == nil {
+			c.Data = make(map[string]string)
+		}
+		if paused {
+			c.Data["MODE"] = "paused"
+		} else {
+			c.Data["MODE"] = "full"
+		}
+		if _, err := cc.Update(ctx, c, metav1.UpdateOptions{}); err != nil {
+			return errors.Errorf("could not update configmap: %w", err)
+		}
+	}
+
 	dd := kc.AppsV1().Deployments(namespace)
 	d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
 	if err != nil {
@@ -361,20 +406,6 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 	}
 	// Updating the spec rolls the deployment, killing each pod and causing
 	// a new one to start.
-	for i, c := range d.Spec.Template.Spec.Containers {
-		if len(c.Command) == 0 {
-			continue
-		}
-		if c.Command[0] == "/pachd" {
-			if paused {
-				c.Command = []string{"/pachd", "--mode", "paused"}
-
-			} else {
-				c.Command = []string{"/pachd"}
-			}
-		}
-		d.Spec.Template.Spec.Containers[i] = c
-	}
 	d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
 		return errors.Errorf("could not update pachd deployment: %v", err)

@@ -52,6 +52,9 @@ spec:
       containers:
       - command:
         - /pachd
+        args:
+        - --mode
+        - "$(MODE)"
         env:
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
@@ -159,6 +162,9 @@ spec:
               name: pachyderm-storage-secret
           - secretRef:
               name: pachyderm-deployment-id-secret
+          - configMapRef:
+              name: pachd-config
+              optional: true
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
