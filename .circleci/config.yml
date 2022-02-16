@@ -234,4 +234,5 @@ workflows:
                 - LOAD10
   upgrade:
     jobs:
+    - rootless
     - upgrade
