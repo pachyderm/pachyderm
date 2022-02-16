@@ -24,7 +24,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	}
 
 	if strings.HasSuffix(file, "/") {
-		return nil, invalidFilePathError(r)
+		return nil, s2.NoSuchKeyError(r)
 	}
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)

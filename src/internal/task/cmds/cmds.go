@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"encoding/json"
 	"os"
 
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
@@ -38,7 +39,20 @@ func Cmds() []*cobra.Command {
 			// silently assume raw
 			e := cmdutil.Encoder(output, os.Stdout)
 			return client.ListTask(args[0], namespace, group, func(ti *task.TaskInfo) error {
-				return errors.EnsureStack(e.EncodeProto(ti))
+				return errors.EnsureStack(e.EncodeProtoTransform(ti, func(in map[string]interface{}) error {
+					// the input data field is transmitted as a JSON string, unmarshal it for easier reading
+					if inputData, ok := in["input_data"]; ok {
+						if inputString, ok := inputData.(string); ok {
+							// if not a string, preserve as is rather than error
+							var holder map[string]interface{}
+							if err := json.Unmarshal([]byte(inputString), &holder); err != nil {
+								return errors.EnsureStack(err)
+							}
+							in["input_data"] = holder
+						}
+					}
+					return nil
+				}))
 			})
 		}),
 	}
