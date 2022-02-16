@@ -43,6 +43,41 @@ the `pachd` container will need to be redeployed to receive these connection par
     will be unable to get logs for pipelines running
     on that node via `pachctl logs -p pipelineName`.
 
+## Default Loki Bundle 
+
+Per default, Pachyderm ships with an embedded version of Loki that can be deployed by adding the `lokiDeploy: true` to the [existing ` lokiLogging: true`](#fetching-logs).
+
+```yaml
+pachd:
+  lokiDeploy: true
+  lokiLogging: true
+```
+In such case, add the following section to your value.yaml:
+
+```yaml  
+loki-stack:
+  loki:
+    persistence:
+      enabled: true
+      accessModes:
+      - ReadWriteOnce
+      size: 5Gi
+      storageClassName: standard
+      annotations: {}
+  grafana:
+    enabled: true
+```
+
+!!! Note "Grafana Users"
+       - To use Grafana, deploy with `loki-stack.grafana.enabled: true`.
+       - To access Grafana, run port-forward with `kubectl port-forward svc/pachyderm-grafana 4001:80`. Change the port 4001 to what suits you best.
+       - Login with the username `admin`, and the password found with running `kubectl get secret pachyderm-grafana -o jsonpath="{.data.admin-password}" | base64 -d`.
+       - If enterprise is activated, you will be able to inspect containers logs in your console.
+       
+       ![Container logs](../images/grafana_user_logs.png)
+
+
+    
 ## References
 
 * Loki Documentation - https://grafana.com/docs/loki/latest/
