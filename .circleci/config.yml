@@ -107,6 +107,11 @@ jobs:
             . venv/bin/activate
             python -m pip install -r ci-requirements.txt
             python -m pip install .
+
+            # Enable the examples extension
+            mkdir -p /home/circleci/.jupyter/labconfig
+            cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
+
             jupyter labextension develop . --overwrite
             jupyter server extension enable jupyterlab_pachyderm
             npm ci

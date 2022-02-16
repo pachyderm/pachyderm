@@ -249,15 +249,15 @@ You can disable certain plugins by specifying the following config data in the `
 ```
 {
   "disabledExtensions": {
-    "jupyterlab-pachyderm:hub": true
+    "jupyterlab-pachyderm:examples": true
   }
 } 
 ```
-Setting this config file is not part of the built extension and needs to be done by the user.
+You can check your config paths by running `jupyter --paths`. Setting this config file is not part of the built extension and needs to be done by the user.
 
-Adding the following to the package.json in the `jupyterlab` object will disable the hub plugin by default.
+Adding the following to the package.json in the `jupyterlab` object will disable the examples plugin by default.
 ```
-"disabledExtensions": ["jupyterlab-pachyderm:hub"]
+"disabledExtensions": ["jupyterlab-pachyderm:examples"]
 ```
 So we can build the extension with hub features turned off and override the setting for hub.
 
