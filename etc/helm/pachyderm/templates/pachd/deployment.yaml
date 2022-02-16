@@ -47,7 +47,7 @@ spec:
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
-      {{- end }} 
+      {{- end }}
       {{- end }}
       containers:
       - command:
@@ -71,7 +71,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
@@ -156,7 +156,7 @@ spec:
           value:  {{.Values.global.noProxy}}
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
-          value: {{ .Values.pachd.securityContext.enabled | quote }}    
+          value: {{ .Values.pachd.securityContext.enabled | quote }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
@@ -231,5 +231,5 @@ spec:
       initContainers:
       - name: init-etcd
         image: busybox:1.28
-        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"]      
+        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"]
 {{- end }}
