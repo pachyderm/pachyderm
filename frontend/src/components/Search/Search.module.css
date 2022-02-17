@@ -9,7 +9,7 @@
   width: 31.25rem;
   opacity: 0;
   visibility: hidden;
-  z-index: 1;
+  z-index: var(--z-index-dropdown-menu);
   border: 1px solid var(--border-grey);
   border-radius: 0px 0px 3px 3px;
   background-color: var(--white);
