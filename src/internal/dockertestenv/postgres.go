@@ -118,12 +118,12 @@ then
 
     docker run -d \
     -e AUTH_TYPE=any \
-    -e DB_USER="pachyderm" \
-    -e DB_PASS="password" \
-    -e DB_HOST=$postgres_ip \
-    -e DB_PORT=5432 \
-	-e MAX_CLIENT_CONN=1000 \
-    -e POOL_MODE=transaction \
+    -e POSTGRESQL_USERNAME="pachyderm" \
+    -e POSTGRESQL_PASSWORD="password" \
+    -e POSTGRESQL_HOST=$postgres_ip \
+    -e PGBOUNCER_PORT=5432 \
+	-e PGBOUNCER_MAX_CLIENT_CONN=1000 \
+    -e PGBOUNCER_POOL_MODE=transaction \
 	--name pach_test_pgbouncer \
     -p 30229:5432 \
     pachyderm/pgbouncer:1.16.1-1b
