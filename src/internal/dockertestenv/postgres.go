@@ -126,7 +126,7 @@ then
     -e POOL_MODE=transaction \
 	--name pach_test_pgbouncer \
     -p 30229:5432 \
-    edoburu/pgbouncer:1.15.0
+    pachyderm/pgbouncer:1.16.1-1b
 else
     echo "postgres already started"
 fi

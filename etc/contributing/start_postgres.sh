@@ -22,7 +22,7 @@ then
     -e DB_PORT=5432 \
     -e POOL_MODE=transaction \
     -p 30229:5432 \
-    edoburu/pgbouncer:1.15.0
+    pachyderm/pgbouncer:1.16.1-1b
 else
     echo "postgres already started"
 fi
