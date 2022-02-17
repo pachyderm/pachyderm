@@ -11,19 +11,12 @@ const streamToObjectArray = <T extends {toObject: () => U}, U>(
       data.push(chunk.toObject());
 
       if (limit && data.length >= limit) {
-        stream.cancel();
+        stream.destroy();
       }
     });
     stream.on('end', () => resolve(data));
     stream.on('close', () => resolve(data));
-    stream.on('error', (err) => {
-      // we've manually cancelled the connection
-      if (err.message.includes('Cancelled on client')) {
-        resolve(data);
-      } else {
-        reject(err);
-      }
-    });
+    stream.on('error', (err) => reject(err));
   });
 };
 
