@@ -563,6 +563,12 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		err = mm.UnmountAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		context.SessionToken = ""
 		cfg.Write()
 		mm.Client.SetAuthToken("")
