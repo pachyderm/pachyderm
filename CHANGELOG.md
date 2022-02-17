@@ -1,6 +1,10 @@
 
 # Changelog
 
+## 2.0.8
+
+- Return 404 instead of 400 on trailing slash - #7320
+- Obj: Don't hold locks while doing Gets in the cacheClient - #7309
 ## 2.0.7
 - Make Watcher logic more robust, to avoid SubscribeJob missing a job event - #7273
 - Adding kubernetes Node Selectors + Tolerations to the helmchart for pachd & etcd - #7177
