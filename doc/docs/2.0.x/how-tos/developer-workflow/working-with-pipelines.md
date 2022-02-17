@@ -178,6 +178,7 @@ parameter, as well as many others, in the pipeline specification.
    You can specify a local file or a file stored in a remote
    location, such as a GitHub repository. For example,
    `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
+
 1. If your pipeline specification changes, you can update the pipeline 
    by running
 

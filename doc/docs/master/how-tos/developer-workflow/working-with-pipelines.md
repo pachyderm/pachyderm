@@ -178,6 +178,7 @@ parameter, as well as many others, in the pipeline specification.
    You can specify a local file or a file stored in a remote
    location, such as a GitHub repository. For example,
    `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
+
 1. If your pipeline specification changes, you can update the pipeline 
    by running
 
@@ -187,4 +188,5 @@ parameter, as well as many others, in the pipeline specification.
 
 !!! note "See Also:"
   - [Updating Pipelines](../pipeline-operations/updating_pipelines.md)
+  - Advanced users, parameterize your pipeline specifications with [Jsonnet pipeline specification files](../pipeline-operations/jsonnet-pipeline-specs).
 <!-- - [Running Pachyderm in Production](TBA)-->
