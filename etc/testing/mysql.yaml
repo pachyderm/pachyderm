@@ -32,7 +32,7 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: mysql
-        image: mysql:latest
+        image: mariadb:latest
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000

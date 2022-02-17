@@ -33,7 +33,7 @@ func NewMySQLURL(t testing.TB) pachsql.URL {
 
 	dclient := newDockerClient()
 	err := ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
-		Image: "mysql:latest",
+		Image: "mariadb:latest",
 		PortMap: map[uint16]uint16{
 			mysqlPort: 3306,
 		},
