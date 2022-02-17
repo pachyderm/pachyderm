@@ -6,15 +6,15 @@ import {
   FileUnknownSVG,
   FileVideoSVG,
 } from '@pachyderm/components';
-import React from 'react';
+import React, {HTMLAttributes} from 'react';
 
 import {FileMajorType} from '@dash-frontend/lib/types';
 
 import styles from './FileIcon.module.css';
 
-type FileIconProps = {
+interface FileIconProps extends HTMLAttributes<HTMLDivElement> {
   fileType: FileMajorType;
-};
+}
 
 const fileIcons = {
   document: <FileDocSVG />,
@@ -25,8 +25,10 @@ const fileIcons = {
   unknown: <FileUnknownSVG />,
 };
 
-const FileIcon: React.FC<FileIconProps> = ({fileType}) => {
-  return <div className={styles.base}>{fileIcons[fileType]}</div>;
+const FileIcon: React.FC<FileIconProps> = ({className, fileType}) => {
+  return (
+    <div className={`${styles.base} ${className}`}>{fileIcons[fileType]}</div>
+  );
 };
 
 export default FileIcon;

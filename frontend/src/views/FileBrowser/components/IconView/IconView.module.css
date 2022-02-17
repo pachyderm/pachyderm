@@ -13,6 +13,12 @@
   padding: 1rem;
 }
 
+.fileIcon {
+  width: 4rem;
+  padding: 0.5rem 1rem;
+  margin-right: 1rem;
+}
+
 .fileInfo {
   flex: 1;
   font-size: var(--font-size-body-medium);

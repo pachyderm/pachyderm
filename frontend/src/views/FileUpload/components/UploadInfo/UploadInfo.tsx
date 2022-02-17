@@ -5,12 +5,14 @@ import {
   CloseSVG,
   StatusCheckmarkSVG,
   StatusWarningSVG,
-  FileAudioSVG,
   ElephantEmptyState,
 } from '@pachyderm/components';
 import filesize from 'filesize';
-import React from 'react';
+import React, {useMemo} from 'react';
 import {FieldError} from 'react-hook-form';
+
+import FileIcon from '@dash-frontend/components/FileIcon';
+import getFileMajorType from '@dash-frontend/lib/getFileMajorType';
 
 import styles from './UploadInfo.module.css';
 
@@ -31,13 +33,21 @@ const UploadInfo: React.FC<UploadInfoProps> = ({
   success,
   handleFileCancel,
 }) => {
+  const fileType = useMemo(() => {
+    return (file?.name || '')
+      .slice((file?.name || '').lastIndexOf('.') + 1)
+      .toLowerCase();
+  }, [file?.name]);
+
+  const fileMajorType = getFileMajorType(fileType);
+
   return (
     <div className={styles.base}>
       {file ? (
         <Group vertical>
           <div className={styles.file}>
             <Group spacing={8} align="start" className={styles.info}>
-              <FileAudioSVG />
+              <FileIcon fileType={fileMajorType} />
               <Group spacing={8} vertical>
                 <span className={styles.name}>{file.name}</span>
                 <span className={styles.size}>{filesize(file.size)}</span>

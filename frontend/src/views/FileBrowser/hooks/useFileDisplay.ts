@@ -4,6 +4,7 @@ import {format, fromUnixTime} from 'date-fns';
 import {useMemo} from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import getFileMajorType from '@dash-frontend/lib/getFileMajorType';
 import {FileMajorType} from '@dash-frontend/lib/types';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -54,76 +55,17 @@ const useFileDisplay = (file: File) => {
     [file.committed],
   );
 
-  const {fileType, fileMajorType} = useMemo(() => {
-    let fileType: string;
-
+  const fileType = useMemo(() => {
     if (file.type === FileType.FILE) {
-      fileType = file.path.slice(file.path.lastIndexOf('.') + 1).toLowerCase();
+      return file.path.slice(file.path.lastIndexOf('.') + 1).toLowerCase();
     } else if (file.type === FileType.DIR) {
-      fileType = 'folder';
+      return 'folder';
     } else {
-      fileType = 'unknown';
+      return 'unknown';
     }
+  }, [file.type, file.path]);
 
-    let fileMajorType: FileMajorType;
-
-    switch (fileType) {
-      case 'pdf':
-      case 'xls':
-      case 'xlsx':
-      case 'html':
-      case 'doc':
-      case 'docx':
-      case 'md':
-      case 'csv':
-      case 'json':
-      case 'jsonl':
-      case 'yml':
-      case 'txt':
-        fileMajorType = 'document';
-        break;
-      case 'apng':
-      case 'avif':
-      case 'gif':
-      case 'jpeg':
-      case 'jpg':
-      case 'png':
-      case 'svg':
-      case 'webp':
-      case 'bmp':
-      case 'ico':
-      case 'tiff':
-        fileMajorType = 'image';
-        break;
-      case 'mpg':
-      case 'mpeg':
-      case 'avi':
-      case 'wmv':
-      case 'mov':
-      case 'rm':
-      case 'ram':
-      case 'swf':
-      case 'flv':
-      case 'pff':
-      case 'webm':
-      case 'mp4':
-        fileMajorType = 'video';
-        break;
-      case 'mp3':
-      case 'wav':
-      case 'ogg':
-        fileMajorType = 'audio';
-        break;
-      case 'folder':
-        fileMajorType = 'folder';
-        break;
-      default:
-        fileMajorType = 'unknown';
-        break;
-    }
-
-    return {fileType, fileMajorType};
-  }, [file.path, file.type]);
+  const fileMajorType = getFileMajorType(fileType);
 
   const previewSupported = useMemo(() => {
     return (

@@ -11,10 +11,10 @@ import {
 } from '@pachyderm/components';
 import React from 'react';
 
+import FileIcon from '../../../../components/FileIcon';
 import useFileDisplay from '../../hooks/useFileDisplay';
 import DeleteFileButton from '../DeleteFileButton';
 
-import FileIcon from './components/FileIcon';
 import styles from './IconView.module.css';
 
 type IconViewProps = {
@@ -34,7 +34,7 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
   return (
     <div className={styles.base}>
       <div className={styles.content}>
-        <FileIcon fileType={fileMajorType} />
+        <FileIcon fileType={fileMajorType} className={styles.fileIcon} />
         <div className={styles.fileInfo}>
           <h4 className={styles.fileName}>{fileName}</h4>
           <p className={styles.fileText}>Size: {file.sizeDisplay} </p>
