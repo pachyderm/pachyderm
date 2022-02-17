@@ -1,14 +1,18 @@
 describe('File Upload', () => {
+  before(() => {
+    cy.setupProject().visit('/');
+  })
   beforeEach(() => {
-    cy.login().then(() => {
       cy.findAllByText('View Project').eq(0).click();
-    });
   });
 
   afterEach(() => {
-    cy.logout();
+    cy.visit('/');
   });
 
+  after(() => {
+    cy.deleteReposAndPipelines().logout();
+  })
   it('should allow a user to upload an image', () => {
     cy.findByText('images', {timeout: 8000}).click();
     cy.findByText('Upload Files').click();

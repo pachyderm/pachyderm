@@ -1,14 +1,17 @@
 describe('Project', () => {
+  before(() => {
+    cy.setupProject().visit('/');
+  })
   beforeEach(() => {
-    cy.login().then(() => {
-      cy.findAllByText('View Project').eq(0).click();
-    });
+    cy.findAllByText('View Project').eq(0).click();
   });
-
   afterEach(() => {
-    cy.logout();
-  });
+    cy.visit('/')
+  })
 
+  after(() => {
+    cy.deleteReposAndPipelines().logout();
+  })
   it('should navigate to the project page', () => {
     cy.findByText('Jobs', {timeout: 8000});
     cy.findByText('Reset Canvas');
