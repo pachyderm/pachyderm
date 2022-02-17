@@ -433,7 +433,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 					Annotations: annotations,
 				},
 				Transform: &pps.Transform{
-					Image: "pachyderm/ubuntuplusnetcat:latest",
+					Image: "pachyderm/ubuntuplusnetcat:local",
 					Cmd:   []string{"sh"},
 					Stdin: []string{netcatCommand},
 				},
