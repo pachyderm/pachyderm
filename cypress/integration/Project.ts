@@ -27,7 +27,7 @@ describe('Project', () => {
     cy.findByRole('button', {name: 'Close'}).click();
     cy.findAllByText('edges').eq(0).click();
     cy.findAllByText('Committed', {exact: false}).should('have.length', 1);
-    cy.findByText('(22.22 KB)', {exact: false});
+    cy.findByText('(22.22 KB)', {exact: false, timeout: 60000});
 
   })
 });
