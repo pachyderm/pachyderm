@@ -1,0 +1,2 @@
+miniwdl==1.4.3
+python-pachyderm==7.1.1
