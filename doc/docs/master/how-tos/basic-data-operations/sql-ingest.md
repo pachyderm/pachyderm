@@ -1,14 +1,14 @@
 
-# Ingest Structured Data - Integration with SQL
+# Ingest Structured Data - Data Warehouse Integration
 
 Part of your data might live in databases requiring some level of integration with your warehouse to retrieve and inject them into Pachyderm.
 
-Our **SQL ingest** tool provides a seamless connection between databases and Pachyderm,  allowing you to import data from a SQL database into Pachyderm-powered pipelines. By bringing data-driven pipelines, versioning & lineage to structured data, we are allowing Data Science teams to easily combine structured and unstructured data, thus improving the performance of prediction models.
+Our **SQL ingest** tool provides a seamless connection between databases and Pachyderm,  allowing you to import data from a SQL database into Pachyderm-powered pipelines. By bringing data-driven pipelines, versioning & lineage to structured data, we are allowing Data Science teams to easily combine structured and unstructured data.
 
 Specifically, we help you connect to a remote database of your choice and pull the result of a given query at regular intervals in the form of a CSV or a JSON file.  
 
 ## Use SQL Ingest
-Pachyderm's SQL Ingest uses [pipeline templates](../../pipeline-operations/pipeline-templates) populated with the following parameters to automatically create the pipelines that access, query, and materialize the results in the form of CSV or JSON files.
+Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/jsonnet-pipeline-specs) with the following parameters to automatically create the pipelines that access, query, and materialize the results of a SQL query to a data warehouse. The outputted results can take the form of CSV or JSON files.
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
@@ -21,7 +21,7 @@ pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pa
   --arg format=json
 ```
 
-Where the parameters passed to the template are:
+Where the parameters passed to the jsonnet pipeline spec are:
 
 | Parameter     | Description | 
 | ------------- |-------------| 
@@ -36,7 +36,7 @@ Where the parameters passed to the template are:
     `pachctl update pipeline` will create pipelines if none exist or update otherwise.
 
 
-When the pipeline template command is run, the database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the output repo named after `name`.
+When the command is run, the database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the output repo named after `name`.
 
 ### Database Secret
 Before you create your SQL Ingest pipelines, make sure to create a [generic secret](../advanced-data-operations/secrets/#create-a-secret) containing your database password in the field `PACHYDERM_SQL_PASSWORD`.
@@ -76,7 +76,7 @@ Where:
 
 ## How does this work?
 
-SQL Ingest's pipeline template [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
+SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
 
 
 - A **[Cron Pipeline](../../../concepts/pipeline-concepts/pipeline/cron/#cron-pipeline)** `myingest_queries` triggering at an interval set by `cronSpec` and outputting a file `/0000` in its output repo `myingest_queries`. `/0000` contains a timestamp and the SQL statement set in `query`.
