@@ -119,55 +119,52 @@ with the `--push-images` flag. For more information, see
 
 ## Step 4: Create/Edit the Pipeline Config
 
-Pachyderm's pipeline specifications store the configuration information
-about the Docker image and code that Pachyderm should run. Pipeline
-specifications are stored in JSON or YAML format.
+Pachyderm's pipeline specification files store the configuration information
+about the Docker image and code that Pachyderm should run, the input repo(s) of the pipeline, parallelism settings, GPU usage etc...
+Pipeline specifications are stored in JSON or YAML format.
 
 A standard pipeline specification must include the following
 parameters:
 
 - `name`
 - `transform`
-- `parallelism`
 - `input`
 
 !!! note
     Some special types of pipelines, such as a spout pipeline, do not
-    require you to specify all of these parameters.
+    require you to specify all of these parameters. 
+    Spout pipelines, for example, do not have input repos.
 
-You can store your pipeline locally or in a remote location, such
+Check our reference [pipeline specification](../../reference/pipeline_spec) page, for a list of all available fields in a pipeline specification file.
+
+You can store your pipeline specifications locally or in a remote location, such
 as a GitHub repository.
 
-To create a Pipeline, complete the following steps:
+A simple pipeline specification file in JSON would look like the example below.
+The pipeline takes its data from the input repo `data`, runs worker containers with the defined image `<image>:<tag>` and `command`, then outputs the resulting processed data in the `my-pipeline` output repo.  During a job execution, each worker sees and reads from the local file system `/pfs/data` containing only matched data from the `glob` expression, and writes its output to `/pfs/out` with standard file system functions; Pachyderm handles the rest. 
 
-1. Create a pipeline specification. Here is an example of a pipeline
-   spec:
-
-   ```shell
-   # my-pipeline.json
-   {
-     "pipeline": {
-       "name": "my-pipeline"
-     },
-     "transform": {
-       "image": "<image>:<tag>",
-       "cmd": ["/binary", "/pfs/data", "/pfs/out"]
-     },
-     "input": {
-         "pfs": {
-           "repo": "data",
-           "glob": "/*"
-         }
-     }
-   }
-   ```
-
-!!! note "See Also:"
-    - [Pipeline Specification](../../reference/pipeline_spec.md)
+```shell
+# my-pipeline.json
+{
+  "pipeline": {
+    "name": "my-pipeline"
+  },
+  "transform": {
+    "image": "<image>:<tag>",
+    "cmd": ["command", "/pfs/data", "/pfs/out"]
+  },
+  "input": {
+      "pfs": {
+        "repo": "data",
+        "glob": "/*"
+      }
+  }
+}
+```
 
 ## Step 5: Deploy/Update the Pipeline
 
-As soon as you create a pipeline, Pachyderm immediately spins up one or more Kubernetes pods in which the pipeline code runs. By default, after the pipeline finishes
+As soon as you create a pipeline, Pachyderm spins up one or more Kubernetes pods in which the pipeline code runs. By default, after the pipeline finishes
 running, the pods continue to run while waiting for the new data to be
 committed into the Pachyderm input repository. You can configure this
 parameter, as well as many others, in the pipeline specification.

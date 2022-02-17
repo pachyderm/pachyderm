@@ -46,7 +46,7 @@ and an input repository name into the original pipeline specifications.
 
 See the full `edges.jsonnet` here:
 ```yaml
-{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/templates/edges.jsonnet', 'master') }}
+{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', 'master') }}
 ```
 
 Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv/jsonnet/README){target=_blank}.
