@@ -1,9 +1,9 @@
-# Pipeline Templates Applied To Pachyderm's openCV Beginner Tutorial
+# Jsonnet Pipeline Specs Applied To Pachyderm's openCV Beginner Tutorial
 
->![pach_logo](../../img/pach_logo.svg) COMING SOON! This example will require to run Pachyderm 2.1 or later versions.
+>![pach_logo](../../img/pach_logo.svg) COMING SOON! This example requires Pachyderm 2.1 or later versions.
 
-We adapted our opencv tutorial to use pipeline templates. In this adapted version, we use 2 templates (`edges.jsonnet` and `montage.jsonnet`) to generate our opencv pipelines.
-We then extend the use case and re-apply the montage template a second time, creating another pipeline, identical to the first montage-1.json but different in name montage-2.json and input repositories.
+We adapted our opencv tutorial to use jsonnet pipeline specs. In this adapted version, we use 2 jsonnet specs, `edges.jsonnet` and `montage.jsonnet`, to generate our opencv pipelines.
+We then extend the use case and re-apply the montage jsonnet specs a second time, creating another pipeline, identical to the first `montage-1` but different in name `montage-2` and input repositories.
 ## Prerequisites
 
 We assume that you have a running version of Pachyderm 2.1 or later, its associated pachctl CLI, and are familiar with the original opencv tutorial.
@@ -27,7 +27,7 @@ pachctl put file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
 
 ## Create The Edge Detection Pipeline
 
-Using [`edges.jsonnet`](../edges.jsonnet), we are going to create `edges-1.json` pointing to the repository `images` as its input repo:
+Using [`edges.jsonnet`](../edges.jsonnet), we are going to create the pipeline `edges-1`. The pipeline takes the repository `images` as its input repo:
 
 ```shell
 pachctl create pipeline --jsonnet edges.jsonnet  --arg suffix=1 --arg src=images
@@ -62,13 +62,13 @@ To look at one of its files, run:
 
 ## Create The Montage Pipeline
 
-Let's add a montage pipeline that arranges our images and their edge detected version into a single montage. The pipeline takes 2 input data repositories (`images` and `edges-1`) which we will pass as arguments to the second template `montage.jsonnet` along with the suffix `1`.
+Let's add a montage pipeline that arranges our images and their "edge-detected" version into a single montage. The pipeline takes 2 input repositories (`images` and `edges-1`) which we will pass as arguments to the second jsonnet pipeline spec `montage.jsonnet` along with the suffix `1`.
 
 ```shell
 pachctl create pipeline --jsonnet montage.jsonnet  --arg suffix=1 --arg left=images --arg right=edges-1
 ```
 
-Note that you can pass the full url of your template location.
+Note that you can pass the full url of your jsonnet location.
 
 Again, check the state of your pipeline by running `pachctl list pipeline`.
 ```
@@ -78,7 +78,7 @@ montage-1 1       (images:/ ⨯ edges-1:/) 25 seconds ago running / success A pi
 edges-1   1       images:/*              2 minutes ago  running / success OpenCV edge detection on images
 ```
 
-Hopefully, your pipeline ran successfully. An output repo of the same name should have been created.
+An output repo of the same name should have been created.
 ```shell
 pachctl list repo
 ```
@@ -101,9 +101,9 @@ Take a look at your first montage by running:
   pachctl get file montage-1@master:montage.png | display
   ```
 
-## Next: Re-Apply The Montage Template To Different Input Repositories
+## Next: Re-Apply The Montage Jsonnet Spec To Different Input Repositories
 
-Let's re-apply the previous template `montage.jsonnet` to our `images` repository and the `montage-1` output repo this time. We will call it `montage-2`.
+Let's re-apply the previous `montage.jsonnet` to our `images` repository and the `montage-1` output repo this time. We will call it `montage-2`.
 
 ```shell
 pachctl create pipeline --jsonnet montage.jsonnet  --arg suffix=2 --arg left=edges-1 --arg right=montage-1
