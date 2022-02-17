@@ -1,6 +1,31 @@
 # Changelog
-
 <!-- <START NEW CHANGELOG ENTRY> -->
+
+# 0.2.0-beta1
+
+```
+16aa82e Disable examples plugin by default (#75)
+66d8cd8 Try installing wheel dynamically (#74)
+6243373 Default mount server (#70)
+8f00da4 Pin pach version for now (#73)
+075746d Install pachctl from tarball based on any pachyderm git hash (#69)
+072521d File browser chores (#64)
+eb05fad Add docs (#65)
+9b4c38c Pulumi preview (#59)
+6b0ba49 Fixing issue where open api is getting called on mount or unmount (#63)
+de444aa Docker hotfix (#62)
+fe3b344 INT-483 Improve HTTP errors in handlers (#61)
+705d4ca INT-487 Fix stale pypach client (#60)
+7fa6d75 Build user dockerfile  (#58)
+cffa0b8 [INT-454] feat(e2e): run cypress tests against real server (#53)
+efed670 Remove Dockerfile (#56)
+7b5d55c feat(mount): add analytics for mount/unmount (#51)
+dd95119 [skip ci] Update local dev container workflow (#54)
+efd7956 Modify handling of response objects to fix errors (#55)
+9c6a5b9 [skip ci] Update RELEASE.md (#52)
+7f821c9 Update release instructions (#36)
+```
+
 ## 0.1.0-beta3
 
 ### Added
