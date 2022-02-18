@@ -1,14 +1,17 @@
-VERSION=v0.0.1
+VERSION=v0.0.2
 IMAGE=pachyderm/ubuntu-with-s3-clients:$(VERSION)
 
 image:
-	docker build -t $(IMAGE) .
+	docker buildx build --platform linux/amd64 -t $(IMAGE)-amd64 .
+	docker buildx build --platform linux/arm64 -t $(IMAGE)-arm64 .
 
 push-to-minikube: image
 	../../../../etc/kube/push-to-minikube.sh $(IMAGE)
 
 push-to-dockerhub: image
-	docker push $(IMAGE)
+	docker push $(IMAGE)-amd64
+	docker push $(IMAGE)-arm64
+	docker mainfest create $(IMAGE) $(IMAGE)-arm64 $(IMAGE)-amd64
 
 .PHONY: \
 	image \
