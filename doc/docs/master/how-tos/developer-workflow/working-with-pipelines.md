@@ -187,6 +187,6 @@ parameter, as well as many others, in the pipeline specification.
      ```
 
 !!! note "See Also:"
-    - [Updating Pipelines](../pipeline-operations/updating_pipelines.md)
+    - [Updating Pipelines](../pipeline-operations/updating_pipelines)
     - Advanced users, parameterize your pipeline specifications with [Jsonnet pipeline specification files](../../pipeline-operations/jsonnet-pipeline-specs).
 
