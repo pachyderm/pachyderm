@@ -6772,12 +6772,12 @@ func TestServiceEnvVars(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Image: "trinitronx/python-simplehttpserver",
+				Image: "python:3.9-slim-bullseye",
 				Cmd:   []string{"sh"},
 				Stdin: []string{
 					"echo ${CUSTOM_ENV_VAR} >/pfs/custom_env_var",
 					"cd /pfs",
-					"exec python -m SimpleHTTPServer 8000",
+					"exec python -m http.server 8000",
 				},
 				Env: map[string]string{
 					"CUSTOM_ENV_VAR": "custom-value",
