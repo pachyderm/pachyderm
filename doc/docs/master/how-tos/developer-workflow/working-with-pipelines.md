@@ -96,7 +96,7 @@ a public or private image registry, such as
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, and push images by running the `pachctl update pipeline` command
 with the `--push-images` flag. For more information, see
-[Update a pipeline](../pipeline-operations/updating_pipelines).
+[Update a pipeline](../../pipeline-operations/updating_pipelines).
 
 1. Log in to an image registry.
 
