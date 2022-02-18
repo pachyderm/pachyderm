@@ -17,6 +17,9 @@ In Pachyderm, a Pipeline is an individual execution step. You can
 chain multiple pipelines together to create a directed acyclic
 graph (DAG).
 
+You define a pipeline declaratively, using a JSON or YAML file. 
+Pipeline specification files follow Pachyderm's [pipeline reference specification file](../../../reference/pipeline_spec).
+
 A minimum pipeline specification must include the following parameters:
 
 - `name` — The name of your data pipeline. Set a meaningful name for
@@ -83,6 +86,3 @@ Pachyderm has the following special types of pipelines whose behavior might slig
     a data stream. A spout can subscribe to a message stream, such
     as Kafka or Amazon SQS, and ingest data when it receives a
     message. A spout does not have an input repo.
-
-!!! note "See Also:"
-    [Pipeline Specification](../../../reference/pipeline_spec.md)

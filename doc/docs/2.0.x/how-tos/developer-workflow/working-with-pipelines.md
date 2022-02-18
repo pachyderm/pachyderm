@@ -171,21 +171,22 @@ parameter, as well as many others, in the pipeline specification.
 
 1. Create a Pachyderm pipeline from the spec:
 
-   ```shell
-   pachctl create pipeline -f my-pipeline.json
-   ```
+     ```shell
+     pachctl create pipeline -f my-pipeline.json
+     ```
 
-   You can specify a local file or a file stored in a remote
-   location, such as a GitHub repository. For example,
-   `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
+     You can specify a local file or a file stored in a remote
+     location, such as a GitHub repository. For example,
+     `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
 
 1. If your pipeline specification changes, you can update the pipeline 
    by running
 
-   ```shell
-   pachctl update pipeline -f my-pipeline.json
-   ```
+     ```shell
+     pachctl update pipeline -f my-pipeline.json
+     ```
 
 !!! note "See Also:"
-  - [Updating Pipelines](../pipeline-operations/updating_pipelines.md)
-<!-- - [Running Pachyderm in Production](TBA)-->
+    - [Updating Pipelines](../../pipeline-operations/updating_pipelines.md)
+ 
+

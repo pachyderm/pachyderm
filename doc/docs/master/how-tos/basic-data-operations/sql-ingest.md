@@ -1,6 +1,9 @@
 
 # Ingest Structured Data - Data Warehouse Integration
 
+!!! Warning
+    SQL Ingest is an [experimental feature](../../../contributing/supported-releases/#experimental).
+
 Part of your data might live in databases requiring some level of integration with your warehouse to retrieve and inject them into Pachyderm.
 
 Our **SQL ingest** tool provides a seamless connection between databases and Pachyderm,  allowing you to import data from a SQL database into Pachyderm-powered pipelines. By bringing data-driven pipelines, versioning & lineage to structured data, we are allowing Data Science teams to easily combine structured and unstructured data.

@@ -100,7 +100,7 @@ with the `--push-images` flag. For more information, see
 
 1. Log in to an image registry.
 
-   * If you use DockerHub, run:
+    If you use DockerHub, run:
 
      ```shell
      docker login --username=<dockerhub-username> --password=<dockerhub-password> <dockerhub-fqdn>
@@ -108,7 +108,7 @@ with the `--push-images` flag. For more information, see
 
 1. Push your image to your image registry.
 
-   * If you use DockerHub, run:
+    If you use DockerHub, run:
 
      ```shell
      docker push <image>:tag
@@ -171,22 +171,22 @@ parameter, as well as many others, in the pipeline specification.
 
 1. Create a Pachyderm pipeline from the spec:
 
-   ```shell
-   pachctl create pipeline -f my-pipeline.json
-   ```
+     ```shell
+     pachctl create pipeline -f my-pipeline.json
+     ```
 
-   You can specify a local file or a file stored in a remote
-   location, such as a GitHub repository. For example,
-   `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
+     You can specify a local file or a file stored in a remote
+     location, such as a GitHub repository. For example,
+     `https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json`.
 
 1. If your pipeline specification changes, you can update the pipeline 
    by running
 
-   ```shell
-   pachctl update pipeline -f my-pipeline.json
-   ```
+     ```shell
+     pachctl update pipeline -f my-pipeline.json
+     ```
 
 !!! note "See Also:"
-  - [Updating Pipelines](../pipeline-operations/updating_pipelines.md)
-  - Advanced users, parameterize your pipeline specifications with [Jsonnet pipeline specification files](../pipeline-operations/jsonnet-pipeline-specs).
-<!-- - [Running Pachyderm in Production](TBA)-->
+    - [Updating Pipelines](../pipeline-operations/updating_pipelines.md)
+    - Advanced users, parameterize your pipeline specifications with [Jsonnet pipeline specification files](../../pipeline-operations/jsonnet-pipeline-specs).
+
