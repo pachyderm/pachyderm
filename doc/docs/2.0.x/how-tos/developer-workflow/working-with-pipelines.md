@@ -89,14 +89,14 @@ For more information about building Docker images, see
 
 ## Step 3: Push Your Docker Image to a Registry
 
-After building your image, you need to upload the image into
+Once your image is built and tagged, you need to upload the image into
 a public or private image registry, such as
 [DockerHub](https://hub.docker.com){target=_blank}.
 
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, and push images by running the `pachctl update pipeline` command
 with the `--push-images` flag. For more information, see
-[Update a pipelines](../pipeline-operations/updating_pipelines.md).
+[Update a pipeline](../pipeline-operations/updating_pipelines.md).
 
 1. Log in to an image registry.
 
