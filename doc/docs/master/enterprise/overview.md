@@ -8,7 +8,7 @@
 
 Pachyderm Enterprise Edition helps you scale and manage Pachyderm data pipelines in an enterprise setting.
 
-It delivers the most recent version of the Community Edition of Pachyderm along with additional features, a UI (Console) for visualizing pipelines and exploring data, and a customized JupyterHub deployment (Notebooks) to experiment with your data and pipelines from a Jupyter Notebook.
+It delivers the most recent version of the Community Edition of Pachyderm along with additional features and a UI (Console) for visualizing pipelines and exploring data.
 
 !!! Warning "THE ENTERPRISE EDITION LIFTS **ALL SCALING LIMITATIONS**"
      Note that the activation of the Enterprise Edition [**lifts all scaling limits of the Community Edition**](../../reference/scaling_limits/). You can run as many pipelines as you need and parallelize your jobs without constraints.
@@ -24,30 +24,18 @@ Pachyderm Enterprise unlocks a series of additional administrative and security 
 
 ### Tooling
 
-Pachyderm Enterprise also comes with two complementary tools that will quickly become indispensable when designing and debugging pipelines.
+Pachyderm Enterprise comes with a complementary tool that will quickly become indispensable when designing and debugging pipelines: **Pachyderm Console**, a visual interface for pipeline visualization and data exploration.
 
-- [**Pachyderm Console**](#console) - A visual interface for pipeline visualization and data exploration.
-
-    This first iteration of Pachyderm Console provides an intuitive visualization of your DAGs, an easy way to drill into pipelines and job details, explore data, and read through logs.  
-    
-- [**Notebooks(beta)**](#notebooks-beta) - Run experiments and explore your data from your favorite Jupyter notebooks using `pachctl` or our Python client [`python-pachyderm`](../../reference/clients). 
-
-!!! Note
-    Both are readily accessible on [Hub](https://hub.pachyderm.com/){target=_blank}. The coming GA release of Notebooks will be an Enterprise Feature.
-
-## Console
 Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  It automatically infers the structure of data scientists' DAGs and displays them visually. Data scientists and cluster admins can click on individual segments of pipelines and repos to see how many jobs have run, explore commits and data, or access Pachyderm logs. Console is an indispensable tool when designing and troubleshooting your data workflow.
+Console also supports file ingress from your local computer via a drag-and-drop file upload feature. 
 
 ![Console Pipeline](../images/console-pipeline.png)
 
-You can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/) by adding the relevant fields to your Helm values. A production environment requires setting up an [Ingress Controller and a DNS](../../deploy-manage/deploy/ingress/). You can also choose to deploy Console [locally](../../deploy-manage/deploy/console/#deploy-locally) to experiment with the product or develop your pipelines.
+You can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/) by adding the relevant fields to your Helm values. A production environment requires setting up [Authentication, an Ingress Controller and a DNS](../../deploy-manage/deploy/ingress/). You can also choose to deploy Console [locally](../../deploy-manage/deploy/console/#deploy-locally) to experiment with the product or develop your pipelines.
 
-## Notebooks (beta)
+!!! Note
+    Console is readily accessible on [Hub](https://hub.pachyderm.com/){target=_blank}.
 
-Pachyderm Enterprise Edition includes a customized JupyterHub deployment running inside Pachyderm, allowing you to run pipelines and data experiments from your familiar Jupyter notebooks. Check the `How To` section of this documentation 
-to [learn about the beta version of Notebooks](../../how-tos/use-pachyderm-ide/).
-
-![Notebooks](../images/notebooks.png)
 
 
 
