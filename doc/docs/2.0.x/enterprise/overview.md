@@ -3,7 +3,6 @@
 !!! Note
      To get more information about Pachyderm Enterprise Edition, to ask questions, or to get access for evaluation, don't hesitate to get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io) or on our [Slack](https://www.pachyderm.com/slack/){target=_blank}. 
 
-
 ## Enterprise Features List
 
 Pachyderm Enterprise Edition helps you scale and manage Pachyderm data pipelines in an enterprise setting.
