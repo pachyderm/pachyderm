@@ -11,7 +11,7 @@ push-to-minikube: image
 push-to-dockerhub: image
 	docker push $(IMAGE)-amd64
 	docker push $(IMAGE)-arm64
-	docker mainfest create $(IMAGE) $(IMAGE)-arm64 $(IMAGE)-amd64
+	docker manifest create $(IMAGE) $(IMAGE)-arm64 $(IMAGE)-amd64 --amend
 
 .PHONY: \
 	image \
