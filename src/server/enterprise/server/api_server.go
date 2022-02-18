@@ -355,6 +355,8 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 	return &ec.PauseResponse{}, nil
 }
 
+var updatedAtFieldName = "pachyderm.com/updatedAt"
+
 func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, paused bool) error {
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
@@ -390,10 +392,28 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 			c.Data = make(map[string]string)
 		}
 		if paused {
+			if c.Data["MODE"] == "paused" {
+				// Short-circuit and do not update if configmap
+				// is already in the correct state.  This keeps
+				// the updatedAt semantics correct when checking
+				// the pause status.
+				return nil
+			}
 			c.Data["MODE"] = "paused"
 		} else {
+			if c.Data["MODE"] == "full" {
+				// Short-circuit and do not update if configmap
+				// is already in the correct state.  This keeps
+				// the updatedAt semantics correct when checking
+				// the pause status.
+				return nil
+			}
 			c.Data["MODE"] = "full"
 		}
+		if c.Annotations == nil {
+			c.Annotations = make(map[string]string)
+		}
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339)
 		if _, err := cc.Update(ctx, c, metav1.UpdateOptions{}); err != nil {
 			return errors.Errorf("could not update configmap: %w", err)
 		}
@@ -444,40 +464,69 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 }
 
 func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
-	pods := a.env.GetKubeClient().CoreV1().Pods(a.env.Namespace)
+	kc := a.env.GetKubeClient()
+	cc := kc.CoreV1().ConfigMaps(a.env.Namespace)
+	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// If there is no configmap, then the pachd pods must be
+		// unpaused.
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_UNPAUSED,
+		}, nil
+	} else if err != nil {
+		return nil, errors.Errorf("could not get configmap: %v", err)
+	}
+	if c.Annotations[updatedAtFieldName] == "" {
+		// If there is no updatedAt, then then the pachd pods must be in
+		// their default, unpaused, state.
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_UNPAUSED,
+		}, nil
+	}
+	updatedAt, err := time.Parse(time.RFC3339, c.Annotations[updatedAtFieldName])
+	if err != nil {
+		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations["pachyderm.com/updatedAt"], err)
+	}
+
+	pods := kc.CoreV1().Pods(a.env.Namespace)
 	pp, err := pods.List(ctx, metav1.ListOptions{
 		LabelSelector: "app=pachd",
 	})
 	if err != nil {
 		return nil, errors.Errorf("could not get pachd pods: %v", err)
 	}
-	var sawPaused, sawUnpaused bool
+	var sawAfter, sawBefore bool
 	for _, p := range pp.Items {
-		for _, c := range p.Spec.Containers {
-			if len(c.Command) == 0 {
-				continue
-			}
-			if c.Command[0] == "/pachd" {
-				if len(c.Command) == 3 && c.Command[1] == "--mode" && c.Command[2] == "paused" {
-					sawPaused = true
-				} else if len(c.Command) == 1 {
-					sawUnpaused = true
-				}
-			}
+		if p.CreationTimestamp.Time.Before(updatedAt) {
+			sawBefore = true
+		} else {
+			sawAfter = true
 		}
 	}
 	switch {
-	case sawUnpaused && sawPaused:
+	case sawBefore && sawAfter:
 		return &ec.PauseStatusResponse{
 			Status: ec.PauseStatusResponse_PARTIALLY_PAUSED,
 		}, nil
-	case sawUnpaused:
-		return &ec.PauseStatusResponse{
-			Status: ec.PauseStatusResponse_UNPAUSED,
-		}, nil
-	case sawPaused:
+	case sawBefore:
+		// nothing has cycled yet; configmap has yet to take effect
+		if c.Data["MODE"] == "paused" {
+			return &ec.PauseStatusResponse{
+				Status: ec.PauseStatusResponse_UNPAUSED,
+			}, nil
+		}
 		return &ec.PauseStatusResponse{
 			Status: ec.PauseStatusResponse_PAUSED,
+		}, nil
+	case sawAfter:
+		// everything has cycled; configmap has taken effect
+		if c.Data["MODE"] == "paused" {
+			return &ec.PauseStatusResponse{
+				Status: ec.PauseStatusResponse_PAUSED,
+			}, nil
+		}
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_UNPAUSED,
 		}, nil
 	default:
 		return nil, errors.Errorf("no paused or unpaused pachds found")
