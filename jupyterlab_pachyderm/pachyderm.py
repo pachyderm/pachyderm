@@ -24,6 +24,15 @@ class MountInterface:
     async def commit(self, repo, branch, name, message):
         pass
 
+    async def config(self, body):
+        pass
+
+    async def auth_login(self):
+        pass
+
+    async def auth_logout(self):
+        pass
+
 
 class PythonPachydermClient:
     """Interface for interacting with real Pachyderm backend."""
@@ -182,4 +191,13 @@ class PythonPachydermMountClient(MountInterface):
 
     def commit(self, repo, branch, name, message):
         # TODO
+        pass
+
+    async def config(self, body=None):
+        pass
+
+    async def auth_login(self):
+        pass
+
+    async def auth_logout(self):
         pass

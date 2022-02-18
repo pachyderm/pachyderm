@@ -376,3 +376,71 @@ async def test_unmount_all(mock_client, jp_fetch):
 
 #     mock_client.commit.assert_called_with(repo, branch, name, message)
 #     assert r.code == 200
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.ConfigHandler.mount_client",
+    spec=MountInterface,
+)
+async def test_config(mock_client, jp_fetch):
+    mock_client.config.return_value = json.dumps({
+        "cluster_status": "AUTH_ENABLED",
+        "pachd_address": "123.45.1.12:99999"
+    })
+
+    # PUT request
+    r = await jp_fetch(
+        f"/{NAMESPACE}/{VERSION}/config",
+        method="PUT",
+        body=json.dumps({"pachd_address": "123.45.1.12:99999"})
+    )
+    
+    assert json.loads(r.body) == {
+        "cluster_status": "AUTH_ENABLED",
+        "pachd_address": "123.45.1.12:99999"
+    }
+    
+    # GET request
+    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/config")
+    
+    assert json.loads(r.body) == {
+        "cluster_status": "AUTH_ENABLED",
+        "pachd_address": "123.45.1.12:99999"
+    }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.AuthLoginHandler.mount_client",
+    spec=MountInterface,
+)
+async def test_auth_login(mock_client, jp_fetch):
+    mock_client.auth_login.return_value = json.dumps({
+        "auth_url": "http://some-dex-url"
+    })
+
+    r = await jp_fetch(
+        f"/{NAMESPACE}/{VERSION}/auth/_login",
+        method="PUT",
+        body="{}"
+    )
+
+    assert json.loads(r.body) == {
+        "auth_url": "http://some-dex-url"
+    }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch(
+    "jupyterlab_pachyderm.handlers.AuthLogoutHandler.mount_client",
+    spec=MountInterface,
+)
+async def test_auth_logout(mock_client, jp_fetch):
+    await jp_fetch(
+        f"/{NAMESPACE}/{VERSION}/auth/_logout",
+        method="PUT",
+        body="{}"
+    )
+
+    mock_client.auth_logout.assert_called()

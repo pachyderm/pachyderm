@@ -232,6 +232,64 @@ class PFSHandler(ContentsHandler):
         self._finish_model(model, location=False)
 
 
+class ConfigHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            body = self.get_json_body()
+            response = await self.mount_client.config(body)
+            get_logger().info(f"Updated config cluster endpoint to {body['pachd_address']}")
+            self.finish(response)
+        except Exception as e:
+            get_logger().error(
+                f"Error updating config with endpoint {body['pachd_address']}.",
+                exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=500,
+                reason=f"Error updating config with endpoint {body['pachd_address']}: {e}."
+            )
+
+    @tornado.web.authenticated
+    async def get(self):
+        try:
+            response = await self.mount_client.config()
+            self.finish(response)
+        except Exception as e:
+            get_logger().error("Error getting config.", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=500,
+                reason=f"Error getting config: {e}."
+            )
+
+
+class AuthLoginHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            response = await self.mount_client.auth_login()
+            self.finish(response)
+        except Exception as e:
+            get_logger().error("Error logging in to auth.", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=500,
+                reason=f"Error logging in to auth: {e}."
+            )
+
+
+class AuthLogoutHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            await self.mount_client.auth_logout()
+            self.finish()
+        except Exception as e:
+            get_logger().error("Error logging out of auth.", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=500,
+                reason=f"Error logging out of auth: {e}."
+            )
+
+
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
@@ -260,6 +318,9 @@ def setup_handlers(web_app):
         (r"/repos/(.+)/_unmount", RepoUnmountHandler),
         (r"/repos/(.+)/_commit", RepoCommitHandler),
         (r"/pfs%s" % path_regex, PFSHandler),
+        ("/config", ConfigHandler),
+        ("/auth/_login", AuthLoginHandler),
+        ("/auth/_logout", AuthLogoutHandler),
     ]
 
     base_url = web_app.settings["base_url"]

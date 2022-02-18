@@ -1,3 +1,4 @@
+import os
 import json
 import subprocess
 import time
@@ -42,8 +43,12 @@ class MountServerClient(MountInterface):
                     "bash", "-c",
                     "set -o pipefail; "
                     +f"pachctl mount-server --mount-dir {self.mount_dir}"
-                    +" &>> /tmp/pachctl-mount-server.log",
-                ]
+                    +" >> /tmp/pachctl-mount-server.log 2>&1",
+                ],
+                env={
+                    "KUBECONFIG": f"{os.path.expanduser('~')}/.kube/config",
+                    "PACH_CONFIG": f"{os.path.expanduser('~')}/.pachyderm/config.json",
+                }
             )
             time.sleep(5)
 
@@ -95,3 +100,26 @@ class MountServerClient(MountInterface):
     async def commit(self, repo, branch, name, message):
         self._ensure_mount_server()
         pass
+
+    async def config(self, body=None):
+        self._ensure_mount_server()
+        if body is not None:
+            response = await self.client.fetch(
+                f"{self.address}/config",
+                method="PUT",
+                body=json.dumps(body),
+                request_timeout=35  # Default timeout for core pach connecting to cluster is 30 seconds; this allows for that
+            )
+        else:
+            response = await self.client.fetch(f"{self.address}/config")
+        
+        return response.body
+
+    async def auth_login(self):
+        self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/auth/_login", method="PUT", body="{}")
+        return response.body
+
+    async def auth_logout(self):
+        self._ensure_mount_server()
+        return await self.client.fetch(f"{self.address}/auth/_logout", method="PUT", body="{}")
