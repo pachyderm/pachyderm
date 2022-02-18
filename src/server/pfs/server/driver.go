@@ -698,14 +698,17 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 			if err := d.branches.ReadOnly(ctx).Get(branch, branchInfo); err != nil {
 				return 0, errors.EnsureStack(err)
 			}
-			ci, err := d.getCommit(ctx, branchInfo.Head)
-			if err != nil {
-				return 0, err
+			commit := branchInfo.Head
+			for commit != nil {
+				commitInfo, err := d.getCommit(ctx, commit)
+				if err != nil {
+					return 0, err
+				}
+				if commitInfo.Details != nil {
+					return commitInfo.Details.SizeBytes, nil
+				}
+				commit = commitInfo.ParentCommit
 			}
-			if ci.Details != nil {
-				return ci.Details.SizeBytes, nil
-			}
-			return d.commitSizeUpperBound(ctx, branchInfo.Head)
 		}
 	}
 	return 0, nil
@@ -1173,8 +1176,9 @@ func (d *driver) listCommit(
 					ci = cis[len(cis)-1-i]
 				}
 				var err error
+				// TODO: Set SizeBytesUpperBound to a sentinel value when the base is not finished.
 				ci.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, ci.Commit)
-				if err != nil {
+				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 					return err
 				}
 				if err := cb(ci); err != nil {
