@@ -6667,11 +6667,11 @@ func TestService(t *testing.T) {
 	// This pipeline sleeps for 10 secs per datum
 	require.NoError(t, c.CreatePipelineService(
 		pipeline,
-		"trinitronx/python-simplehttpserver",
+		"python:3.9-slim-bullseye",
 		[]string{"sh"},
 		[]string{
 			"cd /pfs",
-			"exec python -m SimpleHTTPServer 8000",
+			"exec python -m http.server 8000",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
