@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -310,6 +311,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
      while :; do  kubectl port-forward svc/pachd 30650:1650; done
 */
 func TestPauseUnpause(t *testing.T) {
+	log.Println("pause/unpause")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -328,11 +330,13 @@ func TestPauseUnpause(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
-			return errors.Errorf("could not get pause status %v", err)
+			log.Printf("could not get pause status %v", err)
+			return errors.Errorf("could not get pause status %w", err)
 		}
 		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
 			return nil
 		}
+		log.Printf("status: %v", resp.Status)
 		return errors.Errorf("status: %v", resp.Status)
 	}, bo)
 
