@@ -4,6 +4,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -105,6 +107,18 @@ func Cmds() []*cobra.Command {
 	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
 	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
+
+	analyze := &cobra.Command{
+		Use:   "{{alias}} <file>",
+		Short: "Open a shell to analyze a debug dump.",
+		Long:  "Open a shell to analyze a debug dump.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			mockPachd := shell.NewServer(args[0])
+			shell.Run(nil, 0, mockPachd.Addr.String())
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(analyze, "debug analyze"))
 
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",

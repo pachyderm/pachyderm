@@ -528,6 +528,9 @@ func NewEnterpriseClientForTest() (*APIClient, error) {
 // NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
 // if it exists. This is intended to be used in the pachctl binary.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	if addr, ok := os.LookupEnv("PACH_DIRECT_PACHD_ADDRESS"); ok {
+		return NewFromURI(addr)
+	}
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read config")
