@@ -1321,7 +1321,7 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd(ctx context.Context) (*MockPachd, error) {
+func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
 	mock := &MockPachd{
 		errchan: make(chan error),
 	}
@@ -1361,7 +1361,7 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
 
-	listener, err := server.ListenTCP("localhost", 0)
+	listener, err := server.ListenTCP("localhost", port)
 	if err != nil {
 		return nil, err
 	}
