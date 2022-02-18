@@ -123,7 +123,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 			return nil
 		}
 		commit := commitInfo.Commit
-		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit.ID), func() error {
+		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
 				id, err := d.getFileSet(ctx, commit)
