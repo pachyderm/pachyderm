@@ -17,6 +17,9 @@ In Pachyderm, a Pipeline is an individual execution step. You can
 chain multiple pipelines together to create a directed acyclic
 graph (DAG).
 
+You define a pipeline declaratively, using a JSON or YAML file. 
+Pipeline specification files follow Pachyderm's [pipeline reference specification file](../../../reference/pipeline_spec).
+
 A minimum pipeline specification must include the following parameters:
 
 - `name` — The name of your data pipeline. Set a meaningful name for
