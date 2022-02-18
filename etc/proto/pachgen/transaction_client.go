@@ -22,14 +22,7 @@ type TransactionClientGenerator struct {
 
 var funcs = map[string]interface{}{
 	"importPath": func(proto *descriptor.FileDescriptorProto) string {
-		// if *proto.Package == "taskapi" {
-		// 	return `taskapi "github.com/pachyderm/pachyderm/v2/src/task"`
-		// }
-		packageName := *proto.Package
-		if packageName[len(packageName)-3:] == "_v2" {
-			packageName = packageName[:len(packageName)-3]
-		}
-		return fmt.Sprintf(`%s "github.com/pachyderm/pachyderm/v2/src/%s"`, packageName, path.Dir(*proto.Name))
+		return fmt.Sprintf(`%s "%s"`, *proto.Package, *proto.Options.GoPackage)
 	},
 	"shouldImport": func(proto *descriptor.FileDescriptorProto) bool {
 		for _, service := range proto.Service {
@@ -44,23 +37,25 @@ var funcs = map[string]interface{}{
 		return *proto.Name == "API" || *proto.Name == "Debug"
 	},
 	"isClientStreaming": func(proto *descriptor.MethodDescriptorProto) bool {
-		return proto.ClientStreaming != nil && *proto.ClientStreaming
+		return proto.GetClientStreaming()
 	},
 	"isServerStreaming": func(proto *descriptor.MethodDescriptorProto) bool {
-		return proto.ServerStreaming != nil && *proto.ServerStreaming
+		return proto.GetServerStreaming()
 	},
-	"pkgName": func(proto *descriptor.FileDescriptorProto) string {
+	"protoPkgName": func(proto *descriptor.FileDescriptorProto) string {
+		return *proto.Package
+	},
+	"goPkgName": func(proto *descriptor.FileDescriptorProto) string {
 		return path.Base(*proto.Options.GoPackage)
 	},
 	"title": strings.Title,
 	"typeName": func(t *string) string {
 		parts := strings.Split(*t, ".")
-		if strings.HasPrefix(*t, ".google.protobuf") {
+		if len(parts) == 4 && parts[1] == "google" && parts[2] == "protobuf" {
+			// example .google.protobuf.Empty
 			return fmt.Sprintf("types.%s", parts[len(parts)-1])
 		}
-		for i := range parts {
-			parts[i] = strings.Replace(parts[i], "_v2", "", -1)
-		}
+		// example .pfs_v2.CreateRepoRequest
 		return strings.Join(parts[1:], ".")
 	},
 	"clientName": func(t string) string {
@@ -84,10 +79,10 @@ import (
 func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
-{{range .Protos}}{{$pkg := pkgName .}}{{$client := clientName $pkg}}{{range .Service}}{{$service := .}}{{if isAPI .}}
+{{range .Protos}}{{$protoPkg := protoPkgName .}}{{$pkg := goPkgName .}}{{$client := clientName $pkg}}{{range .Service}}{{$service := .}}{{if isAPI .}}
 type {{$client}} struct{}
 {{range .Method}}
-func (c *{{$client}}) {{.Name}}(_ context.Context,{{if not (isClientStreaming .)}} _ *{{typeName .InputType}},{{end}} opts ...grpc.CallOption) ({{if or (isServerStreaming .) (isClientStreaming .)}}{{$pkg}}.{{$service.Name}}_{{.Name}}Client{{else}}*{{typeName .OutputType}}{{end}}, error) {
+func (c *{{$client}}) {{.Name}}(_ context.Context,{{if not (isClientStreaming .)}} _ *{{typeName .InputType}},{{end}} opts ...grpc.CallOption) ({{if or (isServerStreaming .) (isClientStreaming .)}}{{$protoPkg}}.{{$service.Name}}_{{.Name}}Client{{else}}*{{typeName .OutputType}}{{end}}, error) {
 	return nil, unsupportedError("{{.Name}}")
 }
 {{end}}{{end}}{{end}}{{end}}

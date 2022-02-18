@@ -17,12 +17,10 @@ RUN go install -v github.com/gogo/protobuf/protoc-gen-gofast@v1.3.2 github.com/g
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
 
-RUN go install golang.org/x/tools/cmd/goimports@latest
-
 # Build the bespoke Pachyderm codegen plugin
 COPY pachgen ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
-RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-pach" > /dev/stderr
+RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-pach"
 
 ADD run.sh /
 CMD ["/run.sh"]
