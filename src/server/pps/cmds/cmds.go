@@ -1220,7 +1220,6 @@ func evaluateJsonnetTemplate(client *client.APIClient, jsonnetPath string, jsonn
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("jsonnet args", jsonnetArgs)
 	args, err := pachtmpl.ParseArgs(jsonnetArgs)
 	if err != nil {
 		return nil, err
