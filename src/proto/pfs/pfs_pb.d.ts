@@ -9,8 +9,10 @@ import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
+import * as google_protobuf_any_pb from "google-protobuf/google/protobuf/any_pb";
 import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as auth_auth_pb from "../auth/auth_pb";
+import * as task_task_pb from "../task/task_pb";
 
 export class Repo extends jspb.Message { 
     getName(): string;
@@ -1259,8 +1261,6 @@ export class ListFileRequest extends jspb.Message {
     clearFile(): void;
     getFile(): File | undefined;
     setFile(value?: File): ListFileRequest;
-    getDetails(): boolean;
-    setDetails(value: boolean): ListFileRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListFileRequest.AsObject;
@@ -1275,7 +1275,6 @@ export class ListFileRequest extends jspb.Message {
 export namespace ListFileRequest {
     export type AsObject = {
         file?: File.AsObject,
-        details: boolean,
     }
 }
 
@@ -1549,6 +1548,153 @@ export namespace ComposeFileSetRequest {
     }
 }
 
+export class CheckStorageRequest extends jspb.Message { 
+    getReadChunkData(): boolean;
+    setReadChunkData(value: boolean): CheckStorageRequest;
+    getChunkBegin(): Uint8Array | string;
+    getChunkBegin_asU8(): Uint8Array;
+    getChunkBegin_asB64(): string;
+    setChunkBegin(value: Uint8Array | string): CheckStorageRequest;
+    getChunkEnd(): Uint8Array | string;
+    getChunkEnd_asU8(): Uint8Array;
+    getChunkEnd_asB64(): string;
+    setChunkEnd(value: Uint8Array | string): CheckStorageRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckStorageRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckStorageRequest): CheckStorageRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckStorageRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckStorageRequest;
+    static deserializeBinaryFromReader(message: CheckStorageRequest, reader: jspb.BinaryReader): CheckStorageRequest;
+}
+
+export namespace CheckStorageRequest {
+    export type AsObject = {
+        readChunkData: boolean,
+        chunkBegin: Uint8Array | string,
+        chunkEnd: Uint8Array | string,
+    }
+}
+
+export class CheckStorageResponse extends jspb.Message { 
+    getChunkObjectCount(): number;
+    setChunkObjectCount(value: number): CheckStorageResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckStorageResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckStorageResponse): CheckStorageResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckStorageResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckStorageResponse;
+    static deserializeBinaryFromReader(message: CheckStorageResponse, reader: jspb.BinaryReader): CheckStorageResponse;
+}
+
+export namespace CheckStorageResponse {
+    export type AsObject = {
+        chunkObjectCount: number,
+    }
+}
+
+export class PutCacheRequest extends jspb.Message { 
+    getKey(): string;
+    setKey(value: string): PutCacheRequest;
+
+    hasValue(): boolean;
+    clearValue(): void;
+    getValue(): google_protobuf_any_pb.Any | undefined;
+    setValue(value?: google_protobuf_any_pb.Any): PutCacheRequest;
+    clearFileSetIdsList(): void;
+    getFileSetIdsList(): Array<string>;
+    setFileSetIdsList(value: Array<string>): PutCacheRequest;
+    addFileSetIds(value: string, index?: number): string;
+    getTag(): string;
+    setTag(value: string): PutCacheRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PutCacheRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: PutCacheRequest): PutCacheRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PutCacheRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PutCacheRequest;
+    static deserializeBinaryFromReader(message: PutCacheRequest, reader: jspb.BinaryReader): PutCacheRequest;
+}
+
+export namespace PutCacheRequest {
+    export type AsObject = {
+        key: string,
+        value?: google_protobuf_any_pb.Any.AsObject,
+        fileSetIdsList: Array<string>,
+        tag: string,
+    }
+}
+
+export class GetCacheRequest extends jspb.Message { 
+    getKey(): string;
+    setKey(value: string): GetCacheRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetCacheRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetCacheRequest): GetCacheRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetCacheRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetCacheRequest;
+    static deserializeBinaryFromReader(message: GetCacheRequest, reader: jspb.BinaryReader): GetCacheRequest;
+}
+
+export namespace GetCacheRequest {
+    export type AsObject = {
+        key: string,
+    }
+}
+
+export class GetCacheResponse extends jspb.Message { 
+
+    hasValue(): boolean;
+    clearValue(): void;
+    getValue(): google_protobuf_any_pb.Any | undefined;
+    setValue(value?: google_protobuf_any_pb.Any): GetCacheResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetCacheResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetCacheResponse): GetCacheResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetCacheResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetCacheResponse;
+    static deserializeBinaryFromReader(message: GetCacheResponse, reader: jspb.BinaryReader): GetCacheResponse;
+}
+
+export namespace GetCacheResponse {
+    export type AsObject = {
+        value?: google_protobuf_any_pb.Any.AsObject,
+    }
+}
+
+export class ClearCacheRequest extends jspb.Message { 
+    getTagPrefix(): string;
+    setTagPrefix(value: string): ClearCacheRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ClearCacheRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ClearCacheRequest): ClearCacheRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ClearCacheRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ClearCacheRequest;
+    static deserializeBinaryFromReader(message: ClearCacheRequest, reader: jspb.BinaryReader): ClearCacheRequest;
+}
+
+export namespace ClearCacheRequest {
+    export type AsObject = {
+        tagPrefix: string,
+    }
+}
+
 export class ActivateAuthRequest extends jspb.Message { 
 
     serializeBinary(): Uint8Array;
@@ -1647,56 +1793,6 @@ export namespace RunLoadTestResponse {
         seed: number,
         error: string,
         duration?: google_protobuf_duration_pb.Duration.AsObject,
-    }
-}
-
-export class CheckStorageRequest extends jspb.Message { 
-    getReadChunkData(): boolean;
-    setReadChunkData(value: boolean): CheckStorageRequest;
-    getChunkBegin(): Uint8Array | string;
-    getChunkBegin_asU8(): Uint8Array;
-    getChunkBegin_asB64(): string;
-    setChunkBegin(value: Uint8Array | string): CheckStorageRequest;
-    getChunkEnd(): Uint8Array | string;
-    getChunkEnd_asU8(): Uint8Array;
-    getChunkEnd_asB64(): string;
-    setChunkEnd(value: Uint8Array | string): CheckStorageRequest;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CheckStorageRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: CheckStorageRequest): CheckStorageRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CheckStorageRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CheckStorageRequest;
-    static deserializeBinaryFromReader(message: CheckStorageRequest, reader: jspb.BinaryReader): CheckStorageRequest;
-}
-
-export namespace CheckStorageRequest {
-    export type AsObject = {
-        readChunkData: boolean,
-        chunkBegin: Uint8Array | string,
-        chunkEnd: Uint8Array | string,
-    }
-}
-
-export class CheckStorageResponse extends jspb.Message { 
-    getChunkObjectCount(): number;
-    setChunkObjectCount(value: number): CheckStorageResponse;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): CheckStorageResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: CheckStorageResponse): CheckStorageResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: CheckStorageResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): CheckStorageResponse;
-    static deserializeBinaryFromReader(message: CheckStorageResponse, reader: jspb.BinaryReader): CheckStorageResponse;
-}
-
-export namespace CheckStorageResponse {
-    export type AsObject = {
-        chunkObjectCount: number,
     }
 }
 

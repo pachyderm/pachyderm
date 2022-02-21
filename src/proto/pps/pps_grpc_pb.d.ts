@@ -11,6 +11,7 @@ import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/t
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
+import * as task_task_pb from "../task/task_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     inspectJob: IAPIService_IInspectJob;
@@ -41,6 +42,8 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     updateJobState: IAPIService_IUpdateJobState;
     runLoadTest: IAPIService_IRunLoadTest;
     runLoadTestDefault: IAPIService_IRunLoadTestDefault;
+    renderTemplate: IAPIService_IRenderTemplate;
+    listTask: IAPIService_IListTask;
 }
 
 interface IAPIService_IInspectJob extends grpc.MethodDefinition<pps_pps_pb.InspectJobRequest, pps_pps_pb.JobInfo> {
@@ -295,6 +298,24 @@ interface IAPIService_IRunLoadTestDefault extends grpc.MethodDefinition<google_p
     responseSerialize: grpc.serialize<pfs_pfs_pb.RunLoadTestResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.RunLoadTestResponse>;
 }
+interface IAPIService_IRenderTemplate extends grpc.MethodDefinition<pps_pps_pb.RenderTemplateRequest, pps_pps_pb.RenderTemplateResponse> {
+    path: "/pps_v2.API/RenderTemplate";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.RenderTemplateRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.RenderTemplateRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.RenderTemplateResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.RenderTemplateResponse>;
+}
+interface IAPIService_IListTask extends grpc.MethodDefinition<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo> {
+    path: "/pps_v2.API/ListTask";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<task_task_pb.ListTaskRequest>;
+    requestDeserialize: grpc.deserialize<task_task_pb.ListTaskRequest>;
+    responseSerialize: grpc.serialize<task_task_pb.TaskInfo>;
+    responseDeserialize: grpc.deserialize<task_task_pb.TaskInfo>;
+}
 
 export const APIService: IAPIService;
 
@@ -327,6 +348,8 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     updateJobState: grpc.handleUnaryCall<pps_pps_pb.UpdateJobStateRequest, google_protobuf_empty_pb.Empty>;
     runLoadTest: grpc.handleUnaryCall<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse>;
     runLoadTestDefault: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, pfs_pfs_pb.RunLoadTestResponse>;
+    renderTemplate: grpc.handleUnaryCall<pps_pps_pb.RenderTemplateRequest, pps_pps_pb.RenderTemplateResponse>;
+    listTask: grpc.handleServerStreamingCall<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo>;
 }
 
 export interface IAPIClient {
@@ -407,6 +430,11 @@ export interface IAPIClient {
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
+    renderTemplate(request: pps_pps_pb.RenderTemplateRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.RenderTemplateResponse) => void): grpc.ClientUnaryCall;
+    renderTemplate(request: pps_pps_pb.RenderTemplateRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.RenderTemplateResponse) => void): grpc.ClientUnaryCall;
+    renderTemplate(request: pps_pps_pb.RenderTemplateRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.RenderTemplateResponse) => void): grpc.ClientUnaryCall;
+    listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
+    listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -488,4 +516,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
+    public renderTemplate(request: pps_pps_pb.RenderTemplateRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.RenderTemplateResponse) => void): grpc.ClientUnaryCall;
+    public renderTemplate(request: pps_pps_pb.RenderTemplateRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.RenderTemplateResponse) => void): grpc.ClientUnaryCall;
+    public renderTemplate(request: pps_pps_pb.RenderTemplateRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.RenderTemplateResponse) => void): grpc.ClientUnaryCall;
+    public listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
+    public listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
 }

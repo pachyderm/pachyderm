@@ -11,6 +11,8 @@ import "gogoproto/gogo.proto";
 
 import "pfs/pfs.proto";
 
+import "task/task.proto";
+
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
@@ -351,10 +353,8 @@ message PipelineInfo {
   // reason includes any error messages associated with a failed pipeline
   string reason = 6;
 
-  // job_counts and last_job_state indicates the number of jobs within this
-  // pipeline in a given state and the state of the most recently created job,
-  // respectively.
-  map<int32, int32> job_counts = 7;
+  reserved 7; // map<int32, int32> job_counts;
+  // last_job_state indicates the state of the most recently created job
   JobState last_job_state = 8;
 
   // parallelism tracks the literal number of workers that this pipeline should
@@ -718,6 +718,16 @@ message SecretInfos {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message RenderTemplateRequest {
+  string template = 1;
+  map<string, string> args = 2;
+}
+
+message RenderTemplateResponse {
+  string json = 1;
+  repeated CreatePipelineRequest specs = 2;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -761,4 +771,11 @@ service API {
   rpc RunLoadTest(pfs_v2.RunLoadTestRequest) returns (pfs_v2.RunLoadTestResponse) {}
   // RunLoadTestDefault runs the default load test.
   rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
+
+  // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
+  rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}
+
+  // ListTask lists PPS tasks
+  rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
+

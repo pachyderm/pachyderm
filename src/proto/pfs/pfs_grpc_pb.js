@@ -7,8 +7,10 @@ var google_protobuf_empty_pb = require('google-protobuf/google/protobuf/empty_pb
 var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/timestamp_pb.js');
 var google_protobuf_wrappers_pb = require('google-protobuf/google/protobuf/wrappers_pb.js');
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
+var google_protobuf_any_pb = require('google-protobuf/google/protobuf/any_pb.js');
 var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var auth_auth_pb = require('../auth/auth_pb.js');
+var task_task_pb = require('../task/task_pb.js');
 
 function serialize_google_protobuf_BytesValue(arg) {
   if (!(arg instanceof google_protobuf_wrappers_pb.BytesValue)) {
@@ -96,6 +98,17 @@ function serialize_pfs_v2_CheckStorageResponse(arg) {
 
 function deserialize_pfs_v2_CheckStorageResponse(buffer_arg) {
   return pfs_pfs_pb.CheckStorageResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_ClearCacheRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ClearCacheRequest)) {
+    throw new Error('Expected argument of type pfs_v2.ClearCacheRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ClearCacheRequest(buffer_arg) {
+  return pfs_pfs_pb.ClearCacheRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_ClearCommitRequest(arg) {
@@ -285,6 +298,28 @@ function deserialize_pfs_v2_FsckResponse(buffer_arg) {
   return pfs_pfs_pb.FsckResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_GetCacheRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.GetCacheRequest)) {
+    throw new Error('Expected argument of type pfs_v2.GetCacheRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_GetCacheRequest(buffer_arg) {
+  return pfs_pfs_pb.GetCacheRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_GetCacheResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.GetCacheResponse)) {
+    throw new Error('Expected argument of type pfs_v2.GetCacheResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_GetCacheResponse(buffer_arg) {
+  return pfs_pfs_pb.GetCacheResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_GetFileRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.GetFileRequest)) {
     throw new Error('Expected argument of type pfs_v2.GetFileRequest');
@@ -439,6 +474,17 @@ function deserialize_pfs_v2_ModifyFileRequest(buffer_arg) {
   return pfs_pfs_pb.ModifyFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_PutCacheRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.PutCacheRequest)) {
+    throw new Error('Expected argument of type pfs_v2.PutCacheRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_PutCacheRequest(buffer_arg) {
+  return pfs_pfs_pb.PutCacheRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_RenewFileSetRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.RenewFileSetRequest)) {
     throw new Error('Expected argument of type pfs_v2.RenewFileSetRequest');
@@ -525,6 +571,28 @@ function serialize_pfs_v2_WalkFileRequest(arg) {
 
 function deserialize_pfs_v2_WalkFileRequest(buffer_arg) {
   return pfs_pfs_pb.WalkFileRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_taskapi_ListTaskRequest(arg) {
+  if (!(arg instanceof task_task_pb.ListTaskRequest)) {
+    throw new Error('Expected argument of type taskapi.ListTaskRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_taskapi_ListTaskRequest(buffer_arg) {
+  return task_task_pb.ListTaskRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_taskapi_TaskInfo(arg) {
+  if (!(arg instanceof task_task_pb.TaskInfo)) {
+    throw new Error('Expected argument of type taskapi.TaskInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_taskapi_TaskInfo(buffer_arg) {
+  return task_task_pb.TaskInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 
@@ -950,6 +1018,39 @@ checkStorage: {
     responseSerialize: serialize_pfs_v2_CheckStorageResponse,
     responseDeserialize: deserialize_pfs_v2_CheckStorageResponse,
   },
+  putCache: {
+    path: '/pfs_v2.API/PutCache',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.PutCacheRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_v2_PutCacheRequest,
+    requestDeserialize: deserialize_pfs_v2_PutCacheRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  getCache: {
+    path: '/pfs_v2.API/GetCache',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.GetCacheRequest,
+    responseType: pfs_pfs_pb.GetCacheResponse,
+    requestSerialize: serialize_pfs_v2_GetCacheRequest,
+    requestDeserialize: deserialize_pfs_v2_GetCacheRequest,
+    responseSerialize: serialize_pfs_v2_GetCacheResponse,
+    responseDeserialize: deserialize_pfs_v2_GetCacheResponse,
+  },
+  clearCache: {
+    path: '/pfs_v2.API/ClearCache',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.ClearCacheRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pfs_v2_ClearCacheRequest,
+    requestDeserialize: deserialize_pfs_v2_ClearCacheRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
+  },
   // RunLoadTest runs a load test.
 runLoadTest: {
     path: '/pfs_v2.API/RunLoadTest',
@@ -973,6 +1074,18 @@ runLoadTestDefault: {
     requestDeserialize: deserialize_google_protobuf_Empty,
     responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
     responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
+  },
+  // ListTask lists PFS tasks
+listTask: {
+    path: '/pfs_v2.API/ListTask',
+    requestStream: false,
+    responseStream: true,
+    requestType: task_task_pb.ListTaskRequest,
+    responseType: task_task_pb.TaskInfo,
+    requestSerialize: serialize_taskapi_ListTaskRequest,
+    requestDeserialize: deserialize_taskapi_ListTaskRequest,
+    responseSerialize: serialize_taskapi_TaskInfo,
+    responseDeserialize: deserialize_taskapi_TaskInfo,
   },
 };
 

@@ -1,5 +1,5 @@
 {
-  "pachyderm": "2.0.8",
+  "pachyderm": "2.1.0",
   "kubernetes": "1.22.0",
   "minikube": "1.22.0"
 }

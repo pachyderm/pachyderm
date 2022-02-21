@@ -7,10 +7,13 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/any.proto";
 
 import "gogoproto/gogo.proto";
 
 import "auth/auth.proto";
+
+import "task/task.proto";
 
 ////  PFS Data structures (stored in etcd)
 
@@ -126,7 +129,7 @@ message CommitInfo {
   google.protobuf.Timestamp finishing = 7;
   google.protobuf.Timestamp finished = 8;
   repeated Branch direct_provenance = 9;
-  string error = 10; 
+  string error = 10;
   int64 size_bytes_upper_bound = 11;
 
   // Details are only provided when explicitly requested
@@ -304,7 +307,7 @@ message AddFile {
 }
 
 message DeleteFile {
-  string path = 1; 
+  string path = 1;
   string datum = 2;
 }
 
@@ -337,12 +340,13 @@ message InspectFileRequest {
 }
 
 message ListFileRequest {
+  reserved 2;
+
   // File is the parent directory of the files we want to list. This sets the
   // repo, the commit/branch, and path prefix of files we're interested in
   // If the "path" field is omitted, a list of files at the top level of the repo
   // is returned
   File file = 1;
-  bool details = 2;
 // TODO:
 //  // History indicates how many historical versions you want returned. Its
 //  // semantics are:
@@ -412,23 +416,6 @@ message ComposeFileSetRequest {
   int64 ttl_seconds = 2;
 }
 
-message ActivateAuthRequest {}
-message ActivateAuthResponse {}
-
-message RunLoadTestRequest {
-  string spec = 1;
-  Branch branch = 2;
-  int64 seed = 3; 
-}
-
-message RunLoadTestResponse {
-  string spec = 1;
-  Branch branch = 2;
-  int64 seed = 3;
-  string error = 4;
-  google.protobuf.Duration duration = 5;
-}
-
 message CheckStorageRequest {
   bool read_chunk_data = 1;
   bytes chunk_begin = 2;
@@ -437,6 +424,42 @@ message CheckStorageRequest {
 
 message CheckStorageResponse {
   int64 chunk_object_count = 1;
+}
+
+message PutCacheRequest {
+  string key = 1;
+  google.protobuf.Any value = 2;
+  repeated string file_set_ids = 3;
+  string tag = 4;
+}
+
+message GetCacheRequest {
+  string key = 1;
+}
+
+message GetCacheResponse {
+  google.protobuf.Any value = 1;
+}
+
+message ClearCacheRequest {
+  string tag_prefix = 1;
+}
+
+message ActivateAuthRequest {}
+message ActivateAuthResponse {}
+
+message RunLoadTestRequest {
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3;
+}
+
+message RunLoadTestResponse {
+  string spec = 1;
+  Branch branch = 2;
+  int64 seed = 3;
+  string error = 4;
+  google.protobuf.Duration duration = 5;
 }
 
 service API {
@@ -518,9 +541,15 @@ service API {
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
   // CheckStorage runs integrity checks for the storage layer.
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
+  rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
+  rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
+  rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
 
   // RunLoadTest runs a load test.
   rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
   // RunLoadTestDefault runs the default load tests.
   rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
+
+  // ListTask lists PFS tasks
+  rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }

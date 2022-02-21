@@ -8,6 +8,7 @@ var google_protobuf_timestamp_pb = require('google-protobuf/google/protobuf/time
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js');
 var gogoproto_gogo_pb = require('../gogoproto/gogo_pb.js');
 var pfs_pfs_pb = require('../pfs/pfs_pb.js');
+var task_task_pb = require('../task/task_pb.js');
 
 function serialize_google_protobuf_Empty(arg) {
   if (!(arg instanceof google_protobuf_empty_pb.Empty)) {
@@ -284,6 +285,28 @@ function deserialize_pps_v2_PipelineInfo(buffer_arg) {
   return pps_pps_pb.PipelineInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_RenderTemplateRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.RenderTemplateRequest)) {
+    throw new Error('Expected argument of type pps_v2.RenderTemplateRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_RenderTemplateRequest(buffer_arg) {
+  return pps_pps_pb.RenderTemplateRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_RenderTemplateResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.RenderTemplateResponse)) {
+    throw new Error('Expected argument of type pps_v2.RenderTemplateResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_RenderTemplateResponse(buffer_arg) {
+  return pps_pps_pb.RenderTemplateResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_RestartDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RestartDatumRequest)) {
     throw new Error('Expected argument of type pps_v2.RestartDatumRequest');
@@ -392,6 +415,28 @@ function serialize_pps_v2_UpdateJobStateRequest(arg) {
 
 function deserialize_pps_v2_UpdateJobStateRequest(buffer_arg) {
   return pps_pps_pb.UpdateJobStateRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_taskapi_ListTaskRequest(arg) {
+  if (!(arg instanceof task_task_pb.ListTaskRequest)) {
+    throw new Error('Expected argument of type taskapi.ListTaskRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_taskapi_ListTaskRequest(buffer_arg) {
+  return task_task_pb.ListTaskRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_taskapi_TaskInfo(arg) {
+  if (!(arg instanceof task_task_pb.TaskInfo)) {
+    throw new Error('Expected argument of type taskapi.TaskInfo');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_taskapi_TaskInfo(buffer_arg) {
+  return task_task_pb.TaskInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 
@@ -711,6 +756,30 @@ runLoadTestDefault: {
     requestDeserialize: deserialize_google_protobuf_Empty,
     responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
     responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
+  },
+  // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
+renderTemplate: {
+    path: '/pps_v2.API/RenderTemplate',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.RenderTemplateRequest,
+    responseType: pps_pps_pb.RenderTemplateResponse,
+    requestSerialize: serialize_pps_v2_RenderTemplateRequest,
+    requestDeserialize: deserialize_pps_v2_RenderTemplateRequest,
+    responseSerialize: serialize_pps_v2_RenderTemplateResponse,
+    responseDeserialize: deserialize_pps_v2_RenderTemplateResponse,
+  },
+  // ListTask lists PPS tasks
+listTask: {
+    path: '/pps_v2.API/ListTask',
+    requestStream: false,
+    responseStream: true,
+    requestType: task_task_pb.ListTaskRequest,
+    responseType: task_task_pb.TaskInfo,
+    requestSerialize: serialize_taskapi_ListTaskRequest,
+    requestDeserialize: deserialize_taskapi_ListTaskRequest,
+    responseSerialize: serialize_taskapi_TaskInfo,
+    responseDeserialize: deserialize_taskapi_TaskInfo,
   },
 };
 

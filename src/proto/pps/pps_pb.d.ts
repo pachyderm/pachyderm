@@ -10,6 +10,7 @@ import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/t
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
 import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as pfs_pfs_pb from "../pfs/pfs_pb";
+import * as task_task_pb from "../task/task_pb";
 
 export class SecretMount extends jspb.Message { 
     getName(): string;
@@ -1071,9 +1072,6 @@ export class PipelineInfo extends jspb.Message {
     setState(value: PipelineState): PipelineInfo;
     getReason(): string;
     setReason(value: string): PipelineInfo;
-
-    getJobCountsMap(): jspb.Map<number, number>;
-    clearJobCountsMap(): void;
     getLastJobState(): JobState;
     setLastJobState(value: JobState): PipelineInfo;
     getParallelism(): number;
@@ -1106,8 +1104,6 @@ export namespace PipelineInfo {
         stopped: boolean,
         state: PipelineState,
         reason: string,
-
-        jobCountsMap: Array<[number, number]>,
         lastJobState: JobState,
         parallelism: number,
         type: PipelineInfo.PipelineType,
@@ -2322,6 +2318,56 @@ export class ActivateAuthResponse extends jspb.Message {
 
 export namespace ActivateAuthResponse {
     export type AsObject = {
+    }
+}
+
+export class RenderTemplateRequest extends jspb.Message { 
+    getTemplate(): string;
+    setTemplate(value: string): RenderTemplateRequest;
+
+    getArgsMap(): jspb.Map<string, string>;
+    clearArgsMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RenderTemplateRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RenderTemplateRequest): RenderTemplateRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RenderTemplateRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RenderTemplateRequest;
+    static deserializeBinaryFromReader(message: RenderTemplateRequest, reader: jspb.BinaryReader): RenderTemplateRequest;
+}
+
+export namespace RenderTemplateRequest {
+    export type AsObject = {
+        template: string,
+
+        argsMap: Array<[string, string]>,
+    }
+}
+
+export class RenderTemplateResponse extends jspb.Message { 
+    getJson(): string;
+    setJson(value: string): RenderTemplateResponse;
+    clearSpecsList(): void;
+    getSpecsList(): Array<CreatePipelineRequest>;
+    setSpecsList(value: Array<CreatePipelineRequest>): RenderTemplateResponse;
+    addSpecs(value?: CreatePipelineRequest, index?: number): CreatePipelineRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RenderTemplateResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RenderTemplateResponse): RenderTemplateResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RenderTemplateResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RenderTemplateResponse;
+    static deserializeBinaryFromReader(message: RenderTemplateResponse, reader: jspb.BinaryReader): RenderTemplateResponse;
+}
+
+export namespace RenderTemplateResponse {
+    export type AsObject = {
+        json: string,
+        specsList: Array<CreatePipelineRequest.AsObject>,
     }
 }
 

@@ -10,8 +10,10 @@ import * as google_protobuf_empty_pb from "google-protobuf/google/protobuf/empty
 import * as google_protobuf_timestamp_pb from "google-protobuf/google/protobuf/timestamp_pb";
 import * as google_protobuf_wrappers_pb from "google-protobuf/google/protobuf/wrappers_pb";
 import * as google_protobuf_duration_pb from "google-protobuf/google/protobuf/duration_pb";
+import * as google_protobuf_any_pb from "google-protobuf/google/protobuf/any_pb";
 import * as gogoproto_gogo_pb from "../gogoproto/gogo_pb";
 import * as auth_auth_pb from "../auth/auth_pb";
+import * as task_task_pb from "../task/task_pb";
 
 interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplementation> {
     createRepo: IAPIService_ICreateRepo;
@@ -49,8 +51,12 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     renewFileSet: IAPIService_IRenewFileSet;
     composeFileSet: IAPIService_IComposeFileSet;
     checkStorage: IAPIService_ICheckStorage;
+    putCache: IAPIService_IPutCache;
+    getCache: IAPIService_IGetCache;
+    clearCache: IAPIService_IClearCache;
     runLoadTest: IAPIService_IRunLoadTest;
     runLoadTestDefault: IAPIService_IRunLoadTestDefault;
+    listTask: IAPIService_IListTask;
 }
 
 interface IAPIService_ICreateRepo extends grpc.MethodDefinition<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty> {
@@ -368,6 +374,33 @@ interface IAPIService_ICheckStorage extends grpc.MethodDefinition<pfs_pfs_pb.Che
     responseSerialize: grpc.serialize<pfs_pfs_pb.CheckStorageResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CheckStorageResponse>;
 }
+interface IAPIService_IPutCache extends grpc.MethodDefinition<pfs_pfs_pb.PutCacheRequest, google_protobuf_empty_pb.Empty> {
+    path: "/pfs_v2.API/PutCache";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.PutCacheRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.PutCacheRequest>;
+    responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
+    responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_IGetCache extends grpc.MethodDefinition<pfs_pfs_pb.GetCacheRequest, pfs_pfs_pb.GetCacheResponse> {
+    path: "/pfs_v2.API/GetCache";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.GetCacheRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.GetCacheRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.GetCacheResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.GetCacheResponse>;
+}
+interface IAPIService_IClearCache extends grpc.MethodDefinition<pfs_pfs_pb.ClearCacheRequest, google_protobuf_empty_pb.Empty> {
+    path: "/pfs_v2.API/ClearCache";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.ClearCacheRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.ClearCacheRequest>;
+    responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
+    responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
 interface IAPIService_IRunLoadTest extends grpc.MethodDefinition<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse> {
     path: "/pfs_v2.API/RunLoadTest";
     requestStream: false;
@@ -385,6 +418,15 @@ interface IAPIService_IRunLoadTestDefault extends grpc.MethodDefinition<google_p
     requestDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
     responseSerialize: grpc.serialize<pfs_pfs_pb.RunLoadTestResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.RunLoadTestResponse>;
+}
+interface IAPIService_IListTask extends grpc.MethodDefinition<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo> {
+    path: "/pfs_v2.API/ListTask";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<task_task_pb.ListTaskRequest>;
+    requestDeserialize: grpc.deserialize<task_task_pb.ListTaskRequest>;
+    responseSerialize: grpc.serialize<task_task_pb.TaskInfo>;
+    responseDeserialize: grpc.deserialize<task_task_pb.TaskInfo>;
 }
 
 export const APIService: IAPIService;
@@ -425,8 +467,12 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     renewFileSet: grpc.handleUnaryCall<pfs_pfs_pb.RenewFileSetRequest, google_protobuf_empty_pb.Empty>;
     composeFileSet: grpc.handleUnaryCall<pfs_pfs_pb.ComposeFileSetRequest, pfs_pfs_pb.CreateFileSetResponse>;
     checkStorage: grpc.handleUnaryCall<pfs_pfs_pb.CheckStorageRequest, pfs_pfs_pb.CheckStorageResponse>;
+    putCache: grpc.handleUnaryCall<pfs_pfs_pb.PutCacheRequest, google_protobuf_empty_pb.Empty>;
+    getCache: grpc.handleUnaryCall<pfs_pfs_pb.GetCacheRequest, pfs_pfs_pb.GetCacheResponse>;
+    clearCache: grpc.handleUnaryCall<pfs_pfs_pb.ClearCacheRequest, google_protobuf_empty_pb.Empty>;
     runLoadTest: grpc.handleUnaryCall<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse>;
     runLoadTestDefault: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, pfs_pfs_pb.RunLoadTestResponse>;
+    listTask: grpc.handleServerStreamingCall<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo>;
 }
 
 export interface IAPIClient {
@@ -524,12 +570,23 @@ export interface IAPIClient {
     checkStorage(request: pfs_pfs_pb.CheckStorageRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
+    putCache(request: pfs_pfs_pb.PutCacheRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    putCache(request: pfs_pfs_pb.PutCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    putCache(request: pfs_pfs_pb.PutCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    getCache(request: pfs_pfs_pb.GetCacheRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.GetCacheResponse) => void): grpc.ClientUnaryCall;
+    getCache(request: pfs_pfs_pb.GetCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.GetCacheResponse) => void): grpc.ClientUnaryCall;
+    getCache(request: pfs_pfs_pb.GetCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.GetCacheResponse) => void): grpc.ClientUnaryCall;
+    clearCache(request: pfs_pfs_pb.ClearCacheRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
+    listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
+    listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -628,10 +685,21 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
     public checkStorage(request: pfs_pfs_pb.CheckStorageRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.CheckStorageResponse) => void): grpc.ClientUnaryCall;
+    public putCache(request: pfs_pfs_pb.PutCacheRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public putCache(request: pfs_pfs_pb.PutCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public putCache(request: pfs_pfs_pb.PutCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public getCache(request: pfs_pfs_pb.GetCacheRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.GetCacheResponse) => void): grpc.ClientUnaryCall;
+    public getCache(request: pfs_pfs_pb.GetCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.GetCacheResponse) => void): grpc.ClientUnaryCall;
+    public getCache(request: pfs_pfs_pb.GetCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.GetCacheResponse) => void): grpc.ClientUnaryCall;
+    public clearCache(request: pfs_pfs_pb.ClearCacheRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public clearCache(request: pfs_pfs_pb.ClearCacheRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTest(request: pfs_pfs_pb.RunLoadTestRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
+    public listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
+    public listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
 }
