@@ -10,9 +10,10 @@ Pachyderm supports the latest Generally Available (GA) release and the previous 
 
 | Version  | Release Status | Support |
 | -------- | -------------- | ------- |
+| 2.1.x    | GA             | Yes     |
 | 2.0.x    | GA             | Yes     |
 | 1.13.x   | GA             | Yes     |
-| 1.12.x   | GA             | Yes     |
+| 1.12.x   | EOL            | No      |
 | 1.11.x   | EOL            | No      |
 | 1.10.x   | EOL            | No      |
 | < 1.9.11 | EOL            | No      |
