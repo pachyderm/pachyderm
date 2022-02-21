@@ -1,6 +1,45 @@
 
 # Changelog
 
+## 2.1.0
+Highlights:
+- Integration with Structured Data stores, using SQL query pipelines (7248, 7129, 7108, 7035, 7032)
+- Public beta of JSonnet Pipeline Specs: Pipeline Specs that are scriptable with JSonnet (7154)
+- Significantly improved debugging tools:
+    - Use Loki for more persistent log collection (6803, 7228, 7271, 7286)
+    - Store more information (pipeline history, alias commit information, task information) in debug dumps (7203, 7167, 7312, 7256)
+    - Log username of originating user alongside RPCs, for attribution (7231)
+- Several new PFS features and performance improvements:
+    - Add 'pachctl delete commit' command (alongside the existing 'squash commit') (7094)
+    - GC frequency can be configured or disabled via the 'STORAGE_CHUNK_GC_PERIOD' and 'STORAGE_GC_PERIOD' env vars and 'pachd.{storageGCPeriod,storageChunkGCPeriod}' helm values (7284, 7285)
+    - Improved caching (7058, 7293), transaction handling (7180, 7308), commit finishing (7047), and GC (7077)
+- Significantly improved PPS performance (7040, 7045, 7064, 7066, 7152, 7246, 7260, 7261, 7288, 7120, 7301)
+- New Task Service that allows better caching and checkpointing, shared by jobs, compaction, and garbage collection (7143, 7262, 7315)
+- Many improvements to the Helm chart:
+    - Support deploying a new Pachyderm cluster alongside an existing Enterprise server (7057)
+    - Support for nodeSelectors, annotations, and fixed support for tolerations (7082, 7147, 7179, 7183)
+    - Also support re-use of existing kubernetes secrets for Pachyderm's Postgres password and OAuth secret (7157, 7192)
+    - Add support for HTTP/S proxies (7215)
+    - Add 'disableTelemetry' option to disable telemetry in the Pachyderm Console (7207)
+    - Add 'pachd.activateAuth' value (true by default) to allow users to activate enterprise without also activating auth on startup (7132)
+    - Add 'customCACerts' option, for customers with their own PKI
+    - Make Pachyderm's ClusterRole Bindings configurable (7171)
+
+Notable Bug Fixes:
+- 7124: RC would not update correctly when a pipeline is deleted and quickly recreated
+- 7198: Support use of Kubernetes ingres with the Pachyderm enterprise server
+- 7092: Fix 'pachctl mount' panic on unmount, and improve upload performance
+- 7296: Fix 'pachctl mount' attempting to commit changes to read-only (output) branches
+- 7276: Fix auth error with Cron pipelines
+- 7153: Fix incorrect 'meta' branch provenance with services and spouts
+- 7114: Block transactions during initialization
+- 7227: Fix worker error when deployed alongside an existing postgres instance
+- 7164: Show "reason" next to KILLED jobs in 'pachctl list job'
+- 7218: Make the kubernetes SecurityContext associated with workers optional, controlled by the pachd.securityContext.enabled helm value
+- 7295: Return 404 instead of 400 for paths with trailing slash (fixes Spark jobs)
+- 7158: Honor request cancellation in the S3 gateway
+- 7250: Remove path for the user container to access Pachyderm's storage secret
+
 ## 2.0.8
 
 - Return 404 instead of 400 on trailing slash - #7320
