@@ -362,6 +362,7 @@ func TestDoublePauseUnpause(t *testing.T) {
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
+	testutil.ActivateAuth(t)
 
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
