@@ -42,7 +42,7 @@ Where the parameters passed to the jsonnet pipeline spec are:
 When the command is run, the database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the output repo named after `name`.
 
 ### Database Secret
-Before you create your SQL Ingest pipelines, make sure to create a [generic secret](../advanced-data-operations/secrets/#create-a-secret) containing your database password in the field `PACHYDERM_SQL_PASSWORD`.
+Before you create your SQL Ingest pipelines, make sure to create a [generic secret](../../advanced-data-operations/secrets/#create-a-secret) containing your database password in the field `PACHYDERM_SQL_PASSWORD`.
 
 !!! Example
     ```yaml
