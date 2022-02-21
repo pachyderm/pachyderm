@@ -14,7 +14,7 @@ The Pachyderm team officially supports the Go client. It implements most of the 
 For more info, check out the [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank}.
 
 !!! Attention
-     A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/master/go.mod then:
+     A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/2.0.x/go.mod then:
 
 
 	```shell
@@ -33,7 +33,7 @@ Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pac
 For example, if you are testing on `minikube`, run
 `minikube ip` to get this information.
 
-See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv){target=_blank} for more
+See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/2.0.x/examples/opencv){target=_blank} for more
 information.
 
 ## Python Client
@@ -64,4 +64,4 @@ Check also our [opencv example](https://github.com/pachyderm/node-pachyderm/tree
 
 ## Other languages
 
-Pachyderm uses a simple [protocol buffer API](https://github.com/pachyderm/pachyderm/blob/master/src/pfs/pfs.proto){target=_blank}. Protobufs support [other languages](https://developers.google.com/protocol-buffers/){target=_blank}, any of which can be used to programmatically use Pachyderm. We have not built clients for them yet. It is an easy way to contribute to Pachyderm if you are looking to get involved.
+Pachyderm uses a simple [protocol buffer API](https://github.com/pachyderm/pachyderm/blob/2.0.x/src/pfs/pfs.proto){target=_blank}. Protobufs support [other languages](https://developers.google.com/protocol-buffers/){target=_blank}, any of which can be used to programmatically use Pachyderm. We have not built clients for them yet. It is an easy way to contribute to Pachyderm if you are looking to get involved.
