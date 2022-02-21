@@ -39,6 +39,7 @@ Notable Bug Fixes:
 - 7295: Return 404 instead of 400 for paths with trailing slash (fixes Spark jobs)
 - 7158: Honor request cancellation in the S3 gateway
 - 7250: Remove path for the user container to access Pachyderm's storage secret
+
 ## 2.0.8
 - Return 404 instead of 400 on trailing slash - #7320
 - Obj: Don't hold locks while doing Gets in the cacheClient - #7309
