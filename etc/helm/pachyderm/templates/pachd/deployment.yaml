@@ -239,5 +239,8 @@ spec:
       initContainers:
       - name: init-etcd
         image: busybox:1.28
-        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"]      
+        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"]
+        {{- if .Values.pachd.resources }}
+        resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
+        {{- end }}
 {{- end }}
