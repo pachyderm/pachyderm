@@ -114,13 +114,6 @@ type Pipeline {
   state: PipelineState!
   stopped: Boolean!
   recentError: String
-  numOfJobsCreated: Int!
-  numOfJobsStarting: Int!
-  numOfJobsRunning: Int!
-  numOfJobsFailing: Int!
-  numOfJobsSucceeding: Int!
-  numOfJobsKilled: Int!
-  numOfJobsEgressing: Int!
   lastJobState: JobState
   description: String
   type: PipelineType!

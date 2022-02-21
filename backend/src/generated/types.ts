@@ -385,13 +385,6 @@ export type Pipeline = {
   state: PipelineState;
   stopped: Scalars['Boolean'];
   recentError?: Maybe<Scalars['String']>;
-  numOfJobsCreated: Scalars['Int'];
-  numOfJobsStarting: Scalars['Int'];
-  numOfJobsRunning: Scalars['Int'];
-  numOfJobsFailing: Scalars['Int'];
-  numOfJobsSucceeding: Scalars['Int'];
-  numOfJobsKilled: Scalars['Int'];
-  numOfJobsEgressing: Scalars['Int'];
   lastJobState?: Maybe<JobState>;
   description?: Maybe<Scalars['String']>;
   type: PipelineType;
@@ -1249,17 +1242,6 @@ export type PipelineResolvers<
     ParentType,
     ContextType
   >;
-  numOfJobsCreated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  numOfJobsStarting?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  numOfJobsRunning?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  numOfJobsFailing?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  numOfJobsSucceeding?: Resolver<
-    ResolversTypes['Int'],
-    ParentType,
-    ContextType
-  >;
-  numOfJobsKilled?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  numOfJobsEgressing?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   lastJobState?: Resolver<
     Maybe<ResolversTypes['JobState']>,
     ParentType,

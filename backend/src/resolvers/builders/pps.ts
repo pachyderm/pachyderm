@@ -4,10 +4,8 @@ import {
   PipelineInfo,
   LogMessage,
   JobInfo,
-  JobState,
   JobSetInfo,
 } from '@pachyderm/node-pachyderm';
-import fromPairs from 'lodash/fromPairs';
 import isEmpty from 'lodash/isEmpty';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
@@ -84,8 +82,6 @@ const deriveJSONPipelineSpec = (pipelineInfo: PipelineInfo.AsObject) => {
 export const pipelineInfoToGQLPipeline = (
   pipelineInfo: PipelineInfo.AsObject,
 ): Pipeline => {
-  const jobStates = fromPairs(pipelineInfo.jobCountsMap);
-
   return {
     // pipelines don't always have an ID, most of the time it uses
     // name as the global identifier
@@ -97,13 +93,6 @@ export const pipelineInfoToGQLPipeline = (
     state: toGQLPipelineState(pipelineInfo.state),
     stopped: pipelineInfo.stopped,
     recentError: pipelineInfo.details?.recentError,
-    numOfJobsCreated: jobStates[JobState.JOB_CREATED] || 0,
-    numOfJobsStarting: jobStates[JobState.JOB_STARTING] || 0,
-    numOfJobsRunning: jobStates[JobState.JOB_RUNNING] || 0,
-    numOfJobsFailing: jobStates[JobState.JOB_FAILURE] || 0,
-    numOfJobsSucceeding: jobStates[JobState.JOB_SUCCESS] || 0,
-    numOfJobsKilled: jobStates[JobState.JOB_KILLED] || 0,
-    numOfJobsEgressing: jobStates[JobState.JOB_EGRESSING] || 0,
     lastJobState: toGQLJobState(pipelineInfo.lastJobState),
     type: derivePipelineType(pipelineInfo),
     datumTimeoutS: pipelineInfo.details?.datumTimeout?.seconds,
