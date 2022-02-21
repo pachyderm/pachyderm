@@ -1,55 +1,77 @@
 .pachyderm-mount-react-wrapper {
   border-bottom: 1px solid var(--jp-border-color2);
   font-size: var(--jp-ui-font-size1);
-  min-width: 300px;
-  min-height: 50px;
+  min-width: 18.75rem;
+  min-height: 3.125rem;
 }
 
 .pachyderm-mount-base {
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
   height: 100%;
 }
 
 .pachyderm-mount-base-title {
-  padding: 4px 12px;
+  padding: 0.25rem 0.75rem;
   font-weight: 500;
-  height: 25px;
+  height: 1.563rem;
 }
 
 /* === ListItem === */
 .pachyderm-mount-list-item-base {
   display: flex;
   align-items: baseline;
-  margin-top: 5px;
 }
 
 .pachyderm-mount-list-item-name-branch-wrapper {
   display: flex;
-  width: 100%;
+  flex-direction: column;
+  width: 75%;
 }
 
 .pachyderm-mount-list-item-name {
+  width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  width: 60%;
+  font-weight: 500;
 }
 
 .pachyderm-mount-list-item-branch {
-  width: 40%;
+  width: 100%;
+  margin-left: 0.625rem;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .pachyderm-mount-list-item-branch-select {
-  border: none;
-  width: 100%;
   justify-content: left;
+  width: 90%;
+  max-width: fit-content;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .pachyderm-mount-list-item-action {
-  width: 25%;
+  width: auto;
   text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+
+.pachyderm-mount-list-item-status {
+  display: flex;
+  justify-content: right;
+}
+
+.pachyderm-mount-list-item-status-circle {
+  margin: 5px 0px 0px 0px;
+}
+
+.pachyderm-mount-list-item-status-icon {
+  transform: scale(0.7);
 }
 
 /* === DirListing === */
@@ -59,7 +81,7 @@
   display: flex;
   flex-direction: column;
   outline: 0;
-  height: calc(100% - 25px);
+  height: calc(100% - 1.563rem);
 }
 
 .pachyderm-mount-sortableList:focus-visible {
@@ -77,7 +99,7 @@
 }
 
 .pachyderm-mount-sortableList-headerItem {
-  padding: 4px 12px 2px 12px;
+  padding: 0.25rem 0.75rem 0.125rem 0.75rem;
   font-weight: 500;
   display: flex;
   flex: 1;
@@ -85,18 +107,7 @@
   justify-content: space-between;
 }
 
-.pachyderm-mount-sortableList-headerItem-branch {
-  padding: 4px 12px 2px 12px;
-  font-weight: 500;
-  display: flex;
-  flex: 1;
-  flex-direction: row;
-  justify-content: right;
-  border-left: var(--jp-border-width) solid var(--jp-border-color1);
-}
-
-.pachyderm-mount-sortableList-headerItem:hover,
-.pachyderm-mount-sortableList-headerItem-branch:hover {
+.pachyderm-mount-sortableList-headerItem:hover {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -118,22 +129,28 @@
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  padding: 4px 12px;
+  padding: 0.25rem 0.75rem;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+  border-bottom: 1px solid var(--jp-border-color2);
 }
 
-.pachyderm-mount-sortableList-item-no-branchs {
+.pachyderm-mount-sortableList-disabled {
   opacity: 50%;
+  pointer-events: none;
 }
 
 .pachyderm-mount-sortableList-item:hover {
   background: var(--jp-layout-color2);
 }
 
-.pachyderm-mount-sortableList-item:hover
-  .pachyderm-mount-list-item-branch-select {
+.pachyderm-mount-list-item-branch-select {
+  color: var(--jp-ui-font-color0);
+  background: var(--jp-layout-color1);
+}
+
+.pachyderm-mount-list-item-branch-select:hover {
   background: var(--jp-layout-color2);
 }

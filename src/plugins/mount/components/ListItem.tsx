@@ -1,6 +1,16 @@
+import {Circle, CircleColor, Tooltip} from '@pachyderm/components';
+import {capitalize} from 'lodash';
 import React, {useEffect, useState} from 'react';
 import {requestAPI} from '../../../handler';
-import {Repo} from '../types';
+import {findMountedBranch, isMounted} from '../pollRepos';
+import {Branch, mountState, Repo} from '../types';
+import {infoIcon} from '../../../utils/icons';
+
+export const DISABLED_STATES: mountState[] = [
+  'unmounting',
+  'mounting',
+  'error',
+];
 
 type ListItemProps = {
   repo: Repo;
@@ -8,15 +18,15 @@ type ListItemProps = {
 };
 
 const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
-  const [mountedBanch, setMountedBranch] = useState<string>();
+  const [mountedBanch, setMountedBranch] = useState<Branch>();
   const [selectedBranch, setSelectedBranch] = useState<string>();
+  const [disabled, setDisabled] = useState<boolean>(false);
 
   useEffect(() => {
-    const found = repo.branches.find(
-      (branch) => branch.mount.state === 'mounted',
-    );
+    const found = findMountedBranch(repo);
     if (found) {
-      setMountedBranch(found.branch);
+      setMountedBranch(found);
+      setDisabled(DISABLED_STATES.includes(found.mount.state));
     }
   }, [repo]);
 
@@ -45,9 +55,10 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
   };
 
   const mount = async () => {
+    setDisabled(true);
     if (mountedBanch) {
       await requestAPI<any>(
-        `repos/${repo.repo}/${mountedBanch}/_unmount?name=${repo.repo}`,
+        `repos/${repo.repo}/${mountedBanch.branch}/_unmount?name=${repo.repo}`,
         'PUT',
       );
     } else {
@@ -65,57 +76,121 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
         className="pachyderm-mount-sortableList-item"
         data-testid="ListItem__noBranches"
       >
-        <span className="pachyderm-mount-list-item-name pachyderm-mount-sortableList-item-no-branchs">
-          {repo.repo}
-        </span>
-        <span className="pachyderm-mount-list-item-name pachyderm-mount-sortableList-item-no-branchs">
-          No Branches
+        <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
+          <span className="pachyderm-mount-list-item-name" title={repo.repo}>
+            {repo.repo}
+          </span>
+
+          <span className="pachyderm-mount-list-item-branch">No Branches</span>
         </span>
       </li>
     );
   }
+
   return (
     <li
       className="pachyderm-mount-sortableList-item"
       data-testid="ListItem__branches"
     >
       <span
-        className="pachyderm-mount-list-item-name-branch-wrapper"
+        className={`pachyderm-mount-list-item-name-branch-wrapper ${
+          disabled ? 'pachyderm-mount-sortableList-disabled' : ''
+        }`}
         onClick={openFolder}
       >
-        <span className="pachyderm-mount-list-item-name">{repo.repo}</span>
+        <span className="pachyderm-mount-list-item-name" title={repo.repo}>
+          {repo.repo}
+        </span>
         <span className="pachyderm-mount-list-item-branch">
           {mountedBanch ? (
-            <>{mountedBanch}</>
+            <span title={mountedBanch.branch}>@ {mountedBanch.branch}</span>
           ) : (
-            <select
-              name="branch"
-              value={selectedBranch}
-              className="pachyderm-mount-list-item-branch-select"
-              onChange={onChange}
-              data-testid="ListItem__select"
-            >
-              {repo.branches.map((branch) => {
-                return (
-                  <option key={branch.branch} value={branch.branch}>
-                    {branch.branch}
-                  </option>
-                );
-              })}
-            </select>
+            <>
+              <span>@ </span>
+              <select
+                disabled={disabled}
+                name="branch"
+                value={selectedBranch}
+                className="pachyderm-mount-list-item-branch-select"
+                onChange={onChange}
+                data-testid="ListItem__select"
+              >
+                {repo.branches.map((branch) => {
+                  return (
+                    <option key={branch.branch} value={branch.branch}>
+                      {branch.branch}
+                    </option>
+                  );
+                })}
+              </select>
+            </>
           )}
         </span>
       </span>
       <span className="pachyderm-mount-list-item-action">
-        <span
+        <button
+          disabled={disabled}
           onClick={onClickHandler}
-          className="pachyderm-help-link"
+          className="pachyderm-button"
           data-testid={`ListItem__${buttonText.toLowerCase()}`}
         >
           {buttonText}
-        </span>
+        </button>
+        {mountedBanch && (
+          <span
+            className="pachyderm-mount-list-item-status"
+            data-testid="ListItem__status"
+          >
+            {renderStatus(mountedBanch.mount.state, mountedBanch.mount.status)}
+          </span>
+        )}
       </span>
     </li>
+  );
+};
+
+const renderStatus = (state: mountState, status: string | null) => {
+  let color = 'gray';
+  let statusMessage = '';
+
+  switch (state) {
+    case 'mounted':
+      color = 'green';
+      break;
+    case 'unmounting':
+    case 'mounting':
+      color = 'yellow';
+      break;
+    case 'error':
+      color = 'red';
+      break;
+  }
+
+  if (status) {
+    statusMessage = `${capitalize(state || 'Unknown')}: ${status}`;
+  } else {
+    statusMessage = capitalize(state || 'Unknown');
+  }
+
+  return (
+    <>
+      <Circle
+        color={color as CircleColor}
+        className="pachyderm-mount-list-item-status-circle"
+      />
+      <Tooltip
+        tooltipKey="branch-status"
+        tooltipText={statusMessage}
+        placement="right"
+      >
+        <div
+          data-testid="ListItem__statusIcon"
+          className="pachyderm-mount-list-item-status-icon"
+        >
+          <infoIcon.react tag="span" />
+        </div>
+      </Tooltip>
+    </>
   );
 };
 

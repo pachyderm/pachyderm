@@ -2,7 +2,19 @@ import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import partition from 'lodash/partition';
 import {requestAPI} from '../../handler';
-import {Repo} from './types';
+import {Branch, mountState, Repo} from './types';
+
+export const MOUNTED_STATES: mountState[] = [
+  'unmounting',
+  'mounted',
+  'mounting',
+  'error',
+];
+export const UNMOUNTED_STATES: mountState[] = [
+  'gone',
+  'discovering',
+  'unmounted',
+];
 
 export class PollRepos {
   constructor(name: string) {
@@ -69,11 +81,21 @@ export class PollRepos {
       this._rawData = data;
       const [mountedPartition, unmountedPartition] = partition(
         data,
-        (rep: Repo) =>
-          rep.branches.find((branch) => branch.mount.state === 'mounted'),
+        (rep: Repo) => findMountedBranch(rep),
       );
       this.mounted = mountedPartition;
       this.unmounted = unmountedPartition;
     }
   }
+}
+
+export function findMountedBranch(repo: Repo): Branch | undefined {
+  //NOTE: Using find will cause issues if we allow multiple branches to be mounted at the same time.
+  return repo.branches.find(
+    (branch) => branch.mount.state && isMounted(branch.mount.state),
+  );
+}
+
+export function isMounted(state: mountState): boolean {
+  return MOUNTED_STATES.includes(state);
 }

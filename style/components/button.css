@@ -1,0 +1,26 @@
+.pachyderm-button {
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  color: var(--jp-brand-color1);
+  user-select: none;
+  display: inline-block;
+  font-family: 'Montserrat', sans-serif;
+  box-shadow: none;
+  border: none;
+  background-color: inherit;
+  padding: 0;
+  margin: 0;
+  transition: color 300ms ease-in-out;
+}
+
+.pachyderm-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pachyderm-button:not(:disabled):hover,
+.pachyderm-button:active,
+.pachyderm-button:focus {
+  color: var(--jp-brand-color0);
+}

@@ -40,7 +40,7 @@ Start a bash session in the `pachyderm/notebooks-user` container
 docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged \
   -v $(pwd):/home/jovyan/extension-wd \
   -w /home/jovyan/extension-wd \
-  pachyderm/notebooks-user:40e1e8d1b8b3bca74238b9d5bc84162b40e7506c \
+  pachyderm/notebooks-user:624337360beaff8514be329386f3ca554fc7a34d \
   bash
 ```
 
@@ -83,7 +83,7 @@ docker exec -it <container-id> bash
 Within container run:
 
 ```
-jlpm run watch
+npm run watch
 ```
 
 ## Local Virtual Environment Setup 

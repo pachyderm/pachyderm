@@ -38,9 +38,6 @@ const SortableList: React.FC<SortableListProps> = ({open, repos}) => {
             {reversed ? <caretDownIcon.react /> : <caretUpIcon.react />}
           </span>
         </div>
-        <div className="pachyderm-mount-sortableList-headerItem-branch">
-          <span>Branch</span>
-        </div>
       </div>
       <ul className="pachyderm-mount-sortableList-content">
         {sortedData &&

@@ -1,8 +1,10 @@
 import React from 'react';
-import {render, fireEvent} from '@testing-library/react';
+import {act, render, screen, fireEvent} from '@testing-library/react';
 
 import SortableList from '../SortableList';
 import {requestAPI} from '../../../../handler';
+import userEvent from '@testing-library/user-event';
+import {Repo} from 'plugins/mount/types';
 jest.mock('../../../../handler');
 
 describe('mount components', () => {
@@ -53,16 +55,16 @@ describe('mount components', () => {
 
   it('should allow user to mount unmounted repo', async () => {
     const open = jest.fn();
-    const repos = [
+    const repos: Repo[] = [
       {
         repo: 'images',
         branches: [
           {
             branch: 'master',
             mount: {
-              name: null,
+              name: '',
               state: 'unmounted',
-              status: null,
+              status: '',
               mode: null,
               mountpoint: null,
             },
@@ -71,13 +73,15 @@ describe('mount components', () => {
       },
     ];
 
-    const {getByTestId, getByText} = render(
-      <SortableList open={open} repos={repos} />,
-    );
+    const {getByTestId} = render(<SortableList open={open} repos={repos} />);
     const listItem = getByTestId('ListItem__branches');
-    expect(listItem).toHaveTextContent('images');
+    const mountButton = getByTestId('ListItem__mount');
 
-    getByText('Mount').click();
+    expect(listItem).toHaveTextContent('images');
+    expect(mountButton).not.toBeDisabled();
+    mountButton.click();
+
+    expect(mountButton).toBeDisabled();
     expect(requestAPI).toHaveBeenCalledWith(
       'repos/images/master/_mount?name=images&mode=ro',
       'PUT',
@@ -87,16 +91,16 @@ describe('mount components', () => {
   it('should allow user to unmount mounted repo', async () => {
     const open = jest.fn();
 
-    const repos = [
+    const repos: Repo[] = [
       {
         repo: 'images',
         branches: [
           {
             branch: 'master',
             mount: {
-              name: null,
+              name: '',
               state: 'mounted',
-              status: null,
+              status: '',
               mode: null,
               mountpoint: null,
             },
@@ -105,12 +109,16 @@ describe('mount components', () => {
       },
     ];
 
-    const {getByTestId, getByText} = render(
-      <SortableList open={open} repos={repos} />,
-    );
+    const {getByTestId} = render(<SortableList open={open} repos={repos} />);
     const listItem = getByTestId('ListItem__branches');
+    const unmountButton = getByTestId('ListItem__unmount');
+
     expect(listItem).toHaveTextContent('images');
-    getByText('Unmount').click();
+    expect(unmountButton).not.toBeDisabled();
+
+    unmountButton.click();
+
+    expect(unmountButton).toBeDisabled();
     expect(requestAPI).toHaveBeenCalledWith(
       'repos/images/master/_unmount?name=images',
       'PUT',
@@ -120,16 +128,16 @@ describe('mount components', () => {
   it('should open mounted repo on click', async () => {
     const open = jest.fn();
 
-    const repos = [
+    const repos: Repo[] = [
       {
         repo: 'images',
         branches: [
           {
             branch: 'master',
             mount: {
-              name: null,
+              name: '',
               state: 'mounted',
-              status: null,
+              status: '',
               mode: null,
               mountpoint: null,
             },
@@ -146,16 +154,16 @@ describe('mount components', () => {
   it('should allow user to select a branch to mount', async () => {
     const open = jest.fn();
 
-    const repos = [
+    const repos: Repo[] = [
       {
         repo: 'images',
         branches: [
           {
             branch: 'master',
             mount: {
-              name: null,
+              name: '',
               state: 'unmounted',
-              status: null,
+              status: '',
               mode: null,
               mountpoint: null,
             },
@@ -163,9 +171,9 @@ describe('mount components', () => {
           {
             branch: 'develop',
             mount: {
-              name: null,
+              name: '',
               state: 'unmounted',
-              status: null,
+              status: '',
               mode: null,
               mountpoint: null,
             },
@@ -187,5 +195,91 @@ describe('mount components', () => {
       'repos/images/develop/_mount?name=images&mode=ro',
       'PUT',
     );
+  });
+
+  it('should display state and status of mounted brach', async () => {
+    const open = jest.fn();
+
+    const repos: Repo[] = [
+      {
+        repo: 'edges',
+        branches: [
+          {
+            branch: 'master',
+            mount: {
+              name: '',
+              state: 'error',
+              status: 'error mounting branch',
+              mode: null,
+              mountpoint: null,
+            },
+          },
+        ],
+      },
+    ];
+    act(() => {
+      render(<SortableList open={open} repos={repos} />);
+    });
+    const statusIcon = screen.getByTestId('ListItem__statusIcon');
+
+    userEvent.hover(statusIcon);
+    expect(screen.queryByTestId('tooltip-branch-status')).toHaveTextContent(
+      'Error: error mounting branch',
+    );
+  });
+
+  it('should disable item when it is in a loading state', async () => {
+    const repos: Repo[] = [
+      {
+        repo: '1',
+        branches: [
+          {
+            branch: 'master',
+            mount: {
+              name: '',
+              state: 'error',
+              status: 'error mounting branch',
+              mode: null,
+              mountpoint: null,
+            },
+          },
+        ],
+      },
+      {
+        repo: '2',
+        branches: [
+          {
+            branch: 'master',
+            mount: {
+              name: '',
+              state: 'unmounting',
+              status: '',
+              mode: null,
+              mountpoint: null,
+            },
+          },
+        ],
+      },
+      {
+        repo: '3',
+        branches: [
+          {
+            branch: 'master',
+            mount: {
+              name: '',
+              state: 'mounting',
+              status: '',
+              mode: null,
+              mountpoint: null,
+            },
+          },
+        ],
+      },
+    ];
+    const {getAllByTestId} = render(<SortableList open={open} repos={repos} />);
+    const unmountButtons = getAllByTestId('ListItem__unmount');
+    expect(unmountButtons[0]).toBeDisabled();
+    expect(unmountButtons[1]).toBeDisabled();
+    expect(unmountButtons[2]).toBeDisabled();
   });
 });
