@@ -5,6 +5,7 @@ import {CSSTransition, TransitionGroup} from 'react-transition-group';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import {COMMITS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
@@ -73,15 +74,23 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
         {commits?.length ? (
           <TransitionGroup>
             {commits.map((commit) => {
+              // only animate in if commit is younger than poll interval
+              const freshCommit =
+                new Date().getTime() - (commit.started || 0) * 1000 <
+                COMMITS_POLL_INTERVAL_MS;
               return (
                 <CSSTransition
                   timeout={400}
-                  classNames={{
-                    enterActive: styles.commitEnterActive,
-                    enterDone: styles.commitEnterDone,
-                    exitActive: styles.commitExit,
-                    exitDone: styles.commitExitActive,
-                  }}
+                  classNames={
+                    freshCommit
+                      ? {
+                          enterActive: styles.commitEnterActive,
+                          enterDone: styles.commitEnterDone,
+                          exitActive: styles.commitExit,
+                          exitDone: styles.commitExitActive,
+                        }
+                      : {}
+                  }
                   key={commit.id}
                 >
                   <div className={styles.commit}>
