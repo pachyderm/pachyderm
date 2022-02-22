@@ -23,6 +23,15 @@ const cacheConfig: InMemoryCacheConfig = {
     Branch: {
       keyFields: ['name'],
     },
+    Query: {
+      fields: {
+        dag: {
+          merge(_existing: Vertex[], incoming: Vertex[]) {
+            return incoming;
+          },
+        },
+      },
+    },
   },
 };
 

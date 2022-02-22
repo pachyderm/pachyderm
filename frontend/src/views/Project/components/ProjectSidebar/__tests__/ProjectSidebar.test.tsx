@@ -1,4 +1,8 @@
-import {render, waitFor} from '@testing-library/react';
+import {
+  render,
+  waitFor,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -83,13 +87,16 @@ describe('ProjectSidebar', () => {
         .pipelines['8'].push(mockServer.getState().pipelines['5'][0]);
       window.history.replaceState('', '', '/lineage/8/pipelines/montage');
 
-      const {findByTestId} = render(<Project />);
+      const {findByTestId, queryByTestId} = render(<Project />);
       expect(mockServer.getState().pipelines['8']).toHaveLength(1);
       const deleteButton = await findByTestId('DeletePipelineButton__link');
       await waitFor(() => expect(deleteButton).not.toBeDisabled());
       click(deleteButton);
       const confirmButton = await findByTestId('ModalFooter__confirm');
       click(confirmButton);
+      await waitForElementToBeRemoved(() =>
+        queryByTestId('ModalFooter__confirm'),
+      );
 
       await waitFor(() =>
         expect(mockServer.getState().pipelines['8']).toHaveLength(0),
