@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -19,30 +20,32 @@ func TestDeployEnterprise(t *testing.T) {
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
-	mockIDPLogin(t)
+	c.SetAuthToken("")
+	mockIDPLogin(t, c)
 }
 
-func mockIDPLogin(t *testing.T) {
+func mockIDPLogin(t *testing.T, c *client.APIClient) {
 	// login using mock IDP admin
 	hc := &http.Client{}
-	var loginURL string
-	hc.Get(loginURL)
+	c.SetAuthToken("")
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+	require.NoError(t, err)
+	state := loginInfo.State
+
 	// Get the initial URL from the grpc, which should point to the dex login page
-	resp, err := hc.Get(loginURL)
+	resp, err := hc.Get(loginInfo.LoginURL)
 	require.NoError(t, err)
 
 	vals := make(url.Values)
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
-	resp, err = hc.PostForm(resp.Header.Get("Location"), vals)
+	resp, err = hc.PostForm(resp.Request.URL.String(), vals)
 	require.NoError(t, err)
 
-	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = hc.Get(resp.Header.Get("Location"))
+	authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
+	c.SetAuthToken(authResp.PachToken)
+	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-
-	// Follow the resulting redirect back to pachd to complete the flow
-	_, err = hc.Get(resp.Header.Get("Location"))
-	require.NoError(t, err)
+	require.Equal(t, "user:"+testutil.DexMockConnectorEmail, whoami.Username)
 }
