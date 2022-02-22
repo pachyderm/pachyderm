@@ -6,6 +6,9 @@ ignore_macros: true
 <!-- git-snippet: enable -->
 # Jsonnet Pipeline Specifications
 
+!!! Warning
+    `Jsonnet pipeline specifications` is an [experimental feature](../../../contributing/supported-releases/#experimental).
+
 Pachyderm [pipeline's specification](../../../reference/pipeline_spec){target=_blank} files are intuitive, simple, and language agnostic.
 They are, however, very static.
 
