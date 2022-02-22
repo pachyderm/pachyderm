@@ -34,7 +34,7 @@ const CreateRepoModal: FunctionComponent<ModalProps> = ({show, onHide}) => {
       <Group data-testid="CreateRepoModal__modal" vertical spacing={16}>
         <Group vertical spacing={32}>
           <div>
-            <Label htmlFor="name" label="Repo Name" maxLength={45} />
+            <Label htmlFor="name" label="Repo Name" maxLength={63} />
             <Input
               data-testid="CreateRepoModal__name"
               type="text"
@@ -42,8 +42,13 @@ const CreateRepoModal: FunctionComponent<ModalProps> = ({show, onHide}) => {
               name="name"
               validationOptions={{
                 maxLength: {
-                  value: 45,
+                  value: 63,
                   message: 'Repo name exceeds maximum allowed length',
+                },
+                pattern: {
+                  value: /^[a-zA-Z0-9-_]+$/,
+                  message:
+                    'Repo name can only contain alphanumeric characters, underscores, and dashes',
                 },
                 validate: validateRepoName,
               }}
