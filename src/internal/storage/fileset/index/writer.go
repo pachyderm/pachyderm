@@ -36,7 +36,6 @@ type Writer struct {
 	closedMu sync.RWMutex
 
 	levels []*levelWriter
-	closed bool
 	root   *Index
 }
 
@@ -119,8 +118,9 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			LastPath: lastPath,
 			ChunkRef: chunk.Reference(dataRef),
 		}
-		// Set the root index when the writer is closed and we are at the top index level.
-		if w.isClosed() {
+		// if there's only one annotation, we are at the root index
+		// Q: shouldn't we stop the recursion with this value instead of at annotations == 0
+		if len(annotations) == 1 {
 			w.root = idx
 		}
 		// Create next index level if it does not exist.
@@ -138,8 +138,6 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 
 // Close finishes the index, and returns the serialized top index level.
 func (w *Writer) Close() (ret *Index, retErr error) {
-	w.setClosed()
-
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
 	// created when the top level chunk writer has been closed and the number of
@@ -172,16 +170,4 @@ func (w *Writer) numLevels() int {
 	w.levelsMu.RLock()
 	defer w.levelsMu.RUnlock()
 	return len(w.levels)
-}
-
-func (w *Writer) isClosed() bool {
-	w.closedMu.RLock()
-	defer w.closedMu.RUnlock()
-	return w.closed
-}
-
-func (w *Writer) setClosed() {
-	w.closedMu.Lock()
-	defer w.closedMu.Unlock()
-	w.closed = true
 }
