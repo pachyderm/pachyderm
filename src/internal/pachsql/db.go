@@ -9,11 +9,13 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	sf "github.com/snowflakedb/gosnowflake"
 )
 
 const (
-	ProtocolPostgres = "postgres"
-	ProtocolMySQL    = "mysql"
+	ProtocolPostgres  = "postgres"
+	ProtocolMySQL     = "mysql"
+	ProtocolSnowflake = "snowflake"
 )
 
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
@@ -35,6 +37,9 @@ func OpenURL(u URL, password string) (*DB, error) {
 	case ProtocolMySQL:
 		driver = "mysql"
 		dsn = mySQLDSN(u, password)
+	case ProtocolSnowflake, "sf":
+		driver = "snowflake"
+		dsn = snowflakeDSN(u, password)
 	default:
 		return nil, errors.Errorf("database protocol %q not supported", u.Protocol)
 	}
@@ -75,6 +80,28 @@ func mySQLDSN(u URL, password string) string {
 		AllowNativePasswords: true,
 	}
 	return config.FormatDSN()
+}
+
+func snowflakeDSN(u URL, password string) string {
+	// Snowflake account name is usually embedded in the host name
+	// e.g <account_identifier>.snowflakecomputing.com
+	var account string
+	if strings.HasSuffix(u.Host, "snowflakecomputing.com") {
+		account = strings.Split(u.Host, ".")[0]
+	} else {
+		account = u.Params["account"]
+	}
+
+	cfg := &sf.Config{
+		Account:  account,
+		User:     u.User,
+		Password: password,
+		Database: u.Database,
+		Host:     u.Host,
+		Port:     int(u.Port),
+	}
+	dsn, _ := sf.DSN(cfg)
+	return dsn
 }
 
 func copyParams(x map[string]string) map[string]string {
