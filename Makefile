@@ -10,6 +10,9 @@ launch-mock:
 	LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend
 
 setup-auth:
+	npm run setup:local
+
+setup-ci-auth: 
 	npm run setup
 
 install:
@@ -29,3 +32,6 @@ graphql:
 
 test:
 	npm test --prefix ./backend && npm test --prefix ./frontend
+
+e2e: 
+	npm run cypress:local

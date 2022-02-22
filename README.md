@@ -10,6 +10,16 @@ make install
 make test
 ```
 
+### e2e tests
+1. Start up a [local pachyderm cluster](#pachyderm-cluster)
+1. Setup auth to our e2e Auth0 client [like this](#auth0-config)
+1. Start running console locally with `make launch-dev`
+
+Finally in another terminal window:
+```
+make e2e
+```
+
 ## Graphql GQL/TS generation
 ```
 make graphql
@@ -32,6 +42,7 @@ To switch between mock accounts, you can use our devtools in the JS console of t
 > devtools.setAccount('2'); // will set your account to Barret Wallace
 ```
 
+<a name="pachyderm-cluster"></a>
 ### Using 2.0 Pachyderm Cluster 🚧
 This feature is still under development, and will likely change.
 
@@ -43,9 +54,19 @@ This feature is still under development, and will likely change.
 1. Delete your existing pre-2.0 pachctl config file: `rm ~/.pachyderm/config.json`
 
 #### Configuring Auth
+
+<a name="auth0-config"></a>
+##### With Auth0
+
+1. Find the Auth0 console client ID and client secret in 1Password
+1. Find the user login for e2e-testing@pachyderm.com in 1Password
+1. Run `make setup-auth` and enter the values from 1Password when asked (they're written to .env.development.local so you shouldn't need to do this again)
+1. Run `pachctl port-forward`
+
+##### With Github
 1. [Create a Github OAuth app](https://docs.github.com/en/developers/apps/creating-an-oauth-app). For local clusters, set your callback url to `http://localhost:30658/callback`. Make sure to save the secret key, you'll need it for the next step.
 1. Generate an enterprise key for the next step: https://enterprise-token-gen.pachyderm.io/dev. For Mac OS users, `echo '<your-enterprise-token-here>' | pachctl license activate`.
-1. Run `make setup-auth`. This will walk you through the setup for your local cluster.
+1. Run `AUTH_CLIENT=github make setup-auth`. This will walk you through the setup for your local cluster.
 1. Run `pachctl port-forward`
 1. (Optional) Use `pachctl auth login` to login via Github. If you opt not to do this, you will continue as the root user when creating resources.
 

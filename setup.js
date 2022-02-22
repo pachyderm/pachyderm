@@ -100,6 +100,13 @@ const activateAuth = async () => {
 
 const setupClusterAdmin = async () => {
   const userEmail = process.env.PACHYDERM_AUTH_EMAIL || await askQuestion('What is the primary email associated with your connected account?');
+  if(process.env.NODE_ENV === 'development') {
+    writeToEnv('PACHYDERM_AUTH_EMAIL', userEmail);
+  }
+  if(process.env.AUTH_CLIENT !== 'github') {
+    const userPassword = process.env.PACHYDERM_AUTH_PASSWORD || await askQuestion('What is the password for the associated account?');
+    writeToEnv('PACHYDERM_AUTH_PASSWORD', userPassword);
+  }
 
   console.log('Setting up cluster admin...');
   try {
@@ -139,7 +146,13 @@ const configureIssuer = async () => {
 
 const configureGithubConnector = async () => {
   const clientId = process.env.PACHYDERM_AUTH_CLIENT_ID || await askQuestion('Enter Github Client ID:');
+  if (process.env.NODE_ENV === "development") {
+    writeToEnv("PACHYDERM_AUTH_CLIENT_ID", clientId);
+  }
   const clientSecret = process.env.PACHYDERM_AUTH_CLIENT_SECRET || await askQuestion('Enter Github Client Secret:');
+  if (process.env.NODE_ENV === "development") {
+    writeToEnv("PACHYDERM_AUTH_CLIENT_SECRET", clientSecret);
+  }
 
   console.log('Configuring Github connector...');
   try {
@@ -168,7 +181,13 @@ const configureGithubConnector = async () => {
 
 const configureAuth0Connector = async () => {
   const clientId = process.env.PACHYDERM_AUTH_CLIENT_ID || await askQuestion('Enter Auth0 Client ID:');
+  if (process.env.NODE_ENV === "development") {
+    writeToEnv("PACHYDERM_AUTH_CLIENT_ID", clientId);
+  }
   const clientSecret = process.env.PACHYDERM_AUTH_CLIENT_SECRET || await askQuestion('Enter Auth0 Client Secret:');
+  if (process.env.NODE_ENV === "development") {
+    writeToEnv("PACHYDERM_AUTH_CLIENT_SECRET", clientSecret);
+  }
 
   console.log('Configuring Auth0 connector...');
   try {
@@ -269,10 +288,10 @@ const setup = async () => {
   await activateAuth();
   await setupClusterAdmin();
   await configureIssuer();
-  if (process.env.CI) {
-    await configureAuth0Connector();
-  } else {
+  if (process.env.AUTH_CLIENT == 'github') {
     await configureGithubConnector();
+  } else {
+    await configureAuth0Connector();
   }
   await configureOIDCProvider();
   await configureDashClient();

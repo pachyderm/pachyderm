@@ -13,5 +13,5 @@ kubectl wait --for=condition=available deployment -l app=pachd --timeout=5m
 pachctl version
 echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
 touch .env.development.local
-CI=true make setup-auth
+make setup-ci-auth
 
