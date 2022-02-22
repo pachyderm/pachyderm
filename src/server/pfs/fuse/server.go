@@ -280,18 +280,12 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 }
 
 func (mm *MountManager) UnmountAll() error {
-	lr, err := mm.List()
-	if err != nil {
-		return err
-	}
-	for repo, rr := range lr {
-		for branch, br := range rr.Branches {
-			if br.Mount.State == "mounted" {
-				//TODO: Add Commit field here once we support mounting specific commits
-				_, err = mm.UnmountBranch(MountKey{Repo: repo, Branch: branch}, "")
-				if err != nil {
-					return err
-				}
+	for key, msm := range mm.States {
+		if msm.State == "mounted" {
+			//TODO: Add Commit field here once we support mounting specific commits
+			_, err := mm.UnmountBranch(MountKey{Repo: key.Repo, Branch: key.Branch}, msm.Name)
+			if err != nil {
+				return err
 			}
 		}
 	}
