@@ -33,7 +33,6 @@ type Writer struct {
 	tmpID  string
 
 	levelsMu sync.RWMutex
-	closedMu sync.RWMutex
 
 	levels []*levelWriter
 	root   *Index
