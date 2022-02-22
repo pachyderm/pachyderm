@@ -167,8 +167,8 @@ pachctl get file images@master:liberty.png | display
 Now that you have some data in your repo, it is time to do something
 with it. Pipelines are the core processing primitive in Pachyderm.
 Pipelines are defined with a simple JSON file called a pipeline
-specification or pipeline spec for short. For this [example](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv){target=_blank}, we already
-[created the pipeline spec for you](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/edges.json){target=_blank}.
+specification or pipeline spec for short. For this [example](https://github.com/pachyderm/pachyderm/blob/2.0.x/examples/opencv){target=_blank}, we already
+[created the pipeline spec for you](https://github.com/pachyderm/pachyderm/blob/2.0.x/examples/opencv/edges.json){target=_blank}.
 
 When you want to create your own pipeline specification later, you can refer to the
 full [Pipeline Specification](../../reference/pipeline_spec) to use
@@ -261,7 +261,7 @@ to the appropriate output repo of your pipeline.
 Now, let's create the pipeline in Pachyderm:
 
 ```shell
-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
+pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/2.0.x/examples/opencv/edges.json
 ```
 
 ### What Happens When You Create a Pipeline
@@ -458,7 +458,7 @@ and
 We create the `montage` pipeline as before, with `pachctl`:
 
 ```shell
-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
+pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/2.0.x/examples/opencv/montage.json
 ```
 
 The pipeline creation triggers a job that generates a montage for all the

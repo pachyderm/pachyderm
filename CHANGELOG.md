@@ -4,7 +4,7 @@
 ## 2.1.0
 Highlights:
 - Integration with Structured Data stores, using SQL query pipelines (7248, 7129, 7108, 7035, 7032)
-- Public beta of JSonnet Pipeline Specs: Pipeline Specs that are scriptable with JSonnet (7154)
+- JSonnet Pipeline Specs (experimental): Pipeline Specs that are scriptable with JSonnet (7154)
 - Significantly improved debugging tools:
     - Use Loki for more persistent log collection (6803, 7228, 7271, 7286)
     - Store more information (pipeline history, alias commit information, task information) in debug dumps (7203, 7167, 7312, 7256)
@@ -39,9 +39,7 @@ Notable Bug Fixes:
 - 7295: Return 404 instead of 400 for paths with trailing slash (fixes Spark jobs)
 - 7158: Honor request cancellation in the S3 gateway
 - 7250: Remove path for the user container to access Pachyderm's storage secret
-
 ## 2.0.8
-
 - Return 404 instead of 400 on trailing slash - #7320
 - Obj: Don't hold locks while doing Gets in the cacheClient - #7309
 ## 2.0.7
