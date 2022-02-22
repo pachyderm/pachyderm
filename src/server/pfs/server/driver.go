@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -1107,6 +1108,40 @@ func passesCommitOriginFilter(commitInfo *pfs.CommitInfo, all bool, originKind p
 	return commitInfo.Origin.Kind != pfs.OriginKind_ALIAS
 }
 
+func (d *driver) estimateCompactionProgress(ctx context.Context, commit *pfs.Commit) (float32, error) {
+	// commit finishing may be in progress, estimate progress
+	commitKey := commit.String()
+	var taskCount, doneCount float32
+	var taskPhase string
+	if err := d.env.TaskService.List(ctx, storageTaskNamespace, commit.ID, func(_, _ string, data *task.Task, _ bool) error {
+		if data.Label == commitKey {
+			taskCount++
+			if data.State == task.State_SUCCESS {
+				doneCount++
+			}
+			taskPhase, _ = types.AnyMessageName(data.Input)
+		}
+		return nil
+	}); err != nil {
+		return 0, errors.EnsureStack(err)
+	}
+
+	// assume the three parts of a single compaction step are roughly equal in time
+	// and ignore that there may be multiple serial compaction operations
+	var baseProgress float32
+	switch taskPhase {
+	case proto.MessageName(&ShardTask{}):
+		baseProgress = 0
+	case proto.MessageName(&CompactTask{}):
+		baseProgress = 1 / 3
+	case proto.MessageName(&ConcatTask{}):
+		baseProgress = 2 / 3
+	default:
+		return 0, nil
+	}
+	return baseProgress + doneCount/(3*taskCount), nil
+}
+
 func (d *driver) listCommit(
 	ctx context.Context,
 	repo *pfs.Repo,
@@ -1177,6 +1212,13 @@ func (d *driver) listCommit(
 				}
 				var err error
 				ci.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, ci.Commit)
+				if ci.Finishing != nil && ci.Finished == nil && ci.Error == "" {
+					if progress, err := d.estimateCompactionProgress(ctx, ci.Commit); err != nil {
+						log.Warnf("couldn't estimate progress for %v: %v", ci, err)
+					} else {
+						ci.Details.EstimatedCompactionProgress = progress
+					}
+				}
 				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 					return err
 				}

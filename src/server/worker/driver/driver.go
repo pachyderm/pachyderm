@@ -274,7 +274,7 @@ func (d *driver) NewTaskSource() task.Source {
 func (d *driver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, cache)
+	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, task.WithCache(cache))
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {

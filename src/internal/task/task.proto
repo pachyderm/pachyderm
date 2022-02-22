@@ -23,6 +23,7 @@ message Task {
   google.protobuf.Any output = 4;
   string reason = 5;
   int64 index = 6;
+  string label = 7;
 }
 
 message Claim {}

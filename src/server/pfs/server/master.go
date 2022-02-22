@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
@@ -18,11 +17,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
+	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -140,7 +141,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				details := &pfs.CommitInfo_Details{}
 				// Compact the commit.
 				// TODO: Implement task service cache for compaction.
-				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, nil)
+				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, task.WithLabel(commit.String()))
 				var totalId *fileset.ID
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {

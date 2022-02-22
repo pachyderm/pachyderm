@@ -39,12 +39,16 @@ func NewEtcdService(etcdClient *etcd.Client, etcdPrefix string) Service {
 	}
 }
 
-func (es *etcdService) NewDoer(namespace, group string, cache Cache) Doer {
+func (es *etcdService) NewDoer(namespace, group string, opts ...DoerOption) Doer {
 	if group == "" {
 		group = uuid.NewWithoutDashes()
 	}
+	var config doerConfig
+	for _, opt := range opts {
+		opt(&config)
+	}
 	namespaceEtcd := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return newEtcdDoer(namespaceEtcd, group, cache)
+	return newEtcdDoer(namespaceEtcd, group, config)
 }
 
 func (es *etcdService) NewSource(namespace string) Source {
@@ -104,15 +108,16 @@ func newCollection(etcdClient *etcd.Client, etcdPrefix string, template proto.Me
 
 type etcdDoer struct {
 	*namespaceEtcd
-	group string
-	cache Cache
+	group, label string
+	cache        Cache
 }
 
-func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, cache Cache) Doer {
+func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, config doerConfig) Doer {
 	return &etcdDoer{
 		namespaceEtcd: namespaceEtcd,
 		group:         group,
-		cache:         cache,
+		cache:         config.cache,
+		label:         config.label,
 	}
 }
 
@@ -206,6 +211,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					Input: input,
 					State: State_RUNNING,
 					Index: index,
+					Label: ed.label,
 				}
 				index++
 				if err := renewer.Put(ctx, taskKey, task); err != nil {
