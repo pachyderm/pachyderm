@@ -4,7 +4,7 @@ In order to develop pachyderm against a gcloud-deployed cluster, follow these in
 
 ## First steps
 
-First follow the [general setup instructions](https://github.com/pachyderm/pachyderm/blob/master/doc/contributing/setup.md){target=_blank}.
+First follow the [general setup instructions](https://github.com/pachyderm/pachyderm/blob/2.0.x/doc/contributing/setup.md){target=_blank}.
 
 ## gcloud
 

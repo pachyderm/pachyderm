@@ -59,6 +59,12 @@
   force = true
 
 [[redirects]]
+  from = "/1.12.x/*"
+  to = "/latest/archive/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/1.11.x/*"
   to = "/latest/archive/"
   status = 301
@@ -77,8 +83,8 @@
   force = true
 
 [[redirects]]
-  from = "/2.0.x-rc/*"
-  to = "/2.0.x/:splat"
+  from = "/2.1.x/*"
+  to = "/latest/:splat"
   status = 301
   force = true
 

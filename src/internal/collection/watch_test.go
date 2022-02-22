@@ -194,7 +194,7 @@ func NewWatchShim(ctx context.Context, t *testing.T, doWatch func(context.Contex
 
 func watchTests(
 	parent *testing.T,
-	newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback),
+	newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback),
 ) {
 	testInterruptionPreemptive := func(t *testing.T, makeWatcher func() (watch.Watcher, error)) {
 		watcher, err := makeWatcher()

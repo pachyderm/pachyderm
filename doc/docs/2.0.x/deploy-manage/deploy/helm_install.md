@@ -5,7 +5,7 @@ The package manager [Helm](https://helm.sh/docs/intro/install/#helm){target=_bla
 !!! Reminder
     **Pachyderm services are exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)** except for LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations).
 
-This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm){target=_blank}.
+This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/2.0.x/etc/helm/pachyderm){target=_blank}.
 
 !!! Important "Before your start your installation process." 
       - Refer to this generic page for more information on  how to install and get started with `Helm`.
@@ -26,14 +26,14 @@ This page gives a high level view of the steps to follow to install Pachyderm us
     * Additionally, those instructions will also help you configure the various elements (object store, credentials...) that relate to your deployment needs. Those parameters values will **be specified in a YAML configuration file** as follows.
 
 ### Edit a Values.yaml File
-Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
+Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/2.0.x/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
 
 See the reference [values.yaml](../../../reference/helm_values/) for the list of all available helm values at your disposal.
 
 !!! Warning
     **No default k8s CPU and memory requests and limits** are created for pachd.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
     
-    For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
+    For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml){target=_blank}** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
 
 !!! Note "**Platform Secrets: READ BEFORE ANY INSTALL OR UPGRADE**" 
         Pachyderm recommends using **"platform secrets"** to hold the values needed by a cluster at the time of the deployment (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key). 
