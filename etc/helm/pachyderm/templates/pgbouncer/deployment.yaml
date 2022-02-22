@@ -70,3 +70,6 @@ spec:
           requests:
             cpu: 250m
             memory: 256M
+      {{ - if .Values.pgbouncer.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.pgbouncer.nodeSelector | nindent 8 }}
+      {{ - end }}

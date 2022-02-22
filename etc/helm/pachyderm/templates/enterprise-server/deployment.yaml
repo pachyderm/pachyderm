@@ -113,6 +113,9 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+      {{- if .Values.enterpriseServer.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.enterpriseServer.nodeSelector | nindent 8 }}
+      {{- end }}
       volumes:
       {{- if .Values.enterpriseServer.tls.enabled }}
       - name: pachd-tls-cert
