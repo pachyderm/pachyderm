@@ -84,7 +84,7 @@
 
 [[redirects]]
   from = "/2.1.x/*"
-  to = "latest/:splat"
+  to = "/latest/:splat"
   status = 301
   force = true
 
