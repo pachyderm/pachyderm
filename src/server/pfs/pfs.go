@@ -228,7 +228,7 @@ func (e ErrCommitNotFinished) Error() string {
 }
 
 func (e ErrBaseCommitNotFinished) Error() string {
-	return fmt.Sprintf("base commit %v for commit %v not finished", e.BaseCommit, e.Commit)
+	return fmt.Sprintf("base commit %v for commit %v unfinished", e.BaseCommit, e.Commit)
 }
 
 func (e ErrAmbiguousCommit) Error() string {
@@ -263,7 +263,7 @@ var (
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
-	baseCommitNotFinishedRe   = regexp.MustCompile("base commit .+ not finished")
+	baseCommitNotFinishedRe   = regexp.MustCompile("base commit .+ unfinished")
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
 	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")

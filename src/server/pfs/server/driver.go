@@ -1176,7 +1176,6 @@ func (d *driver) listCommit(
 					ci = cis[len(cis)-1-i]
 				}
 				var err error
-				// TODO: Set SizeBytesUpperBound to a sentinel value when the base is not finished.
 				ci.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, ci.Commit)
 				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 					return err
