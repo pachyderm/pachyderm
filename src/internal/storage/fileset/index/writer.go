@@ -29,7 +29,7 @@ type data struct {
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
 	ctx    context.Context
-	cancel func()
+	cancel context.CancelFunc
 	chunks *chunk.Storage
 	tmpID  string
 
@@ -83,12 +83,11 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 func (w *Writer) setupLevel(idx *Index, level int) {
 	if level == w.numLevels() {
 		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
-		lw := &levelWriter{
-			cw:  cw,
-			pbw: pbutil.NewWriter(cw),
-		}
-		w.createLevel(lw)
-		lw.firstIdx = idx
+		w.createLevel(&levelWriter{
+			cw:       cw,
+			pbw:      pbutil.NewWriter(cw),
+			firstIdx: idx,
+		})
 	}
 }
 
@@ -99,16 +98,10 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 		if len(annotations) == 0 {
 			return nil
 		}
-		select {
-		case <-w.ctx.Done():
-			return nil
-		default:
-		}
 
 		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
 		idx := proto.Clone(annotations[0].Data.(*data).idx).(*Index)
-		idx.File = nil
 		dataRef := proto.Clone(annotations[0].NextDataRef).(*chunk.DataRef)
 		// Edge case handling.
 		if len(annotations) > 1 {
@@ -118,6 +111,7 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 				dataRef = proto.Clone(annotations[1].NextDataRef).(*chunk.DataRef)
 			}
 		}
+		idx.File = nil
 
 		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
 		lw.lastIdx.File = nil
@@ -147,13 +141,13 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	// Any additional chunks that are created at or above the level with the one index
 	// entry (chunk split point in the middle) will be unreferenced and therefore cleaned
 	// up by garbage collection.
+	defer w.cancel()
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
 		if l.firstIdx.Path == l.lastIdx.Path {
-			defer w.cancel()
 			return l.firstIdx, nil
 		}
 	}
