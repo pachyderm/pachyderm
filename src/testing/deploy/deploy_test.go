@@ -40,10 +40,11 @@ func mockIDPLogin(t *testing.T, c *client.APIClient) {
 	vals.Add("login", "admin")
 	vals.Add("password", "password")
 
-	resp, err = hc.PostForm(resp.Request.URL.String(), vals)
+	_, err = hc.PostForm(resp.Request.URL.String(), vals)
 	require.NoError(t, err)
 
 	authResp, err := c.AuthAPIClient.Authenticate(c.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
+	require.NoError(t, err)
 	c.SetAuthToken(authResp.PachToken)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
