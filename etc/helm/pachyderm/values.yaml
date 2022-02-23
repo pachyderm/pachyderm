@@ -514,6 +514,9 @@ postgresql:
   primary:
     nodeSelector: {}
     tolerations: []
+  readReplicas:
+    nodeSelector: {}
+    tolerations: []
 
 cloudsqlAuthProxy:
   # connectionName may be found by running `gcloud sql instances describe INSTANCE_NAME --project PROJECT_ID`

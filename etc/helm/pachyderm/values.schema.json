@@ -917,6 +917,17 @@
                             "type": "array"
                         }
                     }
+                },
+                "readReplicas": {
+                    "type": "object",
+                    "properties": {
+                        "nodeSelector": {
+                            "type": "object"
+                        },
+                        "tolerations": {
+                            "type": "array"
+                        }
+                    }
                 }
             }
         }
