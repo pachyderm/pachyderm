@@ -50,3 +50,7 @@
 .commitEnterActive .commitInfo, .commitEnterDone .commitInfo {
   border-left: 1px dashed var(--banner-green);
 }
+
+.loadingDots {
+  margin-top: 6rem;
+}

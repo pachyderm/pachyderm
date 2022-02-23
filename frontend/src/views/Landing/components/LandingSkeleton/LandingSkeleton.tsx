@@ -40,7 +40,7 @@ const LandingSkeleton: React.FC = () => {
             </TableView.Body>
           </TableView>
         </View>
-        <Sidebar />
+        <Sidebar className={styles.sidebar} />
       </div>
     </>
   );

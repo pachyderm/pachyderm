@@ -21,7 +21,6 @@ const emptyRepoMessage = 'Commit your first file on this repo!';
 type CommitBrowserProps = {
   repo?: RepoQuery['repo'];
   repoBaseRef: React.RefObject<HTMLDivElement>;
-  loading: boolean;
 };
 
 const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
@@ -45,7 +44,10 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
 
   if (loading) {
     return (
-      <div data-testid="CommitBrowser__loadingdots">
+      <div
+        data-testid="CommitBrowser__loadingdots"
+        className={styles.loadingDots}
+      >
         <LoadingDots />
       </div>
     );

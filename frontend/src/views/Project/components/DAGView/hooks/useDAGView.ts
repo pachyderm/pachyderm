@@ -22,7 +22,8 @@ import {NODE_HEIGHT, NODE_WIDTH} from '../../../constants/nodeSizes';
 
 const SIDEBAR_WIDTH = 384;
 const MIN_DAG_HEIGHT = 300;
-const DAG_TOP_PADDING = 100;
+const DAG_TOP_PADDING = 130;
+const SIDENAV_PADDING = 200;
 export const MAX_SCALE_VALUE = 1.5;
 const CENTER_SCALE_VALUE = 1;
 const DEFAULT_MINIMUM_SCALE_VALUE = 0.6;
@@ -75,7 +76,7 @@ export const useDAGView = (
 ) => {
   const [svgSize, setSvgSize] = useState({
     height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
-    width: window.innerWidth,
+    width: window.innerWidth - SIDENAV_PADDING,
   });
   const {overlay} = useSidebarInfo();
   const {selectedNode} = useRouteController();
@@ -206,7 +207,7 @@ export const useDAGView = (
     const resizeSvg = () =>
       setSvgSize({
         height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
-        width: window.innerWidth,
+        width: window.innerWidth - SIDENAV_PADDING,
       });
     window.addEventListener('resize', resizeSvg, true);
     return () => window.removeEventListener('resize', resizeSvg);

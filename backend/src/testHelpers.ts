@@ -166,6 +166,7 @@ const executeMutation = async <T>(
   try {
     data = await client.mutate<T>({mutation, variables, context});
   } catch (err) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     errors = (err as Record<string, any>).graphQLErrors as ApolloError[];
   }
 

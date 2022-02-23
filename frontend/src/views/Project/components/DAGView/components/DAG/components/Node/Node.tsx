@@ -138,6 +138,7 @@ const Node: React.FC<NodeProps> = ({
           y={INPUT_REPO_ICON_Y_OFFSET}
           pointerEvents="none"
           href="/dag_input_repo.svg"
+          transform="scale(0.9)"
         />
       )}
 

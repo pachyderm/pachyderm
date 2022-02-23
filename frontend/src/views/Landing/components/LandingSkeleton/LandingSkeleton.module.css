@@ -20,3 +20,9 @@
 .loadingProjectCell {
   background-color: var(--white);
 }
+
+.sidebar {
+  /* the sidebar components gets its width set dynamically,
+  so we need the !important here to give it a width without any content */
+  width: var(--sidebar-width-sm) !important;
+}

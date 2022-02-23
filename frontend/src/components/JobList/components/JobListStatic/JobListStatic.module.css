@@ -9,3 +9,7 @@
   overflow-y: auto;
   max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
 }
+
+.loadingDots {
+  margin-top: 6rem;
+}

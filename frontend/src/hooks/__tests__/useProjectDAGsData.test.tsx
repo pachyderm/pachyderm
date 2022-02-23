@@ -12,7 +12,6 @@ import {
   SUBSCRIPTION_TIMEOUT,
 } from '@dash-frontend/testHelpers';
 import {
-  jobRoute,
   lineageRoute,
   pipelineRoute,
 } from '@dash-frontend/views/Project/utils/routes';

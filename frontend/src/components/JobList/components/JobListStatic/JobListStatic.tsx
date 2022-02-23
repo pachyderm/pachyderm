@@ -32,7 +32,10 @@ const JobListBase: React.FC<JobListBaseProps> = ({
 }) => {
   if (loading)
     return (
-      <div data-testid="JobListStatic__loadingdots">
+      <div
+        data-testid="JobListStatic__loadingdots"
+        className={styles.loadingDots}
+      >
         <LoadingDots />
       </div>
     );
