@@ -141,15 +141,15 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 func (w *Writer) Close() (ret *Index, retErr error) {
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. Levels stop getting
-	// created when the top level chunk writer has been closed and the number of
-	// annotations and chunks it has is one (one annotation in one chunk).
+	// created when the top level chunk writer has been closed and the level chunk
+	// writer's first and last index are the same.
+	// Duplicate indeces may occur if a split point is found in a written index.
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
 		logrus.Errorf("FirstIdx: '%v'\nLastIdx: '%v'\n", l.firstIdx.Path, l.lastIdx.Path)
-		// We use first and last idx to determine
 		if l.firstIdx.Path == l.lastIdx.Path {
 			w.closed <- struct{}{}
 			return l.firstIdx, nil
