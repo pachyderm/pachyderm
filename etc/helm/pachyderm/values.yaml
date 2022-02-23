@@ -54,6 +54,7 @@ console:
     # replicates the --console-image argument to pachctl deploy.
     tag: "2.1.0-1"
   nodeSelector: {}
+  tolerations: []
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
@@ -135,6 +136,7 @@ enterpriseServer:
   enabled: false
   affinity: {}
   annotations: {}
+  tolerations: []
   nodeSelector: {}
   service:
     type: ClusterIP
@@ -194,6 +196,7 @@ loki-stack:
       storageClassName: standard
       annotations: {}
       nodeSelector: {}
+      tolerations: []
   grafana:
     enabled: false
 
@@ -463,6 +466,7 @@ pgbouncer:
     type: ClusterIP
   annotations: {}
   nodeSelector: {}
+  tolerations: []
   resources: {}
     #limits:
     #  cpu: "1"
@@ -509,6 +513,7 @@ postgresql:
       suite: pachyderm
   primary:
     nodeSelector: {}
+    tolerations: []
 
 cloudsqlAuthProxy:
   # connectionName may be found by running `gcloud sql instances describe INSTANCE_NAME --project PROJECT_ID`
@@ -526,6 +531,7 @@ cloudsqlAuthProxy:
     # replicates the --dash-image argument to pachctl deploy.
     tag: "1.23.0"
   nodeSelector: {}
+  tolerations: []
   # podLabels specifies labels to add to the dash pod.
   podLabels: {}
   # resources specifies the resource request and limits.

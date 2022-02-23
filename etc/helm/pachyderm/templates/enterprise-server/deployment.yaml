@@ -116,6 +116,9 @@ spec:
       {{- if .Values.enterpriseServer.nodeSelector }}
       nodeSelector: {{ toYaml .Values.enterpriseServer.nodeSelector | nindent 8 }}
       {{- end }}
+      {{- if .Values.enterpriseServer.tolerations }}
+      tolerations: {{ toYaml .Values.enterpriseServer.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
       {{- if .Values.enterpriseServer.tls.enabled }}
       - name: pachd-tls-cert

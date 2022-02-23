@@ -73,3 +73,6 @@ spec:
       {{- if .Values.pgbouncer.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pgbouncer.nodeSelector | nindent 8 }}
       {{- end }}
+      {{- if .Values.pgbouncer.tolerations }}
+      tolerations: {{ toYaml .Values.pgbouncer.tolerations | nindent 8 }}
+      {{- end }}

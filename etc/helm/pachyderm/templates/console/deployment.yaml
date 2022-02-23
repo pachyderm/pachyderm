@@ -96,6 +96,9 @@ spec:
       {{- if .Values.console.nodeSelector }}
       nodeSelector: {{ toYaml .Values.console.nodeSelector | nindent 8 }}
       {{- end }}
+      {{- if .Values.console.tolerations }}
+      tolerations: {{ toYaml .Values.console.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
       {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
       - name: pachd-tls-cert

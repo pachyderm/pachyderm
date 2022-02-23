@@ -47,4 +47,7 @@ spec:
       {{- if .Values.cloudsqlAuthProxy.nodeSelector }}
       nodeSelector: {{ toYaml .Values.cloudsqlAuthProxy.nodeSelector | nindent 8 }}
       {{- end }}
+      {{- if .Values.cloudsqlAuthProxy.tolerations }}
+      tolerations: {{ toYaml .Values.cloudsqlAuthProxy.tolerations | nindent 8 }}
+      {{- end }}
 {{ end -}}
