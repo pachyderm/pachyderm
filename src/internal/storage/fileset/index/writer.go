@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -50,22 +50,11 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
-	w.setupLevels()
 	return w.writeIndex(idx, 0)
 }
 
-func (w *Writer) setupLevels() {
-	// Setup the first index level.
-	if w.numLevels() == 0 {
-		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(0), chunk.WithRollingHashConfig(averageBits, 0))
-		w.createLevel(&levelWriter{
-			cw:  cw,
-			pbw: pbutil.NewWriter(cw),
-		})
-	}
-}
-
 func (w *Writer) writeIndex(idx *Index, level int) error {
+	w.setupLevel(level)
 	idx = proto.Clone(idx).(*Index)
 	l := w.getLevel(level)
 	var refDataRefs []*chunk.DataRef
@@ -91,6 +80,16 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	return errors.EnsureStack(err)
 }
 
+func (w *Writer) setupLevel(level int) {
+	if level == w.numLevels() {
+		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
+		w.createLevel(&levelWriter{
+			cw:  cw,
+			pbw: pbutil.NewWriter(cw),
+		})
+	}
+}
+
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
 		// TODO: what's going on here?
@@ -107,6 +106,7 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
 		idx := proto.Clone(annotations[0].Data.(*data).idx).(*Index)
+		idx.File = nil
 		dataRef := proto.Clone(annotations[0].NextDataRef).(*chunk.DataRef)
 		// Edge case handling.
 		if len(annotations) > 1 {
@@ -117,9 +117,11 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			}
 		}
 		if lw.firstIdx == nil {
-			lw.firstIdx = proto.Clone(annotations[0].Data.(*data).idx).(*Index)
+			lw.firstIdx = idx
 		}
+
 		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
+		lw.lastIdx.File = nil
 		// Set standard fields in index.
 		lastPath := lw.lastIdx.Path
 		if lw.lastIdx.Range != nil {
@@ -129,15 +131,6 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
 			ChunkRef: chunk.Reference(dataRef),
-		}
-		idx.File = nil
-		// Create next index level if it does not exist.
-		if level == w.numLevels()-1 {
-			cw := w.chunks.NewWriter(w.ctx, uuid.NewWithoutDashes(), w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
-			w.createLevel(&levelWriter{
-				cw:  cw,
-				pbw: pbutil.NewWriter(cw),
-			})
 		}
 		// Write index entry in next index level.
 		return w.writeIndex(idx, level+1)
@@ -152,15 +145,17 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	// annotations and chunks it has is one (one annotation in one chunk).
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
-		if proto.Equal(l.firstIdx, l.lastIdx) {
-			w.closed <- struct{}{}
-			return l.firstIdx, nil
-		}
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
+		logrus.Errorf("FirstIdx: '%v'\nLastIdx: '%v'\n", l.firstIdx.Path, l.lastIdx.Path)
+		// We use first and last idx to determine
+		if l.firstIdx.Path == l.lastIdx.Path {
+			w.closed <- struct{}{}
+			return l.firstIdx, nil
+		}
 	}
-	return nil, errors.New("index writer failed to close.")
+	return nil, nil
 }
 
 func (w *Writer) createLevel(l *levelWriter) {
