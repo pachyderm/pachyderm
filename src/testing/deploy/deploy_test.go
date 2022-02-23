@@ -13,10 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-func TestDeployEnterprise(t *testing.T) {
+func TestDeployEnterprise(t testing.TB) {
 	k := testutil.GetKubeClient(t)
-	minikubetestenv.DeleteRelease(t, context.Background(), k) // cleanup cluster
-	c := minikubetestenv.InstallReleaseEnterprise(t, context.Background(), k, auth.RootUser)
+	c := minikubetestenv.InstallReleaseEnterprise(t, context.Background(), k, auth.RootUser, true)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
@@ -24,7 +23,7 @@ func TestDeployEnterprise(t *testing.T) {
 	mockIDPLogin(t, c)
 }
 
-func mockIDPLogin(t *testing.T, c *client.APIClient) {
+func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	// login using mock IDP admin
 	hc := &http.Client{}
 	c.SetAuthToken("")

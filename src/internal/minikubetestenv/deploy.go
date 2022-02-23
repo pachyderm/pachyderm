@@ -30,7 +30,7 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
-func getPachAddress(t *testing.T) *grpcutil.PachdAddress {
+func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	cfg, err := config.Read(false, false)
 	require.NoError(t, err)
 
@@ -69,7 +69,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(t *testing.T, namespace string) *helm.Options {
+func withEnterprise(t testing.TB, namespace string) *helm.Options {
 	addr := getPachAddress(t)
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
@@ -103,7 +103,7 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
-func waitForPachd(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
+func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
 		if err != nil {
@@ -119,27 +119,37 @@ func waitForPachd(t *testing.T, ctx context.Context, kubeClient *kube.Clientset,
 }
 
 // Deploy pachyderm using a `helm install ...`, then run a test with an API Client corresponding to the deployment
-func InstallPublishedRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, version, user string) *client.APIClient {
+func InstallPublishedRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, version, user string, cleanup bool) *client.APIClient {
+	maybeCleanup(t, cleanup, kubeClient)
 	require.NoError(t, helm.InstallE(t, localDeploymentWithMinioOptions(ns, version), helmChartPublishedPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, version)
 	return testutil.AuthenticatedPachClient(t, testutil.NewPachClient(t), user)
 }
 
-func UpgradeRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string) *client.APIClient {
+func UpgradeRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, user string, cleanup bool) *client.APIClient {
+	maybeCleanup(t, cleanup, kubeClient)
 	require.NoError(t, helm.UpgradeE(t, localDeploymentWithMinioOptions(ns, localImage), helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
 	return testutil.AuthenticatedPachClient(t, testutil.NewPachClient(t), user)
 }
 
-func InstallReleaseEnterprise(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string) *client.APIClient {
+func InstallReleaseEnterprise(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, user string, cleanup bool) *client.APIClient {
+	maybeCleanup(t, cleanup, kubeClient)
 	createSecretEnterpriseKeySecret(t, ctx, kubeClient, ns)
 	opts := union(localDeploymentWithMinioOptions(ns, localImage), withEnterprise(t, ns))
 	require.NoError(t, helm.InstallE(t, opts, helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
 	return testutil.AuthenticatedPachClientPostActivate(t, testutil.NewPachClient(t), user)
 }
+func maybeCleanup(t testing.TB, cleanup bool, kubeClient *kube.Clientset) {
+	if cleanup {
+		t.Cleanup(func() {
+			deleteRelease(t, context.Background(), kubeClient)
+		})
+	}
+}
 
-func DeleteRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset) {
+func deleteRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset) {
 	options := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: ns},
 	}
@@ -158,7 +168,7 @@ func DeleteRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientset
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
-func createSecretEnterpriseKeySecret(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, ns string) {
+func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
 	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: licenseKeySecretName},
 		StringData: map[string]string{
