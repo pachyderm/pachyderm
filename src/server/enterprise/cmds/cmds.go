@@ -322,7 +322,7 @@ func PauseStatusCmd() *cobra.Command {
 			defer c.Close()
 			resp, err := c.Enterprise.PauseStatus(c.Ctx(), &enterprise.PauseStatusRequest{})
 			if err != nil {
-				return errors.Wrapf(err, "could not pause cluster")
+				return errors.Wrapf(err, "could not get pause status")
 			}
 			switch resp.Status {
 			case enterprise.PauseStatusResponse_UNPAUSED:
