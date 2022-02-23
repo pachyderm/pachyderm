@@ -36,9 +36,13 @@ var (
 
 func TestEtcdCollections(suite *testing.T) {
 	etcdEnv := testetcd.NewEnv(suite)
-	newCollection := func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
+	newCollection := func(ctx context.Context, t *testing.T, noIndex ...bool) (ReadCallback, WriteCallback) {
 		prefix := testutil.UniqueString("test-etcd-collections-")
-		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, []*col.Index{TestSecondaryIndex}, &col.TestItem{}, nil, nil)
+		index := []*col.Index{TestSecondaryIndex}
+		if len(noIndex) > 0 && noIndex[0] {
+			index = nil
+		}
+		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, index, &col.TestItem{}, nil, nil)
 
 		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
 			return testCol.ReadOnly(ctx)

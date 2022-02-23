@@ -5360,6 +5360,7 @@ func TestPFS(suite *testing.T) {
 			// Create a downstream branch
 			require.NoError(t, c.CreateRepo("out"))
 			require.NoError(t, c.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "trigger")}))
+			require.NoError(t, c.FinishCommit("out", "master", ""))
 			require.NoError(t, c.CreateBranchTrigger("out", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
 				Size_:  "1K",

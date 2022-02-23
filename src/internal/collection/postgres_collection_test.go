@@ -60,8 +60,8 @@ func TestPostgresCollectionsProxy(suite *testing.T) {
 	}))
 }
 
-func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col.PostgresListener)) func(context.Context, *testing.T) (ReadCallback, WriteCallback) {
-	return func(ctx context.Context, t *testing.T) (ReadCallback, WriteCallback) {
+func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col.PostgresListener)) func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback) {
+	return func(ctx context.Context, t *testing.T, noIndex ...bool) (ReadCallback, WriteCallback) {
 		db, listener := setup(ctx, t)
 		opts := []col.Option{col.WithListBufferCapacity(3)} // set the list buffer capacity to 3
 		testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex}, opts...)
@@ -83,7 +83,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 	}
 }
 
-func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback)) {
+func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback)) {
 	collectionTests(suite, newCollection)
 
 	// Postgres collections support getting multiple rows by a secondary index,
@@ -201,7 +201,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 	// TODO: test keycheck function
 }
 
-func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback)) {
+func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback)) {
 	watchTests(suite, newCollection)
 }
 
