@@ -92,11 +92,6 @@ func (w *Writer) setupLevel(level int) {
 
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
-		// TODO: what's going on here?
-		if len(annotations) == 0 {
-			return nil
-		}
-
 		select {
 		case <-w.closed:
 			return nil
