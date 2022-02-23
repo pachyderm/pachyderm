@@ -29,21 +29,22 @@ type data struct {
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
 	ctx    context.Context
+	cancel func()
 	chunks *chunk.Storage
 	tmpID  string
 
 	levelsMu sync.RWMutex
 	levels   []*levelWriter
-	done     chan struct{}
 }
 
 // NewWriter create a new Writer.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
+	ctx, cancel := context.WithCancel(ctx)
 	return &Writer{
 		ctx:    ctx,
+		cancel: cancel,
 		chunks: chunks,
 		tmpID:  tmpID,
-		done:   make(chan struct{}, 1),
 	}
 }
 
@@ -76,7 +77,6 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 		return err
 	}
 	_, err := l.pbw.Write(idx)
-	l.lastIdx = idx
 	return errors.EnsureStack(err)
 }
 
@@ -88,9 +88,7 @@ func (w *Writer) setupLevel(idx *Index, level int) {
 			pbw: pbutil.NewWriter(cw),
 		}
 		w.createLevel(lw)
-		if lw.firstIdx == nil {
-			lw.firstIdx = proto.Clone(idx).(*Index)
-		}
+		lw.firstIdx = idx
 	}
 }
 
@@ -102,7 +100,7 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			return nil
 		}
 		select {
-		case <-w.done:
+		case <-w.ctx.Done():
 			return nil
 		default:
 		}
@@ -121,10 +119,12 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			}
 		}
 
-		lastIdx := proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
-		lastPath := lastIdx.Path
-		if lastIdx.Range != nil {
-			lastPath = lastIdx.Range.LastPath
+		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
+		lw.lastIdx.File = nil
+		// Set standard fields in index.
+		lastPath := lw.lastIdx.Path
+		if lw.lastIdx.Range != nil {
+			lastPath = lw.lastIdx.Range.LastPath
 		}
 		// Set standard fields in index.
 		idx.Range = &Range{
@@ -139,19 +139,22 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 
 // Close finishes the index, and returns the serialized top index level.
 func (w *Writer) Close() (ret *Index, retErr error) {
+	// Close levels until a level with only one index entry (first index == last index)
+	// exists and return the index.
 	// Note: new levels can be created while closing, so the number of iterations
-	// necessary can increase as the levels are being closed. Levels stop getting
-	// created when the top level chunk writer has been closed and the level chunk
-	// writer's first and last index are the same.
-	// Duplicate indeces may occur if a split point is found in a written index.
+	// necessary can increase as the levels are being closed. Closing the done channel
+	// will prevent new levels from being created after the top level index is found.
+	// Any additional chunks that are created at or above the level with the one index
+	// entry (chunk split point in the middle) will be unreferenced and therefore cleaned
+	// up by garbage collection.
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
-		if l.firstIdx.Path == l.lastIdx.Path {
-			w.done <- struct{}{}
-			return l.firstIdx, nil
-		}
 		if err := l.cw.Close(); err != nil {
 			return nil, err
+		}
+		if l.firstIdx.Path == l.lastIdx.Path {
+			defer w.cancel()
+			return l.firstIdx, nil
 		}
 	}
 	return nil, nil
