@@ -2,10 +2,13 @@ package sdata
 
 import (
 	"database/sql"
+	"fmt"
+	"io"
 	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 // MaterializationResult is returned by MaterializeSQL
@@ -85,4 +88,52 @@ func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 		row[i] = v
 	}
 	return row
+}
+
+// SQLTableInfo contains info about a SQL table.
+type SQLTableInfo struct {
+	Name    string
+	Columns []string
+	Tuple   Tuple
+}
+
+func LookupSQLTableInfo(tx *pachsql.Tx, tableName string) (*SQLTableInfo, error) {
+	// Query information schema to get collum
+	type infoRow struct {
+	}
+	infoRows := []infoRow{}
+	if err := tx.Select(infoRows, ""); err != nil {
+		return nil, err
+	}
+	colNames := []string{}
+	return &SQLTableInfo{
+		Name:    tableName,
+		Columns: colNames,
+		Tuple:   nil, // TODO
+	}, nil
+}
+
+// LoadSQL parses data from
+func LoadSQL(tx *pachsql.Tx, tableName string, r TupleReader) error {
+	// TODO: batch this into fewer insert statements
+	ti, err := LookupSQLTableInfo(tx, tableName)
+	if err != nil {
+		return err
+	}
+	row := ti.Tuple
+	for {
+		err := r.Next(row)
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+	}
+	// TODO: prevent SQL injection
+	q := fmt.Sprintf("INSERT INTO %s", tableName)
+	res, err := tx.Exec(q)
+	if err != nil {
+		return err
+	}
+	return nil
 }
