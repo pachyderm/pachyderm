@@ -25,6 +25,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -47,6 +50,9 @@
                 },
                 "serviceAccount": {
                     "type": "string"
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -102,6 +108,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -118,6 +127,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -152,6 +164,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "nodeSelector": {
+                    "type": "object"
                 },
                 "podLabels": {
                     "type": "object"
@@ -191,6 +206,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -382,11 +400,17 @@
                                 "enabled": {
                                     "type": "boolean"
                                 },
+                                "nodeSelector": {
+                                    "type": "object"
+                                },
                                 "size": {
                                     "type": "string"
                                 },
                                 "storageClassName": {
                                     "type": "string"
+                                },
+                                "tolerations": {
+                                    "type": "array"
                                 }
                             }
                         }
@@ -820,6 +844,9 @@
                 "maxConnections": {
                     "type": "integer"
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -830,6 +857,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -874,6 +904,28 @@
                         },
                         "storageClass": {
                             "type": "string"
+                        }
+                    }
+                },
+                "primary": {
+                    "type": "object",
+                    "properties": {
+                        "nodeSelector": {
+                            "type": "object"
+                        },
+                        "tolerations": {
+                            "type": "array"
+                        }
+                    }
+                },
+                "readReplicas": {
+                    "type": "object",
+                    "properties": {
+                        "nodeSelector": {
+                            "type": "object"
+                        },
+                        "tolerations": {
+                            "type": "array"
                         }
                     }
                 }
