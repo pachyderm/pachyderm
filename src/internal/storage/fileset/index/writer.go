@@ -34,7 +34,7 @@ type Writer struct {
 
 	levelsMu sync.RWMutex
 	levels   []*levelWriter
-	closed   chan struct{}
+	done     chan struct{}
 }
 
 // NewWriter create a new Writer.
@@ -43,7 +43,7 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 		ctx:    ctx,
 		chunks: chunks,
 		tmpID:  tmpID,
-		closed: make(chan struct{}, 1),
+		done:   make(chan struct{}, 1),
 	}
 }
 
@@ -53,8 +53,8 @@ func (w *Writer) WriteIndex(idx *Index) error {
 }
 
 func (w *Writer) writeIndex(idx *Index, level int) error {
-	w.setupLevel(level)
 	idx = proto.Clone(idx).(*Index)
+	w.setupLevel(idx, level)
 	l := w.getLevel(level)
 	var refDataRefs []*chunk.DataRef
 	if idx.Range != nil {
@@ -76,27 +76,33 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 		return err
 	}
 	_, err := l.pbw.Write(idx)
+	l.lastIdx = idx
 	return errors.EnsureStack(err)
 }
 
-func (w *Writer) setupLevel(level int) {
+func (w *Writer) setupLevel(idx *Index, level int) {
 	if level == w.numLevels() {
 		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
-		w.createLevel(&levelWriter{
+		lw := &levelWriter{
 			cw:  cw,
 			pbw: pbutil.NewWriter(cw),
-		})
+		}
+		w.createLevel(lw)
+		if lw.firstIdx == nil {
+			lw.firstIdx = proto.Clone(idx).(*Index)
+		}
 	}
 }
 
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
-		// TODO: what's going on here?
+		// TODO: What's going on here? Why would a callback be called with 0 annotations.
+		//       Nothing immediately breaks when this is left out.
 		if len(annotations) == 0 {
 			return nil
 		}
 		select {
-		case <-w.closed:
+		case <-w.done:
 			return nil
 		default:
 		}
@@ -114,17 +120,13 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 				dataRef = proto.Clone(annotations[1].NextDataRef).(*chunk.DataRef)
 			}
 		}
-		if lw.firstIdx == nil {
-			lw.firstIdx = idx
-		}
 
-		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
-		lw.lastIdx.File = nil
-		// Set standard fields in index.
-		lastPath := lw.lastIdx.Path
-		if lw.lastIdx.Range != nil {
-			lastPath = lw.lastIdx.Range.LastPath
+		lastIdx := proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
+		lastPath := lastIdx.Path
+		if lastIdx.Range != nil {
+			lastPath = lastIdx.Range.LastPath
 		}
+		// Set standard fields in index.
 		idx.Range = &Range{
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
@@ -144,12 +146,12 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	// Duplicate indeces may occur if a split point is found in a written index.
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
+		if l.firstIdx.Path == l.lastIdx.Path {
+			w.done <- struct{}{}
+			return l.firstIdx, nil
+		}
 		if err := l.cw.Close(); err != nil {
 			return nil, err
-		}
-		if l.firstIdx.Path == l.lastIdx.Path {
-			w.closed <- struct{}{}
-			return l.firstIdx, nil
 		}
 	}
 	return nil, nil
