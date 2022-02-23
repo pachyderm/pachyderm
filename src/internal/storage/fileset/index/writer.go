@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -15,9 +16,9 @@ var (
 )
 
 type levelWriter struct {
-	cw      *chunk.Writer
-	pbw     pbutil.Writer
-	lastIdx *Index
+	cw                *chunk.Writer
+	pbw               pbutil.Writer
+	firstIdx, lastIdx *Index
 }
 
 type data struct {
@@ -33,9 +34,8 @@ type Writer struct {
 	tmpID  string
 
 	levelsMu sync.RWMutex
-
-	levels []*levelWriter
-	root   *Index
+	levels   []*levelWriter
+	closed   chan struct{}
 }
 
 // NewWriter create a new Writer.
@@ -44,6 +44,7 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 		ctx:    ctx,
 		chunks: chunks,
 		tmpID:  tmpID,
+		closed: make(chan struct{}, 1),
 	}
 }
 
@@ -65,6 +66,7 @@ func (w *Writer) setupLevels() {
 }
 
 func (w *Writer) writeIndex(idx *Index, level int) error {
+	idx = proto.Clone(idx).(*Index)
 	l := w.getLevel(level)
 	var refDataRefs []*chunk.DataRef
 	if idx.Range != nil {
@@ -91,22 +93,33 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
+		// TODO: what's going on here?
 		if len(annotations) == 0 {
 			return nil
 		}
+
+		select {
+		case <-w.closed:
+			return nil
+		default:
+		}
+
 		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
-		idx := annotations[0].Data.(*data).idx
-		dataRef := annotations[0].NextDataRef
+		idx := proto.Clone(annotations[0].Data.(*data).idx).(*Index)
+		dataRef := proto.Clone(annotations[0].NextDataRef).(*chunk.DataRef)
 		// Edge case handling.
 		if len(annotations) > 1 {
 			// Skip the first index if it started in the previous chunk.
 			if lw.lastIdx != nil && idx.Path == lw.lastIdx.Path {
-				idx = annotations[1].Data.(*data).idx
-				dataRef = annotations[1].NextDataRef
+				idx = proto.Clone(annotations[1].Data.(*data).idx).(*Index)
+				dataRef = proto.Clone(annotations[1].NextDataRef).(*chunk.DataRef)
 			}
 		}
-		lw.lastIdx = annotations[len(annotations)-1].Data.(*data).idx
+		if lw.firstIdx == nil {
+			lw.firstIdx = proto.Clone(annotations[0].Data.(*data).idx).(*Index)
+		}
+		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
 		// Set standard fields in index.
 		lastPath := lw.lastIdx.Path
 		if lw.lastIdx.Range != nil {
@@ -117,11 +130,7 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 			LastPath: lastPath,
 			ChunkRef: chunk.Reference(dataRef),
 		}
-		// if there's only one annotation, we are at the root index
-		// Q: shouldn't we stop the recursion with this value instead of at annotations == 0
-		if len(annotations) == 1 {
-			w.root = idx
-		}
+		idx.File = nil
 		// Create next index level if it does not exist.
 		if level == w.numLevels()-1 {
 			cw := w.chunks.NewWriter(w.ctx, uuid.NewWithoutDashes(), w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
@@ -143,14 +152,15 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	// annotations and chunks it has is one (one annotation in one chunk).
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
+		if proto.Equal(l.firstIdx, l.lastIdx) {
+			w.closed <- struct{}{}
+			return l.firstIdx, nil
+		}
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
-		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
-			break
-		}
 	}
-	return w.root, nil
+	return nil, errors.New("index writer failed to close.")
 }
 
 func (w *Writer) createLevel(l *levelWriter) {
