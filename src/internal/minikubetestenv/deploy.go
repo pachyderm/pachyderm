@@ -79,6 +79,7 @@ func withEnterprise(t *testing.T, namespace string) *helm.Options {
 			"pachd.oauthClientSecret":              "oidc-client-secret",
 			"pachd.enterpriseSecret":               "enterprise-secret",
 			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:30658", addr.Host),
+			"ingress.host":                         fmt.Sprintf("%s:30657", addr.Host),
 		},
 	}
 }
