@@ -7,6 +7,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
+    annotations: {{- toYaml .Values.console.service.annotations | nindent 4 }}
     app: console
     suite: pachyderm
     {{- if .Values.console.service.labels }}

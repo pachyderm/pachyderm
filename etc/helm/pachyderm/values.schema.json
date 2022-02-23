@@ -120,6 +120,9 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "labels": {
                             "type": "object"
                         },
@@ -621,6 +624,9 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "labels": {
                             "type": "object"
                         },

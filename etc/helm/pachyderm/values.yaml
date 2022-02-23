@@ -79,6 +79,7 @@ console:
 
 
   service:
+    annotations: {}
     # labels specifies labels to add to the console service.
     labels: {}
     # type specifies the Kubernetes type of the console service.
@@ -258,6 +259,7 @@ pachd:
     labels: {}
     # type specifies the Kubernetes type of the pachd service.
     type: "ClusterIP"
+    annotations: {}
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
