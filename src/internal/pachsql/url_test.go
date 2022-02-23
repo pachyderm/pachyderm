@@ -37,6 +37,20 @@ func TestParseURL(t *testing.T) {
 				},
 			},
 		},
+		{
+			In: "snowflake://jbond@mi6.snowflakecomputing.com:443/martini?shaken=true&stirred=false",
+			Out: URL{
+				Protocol: "snowflake",
+				User:     "jbond",
+				Host:     "mi6.snowflakecomputing.com",
+				Port:     443,
+				Database: "martini",
+				Params: map[string]string{
+					"shaken":  "true",
+					"stirred": "false",
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		actual, err := ParseURL(tc.In)

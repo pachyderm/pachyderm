@@ -19,6 +19,7 @@ type URL struct {
 }
 
 // ParseURL attempts to parse x into a URL
+// TODO: support more generic Snowflake connection strings
 func ParseURL(x string) (*URL, error) {
 	u, err := url.Parse(x)
 	if err != nil {

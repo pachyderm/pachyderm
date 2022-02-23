@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestMaterializeSQL checks that rows can be materialized from all the supported databases,
@@ -34,6 +36,10 @@ func TestMaterializeSQL(t *testing.T) {
 		{
 			"MySQL",
 			dockertestenv.NewMySQL,
+		},
+		{
+			"Snowflake",
+			newSnowSQL,
 		},
 	}
 	writerSpecs := []struct {
@@ -74,6 +80,23 @@ func TestMaterializeSQL(t *testing.T) {
 	}
 }
 
+// newSnowSQL creates an emphermeral database in a real Snowflake instance.
+func newSnowSQL(t testing.TB) *sqlx.DB {
+	user := os.Getenv("SNOW_USER")
+	password := os.Getenv("SNOW_PASSWORD")
+	account_identifier := os.Getenv("SNOW_ACCOUNT")
+	host := fmt.Sprintf("%s.snowflakecomputing.com", account_identifier)
+	port := "443"
+	dsn := fmt.Sprintf("%s:%s@%s:%s", user, password, host, port)
+
+	db, err := sqlx.Open("snowflake", dsn)
+	require.NoError(t, err)
+
+	testutil.CreateEphemeralDB(t, db)
+
+	return db
+}
+
 func setupTable(t testing.TB, db *pachsql.DB) {
 	type rowType struct {
 		// id int
@@ -93,7 +116,6 @@ func setupTable(t testing.TB, db *pachsql.DB) {
 		TimeNull     sql.NullTime
 	}
 	_, err := db.Exec(`CREATE TABLE test_data (
-		id SERIAL PRIMARY KEY NOT NULL,
 
 		c_smallint SMALLINT NOT NULL,
 		c_int INT NOT NULL,
@@ -148,6 +170,8 @@ func formatValues(x interface{}, db *pachsql.DB) string {
 		placeholder = func(i int) string { return "$" + strconv.Itoa(i+1) }
 	case "mysql":
 		placeholder = func(int) string { return "?" }
+	case "snowflake":
+		placeholder = func(i int) string { return "$$" + strconv.Itoa(i) + "$$" }
 	default:
 		panic(db.DriverName())
 	}

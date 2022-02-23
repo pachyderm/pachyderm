@@ -37,7 +37,7 @@ func OpenURL(u URL, password string) (*DB, error) {
 	case ProtocolMySQL:
 		driver = "mysql"
 		dsn = mySQLDSN(u, password)
-	case ProtocolSnowflake, "sf":
+	case ProtocolSnowflake:
 		driver = "snowflake"
 		dsn = snowflakeDSN(u, password)
 	default:
