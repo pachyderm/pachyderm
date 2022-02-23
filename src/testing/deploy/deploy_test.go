@@ -13,7 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-func TestDeployEnterprise(t testing.TB) {
+func TestDeployEnterprise(t *testing.T) {
 	k := testutil.GetKubeClient(t)
 	c := minikubetestenv.InstallReleaseEnterprise(t, context.Background(), k, auth.RootUser, true)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
