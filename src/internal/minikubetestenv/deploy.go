@@ -2,6 +2,7 @@ package minikubetestenv
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,9 @@ import (
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/api/core/v1"
@@ -26,6 +29,19 @@ const (
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
+
+func getPachAddress(t *testing.T) *grpcutil.PachdAddress {
+	cfg, err := config.Read(false, false)
+	require.NoError(t, err)
+
+	_, context, err := cfg.ActiveContext(true)
+	require.NoError(t, err)
+
+	pa, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+	require.NoError(t, err)
+
+	return pa
+}
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	return &helm.Options{
@@ -53,7 +69,8 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(namespace string) *helm.Options {
+func withEnterprise(t *testing.T, namespace string) *helm.Options {
+	addr := getPachAddress(t)
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
@@ -61,6 +78,7 @@ func withEnterprise(namespace string) *helm.Options {
 			"pachd.rootToken":                      testutil.RootToken,
 			"pachd.oauthClientSecret":              "oidc-client-secret",
 			"pachd.enterpriseSecret":               "enterprise-secret",
+			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:30658", addr.Host),
 		},
 	}
 }
@@ -114,7 +132,7 @@ func UpgradeRelease(t *testing.T, ctx context.Context, kubeClient *kube.Clientse
 
 func InstallReleaseEnterprise(t *testing.T, ctx context.Context, kubeClient *kube.Clientset, user string) *client.APIClient {
 	createSecretEnterpriseKeySecret(t, ctx, kubeClient, ns)
-	opts := union(localDeploymentWithMinioOptions(ns, localImage), withEnterprise(ns))
+	opts := union(localDeploymentWithMinioOptions(ns, localImage), withEnterprise(t, ns))
 	require.NoError(t, helm.InstallE(t, opts, helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
 	return testutil.AuthenticatedPachClientPostActivate(t, testutil.NewPachClient(t), user)
