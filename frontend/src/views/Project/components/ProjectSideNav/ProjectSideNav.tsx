@@ -13,10 +13,10 @@ import React from 'react';
 import {Route} from 'react-router';
 
 import Badge from '@dash-frontend/components/Badge';
+import useLineageListViewSwap from '@dash-frontend/hooks/useLineageListViewSwap';
 import {
   projectReposRoute,
   projectPipelinesRoute,
-  lineageRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {MEDIUM} from 'constants/breakpoints';
 
@@ -30,6 +30,7 @@ const ProjectSideNav: React.FC = () => {
   const {openModal, closeModal, isOpen} = useModal(false);
   const {projectId, numOfFailedJobs, handleListDefaultView, jobsLink} =
     useProjectSideNav();
+  const swapPath = useLineageListViewSwap();
 
   return (
     <SideNav breakpoint={MEDIUM} styleMode="light">
@@ -38,7 +39,7 @@ const ProjectSideNav: React.FC = () => {
           <SideNav.SideNavButton
             IconSVG={DirectionsSVG}
             tooltipContent="Switch View"
-            to={lineageRoute({projectId})}
+            to={swapPath}
             onClick={() => handleListDefaultView(false)}
             className={styles.buttonLink}
             autoWidth
@@ -50,7 +51,7 @@ const ProjectSideNav: React.FC = () => {
           <SideNav.SideNavButton
             IconSVG={ViewListSVG}
             tooltipContent="Switch View"
-            to={projectReposRoute({projectId})}
+            to={swapPath}
             onClick={() => handleListDefaultView(true)}
             className={styles.buttonLink}
             autoWidth

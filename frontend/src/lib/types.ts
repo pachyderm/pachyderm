@@ -14,6 +14,10 @@ export interface ProjectRouteParams {
   pipelineJobId?: string;
 }
 
+export interface ConsoleRouteParams extends ProjectRouteParams {
+  view?: string;
+}
+
 export type FileMajorType =
   | 'document'
   | 'image'

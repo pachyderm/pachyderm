@@ -1,6 +1,9 @@
 import React from 'react';
 import {Helmet} from 'react-helmet';
-import {Route} from 'react-router';
+import {Route, Redirect} from 'react-router';
+
+import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {projectReposRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import FileBrowser from '../FileBrowser';
 import FileUpload from '../FileUpload';
@@ -13,6 +16,7 @@ import ProjectJobList from './components/ProjectJobList';
 import ProjectSidebar from './components/ProjectSidebar';
 import ProjectSideNav from './components/ProjectSideNav';
 import {
+  PROJECT_PATH,
   PROJECT_JOBS_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
@@ -26,6 +30,8 @@ import {
 import styles from './Project.module.css';
 
 const Project: React.FC = () => {
+  const {projectId} = useUrlState();
+
   return (
     <>
       <Helmet>
@@ -34,6 +40,13 @@ const Project: React.FC = () => {
       <ProjectHeader />
       <div className={styles.view}>
         <ProjectSideNav />
+        <Route path={PROJECT_PATH} exact>
+          <Redirect
+            to={projectReposRoute({
+              projectId,
+            })}
+          />
+        </Route>
         <Route
           path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH, LINEAGE_PATH]}
         >
