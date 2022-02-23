@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -92,6 +91,10 @@ func (w *Writer) setupLevel(level int) {
 
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
+		// TODO: what's going on here?
+		if len(annotations) == 0 {
+			return nil
+		}
 		select {
 		case <-w.closed:
 			return nil
@@ -144,7 +147,6 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
-		logrus.Errorf("FirstIdx: '%v'\nLastIdx: '%v'\n", l.firstIdx.Path, l.lastIdx.Path)
 		if l.firstIdx.Path == l.lastIdx.Path {
 			w.closed <- struct{}{}
 			return l.firstIdx, nil
