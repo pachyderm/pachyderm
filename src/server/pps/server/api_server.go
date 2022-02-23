@@ -1859,15 +1859,15 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return visitErr
 	}
 
+	update := request.Update && oldPipelineInfo != nil
 	// Authorize pipeline creation
 	operation := pipelineOpCreate
-	if request.Update {
+	if update {
 		operation = pipelineOpUpdate
 	}
 	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
-	update := request.Update && oldPipelineInfo != nil
 
 	var (
 		// provenance for the pipeline's output branch (includes the spec branch)
