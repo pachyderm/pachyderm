@@ -389,6 +389,7 @@ input DeleteRepoArgs {
 
 input RepoInput {
   name: ID!
+  type: String
 }
 
 input PFS {
@@ -486,6 +487,28 @@ type Subscription {
   logs(args: LogsArgs!): Log!
 }
 
+input StartCommitArgs {
+  branchName: String!
+  repoName: String!
+  projectId: String!
+}
+
+type OpenCommit {
+  branch: Branch!
+  id: ID!
+}
+
+input OpenCommitInput {
+  branch: BranchInput!
+  id: ID!
+}
+
+input FinishCommitArgs {
+  commit: OpenCommitInput!
+  projectId: String!
+
+}
+
 type Mutation {
   exchangeCode(code: String!): Tokens!
   createRepo(args: CreateRepoArgs!): Repo!
@@ -495,4 +518,6 @@ type Mutation {
   createBranch(args: CreateBranchArgs!): Branch!
   putFilesFromURLs(args: PutFilesFromURLsArgs!): [String!]!
   deleteFile(args: DeleteFileArgs!): ID!
+  startCommit(args: StartCommitArgs!): OpenCommit!
+  finishCommit(args: FinishCommitArgs!): Boolean!
 }

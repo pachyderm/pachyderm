@@ -1,12 +1,16 @@
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
-import {QueryResolvers} from '@graphqlTypes';
+import {MutationResolvers, QueryResolvers} from '@graphqlTypes';
 
-import {commitInfoToGQLCommit} from './builders/pfs';
+import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
 
 interface CommitResolver {
   Query: {
     commits: QueryResolvers['commits'];
+  };
+  Mutation: {
+    startCommit: MutationResolvers['startCommit'];
+    finishCommit: MutationResolvers['finishCommit'];
   };
 }
 
@@ -56,6 +60,23 @@ const commitResolver: CommitResolver = {
           : false;
         return gqlCommit;
       });
+    },
+  },
+  Mutation: {
+    startCommit: async (
+      _field,
+      {args: {branchName, repoName}},
+      {pachClient},
+    ) => {
+      const commit = await pachClient
+        .pfs()
+        .startCommit({branch: {repo: {name: repoName}, name: branchName}});
+
+      return commitToGQLCommit(commit);
+    },
+    finishCommit: async (_field, {args: {commit}}, {pachClient}) => {
+      await pachClient.pfs().finishCommit({commit: commit});
+      return true;
     },
   },
 };

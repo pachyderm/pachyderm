@@ -178,6 +178,11 @@ export enum FileType {
   FILE = 'FILE',
 }
 
+export type FinishCommitArgs = {
+  commit: OpenCommitInput;
+  projectId: Scalars['String'];
+};
+
 export type GitInput = {
   __typename?: 'GitInput';
   name: Scalars['String'];
@@ -295,6 +300,8 @@ export type Mutation = {
   createBranch: Branch;
   putFilesFromURLs: Array<Scalars['String']>;
   deleteFile: Scalars['ID'];
+  startCommit: OpenCommit;
+  finishCommit: Scalars['Boolean'];
 };
 
 export type MutationExchangeCodeArgs = {
@@ -329,6 +336,14 @@ export type MutationDeleteFileArgs = {
   args: DeleteFileArgs;
 };
 
+export type MutationStartCommitArgs = {
+  args: StartCommitArgs;
+};
+
+export type MutationFinishCommitArgs = {
+  args: FinishCommitArgs;
+};
+
 export type NodeSelector = {
   __typename?: 'NodeSelector';
   key: Scalars['String'];
@@ -349,6 +364,17 @@ export enum NodeType {
   INPUT_REPO = 'INPUT_REPO',
   EGRESS = 'EGRESS',
 }
+
+export type OpenCommit = {
+  __typename?: 'OpenCommit';
+  branch: Branch;
+  id: Scalars['ID'];
+};
+
+export type OpenCommitInput = {
+  branch: BranchInput;
+  id: Scalars['ID'];
+};
 
 export enum OriginKind {
   USER = 'USER',
@@ -573,6 +599,7 @@ export type RepoInfo = {
 
 export type RepoInput = {
   name: Scalars['ID'];
+  type?: Maybe<Scalars['String']>;
 };
 
 export type RepoQueryArgs = {
@@ -602,6 +629,12 @@ export type SearchResults = {
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
   jobSet?: Maybe<JobSet>;
+};
+
+export type StartCommitArgs = {
+  branchName: Scalars['String'];
+  repoName: Scalars['String'];
+  projectId: Scalars['String'];
 };
 
 export type Subscription = {
@@ -807,6 +840,7 @@ export type ResolversTypes = ResolversObject<{
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
   FileType: FileType;
+  FinishCommitArgs: FinishCommitArgs;
   GitInput: ResolverTypeWrapper<GitInput>;
   Input: ResolverTypeWrapper<Input>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
@@ -824,6 +858,8 @@ export type ResolversTypes = ResolversObject<{
   NodeSelector: ResolverTypeWrapper<NodeSelector>;
   NodeState: NodeState;
   NodeType: NodeType;
+  OpenCommit: ResolverTypeWrapper<OpenCommit>;
+  OpenCommitInput: OpenCommitInput;
   OriginKind: OriginKind;
   PFS: Pfs;
   PFSInput: ResolverTypeWrapper<PfsInput>;
@@ -847,6 +883,7 @@ export type ResolversTypes = ResolversObject<{
   SchedulingSpec: ResolverTypeWrapper<SchedulingSpec>;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: ResolverTypeWrapper<SearchResults>;
+  StartCommitArgs: StartCommitArgs;
   Subscription: ResolverTypeWrapper<{}>;
   Timestamp: ResolverTypeWrapper<Timestamp>;
   Tokens: ResolverTypeWrapper<Tokens>;
@@ -883,6 +920,7 @@ export type ResolversParentTypes = ResolversObject<{
   File: File;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
+  FinishCommitArgs: FinishCommitArgs;
   GitInput: GitInput;
   Input: Input;
   InputPipeline: InputPipeline;
@@ -896,6 +934,8 @@ export type ResolversParentTypes = ResolversObject<{
   LogsArgs: LogsArgs;
   Mutation: {};
   NodeSelector: NodeSelector;
+  OpenCommit: OpenCommit;
+  OpenCommitInput: OpenCommitInput;
   PFS: Pfs;
   PFSInput: PfsInput;
   Pach: Pach;
@@ -915,6 +955,7 @@ export type ResolversParentTypes = ResolversObject<{
   SchedulingSpec: SchedulingSpec;
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: SearchResults;
+  StartCommitArgs: StartCommitArgs;
   Subscription: {};
   Timestamp: Timestamp;
   Tokens: Tokens;
@@ -1199,6 +1240,18 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationDeleteFileArgs, 'args'>
   >;
+  startCommit?: Resolver<
+    ResolversTypes['OpenCommit'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationStartCommitArgs, 'args'>
+  >;
+  finishCommit?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationFinishCommitArgs, 'args'>
+  >;
 }>;
 
 export type NodeSelectorResolvers<
@@ -1207,6 +1260,15 @@ export type NodeSelectorResolvers<
 > = ResolversObject<{
   key?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   value?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type OpenCommitResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['OpenCommit'] = ResolversParentTypes['OpenCommit'],
+> = ResolversObject<{
+  branch?: Resolver<ResolversTypes['Branch'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1559,6 +1621,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Log?: LogResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   NodeSelector?: NodeSelectorResolvers<ContextType>;
+  OpenCommit?: OpenCommitResolvers<ContextType>;
   PFSInput?: PfsInputResolvers<ContextType>;
   Pach?: PachResolvers<ContextType>;
   Pipeline?: PipelineResolvers<ContextType>;
@@ -1699,6 +1762,15 @@ export type ExchangeCodeMutation = {__typename?: 'Mutation'} & {
   exchangeCode: {__typename?: 'Tokens'} & Pick<Tokens, 'pachToken' | 'idToken'>;
 };
 
+export type FinishCommitMutationVariables = Exact<{
+  args: FinishCommitArgs;
+}>;
+
+export type FinishCommitMutation = {__typename?: 'Mutation'} & Pick<
+  Mutation,
+  'finishCommit'
+>;
+
 export type PutFilesFromUrLsMutationVariables = Exact<{
   args: PutFilesFromUrLsArgs;
 }>;
@@ -1707,6 +1779,20 @@ export type PutFilesFromUrLsMutation = {__typename?: 'Mutation'} & Pick<
   Mutation,
   'putFilesFromURLs'
 >;
+
+export type StartCommitMutationVariables = Exact<{
+  args: StartCommitArgs;
+}>;
+
+export type StartCommitMutation = {__typename?: 'Mutation'} & {
+  startCommit: {__typename?: 'OpenCommit'} & Pick<OpenCommit, 'id'> & {
+      branch: {__typename?: 'Branch'} & Pick<Branch, 'name'> & {
+          repo?: Maybe<
+            {__typename?: 'RepoInfo'} & Pick<RepoInfo, 'name' | 'type'>
+          >;
+        };
+    };
+};
 
 export type GetAccountQueryVariables = Exact<{[key: string]: never}>;
 

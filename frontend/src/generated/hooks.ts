@@ -411,6 +411,54 @@ export type ExchangeCodeMutationOptions = Apollo.BaseMutationOptions<
   Types.ExchangeCodeMutation,
   Types.ExchangeCodeMutationVariables
 >;
+export const FinishCommitDocument = gql`
+  mutation finishCommit($args: FinishCommitArgs!) {
+    finishCommit(args: $args)
+  }
+`;
+export type FinishCommitMutationFn = Apollo.MutationFunction<
+  Types.FinishCommitMutation,
+  Types.FinishCommitMutationVariables
+>;
+
+/**
+ * __useFinishCommitMutation__
+ *
+ * To run a mutation, you first call `useFinishCommitMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useFinishCommitMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [finishCommitMutation, { data, loading, error }] = useFinishCommitMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useFinishCommitMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.FinishCommitMutation,
+    Types.FinishCommitMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.FinishCommitMutation,
+    Types.FinishCommitMutationVariables
+  >(FinishCommitDocument, options);
+}
+export type FinishCommitMutationHookResult = ReturnType<
+  typeof useFinishCommitMutation
+>;
+export type FinishCommitMutationResult =
+  Apollo.MutationResult<Types.FinishCommitMutation>;
+export type FinishCommitMutationOptions = Apollo.BaseMutationOptions<
+  Types.FinishCommitMutation,
+  Types.FinishCommitMutationVariables
+>;
 export const PutFilesFromUrLsDocument = gql`
   mutation putFilesFromURLs($args: PutFilesFromURLsArgs!) {
     putFilesFromURLs(args: $args)
@@ -458,6 +506,63 @@ export type PutFilesFromUrLsMutationResult =
 export type PutFilesFromUrLsMutationOptions = Apollo.BaseMutationOptions<
   Types.PutFilesFromUrLsMutation,
   Types.PutFilesFromUrLsMutationVariables
+>;
+export const StartCommitDocument = gql`
+  mutation startCommit($args: StartCommitArgs!) {
+    startCommit(args: $args) {
+      branch {
+        name
+        repo {
+          name
+          type
+        }
+      }
+      id
+    }
+  }
+`;
+export type StartCommitMutationFn = Apollo.MutationFunction<
+  Types.StartCommitMutation,
+  Types.StartCommitMutationVariables
+>;
+
+/**
+ * __useStartCommitMutation__
+ *
+ * To run a mutation, you first call `useStartCommitMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useStartCommitMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [startCommitMutation, { data, loading, error }] = useStartCommitMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useStartCommitMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.StartCommitMutation,
+    Types.StartCommitMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.StartCommitMutation,
+    Types.StartCommitMutationVariables
+  >(StartCommitDocument, options);
+}
+export type StartCommitMutationHookResult = ReturnType<
+  typeof useStartCommitMutation
+>;
+export type StartCommitMutationResult =
+  Apollo.MutationResult<Types.StartCommitMutation>;
+export type StartCommitMutationOptions = Apollo.BaseMutationOptions<
+  Types.StartCommitMutation,
+  Types.StartCommitMutationVariables
 >;
 export const GetAccountDocument = gql`
   query getAccount {

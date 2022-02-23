@@ -1,11 +1,13 @@
-import {CommitInfo} from '@pachyderm/node-pachyderm';
+import {Commit, CommitInfo} from '@pachyderm/node-pachyderm';
 
 import formatBytes from '@dash-backend/lib/formatBytes';
 import getSizeBytes from '@dash-backend/lib/getSizeBytes';
 import {toGQLCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
-import {Commit} from '@graphqlTypes';
+import {Commit as graphqlCommit} from '@graphqlTypes';
 
-export const commitInfoToGQLCommit = (commit: CommitInfo.AsObject): Commit => {
+export const commitInfoToGQLCommit = (
+  commit: CommitInfo.AsObject,
+): graphqlCommit => {
   return {
     repoName: commit.commit?.branch?.repo?.name || '',
     branch: commit.commit?.branch
@@ -21,5 +23,21 @@ export const commitInfoToGQLCommit = (commit: CommitInfo.AsObject): Commit => {
     sizeBytes: getSizeBytes(commit),
     sizeDisplay: formatBytes(getSizeBytes(commit)),
     hasLinkedJob: false,
+  };
+};
+
+export const commitToGQLCommit = (commit: Commit.AsObject) => {
+  const branch = {name: '', repo: {name: '', type: ''}};
+
+  if (commit.branch) {
+    branch.name = commit.branch.name;
+    if (commit.branch.repo) {
+      branch.repo.name = commit.branch.repo.name;
+      branch.repo.type = commit.branch.repo.type;
+    }
+  }
+  return {
+    id: commit.id,
+    branch,
   };
 };
