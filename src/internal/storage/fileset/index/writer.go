@@ -58,14 +58,16 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	w.setupLevel(idx, level)
 	l := w.getLevel(level)
 	var refDataRefs []*chunk.DataRef
-	if idx.Range != nil {
+	if idx.Range != nil && idx.File != nil {
+		return errors.New("either Index.Range or Index.File must be set, but not both.")
+	} else if idx.Range != nil {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
-	}
-	// TODO: I think we need to clear this field since it is reused.
-	// Maybe we could restructure this into a clone, with the field cleared.
-	if idx.File != nil {
+	} else if idx.File != nil {
 		refDataRefs = append(refDataRefs, idx.File.DataRefs...)
+	} else {
+		return errors.New("either Index.Range or Index.File must be set, but not both.")
 	}
+
 	// Create an annotation for each index.
 	if err := l.cw.Annotate(&chunk.Annotation{
 		RefDataRefs: refDataRefs,
@@ -101,16 +103,18 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 
 		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
-		idx := proto.Clone(annotations[0].Data.(*data).idx).(*Index)
-		dataRef := proto.Clone(annotations[0].NextDataRef).(*chunk.DataRef)
+		idx := annotations[0].Data.(*data).idx
+		dataRef := annotations[0].NextDataRef
 		// Edge case handling.
 		if len(annotations) > 1 {
 			// Skip the first index if it started in the previous chunk.
 			if lw.lastIdx != nil && idx.Path == lw.lastIdx.Path {
-				idx = proto.Clone(annotations[1].Data.(*data).idx).(*Index)
-				dataRef = proto.Clone(annotations[1].NextDataRef).(*chunk.DataRef)
+				idx = annotations[1].Data.(*data).idx
+				dataRef = annotations[1].NextDataRef
 			}
 		}
+		idx = proto.Clone(idx).(*Index)
+		dataRef = proto.Clone(dataRef).(*chunk.DataRef)
 		idx.File = nil
 
 		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
@@ -136,8 +140,8 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	// Close levels until a level with only one index entry (first index == last index)
 	// exists and return the index.
 	// Note: new levels can be created while closing, so the number of iterations
-	// necessary can increase as the levels are being closed. Closing the done channel
-	// will prevent new levels from being created after the top level index is found.
+	// necessary can increase as the levels are being closed. Cancelling the context
+	// will stop any open chunk writers, ending the callback recursion.
 	// Any additional chunks that are created at or above the level with the one index
 	// entry (chunk split point in the middle) will be unreferenced and therefore cleaned
 	// up by garbage collection.
@@ -147,7 +151,7 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
-		if l.firstIdx.Path == l.lastIdx.Path {
+		if proto.Equal(l.firstIdx, l.lastIdx) {
 			return l.firstIdx, nil
 		}
 	}
