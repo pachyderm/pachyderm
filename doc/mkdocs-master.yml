@@ -174,7 +174,7 @@ nav:
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
             - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
-            - Use Pipeline Templates: how-tos/pipeline-operations/pipeline-templates.md
+            - Use Jsonnet Pipeline Specs: how-tos/pipeline-operations/jsonnet-pipeline-specs.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
             - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md

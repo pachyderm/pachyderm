@@ -412,7 +412,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 		return nil, err
 	}
 	// Get the total file set if the commit has been finished.
-	if commitInfo.Finished != nil {
+	if commitInfo.Finished != nil && commitInfo.Error == "" {
 		id, err := d.commitStore.GetTotalFileSet(ctx, commitInfo.Commit)
 		if err != nil {
 			// TODO: Need to handle this differently if we want to delete total
@@ -424,24 +424,30 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 		}
 		return id, nil
 	}
-	// Compose the parent file set with the diffs.
+	// Compose the base file set with the diffs.
 	var ids []fileset.ID
-	parentCommit := commitInfo.ParentCommit
-	for parentCommit != nil {
-		commitInfo, err := d.getCommit(ctx, parentCommit)
+	baseCommit := commitInfo.ParentCommit
+	for baseCommit != nil {
+		baseCommitInfo, err := d.getCommit(ctx, baseCommit)
 		if err != nil {
 			return nil, err
 		}
-		if commitInfo.Error == "" {
+		if baseCommitInfo.Error == "" {
+			if baseCommitInfo.Finished == nil {
+				return nil, pfsserver.ErrBaseCommitNotFinished{
+					BaseCommit: baseCommit,
+					Commit:     commit,
+				}
+			}
 			// ¯\_(ツ)_/¯
-			parentId, err := d.getFileSet(ctx, parentCommit)
+			baseId, err := d.getFileSet(ctx, baseCommit)
 			if err != nil {
 				return nil, err
 			}
-			ids = append(ids, *parentId)
+			ids = append(ids, *baseId)
 			break
 		}
-		parentCommit = commitInfo.ParentCommit
+		baseCommit = baseCommitInfo.ParentCommit
 	}
 	id, err := d.commitStore.GetDiffFileSet(ctx, commitInfo.Commit)
 	if err != nil {

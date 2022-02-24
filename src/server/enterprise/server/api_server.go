@@ -74,14 +74,16 @@ func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 // heartbeatRoutine should  be run in a goroutine and attempts to heartbeat to the license service.
 // If the attempt fails and the license server is configured it logs the error.
 func (a *apiServer) heartbeatRoutine() {
+	heartbeat := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
+		defer cancel()
+		if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
+			logrus.WithError(err).Error("enterprise license heartbeat process failed")
+		}
+	}
+	heartbeat()
 	for range time.Tick(heartbeatFrequency) {
-		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), heartbeatTimeout)
-			defer cancel()
-			if err := a.heartbeatIfConfigured(ctx); err != nil && !lc.IsErrNotActivated(err) {
-				logrus.WithError(err).Error("enterprise license heartbeat process failed")
-			}
-		}()
+		heartbeat()
 	}
 }
 

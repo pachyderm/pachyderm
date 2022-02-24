@@ -3526,119 +3526,78 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	// create pipeline without empty files
-	pipelineName := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{
-			// Symlinks to input files
-			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
-			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
-			"mkdir /pfs/out/dir",
-			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
-			// Symlinks to external files
-			"echo buzz > /tmp/buzz",
-			"ln -s /tmp/buzz /pfs/out/buzz",
-			"mkdir /tmp/dir3",
-			"mkdir /tmp/dir3/dir4",
-			"echo foobar > /tmp/dir3/dir4/foobar",
-			"ln -s /tmp/dir3 /pfs/out/dir3",
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/"),
-		"",
-		false,
-	))
-
 	// Do first commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(commit, "dir1/bar", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(commit, "dir2/foo", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(commit, "dir1/bar", strings.NewReader("bar")))
+	require.NoError(t, c.PutFile(commit, "dir2/foo", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 
-	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
-	require.NoError(t, err)
-	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
+	check := func(input *pps.Input) {
+		pipelineName := tu.UniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipelineName,
+			"",
+			[]string{"bash"},
+			[]string{
+				// Symlinks to input files
+				fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
+				fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
+				"mkdir /pfs/out/dir",
+				fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
+				// Symlinks to external files
+				"echo buzz > /tmp/buzz",
+				"ln -s /tmp/buzz /pfs/out/buzz",
+				"mkdir /tmp/dir3",
+				"mkdir /tmp/dir3/dir4",
+				"echo foobar > /tmp/dir3/dir4/foobar",
+				"ln -s /tmp/dir3 /pfs/out/dir3",
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			input,
+			"",
+			false,
+		))
 
-	// Check that the output files are identical to the input files.
-	buffer := bytes.Buffer{}
-	outputCommit := client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
-	require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
-	require.Equal(t, "foo", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "bar", &buffer))
-	require.Equal(t, "bar", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "dir/dir2/foo", &buffer))
-	require.Equal(t, "foo", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
-	require.Equal(t, "buzz\n", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
-	require.Equal(t, "foobar\n", buffer.String())
+		commitInfo, err := c.InspectCommit(dataRepo, "master", "")
+		require.NoError(t, err)
+		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(commitInfos))
 
-	// create pipeline with empty files
-	pipelineName = tu.UniqueString("pipeline")
+		// Check that the output files are identical to the input files.
+		buffer := bytes.Buffer{}
+		outputCommit := client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
+		require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
+		require.Equal(t, "foo", buffer.String())
+		buffer.Reset()
+		require.NoError(t, c.GetFile(outputCommit, "bar", &buffer))
+		require.Equal(t, "bar", buffer.String())
+		buffer.Reset()
+		require.NoError(t, c.GetFile(outputCommit, "dir/dir2/foo", &buffer))
+		require.Equal(t, "foo", buffer.String())
+		buffer.Reset()
+		require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
+		require.Equal(t, "buzz\n", buffer.String())
+		buffer.Reset()
+		require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
+		require.Equal(t, "foobar\n", buffer.String())
+	}
+
+	// Check normal pipeline.
 	input := client.NewPFSInput(dataRepo, "/")
+	check(input)
+	// Check pipeline with empty files.
+	input = client.NewPFSInput(dataRepo, "/")
 	input.Pfs.EmptyFiles = true
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"bash"},
-		[]string{
-			// Symlinks to input files
-			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
-			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
-			"mkdir /pfs/out/dir",
-			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
-			// Symlinks to external files
-			"echo buzz > /tmp/buzz",
-			"ln -s /tmp/buzz /pfs/out/buzz",
-			"mkdir /tmp/dir3",
-			"mkdir /tmp/dir3/dir4",
-			"echo foobar > /tmp/dir3/dir4/foobar",
-			"ln -s /tmp/dir3 /pfs/out/dir3",
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		input,
-		"",
-		false,
-	))
-
-	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
-	require.NoError(t, err)
-	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
-
-	// Check that the output files are identical to the input files.
-	buffer.Reset()
-	outputCommit = client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
-	require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
-	require.Equal(t, "foo", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "bar", &buffer))
-	require.Equal(t, "bar", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "dir/dir2/foo", &buffer))
-	require.Equal(t, "foo", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "buzz", &buffer))
-	require.Equal(t, "buzz\n", buffer.String())
-	buffer.Reset()
-	require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
-	require.Equal(t, "foobar\n", buffer.String())
+	check(input)
+	// Check pipeline with lazy files.
+	input = client.NewPFSInput(dataRepo, "/")
+	input.Pfs.Lazy = true
+	check(input)
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797

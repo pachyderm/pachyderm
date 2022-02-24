@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -21,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
-	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -122,7 +123,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 			return nil
 		}
 		commit := commitInfo.Commit
-		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit.ID), func() error {
+		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
 				id, err := d.getFileSet(ctx, commit)
@@ -132,6 +133,11 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					}
 					return err
 				}
+				// Skip compaction / validation for errored commits.
+				if commitInfo.Error != "" {
+					return d.finalizeCommit(ctx, commit, "", nil, id)
+				}
+				details := &pfs.CommitInfo_Details{}
 				// Compact the commit.
 				// TODO: Implement task service cache for compaction.
 				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, nil)
@@ -147,58 +153,26 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				}); err != nil {
 					return err
 				}
-				compactingDuration := time.Since(start)
+				details.CompactingTime = types.DurationProto(time.Since(start))
 				// Validate the commit.
 				start = time.Now()
-				var size int64
 				var validationError string
 				if err := miscutil.LogStep(fmt.Sprintf("validating commit %v", commit), func() error {
 					var err error
-					size, validationError, err = d.validate(ctx, totalId)
+					details.SizeBytes, validationError, err = d.validate(ctx, totalId)
 					return err
 				}); err != nil {
 					return err
 				}
-				validatingDuration := time.Since(start)
+				details.ValidatingTime = types.DurationProto(time.Since(start))
 				// Finish the commit.
-				return miscutil.LogStep(fmt.Sprintf("finish commit %v", commit), func() error {
-					return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-						commitInfo := &pfs.CommitInfo{}
-						if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {
-							commitInfo.Finished = txnCtx.Timestamp
-							commitInfo.SizeBytesUpperBound = size
-							if commitInfo.Details == nil {
-								commitInfo.Details = &pfs.CommitInfo_Details{}
-							}
-							commitInfo.Details.SizeBytes = size
-							if commitInfo.Error == "" {
-								commitInfo.Error = validationError
-							}
-							commitInfo.Details.CompactingTime = types.DurationProto(compactingDuration)
-							commitInfo.Details.ValidatingTime = types.DurationProto(validatingDuration)
-							return nil
-						}); err != nil {
-							return errors.EnsureStack(err)
-						}
-						if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
-							txnCtx.FinishJob(commitInfo)
-						}
-						if err := d.finishAliasDescendents(txnCtx, commitInfo, *totalId); err != nil {
-							return err
-						}
-						// TODO(2.0 optional): This is a hack to ensure that commits created by triggers have the same ID as the finished commit.
-						// Creating an alias in the branch of the finished commit, then having the trigger alias that commit seems
-						// like a better model.
-						txnCtx.CommitSetID = commitInfo.Commit.ID
-						return d.triggerCommit(txnCtx, commitInfo.Commit)
-					})
-				})
+				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Errorf("error finishing commit %v: %v, retrying in %v", commit, err, d)
 				return nil
 			})
 		})
-	}, watch.IgnoreDelete)
+	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete)
 	return errors.EnsureStack(err)
 }
 
@@ -228,6 +202,38 @@ func (d *driver) validate(ctx context.Context, id *fileset.ID) (int64, string, e
 		return 0, "", errors.EnsureStack(err)
 	}
 	return size, validationError, nil
+}
+
+func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
+	return miscutil.LogStep(fmt.Sprintf("finalizing commit %v", commit), func() error {
+		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			commitInfo := &pfs.CommitInfo{}
+			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {
+				commitInfo.Finished = txnCtx.Timestamp
+				if details != nil {
+					commitInfo.SizeBytesUpperBound = details.SizeBytes
+				}
+				if commitInfo.Error == "" {
+					commitInfo.Error = validationError
+				}
+				commitInfo.Details = details
+				return nil
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
+				txnCtx.FinishJob(commitInfo)
+			}
+			if err := d.finishAliasDescendents(txnCtx, commitInfo, *totalId); err != nil {
+				return err
+			}
+			// TODO(2.0 optional): This is a hack to ensure that commits created by triggers have the same ID as the finished commit.
+			// Creating an alias in the branch of the finished commit, then having the trigger alias that commit seems
+			// like a better model.
+			txnCtx.CommitSetID = commitInfo.Commit.ID
+			return d.triggerCommit(txnCtx, commitInfo.Commit)
+		})
+	})
 }
 
 // finishAliasDescendents will traverse the given commit's descendents, finding all

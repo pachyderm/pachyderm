@@ -8,10 +8,11 @@ import (
 
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -39,6 +40,7 @@ var _ Client = &cacheClient{}
 
 type cacheClient struct {
 	slow, fast Client
+	log        *logrus.Logger
 
 	mu           sync.Mutex
 	cache        *simplelru.LRU
@@ -54,6 +56,7 @@ func NewCacheClient(slow, fast Client, size int) Client {
 	client := &cacheClient{
 		slow: slow,
 		fast: fast,
+		log:  logrus.StandardLogger(),
 	}
 	cache, err := simplelru.NewLRU(size, client.onEvicted)
 	if err != nil {
@@ -65,19 +68,56 @@ func NewCacheClient(slow, fast Client, size int) Client {
 }
 
 func (c *cacheClient) Get(ctx context.Context, p string, w io.Writer) error {
-	c.doPopulateOnce(ctx)
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if _, exists := c.cache.Get(p); exists {
+	c.doPopulateOnce(ctx) // always call before acquiring locks
+	if hit, err := c.getFast(ctx, p, w); err != nil {
+		return err
+	} else if hit {
 		cacheHitMetric.Inc()
-		return errors.EnsureStack(c.fast.Get(ctx, p, w))
+		return nil
 	}
 	cacheMissMetric.Inc()
-	if err := Copy(ctx, c.slow, c.fast, p, p); err != nil {
-		return err
+	return c.getSlow(ctx, p, w)
+}
+
+// getFast retrieves an object from c.fast if it exists, writes it to w and returns true.
+// if it does not exist nothing is written to w and false is returned.
+func (c *cacheClient) getFast(ctx context.Context, p string, w io.Writer) (bool, error) {
+	c.mu.Lock()
+	_, exists := c.cache.Get(p)
+	c.mu.Unlock()
+	if !exists {
+		return false, nil
 	}
-	c.cache.Add(p, struct{}{})
-	return errors.EnsureStack(c.fast.Get(ctx, p, w))
+	if err := c.fast.Get(ctx, p, w); err != nil && pacherr.IsNotExist(err) {
+		// could have been deleted since we released the lock, but that's fine.
+		return false, nil
+	} else if err != nil {
+		return false, errors.EnsureStack(err)
+	}
+	return true, nil
+}
+
+// getSlow retrieves an object from c.slow and concurrently writes it to w and to c.fast.
+// c.mu is not acquired until after a succesful put to prevent holding the lock while doing IO,
+// and to prevent a slow w from holding up cache access for other callers.
+func (c *cacheClient) getSlow(ctx context.Context, p string, w io.Writer) error {
+	return miscutil.WithPipe(func(w2 io.Writer) error {
+		mw := io.MultiWriter(w, w2)
+		err := c.slow.Get(ctx, p, mw)
+		return errors.EnsureStack(err)
+	}, func(r io.Reader) error {
+		if err := c.fast.Put(ctx, p, r); pacherr.IsNotExist(err) {
+			// if the object could not be found, the first read will return a NotExist error
+			return errors.EnsureStack(err)
+		} else if err != nil {
+			c.log.Errorf("obj.cacheClient: writing to cache: %v", err)
+			return nil
+		}
+		c.mu.Lock()
+		c.cache.Add(p, struct{}{})
+		c.mu.Unlock()
+		return nil
+	})
 }
 
 func (c *cacheClient) Put(ctx context.Context, p string, r io.Reader) error {
@@ -115,10 +155,10 @@ func (c *cacheClient) deleteFromCache(ctx context.Context, p string) error {
 // the gorountine executing onEvicted will have c.mu
 func (c *cacheClient) onEvicted(key, value interface{}) {
 	p := key.(string)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.fast.Delete(ctx, p); err != nil && !pacherr.IsNotExist(err) {
-		log.Errorf("could not delete from cache's fast store: %v", err)
+		c.log.Errorf("could not delete from cache's fast store: %v", err)
 	}
 	cacheEvictionMetric.Inc()
 }
@@ -135,7 +175,7 @@ func (c *cacheClient) populate(ctx context.Context) error {
 func (c *cacheClient) doPopulateOnce(ctx context.Context) {
 	c.populateOnce.Do(func() {
 		if err := c.populate(ctx); err != nil {
-			log.Warnf("could not populate cache: %v", err)
+			c.log.Warnf("could not populate cache: %v", err)
 		}
 	})
 }

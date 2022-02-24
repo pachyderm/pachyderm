@@ -77,7 +77,7 @@ func populateCollection(rw col.ReadWriteCollection) error {
 
 func initCollection(
 	t *testing.T,
-	newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback),
+	newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback),
 ) (col.ReadOnlyCollection, WriteCallback) {
 	reader, writer := newCollection(context.Background(), t)
 	require.NoError(t, writer(context.Background(), populateCollection))
@@ -170,7 +170,7 @@ type TestConstructor = func(context.Context, *testing.T) (ReadCallback, WriteCal
 
 func collectionTests(
 	parent *testing.T,
-	newCollection func(context.Context, *testing.T) (ReadCallback, WriteCallback),
+	newCollection func(context.Context, *testing.T, ...bool) (ReadCallback, WriteCallback),
 ) {
 	parent.Run("ReadOnly", func(suite *testing.T) {
 		suite.Parallel()
@@ -384,7 +384,7 @@ func collectionTests(
 
 				subsuite.Run("UpdatedAt", func(t *testing.T) {
 					// Create a new collection that we can modify to get a different ordering here
-					reader, writer := newCollection(context.Background(), t)
+					reader, writer := newCollection(context.Background(), t, true)
 					modRead := reader(context.Background())
 					require.NoError(suite, writer(context.Background(), populateCollection))
 
