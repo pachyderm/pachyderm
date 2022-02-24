@@ -9,6 +9,9 @@ metadata:
   annotations:
     prometheus.io/port: "1656"
     prometheus.io/scrape: "true"
+    {{- if .Values.pachd.service.annotations }}
+    {{- toYaml .Values.pachd.service.annotations | nindent 4 }}
+    {{- end }}
   labels:
     app: pachd
     suite: pachyderm
