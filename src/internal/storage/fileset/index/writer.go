@@ -18,21 +18,20 @@ type levelWriter struct {
 	cw                *chunk.Writer
 	pbw               pbutil.Writer
 	firstIdx, lastIdx *Index
+	lastCbIdx         *Index
 }
 
 type data struct {
-	idx   *Index
-	level int
+	idx *Index
 }
 
 // Writer is used for creating a multilevel index into a serialized file set.
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	chunks *chunk.Storage
-	tmpID  string
-
+	ctx      context.Context
+	cancel   context.CancelFunc
+	chunks   *chunk.Storage
+	tmpID    string
 	levelsMu sync.RWMutex
 	levels   []*levelWriter
 }
@@ -50,13 +49,15 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
+	idx = proto.Clone(idx).(*Index)
 	return w.writeIndex(idx, 0)
 }
 
 func (w *Writer) writeIndex(idx *Index, level int) error {
-	idx = proto.Clone(idx).(*Index)
 	w.setupLevel(idx, level)
 	l := w.getLevel(level)
+	l.lastIdx = idx
+	// pull the data refs from the index
 	var refDataRefs []*chunk.DataRef
 	if idx.Range != nil && idx.File != nil {
 		return errors.New("either Index.Range or Index.File must be set, but not both.")
@@ -67,13 +68,11 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	} else {
 		return errors.New("either Index.Range or Index.File must be set, but not both.")
 	}
-
 	// Create an annotation for each index.
 	if err := l.cw.Annotate(&chunk.Annotation{
 		RefDataRefs: refDataRefs,
 		Data: &data{
-			idx:   idx,
-			level: level,
+			idx: idx,
 		},
 	}); err != nil {
 		return err
@@ -100,7 +99,6 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 		if len(annotations) == 0 {
 			return nil
 		}
-
 		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
 		idx := annotations[0].Data.(*data).idx
@@ -108,7 +106,7 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 		// Edge case handling.
 		if len(annotations) > 1 {
 			// Skip the first index if it started in the previous chunk.
-			if lw.lastIdx != nil && idx.Path == lw.lastIdx.Path {
+			if lw.lastCbIdx != nil && idx.Path == lw.lastCbIdx.Path {
 				idx = annotations[1].Data.(*data).idx
 				dataRef = annotations[1].NextDataRef
 			}
@@ -116,15 +114,11 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 		idx = proto.Clone(idx).(*Index)
 		dataRef = proto.Clone(dataRef).(*chunk.DataRef)
 		idx.File = nil
-
-		lw.lastIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
-		lw.lastIdx.File = nil
-		// Set standard fields in index.
-		lastPath := lw.lastIdx.Path
-		if lw.lastIdx.Range != nil {
-			lastPath = lw.lastIdx.Range.LastPath
+		lw.lastCbIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
+		lastPath := lw.lastCbIdx.Path
+		if lw.lastCbIdx.Range != nil {
+			lastPath = lw.lastCbIdx.Range.LastPath
 		}
-		// Set standard fields in index.
 		idx.Range = &Range{
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
@@ -148,11 +142,11 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	defer w.cancel()
 	for i := 0; i < w.numLevels(); i++ {
 		l := w.getLevel(i)
-		if err := l.cw.Close(); err != nil {
-			return nil, err
-		}
 		if proto.Equal(l.firstIdx, l.lastIdx) {
 			return l.firstIdx, nil
+		}
+		if err := l.cw.Close(); err != nil {
+			return nil, err
 		}
 	}
 	return nil, nil
