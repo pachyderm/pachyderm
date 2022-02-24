@@ -316,6 +316,12 @@ func (c *etcdReadWriteCollection) putLease(key string, val proto.Message, lease 
 	})
 }
 
+func (c *etcdReadWriteCollection) putIgnoreLease(key string, val proto.Message) error {
+	return c.put(key, val, func(key string, val string, ptr uintptr) error {
+		return errors.EnsureStack(c.stm.PutIgnoreLease(key, val, ptr))
+	})
+}
+
 // Update reads the current value associated with 'key', calls 'f' to update
 // the value, and writes the new value back to the collection. 'key' must be
 // present in the collection, or a 'Not Found' error is returned
@@ -336,7 +342,7 @@ func (c *etcdReadWriteCollection) Update(maybeKey interface{}, val proto.Message
 	if err := f(); err != nil {
 		return err
 	}
-	return c.Put(key, val)
+	return c.putIgnoreLease(key, val)
 }
 
 // Upsert is like Update but 'key' is not required to be present

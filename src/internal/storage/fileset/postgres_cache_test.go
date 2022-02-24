@@ -61,7 +61,7 @@ func TestPostgresCache(t *testing.T) {
 	checkNotExists := func(i int) {
 		_, err := cache.Get(ctx, strconv.Itoa(i))
 		require.YesError(t, err)
-		exists, err := storage.exists(ctx, ids[0])
+		exists, err := storage.exists(ctx, ids[i])
 		require.NoError(t, err)
 		require.False(t, exists)
 	}

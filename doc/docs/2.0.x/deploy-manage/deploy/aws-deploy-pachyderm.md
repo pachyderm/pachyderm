@@ -304,7 +304,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
      If you have not created a Managed PostgreSQL RDS instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
 #### For gp3 EBS Volumes
 
-[Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml){target=_blank} or use our minimal example below.
+[Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/examples/aws-gp3-values.yaml){target=_blank} or use our minimal example below.
 
 
 === "Gp3 + Service account annotations"   
@@ -383,7 +383,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
 
 #### For gp2 EBS Volumes
 
-[Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp2-values.yaml){target=_blank} or use our minimal example below.   
+[Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/examples/aws-gp2-values.yaml){target=_blank} or use our minimal example below.   
     
 === "For Gp2 + Service account annotations"
       ```yaml
@@ -456,7 +456,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
       ```
 
 
-Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 
 ### Deploy Pachyderm On The Kubernetes Cluster
