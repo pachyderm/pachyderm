@@ -21,10 +21,6 @@ type levelWriter struct {
 	lastCbIdx         *Index
 }
 
-type data struct {
-	idx *Index
-}
-
 // Writer is used for creating a multilevel index into a serialized file set.
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
@@ -71,9 +67,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	// Create an annotation for each index.
 	if err := l.cw.Annotate(&chunk.Annotation{
 		RefDataRefs: refDataRefs,
-		Data: &data{
-			idx: idx,
-		},
+		Data:        idx,
 	}); err != nil {
 		return err
 	}
@@ -101,20 +95,20 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 		}
 		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
-		idx := annotations[0].Data.(*data).idx
+		idx := annotations[0].Data.(*Index)
 		dataRef := annotations[0].NextDataRef
 		// Edge case handling.
 		if len(annotations) > 1 {
 			// Skip the first index if it started in the previous chunk.
-			if lw.lastCbIdx != nil && idx.Path == lw.lastCbIdx.Path {
-				idx = annotations[1].Data.(*data).idx
+			if proto.Equal(lw.lastCbIdx, idx) {
+				idx = annotations[1].Data.(*Index)
 				dataRef = annotations[1].NextDataRef
 			}
 		}
 		idx = proto.Clone(idx).(*Index)
 		dataRef = proto.Clone(dataRef).(*chunk.DataRef)
 		idx.File = nil
-		lw.lastCbIdx = proto.Clone(annotations[len(annotations)-1].Data.(*data).idx).(*Index)
+		lw.lastCbIdx = proto.Clone(annotations[len(annotations)-1].Data.(*Index)).(*Index)
 		lastPath := lw.lastCbIdx.Path
 		if lw.lastCbIdx.Range != nil {
 			lastPath = lw.lastCbIdx.Range.LastPath
