@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -26,16 +27,18 @@ var (
 	fromVersions = []string{
 		"2.0.4",
 		"2.0.5",
+		"2.1.0",
 	}
 )
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(t *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
-	k := testutil.GetKubeClient(t)
+func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
-		preUpgrade(t, minikubetestenv.InstallPublishedRelease(t, ctx, k, from, upgradeSubject, false))
-
-		postUpgrade(t, minikubetestenv.UpgradeRelease(t, ctx, k, upgradeSubject, true))
+		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
+			preUpgrade(t, minikubetestenv.InstallPublishedRelease(t, ctx, k, from, upgradeSubject, false))
+			postUpgrade(t, minikubetestenv.UpgradeRelease(t, ctx, k, upgradeSubject, true))
+		})
 	}
 }
 
