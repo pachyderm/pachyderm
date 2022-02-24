@@ -158,7 +158,7 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
-  upgrade:
+  deploy:
     resource_class: large
     machine:
       image: ubuntu-2004:202101-01
@@ -167,7 +167,7 @@ jobs:
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
       - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/upgrade_test.sh
+      - run: etc/testing/circle/deploy_test.sh
   build-pachctl:
     resource_class: large
     docker:
@@ -261,6 +261,6 @@ workflows:
                 - LOAD8
                 - LOAD9
                 - LOAD10
-  upgrade:
+  deploy:
     jobs:
-    - upgrade
+    - deploy
