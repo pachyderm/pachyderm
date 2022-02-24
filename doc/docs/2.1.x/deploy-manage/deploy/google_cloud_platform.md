@@ -411,7 +411,7 @@ pachd:
   enabled: true
   externalService:
     enabled: true
-    aPIGrpcport:    31400
+    apiGRPCport:    31400
     loadBalancerIP: "<STATIC_IP_ADDR>"
   storage:
     google:
