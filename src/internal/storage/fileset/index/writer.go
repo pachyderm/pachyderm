@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 var (
@@ -15,33 +15,29 @@ var (
 )
 
 type levelWriter struct {
-	cw      *chunk.Writer
-	pbw     pbutil.Writer
-	lastIdx *Index
-}
-
-type data struct {
-	idx   *Index
-	level int
+	cw                *chunk.Writer
+	pbw               pbutil.Writer
+	firstIdx, lastIdx *Index
+	lastCbIdx         *Index
 }
 
 // Writer is used for creating a multilevel index into a serialized file set.
 // Each index level is a stream of byte length encoded index entries that are stored in chunk storage.
 type Writer struct {
-	ctx    context.Context
-	chunks *chunk.Storage
-	tmpID  string
-
-	mu     sync.Mutex
-	levels []*levelWriter
-	closed bool
-	root   *Index
+	ctx      context.Context
+	cancel   context.CancelFunc
+	chunks   *chunk.Storage
+	tmpID    string
+	levelsMu sync.RWMutex
+	levels   []*levelWriter
 }
 
 // NewWriter create a new Writer.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
+	ctx, cancel := context.WithCancel(ctx)
 	return &Writer{
 		ctx:    ctx,
+		cancel: cancel,
 		chunks: chunks,
 		tmpID:  tmpID,
 	}
@@ -49,41 +45,29 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.setupLevels()
+	idx = proto.Clone(idx).(*Index)
 	return w.writeIndex(idx, 0)
 }
 
-func (w *Writer) setupLevels() {
-	// Setup the first index level.
-	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(0), chunk.WithRollingHashConfig(averageBits, 0))
-		w.levels = append(w.levels, &levelWriter{
-			cw:  cw,
-			pbw: pbutil.NewWriter(cw),
-		})
-	}
-}
-
 func (w *Writer) writeIndex(idx *Index, level int) error {
-	l := w.levels[level]
+	w.setupLevel(idx, level)
+	l := w.getLevel(level)
+	l.lastIdx = idx
+	// pull the data refs from the index
 	var refDataRefs []*chunk.DataRef
-	if idx.Range != nil {
+	if idx.Range != nil && idx.File != nil {
+		return errors.New("either Index.Range or Index.File must be set, but not both.")
+	} else if idx.Range != nil {
 		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
-	}
-	// TODO: I think we need to clear this field since it is reused.
-	// Maybe we could restructure this into a clone, with the field cleared.
-	if idx.File != nil {
+	} else if idx.File != nil {
 		refDataRefs = append(refDataRefs, idx.File.DataRefs...)
+	} else {
+		return errors.New("either Index.Range or Index.File must be set, but not both.")
 	}
 	// Create an annotation for each index.
 	if err := l.cw.Annotate(&chunk.Annotation{
 		RefDataRefs: refDataRefs,
-		Data: &data{
-			idx:   idx,
-			level: level,
-		},
+		Data:        idx,
 	}); err != nil {
 		return err
 	}
@@ -91,47 +75,48 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	return errors.EnsureStack(err)
 }
 
+func (w *Writer) setupLevel(idx *Index, level int) {
+	if level == w.numLevels() {
+		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
+		w.createLevel(&levelWriter{
+			cw:       cw,
+			pbw:      pbutil.NewWriter(cw),
+			firstIdx: idx,
+		})
+	}
+}
+
 func (w *Writer) callback(level int) chunk.WriterCallback {
 	return func(annotations []*chunk.Annotation) error {
-		w.mu.Lock()
-		defer w.mu.Unlock()
+		// TODO: What's going on here? Why would a callback be called with 0 annotations.
+		//       Nothing immediately breaks when this is left out.
 		if len(annotations) == 0 {
 			return nil
 		}
-		lw := w.levels[level]
+		lw := w.getLevel(level)
 		// Extract first and last index and setup file range.
-		idx := annotations[0].Data.(*data).idx
+		idx := annotations[0].Data.(*Index)
 		dataRef := annotations[0].NextDataRef
 		// Edge case handling.
 		if len(annotations) > 1 {
 			// Skip the first index if it started in the previous chunk.
-			if lw.lastIdx != nil && idx.Path == lw.lastIdx.Path {
-				idx = annotations[1].Data.(*data).idx
+			if proto.Equal(lw.lastCbIdx, idx) {
+				idx = annotations[1].Data.(*Index)
 				dataRef = annotations[1].NextDataRef
 			}
 		}
-		lw.lastIdx = annotations[len(annotations)-1].Data.(*data).idx
-		// Set standard fields in index.
-		lastPath := lw.lastIdx.Path
-		if lw.lastIdx.Range != nil {
-			lastPath = lw.lastIdx.Range.LastPath
+		idx = proto.Clone(idx).(*Index)
+		dataRef = proto.Clone(dataRef).(*chunk.DataRef)
+		idx.File = nil
+		lw.lastCbIdx = proto.Clone(annotations[len(annotations)-1].Data.(*Index)).(*Index)
+		lastPath := lw.lastCbIdx.Path
+		if lw.lastCbIdx.Range != nil {
+			lastPath = lw.lastCbIdx.Range.LastPath
 		}
 		idx.Range = &Range{
 			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
 			ChunkRef: chunk.Reference(dataRef),
-		}
-		// Set the root index when the writer is closed and we are at the top index level.
-		if w.closed {
-			w.root = idx
-		}
-		// Create next index level if it does not exist.
-		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, uuid.NewWithoutDashes(), w.callback(level+1), chunk.WithRollingHashConfig(averageBits, int64(level+1)))
-			w.levels = append(w.levels, &levelWriter{
-				cw:  cw,
-				pbw: pbutil.NewWriter(cw),
-			})
 		}
 		// Write index entry in next index level.
 		return w.writeIndex(idx, level+1)
@@ -140,24 +125,41 @@ func (w *Writer) callback(level int) chunk.WriterCallback {
 
 // Close finishes the index, and returns the serialized top index level.
 func (w *Writer) Close() (ret *Index, retErr error) {
-	w.mu.Lock()
-	w.closed = true
-	w.mu.Unlock()
-
+	// Close levels until a level with only one index entry (first index == last index)
+	// exists and return the index.
 	// Note: new levels can be created while closing, so the number of iterations
-	// necessary can increase as the levels are being closed. Levels stop getting
-	// created when the top level chunk writer has been closed and the number of
-	// annotations and chunks it has is one (one annotation in one chunk).
-	for i := 0; i < len(w.levels); i++ {
-		w.mu.Lock()
-		l := w.levels[i]
-		w.mu.Unlock()
+	// necessary can increase as the levels are being closed. Cancelling the context
+	// will stop any open chunk writers, ending the callback recursion.
+	// Any additional chunks that are created at or above the level with the one index
+	// entry (chunk split point in the middle) will be unreferenced and therefore cleaned
+	// up by garbage collection.
+	defer w.cancel()
+	for i := 0; i < w.numLevels(); i++ {
+		l := w.getLevel(i)
+		if proto.Equal(l.firstIdx, l.lastIdx) {
+			return l.firstIdx, nil
+		}
 		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
-		if l.cw.AnnotationCount() == 1 && l.cw.ChunkCount() == 1 {
-			break
-		}
 	}
-	return w.root, nil
+	return nil, nil
+}
+
+func (w *Writer) createLevel(l *levelWriter) {
+	w.levelsMu.Lock()
+	defer w.levelsMu.Unlock()
+	w.levels = append(w.levels, l)
+}
+
+func (w *Writer) getLevel(level int) *levelWriter {
+	w.levelsMu.RLock()
+	defer w.levelsMu.RUnlock()
+	return w.levels[level]
+}
+
+func (w *Writer) numLevels() int {
+	w.levelsMu.RLock()
+	defer w.levelsMu.RUnlock()
+	return len(w.levels)
 }
