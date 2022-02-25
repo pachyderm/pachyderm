@@ -7,7 +7,7 @@ import styles from './UploadFilesButton.module.css';
 const UploadFilesButton: React.FC = () => {
   const {fileUploadPath, loading} = useUploadFilesButton();
   return (
-    <Link to={fileUploadPath} small>
+    <Link to={fileUploadPath} small className={styles.base}>
       <Icon
         color="plum"
         className={styles.uploadSVG}

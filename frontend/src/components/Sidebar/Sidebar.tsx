@@ -6,12 +6,17 @@ import {Route} from 'react-router';
 import {SidebarSize} from '@dash-frontend/lib/types';
 import DeletePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeletePipelineButton';
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
+import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
 import UploadFilesButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UploadFilesButton';
 import {
+  PROJECT_PATH,
+  LINEAGE_PATH,
   PROJECT_REPO_PATH,
   PROJECT_PIPELINE_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
+  PROJECT_PIPELINE_JOB_PATH,
+  LINEAGE_PIPELINE_JOB_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
 import useSidebar from './hooks/useSidebar';
@@ -81,20 +86,33 @@ const Sidebar: React.FC<SidebarProps> = ({
             onMouseDown={() => setDragging(true)}
           />
         )}
-        {onClose && (
+        <Route path={[PROJECT_PATH, LINEAGE_PATH]}>
           <div className={styles.sideBarToolbar}>
             <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
               <UploadFilesButton />
               <DeleteRepoButton />
             </Route>
+
+            <Route
+              path={[
+                PROJECT_PIPELINE_PATH,
+                LINEAGE_PIPELINE_PATH,
+                PROJECT_PIPELINE_JOB_PATH,
+                LINEAGE_PIPELINE_JOB_PATH,
+              ]}
+            >
+              <ReadLogsButton />
+            </Route>
             <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
               <DeletePipelineButton />
             </Route>
-            <ButtonLink className={styles.closeButton} onClick={onClose}>
-              <CloseSVG aria-label="Close" className={styles.closeSvg} />
-            </ButtonLink>
+            {onClose && (
+              <ButtonLink className={styles.closeButton} onClick={onClose}>
+                <CloseSVG aria-label="Close" className={styles.closeSvg} />
+              </ButtonLink>
+            )}
           </div>
-        )}
+        </Route>
 
         {children}
       </div>

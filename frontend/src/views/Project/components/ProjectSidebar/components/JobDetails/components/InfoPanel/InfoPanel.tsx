@@ -1,5 +1,5 @@
 import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
-import {DocumentSVG, Link, Icon} from '@pachyderm/components';
+import {Link} from '@pachyderm/components';
 import {
   fromUnixTime,
   formatDistanceToNow,
@@ -16,10 +16,7 @@ import {useJob} from '@dash-frontend/hooks/useJob';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {ProjectRouteParams} from '@dash-frontend/lib/types';
-import {
-  jobRoute,
-  logsViewerJobRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './InfoPanel.module.css';
 
@@ -92,24 +89,6 @@ const InfoPanel = () => {
 
   return (
     <dl className={styles.base}>
-      <div className={styles.readLogsWrapper}>
-        <Link
-          small
-          to={logsViewerJobRoute({
-            projectId,
-            jobId: jobId,
-            pipelineId: pipelineId,
-          })}
-        >
-          <span className={styles.readLogsText}>
-            Read Logs{' '}
-            <Icon small color="plum">
-              <DocumentSVG />
-            </Icon>
-          </span>
-        </Link>
-      </div>
-
       <Description
         term="Output Commit"
         loading={loading}

@@ -66,7 +66,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState('', '', '/project/1/pipelines/montage');
 
       const {getByText} = render(<Project />);
-      const logsLink = getByText('Read Logs').parentElement;
+      const logsLink = getByText('Read Logs');
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
         `/project/1/pipelines/montage/logs`,

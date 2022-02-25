@@ -13,12 +13,3 @@
 .nameLoader {
   margin-bottom: 1.5625rem;
 }
-
-.logsWrapper {
-  margin-left: auto;
-}
-
-.readLogsText {
-  display: inline-flex;
-  align-items: center;
-}
