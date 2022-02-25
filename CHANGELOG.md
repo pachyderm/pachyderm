@@ -1,6 +1,15 @@
 
 # Changelog
 
+## 2.1.1
+- Bug fix for upgrading with more than 10 pipelines - #7360
+- Add nodeSelector and annotations to some helm templates - #7354
+- Reduce chunk batch size - #7352
+- Finer grained locking of Index Writer data - #7350
+- Remove pachd's init container - #7347
+- Open commits performance changes - #7342
+- Allow using Update pipeline to create a pipeline when auth is enabled - #7340
+
 ## 2.1.0
 Highlights:
 - Integration with Structured Data stores, using SQL query pipelines (7248, 7129, 7108, 7035, 7032)
