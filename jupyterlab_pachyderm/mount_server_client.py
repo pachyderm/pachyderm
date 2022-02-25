@@ -89,12 +89,18 @@ class MountServerClient(MountInterface):
     async def unmount_all(self):
         self._ensure_mount_server()
         all = await self.list()
+        await self.client.fetch(
+            f"{self.address}/repos/_unmount",
+            method="PUT",
+            body="{}"
+        )
+
         accum = []
-        for name, repo_info in all.items():
-            for branch_name, branch_info in repo_info["branches"].items():
+        for _, repo_info in all.items():
+            for _, branch_info in repo_info["branches"].items():
                 if branch_info["mount"]["state"] == "mounted":
-                    await self.unmount(branch_info["mount"]["mount_key"]["Repo"], branch_info["mount"]["mount_key"]["Branch"], name)
                     accum.append([branch_info["mount"]["mount_key"]["Repo"], branch_info["mount"]["mount_key"]["Branch"]])
+
         return accum
 
     async def commit(self, repo, branch, name, message):

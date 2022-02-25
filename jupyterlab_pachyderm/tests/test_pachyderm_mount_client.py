@@ -145,7 +145,4 @@ class TestPachydermMountClient:
     async def test_unmount_all(self, client: PythonPachydermMountClient):
         await client.mount("images", "master", "rw")
         await client.mount("edges", "master", "ro")
-        assert await client.unmount_all() == [
-            {"repo": "images", "branch": "master", "mount": {"state": "unmounted"}},
-            {"repo": "edges", "branch": "master", "mount": {"state": "unmounted"}},
-        ]
+        assert await client.unmount_all() == [["images", "master"], ["edges", "master"]]

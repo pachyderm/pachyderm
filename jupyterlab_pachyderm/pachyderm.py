@@ -181,9 +181,7 @@ class PythonPachydermMountClient(MountInterface):
     async def unmount_all(self):
         result = []
         for (repo, branch) in self.mount_states:
-            result.append(
-                {"repo": repo, "branch": branch, "mount": {"state": "unmounted"}}
-            )
+            result.append([repo, branch])
 
         self.client.unmount(all_mounts=True)
         self.mount_states = {}
