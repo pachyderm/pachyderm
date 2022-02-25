@@ -9,6 +9,7 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -29,6 +30,15 @@ const (
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
+
+type DeployOpts struct {
+	Version      string
+	Enterprise   bool
+	AuthUser     string
+	CleanupAfter bool
+}
+
+type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
 
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	cfg, err := config.Read(false, false)
@@ -118,35 +128,39 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-// Deploy pachyderm using a `helm install ...`, then run a test with an API Client corresponding to the deployment
-func InstallPublishedRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, version, user string, cleanup bool) *client.APIClient {
-	maybeCleanup(t, cleanup, kubeClient)
-	require.NoError(t, helm.InstallE(t, localDeploymentWithMinioOptions(ns, version), helmChartPublishedPath, helmRelease))
-	waitForPachd(t, ctx, kubeClient, ns, version)
-	return testutil.AuthenticatedPachClient(t, testutil.NewPachClient(t), user)
-}
-
-func UpgradeRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, user string, cleanup bool) *client.APIClient {
-	maybeCleanup(t, cleanup, kubeClient)
-	require.NoError(t, helm.UpgradeE(t, localDeploymentWithMinioOptions(ns, localImage), helmChartLocalPath, helmRelease))
-	waitForPachd(t, ctx, kubeClient, ns, localImage)
-	return testutil.AuthenticatedPachClient(t, testutil.NewPachClient(t), user)
-}
-
-func InstallReleaseEnterprise(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, user string, cleanup bool) *client.APIClient {
-	maybeCleanup(t, cleanup, kubeClient)
-	createSecretEnterpriseKeySecret(t, ctx, kubeClient, ns)
-	opts := union(localDeploymentWithMinioOptions(ns, localImage), withEnterprise(t, ns))
-	require.NoError(t, helm.InstallE(t, opts, helmChartLocalPath, helmRelease))
-	waitForPachd(t, ctx, kubeClient, ns, localImage)
-	return testutil.AuthenticatedPachClientPostActivate(t, testutil.NewPachClient(t), user)
-}
-func maybeCleanup(t testing.TB, cleanup bool, kubeClient *kube.Clientset) {
-	if cleanup {
+func putRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+	if opts.CleanupAfter {
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), kubeClient)
 		})
 	}
+	version := localImage
+	if opts.Version != "" {
+		version = opts.Version
+	}
+	helmOpts := localDeploymentWithMinioOptions(ns, localImage)
+	if opts.Enterprise {
+		helmOpts = union(helmOpts, withEnterprise(t, ns))
+	}
+	require.NoError(t, f(t, helmOpts, helmChartLocalPath, helmRelease))
+	waitForPachd(t, ctx, kubeClient, ns, version)
+	if opts.AuthUser != "" {
+		return testutil.AuthenticatedPachClientPostActivate(t, testutil.NewPachClient(t), opts.AuthUser)
+	} else {
+		return testutil.NewPachClient(t)
+	}
+}
+
+// Deploy pachyderm using a `helm upgrade ...`
+// returns an API Client corresponding to the deployment
+func UpgradeRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, kubeClient, helm.UpgradeE, opts)
+}
+
+// Deploy pachyderm using a `helm install ...`
+// returns an API Client corresponding to the deployment
+func InstallRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, kubeClient, helm.InstallE, opts)
 }
 
 func deleteRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset) {

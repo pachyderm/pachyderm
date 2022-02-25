@@ -36,8 +36,20 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
-			preUpgrade(t, minikubetestenv.InstallPublishedRelease(t, ctx, k, from, upgradeSubject, false))
-			postUpgrade(t, minikubetestenv.UpgradeRelease(t, ctx, k, upgradeSubject, true))
+			preUpgrade(t, minikubetestenv.InstallRelease(t,
+				context.Background(),
+				k,
+				&minikubetestenv.DeployOpts{
+					AuthUser: upgradeSubject,
+					Version:  from,
+				}))
+			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
+				context.Background(),
+				k,
+				&minikubetestenv.DeployOpts{
+					AuthUser:     upgradeSubject,
+					CleanupAfter: true,
+				}))
 		})
 	}
 }

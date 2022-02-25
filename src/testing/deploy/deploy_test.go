@@ -15,7 +15,14 @@ import (
 
 func TestDeployEnterprise(t *testing.T) {
 	k := testutil.GetKubeClient(t)
-	c := minikubetestenv.InstallReleaseEnterprise(t, context.Background(), k, auth.RootUser, true)
+	c := minikubetestenv.InstallRelease(t,
+		context.Background(),
+		k,
+		&minikubetestenv.DeployOpts{
+			AuthUser:     auth.RootUser,
+			Enterprise:   true,
+			CleanupAfter: true,
+		})
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
