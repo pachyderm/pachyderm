@@ -83,22 +83,29 @@ func mySQLDSN(u URL, password string) string {
 }
 
 func snowflakeDSN(u URL, password string) string {
-	// Snowflake account name is usually embedded in the host name
-	// e.g <account_identifier>.snowflakecomputing.com
+	// A Snowflake account_identifier uniquely identifies a Snowflake account.
+	// account_identifer is embedded in the hostname, eg <account_identifier>.snowflakecomputing.com
+	// however, the "snowflakecomputing.com" can be left out
+	// example: jsmith@my_organization-my_account/mydb/testschema?warehouse=mywh
+	// in this case, the account_identifier is my_organization-my_account
 	var account string
-	if strings.HasSuffix(u.Host, "snowflakecomputing.com") {
-		account = strings.Split(u.Host, ".")[0]
+	if strings.HasSuffix(u.Host, ".snowflakecomputing.com") {
+		account = strings.Split(u.Host, ".snowflakecomputing.com")[0]
+	} else if net.ParseIP(u.Host) == nil {
+		// assume this is an account_identifier
+		account = u.Host
 	} else {
 		account = u.Params["account"]
 	}
 
+	// The only required fields are account, user, password
+	// note: host and port are deprecated by Snowflake
 	cfg := &sf.Config{
-		Account:  account,
-		User:     u.User,
-		Password: password,
-		Database: u.Database,
-		Host:     u.Host,
-		Port:     int(u.Port),
+		Account:   account,
+		User:      u.User,
+		Password:  password,
+		Database:  u.Database,
+		Warehouse: u.Params["warehouse"],
 	}
 	dsn, _ := sf.DSN(cfg)
 	return dsn

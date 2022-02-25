@@ -19,7 +19,6 @@ type URL struct {
 }
 
 // ParseURL attempts to parse x into a URL
-// TODO: support more generic Snowflake connection strings
 func ParseURL(x string) (*URL, error) {
 	u, err := url.Parse(x)
 	if err != nil {
@@ -27,7 +26,16 @@ func ParseURL(x string) (*URL, error) {
 	}
 	port, err := strconv.Atoi(u.Port())
 	if err != nil {
-		return nil, errors.EnsureStack(errors.Wrapf(err, "parsing url port: %w"))
+		switch u.Scheme {
+		case ProtocolMySQL:
+			port = 3306
+		case ProtocolPostgres:
+			port = 5432
+		case ProtocolSnowflake:
+			port = 443
+		default:
+			return nil, errors.EnsureStack(err)
+		}
 	}
 	params := make(map[string]string)
 	for k, v := range u.Query() {

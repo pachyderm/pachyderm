@@ -85,9 +85,7 @@ func newSnowSQL(t testing.TB) *sqlx.DB {
 	user := os.Getenv("SNOW_USER")
 	password := os.Getenv("SNOW_PASSWORD")
 	account_identifier := os.Getenv("SNOW_ACCOUNT")
-	host := fmt.Sprintf("%s.snowflakecomputing.com", account_identifier)
-	port := "443"
-	dsn := fmt.Sprintf("%s:%s@%s:%s", user, password, host, port)
+	dsn := fmt.Sprintf("%s:%s@%s", user, password, account_identifier)
 
 	db, err := sqlx.Open("snowflake", dsn)
 	require.NoError(t, err)
