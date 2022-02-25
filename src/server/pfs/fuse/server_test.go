@@ -164,6 +164,38 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	})
 }
 
+func TestUnmountAll(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+	require.NoError(t, env.PachClient.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	require.NoError(t, env.PachClient.CreateRepo("repo2"))
+	commit = client.NewCommit("repo2", "master", "")
+	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		_, err := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
+		require.NoError(t, err)
+		_, err = put("repos/repo2/master/_mount?name=repo2&mode=ro", nil)
+		require.NoError(t, err)
+
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(repos))
+
+		_, err = put("repos/_unmount", nil)
+		require.NoError(t, err)
+
+		repos, err = ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(repos))
+	})
+}
+
 func TestConfig(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
