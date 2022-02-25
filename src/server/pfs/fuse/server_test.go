@@ -1,7 +1,10 @@
 package fuse
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
@@ -9,16 +12,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-func put(path string) (*http.Response, error) {
+func put(path string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), nil)
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), body)
+	if err != nil {
+		panic(err)
+	}
+	x, err := client.Do(req)
+	return x, errors.EnsureStack(err)
+}
+
+func get(path string) (*http.Response, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:9002/%s", path), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +69,7 @@ func TestBasicServerSameNames(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 
-		_, err := put("repos/repo/master/_mount?name=repo&mode=ro")
+		_, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -88,7 +104,7 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 
-		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro")
+		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -112,6 +128,7 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 }
+
 func TestBasicServerDifferingNames(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
@@ -122,7 +139,7 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 
-		_, err := put("repos/repo/master/_mount?name=newname&mode=ro")
+		_, err := put("repos/repo/master/_mount?name=newname&mode=ro", nil)
 		require.NoError(t, err)
 
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -144,6 +161,105 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
+	})
+}
+
+func TestConfig(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		type Config struct {
+			ClusterStatus string `json:"cluster_status"`
+			PachdAddress  string `json:"pachd_address"`
+		}
+
+		// PUT
+		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
+		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
+		b := new(bytes.Buffer)
+		json.NewEncoder(b).Encode(m)
+
+		// This put call takes 30 seconds since the client attempts to connect to an
+		// endpoint for 30 seconds before timing out if it can't.
+		putResp, err := put("config", b)
+		require.NoError(t, err)
+		defer putResp.Body.Close()
+
+		putConfig := &Config{}
+		json.NewDecoder(putResp.Body).Decode(putConfig)
+
+		invalidCfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(invalidCfg.PachdAddress)
+		require.NoError(t, err)
+
+		require.Equal(t, invalidCfg.ClusterStatus, putConfig.ClusterStatus)
+		require.Equal(t, invalidCfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
+		require.NotEqual(t, invalidCfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
+
+		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
+		m = map[string]string{"pachd_address": cfg.PachdAddress}
+		b = new(bytes.Buffer)
+		json.NewEncoder(b).Encode(m)
+
+		putResp, err = put("config", b)
+		require.NoError(t, err)
+		defer putResp.Body.Close()
+
+		putConfig = &Config{}
+		json.NewDecoder(putResp.Body).Decode(putConfig)
+
+		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
+		require.NoError(t, err)
+
+		require.Equal(t, cfg.ClusterStatus, putConfig.ClusterStatus)
+		require.Equal(t, cfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
+		require.Equal(t, cfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
+
+		// GET
+		getResp, err := get("config")
+		require.NoError(t, err)
+		defer getResp.Body.Close()
+
+		getConfig := &Config{}
+		json.NewDecoder(getResp.Body).Decode(getConfig)
+
+		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
+		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
+	})
+}
+
+func TestAuthLoginLogout(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	// Auth is activated in this step
+	tu.ConfigureOIDCProvider(t)
+	c := tu.GetUnauthenticatedPachClient(t)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		authResp, err := put("auth/_login", nil)
+		require.NoError(t, err)
+		defer authResp.Body.Close()
+
+		type AuthLoginResp struct {
+			AuthUrl string `json:"auth_url"`
+		}
+		getAuthLogin := &AuthLoginResp{}
+		json.NewDecoder(authResp.Body).Decode(getAuthLogin)
+
+		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
+		time.Sleep(1 * time.Second)
+
+		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.NoError(t, err)
+
+		_, err = put("auth/_logout", nil)
+		require.NoError(t, err)
+
+		_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.ErrorIs(t, err, auth.ErrNotSignedIn)
 	})
 }
 
