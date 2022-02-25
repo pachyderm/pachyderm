@@ -6,16 +6,17 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"golang.org/x/sync/semaphore"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	poolSize        = 5
 	namespacePrefix = "test-cluster-"
 )
-
-var clusterPool []*client.APIClient
 
 var (
 	clusterFactory *ClusterFactory
@@ -29,6 +30,51 @@ type ClusterFactory struct {
 	sem               semaphore.Weighted // enforces max concurrency
 }
 
+func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+	if len(cf.availableClusters) > 0 {
+		var assigned string
+		for ns := range cf.availableClusters {
+			assigned = ns
+			delete(cf.availableClusters, ns)
+			break
+		}
+		return assigned, cf.managedClusters[assigned]
+	}
+	return "", nil
+}
+
+func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APIClient) {
+	assigned := testutil.UniqueString(namespacePrefix)
+	kube := testutil.GetKubeClient(t)
+	_, err := kube.CoreV1().Namespaces().Create(context.Background(),
+		&v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: assigned,
+			},
+		},
+		metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	cf.mu.Lock()
+	cf.managedClusters[assigned] = nil // hold my place in line
+	managedCount := len(cf.managedClusters)
+	cf.mu.Unlock()
+
+	c := InstallRelease(t,
+		context.Background(),
+		assigned,
+		kube,
+		&DeployOpts{
+			PortOffset: uint16(managedCount * 11),
+		})
+	cf.mu.Lock()
+	cf.managedClusters[assigned] = c
+	cf.mu.Unlock()
+	return assigned, c
+}
+
 // AcquireCluster returns a pachyderm APIClient for one of a pool of
 // managed pachyderm clusters deployed in namespaces
 func AcquireCluster(t testing.TB, ctx context.Context) *client.APIClient {
@@ -39,35 +85,18 @@ func AcquireCluster(t testing.TB, ctx context.Context) *client.APIClient {
 			sem:               *semaphore.NewWeighted(poolSize),
 		}
 	})
+
 	clusterFactory.sem.Acquire(ctx, 1)
-	clusterFactory.mu.Lock()
 	var assigned string
-	if len(clusterFactory.availableClusters) > 0 {
-		for ns := range clusterFactory.availableClusters {
-			assigned = ns
-			delete(clusterFactory.availableClusters, ns)
-			break
-		}
-		return clusterFactory.managedClusters[assigned]
-	} else if len(clusterFactory.managedClusters) < poolSize {
-		assigned = testutil.UniqueString(namespacePrefix)
-		newClusterClient := InstallRelease(t,
-			context.Background(),
-			assigned,
-			testutil.GetKubeClient(t),
-			&DeployOpts{
-				PortOffset: uint16(len(clusterFactory.managedClusters) * 1000),
-			})
-		clusterFactory.managedClusters[assigned] = newClusterClient
-	} else {
-		clusterFactory.mu.Unlock()
-		clusterFactory.sem.Release(1)
-		t.Fatal("A test's goroutine shouldn't proceed if the ClusterFactory is running at maximum concurrency.")
+	assigned, c := clusterFactory.acquireFreeCluster()
+	if assigned == "" {
+		assigned, c = clusterFactory.acquireNewCluster(t)
 	}
-	clusterFactory.mu.Unlock()
 	t.Cleanup(func() {
 		clusterFactory.sem.Release(1)
+		clusterFactory.mu.Lock()
 		clusterFactory.availableClusters[assigned] = true
+		clusterFactory.mu.Unlock()
 	})
-	return clusterFactory.managedClusters[assigned]
+	return c
 }

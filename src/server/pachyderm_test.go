@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -142,7 +143,7 @@ func TestRepoSize(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	// create a data repo
@@ -208,7 +209,7 @@ func TestPFSPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPFSPipeline_data")
@@ -250,7 +251,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithParallelism_data")
@@ -297,7 +298,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
@@ -358,7 +359,7 @@ func TestDatumDedup(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
@@ -404,8 +405,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
@@ -482,7 +482,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameBranch_data")
@@ -560,7 +560,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
@@ -1157,7 +1157,7 @@ func TestPipelineFailure(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineFailure_data")
@@ -1201,7 +1201,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	t.Run("ErrCmd", func(t *testing.T) {
@@ -1333,7 +1333,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestLazyPipelinePropagation_data")
@@ -1392,7 +1392,7 @@ func TestLazyPipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestLazyPipeline_data")
@@ -1447,7 +1447,7 @@ func TestEmptyFiles(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := tu.GetPachClient(t)
+	c := minikubetestenv.AcquireCluster(t, context.Background())
 	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestShufflePipeline_data")

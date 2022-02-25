@@ -22,13 +22,20 @@ spec:
   - name: api-grpc-port
     # TODO: can we start serving enterprise server on 31650?
     {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+<<<<<<< HEAD
     nodePort: {{ .Values.enterpriseServer.service.apiGRPCPort }}
     {{- end }}
     port: {{ .Values.enterpriseServer.service.apiGRPCPort }}
+=======
+    nodePort: {{ .Values.enterpriseServer.service.port }}
+    {{- end }}
+    port: {{ .Values.enterpriseServer.service.port }}
+>>>>>>> 504264a37f (Making ports flexible and such)
     protocol: TCP
     targetPort: api-grpc-port
   - name: oidc-port
     {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+<<<<<<< HEAD
     nodePort: {{ .Values.enterpriseServer.service.oidcPort }}
     {{ end }}
     port: {{ .Values.enterpriseServer.service.oidcPort }}
@@ -44,6 +51,23 @@ spec:
     nodePort: {{ .Values.enterpriseServer.service.prometheusPort }}
     {{- end }}
     port: {{ .Values.enterpriseServer.service.prometheusPort }}
+=======
+    nodePort: {{ add .Values.enterpriseServer.service.port 7 }}
+    {{- end }}
+    port: {{ add .Values.enterpriseServer.service.port 7 }}
+    targetPort: oidc-port
+  - name: identity-port
+    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+    nodePort: {{ add .Values.enterpriseServer.service.port 8 }}
+    {{- end }}
+    port: {{ add .Values.enterpriseServer.service.port 8 }}
+    targetPort: identity-port
+  - name: prom-metrics
+    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
+    nodePort: {{ add .Values.enterpriseServer.service.port 6 }}
+    {{- end }}
+    port: {{ add .Values.enterpriseServer.service.port 6 }}
+>>>>>>> 504264a37f (Making ports flexible and such)
     protocol: TCP
     targetPort: prom-metrics
   selector:
