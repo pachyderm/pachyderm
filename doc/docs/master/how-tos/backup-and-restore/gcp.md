@@ -20,9 +20,8 @@ gcloud iam roles create velero.server --project $PROJECT_ID --title "Velero Serv
 ### Per cluster
 
 ```shell
-$ SERVICE_ACCOUNT=$(gcloud sql instances describe $INSTANCE
---project=$PROJECT --format="value(serviceAccountEmailAddress)")
-$ gsutil acl ch -u ${SERVICE_ACCOUNT}:W gs://$BUCKET
+$ SERVICE_ACCOUNT=$(gcloud sql instances describe $INSTANCE --project=$PROJECT --format="value(serviceAccountEmailAddress)")
+$ gsutil iam ch serviceAccount:${SERVICE_ACCOUNT}:objectCreator gs://$BUCKET
 $ velero install --provider gcp --plugins velero/velero-plugin-for-gcp:v1.3.0 --bucket $BUCKET --secret-file $SECRETS_PATH
 ```
 
@@ -43,7 +42,9 @@ cluster
  3. Take a backup: `velero backup create NAME --include-namespaces PACHD-NAMESPACE`
  4. Backup pachyderm PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
  5. Backup dex PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
- 6. Backup postgres PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
+ 6. Backup postgres PostgreSQL database: `gcloud sql export sql
+    $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
+ 7. Backup objext: `gsutil cp -r $BUCKET $BACKUP_BUCKET`
  7. Scale `pachd` back up: `kubectl scale deployment pachd --replicas 1`
 
 ## Restoring
@@ -56,12 +57,38 @@ cluster
 
 ## Procedure
 
- 1. Install Velero: `velero install --provider gcp --plugins velero/velero-plugin-for-gcp:v1.3.0 --bucket $BUCKET --secret-file $SECRETS_PATH`
- 2. Restore postgres: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
- 3. Restore dex: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
- 4. Restore pachyderm: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
- 5. Restore Pachyderm: `velero restore create --from-backup NAME`
- 6. Scale `pachd` back up: `kubectl scale deployment pachd --replicas 1`
+ 1. Install Velero: `velero install --provider gcp --plugins
+    velero/velero-plugin-for-gcp:v1.3.0 --bucket $BUCKET --secret-file
+    $SECRETS_PATH`
+ 2. Give service account permissions: `gsutil iam ch serviceAccount:$(gcloud sql instances describe $INSTANCE --project=$PROJECT --format="value(serviceAccountEmailAddress)"):objectViewer gs://$BUCKET`
+ 3. If using a new database:
+    1. Restore postgres: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
+	2. Restore dex: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
+	3. Restore pachyderm: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
+ 4. Restore Pachyderm: `velero restore create --from-backup NAME`
+ 5. If using a new database:
+	1. Update to point to new database: `kubectl edit deployment cloudsql-auth-proxy` (update line beginning with `- -instances=` to reference new DB)
+	2. Update to point to new service account: `kubectl edit serviceaccount k8s-cloudsql-auth-proxy` (update
+       `iam.gke.io/gcp-service-account` and delete `secrets`)
+ 6. Update pachyderm-worker service account: `kubectl edit serviceaccount pachyderm` (update
+       `iam.gke.io/gcp-service-account` and delete `secrets`)
+ 7. Update pachyderm-worker service account: `kubectl edit serviceaccount pachyderm-worker` (update
+       `iam.gke.io/gcp-service-account` and delete `secrets`)
+ 8. `kubectl edit secret pachyderm-storage-secret` and update Google bucket
+ 9. Scale `pachd` back up: `kubectl scale deployment pachd --replicas 1`
+ 10. Use `gcloud compute addresses list` to get the IP address for your new
+ instance
+ 11. `kubectl edit service pachd-lb` (set `loadBalancerIP`)
+
+## Connecting to your restored cluster
+
+Pachctl must still be configured to connect to a restored cluster.
+
+  1.  Use `gcloud compute addresses list` to get the IP address for your new
+instance.
+  2.  `STATIC_IP_ADDR=…`
+  3.  `echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite`
+  4.  `pachctl config set active-context ${CLUSTER_NAME}`
 
 ## Appendix
 
