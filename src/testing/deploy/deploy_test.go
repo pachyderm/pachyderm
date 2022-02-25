@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func TestDeployEnterprise(t *testing.T) {
@@ -56,4 +57,26 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "user:"+testutil.DexMockConnectorEmail, whoami.Username)
+}
+
+func TestParallelDeployments(t *testing.T) {
+	ctx1 := context.Background()
+	c1 := minikubetestenv.AcquireCluster(t, ctx1)
+	_, err := c1.PfsAPIClient.CreateRepo(ctx1, &pfs.CreateRepoRequest{Repo: client.NewRepo("c1")})
+	require.NoError(t, err)
+
+	ctx2 := context.Background()
+	c2 := minikubetestenv.AcquireCluster(t, ctx2)
+	_, err = c2.PfsAPIClient.CreateRepo(ctx2, &pfs.CreateRepoRequest{Repo: client.NewRepo("c2")})
+	require.NoError(t, err)
+
+	c1List, err := c1.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(c1List))
+	require.Equal(t, c1List[0], "c1")
+
+	c2List, err := c2.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(c2List))
+	require.Equal(t, c2List[0], "c2")
 }

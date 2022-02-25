@@ -10,7 +10,10 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const poolSize = 5
+const (
+	poolSize        = 5
+	namespacePrefix = "test-cluster-"
+)
 
 var clusterPool []*client.APIClient
 
@@ -47,8 +50,14 @@ func AcquireCluster(t testing.TB, ctx context.Context) *client.APIClient {
 		}
 		return clusterFactory.managedClusters[assigned]
 	} else if len(clusterFactory.managedClusters) < poolSize {
-		assigned = testutil.UniqueString("testenv-cluster-")
-		newClusterClient := InstallRelease(t, context.Background(), assigned, testutil.GetKubeClient(t), &DeployOpts{})
+		assigned = testutil.UniqueString(namespacePrefix)
+		newClusterClient := InstallRelease(t,
+			context.Background(),
+			assigned,
+			testutil.GetKubeClient(t),
+			&DeployOpts{
+				PortOffset: uint16(len(clusterFactory.managedClusters) * 1000),
+			})
 		clusterFactory.managedClusters[assigned] = newClusterClient
 	} else {
 		clusterFactory.mu.Unlock()

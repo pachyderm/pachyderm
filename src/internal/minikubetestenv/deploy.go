@@ -34,6 +34,7 @@ type DeployOpts struct {
 	Enterprise   bool
 	AuthUser     string
 	CleanupAfter bool
+	PortOffset   uint16 // might make more sense to declare port instead of offset
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -41,14 +42,11 @@ type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, re
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	cfg, err := config.Read(false, false)
 	require.NoError(t, err)
-
 	_, context, err := cfg.ActiveContext(true)
 	require.NoError(t, err)
-
-	pa, err := grpcutil.ParsePachdAddress(context.PachdAddress)
+	address, err := grpcutil.ParsePachdAddress(context.PachdAddress)
 	require.NoError(t, err)
-
-	return pa
+	return address
 }
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
@@ -86,8 +84,9 @@ func withEnterprise(t testing.TB, namespace string) *helm.Options {
 			"pachd.rootToken":                      testutil.RootToken,
 			"pachd.oauthClientSecret":              "oidc-client-secret",
 			"pachd.enterpriseSecret":               "enterprise-secret",
-			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:30658", addr.Host),
-			"ingress.host":                         fmt.Sprintf("%s:30657", addr.Host),
+			// TODO: make these ports configurable to support IDP Login in parallel deployments
+			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", addr.Host),
+			"ingress.host":                       fmt.Sprintf("%s:30657", addr.Host),
 		},
 	}
 }
@@ -140,13 +139,19 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Enterprise {
 		helmOpts = union(helmOpts, withEnterprise(t, namespace))
 	}
+	pachAddress := getPachAddress(t)
+	if opts.PortOffset != 0 {
+		pachAddress.Port = pachAddress.Port + opts.PortOffset
+	}
+	// TODO: SET NEW PORT IN HELM
 	require.NoError(t, f(t, helmOpts, helmChartLocalPath, namespace))
 	waitForPachd(t, ctx, kubeClient, namespace, version)
+	c, err := client.NewFromPachdAddress(pachAddress)
+	require.NoError(t, err)
 	if opts.AuthUser != "" {
-		return testutil.AuthenticatedPachClientPostActivate(t, testutil.NewPachClient(t), opts.AuthUser)
-	} else {
-		return testutil.NewPachClient(t)
+		c = testutil.AuthenticateClient(t, c, opts.AuthUser)
 	}
+	return c
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
