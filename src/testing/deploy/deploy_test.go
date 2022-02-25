@@ -17,6 +17,7 @@ func TestDeployEnterprise(t *testing.T) {
 	k := testutil.GetKubeClient(t)
 	c := minikubetestenv.InstallRelease(t,
 		context.Background(),
+		"default",
 		k,
 		&minikubetestenv.DeployOpts{
 			AuthUser:     auth.RootUser,

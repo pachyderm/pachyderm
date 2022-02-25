@@ -25,8 +25,6 @@ import (
 const (
 	helmChartLocalPath     = "../../../etc/helm/pachyderm"
 	helmChartPublishedPath = "pach/pachyderm"
-	helmRelease            = "test-release"
-	ns                     = "default"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
@@ -128,22 +126,22 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-func putRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
-			deleteRelease(t, context.Background(), kubeClient)
+			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
 	version := localImage
 	if opts.Version != "" {
 		version = opts.Version
 	}
-	helmOpts := localDeploymentWithMinioOptions(ns, localImage)
+	helmOpts := localDeploymentWithMinioOptions(namespace, localImage)
 	if opts.Enterprise {
-		helmOpts = union(helmOpts, withEnterprise(t, ns))
+		helmOpts = union(helmOpts, withEnterprise(t, namespace))
 	}
-	require.NoError(t, f(t, helmOpts, helmChartLocalPath, helmRelease))
-	waitForPachd(t, ctx, kubeClient, ns, version)
+	require.NoError(t, f(t, helmOpts, helmChartLocalPath, namespace))
+	waitForPachd(t, ctx, kubeClient, namespace, version)
 	if opts.AuthUser != "" {
 		return testutil.AuthenticatedPachClientPostActivate(t, testutil.NewPachClient(t), opts.AuthUser)
 	} else {
@@ -153,25 +151,25 @@ func putRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, f
 
 // Deploy pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
-func UpgradeRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, kubeClient, helm.UpgradeE, opts)
+func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, namespace, kubeClient, helm.UpgradeE, opts)
 }
 
 // Deploy pachyderm using a `helm install ...`
 // returns an API Client corresponding to the deployment
-func InstallRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, kubeClient, helm.InstallE, opts)
+func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, namespace, kubeClient, helm.InstallE, opts)
 }
 
-func deleteRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset) {
+func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset) {
 	options := &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: ns},
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 	}
-	err := helm.DeleteE(t, options, helmRelease, true)
+	err := helm.DeleteE(t, options, namespace, true)
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
-	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(ns).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
+	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, backoff.Retry(func() error {
-		pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(ns).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
+		pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}

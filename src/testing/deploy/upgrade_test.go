@@ -38,6 +38,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
 			preUpgrade(t, minikubetestenv.InstallRelease(t,
 				context.Background(),
+				"default",
 				k,
 				&minikubetestenv.DeployOpts{
 					AuthUser: upgradeSubject,
@@ -45,6 +46,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				}))
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
+				"default",
 				k,
 				&minikubetestenv.DeployOpts{
 					AuthUser:     upgradeSubject,
