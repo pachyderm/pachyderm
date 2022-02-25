@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"golang.org/x/sync/semaphore"
 )
@@ -16,44 +15,50 @@ const poolSize = 5
 var clusterPool []*client.APIClient
 
 var (
-	clientFactory *ClientFactory
-	setup         sync.Once
+	clusterFactory *ClusterFactory
+	setup          sync.Once
 )
 
-type ClientFactory struct {
-	sem               *semaphore.Weighted
+type ClusterFactory struct {
 	managedClusters   map[string]*client.APIClient
 	availableClusters map[string]bool
+	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
+	sem               semaphore.Weighted // enforces max concurrency
 }
 
-// AcquireClient returns a pachyderm APIClient for one of a pool of
+// AcquireCluster returns a pachyderm APIClient for one of a pool of
 // managed pachyderm clusters deployed in namespaces
-func AcquireClient(t *testing.T, ctx context.Context) (*client.APIClient, func()) {
+func AcquireCluster(t testing.TB, ctx context.Context) *client.APIClient {
 	setup.Do(func() {
-		clientFactory = &ClientFactory{
+		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*client.APIClient{},
 			availableClusters: map[string]bool{},
-			sem:               semaphore.NewWeighted(poolSize),
+			sem:               *semaphore.NewWeighted(poolSize),
 		}
 	})
-	require.NoError(t, clientFactory.sem.Acquire(ctx, 1))
+	clusterFactory.sem.Acquire(ctx, 1)
+	clusterFactory.mu.Lock()
 	var assigned string
-	if len(clientFactory.availableClusters) > 0 {
-		for ns := range clientFactory.availableClusters {
+	if len(clusterFactory.availableClusters) > 0 {
+		for ns := range clusterFactory.availableClusters {
 			assigned = ns
-			delete(clientFactory.availableClusters, ns)
+			delete(clusterFactory.availableClusters, ns)
 			break
 		}
-	} else if len(clientFactory.managedClusters) < poolSize {
-		// deploy
+		return clusterFactory.managedClusters[assigned]
+	} else if len(clusterFactory.managedClusters) < poolSize {
 		assigned = testutil.UniqueString("testenv-cluster-")
-		clientFactory.managedClusters[assigned] = nil
+		newClusterClient := InstallRelease(t, context.Background(), assigned, testutil.GetKubeClient(t), &DeployOpts{})
+		clusterFactory.managedClusters[assigned] = newClusterClient
 	} else {
-		t.Fatal("Ahhhh")
+		clusterFactory.mu.Unlock()
+		clusterFactory.sem.Release(1)
+		t.Fatal("A test's goroutine shouldn't proceed if the ClusterFactory is running at maximum concurrency.")
 	}
-
-	return nil, func() {
-		clientFactory.sem.Release(1)
-		clientFactory.availableClusters[assigned] = true
-	}
+	clusterFactory.mu.Unlock()
+	t.Cleanup(func() {
+		clusterFactory.sem.Release(1)
+		clusterFactory.availableClusters[assigned] = true
+	})
+	return clusterFactory.managedClusters[assigned]
 }
