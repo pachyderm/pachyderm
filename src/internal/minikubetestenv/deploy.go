@@ -3,6 +3,7 @@ package minikubetestenv
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +24,6 @@ import (
 )
 
 const (
-	helmChartLocalPath     = "../../../etc/helm/pachyderm"
 	helmChartPublishedPath = "pach/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
@@ -38,6 +38,20 @@ type DeployOpts struct {
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
+
+func helmChartLocalPath(t testing.TB) string {
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	cnt := 0
+	parts := strings.Split(dir, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		cnt++
+		if parts[i] == "src" {
+			break
+		}
+	}
+	return strings.Repeat("../", cnt) + "etc/helm/pachyderm"
+}
 
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	cfg, err := config.Read(true, true)
@@ -144,7 +158,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		})
 	}
 	version := localImage
-	chartPath := helmChartLocalPath
+	chartPath := helmChartLocalPath(t)
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
