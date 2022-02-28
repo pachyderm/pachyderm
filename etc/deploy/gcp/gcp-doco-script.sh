@@ -122,7 +122,7 @@ pachd:
     aPIGrpcport:    31400
     loadBalancerIP: ${STATIC_IP_ADDR}
   image:
-    tag: "2.1.0"
+    tag: "2.1.1"
   storage:
     google:
       bucket: "${BUCKET_NAME}"
