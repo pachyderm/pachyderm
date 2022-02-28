@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,10 @@ type DeployOpts struct {
 	Enterprise   bool
 	AuthUser     string
 	CleanupAfter bool
-	PortOffset   uint16 // might make more sense to declare port instead of offset
+	// Because NodePorts are cluster-wide, we use a PortOffset to
+	// assign separate ports per deployment.
+	// NOTE: it might make more sense to declare port instead of offset
+	PortOffset uint16
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -67,14 +71,23 @@ func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 }
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
+	os := runtime.GOOS
+	serviceType := ""
+	switch os {
+	case "darwin":
+		serviceType = "LoadBalancer"
+	default:
+		serviceType = "NodePort"
+	}
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"deployTarget": "custom",
 
-			"pachd.service.type":        "NodePort",
+			"pachd.service.type":        serviceType,
 			"pachd.image.tag":           image,
 			"pachd.clusterDeploymentID": "dev",
+			"pachd.lokiDeploy":          "true",
 
 			"pachd.storage.backend":        "MINIO",
 			"pachd.storage.minio.bucket":   "pachyderm-test",
@@ -112,7 +125,11 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.port": fmt.Sprintf("%v", port),
+			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
+			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+1),
+			"pachd.service.identityPort":   fmt.Sprintf("%v", port+2),
+			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
+			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
 		},
 	}
 }

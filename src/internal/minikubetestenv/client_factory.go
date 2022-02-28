@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	poolSize        = 5
+	poolSize        = 3
 	namespacePrefix = "test-cluster-"
 )
 
@@ -75,9 +75,9 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 	return assigned, c
 }
 
-// AcquireCluster returns a pachyderm APIClient for one of a pool of
-// managed pachyderm clusters deployed in namespaces
-func AcquireCluster(t testing.TB, ctx context.Context) *client.APIClient {
+// AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
+// clusters deployed in separate namespace, along with the associated namespace
+func AcquireCluster(t testing.TB, ctx context.Context) (*client.APIClient, string) {
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*client.APIClient{},
@@ -98,5 +98,5 @@ func AcquireCluster(t testing.TB, ctx context.Context) *client.APIClient {
 		clusterFactory.availableClusters[assigned] = true
 		clusterFactory.mu.Unlock()
 	})
-	return c
+	return c, assigned
 }
