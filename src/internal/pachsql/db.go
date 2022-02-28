@@ -19,7 +19,7 @@ const (
 )
 
 const (
-	SnowflakeCoreDomain = ".snowflakecomputing.com"
+	SnowflakeComputingDomain = ".snowflakecomputing.com"
 )
 
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
@@ -96,7 +96,7 @@ func mySQLDSN(u URL, password string) (string, error) {
 		User:                 u.User,
 		Passwd:               password,
 		Net:                  "tcp",
-		Addr:                 net.JoinHostPort(u.Host, strconv.Itoa(int(u.Port))),
+		Addr:                 net.JoinHostPort(u.Host, strconv.Itoa(int(port))),
 		DBName:               u.Database,
 		Params:               params,
 		AllowNativePasswords: true,
@@ -105,30 +105,43 @@ func mySQLDSN(u URL, password string) (string, error) {
 }
 
 func snowflakeDSN(u URL, password string) (string, error) {
+	// The Snowflake driver supports the following syntaxes:
+	// * username[:password]@<account_identifier>/dbname/schemaname[?param1=value&...&paramN=valueN]
+	// * username[:password]@<account_identifier>/dbname[?param1=value&...&paramN=valueN]
+	// * username[:password]@hostname:port/dbname/schemaname?account=<account_identifier>[&param1=value&...&paramN=valueN]
+
 	// A Snowflake account_identifier uniquely identifies a Snowflake account.
-	// account_identifer is embedded in the hostname, eg <account_identifier>.snowflakecomputing.com
+	// account_identifer can be embedded in the hostname, e.g. <account_identifier>.snowflakecomputing.com
 	// however, the "snowflakecomputing.com" can be left out
 	// example: jsmith@my_organization-my_account/mydb/testschema?warehouse=mywh
 	// in this case, the account_identifier is my_organization-my_account
+	var account, host string
+	if u.Port == 0 {
+		account = strings.TrimSuffix(u.Host, SnowflakeComputingDomain)
+	} else {
+		account = u.Params["account"]
+		host = u.Host
+	}
 
-	// The only required fields are account, user, password
 	params := make(map[string]*string, len(u.Params))
 	for k, v := range u.Params {
 		params[k] = &v
 	}
-	// note: host and port are deprecated by Snowflake
+
 	cfg := &sf.Config{
-		Account:   strings.TrimSuffix(u.Host, SnowflakeCoreDomain),
+		Account:   account,
 		User:      u.User,
 		Password:  password,
 		Database:  u.Database,
 		Schema:    u.Schema,
+		Host:      host,
+		Port:      int(u.Port),
 		Warehouse: u.Params["warehouse"],
 		Params:    params,
 	}
 	dsn, err := sf.DSN(cfg)
 	if err != nil {
-		return "", err
+		return "", errors.EnsureStack(err)
 	}
 	return dsn, nil
 }
