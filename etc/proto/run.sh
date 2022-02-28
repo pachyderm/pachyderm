@@ -18,9 +18,9 @@ if [[ "${max_age}" -gt "$(cat /last_run_time)" ]]; then
     exit 1
 fi
 
-go get github.com/gogo/protobuf/protoc-gen-gogofast
-
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
+
+mkdir -p v2/src
 
 # shellcheck disable=SC2044
 for i in $(find src -name "*.proto"); do \
@@ -41,7 +41,18 @@ Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
     "${i}" >/dev/stderr
 done
 
-# TODO (brendon): figure out how to configure protoc
-cd v2
+pushd src > /dev/stderr
+read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
+protoc \
+    --proto_path . \
+    --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
+    "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
+    --pach_out="../v2/src" \
+    "${proto_files[@]}" > /dev/stderr
 
+popd > /dev/stderr
+
+# TODO (brendon): figure out how to configure protoc
+pushd v2 > /dev/stderr
+gofmt -w src > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -

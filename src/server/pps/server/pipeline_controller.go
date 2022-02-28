@@ -722,9 +722,6 @@ func (step *pcStep) getRC(ctx context.Context, expectation rcExpectation) (retEr
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	step.pc.pcMgr.limiter.Acquire()
-	defer step.pc.pcMgr.limiter.Release()
-
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, step.pc.pipeline)
 
 	// count error types separately, so that this only errors if the pipeline is
@@ -732,6 +729,8 @@ func (step *pcStep) getRC(ctx context.Context, expectation rcExpectation) (retEr
 	var notFoundErrCount, unexpectedErrCount, staleErrCount, tooManyErrCount,
 		otherErrCount int
 	return backoff.RetryNotify(func() error {
+		step.pc.pcMgr.limiter.Acquire()
+		defer step.pc.pcMgr.limiter.Release()
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := step.pc.env.KubeClient.CoreV1().ReplicationControllers(step.pc.namespace).List(
 			ctx,

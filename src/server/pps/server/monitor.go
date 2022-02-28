@@ -315,6 +315,9 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	for {
 		// get the time of the next time from the latest time using the cron schedule
 		next := schedule.Next(latestTime)
+		if next.IsZero() {
+			return nil // zero time indicates there will never be another tick
+		}
 		// and wait until then to make the next commit
 		select {
 		case <-time.After(time.Until(next)):

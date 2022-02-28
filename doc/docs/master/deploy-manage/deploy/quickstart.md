@@ -242,7 +242,7 @@ Jump to [Helm install](#3-helm-install)
 
     - Then run `pachctl port-forward` (Background this process in a new tab of your terminal).
 
-    - Note that you will need to run `pachctl auth login` then authenticate to Pachyderm with the mock User (`username`, `password`) to use `pachctl`
+    - Note that you will need to run `pachctl auth login` then authenticate to Pachyderm with the mock User (username:`admin`, password: `password`) to use `pachctl`
 
 - Finally, check that your cluster is up and running
 
