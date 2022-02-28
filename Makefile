@@ -158,7 +158,7 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/worker:$(VERSION)-$(TARGET_ARCH)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)-$(TARGET_ARCH)
 	$(SKIP) docker push pachyderm/pachtf:$(VERSION)-$(TARGET_ARCH)
-	#$(SKIP) manifest create pachyderm/pachd:$(VERSION) docker.io/pachyderm/pachd:$(VERSION)-amd64 docker.io/pachyderm/pachd:$(VERSION)-arm64
+	$(SKIP) manifest create pachyderm/pachd:$(VERSION) docker.io/pachyderm/pachd:$(VERSION)-amd64 docker.io/pachyderm/pachd:$(VERSION)-arm64
 	#$(SKIP) manifest create pachyderm/worker:$(VERSION) docker.io/pachyderm/worker:$(VERSION)-amd64 docker.io/pachyderm/worker:$(VERSION)-arm64
 	#$(SKIP) docker manifest create pachyderm/pachctl:$(VERSION) docker.io/pachyderm/pachctl:$(VERSION)-amd64 docker.io/pachyderm/pachctl:$(VERSION)-arm64
 	#$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
