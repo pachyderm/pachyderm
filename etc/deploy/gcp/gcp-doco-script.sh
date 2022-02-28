@@ -122,7 +122,7 @@ pachd:
     aPIGrpcport:    31400
     loadBalancerIP: ${STATIC_IP_ADDR}
   image:
-    tag: "2.0.0-rc.6"
+    tag: "2.1.0"
   storage:
     google:
       bucket: "${BUCKET_NAME}"
@@ -156,7 +156,7 @@ global:
     postgresqlPort: "5432"
     postgresqlSSL: "disable"
     postgresqlUsername: "postgres"
-    postgresqlPassword: "batteryhorsestaple"
+    postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
 EOF
 
 helm repo add pach https://helm.pachyderm.com
