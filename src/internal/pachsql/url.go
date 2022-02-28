@@ -26,17 +26,8 @@ func ParseURL(x string) (*URL, error) {
 		return nil, errors.EnsureStack(err)
 	}
 	port, err := strconv.Atoi(u.Port())
-	if err != nil {
-		switch u.Scheme {
-		case ProtocolMySQL:
-			port = 3306
-		case ProtocolPostgres:
-			port = 5432
-		case ProtocolSnowflake:
-			port = 443
-		default:
-			return nil, errors.EnsureStack(err)
-		}
+	if err != nil && port != 0 {
+		return nil, errors.EnsureStack(errors.Wrapf(err, "parsing url port: %w"))
 	}
 	params := make(map[string]string)
 	for k, v := range u.Query() {
@@ -47,9 +38,9 @@ func ParseURL(x string) (*URL, error) {
 
 	// parse database name and schema
 	// assume /dbname/schemaname
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	dbname := parts[0]
-	schemaname := ""
+	var dbname, schemaname string
+	parts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
+	dbname = parts[0]
 	if len(parts) == 2 {
 		schemaname = parts[1]
 	}

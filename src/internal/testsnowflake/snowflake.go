@@ -24,7 +24,7 @@ func NewSnowSQL(t testing.TB) *sqlx.DB {
 	user := os.Getenv("SNOWFLAKE_USER")
 	password := os.Getenv("SNOWFLAKE_PASSWORD")
 	account_identifier := os.Getenv("SNOWFLAKE_ACCOUNT")
-	dsn := fmt.Sprintf("snowflake://%s@%s.snowflakecomputing.com", user, account_identifier)
+	dsn := fmt.Sprintf("snowflake://%s@%s", user, account_identifier)
 
 	url, err := pachsql.ParseURL(dsn)
 	require.NoError(t, err)
@@ -37,5 +37,6 @@ func NewSnowSQL(t testing.TB) *sqlx.DB {
 	dbname := testutil.CreateEphemeralDB(t, db)
 	url.Database = dbname
 	url.Schema = "public"
+
 	return testutil.OpenDBURL(t, *url, password)
 }

@@ -43,9 +43,8 @@ func TestParseURL(t *testing.T) {
 				Protocol: "snowflake",
 				User:     "jbond",
 				Host:     "mi6",
-				Port:     443,
+				Port:     0,
 				Database: "martini",
-				Schema:   "",
 				Params: map[string]string{
 					"shaken":  "true",
 					"stirred": "false",
