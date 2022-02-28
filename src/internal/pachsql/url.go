@@ -15,6 +15,7 @@ type URL struct {
 	Host     string
 	Port     uint16
 	Database string
+	Schema   string
 	Params   map[string]string
 }
 
@@ -43,12 +44,22 @@ func ParseURL(x string) (*URL, error) {
 			params[k] = v[len(v)-1]
 		}
 	}
+
+	// parse database name and schema
+	// assume /dbname/schemaname
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	dbname := parts[0]
+	schemaname := ""
+	if len(parts) == 2 {
+		schemaname = parts[1]
+	}
 	return &URL{
 		Protocol: u.Scheme,
 		Host:     u.Hostname(),
 		Port:     uint16(port),
 		User:     u.User.Username(),
-		Database: strings.Trim(u.Path, "/"),
+		Database: dbname,
+		Schema:   schemaname,
 		Params:   params,
 	}, nil
 }

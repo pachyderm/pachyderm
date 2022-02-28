@@ -45,6 +45,7 @@ func TestParseURL(t *testing.T) {
 				Host:     "mi6",
 				Port:     443,
 				Database: "martini",
+				Schema:   "",
 				Params: map[string]string{
 					"shaken":  "true",
 					"stirred": "false",
@@ -52,13 +53,14 @@ func TestParseURL(t *testing.T) {
 			},
 		},
 		{
-			In: "snowflake://jbond@mi6.snowflakecomputing.com:443/martini?shaken=true&stirred=false",
+			In: "snowflake://jbond@mi6.snowflakecomputing.com:443/martini/schemaname?shaken=true&stirred=false",
 			Out: URL{
 				Protocol: "snowflake",
 				User:     "jbond",
 				Host:     "mi6.snowflakecomputing.com",
 				Port:     443,
 				Database: "martini",
+				Schema:   "schemaname",
 				Params: map[string]string{
 					"shaken":  "true",
 					"stirred": "false",

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -18,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
 
 // TestMaterializeSQL checks that rows can be materialized from all the supported databases,
@@ -39,7 +38,7 @@ func TestMaterializeSQL(t *testing.T) {
 		},
 		{
 			"Snowflake",
-			newSnowSQL,
+			testsnowflake.NewSnowSQL,
 		},
 	}
 	writerSpecs := []struct {
@@ -78,21 +77,6 @@ func TestMaterializeSQL(t *testing.T) {
 			})
 		}
 	}
-}
-
-// newSnowSQL creates an emphermeral database in a real Snowflake instance.
-func newSnowSQL(t testing.TB) *sqlx.DB {
-	user := os.Getenv("SNOW_USER")
-	password := os.Getenv("SNOW_PASSWORD")
-	account_identifier := os.Getenv("SNOW_ACCOUNT")
-	dsn := fmt.Sprintf("%s:%s@%s", user, password, account_identifier)
-
-	db, err := sqlx.Open("snowflake", dsn)
-	require.NoError(t, err)
-
-	testutil.CreateEphemeralDB(t, db)
-
-	return db
 }
 
 func setupTable(t testing.TB, db *pachsql.DB) {

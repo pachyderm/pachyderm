@@ -18,6 +18,10 @@ const (
 	ProtocolSnowflake = "snowflake"
 )
 
+const (
+	SnowflakeCoreDomain = ".snowflakecomputing.com"
+)
+
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
 
@@ -88,23 +92,15 @@ func snowflakeDSN(u URL, password string) string {
 	// however, the "snowflakecomputing.com" can be left out
 	// example: jsmith@my_organization-my_account/mydb/testschema?warehouse=mywh
 	// in this case, the account_identifier is my_organization-my_account
-	var account string
-	if strings.HasSuffix(u.Host, ".snowflakecomputing.com") {
-		account = strings.Split(u.Host, ".snowflakecomputing.com")[0]
-	} else if net.ParseIP(u.Host) == nil {
-		// assume this is an account_identifier
-		account = u.Host
-	} else {
-		account = u.Params["account"]
-	}
 
 	// The only required fields are account, user, password
 	// note: host and port are deprecated by Snowflake
 	cfg := &sf.Config{
-		Account:   account,
+		Account:   strings.TrimSuffix(u.Host, SnowflakeCoreDomain),
 		User:      u.User,
 		Password:  password,
 		Database:  u.Database,
+		Schema:    u.Schema,
 		Warehouse: u.Params["warehouse"],
 	}
 	dsn, _ := sf.DSN(cfg)
