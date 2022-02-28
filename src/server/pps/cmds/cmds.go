@@ -564,10 +564,10 @@ each datum.`,
 		Example: `
 	# Return logs emitted by recent jobs in the "filter" pipeline
 	$ {{alias}} --pipeline=filter
-	
+
 	# Return logs emitted by the job aedfa12aedf
 	$ {{alias}} --job=aedfa12aedf
-	
+
 	# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 	$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -1185,7 +1185,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 // so the two could perhaps be refactored.
 func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error) {
 	if pipelinePath == "-" {
-		fmt.Print("Reading from stdin.\n")
+		cmdutil.PrintStdinReminder()
 		var err error
 		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
 		if err != nil {
