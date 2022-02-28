@@ -25,7 +25,7 @@ MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 CHLOGFILE = ${PWD}/../changelog.diff
 export GOVERSION = $(shell cat etc/compile/GO_VERSION)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
-SKIP = \# # To skip push to docker and github remove # in front of #
+SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
 # Default upper bound for test timeouts
@@ -159,11 +159,13 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)-$(TARGET_ARCH)
 	$(SKIP) docker push pachyderm/pachtf:$(VERSION)-$(TARGET_ARCH)
 	$(SKIP) manifest create pachyderm/pachd:$(VERSION) docker.io/pachyderm/pachd:$(VERSION)-amd64 docker.io/pachyderm/pachd:$(VERSION)-arm64
-	#$(SKIP) manifest create pachyderm/worker:$(VERSION) docker.io/pachyderm/worker:$(VERSION)-amd64 docker.io/pachyderm/worker:$(VERSION)-arm64
-	#$(SKIP) docker manifest create pachyderm/pachctl:$(VERSION) docker.io/pachyderm/pachctl:$(VERSION)-amd64 docker.io/pachyderm/pachctl:$(VERSION)-arm64
-	#$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
-	#$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
-	#$(SKIP) docker manifest push pachyderm/pachctl:$(VERSION)
+	$(SKIP) manifest create pachyderm/worker:$(VERSION) docker.io/pachyderm/worker:$(VERSION)-amd64 docker.io/pachyderm/worker:$(VERSION)-arm64
+	$(SKIP) docker manifest create pachyderm/pachctl:$(VERSION) docker.io/pachyderm/pachctl:$(VERSION)-amd64 docker.io/pachyderm/pachctl:$(VERSION)-arm64
+	$(SKIP) docker manifest create pachyderm/pachtf:$(VERSION) docker.io/pachyderm/pachtf:$(VERSION)-amd64 docker.io/pachyderm/pachtf:$(VERSION)-arm64
+	$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
+	$(SKIP) docker manifest push pachyderm/worker:$(VERSION)
+	$(SKIP) docker manifest push pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker manifest push pachyderm/pachtf:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
