@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
 
 // TestMaterializeSQL checks that rows can be materialized from all the supported databases,
@@ -34,6 +35,10 @@ func TestMaterializeSQL(t *testing.T) {
 		{
 			"MySQL",
 			dockertestenv.NewMySQL,
+		},
+		{
+			"Snowflake",
+			testsnowflake.NewSnowSQL,
 		},
 	}
 	writerSpecs := []struct {
@@ -76,7 +81,7 @@ func TestMaterializeSQL(t *testing.T) {
 
 func setupTable(t testing.TB, db *pachsql.DB) {
 	type rowType struct {
-		// id int
+		Id int
 
 		Smallint int16
 		Int      int32
@@ -93,7 +98,7 @@ func setupTable(t testing.TB, db *pachsql.DB) {
 		TimeNull     sql.NullTime
 	}
 	_, err := db.Exec(`CREATE TABLE test_data (
-		id SERIAL PRIMARY KEY NOT NULL,
+		c_id INT PRIMARY KEY NOT NULL,
 
 		c_smallint SMALLINT NOT NULL,
 		c_int INT NOT NULL,
@@ -122,7 +127,9 @@ func setupTable(t testing.TB, db *pachsql.DB) {
 		if i > 0 {
 			fz.Fuzz(&x)
 		}
-		_, err = db.Exec(`INSERT INTO test_data `+formatColumns(x)+` VALUES `+formatValues(x, db), makeArgs(x)...)
+		x.Id = i
+		insertStatement := `INSERT INTO test_data ` + formatColumns(x) + ` VALUES ` + formatValues(x, db)
+		_, err = db.Exec(insertStatement, makeArgs(x)...)
 		require.NoError(t, err)
 	}
 }
@@ -132,9 +139,6 @@ func formatColumns(x interface{}) string {
 	rty := reflect.TypeOf(x)
 	for i := 0; i < rty.NumField(); i++ {
 		field := rty.Field(i)
-		if field.Name == "id" {
-			continue
-		}
 		col := "c_" + toSnakeCase(field.Name)
 		cols = append(cols, col)
 	}
@@ -146,7 +150,7 @@ func formatValues(x interface{}, db *pachsql.DB) string {
 	switch db.DriverName() {
 	case "pgx":
 		placeholder = func(i int) string { return "$" + strconv.Itoa(i+1) }
-	case "mysql":
+	case "mysql", "snowflake":
 		placeholder = func(int) string { return "?" }
 	default:
 		panic(db.DriverName())
@@ -164,11 +168,7 @@ func formatValues(x interface{}, db *pachsql.DB) string {
 func makeArgs(x interface{}) []interface{} {
 	var vals []interface{}
 	rval := reflect.ValueOf(x)
-	rty := reflect.TypeOf(x)
 	for i := 0; i < rval.NumField(); i++ {
-		if rty.Field(i).Name == "id" {
-			continue
-		}
 		v := rval.Field(i).Interface()
 		vals = append(vals, v)
 	}

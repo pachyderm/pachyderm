@@ -137,6 +137,8 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		} else {
 			y = null
 		}
+	case *time.Time:
+		y = x.Format(time.RFC3339Nano)
 	default:
 		return "", errors.Errorf("unrecognized value (%v: %T)", x, x)
 	}
