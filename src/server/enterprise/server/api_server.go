@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -441,13 +440,13 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 		dd := kc.AppsV1().Deployments(namespace)
 		d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("could not get pachd deployment: %w", err)
+			return err //nolint:wrapcheck
 		}
 		// Updating the spec rolls the deployment, killing each pod and causing
 		// a new one to start.
 		d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 		if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
-			return fmt.Errorf("could not update pachd deployment: %w", err)
+			return err //nolint:wrapcheck
 		}
 		return nil
 	}); err != nil {
