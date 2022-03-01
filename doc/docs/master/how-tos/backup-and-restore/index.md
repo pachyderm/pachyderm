@@ -108,3 +108,7 @@ Get the static IP address of your new cluster, then:
 
   - `echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite`
   - `pachctl config set active-context ${CLUSTER_NAME}`
+
+## Cloud-provider specific instructions
+
+ - [GCP](gcp.md)
