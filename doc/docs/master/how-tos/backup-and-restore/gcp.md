@@ -42,8 +42,7 @@ cluster
  3. Take a backup: `velero backup create NAME --include-namespaces PACHD-NAMESPACE`
  4. Backup pachyderm PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
  5. Backup dex PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
- 6. Backup postgres PostgreSQL database: `gcloud sql export sql
-    $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
+ 6. Backup postgres PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
  7. Backup objext: `gsutil cp -r $BUCKET $BACKUP_BUCKET`
  7. Scale `pachd` back up: `kubectl scale deployment pachd --replicas 1`
 
