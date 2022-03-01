@@ -355,6 +355,40 @@ func TestPauseUnpause(t *testing.T) {
 	}, bo)
 }
 
+func TestPauseUnpauseNoWait(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	client := testutil.GetPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
+	testutil.ActivateAuth(t)
+
+	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+	bo := backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return errors.Errorf("could not get pause status %v", err)
+		}
+		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+	// ListRepo should not return an error since the cluster is unpaused now
+	_, err = client.ListRepo()
+	require.Nil(t, err)
+}
+
 func TestDoublePauseUnpause(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
