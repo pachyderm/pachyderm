@@ -14,6 +14,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -435,17 +436,23 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 		}
 	}
 
-	dd := kc.AppsV1().Deployments(namespace)
-	d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
-	if err != nil {
-		return errors.Errorf("could not get pachd deployment: %v", err)
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		dd := kc.AppsV1().Deployments(namespace)
+		d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		// Updating the spec rolls the deployment, killing each pod and causing
+		// a new one to start.
+		d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return errors.Errorf("could not updated pachd deployment: %v", err)
 	}
-	// Updating the spec rolls the deployment, killing each pod and causing
-	// a new one to start.
-	d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
-	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
-		return errors.Errorf("could not update pachd deployment: %v (%T)", err, err)
-	}
+
 	return nil
 }
 
