@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package cmds
@@ -14,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
@@ -39,6 +41,7 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 			if len(repoAndFlag) > 1 {
 				flag = repoAndFlag[1]
 			}
+			opts.Repo = repo
 		} else {
 			repo = repoAndRest[0]
 			branchAndFlag := strings.Split(repoAndRest[1], "+")
@@ -46,6 +49,7 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 			if len(branchAndFlag) > 1 {
 				flag = branchAndFlag[1]
 			}
+			opts.Repo = repo
 		}
 		if flag != "" {
 			for _, c := range flag {
@@ -60,6 +64,9 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 		if repo == "" {
 			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
 		}
+		// NB: `pachctl mount` always mounts a repo at its own name, but that
+		// key can be something else
+		opts.Name = repo
 		result[repo] = opts
 	}
 	return result, nil
@@ -108,6 +115,32 @@ func mountCmds() []*cobra.Command {
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
+	var mountDir string
+	mountServer := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Start a mount server for controlling FUSE mounts via a local REST API.",
+		Long:  "Starts a REST mount server, running in the foreground and logging to stdout.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+
+			// Show info messages to user by default
+			logrus.SetLevel(logrus.InfoLevel)
+
+			c, err := client.NewOnUserMachine("fuse")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			serverOpts := &fuse.ServerOptions{
+				MountDir: mountDir,
+			}
+			printWarning()
+			return fuse.Server(c, serverOpts)
+		}),
+	}
+	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
+	commands = append(commands, cmdutil.CreateAlias(mountServer, "mount-server"))
+
 	var all bool
 	unmount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
@@ -146,7 +179,7 @@ func mountCmds() []*cobra.Command {
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err
 				} else if !ok {
-					return errors.New("deploy aborted")
+					return errors.New("unmount aborted")
 				}
 
 				for _, mount := range mounts {

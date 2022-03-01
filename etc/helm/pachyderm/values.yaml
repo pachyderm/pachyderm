@@ -52,7 +52,9 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "825da792035ea9c2941d5e68f881485d44d99c57"
+    tag: "2.1.0-1"
+  nodeSelector: {}
+  tolerations: []
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
@@ -77,6 +79,7 @@ console:
 
 
   service:
+    annotations: {}
     # labels specifies labels to add to the console service.
     labels: {}
     # type specifies the Kubernetes type of the console service.
@@ -134,6 +137,8 @@ enterpriseServer:
   enabled: false
   affinity: {}
   annotations: {}
+  tolerations: []
+  nodeSelector: {}
   service:
     type: ClusterIP
   # There are three options for TLS:
@@ -181,6 +186,21 @@ ingress:
       crt: ""
       key: ""
 
+# locki-stack contains values that will be passed to the loki-stack subchart
+loki-stack:
+  loki:
+    persistence:
+      enabled: true
+      accessModes:
+      - ReadWriteOnce
+      size: 5Gi
+      storageClassName: standard
+      annotations: {}
+      nodeSelector: {}
+      tolerations: []
+  grafana:
+    enabled: false
+
 pachd:
   enabled: true
   affinity: {}
@@ -198,6 +218,7 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
   metrics:
@@ -238,6 +259,7 @@ pachd:
     labels: {}
     # type specifies the Kubernetes type of the pachd service.
     type: "ClusterIP"
+    annotations: {}
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
@@ -404,6 +426,14 @@ pachd:
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
   ppsWorkerGRPCPort: 1080
+  # the number of seconds between pfs's garbage collection cycles. 
+  # if this value is set to 0, it will default to pachyderm's internal configuration.
+  # if this value is less than 0, it will turn off garbage collection.
+  storageGCPeriod: 0
+  # the number of seconds between chunk garbage colletion cycles.
+  # if this value is set to 0, it will default to pachyderm's internal configuration.
+  # if this value is less than 0, it will turn off chunk garbage collection.
+  storageChunkGCPeriod: 0
   # There are three options for TLS:
   # 1. Disabled
   # 2. Enabled, existingSecret, specify secret name
@@ -437,6 +467,8 @@ pgbouncer:
   service:
     type: ClusterIP
   annotations: {}
+  nodeSelector: {}
+  tolerations: []
   resources: {}
     #limits:
     #  cpu: "1"
@@ -481,6 +513,12 @@ postgresql:
     size: 10Gi
     labels:
       suite: pachyderm
+  primary:
+    nodeSelector: {}
+    tolerations: []
+  readReplicas:
+    nodeSelector: {}
+    tolerations: []
 
 cloudsqlAuthProxy:
   # connectionName may be found by running `gcloud sql instances describe INSTANCE_NAME --project PROJECT_ID`
@@ -497,6 +535,8 @@ cloudsqlAuthProxy:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "1.23.0"
+  nodeSelector: {}
+  tolerations: []
   # podLabels specifies labels to add to the dash pod.
   podLabels: {}
   # resources specifies the resource request and limits.

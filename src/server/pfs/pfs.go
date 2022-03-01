@@ -84,6 +84,12 @@ type ErrCommitNotFinished struct {
 	Commit *pfs.Commit
 }
 
+// ErrBaseCommitNotFinished represents an error where a base commit has not been finished.
+type ErrBaseCommitNotFinished struct {
+	BaseCommit *pfs.Commit
+	Commit     *pfs.Commit
+}
+
 // ErrAmbiguousCommit represents an error where a user-specified commit did not
 // specify a branch and resolved to multiple commits on different branches.
 type ErrAmbiguousCommit struct {
@@ -133,32 +139,64 @@ func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
 }
 
+func (e ErrFileNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
 func (e ErrRepoNotFound) Error() string {
 	return fmt.Sprintf("repo %v not found", e.Repo)
+}
+
+func (e ErrRepoNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrRepoExists) Error() string {
 	return fmt.Sprintf("repo %v already exists", e.Repo)
 }
 
+func (e ErrRepoExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
+}
+
 func (e ErrBranchNotFound) Error() string {
 	return fmt.Sprintf("branch %q not found in repo %v", e.Branch.Name, e.Branch.Repo)
+}
+
+func (e ErrBranchNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrBranchExists) Error() string {
 	return fmt.Sprintf("branch %q already exists in repo %v", e.Branch.Name, e.Branch.Repo)
 }
 
+func (e ErrBranchExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
+}
+
 func (e ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit %v not found", e.Commit)
+}
+
+func (e ErrCommitNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
 }
 
 func (e ErrCommitSetNotFound) Error() string {
 	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
 }
 
+func (e ErrCommitSetNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
 func (e ErrCommitExists) Error() string {
 	return fmt.Sprintf("commit %v already exists", e.Commit)
+}
+
+func (e ErrCommitExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
 }
 
 func (e ErrCommitFinished) Error() string {
@@ -177,12 +215,20 @@ func (e ErrParentCommitNotFound) Error() string {
 	return fmt.Sprintf("parent commit %v not found", e.Commit)
 }
 
+func (e ErrParentCommitNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
 func (e ErrOutputCommitNotFinished) Error() string {
 	return fmt.Sprintf("output commit %v not finished", e.Commit)
 }
 
 func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit)
+}
+
+func (e ErrBaseCommitNotFinished) Error() string {
+	return fmt.Sprintf("base commit %v for commit %v unfinished", e.BaseCommit, e.Commit)
 }
 
 func (e ErrAmbiguousCommit) Error() string {
@@ -217,6 +263,7 @@ var (
 	fileNotFoundRe            = regexp.MustCompile(`file .+ not found`)
 	outputCommitNotFinishedRe = regexp.MustCompile("output commit .+ not finished")
 	commitNotFinishedRe       = regexp.MustCompile("commit .+ not finished")
+	baseCommitNotFinishedRe   = regexp.MustCompile("base commit .+ unfinished")
 	ambiguousCommitRe         = regexp.MustCompile("commit .+ is ambiguous")
 	inconsistentCommitRe      = regexp.MustCompile("branch already has a commit in this transaction")
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
@@ -327,6 +374,13 @@ func IsCommitNotFinishedErr(err error) bool {
 		return false
 	}
 	return commitNotFinishedRe.MatchString(err.Error())
+}
+
+func IsBaseCommitNotFinishedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return baseCommitNotFinishedRe.MatchString(err.Error())
 }
 
 // IsAmbiguousCommitErr returns true if the err is due to attempting to resolve

@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/sirupsen/logrus"
 )
 
 func TestGC(t *testing.T) {
@@ -45,7 +46,7 @@ func TestGC(t *testing.T) {
 	require.NoError(t, tgc.RunUntilEmpty(ctx))
 
 	// run the chunk GC
-	gc := NewGC(s)
+	gc := NewGC(s, time.Minute, logrus.StandardLogger())
 	require.NoError(t, gc.RunOnce(ctx))
 
 	// make sure there are no objects

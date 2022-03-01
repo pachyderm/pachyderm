@@ -1,12 +1,13 @@
->![pach_logo](../img/pach_logo.svg) INFO - Pachyderm 2.0 comes with significant architectural refactoring and functional enhancements. As a result, our examples pre and post 2.0 are kept in two separate branches:
-> - Master Branch: Examples using Pachyderm 2.0 and later versions - https://github.com/pachyderm/pachyderm/tree/master/examples
-> - 1.13.x Branch : Examples using Pachyderm 1.13 and older versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
+>![pach_logo](../img/pach_logo.svg) INFO Each new minor version of Pachyderm introduces profound architectual changes to the product. For this reason, our examples are kept in separate branches:
+> - Branch Master: Examples using Pachyderm 2.1.x versions - https://github.com/pachyderm/pachyderm/tree/master/examples
+> - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
+> - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 
 # Inner and Outer Join Inputs
->![pach_logo](./img/pach_logo.svg) The *outer join* input is available in version **1.12 and higher**.
+> The *outer join* input is available in version **1.12 and higher**.
 
 - In our first example, we will create a pipeline whose input datums result from a simple `inner join` between 2 repos.
-- In our second example, we will showcase three variations of `outer join` pipelines between 2 repos and outline how they differ from inner join and each other.
+- In our second example, we will showcase three variations of `outer join` pipelines between 2 repos and outline how they differ from an inner join and each other.
 
 At the end of this page, you will understand the fundamental difference between the datums produced by an inner join and those created by an outer join.
 
@@ -43,13 +44,13 @@ Run a quick:
 $ pachctl version
 
 COMPONENT           VERSION
-pachctl             2.0.1
-pachd               2.0.1
+pachctl             2.1.0
+pachd               2.1.0
 ```
 Ideally, have your pachctl and pachd versions match. At a minimum, you should always use the identical major & minor versions of pachctl and pachd. 
 ## 2. Data structure And Naming Convention
 
->![pach_logo](./img/pach_logo.svg)  Remember, in Pachyderm, the join operates at the file-path level, **not** the files' content. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
+> Remember, in Pachyderm, the join operates at the file-path level, **not** the files' content. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
 We have derived our examples from simplified retail use cases: 
 - Purchases and Returns are made in given Stores. 
@@ -110,7 +111,7 @@ make setup
 
 In the `examples/joins` directory, run:
 ```shell
-make create
+make deploy
 ```
 or run:
 ```shell
@@ -150,7 +151,7 @@ We want to list all purchases made in stores sharing the same zip code.
 
 Following the 2 steps pattern described in our [Datum processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) documentation, we will need 2 pipelines:
 
-- One that performs an **inner join** on the 'purchases' and 'stores' repos then output one text file per matched datum. We designed the source code of the pipeline so that it sorts those text files into directories named after the zip code of the store in which a purchase was made.
+- One that performs an **inner join** on the 'purchases' and 'stores' repos, then output one text file per matched datum. We designed the source code of the pipeline so that it sorts those text files into directories named after the zip code of the store in which a purchase was made.
 
     1. **Pipeline input repositories**: The `purchases` and `stores` repos are joined (`inner join`) on the STOREID of their file name.
 
@@ -181,7 +182,7 @@ Following the 2 steps pattern described in our [Datum processing](https://docs.p
         ```
         Each should contain 3 purchases.
 
-While going through the process, we will understand what datums are created by our `inner join`. 
+While going through thoses steps, we will understand what datums are created by our `inner join`. 
 
 
 ***Step 1*** - Before we create our `inner join` pipeline, let's preview what our datums will look like by running the following command in the `examples/joins` directory:
@@ -194,7 +195,7 @@ pachctl list datum -f pipelines/inner/inner_join.json
 Note that:
 
 - 6 datums are created corresponding to the 6 purchases in the `purchases` repo. 
-- There was no purchase at the STOREID4; therefore **no datum was created** for this Store ID. See diagram below. This is a characteristic of an `inner join`. **You only see the stores where purchases were made** (a datum is created if, and only if, there is a match).
+- There was no purchase at the STOREID4; therefore **no datum was created** for this Store ID. See the diagram below. This is a characteristic of an `inner join`. **You only see the stores where purchases were made** (a datum is created if, and only if, there is a match).
 
 ![inner_join_list_datum](./img/inner_join_list_datum.png)
 
@@ -255,10 +256,10 @@ Find the detail of what you should see in the table below:
 |Purchase at store: 1 ... ORDER W080521|Purchase at store: 5 ... ORDER W080528| 
 |Purchase at store: 2 ... ORDER W078929 |Purchase at store: 5 ... ORDER W080231| 
 
->![pach_logo](./img/pach_logo.svg) Want to take this example to the next level? Practice using [groups](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/) AND joins. You can create a multi-step pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
+> Want to take this example to the next level? Practice using [groups](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/group/) AND joins. You can create a multi-step pipeline that will group Returns and Purchases by storeID then join the output repo with Stores to aggregate by location. 
 
 ## 5. Example 2 : Outer Join pipeline creation 
->![pach_logo](./img/pach_logo.svg) You specify an [outer join](#case-1-outer-join-on-the-returns-repo-only) by adding an "outer_join" boolean property to an input repo in the `join` section of your pipeline spec. 
+> You specify an [outer join](#case-1-outer-join-on-the-returns-repo-only) by adding an "outer_join" boolean property to an input repo in the `join` section of your pipeline spec. 
 
 ***Goal***
 
@@ -331,7 +332,7 @@ We have listed all the possible outcomes in the following cheat sheet. Each part
  
  
     What you are noticing is that all your 4 returns are showing in a datum. 
-    >![pach_logo](./img/pach_logo.svg) Note, however, that one return was made in a store **not** listed in our repo (STOREID0). There was no match on any STOREID for this specific return file, however; **a datum was created**, containing only the return file. By setting the returns repo as `"outer_join":true`, you are requesting to **see ALL of the repo's files reflected in datums, whether there is a match or not.
+    > Note, however, that one return was made in a store **not** listed in our repo (STOREID0). There was no match on any STOREID for this specific return file, however; **a datum was created**, containing only the return file. By setting the returns repo as `"outer_join":true`, you are requesting to **see ALL of the repo's files reflected in datums, whether there is a match or not.
 
 1. In the same directory, let's now create our pipelines by running:
 

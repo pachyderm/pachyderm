@@ -13,10 +13,10 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2021'
-pach_featured_version: '2.0.6'
-pach_latest_version: '2.0.6'
+pach_featured_version: '2.1.1'
+pach_latest_version: '2.0.8'
 pach_major_minor_version: '2.0'
-search_index_version: 'latest'
+search_index_version: '2.0.x'
 
 # Configuration
 theme:

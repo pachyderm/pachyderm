@@ -1,0 +1,23 @@
+
+  {
+    "pipeline": {
+      "name": "group_by_patient"
+    },
+    "description": "A pipeline that groups lab test results files by patient using the files naming pattern.",
+    "input": {
+      "group": [
+        {
+          "pfs": {
+            "repo": "labresults",
+            "branch": "master",
+            "glob": "/*-PATID(*)-*.txt",
+            "group_by": "$1"
+          }
+        }
+     ]
+   },
+   "transform": {
+        "cmd": [ "bash" ],
+        "stdin": ["mkdir -p /pfs/out/${PACH_DATUM_labresults_GROUP_BY}/","cp /pfs/labresults/* /pfs/out/${PACH_DATUM_labresults_GROUP_BY}/"]
+      }
+  }

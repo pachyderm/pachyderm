@@ -3,8 +3,12 @@ package task
 import (
 	"context"
 
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -44,4 +48,66 @@ func DoBatch(ctx context.Context, doer Doer, inputs []*types.Any, cb CollectFunc
 		return nil
 	})
 	return errors.EnsureStack(eg.Wait())
+}
+
+func translateTaskState(state State) taskapi.State {
+	switch state {
+	case State_RUNNING:
+		return taskapi.State_RUNNING
+	case State_SUCCESS:
+		return taskapi.State_SUCCESS
+	case State_FAILURE:
+		return taskapi.State_FAILURE
+	}
+	return taskapi.State_UNKNOWN
+}
+
+// List implements the functionality for an arbitrary service's ListTask gRPC
+func List(ctx context.Context, svc Service, req *taskapi.ListTaskRequest, send func(info *taskapi.TaskInfo) error) error {
+	var marshaler jsonpb.Marshaler
+	return errors.EnsureStack(svc.List(ctx, req.Group.Namespace, req.Group.Group, func(namespace, group string, data *Task, claimed bool) error {
+		state := translateTaskState(data.State)
+		if claimed {
+			state = taskapi.State_CLAIMED
+		}
+		var input types.DynamicAny
+		var inputJSON string
+		if err := types.UnmarshalAny(data.Input, &input); err != nil {
+			// unmarshalling might fail due to the input type not being registered,
+			// don't let this interfere with fetching or counting tasks
+			logrus.Warnf("couldn't unmarshal task input: %v", err)
+		} else {
+			inputJSON, err = marshaler.MarshalToString(input.Message)
+			if err != nil {
+				logrus.Warnf("couldn't marshal task input: %v", err)
+			}
+		}
+		info := &taskapi.TaskInfo{
+			ID: data.ID,
+			Group: &taskapi.Group{
+				Namespace: namespace,
+				Group:     group,
+			},
+			State:     state,
+			Reason:    data.Reason,
+			InputType: data.Input.TypeUrl,
+			InputData: inputJSON,
+		}
+		return errors.EnsureStack(send(info))
+	}))
+}
+
+// Count returns the number of tasks and claims in the given namespace and group (if nonempty)
+func Count(ctx context.Context, service Service, namespace, group string) (tasks int64, claims int64, retErr error) {
+	retErr = errors.EnsureStack(service.List(ctx, namespace, group, func(_, _ string, _ *Task, claimed bool) error {
+		tasks++
+		if claimed {
+			claims++
+		}
+		return nil
+	}))
+	if retErr != nil {
+		return 0, 0, retErr
+	}
+	return
 }

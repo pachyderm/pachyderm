@@ -615,7 +615,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 }
 
 func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, prefix ...string) error {
-	if s.env.Config().LokiHost == "" {
+	if os.Getenv(s.env.Config().LokiHostVar) == "" {
 		return nil
 	}
 	return collectDebugFile(tw, "logs-loki", "txt", func(w io.Writer) error {
@@ -660,7 +660,7 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
 			return err
 		}
-		if s.env.Config().LokiHost != "" {
+		if os.Getenv(s.env.Config().LokiHostVar) != "" {
 			if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {

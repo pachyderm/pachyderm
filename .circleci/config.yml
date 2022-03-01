@@ -40,7 +40,6 @@ jobs:
          paths:
          - cached-deps/
       - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/launch-loki.sh
 
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
@@ -161,7 +160,7 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
-  upgrade:
+  deploy:
     resource_class: large
     machine:
       image: ubuntu-2004:202101-01
@@ -169,13 +168,43 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/launch-loki.sh
       - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/upgrade_test.sh
+      - run: etc/testing/circle/deploy_test.sh
+  # build pachctl and push to GCS bucket, so that it can be bundled into the
+  # Jupyter-Pachyderm extension
+  build-pachctl:
+    resource_class: large
+    docker:
+      - image: cimg/go:1.17.6
+    steps:
+      - checkout
+      - run:
+          name: Download utilities
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
+            tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
+            rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - run:
+          name: Make release
+          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+      - run:
+          name: Upload Release
+          command: |
+            echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
+            cd /home/circleci/dist-pach/pachctl/
+            gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
+            rm /home/circleci/gcpcreds.json
+
 
 workflows:
   circleci:
     jobs:
+      - build-pachctl
       - circleci:
           matrix:
             parameters:
@@ -236,6 +265,6 @@ workflows:
                 - LOAD8
                 - LOAD9
                 - LOAD10
-  upgrade:
+  deploy:
     jobs:
-    - upgrade
+    - deploy

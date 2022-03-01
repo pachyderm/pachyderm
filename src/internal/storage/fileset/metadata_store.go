@@ -28,6 +28,7 @@ type MetadataStore interface {
 	Get(ctx context.Context, id ID) (*Metadata, error)
 	GetTx(tx *pachsql.Tx, id ID) (*Metadata, error)
 	DeleteTx(tx *pachsql.Tx, id ID) error
+	Exists(ctx context.Context, id ID) (bool, error)
 }
 
 // StoreTestSuite is a suite of tests for a Store.

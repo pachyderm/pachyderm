@@ -35,9 +35,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
@@ -56,6 +58,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 )
 
 const (
@@ -891,6 +894,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	}); err != nil {
 		return nil, err
 	}
+	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
 	return &types.Empty{}, nil
 }
 
@@ -908,7 +912,17 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	}, nil); err != nil {
 		return nil, err
 	}
+	clearJobCache(a.env.GetPachClient(ctx), ppsdb.JobKey(request.Job))
 	return &types.Empty{}, nil
+}
+
+// TODO: Remove when job state transition operations are handled by a background process.
+func clearJobCache(pachClient *client.APIClient, tagPrefix string) {
+	if _, err := pachClient.PfsAPIClient.ClearCache(pachClient.Ctx(), &pfs.ClearCacheRequest{
+		TagPrefix: tagPrefix,
+	}); err != nil {
+		logrus.Errorf("errored clearing job cache: %v", err)
+	}
 }
 
 // StopJobInTransaction is identical to StopJob except that it can run inside an
@@ -1569,7 +1583,8 @@ func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *
 }
 
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
-	add := make(map[string]struct{})
+	addRead := make(map[string]struct{})
+	addWrite := make(map[string]struct{})
 	remove := make(map[string]struct{})
 	var pipelineName string
 	// Figure out which repos 'pipeline' might no longer be using
@@ -1616,7 +1631,10 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			if _, ok := remove[repo]; ok {
 				delete(remove, repo)
 			} else {
-				add[repo] = struct{}{}
+				addRead[repo] = struct{}{}
+				if input.Cron != nil {
+					addWrite[repo] = struct{}{}
+				}
 			}
 			return nil
 		})
@@ -1628,7 +1646,8 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 
 	// make sure we don't touch the pipeline's permissions on its output repo
 	delete(remove, pipelineName)
-	delete(add, pipelineName)
+	delete(addRead, pipelineName)
+	delete(addWrite, pipelineName)
 
 	defer func() {
 		retErr = errors.Wrapf(retErr, "error fixing ACLs on \"%s\"'s input repos", pipelineName)
@@ -1642,12 +1661,20 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
-	for repo := range add {
+	for repo := range addRead {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
 		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
+
+	for repo := range addWrite {
+		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
+		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipelineName); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
 		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipelineName); err != nil {
@@ -1832,15 +1859,15 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return visitErr
 	}
 
+	update := request.Update && oldPipelineInfo != nil
 	// Authorize pipeline creation
 	operation := pipelineOpCreate
-	if request.Update {
+	if update {
 		operation = pipelineOpUpdate
 	}
 	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
-	update := request.Update && oldPipelineInfo != nil
 
 	var (
 		// provenance for the pipeline's output branch (includes the spec branch)
@@ -2162,7 +2189,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
 		}
-		tasks, claims, err := a.env.TaskService.TaskCount(ctx, driver.TaskNamespace(info))
+		tasks, claims, err := task.Count(ctx, a.env.TaskService, driver.TaskNamespace(info), "")
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
@@ -2383,6 +2410,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}); err != nil {
 		return err
 	}
+	clearJobCache(a.env.GetPachClient(ctx), pipelineName)
 	return deleteErr
 }
 
@@ -3032,4 +3060,34 @@ func labels(app string) map[string]string {
 		"suite":     suite,
 		"component": "worker",
 	}
+}
+
+func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
+	jsonResult, err := pachtmpl.RenderTemplate(req.Template, req.Args)
+	if err != nil {
+		return nil, err
+	}
+	var specs []*pps.CreatePipelineRequest
+	switch jsonResult[0] {
+	case '[':
+		if err := json.Unmarshal([]byte(jsonResult), &specs); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+	case '{':
+		var spec pps.CreatePipelineRequest
+		if err := jsonpb.Unmarshal(strings.NewReader(jsonResult), &spec); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		specs = append(specs, &spec)
+	default:
+		return nil, errors.Errorf("not a json object or list: %v", jsonResult)
+	}
+	return &pps.RenderTemplateResponse{
+		Json:  jsonResult,
+		Specs: specs,
+	}, nil
+}
+
+func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pps.API_ListTaskServer) error {
+	return task.List(server.Context(), a.env.TaskService, req, server.Send)
 }

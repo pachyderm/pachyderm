@@ -44,4 +44,10 @@ spec:
           # "nonroot" user and group (uid: 65532) by default.
           runAsNonRoot: true
         resources: {{ toYaml .Values.cloudsqlAuthProxy.resources | nindent 10 }}
+      {{- if .Values.cloudsqlAuthProxy.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.cloudsqlAuthProxy.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.cloudsqlAuthProxy.tolerations }}
+      tolerations: {{ toYaml .Values.cloudsqlAuthProxy.tolerations | nindent 8 }}
+      {{- end }}
 {{ end -}}

@@ -23,11 +23,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
+
 	"golang.org/x/net/context"
 	"gopkg.in/yaml.v3"
 )
@@ -719,6 +722,36 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 	}, nil
 }
 
+func (a *apiServer) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (resp *types.Empty, retErr error) {
+	var fsids []fileset.ID
+	for _, id := range req.FileSetIds {
+		fsid, err := fileset.ParseID(id)
+		if err != nil {
+			return nil, err
+		}
+		fsids = append(fsids, *fsid)
+	}
+	if err := a.driver.putCache(ctx, req.Key, req.Value, fsids, req.Tag); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) GetCache(ctx context.Context, req *pfs.GetCacheRequest) (resp *pfs.GetCacheResponse, retErr error) {
+	value, err := a.driver.getCache(ctx, req.Key)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.GetCacheResponse{Value: value}, nil
+}
+
+func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) (resp *types.Empty, retErr error) {
+	if err := a.driver.clearCache(ctx, req.TagPrefix); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // RunLoadTest implements the pfs.RunLoadTest RPC
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
@@ -858,6 +891,10 @@ fileSources:
           max: 100000000
           prob: 100 
 `}
+
+func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pfs.API_ListTaskServer) error {
+	return task.List(server.Context(), a.env.TaskService, req, server.Send)
+}
 
 func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	msg, err := srv.Recv()

@@ -292,13 +292,7 @@ func (s *Storage) WithRenewer(ctx context.Context, ttl time.Duration, cb func(co
 	return cb(r.Context(), r)
 }
 
-// GC creates a track.GarbageCollector with a Deleter that can handle deleting filesets and chunks
-func (s *Storage) GC(ctx context.Context) error {
-	return s.newGC().RunForever(ctx)
-}
-
-func (s *Storage) newGC() *track.GarbageCollector {
-	const period = 10 * time.Second
+func (s *Storage) NewGC(d time.Duration) *track.GarbageCollector {
 	tmpDeleter := renew.NewTmpDeleter()
 	chunkDeleter := s.chunks.NewDeleter()
 	filesetDeleter := &deleter{
@@ -316,18 +310,12 @@ func (s *Storage) newGC() *track.GarbageCollector {
 			return nil
 		}
 	})
-	return track.NewGarbageCollector(s.tracker, period, mux)
+	return track.NewGarbageCollector(s.tracker, d, mux)
 }
 
 func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
-	_, err := s.store.Get(ctx, id)
-	if err != nil {
-		if errors.Is(err, ErrFileSetNotExists) {
-			return false, nil
-		}
-		return false, errors.EnsureStack(err)
-	}
-	return true, nil
+	exists, err := s.store.Exists(ctx, id)
+	return exists, errors.EnsureStack(err)
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {

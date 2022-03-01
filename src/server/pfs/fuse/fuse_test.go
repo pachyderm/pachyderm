@@ -279,7 +279,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {},
+			"repo1": {Name: "repo1", Repo: "repo1"},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -297,7 +297,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Write: true},
+			"repo1": {Name: "repo1", Repo: "repo1", Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -318,7 +318,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Branch: "staging", Write: true},
+			"repo1": {Name: "repo1", Repo: "repo1", Branch: "staging", Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -341,6 +341,7 @@ func TestOpenCommit(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo("in"))
 	require.NoError(t, env.PachClient.CreateRepo("out"))
 	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+	require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
 	_, err := env.PachClient.StartCommit("in", "master")
 	require.NoError(t, err)
 

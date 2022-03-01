@@ -25,6 +25,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -47,6 +50,9 @@
                 },
                 "serviceAccount": {
                     "type": "string"
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -102,6 +108,9 @@
                         }
                     }
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "podLabels": {
                     "type": "object"
                 },
@@ -111,6 +120,9 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "labels": {
                             "type": "object"
                         },
@@ -118,6 +130,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -152,6 +167,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "nodeSelector": {
+                    "type": "object"
                 },
                 "podLabels": {
                     "type": "object"
@@ -191,6 +209,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -353,6 +374,53 @@
                 }
             }
         },
+        "loki-stack": {
+            "type": "object",
+            "properties": {
+                "grafana": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "loki": {
+                    "type": "object",
+                    "properties": {
+                        "persistence": {
+                            "type": "object",
+                            "properties": {
+                                "accessModes": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "annotations": {
+                                    "type": "object"
+                                },
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "nodeSelector": {
+                                    "type": "object"
+                                },
+                                "size": {
+                                    "type": "string"
+                                },
+                                "storageClassName": {
+                                    "type": "string"
+                                },
+                                "tolerations": {
+                                    "type": "array"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "oidc": {
             "type": "object",
             "properties": {
@@ -481,6 +549,9 @@
                 "logLevel": {
                     "type": "string"
                 },
+                "lokiDeploy": {
+                    "type": "boolean"
+                },
                 "lokiLogging": {
                     "type": "boolean"
                 },
@@ -553,6 +624,9 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "labels": {
                             "type": "object"
                         },
@@ -701,6 +775,12 @@
                         }
                     }
                 },
+                "storageChunkGCPeriod": {
+                    "type": "integer"
+                },
+                "storageGCPeriod": {
+                    "type": "integer"
+                },
                 "tls": {
                     "type": "object",
                     "properties": {
@@ -770,6 +850,9 @@
                 "maxConnections": {
                     "type": "integer"
                 },
+                "nodeSelector": {
+                    "type": "object"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -780,6 +863,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "tolerations": {
+                    "type": "array"
                 }
             }
         },
@@ -824,6 +910,28 @@
                         },
                         "storageClass": {
                             "type": "string"
+                        }
+                    }
+                },
+                "primary": {
+                    "type": "object",
+                    "properties": {
+                        "nodeSelector": {
+                            "type": "object"
+                        },
+                        "tolerations": {
+                            "type": "array"
+                        }
+                    }
+                },
+                "readReplicas": {
+                    "type": "object",
+                    "properties": {
+                        "nodeSelector": {
+                            "type": "object"
+                        },
+                        "tolerations": {
+                            "type": "array"
                         }
                     }
                 }

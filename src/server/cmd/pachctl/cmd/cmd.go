@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/v2/src/server/auth/cmds"
@@ -834,6 +835,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, debugcmds.Cmds()...)
 	subcommands = append(subcommands, txncmds.Cmds()...)
 	subcommands = append(subcommands, configcmds.Cmds()...)
+	subcommands = append(subcommands, taskcmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

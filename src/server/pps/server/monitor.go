@@ -11,7 +11,6 @@ import (
 	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -22,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -249,49 +247,6 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			}, backoff.NewInfiniteBackOff(),
 				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
 		})
-		if pipelineInfo.Details.ParallelismSpec != nil && pipelineInfo.Details.ParallelismSpec.Constant > 1 && pipelineInfo.Details.Autoscaling {
-			eg.Go(func() error {
-				pachClient := pc.env.GetPachClient(ctx)
-				taskService := pc.env.TaskService
-				return backoff.RetryUntilCancel(ctx, func() error {
-					for {
-						nTasks, nClaims, err := taskService.TaskCount(pachClient.Ctx(), driver.TaskNamespace(pipelineInfo))
-						if err != nil {
-							return errors.EnsureStack(err)
-						}
-						if nClaims < nTasks {
-							kubeClient := pc.env.KubeClient
-							namespace := pc.namespace
-							rc := kubeClient.CoreV1().ReplicationControllers(namespace)
-							scale, err := rc.GetScale(ctx, pipelineInfo.Details.WorkerRc, metav1.GetOptions{})
-							n := nTasks
-							if n > int64(pipelineInfo.Details.ParallelismSpec.Constant) {
-								n = int64(pipelineInfo.Details.ParallelismSpec.Constant)
-							}
-							if err != nil {
-								return errors.EnsureStack(err)
-							}
-							if int64(scale.Spec.Replicas) < n {
-								scale.Spec.Replicas = int32(n)
-								if _, err := rc.UpdateScale(ctx, pipelineInfo.Details.WorkerRc, scale, metav1.UpdateOptions{}); err != nil {
-									return errors.EnsureStack(err)
-								}
-							}
-							// We've already attained max scale, no reason to keep polling.
-							if n == int64(pipelineInfo.Details.ParallelismSpec.Constant) {
-								return nil
-							}
-						}
-						select {
-						case <-time.After(scaleUpInterval):
-						case <-pachClient.Ctx().Done():
-							return errors.EnsureStack(pachClient.Ctx().Err())
-						}
-					}
-				}, backoff.NewInfiniteBackOff(),
-					backoff.NotifyCtx(pachClient.Ctx(), "monitorPipeline for "+pipeline))
-			})
-		}
 	}
 	if err := eg.Wait(); err != nil {
 		log.Printf("error in monitorPipeline: %v", err)
@@ -360,6 +315,9 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	for {
 		// get the time of the next time from the latest time using the cron schedule
 		next := schedule.Next(latestTime)
+		if next.IsZero() {
+			return nil // zero time indicates there will never be another tick
+		}
 		// and wait until then to make the next commit
 		select {
 		case <-time.After(time.Until(next)):

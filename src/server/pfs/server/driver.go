@@ -33,6 +33,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 )
@@ -68,6 +69,7 @@ type CommitStream interface {
 
 type driver struct {
 	env Env
+	log *logrus.Logger
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	txnEnv     *txnenv.TransactionEnv
@@ -80,6 +82,8 @@ type driver struct {
 
 	storage     *fileset.Storage
 	commitStore commitStore
+
+	cache *fileset.Cache
 }
 
 func newDriver(env Env) (*driver, error) {
@@ -99,13 +103,14 @@ func newDriver(env Env) (*driver, error) {
 
 	// Setup driver struct.
 	d := &driver{
-		txnEnv:     env.TxnEnv,
+		env:        env,
 		etcdClient: env.EtcdClient,
+		txnEnv:     env.TxnEnv,
 		prefix:     env.EtcdPrefix,
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
-		env:        env,
+		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)
@@ -126,6 +131,8 @@ func newDriver(env Env) (*driver, error) {
 	taskSource := env.TaskService.NewSource(storageTaskNamespace)
 	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
+	// TODO: Make the cache max size configurable.
+	d.cache = fileset.NewCache(env.DB, tracker, 10000)
 	return d, nil
 }
 
@@ -228,6 +235,9 @@ func (d *driver) inspectRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Re
 	}
 	repoInfo := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(repo, repoInfo); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil, pfsserver.ErrRepoNotFound{Repo: repo}
+		}
 		return nil, errors.EnsureStack(err)
 	}
 	if includeAuth {
@@ -688,14 +698,17 @@ func (d *driver) repoSize(ctx context.Context, repo *pfs.Repo) (int64, error) {
 			if err := d.branches.ReadOnly(ctx).Get(branch, branchInfo); err != nil {
 				return 0, errors.EnsureStack(err)
 			}
-			ci, err := d.getCommit(ctx, branchInfo.Head)
-			if err != nil {
-				return 0, err
+			commit := branchInfo.Head
+			for commit != nil {
+				commitInfo, err := d.getCommit(ctx, commit)
+				if err != nil {
+					return 0, err
+				}
+				if commitInfo.Details != nil {
+					return commitInfo.Details.SizeBytes, nil
+				}
+				commit = commitInfo.ParentCommit
 			}
-			if ci.Details != nil {
-				return ci.Details.SizeBytes, nil
-			}
-			return d.commitSizeUpperBound(ctx, branchInfo.Head)
 		}
 	}
 	return 0, nil
@@ -1164,7 +1177,7 @@ func (d *driver) listCommit(
 				}
 				var err error
 				ci.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, ci.Commit)
-				if err != nil {
+				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 					return err
 				}
 				if err := cb(ci); err != nil {
@@ -1824,6 +1837,9 @@ func (d *driver) inspectBranch(txnCtx *txncontext.TransactionContext, branch *pf
 
 	result := &pfs.BranchInfo{}
 	if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, result); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil, pfsserver.ErrBranchNotFound{Branch: branch}
+		}
 		return nil, errors.EnsureStack(err)
 	}
 	return result, nil
@@ -2056,6 +2072,18 @@ func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchIn
 		return nil, errors.EnsureStack(err)
 	}
 	return commit, nil
+}
+
+func (d *driver) putCache(ctx context.Context, key string, value *types.Any, fileSetIds []fileset.ID, tag string) error {
+	return d.cache.Put(ctx, key, value, fileSetIds, tag)
+}
+
+func (d *driver) getCache(ctx context.Context, key string) (*types.Any, error) {
+	return d.cache.Get(ctx, key)
+}
+
+func (d *driver) clearCache(ctx context.Context, tagPrefix string) error {
+	return d.cache.Clear(ctx, tagPrefix)
 }
 
 // TODO: Is this really necessary?

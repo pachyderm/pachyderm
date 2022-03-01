@@ -424,9 +424,6 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		if fi.Mode()&os.ModeNamedPipe != 0 {
-			return nil
-		}
 		// Upload the local files if they are not from PFS.
 		if !strings.HasPrefix(file, d.PFSStorageRoot()) {
 			return d.uploadSymlink(mf, dstPath, file, fi)
@@ -442,8 +439,8 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 				input = i
 			}
 		}
-		// Upload the local files if they are not using the empty files feature.
-		if !input.EmptyFiles {
+		// Upload the local files if they are not using the empty or lazy files feature.
+		if !(input.EmptyFiles || input.Lazy) {
 			return d.uploadSymlink(mf, dstPath, file, fi)
 		}
 		srcFile := proto.Clone(input.FileInfo.File).(*pfs.File)
