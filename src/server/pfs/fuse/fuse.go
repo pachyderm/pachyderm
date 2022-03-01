@@ -94,57 +94,61 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		server.Unmount()
 	}()
 	server.Wait()
-	mfcs := make(map[string]*client.ModifyFileClient)
-	mfc := func(repo string) (*client.ModifyFileClient, error) {
-		if mfc, ok := mfcs[repo]; ok {
+
+	if opts.Write {
+		mfcs := make(map[string]*client.ModifyFileClient)
+		mfc := func(repo string) (*client.ModifyFileClient, error) {
+			if mfc, ok := mfcs[repo]; ok {
+				return mfc, nil
+			}
+			mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(repo), ""))
+			if err != nil {
+				return nil, err
+			}
+			mfcs[repo] = mfc
 			return mfc, nil
 		}
-		mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(repo), ""))
-		if err != nil {
-			return nil, err
-		}
-		mfcs[repo] = mfc
-		return mfc, nil
-	}
-	defer func() {
-		for _, mfc := range mfcs {
-			if err := mfc.Close(); err != nil && retErr == nil {
-				retErr = err
+		defer func() {
+			for _, mfc := range mfcs {
+				if err := mfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
 			}
-		}
-	}()
-	fmt.Println("Uploading files to Pachyderm...")
-	// Rendering progress bars for thousands of files significantly slows down
-	// throughput. Disabling progress bars takes throughput from 1MB/sec to
-	// 200MB/sec on my system, when uploading 18K small files.
-	progress.Disable()
-	for path, state := range root.files {
-		if state != dirty {
-			continue
-		}
-		parts := strings.Split(path, "/")
-		mfc, err := mfc(parts[0])
-		if err != nil {
-			return err
-		}
-		if err := func() (retErr error) {
-			f, err := progress.Open(filepath.Join(root.rootPath, path))
+		}()
+		fmt.Println("Uploading files to Pachyderm...")
+		// Rendering progress bars for thousands of files significantly slows down
+		// throughput. Disabling progress bars takes throughput from 1MB/sec to
+		// 200MB/sec on my system, when uploading 18K small files.
+		progress.Disable()
+		for path, state := range root.files {
+			if state != dirty {
+				continue
+			}
+			parts := strings.Split(path, "/")
+			mfc, err := mfc(parts[0])
 			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return mfc.DeleteFile(pathpkg.Join(parts[1:]...))
-				}
-				return errors.WithStack(err)
+				return err
 			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = errors.WithStack(err)
+			if err := func() (retErr error) {
+				f, err := progress.Open(filepath.Join(root.rootPath, path))
+				if err != nil {
+					if errors.Is(err, os.ErrNotExist) {
+						return mfc.DeleteFile(pathpkg.Join(parts[1:]...))
+					}
+					return errors.WithStack(err)
 				}
-			}()
-			return mfc.PutFile(pathpkg.Join(parts[1:]...), f)
-		}(); err != nil {
-			return err
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = errors.WithStack(err)
+					}
+				}()
+				return mfc.PutFile(pathpkg.Join(parts[1:]...), f)
+			}(); err != nil {
+				return err
+			}
 		}
+		fmt.Println("Done!")
 	}
-	fmt.Println("Done!")
+
 	return nil
 }
