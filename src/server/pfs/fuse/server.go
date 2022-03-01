@@ -383,6 +383,11 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
 		l, err := mm.List()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -400,6 +405,11 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		Queries("mode", "{mode}").
 		Queries("name", "{name}").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if isAuthOnAndUserUnauthenticated(mm.Client) {
+				http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+				return
+			}
+
 			vs := mux.Vars(req)
 			mode, ok := vs["mode"]
 			if !ok {
@@ -442,6 +452,11 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 	router.Methods("PUT").
 		Queries("name", "{name}").
 		Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
 		vs := mux.Vars(req)
 		k, ok := vs["key"]
 		if !ok {
@@ -465,6 +480,11 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		}
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
 		err := mm.UnmountAll()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -510,19 +530,15 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		authActive, err := mm.Client.IsAuthActive()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		authActive, _ := mm.Client.IsAuthActive()
 		if !authActive {
-			http.Error(w, "Auth isn't activated on the cluster", http.StatusInternalServerError)
+			http.Error(w, "auth isn't activated on the cluster", http.StatusInternalServerError)
 			return
 		}
 
 		loginInfo, err := mm.Client.GetOIDCLogin(mm.Client.Ctx(), &auth.GetOIDCLoginRequest{})
 		if err != nil {
-			http.Error(w, "No authentication providers configured", http.StatusInternalServerError)
+			http.Error(w, "no authentication providers configured", http.StatusInternalServerError)
 			return
 		}
 		authUrl := loginInfo.LoginURL
@@ -589,6 +605,15 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 	}()
 
 	return errors.EnsureStack(srv.ListenAndServe())
+}
+
+func isAuthOnAndUserUnauthenticated(c *client.APIClient) bool {
+	active, _ := c.IsAuthActive()
+	if !active {
+		return false
+	}
+	_, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	return err != nil
 }
 
 func getClusterStatus(c *client.APIClient) (map[string]string, error) {
