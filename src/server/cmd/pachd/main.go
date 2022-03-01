@@ -959,7 +959,7 @@ func doFullMode(config interface{}) (retErr error) {
 	})
 	go func(c chan os.Signal) {
 		<-c
-		log.Println("terminating; waiting for enterprise server to gracefully stop")
+		log.Println("terminating; waiting for pachd server to gracefully stop")
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
@@ -997,7 +997,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
+	profileutil.StartCloudProfiler("pachyderm-pachd-paused", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
@@ -1285,7 +1285,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	})
 	go func(c chan os.Signal) {
 		<-c
-		log.Println("terminating; waiting for enterprise server to gracefully stop")
+		log.Println("terminating; waiting for paused pachd server to gracefully stop")
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })

@@ -357,6 +357,20 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 
 var updatedAtFieldName = "pachyderm.com/updatedAt"
 
+// rollPachd changes pachds from paused to unpaused, or unpaused to paused.  It
+// does this by creating a ConfigMap with a MODE value, then updating the pachd
+// deployment spec’s template’s annotations with a new value, which causes
+// Kubernetes to terminate existing pods and start new ones.
+//
+// Since the ConfigMap is not managed by Helm, it will persist through Helm
+// operations: a cluster which is upgraded by Helm in a paused state will thus
+// remain paused.
+//
+// If the ConfigMap is already in the desired state, no changed are made; this
+// ensures that PauseStatus can do its checking appropriately.
+//
+// There is a special case in main to handle the case where there is no
+// ConfigMap and the '$(MODE)' reference is verbatim.
 func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, paused bool) error {
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
@@ -463,6 +477,19 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 	return &ec.UnpauseResponse{}, nil
 }
 
+// PauseStatus checks the pause status of a cluster.  It does this by checking
+// first for the pachd-config ConfigMap; if it does not exist, then the cluster
+// is by default unpaused.  Next it looks for the “pachyderm.com/updatedAt”
+// field; if that field does not exist then this must be an empty config map and
+// the cluster is by default paused.  If it does exist, though, it is remembered.
+//
+// Finally it cycles through all pachd pods, checking that they were created
+// before the updateAt value; if some are before & some after (or at the exact
+// same instant), then the cluster is considered partially paused; if all pachd
+// pods were created before the ConfigMap was updated then it has not taken
+// effect and the cluster is in the reverse state; if all pods were created
+// after the ConfigMap was updated then it has taken effect and the cluster is
+// in the indicated state.
 func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
 	kc := a.env.GetKubeClient()
 	cc := kc.CoreV1().ConfigMaps(a.env.Namespace)
