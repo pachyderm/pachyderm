@@ -444,7 +444,7 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 	// a new one to start.
 	d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
 	if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
-		return errors.Errorf("could not update pachd deployment: %v", err)
+		return errors.Errorf("could not update pachd deployment: %v (%T)", err, err)
 	}
 	return nil
 }
