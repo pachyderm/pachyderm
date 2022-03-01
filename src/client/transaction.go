@@ -336,11 +336,6 @@ func (c *ppsBuilderClient) CreatePipeline(ctx context.Context, req *pps.CreatePi
 	return nil, nil
 }
 
-// Boilerplate for making unsupported API requests error when used on a TransactionBuilder
-func unsupportedError(name string) error {
-	return errors.Errorf("the '%s' API call is not supported in transactions", name)
-}
-
 func (c *pfsBuilderClient) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest, opts ...grpc.CallOption) (*pfs.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
 }
@@ -604,10 +599,6 @@ func (c *enterpriseBuilderClient) Unpause(ctx context.Context, req *enterprise.U
 }
 func (c *enterpriseBuilderClient) PauseStatus(ctx context.Context, req *enterprise.PauseStatusRequest, opts ...grpc.CallOption) (*enterprise.PauseStatusResponse, error) {
 	return nil, unsupportedError("PauseStatus")
-}
-
-func (c *versionBuilderClient) GetVersion(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*versionpb.Version, error) {
-	return nil, unsupportedError("GetVersion")
 }
 
 func (c *adminBuilderClient) InspectCluster(ctx context.Context, req *types.Empty, opts ...grpc.CallOption) (*admin.ClusterInfo, error) {
