@@ -141,11 +141,11 @@ enterpriseServer:
   nodeSelector: {}
   service:
     type: ClusterIP
-    apiGRPCPort: 30650
-    prometheusPort: 30656
-    oidcPort: 30657
-    identityPort: 30658
-    s3GatewayPort: 30600
+    apiGRPCPort: 31650
+    prometheusPort: 31656
+    oidcPort: 31657
+    identityPort: 31658
+    s3GatewayPort: 31600
   # There are three options for TLS:
   # 1. Disabled
   # 2. Enabled, existingSecret, specify secret name
