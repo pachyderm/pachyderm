@@ -9,6 +9,21 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
+// TupleWriter is the type of Writers for structured data.
+type TupleWriter interface {
+	WriteTuple(row Tuple) error
+	Flush() error
+}
+
+type Tuple = []interface{}
+
+// TupleReader is a stream of Tuples
+type TupleReader interface {
+	// Next attempts to read one Tuple into x.
+	// If the next data is the wrong shape for x then an error is returned.
+	Next(x Tuple) error
+}
+
 // MaterializationResult is returned by MaterializeSQL
 type MaterializationResult struct {
 	ColumnNames   []string

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
-	"encoding/json"
 	"io"
 	"reflect"
 	"strconv"
@@ -13,59 +12,118 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-type TupleReader interface {
-	// Next attempts to read one Tuple into x.
-	// If the next data is the wrong shape for x then an error is returned.
-	Next(x Tuple) error
+// CSVWriter writes Tuples in CSV format.
+type CSVWriter struct {
+	cw      *csv.Writer
+	headers []string
+
+	headersWritten bool
+	record         []string
 }
 
-type jsonParser struct {
-	dec        *json.Decoder
-	fieldNames []string
-
-	m map[string]interface{}
-}
-
-func NewJSONParser(r io.Reader, fieldNames []string) TupleReader {
-	return &jsonParser{
-		dec:        json.NewDecoder(r),
-		fieldNames: fieldNames,
+// NewCSVWriter returns a CSVWriter writing to w.
+// If len(headers) == 0, then no headers will be written
+func NewCSVWriter(w io.Writer, headers []string) *CSVWriter {
+	return &CSVWriter{
+		cw:      csv.NewWriter(w),
+		headers: headers,
 	}
 }
 
-func (p *jsonParser) Next(row Tuple) error {
-	if len(row) != len(p.fieldNames) {
-		return ErrTupleFields{Fields: p.fieldNames, Tuple: row}
+func (m *CSVWriter) WriteTuple(row Tuple) error {
+	if m.record == nil {
+		m.record = make([]string, len(row))
 	}
-	m := p.getMap()
-	if err := p.dec.Decode(m); err != nil {
-		return err
+	if len(m.record) != len(row) {
+		return ErrTupleFields{
+			Writer: m,
+			Tuple:  row,
+		}
+	}
+	record := m.record
+	if len(m.headers) > 0 && !m.headersWritten {
+		if err := m.cw.Write(m.headers); err != nil {
+			return errors.EnsureStack(err)
+		}
+		m.headersWritten = true
 	}
 	for i := range row {
-		colName := p.fieldNames[i]
-		v, exists := m[colName]
-		if !exists {
-			row[i] = nil
-			continue
-		}
-		ty1 := reflect.TypeOf(v)
-		ty2 := reflect.TypeOf(row[i])
-		if ty2.AssignableTo(ty1) {
-			row[i] = v
-		} else if !ty1.ConvertibleTo(ty2) {
-			return errors.Errorf("cannot convert %v to %v", ty1, ty2)
-		} else {
-			row[i] = reflect.ValueOf(v).Interface()
+		var err error
+		record[i], err = m.format(row[i])
+		if err != nil {
+			return err
 		}
 	}
-	return nil
+	return errors.EnsureStack(m.cw.Write(record))
 }
 
-func (p *jsonParser) getMap() map[string]interface{} {
-	if p.m == nil {
-		p.m = make(map[string]interface{})
+func (m *CSVWriter) format(x interface{}) (string, error) {
+	const null = "null"
+	var y string
+	switch x := x.(type) {
+	case *int16:
+		y = strconv.FormatInt(int64(*x), 10)
+	case *int32:
+		y = strconv.FormatInt(int64(*x), 10)
+	case *int64:
+		y = strconv.FormatInt(*x, 10)
+	case *uint64:
+		y = strconv.FormatUint(*x, 10)
+	case *string:
+		y = *x
+	case *float32:
+		y = strconv.FormatFloat(float64(*x), 'f', -1, 32)
+	case *float64:
+		y = strconv.FormatFloat(*x, 'f', -1, 64)
+	case *sql.RawBytes:
+		// TODO: what to do here? might not be printable.
+		// Maybe have a list of base64 encoded columns.
+		y = string(*x)
+	case *sql.NullInt16:
+		if x.Valid {
+			y = strconv.FormatInt(int64(x.Int16), 10)
+		} else {
+			y = null
+		}
+	case *sql.NullInt32:
+		if x.Valid {
+			y = strconv.FormatInt(int64(x.Int32), 10)
+		} else {
+			y = null
+		}
+	case *sql.NullInt64:
+		if x.Valid {
+			y = strconv.FormatInt(x.Int64, 10)
+		} else {
+			y = null
+		}
+	case *sql.NullFloat64:
+		if x.Valid {
+			y = strconv.FormatFloat(x.Float64, 'f', -1, 64)
+		} else {
+			y = null
+		}
+	case *sql.NullString:
+		if x.Valid {
+			y = x.String
+		} else {
+			y = null
+		}
+	case *sql.NullTime:
+		if x.Valid {
+			y = x.Time.Format(time.RFC3339Nano)
+		} else {
+			y = null
+		}
+	default:
+		return "", errors.Errorf("unrecognized value (%v: %T)", x, x)
 	}
-	return p.m
+	return y, nil
+}
+
+func (m *CSVWriter) Flush() error {
+	m.cw.Flush()
+	return errors.EnsureStack(m.cw.Error())
 }
 
 type csvParser struct {
