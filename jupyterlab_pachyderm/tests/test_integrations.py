@@ -98,14 +98,6 @@ def activate_auth():
         )
     )
 
-    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
-    active_context = config["v2"]["active_context"]
-    config["v2"]["contexts"][active_context]["session_token"] = ROOT_TOKEN
-    json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
-
-    # Reload mount server so it sees auth token
-    subprocess.run(["fusermount", "-u", PFS_MOUNT_DIR])
-
     yield
 
     client.auth_token = ROOT_TOKEN
@@ -209,7 +201,15 @@ def test_config(dev_server):
 
 
 @pytest.mark.skipif(os.environ.get("ENT_ACT_CODE") is None, reason="No enterprise token at env var ENT_ACT_CODE")
-def test_auth(pachyderm_resources, activate_auth, dev_server):
+def test_auth(activate_auth, dev_server):
+    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
+    active_context = config["v2"]["active_context"]
+    config["v2"]["contexts"][active_context]["session_token"] = ROOT_TOKEN
+    json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
+
+    # Reload mount server so it sees auth token
+    subprocess.run(["fusermount", "-u", PFS_MOUNT_DIR])
+
     r = requests.put(f"{BASE_URL}/auth/_logout")
     assert r.status_code == 200
 
@@ -221,3 +221,20 @@ def test_auth(pachyderm_resources, activate_auth, dev_server):
     r = requests.put(f"{BASE_URL}/auth/_login")
     assert r.status_code == 200
     assert r.json()["auth_url"] is not None
+
+
+@pytest.mark.skipif(os.environ.get("ENT_ACT_CODE") is None, reason="No enterprise token at env var ENT_ACT_CODE")
+def test_unauthenticated_web_code(activate_auth, dev_server):
+    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
+    active_context = config["v2"]["active_context"]
+    config["v2"]["contexts"][active_context]["session_token"] = ""
+    json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
+
+    # Reload mount server so it has no auth token
+    subprocess.run(["fusermount", "-u", PFS_MOUNT_DIR])
+
+    r = requests.get(f"{BASE_URL}/repos")
+    assert r.status_code == 401
+
+    r = requests.put(f"{BASE_URL}/repos/_unmount")
+    assert r.status_code == 401

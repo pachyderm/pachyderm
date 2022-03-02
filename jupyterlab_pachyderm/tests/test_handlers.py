@@ -12,6 +12,13 @@ from jupyterlab_pachyderm.pachyderm import MountInterface
 pytest_plugins = ["jupyter_server.pytest_plugin"]
 
 
+class ErrorWithCode(Exception):
+    def __init__(self, code):
+        self.code = code
+    def __str__(self):
+        return repr(self.code)
+
+
 @pytest.fixture
 def jp_server_config():
     return {"ServerApp": {"jpserver_extensions": {"jupyterlab_pachyderm": True}}}
@@ -87,13 +94,14 @@ async def test_list_repos(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
 async def test_list_repos_error(mock_client, jp_fetch):
-    mock_client.list.side_effect = Exception
+    status_code = 500
+    mock_client.list.side_effect = ErrorWithCode(status_code)
     with pytest.raises(tornado.httpclient.HTTPClientError) as e:
         await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos")
         # note must exit context to capture response
 
-    assert e.value.code == 500
-    assert e.value.response.reason == "Error listing repos: ."
+    assert e.value.code == status_code
+    assert e.value.response.reason == f"Error listing repos: {status_code}."
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
@@ -263,7 +271,8 @@ async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     "jupyterlab_pachyderm.handlers.RepoMountHandler.mount_client", spec=MountInterface
 )
 async def test_mount_with_error(mock_client, jp_fetch):
-    mock_client.mount.side_effect = Exception
+    status_code = 500
+    mock_client.mount.side_effect = ErrorWithCode(status_code)
 
     repo, branch, name = "somerepo", "master", "somename"
     with pytest.raises(tornado.httpclient.HTTPClientError) as e:
@@ -275,8 +284,8 @@ async def test_mount_with_error(mock_client, jp_fetch):
         )
         # note must exit context to capture response
 
-    assert e.value.code == 500
-    assert e.value.response.reason == f"Error mounting repo {repo}: ."
+    assert e.value.code == status_code
+    assert e.value.response.reason == f"Error mounting repo {repo}: {status_code}."
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
@@ -326,7 +335,8 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
     "jupyterlab_pachyderm.handlers.RepoUnmountHandler.mount_client", spec=MountInterface
 )
 async def test_unmount_with_error(mock_client, jp_fetch):
-    mock_client.unmount.side_effect = Exception
+    status_code = 500
+    mock_client.unmount.side_effect = ErrorWithCode(status_code)
 
     repo, branch, name = "somerepo", "master", "somename"
     with pytest.raises(tornado.httpclient.HTTPClientError) as e:
@@ -338,8 +348,8 @@ async def test_unmount_with_error(mock_client, jp_fetch):
         )
         # note must exit context to capture response
 
-    assert e.value.code == 500
-    assert e.value.response.reason == f"Error unmounting repo {repo}: ."
+    assert e.value.code == status_code
+    assert e.value.response.reason == f"Error unmounting repo {repo}: {status_code}."
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
