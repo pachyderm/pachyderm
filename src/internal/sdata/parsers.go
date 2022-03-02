@@ -1,44 +1,48 @@
 package sdata
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"io"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 type TupleReader interface {
-	Next(Tuple) error
+	// Next attempts to read one Tuple into x.
+	// If the next data is the wrong shape for x then an error is returned.
+	Next(x Tuple) error
 }
 
 type jsonParser struct {
-	dec      *json.Decoder
-	colNames []string
+	dec        *json.Decoder
+	fieldNames []string
 
 	m map[string]interface{}
 }
 
-func NewJSONParser(r io.Reader, colNames []string) TupleReader {
+func NewJSONParser(r io.Reader, fieldNames []string) TupleReader {
 	return &jsonParser{
-		dec:      json.NewDecoder(r),
-		colNames: colNames,
+		dec:        json.NewDecoder(r),
+		fieldNames: fieldNames,
 	}
 }
 
 func (p *jsonParser) Next(row Tuple) error {
-	if len(row) != len(p.colNames) {
-		return ErrTupleFields{Fields: p.colNames, Tuple: row}
+	if len(row) != len(p.fieldNames) {
+		return ErrTupleFields{Fields: p.fieldNames, Tuple: row}
 	}
 	m := p.getMap()
 	if err := p.dec.Decode(m); err != nil {
 		return err
 	}
 	for i := range row {
-		colName := p.colNames[i]
+		colName := p.fieldNames[i]
 		v, exists := m[colName]
 		if !exists {
 			row[i] = nil
@@ -68,7 +72,7 @@ type csvParser struct {
 	dec *csv.Reader
 }
 
-func NewCSVParser(r io.Reader, colNames []string) TupleReader {
+func NewCSVParser(r io.Reader) TupleReader {
 	return &csvParser{
 		dec: csv.NewReader(r),
 	}
@@ -83,7 +87,10 @@ func (p *csvParser) Next(row Tuple) error {
 		return errors.Errorf("csv parsing: wrong number of fields HAVE: %d WANT: %d ", len(rec), len(row))
 	}
 	for i := range row {
-		if err := convertString(row[i], rec[i]); err != nil {
+		// reflect.ValueOf(slice[i]) will always be a pointer to that value in the slice
+		// it will have Kind() == reflect.Ptr
+		v := reflect.ValueOf(row[i])
+		if err := convertString(v.Interface(), rec[i]); err != nil {
 			return err
 		}
 	}
@@ -96,8 +103,10 @@ func convertString(dest interface{}, x string) error {
 	if dty.Kind() != reflect.Ptr {
 		panic("dest must be pointer")
 	}
-	// TODO: check it's a pointer type
+	isNull := x == "null" || x == "nil" || len(x) == 0
 	switch d := dest.(type) {
+	case *string:
+		*d = x
 	case *int:
 		n, err := strconv.Atoi(x)
 		if err != nil {
@@ -117,8 +126,115 @@ func convertString(dest interface{}, x string) error {
 			return err
 		}
 		*d = append((*d)[:0], data...)
+	case *time.Time:
+		t, err := parseTime(x)
+		if err != nil {
+			return err
+		}
+		*d = t
+	case *sql.NullBool:
+		if isNull {
+			d.Valid = false
+		} else {
+			x2, err := strconv.ParseBool(x)
+			if err != nil {
+				return err
+			}
+			d.Bool = x2
+			d.Valid = true
+		}
+	case *sql.NullByte:
+		if isNull {
+			d.Valid = false
+		} else {
+			x2, err := strconv.ParseUint(x, 10, 8)
+			if err != nil {
+				return err
+			}
+			d.Byte = byte(x2)
+			d.Valid = true
+		}
+	case *sql.NullInt16:
+		if isNull {
+			d.Valid = false
+		} else {
+			x2, err := strconv.ParseInt(x, 10, 16)
+			if err != nil {
+				return err
+			}
+			d.Int16 = int16(x2)
+			d.Valid = true
+		}
+	case *sql.NullInt32:
+		if isNull {
+			d.Valid = false
+		} else {
+			x2, err := strconv.ParseInt(x, 10, 32)
+			if err != nil {
+				return err
+			}
+			d.Int32 = int32(x2)
+			d.Valid = true
+		}
+	case *sql.NullInt64:
+		if isNull {
+			d.Valid = false
+		} else {
+			x2, err := strconv.ParseInt(x, 10, 32)
+			if err != nil {
+				return err
+			}
+			d.Int64 = x2
+			d.Valid = true
+		}
+	case *sql.NullFloat64:
+		if isNull {
+			d.Valid = false
+		} else {
+			x2, err := strconv.ParseFloat(x, 64)
+			if err != nil {
+				return err
+			}
+			d.Float64 = x2
+			d.Valid = true
+		}
+	case *sql.NullTime:
+		if isNull {
+			d.Valid = false
+		} else {
+			t, err := parseTime(x)
+			if err != nil {
+				return err
+			}
+			d.Time = t
+			d.Valid = true
+		}
+	case *sql.NullString:
+		if isNull {
+			d.Valid = false
+		} else {
+			d.String = x
+			d.Valid = true
+		}
 	default:
-		return errors.Errorf("unrecognized type %T", dest)
+		return errors.Errorf("cannot convert string to %T", dest)
 	}
 	return nil
+}
+
+// parseTime attempts to parse the time using every format and returns the first one.
+func parseTime(x string) (t time.Time, err error) {
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC1123Z,
+		time.RFC822Z,
+		time.Kitchen,
+		time.ANSIC,
+	} {
+		t, err := time.Parse(layout, x)
+		if err == nil {
+			return t, err
+		}
+	}
+	return t, err
 }

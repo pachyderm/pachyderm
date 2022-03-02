@@ -2,13 +2,11 @@ package sdata
 
 import (
 	"database/sql"
-	"fmt"
 	"io"
 	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 // MaterializationResult is returned by MaterializeSQL
@@ -34,7 +32,7 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 		dbTypes = append(dbTypes, cType.DatabaseTypeName())
 	}
 	var count uint64
-	row := newTupleFromSQL(cTypes)
+	row := NewTupleFromSQL(cTypes)
 	for rows.Next() {
 		if err := rows.Scan(row...); err != nil {
 			return nil, errors.EnsureStack(err)
@@ -57,7 +55,7 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	}, nil
 }
 
-func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
+func NewTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {
 		var rType reflect.Type
@@ -90,50 +88,19 @@ func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	return row
 }
 
-// SQLTableInfo contains info about a SQL table.
-type SQLTableInfo struct {
-	Name    string
-	Columns []string
-	Tuple   Tuple
-}
-
-func LookupSQLTableInfo(tx *pachsql.Tx, tableName string) (*SQLTableInfo, error) {
-	// Query information schema to get collum
-	type infoRow struct {
-	}
-	infoRows := []infoRow{}
-	if err := tx.Select(infoRows, ""); err != nil {
-		return nil, err
-	}
-	colNames := []string{}
-	return &SQLTableInfo{
-		Name:    tableName,
-		Columns: colNames,
-		Tuple:   nil, // TODO
-	}, nil
-}
-
-// LoadSQL parses data from
-func LoadSQL(tx *pachsql.Tx, tableName string, r TupleReader) error {
-	// TODO: batch this into fewer insert statements
-	ti, err := LookupSQLTableInfo(tx, tableName)
-	if err != nil {
-		return err
-	}
-	row := ti.Tuple
+// Copy copies a tuple from w to r.  Row is used to indicate the correct shape of read data.
+func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return err
+			return n, err
 		}
+		if err := w.WriteTuple(row); err != nil {
+			return n, err
+		}
+		n++
 	}
-	// TODO: prevent SQL injection
-	q := fmt.Sprintf("INSERT INTO %s", tableName)
-	res, err := tx.Exec(q)
-	if err != nil {
-		return err
-	}
-	return nil
+	return n, nil
 }
