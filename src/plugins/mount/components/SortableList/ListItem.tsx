@@ -1,10 +1,10 @@
 import {Circle, CircleColor, Tooltip} from '@pachyderm/components';
 import {capitalize} from 'lodash';
 import React, {useEffect, useState} from 'react';
-import {requestAPI} from '../../../handler';
-import {findMountedBranch, isMounted} from '../pollRepos';
-import {Branch, mountState, Repo} from '../types';
-import {infoIcon} from '../../../utils/icons';
+import {requestAPI} from '../../../../handler';
+import {findMountedBranch} from '../../pollRepos';
+import {Branch, mountState, Repo} from '../../types';
+import {infoIcon} from '../../../../utils/icons';
 
 export const DISABLED_STATES: mountState[] = [
   'unmounting',

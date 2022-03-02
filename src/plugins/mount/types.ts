@@ -28,6 +28,11 @@ export type Repo = {
   branches: Branch[];
 };
 
+export type AuthConfig = {
+  cluster_status: string;
+  pachd_address?: string;
+};
+
 export interface IMountPlugin {
   mountedRepos: Repo[];
   unmountedRepos: Repo[];

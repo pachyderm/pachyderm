@@ -2,10 +2,10 @@ import React from 'react';
 import {act, render, screen, fireEvent} from '@testing-library/react';
 
 import SortableList from '../SortableList';
-import {requestAPI} from '../../../../handler';
+import {requestAPI} from '../../../../../handler';
 import userEvent from '@testing-library/user-event';
 import {Repo} from 'plugins/mount/types';
-jest.mock('../../../../handler');
+jest.mock('../../../../../handler');
 
 describe('mount components', () => {
   it('should disable mount for repo with no branches', async () => {

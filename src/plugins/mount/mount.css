@@ -17,6 +17,12 @@
   height: 1.563rem;
 }
 
+.pachyderm-mount-config-container {
+  display: flex;
+  justify-content: space-between;
+  padding-right: 0.75rem;
+}
+
 /* === ListItem === */
 .pachyderm-mount-list-item-base {
   display: flex;
@@ -153,4 +159,54 @@
 
 .pachyderm-mount-list-item-branch-select:hover {
   background: var(--jp-layout-color2);
+}
+
+/* === Config === */
+
+.pachyderm-mount-config-wrapper {
+  font-size: var(--jp-ui-font-size1);
+  min-width: 18.75rem;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.pachyderm-mount-config-form-base {
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
+  display: flex;
+  flex-direction: column;
+  margin: 16px;
+}
+
+.pachyderm-mount-config-heading {
+  margin-top: 64px;
+  padding: 16px;
+  font-weight: 500;
+  font-size: large;
+  display: flex;
+  flex-direction: column;
+}
+
+.pachyderm-mount-config-subheading {
+  font-size: medium;
+  font-weight: 300;
+}
+
+.pachyderm-mount-login-container {
+  margin-top: 25px;
+  width: 100%;
+}
+
+.pachyderm-mount-config-graphic-base {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: 264px;
+  border-top: 3px solid#5BA3B1;
+
+  /* background-color: var(--cyan-10); */
+  background-color: #f0f6f8;
 }

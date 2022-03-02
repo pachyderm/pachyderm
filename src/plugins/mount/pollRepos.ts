@@ -26,9 +26,11 @@ export class PollRepos {
 
   private _mounted: Repo[] = [];
   private _unmounted: Repo[] = [];
+  private _authenticated = false;
 
   private _mountedSignal = new Signal<this, Repo[]>(this);
   private _unmountedSignal = new Signal<this, Repo[]>(this);
+  private _authenticatedSignal = new Signal<this, boolean>(this);
 
   private _dataPoll = new Poll({
     auto: true,
@@ -64,6 +66,18 @@ export class PollRepos {
     this._unmountedSignal.emit(data);
   }
 
+  get authenticated(): boolean {
+    return this._authenticated;
+  }
+
+  set authenticated(authenticated: boolean) {
+    if (authenticated === this._authenticated) {
+      return;
+    }
+    this._authenticated = authenticated;
+    this._authenticatedSignal.emit(authenticated);
+  }
+
   get mountedSignal(): ISignal<this, Repo[]> {
     return this._mountedSignal;
   }
@@ -71,20 +85,30 @@ export class PollRepos {
     return this._unmountedSignal;
   }
 
+  get authenticatedSignal(): ISignal<this, boolean> {
+    return this._authenticatedSignal;
+  }
+
   get poll(): Poll {
     return this._dataPoll;
   }
 
   async getData(): Promise<void> {
-    const data = await requestAPI<Repo[]>('repos', 'GET');
-    if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
-      this._rawData = data;
-      const [mountedPartition, unmountedPartition] = partition(
-        data,
-        (rep: Repo) => findMountedBranch(rep),
-      );
-      this.mounted = mountedPartition;
-      this.unmounted = unmountedPartition;
+    try {
+      const data = await requestAPI<Repo[]>('repos', 'GET');
+      this.authenticated = true;
+      if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
+        this._rawData = data;
+        const [mountedPartition, unmountedPartition] = partition(
+          data,
+          (rep: Repo) => findMountedBranch(rep),
+        );
+        this.mounted = mountedPartition;
+        this.unmounted = unmountedPartition;
+      }
+    } catch (error) {
+      //TODO: add status to requestAPI
+      this.authenticated = false;
     }
   }
 }
