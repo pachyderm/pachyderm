@@ -30,11 +30,11 @@ const useFileBrowser = () => {
 
   const filteredFiles = useMemo(
     () =>
-      files.filter(
+      files?.files.filter(
         (file) =>
           !fileFilter ||
           file.path.toLowerCase().includes(fileFilter.toLowerCase()),
-      ),
+      ) || [],
     [fileFilter, files],
   );
 
@@ -45,7 +45,7 @@ const useFileBrowser = () => {
   const fileToPreview = useMemo(() => {
     const hasFileType = path.slice(path.lastIndexOf('.') + 1) !== '';
 
-    return hasFileType && files.find((file) => file.path === path);
+    return hasFileType && files?.files.find((file) => file.path === path);
   }, [path, files]);
 
   const handleHide = useCallback(() => {
@@ -81,6 +81,7 @@ const useFileBrowser = () => {
     fileToPreview,
     isDirectory,
     handleHide,
+    files,
   };
 };
 

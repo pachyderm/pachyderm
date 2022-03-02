@@ -1,6 +1,10 @@
 import {FileInfo} from '@pachyderm/node-pachyderm';
 
-import {MutationResolvers, QueryResolvers} from '@dash-backend/generated/types';
+import {
+  MutationResolvers,
+  QueryResolvers,
+  FileCommitState,
+} from '@dash-backend/generated/types';
 import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
@@ -43,19 +47,72 @@ const fileResolver: FileResolver = {
         branch: {name: branchName, repo: {name: repoName}},
       });
 
-      return files.map((file) => ({
-        commitId: file.file?.commit?.id || '',
-        committed: file.committed,
-        // TODO: This may eventually come from the S3 gateway or Pach's http server
-        download: getDownloadLink(file, host),
-        downloadDisabled: (file.sizeBytes || 0) > FILE_DOWNLOAD_LIMIT,
-        hash: file.hash.toString() || '',
-        path: file.file?.path || '/',
-        repoName: file.file?.commit?.branch?.repo?.name || '',
-        sizeBytes: file.sizeBytes || 0,
-        sizeDisplay: formatBytes(file.sizeBytes || 0),
-        type: toGQLFileType(file.fileType),
-      }));
+      const diff = await pachClient.pfs().diffFile({
+        commitId: commitId || 'master',
+        path: path || '/',
+        branch: {name: branchName, repo: {name: repoName}},
+      });
+
+      let counts = {added: 0, updated: 0, deleted: 0};
+
+      const diffTotals = diff.reduce<Record<string, FileCommitState>>(
+        (acc, fileDiff) => {
+          if (fileDiff.newFile?.file && !fileDiff.oldFile?.file) {
+            if (!fileDiff.newFile.file.path.endsWith('/')) {
+              counts = {...counts, added: counts.added + 1};
+            }
+            return {
+              ...acc,
+              [fileDiff.newFile.file.path]: FileCommitState.ADDED,
+            };
+          }
+          if (!fileDiff.newFile?.file && fileDiff.oldFile?.file) {
+            if (!fileDiff.oldFile.file.path.endsWith('/')) {
+              counts = {...counts, deleted: counts.deleted + 1};
+            }
+            return {
+              ...acc,
+              [fileDiff.oldFile.file.path]: FileCommitState.DELETED,
+            };
+          }
+          if (fileDiff.newFile?.file && fileDiff.oldFile?.file) {
+            if (!fileDiff.newFile.file.path.endsWith('/')) {
+              counts = {...counts, updated: counts.updated + 1};
+            }
+            return {
+              ...acc,
+              [fileDiff.newFile.file.path]: FileCommitState.UPDATED,
+            };
+          }
+          return acc;
+        },
+        {},
+      );
+
+      const sizeDiff =
+        (diff[0]?.newFile?.sizeBytes || 0) - (diff[0]?.oldFile?.sizeBytes || 0);
+
+      return {
+        sizeDiff,
+        sizeDiffDisplay: formatBytes(sizeDiff),
+        filesAdded: counts.added,
+        filesUpdated: counts.updated,
+        filesDeleted: counts.deleted,
+        files: files.map((file) => ({
+          commitId: file.file?.commit?.id || '',
+          committed: file.committed,
+          // TODO: This may eventually come from the S3 gateway or Pach's http server
+          download: getDownloadLink(file, host),
+          downloadDisabled: (file.sizeBytes || 0) > FILE_DOWNLOAD_LIMIT,
+          hash: file.hash.toString() || '',
+          path: file.file?.path || '/',
+          repoName: file.file?.commit?.branch?.repo?.name || '',
+          sizeBytes: file.sizeBytes || 0,
+          sizeDisplay: formatBytes(file.sizeBytes || 0),
+          type: toGQLFileType(file.fileType),
+          commitAction: diffTotals[file.file?.path || ''],
+        })),
+      };
     },
   },
   Mutation: {

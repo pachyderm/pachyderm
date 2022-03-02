@@ -3,29 +3,35 @@ import {PUT_FILES_FROM_URLS_MUTATION} from '@dash-frontend/mutations/PutFilesFro
 import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
-import {File, FileType, PutFilesFromUrLsMutation} from '@graphqlTypes';
+import {
+  FileQueryResponse,
+  FileType,
+  PutFilesFromUrLsMutation,
+} from '@graphqlTypes';
 
 const projectId = '1';
 
 describe('File Resolver', () => {
   describe('files', () => {
     it('should return files for a given commit', async () => {
-      const {data, errors = []} = await executeQuery<{files: File[]}>(
-        GET_FILES_QUERY,
-        {
-          args: {
-            projectId,
-            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
-            path: '/',
-            branchName: 'master',
-            repoName: 'images',
-          },
+      const {data, errors = []} = await executeQuery<{
+        files: FileQueryResponse;
+      }>(GET_FILES_QUERY, {
+        args: {
+          projectId,
+          commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+          path: '/',
+          branchName: 'master',
+          repoName: 'images',
         },
-      );
+      });
 
-      const files = data?.files;
+      const files = data?.files.files;
       expect(errors?.length).toBe(0);
       expect(files?.length).toEqual(16);
+      expect(data?.files.sizeDiff).toBe(58644);
+      expect(data?.files.sizeDiffDisplay).toBe('57.27 KB');
+      expect(data?.files.filesAdded).toBe(1);
       expect(files?.[0]?.path).toEqual('/AT-AT.png');
       expect(files?.[1]?.path).toEqual('/liberty.png');
       expect(files?.[2]?.path).toEqual('/cats/');
@@ -47,23 +53,23 @@ describe('File Resolver', () => {
       expect(files?.[0]?.sizeBytes).toBe(80588);
       expect(files?.[0]?.sizeDisplay).toBe('78.7 KB');
       expect(files?.[0]?.type).toBe(FileType.FILE);
+      expect(files?.[1]?.commitAction).toBe('ADDED');
     });
 
     it('should return files for a directory commit', async () => {
-      const {data, errors = []} = await executeQuery<{files: File[]}>(
-        GET_FILES_QUERY,
-        {
-          args: {
-            projectId,
-            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
-            path: '/cats/',
-            branchName: 'master',
-            repoName: 'images',
-          },
+      const {data, errors = []} = await executeQuery<{
+        files: FileQueryResponse;
+      }>(GET_FILES_QUERY, {
+        args: {
+          projectId,
+          commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+          path: '/cats/',
+          branchName: 'master',
+          repoName: 'images',
         },
-      );
+      });
 
-      const files = data?.files;
+      const files = data?.files.files;
       expect(errors?.length).toBe(0);
       expect(files?.length).toEqual(1);
       expect(files?.[0]?.path).toEqual('/cats/kitten.png');
@@ -71,21 +77,20 @@ describe('File Resolver', () => {
   });
   describe('putFilesFromURLs', () => {
     it('should put files into the repo from the specified urls', async () => {
-      const {data: files, errors = []} = await executeQuery<{files: File[]}>(
-        GET_FILES_QUERY,
-        {
-          args: {
-            projectId,
-            commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
-            path: '/',
-            branchName: 'master',
-            repoName: 'images',
-          },
+      const {data, errors = []} = await executeQuery<{
+        files: FileQueryResponse;
+      }>(GET_FILES_QUERY, {
+        args: {
+          projectId,
+          commitId: '0918ac9d5daa76b86e3bb5e88e4c43a4',
+          path: '/',
+          branchName: 'master',
+          repoName: 'images',
         },
-      );
+      });
 
       expect(errors?.length).toBe(0);
-      expect(files?.files.length).toEqual(16);
+      expect(data?.files.files.length).toEqual(16);
 
       const {errors: mutationErrors = []} =
         await executeMutation<PutFilesFromUrLsMutation>(
@@ -108,7 +113,7 @@ describe('File Resolver', () => {
 
       const {data: updatedFiles, errors: updatedErrors = []} =
         await executeQuery<{
-          files: File[];
+          files: FileQueryResponse;
         }>(GET_FILES_QUERY, {
           args: {
             projectId,
@@ -119,7 +124,7 @@ describe('File Resolver', () => {
           },
         });
       expect(updatedErrors.length).toBe(0);
-      expect(updatedFiles?.files.length).toEqual(17);
+      expect(updatedFiles?.files.files.length).toEqual(17);
     });
   });
 });

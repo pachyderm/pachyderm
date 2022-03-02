@@ -157,7 +157,14 @@ export type File = {
   sizeDisplay: Scalars['String'];
   downloadDisabled?: Maybe<Scalars['Boolean']>;
   type: FileType;
+  commitAction?: Maybe<FileCommitState>;
 };
+
+export enum FileCommitState {
+  ADDED = 'ADDED',
+  UPDATED = 'UPDATED',
+  DELETED = 'DELETED',
+}
 
 export type FileFromUrl = {
   url: Scalars['String'];
@@ -170,6 +177,16 @@ export type FileQueryArgs = {
   path?: Maybe<Scalars['String']>;
   repoName: Scalars['String'];
   branchName: Scalars['String'];
+};
+
+export type FileQueryResponse = {
+  __typename?: 'FileQueryResponse';
+  sizeDiff: Scalars['Float'];
+  sizeDiffDisplay: Scalars['String'];
+  filesAdded: Scalars['Int'];
+  filesUpdated: Scalars['Int'];
+  filesDeleted: Scalars['Int'];
+  files: Array<File>;
 };
 
 export enum FileType {
@@ -493,7 +510,7 @@ export type Query = {
   branch: Branch;
   commits: Array<Commit>;
   dag: Array<Vertex>;
-  files: Array<File>;
+  files: FileQueryResponse;
   job: Job;
   jobSet: JobSet;
   jobSets: Array<JobSet>;
@@ -837,8 +854,10 @@ export type ResolversTypes = ResolversObject<{
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   File: ResolverTypeWrapper<File>;
+  FileCommitState: FileCommitState;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
+  FileQueryResponse: ResolverTypeWrapper<FileQueryResponse>;
   FileType: FileType;
   FinishCommitArgs: FinishCommitArgs;
   GitInput: ResolverTypeWrapper<GitInput>;
@@ -920,6 +939,7 @@ export type ResolversParentTypes = ResolversObject<{
   File: File;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
+  FileQueryResponse: FileQueryResponse;
   FinishCommitArgs: FinishCommitArgs;
   GitInput: GitInput;
   Input: Input;
@@ -1059,6 +1079,24 @@ export type FileResolvers<
     ContextType
   >;
   type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
+  commitAction?: Resolver<
+    Maybe<ResolversTypes['FileCommitState']>,
+    ParentType,
+    ContextType
+  >;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type FileQueryResponseResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['FileQueryResponse'] = ResolversParentTypes['FileQueryResponse'],
+> = ResolversObject<{
+  sizeDiff?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeDiffDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  filesAdded?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  files?: Resolver<Array<ResolversTypes['File']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1383,7 +1421,7 @@ export type QueryResolvers<
     RequireFields<QueryDagArgs, 'args'>
   >;
   files?: Resolver<
-    Array<ResolversTypes['File']>,
+    ResolversTypes['FileQueryResponse'],
     ParentType,
     ContextType,
     RequireFields<QueryFilesArgs, 'args'>
@@ -1613,6 +1651,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Commit?: CommitResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
+  FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
   Input?: InputResolvers<ContextType>;
   InputPipeline?: InputPipelineResolvers<ContextType>;
@@ -1873,24 +1912,34 @@ export type GetFilesQueryVariables = Exact<{
 }>;
 
 export type GetFilesQuery = {__typename?: 'Query'} & {
-  files: Array<
-    {__typename?: 'File'} & Pick<
-      File,
-      | 'commitId'
-      | 'download'
-      | 'hash'
-      | 'path'
-      | 'repoName'
-      | 'sizeBytes'
-      | 'type'
-      | 'sizeDisplay'
-      | 'downloadDisabled'
-    > & {
-        committed?: Maybe<
-          {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>
-        >;
-      }
-  >;
+  files: {__typename?: 'FileQueryResponse'} & Pick<
+    FileQueryResponse,
+    | 'sizeDiff'
+    | 'sizeDiffDisplay'
+    | 'filesUpdated'
+    | 'filesAdded'
+    | 'filesDeleted'
+  > & {
+      files: Array<
+        {__typename?: 'File'} & Pick<
+          File,
+          | 'commitId'
+          | 'download'
+          | 'hash'
+          | 'path'
+          | 'repoName'
+          | 'sizeBytes'
+          | 'type'
+          | 'sizeDisplay'
+          | 'downloadDisabled'
+          | 'commitAction'
+        > & {
+            committed?: Maybe<
+              {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>
+            >;
+          }
+      >;
+    };
 };
 
 export type JobQueryVariables = Exact<{

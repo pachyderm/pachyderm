@@ -5,6 +5,34 @@
   width: 23.8125rem;
   border-radius: 0.1875rem;
   display: inline-block;
+  position: relative;
+}
+
+.base.ADDED, .base.UPDATED {
+  border-bottom: solid 4px var(--banner-green);
+}
+
+.commitStatus {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 500;
+}
+
+.commitStatus.ADDED {
+  background-color: var(--background-green-light);
+  color: var(--icon-green);
+}
+
+.commitStatus.UPDATED, .commitStatus.UPDATED svg {
+  background-color: var(--background-blue);
+  color: var(--chart-dark-blue);
+}
+
+.commitStatusIcon {
+  margin-right: 0.25rem;
 }
 
 .content {
@@ -43,4 +71,9 @@
   width: 100%;
   justify-content: flex-end;
   font-size: var(--font-size-body-medium);;
+}
+
+.actionButtons {
+  flex: 1;
+  justify-content: flex-end;
 }

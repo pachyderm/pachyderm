@@ -62,6 +62,7 @@ const pfs = () => {
       | 'inspectRepo'
       | 'listCommit'
       | 'listFile'
+      | 'diffFile'
       | 'createRepo'
       | 'getFile'
       | 'createBranch'
@@ -187,6 +188,16 @@ const pfs = () => {
           const bytes = new BytesValue();
           bytes.setValue(file);
           call.write(bytes);
+          call.end();
+        },
+        diffFile: (call) => {
+          const [projectId] = call.metadata.get('project-id');
+          const path = '/';
+          const diff = projectId
+            ? MockState.state.diffResponses[projectId.toString()]
+            : MockState.state.diffResponses['default'];
+
+          call.write(diff[path]);
           call.end();
         },
         createRepo: (call, callback) => {

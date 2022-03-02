@@ -16,7 +16,7 @@ export const useFiles = ({
 
   return {
     error,
-    files: data?.files || [],
+    files: data?.files,
     loading,
   };
 };

@@ -8,10 +8,12 @@ import {
   Project,
   Projects,
   ModifyFileRequest,
+  DiffFileResponse,
 } from '@pachyderm/node-pachyderm';
 import cloneDeep from 'lodash/cloneDeep';
 
 import commits from '@dash-backend/mock/fixtures/commits';
+import diffResponses from '@dash-backend/mock/fixtures/diffResponses';
 import files, {Files} from '@dash-backend/mock/fixtures/files';
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
@@ -29,6 +31,7 @@ export type StateType = {
   commits: {[projectId: string]: CommitInfo[]};
   files: Files;
   fileSets: {[projectId: string]: {[fileSetId: string]: ModifyFileRequest[]}};
+  diffResponses: {[projectId: string]: {[path: string]: DiffFileResponse}};
   error: ServiceError | null;
   pipelines: {
     [projectId: string]: PipelineInfo[];
@@ -56,6 +59,7 @@ const defaultState: StateType = {
   commits,
   files,
   fileSets: {},
+  diffResponses,
   error: null,
   pipelines,
   jobs,

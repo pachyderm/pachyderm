@@ -28,7 +28,7 @@
 }
 
 .dateField {
-    min-width: 12rem;
+    white-space: nowrap;
     max-height: 1rem;
 }
 

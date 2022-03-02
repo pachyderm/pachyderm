@@ -30,7 +30,7 @@ type FileHeaderProps = {
 
 const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
-  const {fileToPreview, loading} = useFileBrowser();
+  const {fileToPreview, loading, files} = useFileBrowser();
 
   const {commits, loading: commitsLoading} = useCommits({
     args: {
@@ -55,6 +55,31 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
   const currentCommit = useMemo(() => {
     return (commits || []).find((commit) => commit.id === commitId);
   }, [commitId, commits]);
+
+  const diffString = useMemo(() => {
+    const updates = [];
+    let updatesString = '';
+
+    if (files?.filesAdded && files?.filesAdded > 0)
+      updates.push({count: files.filesAdded, status: 'added'});
+    if (files?.filesUpdated && files?.filesUpdated > 0)
+      updates.push({count: files.filesUpdated, status: 'updated'});
+    if (files?.filesDeleted && files?.filesDeleted > 0)
+      updates.push({count: files.filesDeleted, status: 'deleted'});
+
+    if (updates[0])
+      updatesString = `${updates[0].count} ${
+        updates[0].count > 1 ? 'Files' : 'File'
+      } ${updates[0].status}`;
+    if (updates[1])
+      updatesString.concat(`, ${updates[1].count}
+           ${updates[1].status}`);
+    if (updates[2])
+      updatesString.concat(`, ${updates[2].count}
+           ${updates[2].status}`);
+
+    return updatesString;
+  }, [files]);
 
   const tooltipInfo = currentCommit ? (
     <>
@@ -138,7 +163,24 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
           )}
         </Group>
       </Group>
-      <Group spacing={16} className={styles.subHeader}>
+      <Group spacing={32} className={styles.subHeader}>
+        {diffString && (
+          <span className={styles.dateField}>
+            {loading ? (
+              <SkeletonDisplayText />
+            ) : (
+              files && (
+                <>
+                  <span className={styles.datelabel}>{diffString}</span>
+                  {files.sizeDiff !== 0 &&
+                    ` (${files.sizeDiff > 0 ? '+' : ''}${
+                      files.sizeDiffDisplay
+                    })`}
+                </>
+              )
+            )}
+          </span>
+        )}
         <span className={styles.dateField}>
           {commitsLoading ? (
             <SkeletonDisplayText />

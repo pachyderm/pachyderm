@@ -855,19 +855,27 @@ export type GetDagsSubscriptionResult =
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {
-      committed {
-        nanos
-        seconds
+      sizeDiff
+      sizeDiffDisplay
+      filesUpdated
+      filesAdded
+      filesDeleted
+      files {
+        committed {
+          nanos
+          seconds
+        }
+        commitId
+        download
+        hash
+        path
+        repoName
+        sizeBytes
+        type
+        sizeDisplay
+        downloadDisabled
+        commitAction
       }
-      commitId
-      download
-      hash
-      path
-      repoName
-      sizeBytes
-      type
-      sizeDisplay
-      downloadDisabled
     }
   }
 `;

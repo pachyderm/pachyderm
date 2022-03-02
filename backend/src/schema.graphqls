@@ -73,6 +73,12 @@ enum OriginKind {
   ORIGIN_KIND_UNKNOWN
 }
 
+enum FileCommitState {
+  ADDED
+  UPDATED
+  DELETED
+}
+
 # This enum is replaced with the one from projects on type generation
 enum ProjectStatus {
   HEALTHY
@@ -262,6 +268,7 @@ type File {
   sizeDisplay: String!
   downloadDisabled: Boolean
   type: FileType!
+  commitAction: FileCommitState
 }
 
 input FileQueryArgs {
@@ -270,6 +277,15 @@ input FileQueryArgs {
   path: String
   repoName: String!
   branchName: String!
+}
+
+type FileQueryResponse {
+  sizeDiff: Float!,
+  sizeDiffDisplay: String!,
+  filesAdded: Int!,
+  filesUpdated: Int!,
+  filesDeleted: Int!,
+  files: [File!]!,
 }
 
 input ProjectDetailsQueryArgs {
@@ -469,7 +485,7 @@ type Query {
   jobs(args: JobsQueryArgs!): [Job!]!
   job(args: JobQueryArgs!): Job!
   dag(args: DagQueryArgs!): [Vertex!]!
-  files(args: FileQueryArgs!): [File!]!
+  files(args: FileQueryArgs!): FileQueryResponse!
   account: Account!
   searchResults(args: SearchResultQueryArgs!): SearchResults!
   authConfig: AuthConfig!

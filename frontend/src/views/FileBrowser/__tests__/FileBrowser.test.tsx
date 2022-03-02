@@ -29,6 +29,13 @@ describe('File Browser', () => {
       expect(await findByText('cron@master=0918ac9d')).toBeInTheDocument();
     });
 
+    it('should display commit diff info', async () => {
+      const {findByText} = render(<FileBrowser />);
+
+      expect(await findByText('1 File added')).toBeInTheDocument();
+      expect(await findByText('(+57.27 KB)')).toBeInTheDocument();
+    });
+
     it('should filter files', async () => {
       const {queryByText, findByText, findByRole, findAllByRole} = render(
         <FileBrowser />,
