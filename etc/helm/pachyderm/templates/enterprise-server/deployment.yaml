@@ -130,8 +130,4 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
       {{- end }}
-      initContainers:
-      - name: init-etcd
-        image: busybox:1.28
-        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"] 
 {{- end }}
