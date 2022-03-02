@@ -51,6 +51,7 @@ import {
   ListCommitRequest,
   Branch,
   CreateBranchRequest,
+  DropCommitSetRequest,
   InspectCommitSetRequest,
   StartCommitRequest,
   FinishCommitRequest,
@@ -64,6 +65,7 @@ import {
   AddFileSetRequest,
   RenewFileSetRequest,
   DiffFileRequest,
+  CommitSet,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -391,6 +393,16 @@ const pfs = ({
             return resolve({});
           },
         );
+      });
+    },
+    dropCommitSet: (commitSet: CommitSetObject) => {
+      return new Promise<Empty.AsObject>((resolve, reject) => {
+        const request = new DropCommitSetRequest();
+        request.setCommitSet(commitSetFromObject(commitSet));
+        client.dropCommitSet(request, credentialMetadata, (error) => {
+          if (error) return reject(error);
+          return resolve({});
+        });
       });
     },
     createBranch: ({

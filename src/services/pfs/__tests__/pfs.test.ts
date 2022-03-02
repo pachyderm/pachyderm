@@ -205,6 +205,33 @@ describe('services/pfs', () => {
       expect(updatedCommits).toHaveLength(1);
     });
   });
+  describe('dropCommitSet', () => {
+    it('should remove the commit set', async () => {
+      const client = await createSandbox('dropCommitSet');
+      const commit1 = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'dropCommitSet'}},
+      });
+      await client.pfs().finishCommit({commit: commit1});
+
+      const commit2 = await client.pfs().startCommit({
+        branch: {name: 'master', repo: {name: 'dropCommitSet'}},
+      });
+
+      const commits = await client
+        .pfs()
+        .listCommit({repo: {name: 'dropCommitSet'}});
+
+      expect(commits).toHaveLength(2);
+
+      await client.pfs().dropCommitSet({id: commit2.id});
+
+      const updatedCommits = await client
+        .pfs()
+        .listCommit({repo: {name: 'dropCommitSet'}});
+
+      expect(updatedCommits).toHaveLength(1);
+    });
+  });
   describe('createBranch', () => {
     it('should create a branch', async () => {
       const client = await createSandbox('createBranch');
