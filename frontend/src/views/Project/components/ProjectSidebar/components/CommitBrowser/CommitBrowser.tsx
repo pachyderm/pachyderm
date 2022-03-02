@@ -39,7 +39,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
       branchName: branchId,
       number: COMMIT_LIMIT,
     },
-    skip: repo?.branches.length === 0,
+    skip: !repo || repo.branches.length === 0,
   });
 
   if (loading) {
