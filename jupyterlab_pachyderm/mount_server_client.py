@@ -2,13 +2,18 @@ import os
 import json
 import subprocess
 import time
-import psutil
 
+import python_pachyderm
+from python_pachyderm.service import health_proto
 from tornado.httpclient import AsyncHTTPClient
+from tornado import locks
 
 from .pachyderm import MountInterface
+from .log import get_logger
 
+lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
+PACH_CONFIG = "~/.pachyderm/config.json"
 
 
 class MountServerClient(MountInterface):
@@ -21,10 +26,55 @@ class MountServerClient(MountInterface):
         self.client = AsyncHTTPClient()
         self.mount_dir = mount_dir
         self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
-        self._ensure_mount_server()
 
 
-    def _ensure_mount_server(self):
+    def _is_endpoint_valid(self, pachd_address):
+        """Returns if a pachd_address points to a valid cluster."""
+        get_logger().debug(f"Checking if valid pachd_address: {pachd_address}")
+        client = python_pachyderm.Client.new_from_pachd_address(pachd_address)
+        try:
+            res = client.health_check()
+            if res.status != health_proto.HealthCheckResponse.ServingStatus.SERVING:
+                raise ValueError()
+        except Exception:
+            return False
+        
+        return True
+
+
+    async def _is_mount_server_running(self):
+        get_logger().debug("Checking if mount server running")
+        try:
+            await self.client.fetch(f"{self.address}/config")
+        except Exception as e:
+            get_logger().debug(f"Unable to hit server at {self.address}")
+            print(e)
+            return False
+        get_logger().debug(f"Able to hit server at {self.address}")
+        return True
+
+
+    def _update_config_file(self, new_pachd_address):
+        # Update config file with new pachd_address
+        get_logger().debug(f"Updating config file with pachd_address: {new_pachd_address}")  
+        os.makedirs(os.path.expanduser("~/.pachyderm"), exist_ok=True)  
+        subprocess.run(
+            ["bash", "-c", "pachctl config set context mount-server --overwrite"],
+            text=True,
+            input=f'{{"pachd_address": "{new_pachd_address}"}}',
+            env={
+                "PACH_CONFIG": os.path.expanduser(PACH_CONFIG)
+            }
+        )
+        subprocess.run(
+            ["bash", "-c", "pachctl config set active-context mount-server"],
+            env={
+                "PACH_CONFIG": os.path.expanduser(PACH_CONFIG)
+            }
+        )
+
+
+    async def _ensure_mount_server(self):
         """
         When we first start up, we might not have auth configured. So just try
         re-launching the mount-server on every command! If the port is already
@@ -32,28 +82,48 @@ class MountServerClient(MountInterface):
         successfully with the updated config.
         """
         # TODO: add --socket and --log-file stdout args
-        # TODO: add better error handling
-        found = False
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            if proc.info['name'] == 'pachctl' and 'mount-server' in proc.info['cmdline']:
-                found = True
-        if not found:
-            subprocess.Popen(
-                [
-                    "bash", "-c",
-                    "set -o pipefail; "
-                    +f"pachctl mount-server --mount-dir {self.mount_dir}"
-                    +" >> /tmp/pachctl-mount-server.log 2>&1",
-                ],
-                env={
-                    "KUBECONFIG": f"{os.path.expanduser('~')}/.kube/config",
-                    "PACH_CONFIG": f"{os.path.expanduser('~')}/.pachyderm/config.json",
-                }
-            )
-            time.sleep(5)
+        # TODO: add better error handling        
+        if await self._is_mount_server_running():
+            return
+
+        sp = subprocess.run(
+            ["bash", "-c", "pachctl config get active-context"],
+            capture_output=True,
+            env={
+                "PACH_CONFIG": os.path.expanduser(PACH_CONFIG)
+            }
+        )
+        if sp.stdout.decode("utf-8").strip() == "mount-server":
+            get_logger().info("Starting mount server...")
+            async with lock:
+                if await self._is_mount_server_running():
+                    return
+                    
+                subprocess.run(["bash", "-c", f"sudo umount {self.mount_dir}"])
+                subprocess.Popen(
+                    [
+                        "bash", "-c",
+                        "set -o pipefail; "
+                        +f"pachctl mount-server --mount-dir {self.mount_dir}"
+                        +" >> /tmp/pachctl-mount-server.log 2>&1",
+                    ],
+                    env={
+                        "KUBECONFIG": os.path.expanduser('~/.kube/config'),
+                        "PACH_CONFIG": os.path.expanduser(PACH_CONFIG),
+                    }
+                )
+                
+                tries = 0
+                while not await self._is_mount_server_running():
+                    time.sleep(1)
+                    tries += 1
+
+                    if tries == 10:
+                        raise RuntimeError("unable to start mount server")
+
 
     async def list(self):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/repos")
         # TODO: in the future we could unify the response formats from the go
         # mount-server and python and then this could just be:
@@ -69,7 +139,7 @@ class MountServerClient(MountInterface):
         }
 
     async def mount(self, repo, branch, mode, name):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         await self.client.fetch(
             f"{self.address}/repos/{repo}/{branch}/_mount?name={name}&mode={mode}",
             method="PUT",
@@ -78,7 +148,7 @@ class MountServerClient(MountInterface):
         return {"repo": repo, "branch": branch}
 
     async def unmount(self, repo, branch, name):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         await self.client.fetch(
             f"{self.address}/repos/{repo}/{branch}/_unmount?name={name}",
             method="PUT",
@@ -87,7 +157,7 @@ class MountServerClient(MountInterface):
         return {"repo": repo, "branch": branch}
 
     async def unmount_all(self):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         all = await self.list()
         await self.client.fetch(
             f"{self.address}/repos/_unmount",
@@ -104,28 +174,29 @@ class MountServerClient(MountInterface):
         return accum
 
     async def commit(self, repo, branch, name, message):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         pass
 
     async def config(self, body=None):
-        self._ensure_mount_server()
         if body is not None:
-            response = await self.client.fetch(
-                f"{self.address}/config",
-                method="PUT",
-                body=json.dumps(body),
-                request_timeout=35  # Default timeout for core pach connecting to cluster is 30 seconds; this allows for that
-            )
-        else:
+            if not self._is_endpoint_valid(body["pachd_address"]):
+                return {"cluster_status": "INVALID", "pachd_address": body["pachd_address"]}
+
+            subprocess.run(["bash", "-c", f"umount {self.mount_dir}"])
+            self._update_config_file(body["pachd_address"])
+            await self._ensure_mount_server()
+
+        if await self._is_mount_server_running():
             response = await self.client.fetch(f"{self.address}/config")
+            return response.body
         
-        return response.body
+        return {"cluster_status": "INVALID"}
 
     async def auth_login(self):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/auth/_login", method="PUT", body="{}")
         return response.body
 
     async def auth_logout(self):
-        self._ensure_mount_server()
+        await self._ensure_mount_server()
         return await self.client.fetch(f"{self.address}/auth/_logout", method="PUT", body="{}")

@@ -8,8 +8,8 @@ parameters:
     type: string
     # update this to build a different e.g. branch build of pachctl based on the git hash
     # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
-    default: 3a9d6b5598ce03939761a455498bcf00421911eb
-    # ^ commit from https://github.com/pachyderm/pachyderm/pull/7365
+    default: 1f8a3a0d4967167764fc078174dfc863f576d3f1
+    # Includes https://github.com/pachyderm/pachyderm/pull/7365
 
 jobs:
   test:
@@ -117,6 +117,8 @@ jobs:
             npm ci
             npm run build
 
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
+            
             pachctl create repo images
             pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
             pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png

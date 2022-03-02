@@ -48,7 +48,12 @@ def dev_server():
         env={"PFS_MOUNT_DIR": PFS_MOUNT_DIR},
         stdout=subprocess.PIPE,
     )
-    # Give time for python server and Go server to start
+    # Give time for python test server to start
+    time.sleep(3)
+     
+    r = requests.put(f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"}))
+    
+    # Give time for mount server to start
     running = False
     for _ in range(15):
         try: 
@@ -65,7 +70,7 @@ def dev_server():
 
     print("killing development server...")
 
-    subprocess.run(["fusermount", "-u", PFS_MOUNT_DIR])
+    subprocess.run(["bash", "-c", f"umount {PFS_MOUNT_DIR}"])
     p.terminate()
     p.wait()
     time.sleep(1)
@@ -208,7 +213,7 @@ def test_auth(activate_auth, dev_server):
     json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
 
     # Reload mount server so it sees auth token
-    subprocess.run(["fusermount", "-u", PFS_MOUNT_DIR])
+    subprocess.run(["bash", "-c", f"umount {PFS_MOUNT_DIR}"])
 
     r = requests.put(f"{BASE_URL}/auth/_logout")
     assert r.status_code == 200
@@ -231,7 +236,7 @@ def test_unauthenticated_web_code(activate_auth, dev_server):
     json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
 
     # Reload mount server so it has no auth token
-    subprocess.run(["fusermount", "-u", PFS_MOUNT_DIR])
+    subprocess.run(["bash", "-c", f"umount {PFS_MOUNT_DIR}"])
 
     r = requests.get(f"{BASE_URL}/repos")
     assert r.status_code == 401
