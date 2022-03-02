@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	poolSize        = 3
+	poolSize        = 7
 	namespacePrefix = "test-cluster-"
 )
 
@@ -24,8 +24,9 @@ var (
 )
 
 type ClusterFactory struct {
+	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
 	managedClusters   map[string]*client.APIClient
-	availableClusters map[string]bool
+	availableClusters map[string]struct{}
 	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
 	sem               semaphore.Weighted // enforces max concurrency
 }
@@ -77,26 +78,27 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
 // clusters deployed in separate namespace, along with the associated namespace
-func AcquireCluster(t testing.TB, ctx context.Context) (*client.APIClient, string) {
+func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*client.APIClient{},
-			availableClusters: map[string]bool{},
+			availableClusters: map[string]struct{}{},
 			sem:               *semaphore.NewWeighted(poolSize),
 		}
 	})
 
-	clusterFactory.sem.Acquire(ctx, 1)
+	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	var assigned string
 	assigned, c := clusterFactory.acquireFreeCluster()
 	if assigned == "" {
 		assigned, c = clusterFactory.acquireNewCluster(t)
 	}
+	// TODO(acohen4): client.DeleteAll() during cleanup
 	t.Cleanup(func() {
-		clusterFactory.sem.Release(1)
 		clusterFactory.mu.Lock()
-		clusterFactory.availableClusters[assigned] = true
+		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
+		clusterFactory.sem.Release(1)
 	})
 	return c, assigned
 }

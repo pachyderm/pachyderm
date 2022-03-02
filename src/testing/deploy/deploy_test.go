@@ -66,15 +66,13 @@ func TestParallelDeployments(t *testing.T) {
 	var c1 *client.APIClient
 	var c2 *client.APIClient
 	eg.Go(func() error {
-		ctx1 := context.Background()
-		c1, _ = minikubetestenv.AcquireCluster(t, ctx1)
-		_, err := c1.PfsAPIClient.CreateRepo(ctx1, &pfs.CreateRepoRequest{Repo: client.NewRepo("c1")})
+		c1, _ = minikubetestenv.AcquireCluster(t)
+		_, err := c1.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{Repo: client.NewRepo("c1")})
 		return errors.Wrap(err, "CreateRepo error")
 	})
 	eg.Go(func() error {
-		ctx2 := context.Background()
-		c2, _ = minikubetestenv.AcquireCluster(t, ctx2)
-		_, err := c2.PfsAPIClient.CreateRepo(ctx2, &pfs.CreateRepoRequest{Repo: client.NewRepo("c2")})
+		c2, _ = minikubetestenv.AcquireCluster(t)
+		_, err := c2.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{Repo: client.NewRepo("c2")})
 		return errors.Wrap(err, "CreateRepo error")
 	})
 	require.NoError(t, eg.Wait())
