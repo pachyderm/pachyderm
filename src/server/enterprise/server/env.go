@@ -30,8 +30,18 @@ type Env struct {
 
 	BackgroundContext context.Context
 	Namespace         string
-	IsPaused          bool
+	Mode              PauseMode
 }
+
+// PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
+type PauseMode uint8
+
+const (
+	UnpausedMode PauseMode = iota
+	PausedMode
+	SidecarMode
+	EnterpriseMode
+)
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
 	e := Env{

@@ -184,7 +184,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
 	// must not activate while paused
-	if a.env.IsPaused {
+	if a.env.Mode == PausedMode {
 		return nil, errors.New("cannot activate paused cluster; unpause first")
 	}
 	// Try to heartbeat before persisting the configuration
@@ -307,7 +307,7 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
 	// must not deactivate while paused
-	if a.env.IsPaused {
+	if a.env.Mode == PausedMode {
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
@@ -348,6 +348,9 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 }
 
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
+	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
+		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
+	}
 	if err := scaleDownWorkers(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -479,6 +482,9 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
+	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
+		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
+	}
 	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace, false); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
