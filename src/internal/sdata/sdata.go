@@ -9,13 +9,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
+// Tuple is an alias for []interface{}.
+// It is used for passing around rows of data.
+// The elements of a tuple will always be pointers so the Tuple can
+// be passed to sql.Rows.Scan
+type Tuple = []interface{}
+
 // TupleWriter is the type of Writers for structured data.
 type TupleWriter interface {
 	WriteTuple(row Tuple) error
 	Flush() error
 }
-
-type Tuple = []interface{}
 
 // TupleReader is a stream of Tuples
 type TupleReader interface {
@@ -70,6 +74,7 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	}, nil
 }
 
+// NewTupleFromSQL returns a new Tuple based on column types from the sql package.
 func NewTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {

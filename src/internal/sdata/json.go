@@ -105,7 +105,7 @@ func (p *jsonParser) Next(row Tuple) error {
 		return ErrTupleFields{Fields: p.fieldNames, Tuple: row}
 	}
 	m := p.getMap()
-	if err := p.dec.Decode(m); err != nil {
+	if err := p.dec.Decode(&m); err != nil {
 		return err
 	}
 	for i := range row {

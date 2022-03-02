@@ -145,18 +145,16 @@ func (p *csvParser) Next(row Tuple) error {
 		return errors.Errorf("csv parsing: wrong number of fields HAVE: %d WANT: %d ", len(rec), len(row))
 	}
 	for i := range row {
-		// reflect.ValueOf(slice[i]) will always be a pointer to that value in the slice
-		// it will have Kind() == reflect.Ptr
+		// row[i] will be a pointer to something
 		v := reflect.ValueOf(row[i])
-		if err := convertString(v.Interface(), rec[i]); err != nil {
+		if err := p.convertString(v.Interface(), rec[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// convertString
-func convertString(dest interface{}, x string) error {
+func (p *csvParser) convertString(dest interface{}, x string) error {
 	dty := reflect.TypeOf(dest)
 	if dty.Kind() != reflect.Ptr {
 		panic("dest must be pointer")
@@ -165,8 +163,8 @@ func convertString(dest interface{}, x string) error {
 	switch d := dest.(type) {
 	case *string:
 		*d = x
-	case *int:
-		n, err := strconv.Atoi(x)
+	case *int64:
+		n, err := strconv.ParseInt(x, 10, 64)
 		if err != nil {
 			return err
 		}

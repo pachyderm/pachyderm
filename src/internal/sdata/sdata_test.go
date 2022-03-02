@@ -20,6 +20,78 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
 
+// TestFormatParse is a round trip from a Tuple through formatting and parsing
+// back to a Tuple again.
+func TestFormatParse(t *testing.T) {
+	testCases := []struct {
+		Name string
+		NewW func(w io.Writer, fieldNames []string) TupleWriter
+		NewR func(r io.Reader, fieldNames []string) TupleReader
+	}{
+		{
+			Name: "CSV",
+			NewW: func(w io.Writer, _ []string) TupleWriter {
+				return NewCSVWriter(w, nil)
+			},
+			NewR: func(r io.Reader, _ []string) TupleReader {
+				return NewCSVParser(r)
+			},
+		},
+		{
+			Name: "JSON",
+			NewW: func(w io.Writer, fieldNames []string) TupleWriter {
+				return NewJSONWriter(w, fieldNames)
+			},
+			NewR: func(r io.Reader, fieldNames []string) TupleReader {
+				return NewJSONParser(r, fieldNames)
+			},
+		},
+	}
+	newTuple := func() Tuple {
+		a := int64(0)
+		b := float64(0)
+		c := ""
+		return Tuple{&a, &b, &c}
+	}
+	fieldNames := []string{"a", "b", "c"}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			const N = 10
+			buf := &bytes.Buffer{}
+			fz := fuzz.New()
+			fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
+				*ti = time.Now()
+			})
+			fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
+
+			var expected []Tuple
+			w := tc.NewW(buf, fieldNames)
+			for i := 0; i < N; i++ {
+				x := newTuple()
+				for i := range x {
+					fz.Fuzz(x[i])
+				}
+				err := w.WriteTuple(x)
+				require.NoError(t, err)
+				expected = append(expected, x)
+			}
+			require.NoError(t, w.Flush())
+			t.Log(buf.String())
+
+			var actual []Tuple
+			r := tc.NewR(buf, fieldNames)
+			for i := 0; i < N; i++ {
+				y := newTuple()
+				err := r.Next(y)
+				require.NoError(t, err)
+				actual = append(actual, y)
+			}
+
+			require.Equal(t, expected, actual)
+		})
+	}
+}
+
 // TestMaterializeSQL checks that rows can be materialized from all the supported databases,
 // with all the supported writers.
 // It does not check that the writers themselves output in the correct format.
