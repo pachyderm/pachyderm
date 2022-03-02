@@ -347,12 +347,11 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	return &ec.DeactivateResponse{}, nil
 }
 
+// Pause sets the cluster to paused mode, restarting all pachds in a paused
+// status.  If they are already paused, it is a no-op.
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
 	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
 		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
-	}
-	if err := scaleDownWorkers(ctx, a.env.GetKubeClient(), a.env.Namespace); err != nil {
-		return nil, errors.EnsureStack(err)
 	}
 	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace, true); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -372,7 +371,7 @@ var updatedAtFieldName = "pachyderm.com/updatedAt"
 // operations: a cluster which is upgraded by Helm in a paused state will thus
 // remain paused.
 //
-// If the ConfigMap is already in the desired state, no changed are made; this
+// If the ConfigMap is already in the desired state, no changes are made; this
 // ensures that PauseStatus can do its checking appropriately.
 //
 // There is a special case in main to handle the case where there is no
