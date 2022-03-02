@@ -2,6 +2,7 @@ package minikubetestenv
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	poolSize        = 7
+	poolSize        = 6
 	namespacePrefix = "test-cluster-"
 )
 
@@ -47,8 +48,16 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 }
 
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APIClient) {
-	assigned := testutil.UniqueString(namespacePrefix)
+	cf.mu.Lock()
+	clusterIdx := len(cf.managedClusters) + 1
+	assigned := fmt.Sprintf("%s%v", namespacePrefix, clusterIdx)
+	cf.managedClusters[assigned] = nil // hold my place in line
+	cf.mu.Unlock()
+
 	kube := testutil.GetKubeClient(t)
+	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), assigned, metav1.GetOptions{}); err == nil {
+		require.NoError(t, kube.CoreV1().Namespaces().Delete(context.Background(), assigned, metav1.DeleteOptions{}))
+	}
 	_, err := kube.CoreV1().Namespaces().Create(context.Background(),
 		&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -57,18 +66,12 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 		},
 		metav1.CreateOptions{})
 	require.NoError(t, err)
-
-	cf.mu.Lock()
-	cf.managedClusters[assigned] = nil // hold my place in line
-	managedCount := len(cf.managedClusters)
-	cf.mu.Unlock()
-
 	c := InstallRelease(t,
 		context.Background(),
 		assigned,
 		kube,
 		&DeployOpts{
-			PortOffset: uint16(managedCount * 11),
+			PortOffset: uint16(clusterIdx * 10),
 		})
 	cf.mu.Lock()
 	cf.managedClusters[assigned] = c
