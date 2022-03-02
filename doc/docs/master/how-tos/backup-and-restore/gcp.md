@@ -1,29 +1,9 @@
-# Backing up and restoring Pachyderm with Velero
+# Backing up and restoring Pachyderm
 
 ## Setup
 
-### Per-project, one-time setup
-
-```shell
-BUCKET=…
-PROJECT_ID=$(gcloud config get-value project)
-SECRETS_PATH=…
-gcloud iam service-accounts create velero --display-name "Velero service account"
-SERVICE_ACCOUNT_EMAIL=$(gcloud iam service-accounts list --filter="displayName:Velero service account" --format 'value(email)')
-gsutil mb gs://$BUCKET/
-gsutil iam ch serviceAccount:$SERVICE_ACCOUNT_EMAIL:objectAdmin gs://${BUCKET}
-gcloud iam service-accounts keys create $SECRETS_PATH --iam-account $SERVICE_ACCOUNT_EMAIL
-ROLE_PERMISSIONS=(compute.disks.get compute.disks.create compute.disks.createSnapshot compute.snapshots.get compute.snapshots.create compute.snapshots.useReadOnly compute.snapshots.delete compute.zones.get)
-gcloud iam roles create velero.server --project $PROJECT_ID --title "Velero Server" --permissions "$(IFS=","; echo "${ROLE_PERMISSIONS[*]}")"
-```
-
-### Per cluster
-
-```shell
-$ SERVICE_ACCOUNT=$(gcloud sql instances describe $INSTANCE --project=$PROJECT --format="value(serviceAccountEmailAddress)")
-$ gsutil iam ch serviceAccount:${SERVICE_ACCOUNT}:objectCreator gs://$BUCKET
-$ velero install --provider gcp --plugins velero/velero-plugin-for-gcp:v1.3.0 --bucket $BUCKET --secret-file $SECRETS_PATH
-```
+Retain (ideally in version control) a copy of the original values file
+used to install the cluster.
 
 ## Backing up
 
@@ -32,52 +12,52 @@ $ velero install --provider gcp --plugins velero/velero-plugin-for-gcp:v1.3.0 --
  - A Pachyderm cluster
  - `kubectl` configured to access that cluster
  - `gcloud` configured appropriately
- - execution of the setup steps above for both the GCP project and the
-cluster
+ - A bucket for backup use
 
 ### Procedure
 
  1. Scale `pachd` down: `kubectl scale deployment pachd --replicas 0`
  2. Scale workers down: `kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker`
- 3. Take a backup: `velero backup create NAME --include-namespaces PACHD-NAMESPACE`
- 4. Backup pachyderm PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
- 5. Backup dex PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
- 6. Backup postgres PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
- 7. Backup objext: `gsutil cp -r $BUCKET $BACKUP_BUCKET`
+ 3. Backup pachyderm PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BACKUP_BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
+	1.  If this is the first time, you may need to run `gsutil iam ch serviceAccount:$(gcloud sql instances describe $INSTANCE --project=$PROJECT --format="value(serviceAccountEmailAddress)"):objectAdmin gs://$BACKUP_BUCKET`
+ 4. Backup dex PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BACKUP_BUCKET/sql/NAME/dex.sql -d dex`
+ 5. Backup postgres PostgreSQL database: `gcloud sql export sql $INSTANCE gs://$BACKUP_BUCKET/sql/NAME/postgres.sql -d postgres`
+ 6. Backup object store: `gsutil -m cp -r s3://$BUCKET s3://$BACKUP_BUCKET`
  7. Scale `pachd` back up: `kubectl scale deployment pachd --replicas 1`
 
 ## Restoring
 
 ### Prerequisites
 
- - An empty cluster
+ - A new SQL instance
+ - A new bucket
+ - An empty Kubernetes cluster
  - `kubectl` configured to access that cluster
  - `gcloud` configured appropriately
 
+Note that the SQL instance, bucket and cluster may all be created with
+the script below.
+
 ## Procedure
 
- 1. Install Velero: `velero install --provider gcp --plugins
-    velero/velero-plugin-for-gcp:v1.3.0 --bucket $BUCKET --secret-file
-    $SECRETS_PATH`
- 2. Give service account permissions: `gsutil iam ch serviceAccount:$(gcloud sql instances describe $INSTANCE --project=$PROJECT --format="value(serviceAccountEmailAddress)"):objectViewer gs://$BUCKET`
- 3. If using a new database:
-    1. Restore postgres: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
-	2. Restore dex: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
-	3. Restore pachyderm: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
- 4. Restore Pachyderm: `velero restore create --from-backup NAME`
- 5. If using a new database:
-	1. Update to point to new database: `kubectl edit deployment cloudsql-auth-proxy` (update line beginning with `- -instances=` to reference new DB)
-	2. Update to point to new service account: `kubectl edit serviceaccount k8s-cloudsql-auth-proxy` (update
-       `iam.gke.io/gcp-service-account` and delete `secrets`)
- 6. Update pachyderm-worker service account: `kubectl edit serviceaccount pachyderm` (update
-       `iam.gke.io/gcp-service-account` and delete `secrets`)
- 7. Update pachyderm-worker service account: `kubectl edit serviceaccount pachyderm-worker` (update
-       `iam.gke.io/gcp-service-account` and delete `secrets`)
- 8. `kubectl edit secret pachyderm-storage-secret` and update Google bucket
- 9. Scale `pachd` back up: `kubectl scale deployment pachd --replicas 1`
- 10. Use `gcloud compute addresses list` to get the IP address for your new
- instance
- 11. `kubectl edit service pachd-lb` (set `loadBalancerIP`)
+ 1. Give service account permissions: `gsutil iam ch serviceAccount:$(gcloud sql instances describe $INSTANCE --project=$PROJECT --format="value(serviceAccountEmailAddress)"):objectViewer gs://$BUCKET`
+ 1. Restore postgres: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/postgres.sql -d postgres`
+ 2. Restore dex: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/dex.sql -d dex`
+ 3. Restore pachyderm: `gcloud sql import sql $INSTANCE gs://$BUCKET/sql/NAME/pachyderm.sql -d pachyderm`
+ 3. Copy objects from backup to restoration bucket: `gsutil -m cp -r s3://$BACKUP_BUCKET s3://$BUCKET`
+ 4. Update a copy of the original `values.yaml`:
+    - `pachd.externalService.loadBalancerIP`: use `gcloud compute addressses list` to get
+      the IP for the restoration cluster
+    - `pachd.storage.google.bucket`: update to point to restoration
+      bucket
+    - `pachd.serviceAccount.additionalAnnotations.iam.gke.io/gcp-service-account`:
+      update
+    - `pachd.worker.serviceAccount.AdditionalAnnotations.iam.gke.io/gcp-service-account`:
+      update
+    - `cloudsqlAuthProxy.connectionName`: update
+    - `cloudsqlAuthProxy.serviceAccount`: update
+	- `global.postgresql.postgresqlPassword`: update if changed
+ 5. Install Pachyderm: `helm install pachyderm -f $VALUES_YAML pach/pachyderm`
 
 ## Connecting to your restored cluster
 
@@ -85,9 +65,9 @@ Pachctl must still be configured to connect to a restored cluster.
 
   1.  Use `gcloud compute addresses list` to get the IP address for your new
 instance.
-  2.  `STATIC_IP_ADDR=…`
-  3.  `echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite`
-  4.  `pachctl config set active-context ${CLUSTER_NAME}`
+  1.  `STATIC_IP_ADDR=…`
+  2.  `echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite`
+  3.  `pachctl config set active-context ${CLUSTER_NAME}`
 
 ## Appendix
 
