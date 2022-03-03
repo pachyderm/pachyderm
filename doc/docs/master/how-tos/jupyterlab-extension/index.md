@@ -147,8 +147,8 @@ Currently need to login to your pachyderm cluster via pachctl then run the follo
 docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:bcc43c22c84a37a434787f7dd26c0b3ad1aa1490 lab --allow-root
 
 ----------------------------------------------------
-
-In the terminal of your new notebook, log into your Pachyderm cluster.  //ADD link to set context  
+On the left part of your screen, you should 
+In the terminal of your JUpyterLab, log into your Pachyderm cluster.  //ADD link to set context  
 
 #### Deploy The Extension On JupyterHub Running In Kubernetes
 
@@ -233,7 +233,6 @@ In the terminal of your new notebook, log into your Pachyderm cluster.  //ADD li
     umount /pfs
     ```
 
-
 ## Use JupyterLab Mount Extension
 
 Once your JupyterLab is up and connected to your cluster:
@@ -247,7 +246,7 @@ Once your JupyterLab is up and connected to your cluster:
 
     insert printscreens here
 
-- Use our examples library and start experiementing
+- If you used our pre-built image `pachyderm/notebooks-user`, use our examples library and start experiementing!
     !!! Note 
         We have included a selection of data science examples running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. In the `/examples` directory, you will also find integration examples with open-source products, such as labeling or model serving applications.
 
@@ -258,23 +257,4 @@ Once your JupyterLab is up and connected to your cluster:
 
     !!! Note 
         This Tutorial uses Pachyderm's CLI `pachctl`. Feel free to use 'python-pachyderm' instead. ????????
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Overview
-
-Pachyderm Notebooks is a **customized JupyterHub deployment running inside and authenticated to your Pachyderm cluster.**.
-The Jupyter notebooks spawned from Notebooks provide data scientists with a familiar way to sample (mount repositories) or experiment with data and code written in Python. Because those experiments are running on Pachyderm, Data scientists benefit from the complete reproducibility that data versioning and lineage offer. At the same time, ML engineers can productionize those pipelines faster, efficiently, and securely.
 
