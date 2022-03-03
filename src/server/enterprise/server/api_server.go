@@ -353,7 +353,7 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
 		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
 	}
-	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace, true); err != nil {
+	if err := a.rollPachd(ctx, true); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
@@ -376,10 +376,18 @@ const updatedAtFieldName = "pachyderm.com/updatedAt"
 //
 // There is a special case in main to handle the case where there is no
 // ConfigMap and the '$(MODE)' reference is verbatim.
-func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, paused bool) error {
+func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
+	var (
+		kc        *kubernetes.Clientset = a.env.GetKubeClient()
+		namespace                       = a.env.Namespace
+	)
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
+		// if the ConfigMap is not found, then the cluster is by definition unpaused
+		if !paused {
+			return nil
+		}
 		// Since pachd-config is not managed by Helm, it may not exist.
 		c = &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -388,11 +396,8 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 			},
 			Data: make(map[string]string),
 		}
-		if paused {
-			c.Data["MODE"] = "paused"
-		} else {
-			c.Data["MODE"] = "full"
-		}
+		c.Data["MODE"] = "paused"
+		c.Data["previous-mode"] = "full"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
 			return errors.Errorf("could not create configmap: %w", err)
 		}
@@ -406,29 +411,31 @@ func rollPachd(ctx context.Context, kc *kubernetes.Clientset, namespace string, 
 				Name:      "pachd-config",
 				Namespace: namespace,
 			}
+			c.Data["MODE"] = "full"
+			c.Data["previous-mode"] = "paused"
 		}
 		if c.Data == nil {
 			c.Data = make(map[string]string)
 		}
-		if paused {
-			if c.Data["MODE"] == "paused" {
-				// Short-circuit and do not update if configmap
-				// is already in the correct state.  This keeps
-				// the updatedAt semantics correct when checking
-				// the pause status.
-				return nil
-			}
-			c.Data["MODE"] = "paused"
-		} else {
-			if c.Data["MODE"] == "full" {
-				// Short-circuit and do not update if configmap
-				// is already in the correct state.  This keeps
-				// the updatedAt semantics correct when checking
-				// the pause status.
-				return nil
-			}
-			c.Data["MODE"] = "full"
+		if paused && c.Data["MODE"] == "paused" {
+			// Short-circuit and do not update if configmap
+			// is already in the correct state.  This keeps
+			// the updatedAt semantics correct when checking
+			// the pause status.
+			return nil
+		} else if !paused && c.Data["MODE"] != "paused" {
+			// Short-circuit and do not update if configmap
+			// is already in the correct state.  This keeps
+			// the updatedAt semantics correct when checking
+			// the pause status.
+			return nil
 		}
+		if c.Data["previous-mode"] == "" {
+			return errors.Errorf("empty previous-mode in pachd-config ConfigMap")
+		}
+		mode := c.Data["MODE"]
+		c.Data["MODE"] = c.Data["previous-mode"]
+		c.Data["previous-mode"] = mode
 		if c.Annotations == nil {
 			c.Annotations = make(map[string]string)
 		}
