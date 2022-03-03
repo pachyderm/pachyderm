@@ -177,6 +177,9 @@ spec:
           - secretRef:
               name: pachyderm-deployment-id-secret
           - configMapRef:
+              # This ConfigMap is managed outside of Helm and will not
+              # exist on first installation, hence it is optional.  It
+              # is currently used to manage the pause/unpause feature.
               name: pachd-config
               optional: true
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
