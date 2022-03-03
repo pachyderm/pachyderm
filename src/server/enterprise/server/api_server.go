@@ -411,11 +411,11 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 				Name:      "pachd-config",
 				Namespace: namespace,
 			}
-			c.Data["MODE"] = "full"
-			c.Data["previous-mode"] = "paused"
 		}
 		if c.Data == nil {
 			c.Data = make(map[string]string)
+			c.Data["MODE"] = "full"
+			c.Data["previous-mode"] = "paused"
 		}
 		if paused && c.Data["MODE"] == "paused" {
 			// Short-circuit and do not update if configmap
@@ -491,7 +491,7 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
 		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
 	}
-	if err := rollPachd(ctx, a.env.GetKubeClient(), a.env.Namespace, false); err != nil {
+	if err := a.rollPachd(ctx, false); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
