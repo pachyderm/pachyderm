@@ -90,7 +90,6 @@ message GetActivationCodeResponse {
 // Heartbeat in the enterprise service just triggers a heartbeat for
 // testing purposes. The RPC used to communicate with the license 
 // service is defined in the license service.
-
 message HeartbeatRequest{}
 message HeartbeatResponse{}
 

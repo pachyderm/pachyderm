@@ -44,7 +44,7 @@ const (
 )
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
-	e := Env{
+	return Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
 		TxnEnv:   txEnv,
@@ -59,7 +59,6 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 		BackgroundContext: senv.Context(),
 		Namespace:         senv.Config().Namespace,
 	}
-	return e
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
