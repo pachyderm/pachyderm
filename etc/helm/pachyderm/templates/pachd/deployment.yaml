@@ -242,8 +242,4 @@ spec:
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
       {{- end }}
-      initContainers:
-      - name: init-etcd
-        image: busybox:1.28
-        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"]
 {{- end }}
