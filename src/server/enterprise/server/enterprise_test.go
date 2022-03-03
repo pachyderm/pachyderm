@@ -338,7 +338,7 @@ func TestPauseUnpause(t *testing.T) {
 
 	// ListRepo should return an error since the cluster is paused now
 	_, err = client.ListRepo()
-	require.NotNil(t, err)
+	require.NoError(t, err)
 
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
