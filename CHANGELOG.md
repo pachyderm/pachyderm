@@ -1,5 +1,10 @@
 
 # Changelog
+## 2.1.2
+- Handling commas in jsonnet argument - #7363
+- Run config-job when license is provided via secret - #7348
+- Remove init container from enterprise server deployment - #7369
+
 ## 2.1.1
 - Bug fix for upgrading with more than 10 pipelines - #7360
 - Add nodeSelector and annotations to some helm templates - #7354
