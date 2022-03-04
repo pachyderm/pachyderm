@@ -44,20 +44,6 @@ spec:
     nodePort: {{ .Values.enterpriseServer.service.prometheusPort }}
     {{- end }}
     port: {{ .Values.enterpriseServer.service.prometheusPort }}
-    {{- end }}
-    port: {{ .Values.enterpriseServer.service.oidcPort }}
-    targetPort: oidc-port
-  - name: identity-port
-    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
-    nodePort: {{ .Values.enterpriseServer.service.identityPort }}
-    {{- end }}
-    port: {{ .Values.enterpriseServer.service.identityPort }}
-    targetPort: identity-port
-  - name: prom-metrics
-    {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
-    nodePort: {{ .Values.enterpriseServer.service.prometheusPort }}
-    {{- end }}
-    port: {{ .Values.enterpriseServer.service.prometheusPort }}
     protocol: TCP
     targetPort: prom-metrics
   selector:

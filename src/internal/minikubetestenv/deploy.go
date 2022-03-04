@@ -31,10 +31,11 @@ const (
 )
 
 type DeployOpts struct {
-	Version      string
-	Enterprise   bool
-	AuthUser     string
-	CleanupAfter bool
+	Version            string
+	Enterprise         bool
+	AuthUser           string
+	CleanupAfter       bool
+	UseLeftoverCluster bool
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
@@ -65,7 +66,8 @@ func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	address, err := client.GetUserMachineAddr(context)
 	require.NoError(t, err)
 	if address == nil {
-		address = &grpcutil.DefaultPachdAddress
+		copy := grpcutil.DefaultPachdAddress
+		address = &copy
 	}
 	return address
 }
@@ -105,8 +107,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(t testing.TB, namespace string) *helm.Options {
-	addr := getPachAddress(t)
+func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddress) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
@@ -115,8 +116,8 @@ func withEnterprise(t testing.TB, namespace string) *helm.Options {
 			"pachd.oauthClientSecret":              "oidc-client-secret",
 			"pachd.enterpriseSecret":               "enterprise-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
-			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", addr.Host),
-			"ingress.host":                       fmt.Sprintf("%s:30657", addr.Host),
+			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
+			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
 		},
 	}
 }
@@ -153,6 +154,7 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
+// TODO(acohen4): also wait for Loki
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
@@ -168,48 +170,23 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
-	if opts.CleanupAfter {
-		t.Cleanup(func() {
-			deleteRelease(t, context.Background(), namespace, kubeClient)
-		})
-	}
-	version := localImage
-	chartPath := helmChartLocalPath(t)
-	if opts.Version != "" {
-		version = opts.Version
-		chartPath = helmChartPublishedPath
-	}
-	helmOpts := localDeploymentWithMinioOptions(namespace, version)
-	if opts.Enterprise {
-		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		helmOpts = union(helmOpts, withEnterprise(t, namespace))
-	}
-	pachAddress := getPachAddress(t)
-	if opts.PortOffset != 0 {
-		pachAddress.Port = pachAddress.Port + opts.PortOffset
-		helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
-	}
-	require.NoError(t, f(t, helmOpts, chartPath, namespace))
-	waitForPachd(t, ctx, kubeClient, namespace, version)
-	c, err := client.NewFromPachdAddress(pachAddress)
-	require.NoError(t, err)
-	if opts.AuthUser != "" {
-		c = testutil.AuthenticateClient(t, c, opts.AuthUser)
+func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string) *client.APIClient {
+	var c *client.APIClient
+	// retry connecting if it doesn't immediately work
+	require.NoError(t, backoff.Retry(func() error {
+		t.Logf("Connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
+		var err error
+		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
+		if err != nil {
+			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
+	t.Logf("Success connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
+	if authUser != "" {
+		c = testutil.AuthenticateClient(t, c, authUser)
 	}
 	return c
-}
-
-// Deploy pachyderm using a `helm upgrade ...`
-// returns an API Client corresponding to the deployment
-func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helm.UpgradeE, opts)
-}
-
-// Deploy pachyderm using a `helm install ...`
-// returns an API Client corresponding to the deployment
-func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helm.InstallE, opts)
 }
 
 func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset) {
@@ -239,4 +216,50 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 		},
 	}, metav1.CreateOptions{})
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"))
+}
+
+func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+	if opts.CleanupAfter {
+		t.Cleanup(func() {
+			deleteRelease(t, context.Background(), namespace, kubeClient)
+		})
+	}
+	version := localImage
+	chartPath := helmChartLocalPath(t)
+	if opts.Version != "" {
+		version = opts.Version
+		chartPath = helmChartPublishedPath
+	}
+	// TODO(acohen4): apply minio deployment to this namespace
+	helmOpts := localDeploymentWithMinioOptions(namespace, version)
+	pachAddress := getPachAddress(t)
+	if opts.PortOffset != 0 {
+		pachAddress.Port += opts.PortOffset
+		helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
+	}
+	if opts.Enterprise {
+		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
+		helmOpts = union(helmOpts, withEnterprise(t, namespace, pachAddress))
+	}
+	if err := f(t, helmOpts, chartPath, namespace); err != nil {
+		if opts.UseLeftoverCluster {
+			return pachClient(t, pachAddress, opts.AuthUser, namespace)
+		}
+		deleteRelease(t, context.Background(), namespace, kubeClient)
+		require.NoError(t, f(t, helmOpts, chartPath, namespace))
+	}
+	waitForPachd(t, ctx, kubeClient, namespace, version)
+	return pachClient(t, pachAddress, opts.AuthUser, namespace)
+}
+
+// Deploy pachyderm using a `helm upgrade ...`
+// returns an API Client corresponding to the deployment
+func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, namespace, kubeClient, helm.UpgradeE, opts)
+}
+
+// Deploy pachyderm using a `helm install ...`
+// returns an API Client corresponding to the deployment
+func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
+	return putRelease(t, ctx, namespace, kubeClient, helm.InstallE, opts)
 }

@@ -2,6 +2,7 @@ package minikubetestenv
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"sync"
 	"testing"
@@ -15,13 +16,14 @@ import (
 )
 
 const (
-	poolSize        = 6
 	namespacePrefix = "test-cluster-"
 )
 
 var (
-	clusterFactory *ClusterFactory
-	setup          sync.Once
+	clusterFactory      *ClusterFactory
+	setup               sync.Once
+	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
+	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 )
 
 type ClusterFactory struct {
@@ -30,6 +32,12 @@ type ClusterFactory struct {
 	availableClusters map[string]struct{}
 	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
 	sem               semaphore.Weighted // enforces max concurrency
+}
+
+func (cf *ClusterFactory) assignClient(assigned string, c *client.APIClient) {
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+	cf.managedClusters[assigned] = c
 }
 
 func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
@@ -48,34 +56,34 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 }
 
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APIClient) {
-	cf.mu.Lock()
-	clusterIdx := len(cf.managedClusters) + 1
-	assigned := fmt.Sprintf("%s%v", namespacePrefix, clusterIdx)
-	cf.managedClusters[assigned] = nil // hold my place in line
-	cf.mu.Unlock()
-
+	assigned, clusterIdx := func() (string, int) {
+		cf.mu.Lock()
+		defer cf.mu.Unlock()
+		idx := len(cf.managedClusters) + 1
+		v := fmt.Sprintf("%s%v", namespacePrefix, idx)
+		cf.managedClusters[v] = nil // hold my place in line
+		return v, idx
+	}()
 	kube := testutil.GetKubeClient(t)
-	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), assigned, metav1.GetOptions{}); err == nil {
-		require.NoError(t, kube.CoreV1().Namespaces().Delete(context.Background(), assigned, metav1.DeleteOptions{}))
-	}
-	_, err := kube.CoreV1().Namespaces().Create(context.Background(),
-		&v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: assigned,
+	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), assigned, metav1.GetOptions{}); err != nil {
+		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: assigned,
+				},
 			},
-		},
-		metav1.CreateOptions{})
-	require.NoError(t, err)
+			metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
 	c := InstallRelease(t,
 		context.Background(),
 		assigned,
 		kube,
 		&DeployOpts{
-			PortOffset: uint16(clusterIdx * 10),
+			PortOffset:         uint16(clusterIdx * 10),
+			UseLeftoverCluster: *useLeftoverClusters,
 		})
-	cf.mu.Lock()
-	cf.managedClusters[assigned] = c
-	cf.mu.Unlock()
+	cf.assignClient(assigned, c)
 	return assigned, c
 }
 
@@ -86,16 +94,12 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*client.APIClient{},
 			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(poolSize),
+			sem:               *semaphore.NewWeighted(int64(*poolSize)),
 		}
 	})
 
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	var assigned string
-	assigned, c := clusterFactory.acquireFreeCluster()
-	if assigned == "" {
-		assigned, c = clusterFactory.acquireNewCluster(t)
-	}
 	// TODO(acohen4): client.DeleteAll() during cleanup
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
@@ -103,5 +107,9 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
+	assigned, c := clusterFactory.acquireFreeCluster()
+	if assigned == "" {
+		assigned, c = clusterFactory.acquireNewCluster(t)
+	}
 	return c, assigned
 }
