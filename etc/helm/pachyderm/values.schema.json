@@ -180,6 +180,21 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "apiGRPCPort": {
+                            "type": "integer"
+                        },
+                        "identityPort": {
+                            "type": "integer"
+                        },
+                        "oidcPort": {
+                            "type": "integer"
+                        },
+                        "prometheusPort": {
+                            "type": "integer"
+                        },
+                        "s3GatewayPort": {
+                            "type": "integer"
+                        },
                         "type": {
                             "type": "string"
                         }
@@ -627,8 +642,23 @@
                         "annotations": {
                             "type": "object"
                         },
+                        "apiGRPCPort": {
+                            "type": "integer"
+                        },
+                        "identityPort": {
+                            "type": "integer"
+                        },
                         "labels": {
                             "type": "object"
+                        },
+                        "oidcPort": {
+                            "type": "integer"
+                        },
+                        "prometheusPort": {
+                            "type": "integer"
+                        },
+                        "s3GatewayPort": {
+                            "type": "integer"
                         },
                         "type": {
                             "type": "string"
