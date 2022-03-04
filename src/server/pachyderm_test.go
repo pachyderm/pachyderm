@@ -9228,15 +9228,21 @@ func TestDebug(t *testing.T) {
 
 	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
 
-	for _, p := range pipelines {
+	for i, p := range pipelines {
+		cmdStdin := []string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			"sleep 3",
+		}
+		if i == 0 {
+			// We had a bug where generating a debug dump for failed pipelines/jobs would crash pachd.
+			// Fail a pipeline on purpose to see if we can still generate debug dump.
+			cmdStdin = append(cmdStdin, "exit -1")
+		}
 		require.NoError(t, c.CreatePipeline(
 			p,
 			"",
 			[]string{"bash"},
-			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-				"sleep 15",
-			},
+			cmdStdin,
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
