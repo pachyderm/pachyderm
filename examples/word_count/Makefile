@@ -1,12 +1,17 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-wordcount
-CONTAINER_VERSION := 1.12.2
+CONTAINER_VERSION := 2.0.3
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
-	@docker build -t $(CONTAINER_TAG) .
-	@docker push $(CONTAINER_TAG)
+	@docker buildx build --platform linux/amd64 -t $(CONTAINER_TAG)-amd64 .
+	@docker buildx build --platform linux/arm64 -t $(CONTAINER_TAG)-arm64 .
+	@docker push $(CONTAINER_TAG)-amd64
+	@docker push $(CONTAINER_TAG)-arm64
+	#@docker manifest rm $(CONTAINER_TAG)
+	@docker manifest create $(CONTAINER_TAG) $(CONTAINER_TAG)-arm64 $(CONTAINER_TAG)-amd64 
+	@docker manifest push $(CONTAINER_TAG)
 
 
 wordcount:
