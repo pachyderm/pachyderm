@@ -9972,3 +9972,47 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, cmdutil.Encoder("", buf).EncodeProto(resp))
 	require.Equal(t, "", resp.Error, buf.String())
 }
+
+func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
+	// Test whether PutFile still works on a repo where a parent commit errored
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	require.NoError(t, c.CreateRepo("inA"))
+	require.NoError(t, c.CreateRepo("inB"))
+	require.NoError(t, c.CreatePipeline(
+		"A",
+		"",
+		[]string{"bash"},
+		[]string{"exit -1"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput("inA", "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		"B",
+		"",
+		[]string{"bash"},
+		[]string{"sleep 3"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewUnionInput(
+			client.NewPFSInput("inB", "/*"),
+			client.NewPFSInput("A", "/*"),
+		),
+		"",
+		false,
+	))
+	require.NoError(t, c.PutFile(client.NewCommit("inA", "master", ""), "file", strings.NewReader("foo")))
+	commitInfo, err := c.WaitCommit("A", "master", "")
+	require.NoError(t, err)
+	require.True(t, strings.Contains(commitInfo.Error, "failed"))
+	require.NoError(t, c.PutFile(client.NewCommit("inB", "master", ""), "file", strings.NewReader("foo")))
+}
