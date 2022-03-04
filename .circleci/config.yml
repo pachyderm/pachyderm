@@ -1,5 +1,12 @@
 version: 2.1
 
+aliases:
+  - &only-release-tags
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^\d+\.\d+\.\d+(-[a-z\d\-.]+)?$/
+
 orbs:
     codecov: codecov/codecov@1.1.0
     pagerduty: fredbi/pagerduty@0.3.0
@@ -63,6 +70,65 @@ jobs:
             - run: make ci
             - run: make graphql
             - run: sh ./scripts/checkTypeChanges.sh
+    docker-build:
+        parameters:
+            resource_class:
+                type: string
+        resource_class: << parameters.resource_class >>
+        machine:
+            image: ubuntu-2004:202101-01
+        steps:
+        - checkout
+        - restore_cache:
+            keys:
+                - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+        - run:
+            name: Build application Docker image
+            command: |
+                make circle-docker-build
+        - save_cache:
+            key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}}-{{ checksum "Makefile" }}
+            paths:
+                - /tmp/docker-cache
+    docker-manifest:
+        machine:
+            image: ubuntu-2004:202101-01
+        steps:
+        - checkout
+        - run:
+            name: Create Multiarch Manifest
+            command: |
+                make circle-docker-manifest 
+    pr_comment:
+        docker:
+            - image: cimg/ruby:2.7
+        steps:
+            - checkout
+            - run:
+                command: |
+                    curl -sL https://raw.githubusercontent.com/stephencelis/ghi/master/ghi > ghi
+                    chmod 755 ghi
+                    sudo mv ghi /usr/local/bin
+                name: Install GHI
+            - run:
+                command: |
+                    if [[ -z "${GHI_TOKEN}" ]]; then
+                      echo "GHI_TOKEN not set"
+                      /bin/false
+                    fi
+                name: Check Token
+            - run:
+                command: |
+                    GH_LOGIN=$(curl -sS -H "Authorization: token $GHI_TOKEN" https://api.github.com/user | jq '.login' --raw-output)
+                    echo "Authenticated with $GH_LOGIN"
+                    PR_URL=$CIRCLE_PULL_REQUEST
+                    PR_ID=${PR_URL##*/}
+                    echo "PR_ID=$PR_ID"
+                    if [ -z $PR_ID ]; then
+                      echo "No PR found, skipping"
+                    else
+                        ghi comment -m "You can create a workspace in staging for this pr with the following image tag: \`pachyderm/haberdashery:<< pipeline.git.revision >>\`" $PR_ID
+                    fi
     # live-automation:
     #     resource_class: xlarge
     #     docker:
@@ -96,6 +162,37 @@ workflows:
             - e2e-test
             - check-types
             - build
+    docker-build:
+        jobs:
+            - docker-build:
+                matrix:
+                    parameters:
+                        resource_class:
+                        - large
+                        - arm.large 
+            - docker-manifest:
+                requires:
+                - docker-build
+            - pr_comment:
+                requires:
+                - docker-manifest
+                filters:
+                    branches:
+                        ignore: master
+    docker-release:
+        jobs:
+            - docker-build:
+                filters: *only-release-tags
+                matrix:
+                    parameters:
+                        resource_class:
+                        - large
+                        - arm.large 
+            - docker-manifest:
+                filters: *only-release-tags
+                requires:
+                - docker-build
+
     # live-automation:
     #     triggers:
     #         - schedule:
