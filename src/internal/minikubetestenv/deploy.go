@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,6 +31,9 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
+// defensively lock around helm calls
+var mu sync.Mutex
+
 type DeployOpts struct {
 	Version            string
 	Enterprise         bool
@@ -43,6 +47,14 @@ type DeployOpts struct {
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
+
+func helmLock(f helmPutE) helmPutE {
+	return func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		return f(t, options, chart, releaseName)
+	}
+}
 
 func helmChartLocalPath(t testing.TB) string {
 	dir, err := os.Getwd()
@@ -193,7 +205,9 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	options := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 	}
+	mu.Lock()
 	err := helm.DeleteE(t, options, namespace, true)
+	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, backoff.Retry(func() error {
@@ -255,11 +269,11 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 // Deploy pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
 func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helm.UpgradeE, opts)
+	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
 }
 
 // Deploy pachyderm using a `helm install ...`
 // returns an API Client corresponding to the deployment
 func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helm.InstallE, opts)
+	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.InstallE), opts)
 }
