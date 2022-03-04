@@ -283,6 +283,9 @@ test-s3gateway-unit:
 test-fuse:
 	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
 
+benchmark-fuse:
+	CGOENABLED=0 go test -bench=$$Benchmark\[A-Z\]^ $$(go list ./src/server/... | grep '/src/server/pfs/fuse') -run=$^ $(TESTFLAGS) 
+
 test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 

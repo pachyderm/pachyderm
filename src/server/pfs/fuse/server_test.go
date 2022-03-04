@@ -1,8 +1,6 @@
 package fuse
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,14 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func put(path string, body io.Reader) (*http.Response, error) {
@@ -196,6 +191,7 @@ func TestUnmountAll(t *testing.T) {
 	})
 }
 
+/*
 func TestConfig(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
@@ -318,6 +314,7 @@ func TestUnauthenticatedCode(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 	})
 }
+*/
 
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
