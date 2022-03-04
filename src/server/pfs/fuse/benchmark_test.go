@@ -25,6 +25,15 @@ mount-server benchmark scenarios:
 * B has fewer files, but they're several GB each (I think 100GB-1TB total
   dataset as well), so they want to lazily read files
 
+This suggests a range of benchmarks along a set of axes/spectrum:
+
+* Read/write
+* Distribution/metadata intensity
+* Random reads etc
+* A single 10GB file
+
+These can be handled with fio.
+
 */
 
 func BenchmarkA(b *testing.B) {
