@@ -1,5 +1,12 @@
 
 # Changelog
+## 2.1.3
+- Fix debug dump segfault on failed jobs - #7377
+- Fix: check sql.ErrNoRows in error chain - #7381
+- Receive keep alive responses for worker ip renewal - #7378
+- Add post upgrade hook for configpod - #7376
+- Do not propagate TotalFileSet if parent commit errored in alias commits - #7383
+
 ## 2.1.2
 - Handling commas in jsonnet argument - #7363
 - Run config-job when license is provided via secret - #7348
