@@ -86,9 +86,19 @@ func do(config interface{}) error {
 	}
 
 	// keepalive forever
-	if _, err := env.GetEtcdClient().KeepAlive(context.Background(), resp.ID); err != nil {
+	keepAliveChan, err := env.GetEtcdClient().KeepAlive(context.Background(), resp.ID)
+	if err != nil {
 		return errors.Wrapf(err, "error with KeepAlive")
 	}
+	go func() {
+		for {
+			_, more := <-keepAliveChan
+			if !more {
+				log.Errorf("failed to renew worker ip etcd lease")
+				return
+			}
+		}
+	}()
 
 	// Actually write "key" into etcd
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
