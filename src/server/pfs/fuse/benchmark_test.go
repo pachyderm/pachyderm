@@ -34,6 +34,24 @@ This suggests a range of benchmarks along a set of axes/spectrum:
 
 These can be handled with fio.
 
+https://fio.readthedocs.io/en/latest/fio_man.html#cmdoption-arg-filename-format
+
+This suggests that we can get fio to generate a directory structure based on:
+$jobname
+The name of the worker thread or process.
+$jobnum
+The incremental number of the worker thread or process.
+$filenum
+The incremental number of the file for that worker thread or process.
+
+Unless we start 50,000 threads, or run fio 50,000 times, I don't see how we can
+create 50k directories. Maybe we combine approaches: have 10k runs of fio w/5
+threads, so 50k folders, each run writing 10,000 10kb files.
+
+We can also use the approach in
+https://www.flamingbytes.com/posts/fio-multi-files/ with : separators to split,
+say 100k files over 10 directories, hence needing to do fewer runs.
+
 */
 
 func BenchmarkA(b *testing.B) {
