@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
-	"reflect"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -94,8 +93,13 @@ type jsonParser struct {
 }
 
 func NewJSONParser(r io.Reader, fieldNames []string) TupleReader {
+	dec := json.NewDecoder(r)
+	// UseNumber() is necessary to correctly parse large int64s, we have to first parse them
+	// as json.Numbers and then handle those in convert.  Otherwise they are parsed as float64s
+	// and precision is lost for values above ~2^53.
+	dec.UseNumber()
 	return &jsonParser{
-		dec:        json.NewDecoder(r),
+		dec:        dec,
 		fieldNames: fieldNames,
 	}
 }
@@ -115,14 +119,8 @@ func (p *jsonParser) Next(row Tuple) error {
 			row[i] = nil
 			continue
 		}
-		ty1 := reflect.TypeOf(v)
-		ty2 := reflect.TypeOf(row[i])
-		if ty2.AssignableTo(ty1) {
-			row[i] = v
-		} else if !ty1.ConvertibleTo(ty2) {
-			return errors.Errorf("cannot convert %v to %v", ty1, ty2)
-		} else {
-			row[i] = reflect.ValueOf(v).Interface()
+		if err := convert(row[i], v); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -131,6 +129,9 @@ func (p *jsonParser) Next(row Tuple) error {
 func (p *jsonParser) getMap() map[string]interface{} {
 	if p.m == nil {
 		p.m = make(map[string]interface{})
+	}
+	for k := range p.m {
+		delete(p.m, k)
 	}
 	return p.m
 }

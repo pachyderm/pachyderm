@@ -51,9 +51,10 @@ func TestFormatParse(t *testing.T) {
 		a := int64(0)
 		b := float64(0)
 		c := ""
-		return Tuple{&a, &b, &c}
+		d := sql.NullInt64{}
+		return Tuple{&a, &b, &c, &d}
 	}
-	fieldNames := []string{"a", "b", "c"}
+	fieldNames := []string{"a", "b", "c", "d"}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			const N = 10
@@ -61,6 +62,14 @@ func TestFormatParse(t *testing.T) {
 			fz := fuzz.New()
 			fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
 				*ti = time.Now()
+			})
+			fz.Funcs(func(x *sql.NullInt64, co fuzz.Continue) {
+				if co.RandBool() {
+					x.Valid = true
+					x.Int64 = co.Int63()
+				} else {
+					x.Valid = false
+				}
 			})
 			fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
 
@@ -86,7 +95,6 @@ func TestFormatParse(t *testing.T) {
 				require.NoError(t, err)
 				actual = append(actual, y)
 			}
-
 			require.Equal(t, expected, actual)
 		})
 	}

@@ -2,7 +2,6 @@ package sdata
 
 import (
 	"database/sql"
-	"encoding/base64"
 	"encoding/csv"
 	"io"
 	"reflect"
@@ -147,150 +146,9 @@ func (p *csvParser) Next(row Tuple) error {
 	for i := range row {
 		// row[i] will be a pointer to something
 		v := reflect.ValueOf(row[i])
-		if err := p.convertString(v.Interface(), rec[i]); err != nil {
+		if err := convert(v.Interface(), rec[i]); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (p *csvParser) convertString(dest interface{}, x string) error {
-	dty := reflect.TypeOf(dest)
-	if dty.Kind() != reflect.Ptr {
-		panic("dest must be pointer")
-	}
-	isNull := x == "null" || x == "nil" || len(x) == 0
-	switch d := dest.(type) {
-	case *string:
-		*d = x
-	case *int64:
-		n, err := strconv.ParseInt(x, 10, 64)
-		if err != nil {
-			return err
-		}
-		*d = n
-	case *float64:
-		fl, err := strconv.ParseFloat(x, 64)
-		if err != nil {
-			return err
-		}
-		*d = fl
-	case *[]byte:
-		codec := base64.StdEncoding
-		data, err := codec.DecodeString(x)
-		if err != nil {
-			return err
-		}
-		*d = append((*d)[:0], data...)
-	case *time.Time:
-		t, err := parseTime(x)
-		if err != nil {
-			return err
-		}
-		*d = t
-	case *sql.NullBool:
-		if isNull {
-			d.Valid = false
-		} else {
-			x2, err := strconv.ParseBool(x)
-			if err != nil {
-				return err
-			}
-			d.Bool = x2
-			d.Valid = true
-		}
-	case *sql.NullByte:
-		if isNull {
-			d.Valid = false
-		} else {
-			x2, err := strconv.ParseUint(x, 10, 8)
-			if err != nil {
-				return err
-			}
-			d.Byte = byte(x2)
-			d.Valid = true
-		}
-	case *sql.NullInt16:
-		if isNull {
-			d.Valid = false
-		} else {
-			x2, err := strconv.ParseInt(x, 10, 16)
-			if err != nil {
-				return err
-			}
-			d.Int16 = int16(x2)
-			d.Valid = true
-		}
-	case *sql.NullInt32:
-		if isNull {
-			d.Valid = false
-		} else {
-			x2, err := strconv.ParseInt(x, 10, 32)
-			if err != nil {
-				return err
-			}
-			d.Int32 = int32(x2)
-			d.Valid = true
-		}
-	case *sql.NullInt64:
-		if isNull {
-			d.Valid = false
-		} else {
-			x2, err := strconv.ParseInt(x, 10, 32)
-			if err != nil {
-				return err
-			}
-			d.Int64 = x2
-			d.Valid = true
-		}
-	case *sql.NullFloat64:
-		if isNull {
-			d.Valid = false
-		} else {
-			x2, err := strconv.ParseFloat(x, 64)
-			if err != nil {
-				return err
-			}
-			d.Float64 = x2
-			d.Valid = true
-		}
-	case *sql.NullTime:
-		if isNull {
-			d.Valid = false
-		} else {
-			t, err := parseTime(x)
-			if err != nil {
-				return err
-			}
-			d.Time = t
-			d.Valid = true
-		}
-	case *sql.NullString:
-		if isNull {
-			d.Valid = false
-		} else {
-			d.String = x
-			d.Valid = true
-		}
-	default:
-		return errors.Errorf("cannot convert string to %T", dest)
-	}
-	return nil
-}
-
-// parseTime attempts to parse the time using every format and returns the first one.
-func parseTime(x string) (t time.Time, err error) {
-	for _, layout := range []string{
-		time.RFC3339Nano,
-		time.RFC1123Z,
-		time.RFC822Z,
-		time.Kitchen,
-		time.ANSIC,
-	} {
-		t, err := time.Parse(layout, x)
-		if err == nil {
-			return t, err
-		}
-	}
-	return t, err
 }
