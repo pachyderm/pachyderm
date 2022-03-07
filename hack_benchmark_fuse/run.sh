@@ -1,10 +1,8 @@
 #!/bin/bash
 set -xeuo pipefail
-if [ "$1" != "" ]; then
-    echo "$1" > current_benchmark
-fi
 outputdir="output-$(date +%s)"
 mkdir -p $outputdir
+export RUN_ID=$outputdir
 echo "setup"
 time ./01_destroy_and_setup.sh &> $outputdir/01_destroy_and_setup.log
 echo "mount-server"

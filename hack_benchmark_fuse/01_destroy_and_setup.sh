@@ -1,5 +1,7 @@
 #!/bin/bash
 set -xeuo pipefail
+echo "Starting 01_destroy_and_setup.sh with BENCH_NUMJOBS=$BENCH_NUMJOBS, BENCH_FILESIZE=$BENCH_FILESIZE BENCH_NRFILES=$BENCH_NRFILES, RUN_ID=$RUN_ID"
+
 sudo apt update && sudo apt install -y fio
 
 # cleanup
