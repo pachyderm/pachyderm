@@ -12,6 +12,10 @@ const useFileBrowser = () => {
   const browserHistory = useHistory();
   const {repoId, commitId, branchId, filePath, projectId} = useUrlState();
   const [fileFilter, setFileFilter] = useState('');
+  const [diffOnly, setDiffOnly] = useLocalProjectSettings({
+    projectId,
+    key: 'diff_only_filebrowser',
+  });
   const [fileView = 'list', setFileView] = useLocalProjectSettings({
     projectId,
     key: 'file_view',
@@ -28,15 +32,28 @@ const useFileBrowser = () => {
     repoName: repoId,
   });
 
-  const filteredFiles = useMemo(
-    () =>
-      files?.files.filter(
-        (file) =>
-          !fileFilter ||
-          file.path.toLowerCase().includes(fileFilter.toLowerCase()),
-      ) || [],
-    [fileFilter, files],
-  );
+  const filteredFiles = useMemo(() => {
+    let filteredFiles = files?.files || [];
+
+    if (diffOnly) {
+      filteredFiles = filteredFiles.filter((file) => file.commitAction);
+    }
+
+    if (fileFilter) {
+      filteredFiles = filteredFiles.filter((file) =>
+        file.path.toLowerCase().includes(fileFilter.toLowerCase()),
+      );
+    }
+
+    // sort updated/added files first
+    if (fileView === 'icon') {
+      filteredFiles = [...filteredFiles].sort((fileA, fileB) =>
+        fileA.commitAction || '' > (fileB.commitAction || '') ? -1 : 1,
+      );
+    }
+
+    return filteredFiles;
+  }, [diffOnly, fileFilter, fileView, files?.files]);
 
   const isDirectory = useMemo(() => {
     return path.endsWith('/');
@@ -82,6 +99,8 @@ const useFileBrowser = () => {
     isDirectory,
     handleHide,
     files,
+    setDiffOnly,
+    diffOnly,
   };
 };
 

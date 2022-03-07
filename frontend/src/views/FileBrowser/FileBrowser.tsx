@@ -43,6 +43,8 @@ const FileBrowser: React.FC = () => {
     loading,
     fileToPreview,
     isDirectory,
+    diffOnly,
+    setDiffOnly,
   } = useFileBrowser();
 
   if (filePath && !loading && !fileToPreview && !isDirectory) {
@@ -68,7 +70,12 @@ const FileBrowser: React.FC = () => {
         className={styles.fullModal}
       >
         <div className={styles.base}>
-          <FileHeader fileFilter={fileFilter} setFileFilter={setFileFilter} />
+          <FileHeader
+            fileFilter={fileFilter}
+            setFileFilter={setFileFilter}
+            setDiffOnly={setDiffOnly}
+            diffOnly={diffOnly}
+          />
           <div className={styles.subHeader}>
             <Breadcrumb />
             <Switch>

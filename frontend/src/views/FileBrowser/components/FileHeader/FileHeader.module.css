@@ -25,6 +25,7 @@
     border-top: solid 1px var(--line-grey);
     font-size: var(--font-size-body-medium);
     padding: 1rem 0;
+    justify-content: space-between;
 }
 
 .dateField {
@@ -58,4 +59,15 @@
 
 .directionLeft {
     margin-right: 1rem;
+}
+ 
+.switchItem {
+  display: flex;
+  align-items: center;
+  color: var(--pachyderm-black);
+  font-weight: bold;
+}
+
+.switch {
+  margin-right: 0.5rem;
 }

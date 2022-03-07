@@ -17,7 +17,11 @@ describe('Web Preview', () => {
     );
     const {findByTestId} = render(<FileBrowser />);
 
-    const iframe = await findByTestId('WebPreview__iframe');
+    const iframe = await findByTestId(
+      'WebPreview__iframe',
+      {},
+      {timeout: 10000},
+    );
 
     expect(iframe).toContainHTML('Alfreds Futterkiste');
     expect(iframe).toContainHTML('Magazzini Alimentari Riuniti');

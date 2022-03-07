@@ -57,6 +57,26 @@ describe('File Browser', () => {
       expect(await findAllByRole('row')).toHaveLength(2);
     });
 
+    it('should show only diff files if toggled', async () => {
+      const {findByRole, findAllByRole} = render(<FileBrowser />);
+
+      const diffToggle = await findByRole(
+        'switch',
+        {name: 'Show diff only'},
+        {timeout: 10000},
+      );
+
+      expect(await findAllByRole('row')).toHaveLength(17);
+
+      click(diffToggle);
+
+      expect(await findAllByRole('row')).toHaveLength(2);
+
+      click(diffToggle);
+
+      expect(await findAllByRole('row')).toHaveLength(17);
+    });
+
     it('should show an empty state when there are no results', async () => {
       const {queryByText, findByRole} = render(<FileBrowser />);
 
@@ -236,7 +256,7 @@ describe('File Browser', () => {
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/AT-AT.png',
+          '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/liberty.png',
         ),
       );
     });

@@ -8,6 +8,7 @@ import {
   InfoSVG,
   SkeletonDisplayText,
   Icon,
+  Switch,
 } from '@pachyderm/components';
 import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
 import findIndex from 'lodash/findIndex';
@@ -26,9 +27,16 @@ import styles from './FileHeader.module.css';
 type FileHeaderProps = {
   fileFilter: string;
   setFileFilter: React.Dispatch<React.SetStateAction<string>>;
+  diffOnly: boolean;
+  setDiffOnly: (diff: boolean) => void;
 };
 
-const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
+const FileHeader: React.FC<FileHeaderProps> = ({
+  fileFilter,
+  setFileFilter,
+  setDiffOnly,
+  diffOnly,
+}) => {
   const {repoId, commitId, branchId, projectId, filePath} = useUrlState();
   const {fileToPreview, loading, files} = useFileBrowser();
 
@@ -163,69 +171,80 @@ const FileHeader: React.FC<FileHeaderProps> = ({fileFilter, setFileFilter}) => {
           )}
         </Group>
       </Group>
-      <Group spacing={32} className={styles.subHeader}>
-        {diffString && (
+      <Group className={styles.subHeader}>
+        <Group spacing={32}>
+          {diffString && (
+            <span className={styles.dateField}>
+              {loading ? (
+                <SkeletonDisplayText />
+              ) : (
+                files && (
+                  <>
+                    <span className={styles.datelabel}>{diffString}</span>
+                    {files.sizeDiff !== 0 &&
+                      ` (${files.sizeDiff > 0 ? '+' : ''}${
+                        files.sizeDiffDisplay
+                      })`}
+                  </>
+                )
+              )}
+            </span>
+          )}
           <span className={styles.dateField}>
-            {loading ? (
+            {commitsLoading ? (
               <SkeletonDisplayText />
             ) : (
-              files && (
+              currentCommit?.started && (
                 <>
-                  <span className={styles.datelabel}>{diffString}</span>
-                  {files.sizeDiff !== 0 &&
-                    ` (${files.sizeDiff > 0 ? '+' : ''}${
-                      files.sizeDiffDisplay
-                    })`}
+                  <span className={styles.datelabel}>Started:</span>
+                  {` `}
+                  {format(
+                    fromUnixTime(currentCommit.started),
+                    'MM/dd/yyyy h:mm:ssaaa',
+                  )}
                 </>
               )
             )}
           </span>
-        )}
-        <span className={styles.dateField}>
-          {commitsLoading ? (
-            <SkeletonDisplayText />
-          ) : (
-            currentCommit?.started && (
-              <>
-                <span className={styles.datelabel}>Started:</span>
-                {` `}
-                {format(
-                  fromUnixTime(currentCommit.started),
-                  'MM/dd/yyyy h:mm:ssaaa',
-                )}
-              </>
-            )
-          )}
-        </span>
-        <span className={styles.dateField}>
-          {commitsLoading ? (
-            <SkeletonDisplayText />
-          ) : (
-            currentCommit?.finished && (
-              <span>
-                <span className={styles.datelabel}>Ended: </span>
-                {` `}
-                {format(
-                  fromUnixTime(currentCommit.finished),
-                  'MM/dd/yyyy h:mm:ssaaa',
-                )}
-              </span>
-            )
-          )}
-        </span>
-        <Tooltip
-          tooltipText={tooltipInfo}
-          size="extraLarge"
-          placement="bottom"
-          tooltipKey="See Next Commit"
-        >
-          <span className={styles.datelabel}>
-            More Info
-            <Icon small className={styles.infoIcon}>
-              <InfoSVG />
-            </Icon>
+          <span className={styles.dateField}>
+            {commitsLoading ? (
+              <SkeletonDisplayText />
+            ) : (
+              currentCommit?.finished && (
+                <span>
+                  <span className={styles.datelabel}>Ended: </span>
+                  {` `}
+                  {format(
+                    fromUnixTime(currentCommit.finished),
+                    'MM/dd/yyyy h:mm:ssaaa',
+                  )}
+                </span>
+              )
+            )}
           </span>
-        </Tooltip>
+          <Tooltip
+            tooltipText={tooltipInfo}
+            size="extraLarge"
+            placement="bottom"
+            tooltipKey="See Next Commit"
+          >
+            <span className={styles.datelabel}>
+              More Info
+              <Icon small className={styles.infoIcon}>
+                <InfoSVG />
+              </Icon>
+            </span>
+          </Tooltip>
+        </Group>
+        <div className={styles.switchItem}>
+          <Switch
+            className={styles.switch}
+            defaultChecked={diffOnly}
+            onChange={() => setDiffOnly(!diffOnly)}
+            aria-label="Show diff only"
+          />
+          <span>Show diff only</span>
+        </div>
       </Group>
     </Header>
   );
