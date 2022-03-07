@@ -8,4 +8,5 @@ echo "TIME:LS"
 time ls /pfs/benchmark
 echo "TIME:FIND"
 time find /pfs/benchmark
-echo "TIME:FIND"
+echo "TIME:CAT_SINGLE_FILE"
+time cat /pfs/benchmark/mount_server.0.0 > /dev/null
