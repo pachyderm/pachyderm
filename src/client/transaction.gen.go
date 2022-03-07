@@ -349,6 +349,34 @@ func (c *unsupportedPfsBuilderClient) ListTask(_ context.Context, _ *taskapi.Lis
 	return nil, unsupportedError("ListTask")
 }
 
+type unsupportedProxyBuilderClient struct{}
+
+func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
+	return nil, unsupportedError("Listen")
+}
+
+type unsupportedEnterpriseBuilderClient struct{}
+
+func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
+	return nil, unsupportedError("Activate")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) GetState(_ context.Context, _ *enterprise_v2.GetStateRequest, opts ...grpc.CallOption) (*enterprise_v2.GetStateResponse, error) {
+	return nil, unsupportedError("GetState")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) GetActivationCode(_ context.Context, _ *enterprise_v2.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise_v2.GetActivationCodeResponse, error) {
+	return nil, unsupportedError("GetActivationCode")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Heartbeat(_ context.Context, _ *enterprise_v2.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise_v2.HeartbeatResponse, error) {
+	return nil, unsupportedError("Heartbeat")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Deactivate(_ context.Context, _ *enterprise_v2.DeactivateRequest, opts ...grpc.CallOption) (*enterprise_v2.DeactivateResponse, error) {
+	return nil, unsupportedError("Deactivate")
+}
+
 type unsupportedPpsBuilderClient struct{}
 
 func (c *unsupportedPpsBuilderClient) InspectJob(_ context.Context, _ *pps_v2.InspectJobRequest, opts ...grpc.CallOption) (*pps_v2.JobInfo, error) {
@@ -471,26 +499,48 @@ func (c *unsupportedPpsBuilderClient) ListTask(_ context.Context, _ *taskapi.Lis
 	return nil, unsupportedError("ListTask")
 }
 
-type unsupportedEnterpriseBuilderClient struct{}
+type unsupportedTransactionBuilderClient struct{}
 
-func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
-	return nil, unsupportedError("Activate")
+func (c *unsupportedTransactionBuilderClient) BatchTransaction(_ context.Context, _ *transaction_v2.BatchTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
+	return nil, unsupportedError("BatchTransaction")
 }
 
-func (c *unsupportedEnterpriseBuilderClient) GetState(_ context.Context, _ *enterprise_v2.GetStateRequest, opts ...grpc.CallOption) (*enterprise_v2.GetStateResponse, error) {
-	return nil, unsupportedError("GetState")
+func (c *unsupportedTransactionBuilderClient) StartTransaction(_ context.Context, _ *transaction_v2.StartTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.Transaction, error) {
+	return nil, unsupportedError("StartTransaction")
 }
 
-func (c *unsupportedEnterpriseBuilderClient) GetActivationCode(_ context.Context, _ *enterprise_v2.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise_v2.GetActivationCodeResponse, error) {
-	return nil, unsupportedError("GetActivationCode")
+func (c *unsupportedTransactionBuilderClient) InspectTransaction(_ context.Context, _ *transaction_v2.InspectTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
+	return nil, unsupportedError("InspectTransaction")
 }
 
-func (c *unsupportedEnterpriseBuilderClient) Heartbeat(_ context.Context, _ *enterprise_v2.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise_v2.HeartbeatResponse, error) {
-	return nil, unsupportedError("Heartbeat")
+func (c *unsupportedTransactionBuilderClient) DeleteTransaction(_ context.Context, _ *transaction_v2.DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteTransaction")
 }
 
-func (c *unsupportedEnterpriseBuilderClient) Deactivate(_ context.Context, _ *enterprise_v2.DeactivateRequest, opts ...grpc.CallOption) (*enterprise_v2.DeactivateResponse, error) {
-	return nil, unsupportedError("Deactivate")
+func (c *unsupportedTransactionBuilderClient) ListTransaction(_ context.Context, _ *transaction_v2.ListTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfos, error) {
+	return nil, unsupportedError("ListTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) FinishTransaction(_ context.Context, _ *transaction_v2.FinishTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
+	return nil, unsupportedError("FinishTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction_v2.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteAll")
+}
+
+type unsupportedDebugBuilderClient struct{}
+
+func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.ProfileRequest, opts ...grpc.CallOption) (debug_v2.Debug_ProfileClient, error) {
+	return nil, unsupportedError("Profile")
+}
+
+func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug_v2.BinaryRequest, opts ...grpc.CallOption) (debug_v2.Debug_BinaryClient, error) {
+	return nil, unsupportedError("Binary")
+}
+
+func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug_v2.DumpRequest, opts ...grpc.CallOption) (debug_v2.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }
 
 type unsupportedLicenseBuilderClient struct{}
@@ -531,64 +581,14 @@ func (c *unsupportedLicenseBuilderClient) ListUserClusters(_ context.Context, _ 
 	return nil, unsupportedError("ListUserClusters")
 }
 
-type unsupportedAdminBuilderClient struct{}
-
-func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
-	return nil, unsupportedError("InspectCluster")
-}
-
 type unsupportedVersionpbBuilderClient struct{}
 
 func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb_v2.Version, error) {
 	return nil, unsupportedError("GetVersion")
 }
 
-type unsupportedDebugBuilderClient struct{}
+type unsupportedAdminBuilderClient struct{}
 
-func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.ProfileRequest, opts ...grpc.CallOption) (debug_v2.Debug_ProfileClient, error) {
-	return nil, unsupportedError("Profile")
-}
-
-func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug_v2.BinaryRequest, opts ...grpc.CallOption) (debug_v2.Debug_BinaryClient, error) {
-	return nil, unsupportedError("Binary")
-}
-
-func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug_v2.DumpRequest, opts ...grpc.CallOption) (debug_v2.Debug_DumpClient, error) {
-	return nil, unsupportedError("Dump")
-}
-
-type unsupportedProxyBuilderClient struct{}
-
-func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
-	return nil, unsupportedError("Listen")
-}
-
-type unsupportedTransactionBuilderClient struct{}
-
-func (c *unsupportedTransactionBuilderClient) BatchTransaction(_ context.Context, _ *transaction_v2.BatchTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
-	return nil, unsupportedError("BatchTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) StartTransaction(_ context.Context, _ *transaction_v2.StartTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.Transaction, error) {
-	return nil, unsupportedError("StartTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) InspectTransaction(_ context.Context, _ *transaction_v2.InspectTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
-	return nil, unsupportedError("InspectTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) DeleteTransaction(_ context.Context, _ *transaction_v2.DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) ListTransaction(_ context.Context, _ *transaction_v2.ListTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfos, error) {
-	return nil, unsupportedError("ListTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) FinishTransaction(_ context.Context, _ *transaction_v2.FinishTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
-	return nil, unsupportedError("FinishTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction_v2.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteAll")
+func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
+	return nil, unsupportedError("InspectCluster")
 }
