@@ -3,7 +3,6 @@ import pprint
 from typing import OrderedDict
 zs = OrderedDict()
 for d in sorted(glob.glob("output-*")):
-    print(f"\n-- {d} --\n")
     xs = OrderedDict()
     cur = None
     for dd in sorted(glob.glob(f"{d}/*.log")):
