@@ -8,6 +8,7 @@ sudo apt update && sudo apt install -y fio
 fusermount -u /pfs || true
 sudo pkill -f "pachctl mount-server" || true
 minikube delete || true
+rm -rf /tmp/pfs* || true
 
 (cd ..
  minikube start
