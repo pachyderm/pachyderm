@@ -1,5 +1,6 @@
 #!/bin/bash
 set -xeuo pipefail
+sudo apt update && sudo apt install -y fio
 minikube delete
 (cd ..
  minikube start
@@ -10,4 +11,3 @@ minikube delete
 )
 sudo mkdir -p /pfs
 sudo chown $USER /pfs
-pachctl mount-server

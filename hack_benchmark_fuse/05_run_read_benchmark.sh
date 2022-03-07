@@ -1,5 +1,8 @@
 #!/bin/bash
 set -xeuo pipefail
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-curl -XPUT 'localhost:9002/repos/benchmark/master/_mount?name=benchmark&mode=rw'
-ls /pfs/benchmark
+(cd /pfs/benchmark
+ echo "TIME:READ_BENCHMARK"
+ time fio $SCRIPT_DIR/$(cat current_benchmark) --rw=read
+)
