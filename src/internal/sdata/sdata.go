@@ -115,10 +115,10 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return n, err
+			return n, errors.EnsureStack(err)
 		}
 		if err := w.WriteTuple(row); err != nil {
-			return n, err
+			return n, errors.EnsureStack(err)
 		}
 		n++
 	}

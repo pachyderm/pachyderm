@@ -110,7 +110,7 @@ func (p *jsonParser) Next(row Tuple) error {
 	}
 	m := p.getMap()
 	if err := p.dec.Decode(&m); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	for i := range row {
 		colName := p.fieldNames[i]

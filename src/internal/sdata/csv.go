@@ -138,7 +138,7 @@ func NewCSVParser(r io.Reader) TupleReader {
 func (p *csvParser) Next(row Tuple) error {
 	rec, err := p.dec.Read()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	if len(rec) != len(row) {
 		return errors.Errorf("csv parsing: wrong number of fields HAVE: %d WANT: %d ", len(rec), len(row))
