@@ -21,6 +21,8 @@
   font-weight: normal;
   font-size: 0.75rem;
   margin-bottom: 0.375rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .empty {

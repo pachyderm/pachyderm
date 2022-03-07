@@ -1,10 +1,11 @@
 import {JobState} from '@graphqlTypes';
-import {Link, Tooltip, LoadingDots} from '@pachyderm/components';
+import {Link, Tooltip, LoadingDots, Group} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 import {NavLink, Redirect, Route} from 'react-router-dom';
 
+import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
@@ -92,7 +93,10 @@ const JobDetails = () => {
           </nav>
         </Route>
 
-        <h2 className={styles.heading}>Job {jobId}</h2>
+        <Group spacing={8} className={styles.heading}>
+          Job
+          <CommitIdCopy commit={jobId} longId />
+        </Group>
       </section>
 
       <section className={styles.pipelineSection}>

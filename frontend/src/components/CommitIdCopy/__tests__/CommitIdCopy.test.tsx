@@ -3,11 +3,11 @@ import React from 'react';
 
 import {click} from '@dash-frontend/testHelpers';
 
-import CommitPath from '../CommitPath';
+import CommitIdCopy from '../CommitIdCopy';
 
-describe('CommitPath', () => {
+describe('CommitIdCopy', () => {
   const Commit = (
-    <CommitPath
+    <CommitIdCopy
       repo="test"
       branch="master"
       commit="0918ac9d5daa76b86e3bb5e88e4c43a4"
@@ -21,7 +21,7 @@ describe('CommitPath', () => {
   it('should copy path on action click', async () => {
     const {findByTestId} = render(Commit);
 
-    const copyAction = await findByTestId('CommitPath_copy');
+    const copyAction = await findByTestId('CommitIdCopy_copy');
     click(copyAction);
 
     expect(window.document.execCommand).toHaveBeenCalledWith('copy');

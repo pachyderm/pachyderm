@@ -14,7 +14,7 @@ import {format, fromUnixTime, formatDistanceStrict} from 'date-fns';
 import findIndex from 'lodash/findIndex';
 import React, {useMemo} from 'react';
 
-import CommitPath from '@dash-frontend/components/CommitPath';
+import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Header from '@dash-frontend/components/Header';
 import useCommits, {COMMIT_LIMIT} from '@dash-frontend/hooks/useCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -115,7 +115,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
     <Header appearance="light" hasSubheader>
       <Group spacing={8} align="center" className={styles.header}>
         <h4 className={styles.commit}>
-          <CommitPath repo={repoId} branch={branchId} commit={commitId} />
+          <CommitIdCopy repo={repoId} branch={branchId} commit={commitId} />
         </h4>
         {!loading && !fileToPreview && (
           <Search

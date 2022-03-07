@@ -121,7 +121,7 @@ describe('ProjectSidebar', () => {
       expect(size).toBeInTheDocument();
       await waitFor(() =>
         expect(
-          getByText('ID 9d5daa0918ac4c43a476b86e3bb5e88e'),
+          getByText('9d5daa0918ac4c43a476b86e3bb5e88e'),
         ).toBeInTheDocument(),
       );
     });

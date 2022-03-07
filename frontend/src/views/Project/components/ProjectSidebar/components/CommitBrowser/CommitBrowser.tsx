@@ -1,8 +1,15 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
-import {Link, LoadingDots, Tooltip, PureCheckbox} from '@pachyderm/components';
+import {
+  Link,
+  LoadingDots,
+  Tooltip,
+  PureCheckbox,
+  Group,
+} from '@pachyderm/components';
 import React from 'react';
 import {CSSTransition, TransitionGroup} from 'react-transition-group';
 
+import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import {COMMITS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
@@ -107,10 +114,16 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                           placement="left"
                           tooltipKey="description"
                         >
-                          <dt className={styles.commitData}>ID {commit.id}</dt>
+                          <Group spacing={8} className={styles.commitData}>
+                            ID
+                            <CommitIdCopy smallIcon longId commit={commit.id} />
+                          </Group>
                         </Tooltip>
                       ) : (
-                        <dt className={styles.commitData}>ID {commit.id}</dt>
+                        <Group spacing={8} className={styles.commitData}>
+                          ID
+                          <CommitIdCopy smallIcon longId commit={commit.id} />
+                        </Group>
                       )}
                       <dt className={styles.commitData}>
                         {commit.hasLinkedJob && (

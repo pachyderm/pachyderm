@@ -1,0 +1,28 @@
+.base {
+  display: flex;
+  align-items: center;
+}
+
+.copy {
+  display: flex;
+  margin-top: -2px;
+  margin-left: 0.5rem;
+  margin-right: 1.75rem;
+}
+
+.copy.copied {
+  margin-right: 0rem;
+}
+
+.copyCheckmark {
+  width: 0;
+}
+
+.copyCheckmark.copied {
+  margin-left: 0.5rem;
+  width: auto;
+}
+
+.copyCheckmark.small {
+  margin-left: 0rem;
+}
