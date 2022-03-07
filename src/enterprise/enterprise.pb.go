@@ -643,6 +643,9 @@ func (m *GetActivationCodeResponse) GetActivationCode() string {
 	return ""
 }
 
+// Heartbeat in the enterprise service just triggers a heartbeat for
+// testing purposes. The RPC used to communicate with the license
+// service is defined in the license service.
 type HeartbeatRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

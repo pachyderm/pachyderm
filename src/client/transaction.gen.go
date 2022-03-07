@@ -27,6 +27,60 @@ func unsupportedError(name string) error {
 	return errors.Errorf("the '%s' API call is not supported in transactions", name)
 }
 
+type unsupportedIdentityBuilderClient struct{}
+
+func (c *unsupportedIdentityBuilderClient) SetIdentityServerConfig(_ context.Context, _ *identity_v2.SetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity_v2.SetIdentityServerConfigResponse, error) {
+	return nil, unsupportedError("SetIdentityServerConfig")
+}
+
+func (c *unsupportedIdentityBuilderClient) GetIdentityServerConfig(_ context.Context, _ *identity_v2.GetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity_v2.GetIdentityServerConfigResponse, error) {
+	return nil, unsupportedError("GetIdentityServerConfig")
+}
+
+func (c *unsupportedIdentityBuilderClient) CreateIDPConnector(_ context.Context, _ *identity_v2.CreateIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.CreateIDPConnectorResponse, error) {
+	return nil, unsupportedError("CreateIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) UpdateIDPConnector(_ context.Context, _ *identity_v2.UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.UpdateIDPConnectorResponse, error) {
+	return nil, unsupportedError("UpdateIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) ListIDPConnectors(_ context.Context, _ *identity_v2.ListIDPConnectorsRequest, opts ...grpc.CallOption) (*identity_v2.ListIDPConnectorsResponse, error) {
+	return nil, unsupportedError("ListIDPConnectors")
+}
+
+func (c *unsupportedIdentityBuilderClient) GetIDPConnector(_ context.Context, _ *identity_v2.GetIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.GetIDPConnectorResponse, error) {
+	return nil, unsupportedError("GetIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) DeleteIDPConnector(_ context.Context, _ *identity_v2.DeleteIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.DeleteIDPConnectorResponse, error) {
+	return nil, unsupportedError("DeleteIDPConnector")
+}
+
+func (c *unsupportedIdentityBuilderClient) CreateOIDCClient(_ context.Context, _ *identity_v2.CreateOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.CreateOIDCClientResponse, error) {
+	return nil, unsupportedError("CreateOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) UpdateOIDCClient(_ context.Context, _ *identity_v2.UpdateOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.UpdateOIDCClientResponse, error) {
+	return nil, unsupportedError("UpdateOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) GetOIDCClient(_ context.Context, _ *identity_v2.GetOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.GetOIDCClientResponse, error) {
+	return nil, unsupportedError("GetOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) ListOIDCClients(_ context.Context, _ *identity_v2.ListOIDCClientsRequest, opts ...grpc.CallOption) (*identity_v2.ListOIDCClientsResponse, error) {
+	return nil, unsupportedError("ListOIDCClients")
+}
+
+func (c *unsupportedIdentityBuilderClient) DeleteOIDCClient(_ context.Context, _ *identity_v2.DeleteOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.DeleteOIDCClientResponse, error) {
+	return nil, unsupportedError("DeleteOIDCClient")
+}
+
+func (c *unsupportedIdentityBuilderClient) DeleteAll(_ context.Context, _ *identity_v2.DeleteAllRequest, opts ...grpc.CallOption) (*identity_v2.DeleteAllResponse, error) {
+	return nil, unsupportedError("DeleteAll")
+}
+
 type unsupportedAuthBuilderClient struct{}
 
 func (c *unsupportedAuthBuilderClient) Activate(_ context.Context, _ *auth_v2.ActivateRequest, opts ...grpc.CallOption) (*auth_v2.ActivateResponse, error) {
@@ -295,6 +349,46 @@ func (c *unsupportedPfsBuilderClient) ListTask(_ context.Context, _ *taskapi.Lis
 	return nil, unsupportedError("ListTask")
 }
 
+type unsupportedProxyBuilderClient struct{}
+
+func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
+	return nil, unsupportedError("Listen")
+}
+
+type unsupportedEnterpriseBuilderClient struct{}
+
+func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
+	return nil, unsupportedError("Activate")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) GetState(_ context.Context, _ *enterprise_v2.GetStateRequest, opts ...grpc.CallOption) (*enterprise_v2.GetStateResponse, error) {
+	return nil, unsupportedError("GetState")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) GetActivationCode(_ context.Context, _ *enterprise_v2.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise_v2.GetActivationCodeResponse, error) {
+	return nil, unsupportedError("GetActivationCode")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Heartbeat(_ context.Context, _ *enterprise_v2.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise_v2.HeartbeatResponse, error) {
+	return nil, unsupportedError("Heartbeat")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Deactivate(_ context.Context, _ *enterprise_v2.DeactivateRequest, opts ...grpc.CallOption) (*enterprise_v2.DeactivateResponse, error) {
+	return nil, unsupportedError("Deactivate")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Pause(_ context.Context, _ *enterprise_v2.PauseRequest, opts ...grpc.CallOption) (*enterprise_v2.PauseResponse, error) {
+	return nil, unsupportedError("Pause")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Unpause(_ context.Context, _ *enterprise_v2.UnpauseRequest, opts ...grpc.CallOption) (*enterprise_v2.UnpauseResponse, error) {
+	return nil, unsupportedError("Unpause")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) PauseStatus(_ context.Context, _ *enterprise_v2.PauseStatusRequest, opts ...grpc.CallOption) (*enterprise_v2.PauseStatusResponse, error) {
+	return nil, unsupportedError("PauseStatus")
+}
+
 type unsupportedPpsBuilderClient struct{}
 
 func (c *unsupportedPpsBuilderClient) InspectJob(_ context.Context, _ *pps_v2.InspectJobRequest, opts ...grpc.CallOption) (*pps_v2.JobInfo, error) {
@@ -417,6 +511,36 @@ func (c *unsupportedPpsBuilderClient) ListTask(_ context.Context, _ *taskapi.Lis
 	return nil, unsupportedError("ListTask")
 }
 
+type unsupportedTransactionBuilderClient struct{}
+
+func (c *unsupportedTransactionBuilderClient) BatchTransaction(_ context.Context, _ *transaction_v2.BatchTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
+	return nil, unsupportedError("BatchTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) StartTransaction(_ context.Context, _ *transaction_v2.StartTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.Transaction, error) {
+	return nil, unsupportedError("StartTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) InspectTransaction(_ context.Context, _ *transaction_v2.InspectTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
+	return nil, unsupportedError("InspectTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) DeleteTransaction(_ context.Context, _ *transaction_v2.DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) ListTransaction(_ context.Context, _ *transaction_v2.ListTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfos, error) {
+	return nil, unsupportedError("ListTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) FinishTransaction(_ context.Context, _ *transaction_v2.FinishTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
+	return nil, unsupportedError("FinishTransaction")
+}
+
+func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction_v2.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteAll")
+}
+
 type unsupportedDebugBuilderClient struct{}
 
 func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.ProfileRequest, opts ...grpc.CallOption) (debug_v2.Debug_ProfileClient, error) {
@@ -429,40 +553,6 @@ func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug_v2.Bi
 
 func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug_v2.DumpRequest, opts ...grpc.CallOption) (debug_v2.Debug_DumpClient, error) {
 	return nil, unsupportedError("Dump")
-}
-
-type unsupportedEnterpriseBuilderClient struct{}
-
-func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
-	return nil, unsupportedError("Activate")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) GetState(_ context.Context, _ *enterprise_v2.GetStateRequest, opts ...grpc.CallOption) (*enterprise_v2.GetStateResponse, error) {
-	return nil, unsupportedError("GetState")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) GetActivationCode(_ context.Context, _ *enterprise_v2.GetActivationCodeRequest, opts ...grpc.CallOption) (*enterprise_v2.GetActivationCodeResponse, error) {
-	return nil, unsupportedError("GetActivationCode")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) Heartbeat(_ context.Context, _ *enterprise_v2.HeartbeatRequest, opts ...grpc.CallOption) (*enterprise_v2.HeartbeatResponse, error) {
-	return nil, unsupportedError("Heartbeat")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) Deactivate(_ context.Context, _ *enterprise_v2.DeactivateRequest, opts ...grpc.CallOption) (*enterprise_v2.DeactivateResponse, error) {
-	return nil, unsupportedError("Deactivate")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) Pause(_ context.Context, _ *enterprise_v2.PauseRequest, opts ...grpc.CallOption) (*enterprise_v2.PauseResponse, error) {
-	return nil, unsupportedError("Pause")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) Unpause(_ context.Context, _ *enterprise_v2.UnpauseRequest, opts ...grpc.CallOption) (*enterprise_v2.UnpauseResponse, error) {
-	return nil, unsupportedError("Unpause")
-}
-
-func (c *unsupportedEnterpriseBuilderClient) PauseStatus(_ context.Context, _ *enterprise_v2.PauseStatusRequest, opts ...grpc.CallOption) (*enterprise_v2.PauseStatusResponse, error) {
-	return nil, unsupportedError("PauseStatus")
 }
 
 type unsupportedLicenseBuilderClient struct{}
@@ -503,90 +593,6 @@ func (c *unsupportedLicenseBuilderClient) ListUserClusters(_ context.Context, _ 
 	return nil, unsupportedError("ListUserClusters")
 }
 
-type unsupportedTransactionBuilderClient struct{}
-
-func (c *unsupportedTransactionBuilderClient) BatchTransaction(_ context.Context, _ *transaction_v2.BatchTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
-	return nil, unsupportedError("BatchTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) StartTransaction(_ context.Context, _ *transaction_v2.StartTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.Transaction, error) {
-	return nil, unsupportedError("StartTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) InspectTransaction(_ context.Context, _ *transaction_v2.InspectTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
-	return nil, unsupportedError("InspectTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) DeleteTransaction(_ context.Context, _ *transaction_v2.DeleteTransactionRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) ListTransaction(_ context.Context, _ *transaction_v2.ListTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfos, error) {
-	return nil, unsupportedError("ListTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) FinishTransaction(_ context.Context, _ *transaction_v2.FinishTransactionRequest, opts ...grpc.CallOption) (*transaction_v2.TransactionInfo, error) {
-	return nil, unsupportedError("FinishTransaction")
-}
-
-func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *transaction_v2.DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
-	return nil, unsupportedError("DeleteAll")
-}
-
-type unsupportedIdentityBuilderClient struct{}
-
-func (c *unsupportedIdentityBuilderClient) SetIdentityServerConfig(_ context.Context, _ *identity_v2.SetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity_v2.SetIdentityServerConfigResponse, error) {
-	return nil, unsupportedError("SetIdentityServerConfig")
-}
-
-func (c *unsupportedIdentityBuilderClient) GetIdentityServerConfig(_ context.Context, _ *identity_v2.GetIdentityServerConfigRequest, opts ...grpc.CallOption) (*identity_v2.GetIdentityServerConfigResponse, error) {
-	return nil, unsupportedError("GetIdentityServerConfig")
-}
-
-func (c *unsupportedIdentityBuilderClient) CreateIDPConnector(_ context.Context, _ *identity_v2.CreateIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.CreateIDPConnectorResponse, error) {
-	return nil, unsupportedError("CreateIDPConnector")
-}
-
-func (c *unsupportedIdentityBuilderClient) UpdateIDPConnector(_ context.Context, _ *identity_v2.UpdateIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.UpdateIDPConnectorResponse, error) {
-	return nil, unsupportedError("UpdateIDPConnector")
-}
-
-func (c *unsupportedIdentityBuilderClient) ListIDPConnectors(_ context.Context, _ *identity_v2.ListIDPConnectorsRequest, opts ...grpc.CallOption) (*identity_v2.ListIDPConnectorsResponse, error) {
-	return nil, unsupportedError("ListIDPConnectors")
-}
-
-func (c *unsupportedIdentityBuilderClient) GetIDPConnector(_ context.Context, _ *identity_v2.GetIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.GetIDPConnectorResponse, error) {
-	return nil, unsupportedError("GetIDPConnector")
-}
-
-func (c *unsupportedIdentityBuilderClient) DeleteIDPConnector(_ context.Context, _ *identity_v2.DeleteIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.DeleteIDPConnectorResponse, error) {
-	return nil, unsupportedError("DeleteIDPConnector")
-}
-
-func (c *unsupportedIdentityBuilderClient) CreateOIDCClient(_ context.Context, _ *identity_v2.CreateOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.CreateOIDCClientResponse, error) {
-	return nil, unsupportedError("CreateOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) UpdateOIDCClient(_ context.Context, _ *identity_v2.UpdateOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.UpdateOIDCClientResponse, error) {
-	return nil, unsupportedError("UpdateOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) GetOIDCClient(_ context.Context, _ *identity_v2.GetOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.GetOIDCClientResponse, error) {
-	return nil, unsupportedError("GetOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) ListOIDCClients(_ context.Context, _ *identity_v2.ListOIDCClientsRequest, opts ...grpc.CallOption) (*identity_v2.ListOIDCClientsResponse, error) {
-	return nil, unsupportedError("ListOIDCClients")
-}
-
-func (c *unsupportedIdentityBuilderClient) DeleteOIDCClient(_ context.Context, _ *identity_v2.DeleteOIDCClientRequest, opts ...grpc.CallOption) (*identity_v2.DeleteOIDCClientResponse, error) {
-	return nil, unsupportedError("DeleteOIDCClient")
-}
-
-func (c *unsupportedIdentityBuilderClient) DeleteAll(_ context.Context, _ *identity_v2.DeleteAllRequest, opts ...grpc.CallOption) (*identity_v2.DeleteAllResponse, error) {
-	return nil, unsupportedError("DeleteAll")
-}
-
 type unsupportedVersionpbBuilderClient struct{}
 
 func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb_v2.Version, error) {
@@ -597,10 +603,4 @@ type unsupportedAdminBuilderClient struct{}
 
 func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
 	return nil, unsupportedError("InspectCluster")
-}
-
-type unsupportedProxyBuilderClient struct{}
-
-func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
-	return nil, unsupportedError("Listen")
 }
