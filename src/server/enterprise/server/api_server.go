@@ -551,32 +551,28 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 			sawAfter = true
 		}
 	}
+	var status ec.PauseStatusResponse_PauseStatus
 	switch {
 	case sawBefore && sawAfter:
-		return &ec.PauseStatusResponse{
-			Status: ec.PauseStatusResponse_PARTIALLY_PAUSED,
-		}, nil
+		status = ec.PauseStatusResponse_PARTIALLY_PAUSED
 	case sawBefore:
 		// nothing has cycled yet; configmap has yet to take effect
 		if c.Data["MODE"] == "paused" {
-			return &ec.PauseStatusResponse{
-				Status: ec.PauseStatusResponse_UNPAUSED,
-			}, nil
+			status = ec.PauseStatusResponse_UNPAUSED
+		} else {
+			status = ec.PauseStatusResponse_PAUSED
 		}
-		return &ec.PauseStatusResponse{
-			Status: ec.PauseStatusResponse_PAUSED,
-		}, nil
 	case sawAfter:
 		// everything has cycled; configmap has taken effect
 		if c.Data["MODE"] == "paused" {
-			return &ec.PauseStatusResponse{
-				Status: ec.PauseStatusResponse_PAUSED,
-			}, nil
+			status = ec.PauseStatusResponse_PAUSED
+		} else {
+			status = ec.PauseStatusResponse_UNPAUSED
 		}
-		return &ec.PauseStatusResponse{
-			Status: ec.PauseStatusResponse_UNPAUSED,
-		}, nil
 	default:
 		return nil, errors.Errorf("no paused or unpaused pachds found")
 	}
+	return &ec.PauseStatusResponse{
+		Status: status,
+	}, nil
 }
