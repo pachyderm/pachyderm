@@ -6,6 +6,5 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 (cd /pfs/benchmark
  echo "TIME:READ_BENCHMARK"
- time fio $SCRIPT_DIR/$(cat $SCRIPT_DIR/current_benchmark)
  time fio --rw=read --numjobs=$BENCH_NUMJOBS --filesize=$BENCH_FILESIZE --nrfiles=$BENCH_NRFILES --name=mount_server
 )

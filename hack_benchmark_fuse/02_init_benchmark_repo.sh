@@ -9,6 +9,5 @@ pachctl create repo benchmark || true
 curl -XPUT 'localhost:9002/repos/benchmark/master/_mount?name=benchmark&mode=rw'
 (cd /pfs/benchmark
  echo "TIME:WRITE_BENCHMARK"
- time strace fio --rw=write --numjobs=1 --filesize=10M --nrfiles=10 --name=mount_server
- #time strace fio $SCRIPT_DIR/$(cat $SCRIPT_DIR/current_benchmark)
+ time fio --rw=write --numjobs=$BENCH_NUMJOBS --filesize=$BENCH_FILESIZE --nrfiles=$BENCH_NRFILES --name=mount_server
 )
