@@ -352,7 +352,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 // Pause sets the cluster to paused mode, restarting all pachds in a paused
 // status.  If they are already paused, it is a no-op.
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
-	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
+	if a.env.Mode != UnpausedMode && a.env.Mode != PausedMode {
 		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
 	}
 	if err := a.rollPachd(ctx, true); err != nil {
@@ -488,7 +488,7 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
-	if a.env.Mode == SidecarMode || a.env.Mode == EnterpriseMode {
+	if a.env.Mode != PausedMode && a.env.Mode == UnpausedMode {
 		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
 	}
 	if err := a.rollPachd(ctx, false); err != nil {
