@@ -13,8 +13,8 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.1.1'
-pach_latest_version: '2.1.1'
+pach_featured_version: '2.1.3'
+pach_latest_version: '2.1.3'
 pach_major_minor_version: '2.1'
 search_index_version: 'latest'
 
@@ -163,6 +163,7 @@ nav:
             - Overview: how-tos/basic-data-operations/index.md
             - Ingest Your Data Into Pachyderm: 
                 - Load Data with pachctl: how-tos/basic-data-operations/load-data-into-pachyderm.md
+                - Use the SQL Ingest Tool: how-tos/basic-data-operations/sql-ingest.md
             - Export Your Data From Pachyderm:
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md

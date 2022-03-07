@@ -20,35 +20,30 @@ metadata:
 spec:
   ports:
   - name: api-grpc-port
+    # TODO: can we start serving enterprise server on 31650?
     {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
-    nodePort: 31650
-    port: 1650
-    {{- else }}
-    port: 30650
+    nodePort: {{ .Values.enterpriseServer.service.apiGRPCPort }}
     {{- end }}
+    port: {{ .Values.enterpriseServer.service.apiGRPCPort }}
     protocol: TCP
     targetPort: api-grpc-port
   - name: oidc-port
     {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
-    nodePort: 31657
-    port: 1657
-    {{ else }}
-    port: 31657
-    {{- end }}
+    nodePort: {{ .Values.enterpriseServer.service.oidcPort }}
+    {{ end }}
+    port: {{ .Values.enterpriseServer.service.oidcPort }}
     targetPort: oidc-port
   - name: identity-port
     {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
-    nodePort: 31658
-    port: 1658
-    {{ else }}
-    port: 31658
-    {{- end }}
+    nodePort: {{ .Values.enterpriseServer.service.identityPort }}
+    {{ end }}
+    port: {{ .Values.enterpriseServer.service.identityPort }}
     targetPort: identity-port
   - name: prom-metrics
     {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
-    nodePort: 31656
+    nodePort: {{ .Values.enterpriseServer.service.prometheusPort }}
     {{- end }}
-    port: 1656
+    port: {{ .Values.enterpriseServer.service.prometheusPort }}
     protocol: TCP
     targetPort: prom-metrics
   selector:

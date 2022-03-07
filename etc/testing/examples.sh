@@ -134,7 +134,6 @@ pushd examples/word_count/
         pachctl create pipeline -f reduce.json
     popd
 
-
     pachctl wait commit "reduce@master"
 
     # just make sure we outputted some files that were right
