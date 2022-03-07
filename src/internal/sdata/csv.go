@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"io"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -78,6 +77,8 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		// TODO: what to do here? might not be printable.
 		// Maybe have a list of base64 encoded columns.
 		y = string(*x)
+	case *time.Time:
+		y = x.Format(time.RFC3339Nano)
 	case *sql.NullInt16:
 		if x.Valid {
 			y = strconv.FormatInt(int64(x.Int16), 10)
@@ -144,9 +145,8 @@ func (p *csvParser) Next(row Tuple) error {
 		return errors.Errorf("csv parsing: wrong number of fields HAVE: %d WANT: %d ", len(rec), len(row))
 	}
 	for i := range row {
-		// row[i] will be a pointer to something
-		v := reflect.ValueOf(row[i])
-		if err := convert(v.Interface(), rec[i]); err != nil {
+		// row[i] will be a pointer to something. See Tuple comments
+		if err := convert(row[i], rec[i]); err != nil {
 			return err
 		}
 	}
