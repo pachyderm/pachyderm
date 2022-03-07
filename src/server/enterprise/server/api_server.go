@@ -37,6 +37,8 @@ const (
 
 	heartbeatFrequency = time.Hour
 	heartbeatTimeout   = time.Minute
+
+	updatedAtFieldName = "pachyderm.com/updatedAt"
 )
 
 type apiServer struct {
@@ -359,8 +361,6 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 
 	return &ec.PauseResponse{}, nil
 }
-
-const updatedAtFieldName = "pachyderm.com/updatedAt"
 
 // rollPachd changes pachds from paused to unpaused, or unpaused to paused.  It
 // does this by creating a ConfigMap with a MODE value, then updating the pachd
