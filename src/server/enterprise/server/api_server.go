@@ -488,7 +488,7 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
-	if a.env.Mode != PausedMode && a.env.Mode == UnpausedMode {
+	if a.env.Mode != PausedMode && a.env.Mode != UnpausedMode {
 		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
 	}
 	if err := a.rollPachd(ctx, false); err != nil {
