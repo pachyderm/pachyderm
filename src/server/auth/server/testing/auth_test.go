@@ -1142,6 +1142,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 			auth.Permission_PIPELINE_LIST_JOB,
+			auth.Permission_CLUSTER_ENTERPRISE_PAUSE_STATUS,
 		},
 		repoWriter: []auth.Permission{
 			auth.Permission_REPO_READ,
@@ -1158,6 +1159,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_ADD_PIPELINE_WRITER,
 			auth.Permission_REPO_INSPECT_FILE,
 			auth.Permission_PIPELINE_LIST_JOB,
+			auth.Permission_CLUSTER_ENTERPRISE_PAUSE_STATUS,
 		},
 		repoReader: []auth.Permission{
 			auth.Permission_REPO_READ,
@@ -1169,6 +1171,7 @@ func TestListAndInspectRepo(t *testing.T) {
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 			auth.Permission_REPO_INSPECT_FILE,
 			auth.Permission_PIPELINE_LIST_JOB,
+			auth.Permission_CLUSTER_ENTERPRISE_PAUSE_STATUS,
 		},
 	}
 	for _, info := range repoInfos {
