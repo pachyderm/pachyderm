@@ -201,7 +201,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv), true)
+				eprsserver.EnvFromServiceEnv(env, txnEnv, eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))), true)
 			if err != nil {
 				return err
 			}
@@ -332,7 +332,7 @@ func RunLocal() (retErr error) {
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv), false)
+				eprsserver.EnvFromServiceEnv(env, txnEnv, eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix))), false)
 			if err != nil {
 				return err
 			}
