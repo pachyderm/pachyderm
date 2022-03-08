@@ -171,6 +171,8 @@ spec:
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
           value: {{ .Values.pachd.securityContext.enabled | quote }}
+        - name: UNPAUSED_MODE
+          value: "full"
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret

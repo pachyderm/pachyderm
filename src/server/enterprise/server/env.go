@@ -30,27 +30,49 @@ type Env struct {
 
 	BackgroundContext context.Context
 	Namespace         string
-	Mode              PauseMode
+	mode              PauseMode
+	UnpausedMode      string
 }
 
 // PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
 type PauseMode uint8
 
 const (
-	UnpausedMode PauseMode = iota
+	UnpausableMode PauseMode = iota
+	FullMode
 	PausedMode
-	SidecarMode
-	EnterpriseMode
 )
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
-	return Env{
+type Option func(Env) Env
+
+func WithEtcdPrefix(etcdPrefix string) Option {
+	return func(e Env) Env {
+		e.EtcdPrefix = etcdPrefix
+		return e
+	}
+}
+
+func WithUnpausedMode(mode string) Option {
+	return func(e Env) Env {
+		e.UnpausedMode = mode
+		return e
+	}
+}
+
+func WithMode(mode PauseMode) Option {
+	return func(e Env) Env {
+		e.mode = mode
+		return e
+	}
+}
+
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txEnv *txnenv.TransactionEnv, options ...Option) Env {
+	e := Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
 		TxnEnv:   txEnv,
 
 		EtcdClient: senv.GetEtcdClient(),
-		EtcdPrefix: etcdPrefix,
 
 		AuthServer:    senv.AuthServer(),
 		GetPachClient: senv.GetPachClient,
@@ -59,6 +81,10 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 		BackgroundContext: senv.Context(),
 		Namespace:         senv.Config().Namespace,
 	}
+	for _, o := range options {
+		e = o(e)
+	}
+	return e
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {

@@ -186,7 +186,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
 	// must not activate while paused
-	if a.env.Mode == PausedMode {
+	if a.env.mode == PausedMode {
 		return nil, errors.New("cannot activate paused cluster; unpause first")
 	}
 	// Try to heartbeat before persisting the configuration
@@ -309,7 +309,7 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
 	// must not deactivate while paused
-	if a.env.Mode == PausedMode {
+	if a.env.mode == PausedMode {
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
@@ -352,8 +352,8 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 // Pause sets the cluster to paused mode, restarting all pachds in a paused
 // status.  If they are already paused, it is a no-op.
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
-	if a.env.Mode != UnpausedMode && a.env.Mode != PausedMode {
-		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
+	if a.env.mode == UnpausableMode {
+		return nil, errors.Errorf("this pachd instance is not in a pausable mode")
 	}
 	if err := a.rollPachd(ctx, true); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -389,15 +389,8 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 			return nil
 		}
 		// Since pachd-config is not managed by Helm, it may not exist.
-		c = &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "pachd-config",
-				Namespace: namespace,
-			},
-			Data: make(map[string]string),
-		}
+		c = newPachdConfigMap(namespace)
 		c.Data["MODE"] = "paused"
-		c.Data["previous-mode"] = "full"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
 			return errors.Errorf("could not create configmap: %w", err)
 		}
@@ -407,15 +400,10 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		// Curiously, Get can return no error and an empty configmap!
 		// If this happens, need to set the name and namespace.
 		if c.ObjectMeta.Name == "" {
-			c.ObjectMeta = metav1.ObjectMeta{
-				Name:      "pachd-config",
-				Namespace: namespace,
-			}
+			c = newPachdConfigMap(namespace)
 		}
 		if c.Data == nil {
 			c.Data = make(map[string]string)
-			c.Data["MODE"] = "full"
-			c.Data["previous-mode"] = "paused"
 		}
 		if paused && c.Data["MODE"] == "paused" {
 			// Short-circuit and do not update if configmap
@@ -430,12 +418,11 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 			// the pause status.
 			return nil
 		}
-		if c.Data["previous-mode"] == "" {
-			return errors.Errorf("empty previous-mode in pachd-config ConfigMap")
+		if paused {
+			c.Data["MODE"] = "paused"
+		} else {
+			c.Data["MODE"] = a.env.UnpausedMode
 		}
-		mode := c.Data["MODE"]
-		c.Data["MODE"] = c.Data["previous-mode"]
-		c.Data["previous-mode"] = mode
 		if c.Annotations == nil {
 			c.Annotations = make(map[string]string)
 		}
@@ -465,6 +452,16 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 	return nil
 }
 
+func newPachdConfigMap(namespace string) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pachd-config",
+			Namespace: namespace,
+		},
+		Data: map[string]string{"MODE": "full"},
+	}
+}
+
 func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace string) error {
 	rc := kc.CoreV1().ReplicationControllers(namespace)
 	ww, err := rc.List(ctx, metav1.ListOptions{
@@ -488,8 +485,8 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
-	if a.env.Mode != PausedMode && a.env.Mode != UnpausedMode {
-		return nil, errors.Errorf("cannot pause a sidecar or enterprise server")
+	if a.env.mode == UnpausableMode {
+		return nil, errors.Errorf("this pachd instance is not in a pausable mode")
 	}
 	if err := a.rollPachd(ctx, false); err != nil {
 		return nil, errors.EnsureStack(err)
