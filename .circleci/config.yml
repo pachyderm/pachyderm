@@ -17,7 +17,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
     environment:
@@ -159,7 +159,7 @@ jobs:
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
   deploy:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
     steps:

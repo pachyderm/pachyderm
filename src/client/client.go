@@ -376,6 +376,11 @@ func getCertOptionsFromEnv() ([]Option, error) {
 	return options, nil
 }
 
+func GetUserMachineAddr(context *config.Context) (addr *grpcutil.PachdAddress, err error) {
+	addr, _, err = getUserMachineAddrAndOpts(context)
+	return
+}
+
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
