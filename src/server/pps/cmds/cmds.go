@@ -54,7 +54,16 @@ const (
 
 // Cmds returns a slice containing pps commands.
 func Cmds() []*cobra.Command {
+	return cmdsByMode(false)
+}
+
+func DebugCmds() []*cobra.Command {
+	return cmdsByMode(true)
+}
+
+func cmdsByMode(debugMode bool) []*cobra.Command {
 	var commands []*cobra.Command
+	var debugCommands []*cobra.Command
 
 	var raw bool
 	var output string
@@ -115,6 +124,7 @@ If the job fails, the output commit will not be populated with data.`,
 	inspectJob.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
+	debugCommands = append(debugCommands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
 
 	writeJobInfos := func(out io.Writer, jobInfos []*pps.JobInfo) error {
 		if raw {
@@ -318,14 +328,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+		func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-p" || flag == "--pipeline" {
-				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				cs, cf := shell.PipelineCompletion(c, flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}
-			return shell.JobSetCompletion(flag, text, maxCompletions)
+			return shell.JobSetCompletion(c, flag, text, maxCompletions)
 		})
 	commands = append(commands, cmdutil.CreateAliases(listJob, "list job", jobs))
+	debugCommands = append(debugCommands, cmdutil.CreateAliases(listJob, "list job", jobs))
 
 	deleteJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
@@ -659,18 +670,19 @@ each datum.`,
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
 	shell.RegisterCompletionFunc(getLogs,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+		func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "--pipeline" || flag == "-p" {
-				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				cs, cf := shell.PipelineCompletion(c, flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}
 			if flag == "--job" || flag == "-j" {
-				cs, cf := shell.JobCompletion(flag, text, maxCompletions)
+				cs, cf := shell.JobCompletion(c, flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}
 			return nil, shell.SameFlag(flag)
 		})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
+	debugCommands = append(debugCommands, cmdutil.CreateAlias(getLogs, "logs"))
 
 	pipelineDocs := &cobra.Command{
 		Short: "Docs for pipelines.",
@@ -773,6 +785,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
+	debugCommands = append(debugCommands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
 	var editorArgs []string
@@ -933,6 +946,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
+	debugCommands = append(debugCommands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var (
 		all      bool
@@ -1189,6 +1203,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "p", "", "The pod patch file to use for the pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
+	if debugMode {
+		return debugCommands
+	}
 	return commands
 }
 

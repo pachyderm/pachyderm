@@ -16,8 +16,10 @@ import (
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -25,20 +27,25 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-func NewServer(filePath string) *testpachd.MockPachd {
+func NewDumpServer(filePath string) *debugDump {
 	mock, err := testpachd.NewMockPachd(context.TODO())
 	if err != nil {
 		panic(err)
 	}
 
-	d := debugDump{filePath}
+	d := &debugDump{
+		path: filePath,
+		mock: mock,
+	}
 
 	mock.PFS.ListRepo.Use(d.listRepo)
 	mock.PFS.ListCommit.Use(d.listCommit)
 	mock.PFS.ListCommitSet.Use(d.listCommitSet)
+	mock.PFS.ListBranch.Use(d.listBranch)
 	mock.PFS.InspectRepo.Use(d.inspectRepo)
 	mock.PFS.InspectCommit.Use(d.inspectCommit)
 	mock.PFS.InspectCommitSet.Use(d.inspectCommitSet)
+	mock.PFS.InspectBranch.Use(d.inspectBranch)
 
 	//mock.PPS.ListPipeline
 	//mock.PPS.ListJob
@@ -47,12 +54,15 @@ func NewServer(filePath string) *testpachd.MockPachd {
 	//mock.PPS.InspectJob
 	//mock.PPS.InspectJobSet
 
-	return mock
+	mock.PPS.GetLogs.Use(d.getLogs)
+
+	return d
 }
 
 // TODO: caching?
 type debugDump struct {
 	path string
+	mock *testpachd.MockPachd
 }
 
 func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error {
@@ -118,7 +128,7 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 	if err := d.globTarProtos(glob, &ci, func(_ string) error {
 		found = true
 		return nil
-	}, func(_ string) error {
+	}, func() error {
 		if req.All ||
 			(req.OriginKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN && ci.Origin.Kind == req.OriginKind) ||
 			ci.Origin.Kind != pfs.OriginKind_ALIAS {
@@ -251,5 +261,78 @@ func (d *debugDump) inspectCommitSet(req *pfs.InspectCommitSetRequest, srv pfs.A
 			break // ignore other branches
 		}
 		return nil
+	})
+}
+
+func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) error {
+	glob := fmt.Sprintf(commitPatternFormatString, req.Repo.Name)
+	var ci pfs.CommitInfo
+	var found bool
+	branchSet := make(map[string]bool)
+	err := d.globTarProtos(glob, &ci, func(_ string) error {
+		found = true
+		return nil
+	}, func() error {
+		if branchSet[ci.Commit.Branch.Name] {
+			return nil
+		}
+		branchSet[ci.Commit.Branch.Name] = true
+		return srv.Send(&pfs.BranchInfo{
+			Branch:           ci.Commit.Branch,
+			Head:             ci.Commit,
+			DirectProvenance: ci.DirectProvenance,
+		})
+	})
+	if err != nil {
+
+	}
+	if !found {
+		return pfsserver.ErrRepoNotFound{Repo: req.Repo}
+	}
+	return nil
+}
+
+func (d *debugDump) inspectBranch(_ context.Context, req *pfs.InspectBranchRequest) (*pfs.BranchInfo, error) {
+	glob := fmt.Sprintf(commitPatternFormatString, req.Branch.Repo.Name)
+	var ci pfs.CommitInfo
+	var bi *pfs.BranchInfo
+	var found bool
+	err := d.globTarProtos(glob, &ci, func(_ string) error {
+		found = true
+		return nil
+	}, func() error {
+		if ci.Commit.Branch.Name != req.Branch.Name {
+			return nil
+		}
+		bi = &pfs.BranchInfo{
+			Branch:           ci.Commit.Branch,
+			Head:             ci.Commit, // will be inaccurate if the head is moved to an old commit
+			DirectProvenance: ci.DirectProvenance,
+		}
+		return errutil.ErrBreak
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, pfsserver.ErrRepoNotFound{Repo: req.Branch.Repo}
+	}
+	if bi == nil {
+		return nil, pfsserver.ErrBranchNotFound{Branch: req.Branch}
+	}
+	return bi, nil
+}
+
+func (d *debugDump) getLogs(req *pps.GetLogsRequest, srv pps.API_GetLogsServer) error {
+	var glob string
+	var plainText bool
+	if req.Pipeline == nil && req.Job == nil {
+		glob = "pachd/*/pachd/logs.txt"
+		plainText = true
+	} else {
+		glob = fmt.Sprintf("pipelines/%s/pods/*/logs.txt", req.Pipeline.Name)
+	}
+	return d.globTar(glob, func(_ string, r io.Reader) error {
+		return ppsutil.FilterLogLines(req, r, plainText, srv.Send)
 	})
 }

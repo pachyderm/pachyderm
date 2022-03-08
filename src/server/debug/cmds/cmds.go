@@ -113,8 +113,8 @@ func Cmds() []*cobra.Command {
 		Short: "Open a shell to analyze a debug dump.",
 		Long:  "Open a shell to analyze a debug dump.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			mockPachd := shell.NewServer(args[0])
-			shell.Run(nil, 0, mockPachd.Addr.String())
+			dump := shell.NewDumpServer(args[0])
+			shell.Run(64, dump)
 			return nil
 		}),
 	}

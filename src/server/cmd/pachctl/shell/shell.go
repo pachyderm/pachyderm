@@ -9,6 +9,7 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/spf13/cobra"
@@ -50,7 +51,7 @@ func AndCacheFunc(fs ...CacheFunc) CacheFunc {
 }
 
 // CompletionFunc is a function which returns completions for a command.
-type CompletionFunc func(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc)
+type CompletionFunc func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc)
 
 var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
 
@@ -80,15 +81,19 @@ type shell struct {
 	completionID string
 	suggests     []prompt.Suggest
 	cacheF       CacheFunc
+
+	getClient   func() *client.APIClient
+	closeClient func() error
 }
 
-func newShell(rootCmd *cobra.Command, maxCompletions int64) *shell {
+func newShell(rootCmd *cobra.Command, maxCompletions int64, getClient func() *client.APIClient) *shell {
 	if maxCompletions == 0 {
 		maxCompletions = defaultMaxCompletions
 	}
 	return &shell{
 		rootCmd:        rootCmd,
 		maxCompletions: maxCompletions,
+		getClient:      getClient,
 	}
 }
 
@@ -105,15 +110,28 @@ func (s *shell) executor(in string) {
 }
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
+	return SuggestFromCommand(s.rootCmd, in, s.maxCompletions, func(id, text, flag string, fn CompletionFunc) []prompt.Suggest {
+		if s.completionID != id || s.cacheF == nil || !s.cacheF(flag, text) {
+			s.completionID = id
+			s.suggests, s.cacheF = fn(s.getClient(), flag, text, s.maxCompletions)
+		}
+		return s.suggests
+	})
+}
+
+func SuggestFromCommand(
+	cmd *cobra.Command,
+	in prompt.Document,
+	maxCompletions int64,
+	cache func(string, string, string, CompletionFunc) []prompt.Suggest) []prompt.Suggest {
 	args := strings.Fields(in.Text)
 	if len(strings.TrimSuffix(in.Text, " ")) < len(in.Text) {
 		args = append(args, "")
 	}
-	cmd := s.rootCmd
 	text := ""
 	if len(args) > 0 {
 		var err error
-		cmd, _, err = s.rootCmd.Traverse(args[:len(args)-1])
+		cmd, _, err = cmd.Traverse(args[:len(args)-1])
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -141,27 +159,27 @@ func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
 		return result
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
-		completionFunc := completions[id]
-		if s.completionID != id || s.cacheF == nil || !s.cacheF(flag, text) {
-			s.completionID = id
-			s.suggests, s.cacheF = completionFunc(flag, text, s.maxCompletions)
-		}
-		var result []prompt.Suggest
-		for _, sug := range s.suggests {
-			sText := sug.Text
-			if len(text) < len(sText) {
-				sText = sText[:len(text)]
-			}
-			if ld(sText, text, true) < ldThreshold {
-				result = append(result, sug)
-			}
-			if int64(len(result)) > s.maxCompletions {
-				break
-			}
-		}
-		return result
+		suggestions := cache(id, flag, text, completions[id])
+		return TrimSuggestionList(text, suggestions, int(maxCompletions))
 	}
 	return nil
+}
+
+func TrimSuggestionList(text string, suggestions []prompt.Suggest, maxCompletions int) []prompt.Suggest {
+	var result []prompt.Suggest
+	for _, sug := range suggestions {
+		sText := sug.Text
+		if len(text) < len(sText) {
+			sText = sText[:len(text)]
+		}
+		if ld(sText, text, true) < ldThreshold {
+			result = append(result, sug)
+		}
+		if len(result) > maxCompletions {
+			break
+		}
+	}
+	return result
 }
 
 func (s *shell) clearCache() {
@@ -194,14 +212,16 @@ func (s *shell) run() {
 			return fmt.Sprintf("context:(%s) >>> ", activeContext), true
 		}),
 	).Run()
-	if err := closePachClient(); err != nil {
-		log.Fatal(err)
+	if pachClient != nil {
+		if err := pachClient.Close(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
 // Run runs a prompt, it does not return.
 func Run(rootCmd *cobra.Command, maxCompletions int64) {
-	newShell(rootCmd, maxCompletions).run()
+	newShell(rootCmd, maxCompletions, getPachClient).run()
 }
 
 // ld computes the Levenshtein Distance for two strings.
@@ -238,4 +258,17 @@ func ld(s, t string, ignoreCase bool) int {
 
 	}
 	return d[len(s)][len(t)]
+}
+
+func RunCustom(rootCmd *cobra.Command, title string, c *client.APIClient, maxCompletions int64, execute func(in string)) {
+	s := newShell(rootCmd, maxCompletions, func() *client.APIClient { return c })
+
+	fmt.Printf("Type 'exit' or press Ctrl-D to exit.\n")
+	color.NoColor = true
+	prompt.New(
+		execute,
+		s.suggestor,
+		prompt.OptionPrefix(">>> "),
+		prompt.OptionTitle(title),
+	).Run()
 }

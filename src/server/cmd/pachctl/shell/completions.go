@@ -64,16 +64,8 @@ func getPachClient() *client.APIClient {
 	return pachClient
 }
 
-func closePachClient() error {
-	if pachClient == nil {
-		return nil
-	}
-	return pachClient.Close()
-}
-
 // RepoCompletion completes repo parameters of the form <repo>
-func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func RepoCompletion(c *client.APIClient, _, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	ris, err := c.ListRepo()
 	if err != nil {
 		return nil, CacheNone
@@ -89,14 +81,13 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 }
 
 // BranchCompletion completes branch parameters of the form <repo>@<branch>
-func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func BranchCompletion(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	partialFile := cmdutil.ParsePartialFile(text)
 	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
 	case repoPart:
-		return RepoCompletion(flag, text, maxCompletions)
+		return RepoCompletion(c, flag, text, maxCompletions)
 	case commitOrBranchPart:
 		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
@@ -145,16 +136,15 @@ func abs(i int) int {
 }
 
 // FileCompletion completes file parameters of the form <repo>@<branch>:/file
-func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func FileCompletion(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	partialFile := cmdutil.ParsePartialFile(text)
 	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
 	case repoPart:
-		return RepoCompletion(flag, text, maxCompletions)
+		return RepoCompletion(c, flag, text, maxCompletions)
 	case commitOrBranchPart:
-		return BranchCompletion(flag, text, maxCompletions)
+		return BranchCompletion(c, flag, text, maxCompletions)
 	case filePart:
 		if err := c.GlobFile(partialFile.Commit, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
@@ -197,8 +187,7 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 }
 
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
-func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func PipelineCompletion(c *client.APIClient, _, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{Details: true})
 	if err != nil {
 		return nil, CacheNone
@@ -241,8 +230,7 @@ func jobSetDesc(jsi *pps.JobSetInfo) string {
 }
 
 // JobCompletion completes job parameters of the form <job-set>
-func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func JobSetCompletion(c *client.APIClient, _, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	var result []prompt.Suggest
 	listJobSetClient, err := c.PpsAPIClient.ListJobSet(c.Ctx(), &pps.ListJobSetRequest{})
 	if err != nil {
@@ -271,8 +259,7 @@ func jobDesc(ji *pps.JobInfo) string {
 }
 
 // JobCompletion completes job parameters of the form <job>
-func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func JobCompletion(c *client.APIClient, _, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	var result []prompt.Suggest
 	if err := c.ListJobF("", nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {

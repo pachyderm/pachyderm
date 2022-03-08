@@ -500,7 +500,7 @@ func Cmds() []*cobra.Command {
 	return commands
 }
 
-func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+func contextCompletion(_ *client.APIClient, _, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		log.Fatal(err)
