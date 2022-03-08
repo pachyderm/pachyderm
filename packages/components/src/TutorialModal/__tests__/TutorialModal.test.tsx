@@ -102,6 +102,10 @@ const stories: Story[] = [
         ),
       },
       {
+        header: 'Section without Task',
+        info: 'This is a section without a task.',
+      },
+      {
         isSubHeader: true,
         header: 'Viewing commits in Console',
         info: (

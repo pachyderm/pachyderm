@@ -105,7 +105,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             onClick={handleNextStory}
             disabled={
               currentStory === stories.length - 1 ||
-              currentTask <= stories[currentStory]?.sections.length - 1
+              currentTask <= taskSections.length - 1
             }
             data-testid="TutorialModalBody__nextStory"
           >
