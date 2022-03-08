@@ -28,6 +28,7 @@ export class MountPlugin implements IMountPlugin {
 
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
+  private _readyPromise: Promise<void> = Promise.resolve();
 
   constructor(
     app: JupyterFrontEnd,
@@ -37,7 +38,8 @@ export class MountPlugin implements IMountPlugin {
   ) {
     this._app = app;
     this._poller = new PollRepos('PollRepos');
-    this.setup();
+
+    this._readyPromise = this.setup();
 
     this._config = ReactWidget.create(
       <UseSignal signal={this._showConfigSignal}>
@@ -184,5 +186,9 @@ export class MountPlugin implements IMountPlugin {
 
   get layout(): SplitPanel {
     return this._panel;
+  }
+
+  get ready(): Promise<void> {
+    return this._readyPromise;
   }
 }

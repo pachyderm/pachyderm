@@ -78,6 +78,7 @@ describe('mount plugin', () => {
 
   it('should poll for repos', async () => {
     mockRequestAPI.requestAPI
+      .mockImplementationOnce(mockedRequestAPI(defaultRepos)) // call to api from setup function, part of auth flow.
       .mockImplementationOnce(mockedRequestAPI(defaultRepos))
       .mockImplementationOnce(
         mockedRequestAPI([
@@ -99,12 +100,15 @@ describe('mount plugin', () => {
         ]),
       );
     const plugin = new MountPlugin(app, docManager, factory, restorer);
+
+    await plugin.ready;
+
     jest.runAllTimers();
     await waitFor(() => {
       expect(plugin.unmountedRepos.length).toEqual(2);
       expect(plugin.unmountedRepos[0].repo).toEqual('images');
       expect(plugin.unmountedRepos[1].repo).toEqual('data');
-      expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(1);
+      expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(2);
     });
     jest.runAllTimers();
     await waitFor(() => {
@@ -112,7 +116,7 @@ describe('mount plugin', () => {
       expect(plugin.unmountedRepos[0].repo).toEqual('data');
       expect(plugin.mountedRepos.length).toEqual(1);
       expect(plugin.mountedRepos[0].repo).toEqual('images');
-      expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(2);
+      expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -121,9 +125,10 @@ describe('mount plugin', () => {
     expect(plugin.layout.title.caption).toEqual('Pachyderm Mount');
     expect(plugin.layout.id).toEqual('pachyderm-mount');
     expect(plugin.layout.orientation).toEqual('vertical');
-    expect(plugin.layout.widgets.length).toEqual(3);
+    expect(plugin.layout.widgets.length).toEqual(4);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(FileBrowser);
+    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
   });
 });

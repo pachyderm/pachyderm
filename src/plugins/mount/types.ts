@@ -37,4 +37,5 @@ export interface IMountPlugin {
   mountedRepos: Repo[];
   unmountedRepos: Repo[];
   layout: SplitPanel;
+  ready: Promise<void>;
 }
