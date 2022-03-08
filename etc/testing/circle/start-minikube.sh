@@ -9,6 +9,8 @@ VERSION=v1.19.0
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
+  "--cpus=7"
+  "--memory=12Gi"
 )
 while getopts ":v" opt; do
   case "${opt}" in

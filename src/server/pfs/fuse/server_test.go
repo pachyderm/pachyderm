@@ -295,6 +295,30 @@ func TestAuthLoginLogout(t *testing.T) {
 	})
 }
 
+func TestUnauthenticatedCode(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	c := tu.GetUnauthenticatedPachClient(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, _ := get("repos")
+		require.Equal(t, 200, resp.StatusCode)
+	})
+
+	tu.ActivateAuth(t)
+	c = tu.GetUnauthenticatedPachClient(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, _ := get("repos")
+		require.Equal(t, 401, resp.StatusCode)
+	})
+
+	c = tu.GetAuthenticatedPachClient(t, "test")
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, _ := get("repos")
+		require.Equal(t, 200, resp.StatusCode)
+	})
+}
+
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
 func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {

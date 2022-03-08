@@ -1,4 +1,3 @@
-
 # Local Installation  
   
 This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®.   
@@ -141,7 +140,7 @@ with a Pachyderm cluster in your terminal.
   
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
-## Deploy Pachyderm's Latest Version (Option: Deploy Pachyderm With Console)  
+## Deploy Pachyderm Latest Community Edition (Option: Deploy Pachyderm With Console)  
   
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
   
@@ -157,7 +156,7 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
    ```  
  * Install Pachyderm:  
 
-=== "Install Pachyderm's latest version"
+=== "Install Pachyderm latest Community Edition version"
       This command will install Pachyderm's latest available GA version.
 
       ```shell  
@@ -173,7 +172,7 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
 
 !!! Note  "When deploying locally with Console"
      * You will need an Enterprise Key. To request a FREE trial enterprise license key, [click here](../../enterprise). 
-     * We create a default mock user (username:`admin`, password: `password`) to authenticate to Console without the hassle of connecting your Identity Provider. 
+     * We create a default mock user (username:`admin`, password: `password`) to authenticate to Console without having to connect your Identity Provider. 
 
 !!! Info "See Also"
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
@@ -189,22 +188,20 @@ Because Pachyderm needs to pull the Pachyderm Docker image
 from DockerHub, it might take a few minutes for the Pachyderm pods status
 to change to `Running`.
 
-
 ```shell
 kubectl get pods
 ```
 
 **System Response:**
+At a very minimum, you should see the following pods (console depends on your choice above): 
 
 ```shell
-NAME                                    READY   STATUS    RESTARTS   AGE
-console-7f4b749444-78kzz                1/1     Running   0          6h
-etcd-0                                  1/1     Running   0          6h
-loki-0                                  1/1     Running   0          6h
-loki-promtail-zz8ch                     1/1     Running   0          6h
-pachd-5f6c956647-cj9g8                  1/1     Running   4          6h
-postgres-0                              1/1     Running   0          6h
-release-name-traefik-5659968869-v58j9   1/1     Running   0          6h
+NAME                                           READY   STATUS      RESTARTS   AGE
+pod/console-5b67678df6-s4d8c                   1/1     Running     0          2m8s
+pod/etcd-0                                     1/1     Running     0          2m8s
+pod/pachd-c5848b5c7-zwb8p                      1/1     Running     0          2m8s
+pod/pg-bouncer-7b855cb797-jqqpx                1/1     Running     0          2m8s
+pod/postgres-0                                 1/1     Running     0          2m8s
 ```
 
 If you see a few restarts on the `pachd` nodes, that means that
@@ -228,19 +225,24 @@ The easiest way to have `pachctl` connect to your local cluster is to use the `p
         pachctl config set active-context local
         ```
 
-    - Then run `pachctl port-forward` (Background this process in a new tab of your terminal).
+    - Then run:
+
+        ```shell
+        pachctl port-forward
+        ``` 
+        Background this process in a new tab of your terminal.
 
     - If you have deployed with Console:
 
-            - To connect to your Console (Pachyderm UI), point your browser to `localhost:4000` 
-            and authenticate using `admin` & `password`.
+        - To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`** 
+        and authenticate using the mock User (username: `admin`, password: `password`).
 
-            - Alternatively, you can connect to your Console (Pachyderm UI) directly by
-            pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP `http://<dockerDesktopIdaddress-or-minikube>:4000/` 
-            then authenticate using `admin` & `password`.
+        - Alternatively, you can connect to your Console (Pachyderm UI) directly by
+        pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP **`http://<dockerDesktopIdaddress-or-minikube>:4000/`** 
+        then authenticate using the mock User (username: `admin`, password: `password`).
 
-            - Note that you will need to run `pachctl auth login` then
-            authenticate to Pachyderm with the mock User (`username`, `password`) to use `pachctl`.
+        - To use `pachctl`, you will need to run `pachctl auth login` then
+        authenticate again (to Pachyderm this time) with the mock User (username: `admin`, password: `password`).
 
 
 * Verify that `pachctl` and your cluster are connected. 

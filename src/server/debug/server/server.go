@@ -472,7 +472,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 			return errors.EnsureStack(err)
 		}
 		return clientsdk.ForEachCommit(client, func(ci *pfs.CommitInfo) error {
-			if ci.Finished != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
+			if ci.Finished != nil && ci.Details != nil && ci.Details.CompactingTime != nil && ci.Details.ValidatingTime != nil {
 				compactingDuration, err := types.DurationFromProto(ci.Details.CompactingTime)
 				if err != nil {
 					return errors.EnsureStack(err)
