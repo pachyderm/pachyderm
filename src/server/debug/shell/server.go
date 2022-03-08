@@ -15,12 +15,15 @@ import (
 
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -47,12 +50,12 @@ func NewDumpServer(filePath string) *debugDump {
 	mock.PFS.InspectCommitSet.Use(d.inspectCommitSet)
 	mock.PFS.InspectBranch.Use(d.inspectBranch)
 
-	//mock.PPS.ListPipeline
-	//mock.PPS.ListJob
-	//mock.PPS.ListJobSet
-	//mock.PPS.InspectPipeline
-	//mock.PPS.InspectJob
-	//mock.PPS.InspectJobSet
+	mock.PPS.ListPipeline.Use(d.listPipeline)
+	mock.PPS.ListJob.Use(d.listJob)
+	mock.PPS.ListJobSet.Use(d.listJobSet)
+	mock.PPS.InspectPipeline.Use(d.inspectPipeline)
+	mock.PPS.InspectJob.Use(d.inspectJob)
+	mock.PPS.InspectJobSet.Use(d.inspectJobSet)
 
 	mock.PPS.GetLogs.Use(d.getLogs)
 
@@ -120,6 +123,8 @@ func (d *debugDump) globTarProtos(glob string, template proto.Message, onFile fu
 }
 
 const commitPatternFormatString = `{{source,input}-repos,pipelines}/%s/commits{,\.json}`
+const jobPatternFormatString = `pipelines/%s/jobs{,\.json}`
+const pipelineSpecPatternFormatString = `pipelines/%s/spec{,\.json}`
 
 func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommitServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, req.Repo.Name)
@@ -145,19 +150,43 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 }
 
 func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+	targetID, ancestors, err := ancestry.Parse(req.Commit.ID)
+	var targetBranch string
+	if err != nil {
+		return nil, err
+	}
+	if targetID == "" {
+		targetBranch = req.Commit.Branch.Name
+	} else if !uuid.IsUUIDWithoutDashes(targetID) {
+		targetBranch = targetID
+	}
 	glob := fmt.Sprintf(commitPatternFormatString, req.Commit.Branch.Repo.Name)
 	var info pfs.CommitInfo
 	var found bool
-	err := d.globTarProtos(glob, &info, func(_ string) error {
+	if err := d.globTarProtos(glob, &info, func(_ string) error {
 		found = true
 		return nil
 	}, func() error {
-		if proto.Equal(info.Commit, req.Commit) {
-			return errutil.ErrBreak
+		// check for match and traverse ancestry
+		var match bool
+		if targetBranch != "" {
+			// assume the first we see on this branch is the current head
+			match = info.Commit.Branch.Name == targetBranch
+		} else {
+			match = info.Commit.ID == targetID
+		}
+		if match {
+			if ancestors == 0 {
+				return errutil.ErrBreak
+			} else {
+				// this will fail for negative/future ancestry, but I doubt people use that anyway
+				ancestors--
+				targetBranch = ""
+				targetID = info.ParentCommit.ID
+			}
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	if !found {
@@ -245,22 +274,12 @@ func (d *debugDump) listCommitSet(req *pfs.ListCommitSetRequest, srv pfs.API_Lis
 
 func (d *debugDump) inspectCommitSet(req *pfs.InspectCommitSetRequest, srv pfs.API_InspectCommitSetServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, "*")
-	return d.globTar(glob, func(path string, r io.Reader) error {
-		var ci pfs.CommitInfo
-		dec := json.NewDecoder(r)
-		for dec.More() {
-			if err := jsonpb.UnmarshalNext(dec, &ci); err != nil {
-				return err
-			}
-			if ci.Commit.ID != req.CommitSet.ID {
-				continue
-			}
-			if err := srv.Send(&ci); err != nil {
-				return err
-			}
-			break // ignore other branches
+	var info pfs.CommitInfo
+	return d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+		if info.Commit.ID != req.CommitSet.ID {
+			return nil
 		}
-		return nil
+		return srv.Send(&info)
 	})
 }
 
@@ -334,5 +353,142 @@ func (d *debugDump) getLogs(req *pps.GetLogsRequest, srv pps.API_GetLogsServer) 
 	}
 	return d.globTar(glob, func(_ string, r io.Reader) error {
 		return ppsutil.FilterLogLines(req, r, plainText, srv.Send)
+	})
+}
+
+func (d *debugDump) listJob(req *pps.ListJobRequest, srv pps.API_ListJobServer) error {
+	glob := fmt.Sprintf(jobPatternFormatString, req.Pipeline)
+	var found bool
+	var info pps.JobInfo
+	if err := d.globTarProtos(glob, &info, func(_ string) error {
+		found = true
+		return nil
+	}, func() error {
+		return srv.Send(&info)
+	}); err != nil {
+		return err
+	}
+	if !found {
+		return ppsserver.ErrPipelineNotFound{Pipeline: req.Pipeline}
+	}
+	return nil
+}
+
+func (d *debugDump) inspectJob(_ context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
+	glob := fmt.Sprintf(jobPatternFormatString, req.Job.Pipeline)
+	var info pps.JobInfo
+	var found bool
+	err := d.globTarProtos(glob, &info, func(_ string) error {
+		found = true
+		return nil
+	}, func() error {
+		if proto.Equal(info.Job, req.Job) {
+			return errutil.ErrBreak
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, ppsserver.ErrPipelineNotFound{Pipeline: req.Job.Pipeline}
+	}
+	if info.Job == nil {
+		return nil, fmt.Errorf("job %v not found", req.Job)
+	}
+	return &info, nil
+}
+
+func (d *debugDump) listPipeline(req *pps.ListPipelineRequest, srv pps.API_ListPipelineServer) error {
+	target := "*"
+	if req.Pipeline != nil {
+		target = req.Pipeline.Name
+	}
+	glob := fmt.Sprintf(pipelineSpecPatternFormatString, target)
+	var info pps.PipelineInfo
+	var counter int
+	return d.globTarProtos(glob, &info, func(_ string) error {
+		counter = 0
+		return nil
+	}, func() error {
+		if err := srv.Send(&info); err != nil {
+			return err
+		}
+		counter++
+		if counter > int(req.History) && req.History >= 0 {
+			return errutil.ErrBreak
+		}
+		return nil
+	})
+}
+
+func (d *debugDump) inspectPipeline(_ context.Context, req *pps.InspectPipelineRequest) (*pps.PipelineInfo, error) {
+	name, ancestors, err := ancestry.Parse(req.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+	glob := fmt.Sprintf(pipelineSpecPatternFormatString, name)
+	var info pps.PipelineInfo
+	var found bool
+	if err := d.globTarProtos(glob, &info, func(_ string) error {
+		found = true
+		return nil
+	}, func() error {
+		if ancestors == 0 {
+			return errutil.ErrBreak
+		}
+		ancestors--
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, ppsserver.ErrPipelineNotFound{Pipeline: req.Pipeline}
+	}
+	return &info, nil
+}
+
+func (d *debugDump) listJobSet(req *pps.ListJobSetRequest, srv pps.API_ListJobSetServer) error {
+	glob := fmt.Sprintf(jobPatternFormatString, "*")
+	// TODO: streaming? presumably for a local tool memory use isn't really a concern
+	var info pps.JobInfo
+	jobMap := make(map[string][]*pps.JobInfo)
+	latestMap := make(map[string]time.Time)
+	if err := d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+		jobMap[info.Job.ID] = append(jobMap[info.Job.ID], proto.Clone(&info).(*pps.JobInfo))
+		asTime, _ := types.TimestampFromProto(info.Started)
+		if latestMap[info.Job.ID].Before(asTime) {
+			latestMap[info.Job.ID] = asTime
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	keys := make([]string, 0, len(jobMap))
+	for id := range jobMap {
+		keys = append(keys, id)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return latestMap[keys[i]].After(latestMap[keys[j]])
+	})
+	for _, id := range keys {
+		if err := srv.Send(&pps.JobSetInfo{
+			JobSet: client.NewJobSet(id),
+			Jobs:   jobMap[id],
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_InspectJobSetServer) error {
+	glob := fmt.Sprintf(jobPatternFormatString, "*")
+	var info pps.JobInfo
+	return d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+		if info.Job.ID != req.JobSet.ID {
+			return nil
+		}
+		return srv.Send(&info)
 	})
 }

@@ -8,24 +8,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	pachshell "github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
 
+	"github.com/c-bata/go-prompt"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 func rootCmd() *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:  os.Args[0],
-		Long: "Access the Pachyderm API",
-	}
-
+	rootCmd := &cobra.Command{}
 	var subcommands []*cobra.Command
 
 	subcommands = append(subcommands, pfscmds.DebugCmds()...)
@@ -41,7 +37,15 @@ $ {{alias}} heap
 
 # view pachd goroutine profile
 $ {{alias}} goro`,
+		Run: func(_ *cobra.Command, _ []string) {}, // just to show up in suggestions
 	}
+	pachshell.RegisterCompletionFunc(profile, func(_ *client.APIClient, flag, text string, _ int64) ([]prompt.Suggest, pachshell.CacheFunc) {
+		return []prompt.Suggest{{
+			Text: "heap",
+		}, {
+			Text: "goroutine",
+		}}, nil
+	})
 	subcommands = append(subcommands, cmdutil.CreateAlias(profile, "profile"))
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
@@ -49,6 +53,9 @@ $ {{alias}} goro`,
 }
 
 func (d *debugDump) execute(in string) {
+	if in == "" {
+		return
+	}
 	if in == "exit" {
 		os.Exit(0)
 	}
@@ -59,7 +66,7 @@ func (d *debugDump) execute(in string) {
 	}
 
 	cmd := exec.Command("bash")
-	cmd.Stdin = strings.NewReader(fmt.Sprintf("PACH_DIRECT_PACHD_ADDRESS=%s pachctl "+in, d.mock.Addr.String()))
+	cmd.Stdin = strings.NewReader(fmt.Sprintf("PACH_DEBUG_DIRECT_ADDRESS=%s pachctl "+in, d.mock.Addr.String()))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
