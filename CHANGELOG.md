@@ -1,5 +1,16 @@
 # Changelog
 <!-- <START NEW CHANGELOG ENTRY> -->
+# 0.3.0-beta1
+New Feature: Auth screen added
+
+eb68e29 fixing tests (#89)
+8d79fe7 fix for unmounted repo button (#87)
+48e88fa Move updating config to python backend (#80)
+7d669b0 Authentication for Mount (#81)
+43de072 Return 401 from BE to FE (#84)
+bab0d55 Use mount server unmount all handler (#77)
+bcc43c2 Mounted Branch Status and Redesign (#78)
+7cffd80 Cluster and auth backend (#72)
 
 # 0.2.0-beta1
 
