@@ -79,7 +79,7 @@ export class MountPlugin implements IMountPlugin {
               </button>
             </div>
             <SortableList
-              open={open}
+              open={this.open}
               repos={mounted ? mounted : this._poller.mounted}
             />
           </div>
