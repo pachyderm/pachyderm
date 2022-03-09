@@ -378,8 +378,8 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 // ConfigMap and the '$(MODE)' reference is verbatim.
 func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 	var (
-		kc        *kubernetes.Clientset = a.env.GetKubeClient()
-		namespace                       = a.env.Namespace
+		kc        *kubernetes.Clientset = a.env.getKubeClient()
+		namespace                       = a.env.namespace
 	)
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
@@ -389,7 +389,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 			return nil
 		}
 		// Since pachd-config is not managed by Helm, it may not exist.
-		c = newPachdConfigMap(namespace, a.env.UnpausedMode)
+		c = newPachdConfigMap(namespace, a.env.unpausedMode)
 		c.Data["MODE"] = "paused"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
 			return errors.Errorf("could not create configmap: %w", err)
@@ -400,7 +400,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		// Curiously, Get can return no error and an empty configmap!
 		// If this happens, need to set the name and namespace.
 		if c.ObjectMeta.Name == "" {
-			c = newPachdConfigMap(namespace, a.env.UnpausedMode)
+			c = newPachdConfigMap(namespace, a.env.unpausedMode)
 		}
 		if c.Data == nil {
 			c.Data = make(map[string]string)
@@ -421,7 +421,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		if paused {
 			c.Data["MODE"] = "paused"
 		} else {
-			c.Data["MODE"] = a.env.UnpausedMode
+			c.Data["MODE"] = a.env.unpausedMode
 		}
 		if c.Annotations == nil {
 			c.Annotations = make(map[string]string)
@@ -509,8 +509,8 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 // after the ConfigMap was updated then it has taken effect and the cluster is
 // in the indicated state.
 func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
-	kc := a.env.GetKubeClient()
-	cc := kc.CoreV1().ConfigMaps(a.env.Namespace)
+	kc := a.env.getKubeClient()
+	cc := kc.CoreV1().ConfigMaps(a.env.namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// If there is no configmap, then the pachd pods must be
@@ -533,7 +533,7 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations["pachyderm.com/updatedAt"], err)
 	}
 
-	pods := kc.CoreV1().Pods(a.env.Namespace)
+	pods := kc.CoreV1().Pods(a.env.namespace)
 	pp, err := pods.List(ctx, metav1.ListOptions{
 		LabelSelector: "app=pachd",
 	})

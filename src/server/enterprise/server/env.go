@@ -26,12 +26,12 @@ type Env struct {
 
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
-	GetKubeClient func() *kube.Clientset
+	getKubeClient func() *kube.Clientset
 
 	BackgroundContext context.Context
-	Namespace         string
+	namespace         string
 	mode              PauseMode
-	UnpausedMode      string
+	unpausedMode      string
 }
 
 // PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
@@ -47,7 +47,7 @@ type Option func(Env) Env
 
 func WithUnpausedMode(mode string) Option {
 	return func(e Env) Env {
-		e.UnpausedMode = mode
+		e.unpausedMode = mode
 		return e
 	}
 }
@@ -70,10 +70,10 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 
 		AuthServer:    senv.AuthServer(),
 		GetPachClient: senv.GetPachClient,
-		GetKubeClient: senv.GetKubeClient,
+		getKubeClient: senv.GetKubeClient,
 
 		BackgroundContext: senv.Context(),
-		Namespace:         senv.Config().Namespace,
+		namespace:         senv.Config().Namespace,
 	}
 	for _, o := range options {
 		e = o(e)
@@ -135,5 +135,5 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 
 // StopWorkers stops all workers
 func (env Env) StopWorkers(ctx context.Context) error {
-	return scaleDownWorkers(ctx, env.GetKubeClient(), env.Namespace)
+	return scaleDownWorkers(ctx, env.getKubeClient(), env.namespace)
 }
