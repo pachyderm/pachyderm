@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 	"text/template"
 
 	descriptor "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 func init() {
@@ -93,8 +95,37 @@ func (gen *TransactionClientGenerator) AddProto(proto *descriptor.FileDescriptor
 	return nil
 }
 
+type fdProtoSlice []*descriptorpb.FileDescriptorProto
+
+func (s fdProtoSlice) Len() int           { return len(s) }
+func (s fdProtoSlice) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
+func (s fdProtoSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type serviceSlice []*descriptorpb.ServiceDescriptorProto
+
+func (s serviceSlice) Len() int           { return len(s) }
+func (s serviceSlice) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
+func (s serviceSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type methodSlice []*descriptorpb.MethodDescriptorProto
+
+func (s methodSlice) Len() int           { return len(s) }
+func (s methodSlice) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
+func (s methodSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+func sortProtos(pp []*descriptorpb.FileDescriptorProto) {
+	sort.Sort(fdProtoSlice(pp))
+	for _, p := range pp {
+		sort.Sort(serviceSlice(p.GetService()))
+		for _, s := range p.GetService() {
+			sort.Sort(methodSlice(s.GetMethod()))
+		}
+	}
+}
+
 func (gen *TransactionClientGenerator) Finish() (*plugin.CodeGeneratorResponse_File, error) {
 	buf := &bytes.Buffer{}
+	sortProtos(gen.Protos)
 	if err := outTemplate.Execute(buf, gen); err != nil {
 		return nil, err
 	}
