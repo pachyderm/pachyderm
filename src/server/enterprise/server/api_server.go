@@ -389,7 +389,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 			return nil
 		}
 		// Since pachd-config is not managed by Helm, it may not exist.
-		c = newPachdConfigMap(namespace)
+		c = newPachdConfigMap(namespace, a.env.UnpausedMode)
 		c.Data["MODE"] = "paused"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
 			return errors.Errorf("could not create configmap: %w", err)
@@ -400,7 +400,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		// Curiously, Get can return no error and an empty configmap!
 		// If this happens, need to set the name and namespace.
 		if c.ObjectMeta.Name == "" {
-			c = newPachdConfigMap(namespace)
+			c = newPachdConfigMap(namespace, a.env.UnpausedMode)
 		}
 		if c.Data == nil {
 			c.Data = make(map[string]string)
@@ -452,13 +452,13 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 	return nil
 }
 
-func newPachdConfigMap(namespace string) *v1.ConfigMap {
+func newPachdConfigMap(namespace, unpausedMode string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pachd-config",
 			Namespace: namespace,
 		},
-		Data: map[string]string{"MODE": "full"},
+		Data: map[string]string{"MODE": unpausedMode},
 	}
 }
 
