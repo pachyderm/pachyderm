@@ -13,6 +13,9 @@ export const PROJECT_FILE_UPLOAD_PATH = '/project/:projectId/repos/:repoId/uploa
 
 export const LINEAGE_PATH = '/lineage/:projectId'
 
+export const LINEAGE_REPOS_PATH = '/lineage/:projectId/repos'
+export const LINEAGE_PIPELINES_PATH = '/lineage/:projectId/pipelines'
+
 export const LINEAGE_REPO_PATH = '/lineage/:projectId/repos/:repoId/branch/:branchId';;
 export const LINEAGE_PIPELINE_PATH = '/lineage/:projectId/pipelines/:pipelineId/:tabId?';
 export const LINEAGE_JOBS_PATH = '/lineage/:projectId/jobs';
@@ -31,6 +34,8 @@ export const TUTORIAL_PATH = [LINEAGE_PATH, FILE_BROWSER_PATH];
 
 export const PROJECT_PATHS = [
   LINEAGE_PATH,
+  LINEAGE_REPOS_PATH,
+  LINEAGE_PIPELINES_PATH,
   LINEAGE_JOB_PATH,
   LINEAGE_JOBS_PATH,
   LINEAGE_PIPELINE_JOB_PATH,

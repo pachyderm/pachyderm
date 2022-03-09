@@ -1,9 +1,10 @@
 import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
-import {Route} from 'react-router';
+import {Route, Redirect} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import DAGView from '../../components/DAGView';
 import ListView from '../../components/ListView';
@@ -11,6 +12,8 @@ import ProjectSidebar from '../../components/ProjectSidebar';
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 import {
   LINEAGE_PATH,
+  LINEAGE_REPOS_PATH,
+  LINEAGE_PIPELINES_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
   TUTORIAL_PATH,
@@ -21,7 +24,7 @@ import {useProjectView} from './hooks/useProjectView';
 import styles from './ProjectDetails.module.css';
 
 const ProjectDetails: React.FC = () => {
-  const {repoId, pipelineId} = useUrlState();
+  const {repoId, pipelineId, projectId} = useUrlState();
 
   const {
     dags,
@@ -62,6 +65,13 @@ const ProjectDetails: React.FC = () => {
             />
           </Route>
           <Route path={LINEAGE_PATH}>
+            <Route path={[LINEAGE_REPOS_PATH, LINEAGE_PIPELINES_PATH]} exact>
+              <Redirect
+                to={lineageRoute({
+                  projectId,
+                })}
+              />
+            </Route>
             <DAGView dags={dags} loading={loading} error={error} />
           </Route>
         </>

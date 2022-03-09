@@ -28,8 +28,9 @@ const ListView: React.FC<ListViewProps> = ({
   const {hasConnectInfo} = useWorkspace();
 
   useEffect(() => {
-    if (!selectedItem && items.length > 0 && items[0].nodes.length > 0) {
-      browserHistory.push(getNodePath(items[0].nodes[0]));
+    const nodes = items.map((dag) => dag.nodes).flat();
+    if (!selectedItem && nodes.length > 0) {
+      browserHistory.push(getNodePath(nodes[0]));
     }
   }, [browserHistory, getNodePath, items, selectedItem]);
 
