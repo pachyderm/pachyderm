@@ -17,6 +17,8 @@ module.exports = {
     extensions: ['.ts', '.js'],
     alias: {
       '@queries': path.resolve(__dirname, '../frontend/src/queries'),
+      '@mutations': path.resolve(__dirname, '../frontend/src/mutations'),
+      '@dash-frontend': path.resolve(__dirname, '../frontend/src/'),
     },
   },
   module: {

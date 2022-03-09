@@ -15,7 +15,10 @@
     "setup:local": "NODE_ENV=development dotenv-flow -- node setup.js",
     "start:e2e": "LOG_LEVEL=debug npm run start:dev --prefix ./backend & npm run start --prefix ./frontend",
     "start:mock": "LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:mock  --prefix ./frontend",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "load-setup": "node ./load-tests/projectSetup.js",
+    "load-test:ci": "start-server-and-test start:e2e http-get://localhost:4000 load-test",
+    "load-test": "npm i --prefix ./load-tests && npm run build --prefix ./load-tests && NODE_ENV=development dotenv-flow -- k6 run ./load-tests/build/loadTest.bundle.js"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +39,7 @@
     "dotenv-flow-cli": "1.0.0",
     "envfile": "6.14.0",
     "graphql": "15.5.0",
+    "k6": "^0.0.0",
     "react-transition-group": "4.4.2",
     "start-server-and-test": "1.14.0",
     "typescript": "4.1.2"

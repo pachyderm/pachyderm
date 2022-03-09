@@ -53,6 +53,22 @@ jobs:
             - run: etc/testing/circle/start-minikube.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
             - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+    load-test:
+        resource_class: xlarge
+        machine:
+            image: ubuntu-2004:202111-01
+        steps:
+            - checkout
+            - run: sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+            - run: echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+            - run: sudo apt-get update
+            - run: sudo apt-get install k6
+            - run: make ci
+            - run: etc/testing/circle/install.sh
+            - run: etc/testing/circle/start-minikube.sh
+            - run: etc/testing/circle/deploy-pachyderm.sh
+            - run: npm run load-setup
+            - run: pachctl port-forward & npm run load-test:ci
     build:
         resource_class: xlarge
         docker:
@@ -156,12 +172,20 @@ jobs:
 workflows:
     version: 2
     test:
+        when:
+          not:
+            equal: [scheduled_pipeline, << pipeline.trigger_source >>]
         jobs:
             - backend-test
             - frontend-test
             - e2e-test
             - check-types
             - build
+    load-test:
+        when: 
+          equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+        jobs: 
+          - load-test
     docker-build:
         jobs:
             - docker-build:
