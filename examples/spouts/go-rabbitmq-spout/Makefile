@@ -2,7 +2,7 @@
 # Set as you wish
 DOCKER_ACCOUNT := pachyderm
 CONTAINER_NAME := example-rabbitmq-spout
-CONTAINER_VERSION := 1.12.2
+CONTAINER_VERSION := 2.1.0
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
