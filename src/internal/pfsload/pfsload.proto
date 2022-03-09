@@ -24,6 +24,7 @@ message PutFileTask {
   int64 count = 1;
   FileSourceSpec file_source = 2;
   int64 seed = 3;
+  string auth_token = 4;
 }
 
 message PutFileTaskResult {

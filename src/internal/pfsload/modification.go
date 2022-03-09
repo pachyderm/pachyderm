@@ -22,6 +22,7 @@ func Modification(env *Env, repo, branch, commit string, spec *ModificationSpec)
 				Count:      spec.PutFile.Count,
 				FileSource: env.FileSource(spec.PutFile.Source),
 				Seed:       env.Seed(),
+				AuthToken:  env.AuthToken(),
 			})
 			if err != nil {
 				return err

@@ -6,7 +6,7 @@ import (
 )
 
 func Commit(pachClient *client.APIClient, taskService task.Service, repo, branch string, spec *CommitSpec, seed int64) error {
-	env, err := NewEnv(NewPachClient(pachClient), taskService, spec, seed)
+	env, err := NewEnv(pachClient, taskService, spec, seed)
 	if err != nil {
 		return err
 	}

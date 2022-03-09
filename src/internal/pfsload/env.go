@@ -3,6 +3,8 @@ package pfsload
 import (
 	"math/rand"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 )
 
@@ -12,9 +14,11 @@ type Env struct {
 	fileSources map[string]*FileSourceSpec
 	validator   *Validator
 	seed        int64
+	authToken   string
 }
 
-func NewEnv(client Client, taskService task.Service, spec *CommitSpec, seed int64) (*Env, error) {
+func NewEnv(pachClient *client.APIClient, taskService task.Service, spec *CommitSpec, seed int64) (*Env, error) {
+	client := NewPachClient(pachClient)
 	random := rand.New(rand.NewSource(seed))
 	fileSources := make(map[string]*FileSourceSpec)
 	for _, fileSource := range spec.FileSources {
@@ -28,17 +32,26 @@ func NewEnv(client Client, taskService task.Service, spec *CommitSpec, seed int6
 	if err != nil {
 		return nil, err
 	}
+	authToken, err := auth.GetAuthToken(pachClient.Ctx())
+	if err != nil {
+		return nil, err
+	}
 	return &Env{
 		client:      client,
 		taskDoer:    taskService.NewDoer(namespace, "", nil),
 		fileSources: fileSources,
 		validator:   validator,
 		seed:        seed,
+		authToken:   authToken,
 	}, nil
 }
 
 func (e *Env) Client() Client {
 	return e.client
+}
+
+func (e *Env) AuthToken() string {
+	return e.authToken
 }
 
 func (e *Env) TaskDoer() task.Doer {

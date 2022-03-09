@@ -27,6 +27,7 @@ func NewPachClient(client *client.APIClient) Client {
 }
 
 func (pc *pachClient) WithCreateFileSetClient(ctx context.Context, cb func(client.ModifyFile) error) (*pfs.CreateFileSetResponse, error) {
+	ctx = pc.client.AddMetadata(ctx)
 	return pc.client.WithCtx(ctx).WithCreateFileSetClient(cb)
 }
 
