@@ -8,8 +8,8 @@ set -xeou pipefail
 # This script assumes you have created your own GCP project
 
 # PLEASE CHANGE THESE NEXT 3 VARIABLES AT A MINIMUM
-PROJECT_ID="pachyderm-gcp-test"
-NAME="fuzzy-alpaca"
+PROJECT_ID="script-test"
+NAME="script-test"
 SQL_ADMIN_PASSWORD="batteryhorsestaple"
 
 # To enable console set CONSOLE_ENABLED=true and,
@@ -138,7 +138,7 @@ pachd:
     aPIGrpcport:    31400
     loadBalancerIP: ${STATIC_IP_ADDR}
   image:
-    tag: "2.0.3"
+    tag: "2.1.3"
   storage:
     google:
       bucket: "${BUCKET_NAME}"
