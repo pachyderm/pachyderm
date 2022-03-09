@@ -15,7 +15,7 @@ Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/j
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
-pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet 
+pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_latest_version }}/src/templates/sql_ingest_cron.jsonnet 
   --arg name=myingest
   --arg url="mysql://root@mysql:3306/test_db"
   --arg query="SELECT * FROM test_data"
@@ -36,7 +36,7 @@ Where the parameters passed to the jsonnet pipeline spec are:
 | `secretName`  | The kubernetes secret name that contains the [password to the database](#database-secret).|
 
 !!! Note
-    `pachctl update pipeline` will create pipelines if none exist or update otherwise.
+    `pachctl update pipeline` will create pipelines if none exist, or update your existing pipelines otherwise.
 
 
 When the command is run, the database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the output repo named after `name`.
@@ -54,6 +54,16 @@ Before you create your SQL Ingest pipelines, make sure to create a [generic secr
       "PACHYDERM_SQL_PASSWORD": "cm9vdA==" # base64 encoded
     ```
 
+!!! Info "TL;DR"
+     Run the following to generate your secret:
+
+     `kubectl create secret generic <secret-name>  --from-literal=PACHYDERM_SQL_PASSWORD=<password-to-warehouse> --dry-run=client  --output=json > yourwarehousesecret.json`
+
+     Then apply it to your Pachyderm cluster:
+     
+     `pachctl create secret -f yourwarehousesecret.json`
+
+     You should see its name in the list returned by `kubectl get secret`
 ### Database Connection URL
 Pachyderm's SQL Ingest will take an URL as its connection string to the database of your choice.
 
@@ -62,19 +72,39 @@ The URL is structured as follows:
 <protocol>://<username>@<host>:<port>/<database>?<param1>=<value1>&<param2>=<value2>
 ```
 
+!!! Attention "Snowflake users, you will need a variant or the url above."
+    In the case of Snowflake, Pachyderm supports those two connection URL patterns: 
+
+      - `snowflake://username@<account_identifier>/<db_name>/<schema_name>?warehouse=<warehouse_name>`
+      - `snowflake://username@hostname:port/<db_name>/<schema_name>?account=<account_identifier>&warehouse=<warehouse_name>`
+
+    with:
+
+      - **[<account_identifier>](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html)** takes the following form for most URLs: <organization_name>-<account_name> .
+      - **<db_name>/<schema_name>** are respectfully the Database Name and the Schema (namespace) targeted.
+      - Additionally, a **[warehouse](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses)**, or “compute ressource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
+
+    Example of connection string to Snowflake: `"snowflake://username@GVCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH"`
+
+
 Where:
 
 | Parameter     | Description | 
 | ------------- |-------------| 
-| **protocol**   | The name of the database protocol. As of today, you have the ability to connect to  `postgres`or `mysql`. Note that `mysql` allows you to connect to mariadb. |
+| **protocol**   | The name of the database protocol. As of today, we support:
+
+  - `postgres` (connect to Postgresql or compatible (for example Redshift))
+  - `mysql` (connect to MySQL or compatible (for example MariaDB))
+  - `snowflake` (connect to Snowflake). |
 | **username**  | The user used to access the database.|
 | **host**      | The hostname of your database instance.|
 | **port**      | The port number your instance is listening on.|
 | **database**  | The name of the database to connect to. | 
 
 !!! Note 
-    - The additional parameters are optional and specific to the driver.
     - The password is not included in the URL.  It is retrieved from a [kubernetes secret](#database-secret) or file on disk at the time of the query.
+    - The additional parameters (`<param1>=<value1>`) are optional and specific to the driver.
+    For example, Snowflake requires to pass your warehouse as `warehouse=<your-warehouse>` as a parameter.
 
 
 ## How does this work?
