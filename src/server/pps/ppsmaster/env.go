@@ -1,4 +1,4 @@
-package server
+package ppsmaster
 
 import (
 	"context"
@@ -9,13 +9,11 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	logrus "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"k8s.io/client-go/kubernetes"
@@ -67,57 +65,4 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		Logger:            senv.Logger(),
 		Config:            *senv.Config(),
 	}
-}
-
-// NewAPIServer creates an APIServer without running the master
-// loop in the background.
-func NewAPIServer(env Env) (ppsiface.APIServer, error) {
-	config := env.Config
-	apiServer := &apiServer{
-		env:                   env,
-		txnEnv:                env.TxnEnv,
-		etcdPrefix:            env.EtcdPrefix,
-		namespace:             config.Namespace,
-		workerImage:           config.WorkerImage,
-		workerSidecarImage:    config.WorkerSidecarImage,
-		workerImagePullPolicy: config.WorkerImagePullPolicy,
-		storageRoot:           config.StorageRoot,
-		storageBackend:        config.StorageBackend,
-		storageHostPath:       config.StorageHostPath,
-		imagePullSecrets:      config.ImagePullSecrets,
-		reporter:              env.Reporter,
-		workerUsesRoot:        config.WorkerUsesRoot,
-		pipelines:             ppsdb.Pipelines(env.DB, env.Listener),
-		jobs:                  ppsdb.Jobs(env.DB, env.Listener),
-		workerGrpcPort:        config.PPSWorkerPort,
-		port:                  config.Port,
-		peerPort:              config.PeerPort,
-		gcPercent:             config.GCPercent,
-	}
-	return apiServer, nil
-}
-
-// NewSidecarAPIServer creates an APIServer that has limited functionalities
-// and is meant to be run as a worker sidecar.  It cannot, for instance,
-// create pipelines.
-func NewSidecarAPIServer(
-	env Env,
-	namespace string,
-	workerGrpcPort uint16,
-	peerPort uint16,
-) (*apiServer, error) {
-	apiServer := &apiServer{
-		env:            env,
-		txnEnv:         env.TxnEnv,
-		etcdPrefix:     env.EtcdPrefix,
-		reporter:       env.Reporter,
-		namespace:      namespace,
-		workerUsesRoot: true,
-		pipelines:      ppsdb.Pipelines(env.DB, env.Listener),
-		jobs:           ppsdb.Jobs(env.DB, env.Listener),
-		workerGrpcPort: workerGrpcPort,
-		peerPort:       peerPort,
-	}
-	go apiServer.ServeSidecarS3G()
-	return apiServer, nil
 }

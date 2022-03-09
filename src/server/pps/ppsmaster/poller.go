@@ -1,4 +1,4 @@
-package server
+package ppsmaster
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -91,7 +92,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// querying k8s, then we might delete the RC for brand-new pipeline
 			// 'foo'). Though, even if we do delete a live pipeline's RC, it'll be
 			// fixed in the next cycle
-			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.env.Config.Namespace)
+			kc := m.env.KubeClient.CoreV1().ReplicationControllers(m.env.Config.Namespace)
 			rcs, err := kc.List(ctx, metav1.ListOptions{
 				LabelSelector: "suite=pachyderm,pipelineName",
 			})
@@ -105,7 +106,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// database; it determines both which RCs (from above) are stale and also
 			// which pipelines need to be bumped. Note that there may be zero
 			// pipelines in the database, and dbPipelines may be empty.
-			if err := m.a.listPipelineInfo(ctx, nil, 0,
+			if err := ppsutil.ListPipelineInfo(ctx, m.pipelines, nil, 0,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
@@ -176,7 +177,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 // to CRASHING
 func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
-		kubePipelineWatch, err := m.a.env.KubeClient.CoreV1().Pods(m.a.namespace).Watch(
+		kubePipelineWatch, err := m.env.KubeClient.CoreV1().Pods(m.namespace).Watch(
 			ctx,
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -218,7 +219,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
 					}
 					var pipelineInfo pps.PipelineInfo
-					if err := m.a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+					if err := m.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 						ppsdb.PipelinesVersionIndex,
 						ppsdb.VersionKey(pipelineName, uint64(pipelineVersion)),
 						&pipelineInfo); err != nil {
@@ -270,7 +271,7 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
-		pipelineWatcher, err := m.a.pipelines.ReadOnly(ctx).Watch()
+		pipelineWatcher, err := m.pipelines.ReadOnly(ctx).Watch()
 		if err != nil {
 			return errors.Wrapf(err, "error creating watch")
 		}

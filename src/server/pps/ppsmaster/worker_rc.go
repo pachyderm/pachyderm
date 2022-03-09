@@ -1,4 +1,4 @@
-package server
+package ppsmaster
 
 import (
 	"context"
@@ -24,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 )
 
 const (
@@ -42,6 +44,11 @@ const (
 	// UploadConcurrencyLimitEnvVar is the environment variable for the upload concurrency limit.
 	// EnvVar defined in src/internal/serviceenv/config.go
 	UploadConcurrencyLimitEnvVar = "STORAGE_UPLOAD_CONCURRENCY_LIMIT"
+)
+
+const (
+	suite            = "pachyderm"
+	DefaultUserImage = ppsserver.DefaultUserImage
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -870,4 +877,12 @@ func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
 
 func int64Ptr(x int64) *int64 {
 	return &x
+}
+
+func labels(app string) map[string]string {
+	return map[string]string{
+		"app":       app,
+		"suite":     suite,
+		"component": "worker",
+	}
 }

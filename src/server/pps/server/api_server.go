@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/k8sutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
@@ -75,7 +76,6 @@ const (
 )
 
 var (
-	suite                 = "pachyderm"
 	errIncompleteDeletion = errors.Errorf("pipeline may not be fully deleted, provenance may still be intact")
 )
 
@@ -264,78 +264,6 @@ func validateTransform(transform *pps.Transform) error {
 		return errors.Errorf("pipeline transform must contain an image")
 	}
 	return nil
-}
-
-func (a *apiServer) validateKube(ctx context.Context) {
-	errors := false
-	kubeClient := a.env.KubeClient
-	_, err := kubeClient.CoreV1().Pods(a.namespace).Watch(ctx, metav1.ListOptions{Watch: true})
-	if err != nil {
-		errors = true
-		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
-	}
-	pods, err := a.rcPods(ctx, "pachd")
-	if err != nil || len(pods) == 0 {
-		errors = true
-		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
-	} else {
-		// No need to check all pods since we're just checking permissions.
-		pod := pods[0]
-		_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
-			pod.ObjectMeta.Name, &v1.PodLogOptions{
-				Container: "pachd",
-			}).Timeout(10 * time.Second).Do(ctx).Raw()
-		if err != nil {
-			errors = true
-			logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
-		}
-	}
-	name := uuid.NewWithoutDashes()
-	labels := map[string]string{"app": name}
-	rc := &v1.ReplicationController{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ReplicationController",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
-		},
-		Spec: v1.ReplicationControllerSpec{
-			Selector: labels,
-			Replicas: new(int32),
-			Template: &v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   name,
-					Labels: labels,
-				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
-						{
-							Name:    "name",
-							Image:   DefaultUserImage,
-							Command: []string{"true"},
-						},
-					},
-				},
-			},
-		},
-	}
-	if _, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
-		if err != nil {
-			errors = true
-			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
-		}
-	}
-	if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-		if err != nil {
-			errors = true
-			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
-		}
-	}
-	if !errors {
-		logrus.Infof("validating kubernetes access returned no errors")
-	}
 }
 
 // authorizing a pipeline operation varies slightly depending on whether the
@@ -1186,7 +1114,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	}
 
 	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(apiGetLogsServer.Context(), rcName)
+	pods, err := k8sutil.GetRCPods(apiGetLogsServer.Context(), a.env.KubeClient, a.namespace, rcName)
 	if err != nil {
 		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
 	}
@@ -2315,49 +2243,8 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 
 // listPipelineInfo enumerates all PPS pipelines in the database, filters them
 // based on 'request', and then calls 'f' on each value
-func (a *apiServer) listPipelineInfo(ctx context.Context,
-	pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
-	p := &pps.PipelineInfo{}
-	versionMap := make(map[string]uint64)
-	checkPipelineVersion := func(_ string) error {
-		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
-		// won't use this function to get their auth token)
-		p.AuthToken = ""
-		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if last, ok := versionMap[p.Pipeline.Name]; ok {
-			if p.Version < last {
-				// don't send, exit early
-				return nil
-			}
-		} else {
-			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
-			var lastVersionToSend uint64
-			if history < 0 || uint64(history) >= p.Version {
-				lastVersionToSend = 1
-			} else {
-				lastVersionToSend = p.Version - uint64(history)
-			}
-			versionMap[p.Pipeline.Name] = lastVersionToSend
-		}
-
-		return f(p)
-	}
-	if pipeline != nil {
-		if err := a.pipelines.ReadOnly(ctx).GetByIndex(
-			ppsdb.PipelinesNameIndex,
-			pipeline.Name,
-			p,
-			col.DefaultOptions(),
-			checkPipelineVersion); err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(versionMap) == 0 {
-			// pipeline didn't exist after all
-			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
-		}
-		return nil
-	}
-	return errors.EnsureStack(a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+func (a *apiServer) listPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
+	return ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history, f)
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
@@ -2686,7 +2573,7 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	// add all the ticks. These will be in separate transactions if there are more than one
 	for _, c := range crons {
-		if err := cronTick(a.env.GetPachClient(ctx), now, c); err != nil {
+		if err := ppsutil.CronTick(a.env.GetPachClient(ctx), now, c); err != nil {
 			return nil, err
 		}
 	}
@@ -3052,14 +2939,6 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return ci, nil
-}
-
-func labels(app string) map[string]string {
-	return map[string]string{
-		"app":       app,
-		"suite":     suite,
-		"component": "worker",
-	}
 }
 
 func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {

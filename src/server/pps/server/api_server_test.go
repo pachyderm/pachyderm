@@ -59,7 +59,7 @@ func newServer(t testing.TB) pps.APIServer {
 		GetPachClient: nil,
 		Config:        newConfig(t),
 	}
-	srv, err := NewAPIServerNoMaster(env)
+	srv, err := NewAPIServer(env)
 	require.NoError(t, err)
 	return srv
 }

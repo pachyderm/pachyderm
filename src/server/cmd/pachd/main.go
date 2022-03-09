@@ -48,6 +48,7 @@ import (
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pps/ppsmaster"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -480,6 +481,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		}
 		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
 		env.SetPpsServer(ppsAPIServer)
+
 		return nil
 	}); err != nil {
 		return err
@@ -671,6 +673,10 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
 			env.SetPpsServer(ppsAPIServer)
+			go func() {
+				env2 := ppsmaster.EnvFromServiceEnv(env, txnEnv, reporter)
+				ppsmaster.Run(env2)
+			}()
 			return nil
 		}); err != nil {
 			return err

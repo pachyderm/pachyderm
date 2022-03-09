@@ -1,4 +1,4 @@
-package server
+package ppsmaster
 
 import (
 	"context"
@@ -109,11 +109,11 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:   pipeline,
-		namespace:  m.a.namespace,
-		env:        m.a.env,
-		txEnv:      m.a.txnEnv,
-		pipelines:  m.a.pipelines,
-		etcdPrefix: m.a.etcdPrefix,
+		namespace:  m.namespace,
+		env:        m.env,
+		txEnv:      m.env.TxnEnv,
+		pipelines:  m.pipelines,
+		etcdPrefix: m.env.EtcdPrefix,
 
 		bumpChan: make(chan time.Time, 1),
 		pcMgr:    m.pcMgr,
