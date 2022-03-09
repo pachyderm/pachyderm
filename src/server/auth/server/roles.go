@@ -50,7 +50,6 @@ func init() {
 			auth.Permission_REPO_ADD_PIPELINE_READER,
 			auth.Permission_REPO_REMOVE_PIPELINE_READER,
 			auth.Permission_PIPELINE_LIST_JOB,
-			auth.Permission_CLUSTER_ENTERPRISE_PAUSE_STATUS,
 		},
 	})
 

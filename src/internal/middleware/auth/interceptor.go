@@ -79,7 +79,7 @@ var authHandlers = map[string]authHandler{
 	"/enterprise_v2.API/Heartbeat":         authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_HEARTBEAT)),
 	"/enterprise_v2.API/Pause":             authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_PAUSE)),
 	"/enterprise_v2.API/Unpause":           authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_PAUSE)),
-	"/enterprise_v2.API/PauseStatus":       authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_ENTERPRISE_PAUSE)),
+	"/enterprise_v2.API/PauseStatus":       authenticated,
 
 	//
 	// Health API

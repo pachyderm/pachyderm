@@ -447,24 +447,16 @@ func (c *unsupportedTransactionBuilderClient) DeleteAll(_ context.Context, _ *tr
 	return nil, unsupportedError("DeleteAll")
 }
 
-type unsupportedProxyBuilderClient struct{}
+type unsupportedVersionpbBuilderClient struct{}
 
-func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
-	return nil, unsupportedError("Listen")
+func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb_v2.Version, error) {
+	return nil, unsupportedError("GetVersion")
 }
 
-type unsupportedDebugBuilderClient struct{}
+type unsupportedAdminBuilderClient struct{}
 
-func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.ProfileRequest, opts ...grpc.CallOption) (debug_v2.Debug_ProfileClient, error) {
-	return nil, unsupportedError("Profile")
-}
-
-func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug_v2.BinaryRequest, opts ...grpc.CallOption) (debug_v2.Debug_BinaryClient, error) {
-	return nil, unsupportedError("Binary")
-}
-
-func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug_v2.DumpRequest, opts ...grpc.CallOption) (debug_v2.Debug_DumpClient, error) {
-	return nil, unsupportedError("Dump")
+func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
+	return nil, unsupportedError("InspectCluster")
 }
 
 type unsupportedIdentityBuilderClient struct{}
@@ -521,10 +513,18 @@ func (c *unsupportedIdentityBuilderClient) DeleteAll(_ context.Context, _ *ident
 	return nil, unsupportedError("DeleteAll")
 }
 
-type unsupportedAdminBuilderClient struct{}
+type unsupportedDebugBuilderClient struct{}
 
-func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*admin_v2.ClusterInfo, error) {
-	return nil, unsupportedError("InspectCluster")
+func (c *unsupportedDebugBuilderClient) Profile(_ context.Context, _ *debug_v2.ProfileRequest, opts ...grpc.CallOption) (debug_v2.Debug_ProfileClient, error) {
+	return nil, unsupportedError("Profile")
+}
+
+func (c *unsupportedDebugBuilderClient) Binary(_ context.Context, _ *debug_v2.BinaryRequest, opts ...grpc.CallOption) (debug_v2.Debug_BinaryClient, error) {
+	return nil, unsupportedError("Binary")
+}
+
+func (c *unsupportedDebugBuilderClient) Dump(_ context.Context, _ *debug_v2.DumpRequest, opts ...grpc.CallOption) (debug_v2.Debug_DumpClient, error) {
+	return nil, unsupportedError("Dump")
 }
 
 type unsupportedEnterpriseBuilderClient struct{}
@@ -599,8 +599,8 @@ func (c *unsupportedLicenseBuilderClient) ListUserClusters(_ context.Context, _ 
 	return nil, unsupportedError("ListUserClusters")
 }
 
-type unsupportedVersionpbBuilderClient struct{}
+type unsupportedProxyBuilderClient struct{}
 
-func (c *unsupportedVersionpbBuilderClient) GetVersion(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*versionpb_v2.Version, error) {
-	return nil, unsupportedError("GetVersion")
+func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
+	return nil, unsupportedError("Listen")
 }
