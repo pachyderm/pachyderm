@@ -486,7 +486,7 @@ func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace s
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
 	if a.env.mode == UnpausableMode {
-		return nil, errors.Errorf("this pachd instance is not in a pausable mode")
+		return nil, errors.Errorf("this pachd instance is not in an unpausable mode")
 	}
 	if err := a.rollPachd(ctx, false); err != nil {
 		return nil, errors.EnsureStack(err)
