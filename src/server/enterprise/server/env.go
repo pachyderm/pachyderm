@@ -45,13 +45,6 @@ const (
 
 type Option func(Env) Env
 
-func WithEtcdPrefix(etcdPrefix string) Option {
-	return func(e Env) Env {
-		e.EtcdPrefix = etcdPrefix
-		return e
-	}
-}
-
 func WithUnpausedMode(mode string) Option {
 	return func(e Env) Env {
 		e.UnpausedMode = mode
@@ -66,13 +59,14 @@ func WithMode(mode PauseMode) Option {
 	}
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txEnv *txnenv.TransactionEnv, options ...Option) Env {
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) Env {
 	e := Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
 		TxnEnv:   txEnv,
 
 		EtcdClient: senv.GetEtcdClient(),
+		EtcdPrefix: etcdPrefix,
 
 		AuthServer:    senv.AuthServer(),
 		GetPachClient: senv.GetPachClient,

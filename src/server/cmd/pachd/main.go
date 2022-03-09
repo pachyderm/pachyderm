@@ -216,7 +216,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, txnEnv, eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)))
+			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				e,
 				true,
@@ -334,7 +334,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, txnEnv, eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)))
+			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				e,
 				false,
@@ -497,7 +497,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Enterprise API", func() error {
-		e := eprsserver.EnvFromServiceEnv(env, txnEnv, eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)))
+		e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
 		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 			e,
 			false,
@@ -705,8 +705,9 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, txnEnv,
-				eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+			e := eprsserver.EnvFromServiceEnv(env,
+				path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix),
+				txnEnv,
 				eprsserver.WithMode(eprsserver.FullMode),
 				eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
@@ -883,8 +884,10 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, txnEnv,
-				eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+			e := eprsserver.EnvFromServiceEnv(env,
+				path.Join(env.Config().EtcdPrefix,
+					env.Config().EnterpriseEtcdPrefix),
+				txnEnv,
 				eprsserver.WithMode(eprsserver.FullMode),
 				eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
@@ -1082,9 +1085,10 @@ func doPausedMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, txnEnv,
-				eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
-				eprsserver.WithMode(eprsserver.PausedMode),
+			e := eprsserver.EnvFromServiceEnv(env,
+				path.Join(env.Config().EtcdPrefix,
+					env.Config().EnterpriseEtcdPrefix),
+				txnEnv, eprsserver.WithMode(eprsserver.PausedMode),
 				eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				e,
@@ -1193,8 +1197,9 @@ func doPausedMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, txnEnv,
-				eprsserver.WithEtcdPrefix(path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix)),
+			e := eprsserver.EnvFromServiceEnv(env,
+				path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix),
+				txnEnv,
 				eprsserver.WithMode(eprsserver.PausedMode),
 				eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
