@@ -752,7 +752,7 @@ func (step *pcStep) getRC(ctx context.Context) (retErr error) {
 			tooManyErrCount, otherErrCount)
 		if errCount >= maxErrCount {
 			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
-			if errors.Is(err, errRCNotFound) || invalidRCState {
+			if invalidRCState {
 				return step.restartPipeline(ctx, fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
 			}
 			return err //return whatever the most recent error was
