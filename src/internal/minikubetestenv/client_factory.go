@@ -40,6 +40,13 @@ func (cf *ClusterFactory) assignClient(assigned string, c *client.APIClient) {
 	cf.managedClusters[assigned] = c
 }
 
+func deleteAll(t testing.TB, c *client.APIClient) {
+	tok := c.AuthToken()
+	c.SetAuthToken(testutil.RootToken)
+	require.NoError(t, c.DeleteAll())
+	c.SetAuthToken(tok)
+}
+
 func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 	cf.mu.Lock()
 	defer cf.mu.Unlock()
@@ -100,9 +107,9 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	var assigned string
-	// TODO(acohen4): client.DeleteAll() during cleanup
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
+		deleteAll(t, clusterFactory.managedClusters[assigned])
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
@@ -111,5 +118,6 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 	if assigned == "" {
 		assigned, c = clusterFactory.acquireNewCluster(t)
 	}
+	deleteAll(t, c)
 	return c, assigned
 }
