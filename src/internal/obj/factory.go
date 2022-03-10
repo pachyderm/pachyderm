@@ -8,7 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-
+	"strconv"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -309,11 +309,15 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	secureBool, err := strconv.ParseBool(secure)
+	if err != nil {
+		return nil, errors.Errorf("Failed to convert minio secure boolean setting")
+	}
 	isS3V2, err := readSecretFile(fmt.Sprintf("/%s", MinioSignatureEnvVar))
 	if err != nil {
 		return nil, err
 	}
-	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
+	return NewMinioClient(endpoint, bucket, id, secret, secureBool, isS3V2 == "1")
 }
 
 // NewMinioClientFromEnv creates a Minio client based on environment variables.
@@ -338,11 +342,15 @@ func NewMinioClientFromEnv() (Client, error) {
 	if !ok {
 		return nil, errors.Errorf("%s not found", MinioSecureEnvVar)
 	}
+	secureBool, err := strconv.ParseBool(secure)
+	if err != nil {
+		return nil, errors.Errorf("Failed to convert minio secure boolean setting")
+	}
 	isS3V2, ok := os.LookupEnv(MinioSignatureEnvVar)
 	if !ok {
 		return nil, errors.Errorf("%s not found", MinioSignatureEnvVar)
 	}
-	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
+	return NewMinioClient(endpoint, bucket, id, secret, secureBool, isS3V2 == "1")
 }
 
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
