@@ -87,7 +87,6 @@ func TestSimplePipeline(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -145,7 +144,6 @@ func TestRepoSize(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// create a data repo
 	dataRepo := tu.UniqueString("TestRepoSize_data")
@@ -211,7 +209,6 @@ func TestPFSPipeline(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPFSPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -253,7 +250,6 @@ func TestPipelineWithParallelism(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -300,7 +296,6 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -361,7 +356,6 @@ func TestDatumDedup(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -408,7 +402,6 @@ func TestPipelineInputDataModification(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -485,7 +478,6 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -563,7 +555,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1160,7 +1151,6 @@ func TestPipelineFailure(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1204,7 +1194,6 @@ func TestPipelineErrorHandling(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	t.Run("ErrCmd", func(t *testing.T) {
 
@@ -1337,7 +1326,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestLazyPipelinePropagation_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1396,7 +1384,6 @@ func TestLazyPipeline(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestLazyPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1451,7 +1438,6 @@ func TestEmptyFiles(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestShufflePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1524,7 +1510,6 @@ func TestProvenance(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -1610,7 +1595,6 @@ func TestProvenance2(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -1718,7 +1702,6 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -1788,7 +1771,6 @@ func TestWaitJobSet(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	prefix := tu.UniqueString("repo")
 	makeRepoName := func(i int) string {
 		return fmt.Sprintf("%s-%d", prefix, i)
@@ -1837,7 +1819,6 @@ func TestWaitJobSetFailures(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	dataRepo := tu.UniqueString("TestWaitJobSetFailures")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	prefix := tu.UniqueString("TestWaitJobSetFailures")
@@ -1912,7 +1893,6 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -1953,7 +1933,6 @@ func TestRecreatePipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -1993,7 +1972,6 @@ func TestDeletePipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2097,7 +2075,6 @@ func TestPipelineState(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipeline := tu.UniqueString("pipeline")
@@ -2164,8 +2141,6 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
-
 	dataRepo := tu.UniqueString("TestUpdatePipelineThatHasNoOutput")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -2225,7 +2200,6 @@ func TestAcceptReturnCode(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestAcceptReturnCode")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2271,7 +2245,6 @@ func TestPrettyPrinting(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// create repos
 	dataRepo := tu.UniqueString("TestPrettyPrinting_data")
@@ -2329,7 +2302,6 @@ func TestDeleteAll(t *testing.T) {
 	// this test cannot be run in parallel because it deletes everything
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestDeleteAll_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2373,7 +2345,6 @@ func TestRecursiveCp(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestRecursiveCp_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2415,7 +2386,6 @@ func TestPipelineUniqueness(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -2455,7 +2425,6 @@ func TestUpdatePipeline(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos and create the pipeline
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2622,7 +2591,6 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	dataRepo := tu.UniqueString("TestUpdatePipelineWithInProgressCommitsAndStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -2677,7 +2645,6 @@ func TestUpdateFailedPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestUpdateFailedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2751,7 +2718,6 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repo & pipeline
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2869,7 +2835,6 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2959,7 +2924,6 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2986,7 +2950,6 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	dataRepo := tu.UniqueString("TestManyFilesSingleOutputCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	file := "file"
@@ -3032,7 +2995,6 @@ func TestStopPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3235,7 +3197,6 @@ func TestStopStandbyPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3338,7 +3299,6 @@ func TestPipelineEnv(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// make a secret to reference
 	k := tu.GetKubeClient(t)
@@ -3444,7 +3404,6 @@ func TestPipelineWithFullObjects(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3499,7 +3458,6 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3551,7 +3509,6 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 func TestPipelineThatSymlinks(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
@@ -3639,7 +3596,6 @@ func TestChainedPipelines(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -3720,7 +3676,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -3812,7 +3767,6 @@ func TestJobDeletion(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3850,7 +3804,6 @@ func TestStopJob(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3917,7 +3870,6 @@ func TestGetLogs(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -4126,7 +4078,6 @@ func TestManyLogs(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4251,7 +4202,6 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo1 := tu.UniqueString("TestAllDatumsAreProcessed_data1")
 	require.NoError(t, c.CreateRepo(dataRepo1))
@@ -4309,7 +4259,6 @@ func TestDatumStatusRestart(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4445,7 +4394,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceRequest")
 	pipelineName := tu.UniqueString("TestPipelineResourceRequest_Pipeline")
@@ -4519,7 +4467,6 @@ func TestPipelineResourceLimit(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
 	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
@@ -4590,7 +4537,6 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
 	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
@@ -4651,7 +4597,6 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelinePartialResourceRequest")
 	pipelineName := tu.UniqueString("pipeline")
@@ -4732,7 +4677,6 @@ func TestPipelineCrashing(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineCrashing_data")
 	pipelineName := tu.UniqueString("TestPipelineCrashing_pipeline")
@@ -4800,7 +4744,6 @@ func TestPodOpts(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4974,7 +4917,6 @@ func TestPipelineLargeOutput(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5015,7 +4957,6 @@ func TestJoinInput(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	var repos []string
 	for i := 0; i < 2; i++ {
@@ -5110,7 +5051,6 @@ func TestGroupInput(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	t.Run("Basic", func(t *testing.T) {
 		repo := tu.UniqueString("TestGroupInput")
@@ -5426,7 +5366,6 @@ func TestUnionInput(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	var repos []string
 	for i := 0; i < 4; i++ {
@@ -5583,7 +5522,6 @@ func TestPipelineWithStats(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5650,7 +5588,6 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsFailedDatums_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5725,7 +5662,6 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsPaginated_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5809,7 +5745,6 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5906,7 +5841,6 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineOnStatsBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5961,7 +5895,6 @@ func TestSkippedDatums(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6032,7 +5965,6 @@ func TestCronPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
 		defer func() {
 			require.NoError(t, c.DeleteAll())
@@ -6323,7 +6255,6 @@ func TestSelfReferentialPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	pipeline := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipeline,
@@ -6344,7 +6275,6 @@ func TestPipelineBadImage(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	pipeline1 := tu.UniqueString("bad_pipeline_1_")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
@@ -6389,7 +6319,6 @@ func TestFixPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestFixPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6510,7 +6439,6 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineEnvVarAlias_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6558,8 +6486,6 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
-
 	// create repos
 	repo1 := tu.UniqueString("TestPipelineEnvVarJoinOn_repo1")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -6617,7 +6543,6 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// create repos
 	repo := tu.UniqueString("TestPipelineEnvVarGroupBy_repo")
@@ -6674,7 +6599,6 @@ func TestService(t *testing.T) {
 	}
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestService_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6783,7 +6707,6 @@ func TestServiceEnvVars(t *testing.T) {
 	}
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString(t.Name() + "-input")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6885,7 +6808,6 @@ func TestDatumSetSpec(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumSetSpec_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6955,7 +6877,6 @@ func TestLongDatums(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestLongDatums_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7005,7 +6926,6 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7066,7 +6986,6 @@ func TestListDatumDuringJob(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestListDatumDuringJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7158,7 +7077,6 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeoutControl_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7212,7 +7130,6 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7270,7 +7187,6 @@ func TestCommitDescription(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -7324,7 +7240,6 @@ func TestPipelineDescription(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineDescription_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7354,7 +7269,6 @@ func TestListJobInputCommits(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	aRepo := tu.UniqueString("TestListJobInputCommits_data_a")
 	require.NoError(t, c.CreateRepo(aRepo))
@@ -7455,7 +7369,6 @@ func TestCancelJob(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestCancelJob")
@@ -7551,7 +7464,6 @@ func TestCancelManyJobs(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestCancelManyJobs")
@@ -7764,7 +7676,6 @@ func TestStatsDeleteAll(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7822,7 +7733,6 @@ func TestRapidUpdatePipelines(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
 	cronInput := client.NewCronInput("time", "@every 20s")
 	cronInput.Cron.Overwrite = true
@@ -7887,7 +7797,6 @@ func TestDatumTries(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumTries_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7932,7 +7841,6 @@ func TestInspectJob(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	_, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{})
 	require.YesError(t, err)
@@ -7956,7 +7864,6 @@ func TestPipelineVersions(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineVersions_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8119,7 +8026,6 @@ func TestDeferredCross(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// make repo for our dataset
 	dataSet := tu.UniqueString("dataset")
@@ -8207,7 +8113,6 @@ func TestDeferredProcessing(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDeferredProcessing_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8273,7 +8178,6 @@ func TestPipelineHistory(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineHistory_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8429,7 +8333,6 @@ func TestFileHistory(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo1 := tu.UniqueString("TestFileHistory_data1")
 	require.NoError(t, c.CreateRepo(dataRepo1))
@@ -8490,7 +8393,6 @@ func TestCreatePipelineErrorNoPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create input repo
 	dataRepo := tu.UniqueString(t.Name() + "-data")
@@ -8520,7 +8422,6 @@ func TestCreatePipelineError(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create input repo
 	dataRepo := tu.UniqueString(t.Name() + "-data")
@@ -8549,7 +8450,6 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create input data
 	dataRepo := tu.UniqueString(t.Name() + "-data")
@@ -8668,7 +8568,6 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	// Create input data
 	dataRepo := tu.UniqueString(t.Name() + "-data-")
@@ -8750,7 +8649,6 @@ func TestSecrets(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	b := []byte(
 		`{
@@ -8843,7 +8741,6 @@ func TestCopyOutToIn(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestCopyOutToIn_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8917,7 +8814,6 @@ func TestKeepRepo(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestKeepRepo_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8991,7 +8887,6 @@ func TestKeepRepo(t *testing.T) {
 func TestMalformedPipeline(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	pipelineName := tu.UniqueString("MalformedPipeline")
 
@@ -9148,7 +9043,6 @@ func TestMalformedPipeline(t *testing.T) {
 func TestTrigger(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9281,7 +9175,6 @@ func TestTrigger(t *testing.T) {
 func TestListDatum(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	repo1 := tu.UniqueString("TestListDatum1")
 	repo2 := tu.UniqueString("TestListDatum2")
@@ -9390,7 +9283,6 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	input := tu.UniqueString("in")
 	commit := client.NewCommit(input, "master", "")
 	pipelineA := tu.UniqueString("A")
@@ -9450,7 +9342,6 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	inputA := tu.UniqueString("A")
 	inputB := tu.UniqueString("B")
 	inputC := tu.UniqueString("C")
@@ -9550,7 +9441,6 @@ func TestListDeletedDatums(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	twoRepo := tu.UniqueString("TestListDeletedDatums_Two")
 	threeRepo := tu.UniqueString("TestListDeletedDatums_Three")
@@ -9651,7 +9541,6 @@ func TestNonrootPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestNonrootPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9720,7 +9609,6 @@ func TestRewindCrossPipeline(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestRewindCrossPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9802,7 +9690,6 @@ func TestMoveBranchTrigger(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestRewindTrigger_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9852,7 +9739,6 @@ func TestPipelineAncestry(t *testing.T) {
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9915,7 +9801,6 @@ func TestStandbyTransitions(t *testing.T) {
 
 	t.Parallel()
 	c, ns := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 
 	kc := tu.GetKubeClient(t)
 
@@ -9993,7 +9878,6 @@ func TestDatumSetCache(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
-	require.NoError(t, c.DeleteAll())
 	dataRepo := tu.UniqueString("TestDatumSetCache_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	masterCommit := client.NewCommit(dataRepo, "master", "")
@@ -10078,7 +9962,6 @@ func TestLoad(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.DeleteAll())
 	resp, err := c.PpsAPIClient.RunLoadTestDefault(c.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
