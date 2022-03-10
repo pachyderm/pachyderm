@@ -302,3 +302,136 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 	require.YesError(t, err)
 	require.True(t, collection.IsErrNotFound(err))
 }
+
+/*
+   N.b.: for these tests to run successfully on Linux I needed to upgrade to the
+   latest kubectl and run port forwards in a _loop_.  I.e.:
+
+     while :; do  kubectl port-forward svc/pachd 30650:1650; done
+*/
+func TestPauseUnpause(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	client := testutil.GetPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
+	testutil.ActivateAuth(t)
+
+	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+	bo := backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return errors.Errorf("could not get pause status %w", err)
+		}
+		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+
+	// ListRepo should return an error since the cluster is paused now
+	_, err = client.ListRepo()
+	require.YesError(t, err)
+
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+	bo.Reset()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return errors.Errorf("could not get pause status %v", err)
+		}
+		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+}
+
+func TestPauseUnpauseNoWait(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	client := testutil.GetPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
+	testutil.ActivateAuth(t)
+
+	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+	bo := backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return errors.Errorf("could not get pause status %v", err)
+		}
+		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+	// ListRepo should not return an error since the cluster is unpaused now
+	_, err = client.ListRepo()
+	require.Nil(t, err)
+}
+
+func TestDoublePauseUnpause(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	testutil.DeleteAll(t)
+	defer testutil.DeleteAll(t)
+	client := testutil.GetPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
+	testutil.ActivateAuth(t)
+
+	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+	time.Sleep(time.Second)
+	_, err = client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
+	require.NoError(t, err)
+	bo := backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return errors.Errorf("could not get pause status %v", err)
+		}
+		if resp.Status == enterprise.PauseStatusResponse_PAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+	time.Sleep(time.Second)
+	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
+	require.NoError(t, err)
+	bo = backoff.NewExponentialBackOff()
+	backoff.Retry(func() error {
+		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
+		if err != nil {
+			return errors.Errorf("could not get pause status %v", err)
+		}
+		if resp.Status == enterprise.PauseStatusResponse_UNPAUSED {
+			return nil
+		}
+		return errors.Errorf("status: %v", resp.Status)
+	}, bo)
+}
