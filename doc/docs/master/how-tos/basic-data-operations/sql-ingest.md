@@ -48,7 +48,7 @@ Where the parameters passed to the jsonnet pipeline spec are:
           ```shell
           pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/templates/sql_ingest_cron.jsonnet  
           --arg name=mysnowflakeingest 
-          --arg url="snowflake://albcui@GVCNUNW-MF57120/SNOWFLAKE_SAMPLE_DATA/WEATHER?WAREHOUSE=COMPUTE_WH" 
+          --arg url="snowflake://username@GVCNUNW-MF57120/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" 
           --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" 
           --arg cronSpec="@every 30s" 
           --arg secretName="snowflakesecret" 
@@ -105,7 +105,7 @@ Where:
 
 
 
-!!! Attention "Snowflake users, you will need a variant or the url above."
+!!! Attention "Snowflake users, you will need a variant of the url above."
      Pachyderm supports two connection URL patterns to query Snowflake: 
 
       - `snowflake://username@<account_identifier>/<db_name>/<schema_name>?warehouse=<warehouse_name>`
