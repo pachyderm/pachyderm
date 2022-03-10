@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -26,18 +27,30 @@ var (
 	fromVersions = []string{
 		"2.0.4",
 		"2.0.5",
+		"2.1.0",
 	}
 )
 
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
-func upgradeTest(t *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
-	k := testutil.GetKubeClient(t)
+func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
+	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
-		minikubetestenv.DeleteRelease(t, ctx, k) // cleanup cluster
-
-		preUpgrade(t, minikubetestenv.InstallPublishedRelease(t, ctx, k, from, upgradeSubject))
-
-		postUpgrade(t, minikubetestenv.UpgradeRelease(t, ctx, k, upgradeSubject))
+		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
+			preUpgrade(t, minikubetestenv.InstallRelease(t,
+				context.Background(),
+				"default",
+				k,
+				&minikubetestenv.DeployOpts{
+					Version: from,
+				}))
+			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
+				context.Background(),
+				"default",
+				k,
+				&minikubetestenv.DeployOpts{
+					CleanupAfter: true,
+				}))
+		})
 	}
 }
 
@@ -50,6 +63,7 @@ func upgradeTest(t *testing.T, ctx context.Context, preUpgrade func(*testing.T, 
 func TestUpgradeSimple(t *testing.T) {
 	upgradeTest(t, context.Background(),
 		func(t *testing.T, c *client.APIClient) {
+			testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(inputRepo))
 			require.NoError(t,
 				c.CreatePipeline(outputRepo,
@@ -80,6 +94,7 @@ func TestUpgradeSimple(t *testing.T) {
 		},
 
 		func(t *testing.T, c *client.APIClient) {
+			testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)

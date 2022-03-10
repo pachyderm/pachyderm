@@ -113,6 +113,12 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+      {{- if .Values.enterpriseServer.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.enterpriseServer.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.enterpriseServer.tolerations }}
+      tolerations: {{ toYaml .Values.enterpriseServer.tolerations | nindent 8 }}
+      {{- end }}
       volumes:
       {{- if .Values.enterpriseServer.tls.enabled }}
       - name: pachd-tls-cert
@@ -124,8 +130,4 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
       {{- end }}
-      initContainers:
-      - name: init-etcd
-        image: busybox:1.28
-        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"] 
 {{- end }}

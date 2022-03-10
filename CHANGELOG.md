@@ -1,6 +1,27 @@
 
 # Changelog
 
+## 2.1.3
+- Fix debug dump segfault on failed jobs - #7377
+- Fix: check sql.ErrNoRows in error chain - #7381
+- Receive keep alive responses for worker ip renewal - #7378
+- Add post upgrade hook for configpod - #7376
+- Do not propagate TotalFileSet if parent commit errored in alias commits - #7383
+
+## 2.1.2
+- Handling commas in jsonnet argument - #7363
+- Run config-job when license is provided via secret - #7348
+- Remove init container from enterprise server deployment - #7369
+- 
+## 2.1.1
+- Bug fix for upgrading with more than 10 pipelines - #7360
+- Add nodeSelector and annotations to some helm templates - #7354
+- Reduce chunk batch size - #7352
+- Finer grained locking of Index Writer data - #7350
+- Remove pachd's init container - #7347
+- Open commits performance changes - #7342
+- Allow using Update pipeline to create a pipeline when auth is enabled - #7340
+
 ## 2.1.0
 Highlights:
 - Integration with Structured Data stores, using SQL query pipelines (7248, 7129, 7108, 7035, 7032)

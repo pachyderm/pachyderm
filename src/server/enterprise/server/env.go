@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+	kube "k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -11,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type Env struct {
@@ -24,12 +26,41 @@ type Env struct {
 
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
+	getKubeClient func() *kube.Clientset
 
 	BackgroundContext context.Context
+	namespace         string
+	mode              PauseMode
+	unpausedMode      string
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) Env {
-	return Env{
+// PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
+type PauseMode uint8
+
+const (
+	UnpausableMode PauseMode = iota
+	FullMode
+	PausedMode
+)
+
+type Option func(Env) Env
+
+func WithUnpausedMode(mode string) Option {
+	return func(e Env) Env {
+		e.unpausedMode = mode
+		return e
+	}
+}
+
+func WithMode(mode PauseMode) Option {
+	return func(e Env) Env {
+		e.mode = mode
+		return e
+	}
+}
+
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) Env {
+	e := Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
 		TxnEnv:   txEnv,
@@ -39,9 +70,15 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 
 		AuthServer:    senv.AuthServer(),
 		GetPachClient: senv.GetPachClient,
+		getKubeClient: senv.GetKubeClient,
 
 		BackgroundContext: senv.Context(),
+		namespace:         senv.Config().Namespace,
 	}
+	for _, o := range options {
+		e = o(e)
+	}
+	return e
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
@@ -94,4 +131,9 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 		}
 	}
 	return nil
+}
+
+// StopWorkers stops all workers
+func (env Env) StopWorkers(ctx context.Context) error {
+	return scaleDownWorkers(ctx, env.getKubeClient(), env.namespace)
 }

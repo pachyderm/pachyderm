@@ -47,11 +47,10 @@ func ActivateAuth(tb testing.TB) {
 	activateAuthHelper(tb, client)
 }
 
-func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
+// creates a new authenticated pach client, without re-activating
+func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
 	tb.Helper()
 	rootClient := UnauthenticatedPachClient(tb, c)
-	activateAuthHelper(tb, c)
-
 	rootClient.SetAuthToken(RootToken)
 	if subject == auth.RootUser {
 		return rootClient
@@ -61,6 +60,12 @@ func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string)
 	client := UnauthenticatedPachClient(tb, c)
 	client.SetAuthToken(token.Token)
 	return client
+}
+
+func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
+	tb.Helper()
+	activateAuthHelper(tb, c)
+	return AuthenticateClient(tb, c, subject)
 }
 
 // GetAuthenticatedPachClient activates auth, if it is not activated, and returns

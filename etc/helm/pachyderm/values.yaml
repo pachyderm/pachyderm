@@ -53,6 +53,8 @@ console:
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
     tag: "2.1.0-1"
+  nodeSelector: {}
+  tolerations: []
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
@@ -77,6 +79,7 @@ console:
 
 
   service:
+    annotations: {}
     # labels specifies labels to add to the console service.
     labels: {}
     # type specifies the Kubernetes type of the console service.
@@ -134,8 +137,15 @@ enterpriseServer:
   enabled: false
   affinity: {}
   annotations: {}
+  tolerations: []
+  nodeSelector: {}
   service:
     type: ClusterIP
+    apiGRPCPort: 31650
+    prometheusPort: 31656
+    oidcPort: 31657
+    identityPort: 31658
+    s3GatewayPort: 31600
   # There are three options for TLS:
   # 1. Disabled
   # 2. Enabled, existingSecret, specify secret name
@@ -191,6 +201,8 @@ loki-stack:
       size: 5Gi
       storageClassName: standard
       annotations: {}
+      nodeSelector: {}
+      tolerations: []
   grafana:
     enabled: false
 
@@ -252,6 +264,12 @@ pachd:
     labels: {}
     # type specifies the Kubernetes type of the pachd service.
     type: "ClusterIP"
+    annotations: {}
+    apiGRPCPort: 30650
+    prometheusPort: 30656
+    oidcPort: 30657
+    identityPort: 30658
+    s3GatewayPort: 30600
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
@@ -402,11 +420,17 @@ pachd:
       id: ""
       secret: ""
     minio:
+      # minio bucket name
       bucket: ""
+      # the minio endpoint. Should only be the hostname:port, no http/https.
       endpoint: ""
+      # the username/id with readwrite access to the bucket.
       id: ""
+      # the secret/password of the user with readwrite access to the bucket.
       secret: ""
+      # enable https for minio with "true" defaults to "false"
       secure: ""
+      # Enable S3v2 support by setting signature to "1". This feature is being deprecated
       signature: ""
     # putFileConcurrencyLimit sets the maximum number of files to
     # upload or fetch from remote sources (HTTP, blob storage) using
@@ -459,6 +483,8 @@ pgbouncer:
   service:
     type: ClusterIP
   annotations: {}
+  nodeSelector: {}
+  tolerations: []
   resources: {}
     #limits:
     #  cpu: "1"
@@ -503,6 +529,12 @@ postgresql:
     size: 10Gi
     labels:
       suite: pachyderm
+  primary:
+    nodeSelector: {}
+    tolerations: []
+  readReplicas:
+    nodeSelector: {}
+    tolerations: []
 
 cloudsqlAuthProxy:
   # connectionName may be found by running `gcloud sql instances describe INSTANCE_NAME --project PROJECT_ID`
@@ -519,6 +551,8 @@ cloudsqlAuthProxy:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "1.23.0"
+  nodeSelector: {}
+  tolerations: []
   # podLabels specifies labels to add to the dash pod.
   podLabels: {}
   # resources specifies the resource request and limits.

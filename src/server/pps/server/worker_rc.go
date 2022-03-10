@@ -130,6 +130,12 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
+	}, {
+		Name:  "LOKI_SERVICE_HOST_VAR",
+		Value: pc.env.Config.LokiHostVar,
+	}, {
+		Name:  "LOKI_SERVICE_PORT_VAR",
+		Value: pc.env.Config.LokiPortVar,
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{

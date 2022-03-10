@@ -1,5 +1,5 @@
 
-# Ingest Structured Data - Data Warehouse Integration
+# Data Warehouse Integration
 
 !!! Warning
     SQL Ingest is an [experimental feature](../../../contributing/supported-releases/#experimental).

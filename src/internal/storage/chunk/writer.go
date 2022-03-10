@@ -121,8 +121,8 @@ func (w *Writer) ChunkCount() int64 {
 
 // Annotate associates an annotation with the current data.
 func (w *Writer) Annotate(a *Annotation) error {
-	// Create chunks at annotation boundaries if past the average chunk size.
-	if w.buf.Len() >= w.chunkSize.avg {
+	// Create chunks at annotation boundaries if past the min chunk size.
+	if w.buf.Len() >= w.chunkSize.min {
 		if err := w.createChunk(); err != nil {
 			return err
 		}

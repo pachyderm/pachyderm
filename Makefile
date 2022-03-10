@@ -200,7 +200,8 @@ launch-enterprise: check-kubectl check-kubectl-connection
 
 launch-enterprise-member: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
-	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/enterprise-member-dev.yaml
+	kubectl apply -f etc/testing/minio.yaml --namespace=default
+	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/enterprise-member-values.yaml
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -244,7 +245,7 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 1 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server -parallel 10 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
