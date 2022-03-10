@@ -12,8 +12,9 @@ repo_branch: master
 repo_docs_dir: doc/docs/2.1.x
 edit_uri: ""
 
-# Pachyderm branch
+# Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
 pach_branch: '2.1.x'
+
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
