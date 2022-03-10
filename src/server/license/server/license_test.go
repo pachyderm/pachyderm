@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -25,7 +26,7 @@ func TestActivate(t *testing.T) {
 
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate Enterprise
 	tu.ActivateEnterprise(t, client)
@@ -46,7 +47,7 @@ func TestExpired(t *testing.T) {
 
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	expires := time.Now().Add(-30 * time.Second)
 	expiresProto, err := types.TimestampProto(expires)
@@ -91,7 +92,7 @@ func TestDeleteAll(t *testing.T) {
 
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate Enterprise, which activates a license and adds a "localhost" cluster
 	tu.ActivateEnterprise(t, client)
@@ -145,7 +146,7 @@ func TestClusterCRUD(t *testing.T) {
 
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate enterprise, which will register the localhost cluster
 	tu.ActivateEnterprise(t, client)
@@ -267,7 +268,7 @@ func TestAddClusterUnreachable(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, client)
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
@@ -288,7 +289,7 @@ func TestUpdateClusterUnreachable(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, client)
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
@@ -309,7 +310,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
 		Address: "grpc://localhost:1650",
@@ -416,7 +417,7 @@ func TestListUserClusters(t *testing.T) {
 
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate enterprise, which will register the localhost cluster
 	tu.ActivateEnterprise(t, client)

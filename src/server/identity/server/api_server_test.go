@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -22,7 +23,7 @@ func TestAuthNotActivated(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
