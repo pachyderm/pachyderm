@@ -95,7 +95,6 @@ func (gen *TransactionClientGenerator) AddProto(proto *descriptor.FileDescriptor
 
 func (gen *TransactionClientGenerator) Finish() (*plugin.CodeGeneratorResponse_File, error) {
 	buf := &bytes.Buffer{}
-	sortProtos(gen.Protos)
 	if err := outTemplate.Execute(buf, gen); err != nil {
 		return nil, err
 	}

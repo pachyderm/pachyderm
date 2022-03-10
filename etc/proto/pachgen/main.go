@@ -68,6 +68,7 @@ func sortProtos(pp []*descriptorpb.FileDescriptorProto) {
 // runInternal will send each proto file to each code generator, then collect
 // their output files into a single response.
 func runInternal(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse {
+	sortProtos(req.ProtoFile)
 	for _, proto := range req.ProtoFile {
 		for _, gen := range CodeGenerators {
 			if err := gen.AddProto(proto); err != nil {
