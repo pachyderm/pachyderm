@@ -7,13 +7,19 @@ site_dir: site/master/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
+# Documentation branch
 repo_branch: master
 repo_docs_dir: doc/docs/master
 edit_uri: ""
 
+# Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
+pach_branch: '2.1.x'
+
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
+# Version of Pachyderm featured in the product
 pach_featured_version: '2.1.3'
+# Latest version of Pachyderm
 pach_latest_version: '2.1.3'
 pach_major_minor_version: '2.1'
 search_index_version: 'master'

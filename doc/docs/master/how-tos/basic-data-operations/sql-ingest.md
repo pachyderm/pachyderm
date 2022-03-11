@@ -15,7 +15,7 @@ Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/j
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
-pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet 
+pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet 
   --arg name=myingest
   --arg url="mysql://root@mysql:3306/test_db"
   --arg query="SELECT * FROM test_data"
@@ -35,8 +35,29 @@ Where the parameters passed to the jsonnet pipeline spec are:
 | `format`      | The type of your output file containing the results of your query (either `json` or `yaml`).|
 | `secretName`  | The kubernetes secret name that contains the [password to the database](#database-secret).|
 
+!!! Example 
+
+    In this example, we are leveraging Snowflake's support for queries traversing semi-structured data (here, JSON).
+
+    - Find the [documentation for the support of semi-structured data in Snowflake](https://docs.snowflake.com/en/user-guide/semistructured-concepts.html#:~:text=Snowflake%20provides%20native%20support%20for,fast%20and%20efficient%20SQL%20querying.){target=_blank} here. 
+
+    - The query in the following example will use the WEATHER schema in the public test database SNOWFLAKE_SAMPLE_DATA in the COMPUTE_WH warehouse. The column V of the table DAILY_14_TOTAL stores JSON files.
+
+        Note the references to the JSON dataset elements by their hierarchical paths in the query:
+
+          ```shell
+          pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/templates/sql_ingest_cron.jsonnet  
+          --arg name=mysnowflakeingest 
+          --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" 
+          --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" 
+          --arg cronSpec="@every 30s" 
+          --arg secretName="snowflakesecret" 
+          --arg format=json
+          ```
+
+
 !!! Note
-    `pachctl update pipeline` will create pipelines if none exist or update otherwise.
+    `pachctl update pipeline` will create pipelines if none exist, or update your existing pipelines otherwise.
 
 
 When the command is run, the database will be queried on a schedule defined in your `cronSpec` parameter and a result file committed to the output repo named after `name`.
@@ -54,6 +75,16 @@ Before you create your SQL Ingest pipelines, make sure to create a [generic secr
       "PACHYDERM_SQL_PASSWORD": "cm9vdA==" # base64 encoded
     ```
 
+!!! Info "TL;DR"
+    - Run the following command to generate your secret:
+
+        `kubectl create secret generic <secret-name>  --from-literal=PACHYDERM_SQL_PASSWORD=<password-to-warehouse> --dry-run=client --output=json > yourwarehousesecret.json`
+
+    - Then apply it to your Pachyderm cluster:
+
+        `pachctl create secret -f yourwarehousesecret.json`
+
+    - The list returned by `kubectl get secret` should feature the secret name. 
 ### Database Connection URL
 Pachyderm's SQL Ingest will take an URL as its connection string to the database of your choice.
 
@@ -66,20 +97,46 @@ Where:
 
 | Parameter     | Description | 
 | ------------- |-------------| 
-| **protocol**   | The name of the database protocol. As of today, you have the ability to connect to  `postgres`or `mysql`. Note that `mysql` allows you to connect to mariadb. |
+| **protocol**   | The name of the database protocol. <br> As of today, we support: <br>- `postgres` and `postgresql` : connect to Postgresql or compatible (for example Redshift).<br>- `mysql` : connect to MySQL or compatible (for example MariaDB). <br>- `snowflake` : connect to Snowflake. |
 | **username**  | The user used to access the database.|
 | **host**      | The hostname of your database instance.|
 | **port**      | The port number your instance is listening on.|
 | **database**  | The name of the database to connect to. | 
 
+
+
+!!! Attention "Snowflake users, you will need a variant of the URL above."
+     Pachyderm supports two connection URL patterns to  query Snowflake: 
+
+      - `snowflake://username@<account_identifier>/<db_name>/<schema_name>?warehouse=<warehouse_name>`
+      - `snowflake://username@hostname:port/<db_name>/<schema_name>?account=<account_identifier>&warehouse=<warehouse_name>`
+
+     where:
+
+      - The *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html){target=_blank}* takes one of the following forms for most URLs:
+
+        - Option 1 - [Account Name](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-1-account-name-in-your-organization){target=_blank}:`organization_name`-`account_name`
+        - Option 2 - [Account Locator](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-2-account-locator-in-a-region){target=_blank}: `account_locator`.`region`.`cloud`
+    
+        In both cases, if you are used to connecting to Snowflake via an URL such as `https://account_identifier.snowflakecomputing.com`, you can use the full domain name `account_identifier.snowflakecomputing.com` in the url.
+
+      - And *`db_name`/`schema_name`* are respectively the Database Name and the Schema (namespace) targeted.
+      - Additionally, a *[`warehouse`](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses){target=_blank}*, or “compute resource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
+
+     Here is an example of connection string to Snowflake: 
+
+     `"snowflake://username@GVCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH"`
+
+
+
 !!! Note 
-    - The additional parameters are optional and specific to the driver.
     - The password is not included in the URL.  It is retrieved from a [kubernetes secret](#database-secret) or file on disk at the time of the query.
+    - The additional parameters (`<param1>=<value1>`) are optional and specific to the driver.
+    For example, Snowflake requires to pass the warehouse as a parameter `warehouse=<your-warehouse>`.
 
+## How Does This Work?
 
-## How does this work?
-
-SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
+SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
 
 
 - A **[Cron Pipeline](../../../concepts/pipeline-concepts/pipeline/cron/#cron-pipeline)** `myingest_queries` triggering at an interval set by `cronSpec` and outputting a file `/0000` in its output repo `myingest_queries`. `/0000` contains a timestamp and the SQL statement set in `query`.
@@ -88,7 +145,7 @@ SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://gith
 !!! Note
     The name of each pipeline and related input and output repos are derived from the `name` parameter. In the example above, we have set `--arg name=myingest`.
 
-The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf) is used in both pipelines.
+The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf){target=_blank} is used in both pipelines.
 
 Check the visual representation of the SQL Ingest DAG created above in Console: 
 
@@ -104,8 +161,11 @@ In your terminal:
 
      ![List repo](../images/sqlingest-list-repo.png)
 
-!!! Note "Inspect the result of a query"
-    To inspect the result of the following query:
+## How To Inspect The Result Of A Query?
+
+You have run a query using SQL Ingest. How do you inspect its result?
+
+- Check what the query looked like:
 
     ```shell
     pachctl get file myingest_queries@master:/0000
@@ -114,7 +174,8 @@ In your terminal:
     -- 1643235475
     SELECT * FROM test_data
     ```
-    Read the file written to the output repo `myingest`:
+
+- Read the file written to the output repo `myingest`:
 
     ```shell
     pachctl list file myingest@master
@@ -131,6 +192,3 @@ In your terminal:
     {"mycolumn":"hello world","id":1}
     {"mycolumn":"hello you","id":2}
     ```
-
-
-
