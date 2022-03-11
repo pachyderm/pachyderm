@@ -66,6 +66,7 @@ import {
   RenewFileSetRequest,
   DiffFileRequest,
   CommitSet,
+  ComposeFileSetRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';
 import {RPC_DEADLINE_MS} from '../constants/rpc';
@@ -601,6 +602,16 @@ const pfs = ({
         client.renewFileSet(request, credentialMetadata, (err) => {
           if (err) reject(err);
           else resolve({});
+        });
+      });
+    },
+    composeFileSet: (fileSets: string[]) => {
+      return new Promise<string>((resolve, reject) => {
+        const request = new ComposeFileSetRequest().setFileSetIdsList(fileSets);
+
+        client.composeFileSet(request, credentialMetadata, (err, res) => {
+          if (err) reject(err);
+          else resolve(res.getFileSetId());
         });
       });
     },
