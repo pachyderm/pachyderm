@@ -1,13 +1,15 @@
 import { group, sleep } from "k6";
-import { Counter } from 'k6/metrics';
+import http from "k6/http";
 
-const DURATION = 30;
+const DURATION = 90;
 const POLL_INTERVAL = 3;
+
+const POLL_DURATION = DURATION - 10;
 
 import { authenticate, Authentication, createGraphqlClient, Operation } from "../utils";
 
 export const options = {
-  vus: 20,
+  vus: 30,
   duration: `${DURATION}s`,
 };
 
@@ -31,7 +33,7 @@ export default function (auth: Authentication) {
 
         pollRequest(()=>{
           query(Operation.project);
-        }, POLL_INTERVAL, DURATION);
+        }, POLL_INTERVAL, POLL_DURATION);
       });
     },
     () => {
@@ -43,7 +45,7 @@ export default function (auth: Authentication) {
 
         pollRequest(()=>{
           query(Operation.jobSets);
-        }, POLL_INTERVAL, DURATION);
+        }, POLL_INTERVAL, POLL_DURATION);
       });
     },
     () => {
@@ -57,7 +59,7 @@ export default function (auth: Authentication) {
           query(Operation.repo);
           query(Operation.jobSets);
           query(Operation.getCommits);
-        }, POLL_INTERVAL, DURATION);
+        }, POLL_INTERVAL, POLL_DURATION);
       });
     },
     () => {
@@ -71,7 +73,7 @@ export default function (auth: Authentication) {
         pollRequest(()=>{
           query(Operation.jobs);
           query(Operation.jobSets);
-        }, POLL_INTERVAL, DURATION)
+        }, POLL_INTERVAL, POLL_DURATION)
       });
     },
     () => {
@@ -86,7 +88,7 @@ export default function (auth: Authentication) {
           query(Operation.repo);
           query(Operation.jobSets);
           query(Operation.getCommits);
-        }, POLL_INTERVAL, DURATION);
+        }, POLL_INTERVAL, POLL_DURATION);
       });
     },
   ];
@@ -94,3 +96,26 @@ export default function (auth: Authentication) {
   const pageIndex = Math.floor(Math.random() * pages.length);
   pages[pageIndex]();
 }
+
+export const handleSummary = (data: any) => {
+  const summary = `
+*Concurrent virtual users*: ${data?.metrics?.vus?.values?.value}
+*Requests*: ${data?.metrics?.http_reqs?.values?.count}
+*Failures*: ${data?.metrics?.http_req_failed?.values?.passes} (${(data?.metrics?.http_req_failed?.values?.rate*100).toFixed(2)}%)
+*Avg response time*: ${data?.metrics?.http_req_duration?.values?.avg?.toFixed(2)}ms
+*95% response time*: ${data?.metrics?.http_req_duration?.values['p(95)'].toFixed(2)}ms
+  `
+  http.post(
+    `https://hooks.slack.com/services/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`,
+    JSON.stringify({text: summary}),
+    {
+      headers: {
+        "Content-type": "application/json",
+      },
+    }
+  );
+
+  return {
+    stdout: summary
+  }
+};
