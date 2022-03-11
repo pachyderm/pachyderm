@@ -1,8 +1,6 @@
 #!/bin/bash
 set -ex
 
-export GOGO_PROTO_VERSION="v1.3.2"
-
 tar -C "${GOPATH}/src/github.com/pachyderm/pachyderm" -xf /dev/stdin
 
 # Make sure the proto compiler is reasonably up-to-date so that our compiled
@@ -23,36 +21,24 @@ cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 mkdir -p v2/src
 
 # shellcheck disable=SC2044
-for i in $(find src -name "*.proto"); do \
-    if ! grep -q 'go_package' "${i}"; then
-        echo -e "\e[1;31mError:\e[0m missing \"go_package\" declaration in ${i}" >/dev/stderr
-    fi
-    protoc \
-        "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
+protoc  --go-patch_out=plugin=go,paths=source_relative:./src \
+        --go-patch_out=plugin=go-grpc,paths=source_relative:./src \
         -Isrc \
-        --gogofast_out=plugins=grpc,\
-Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
-Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
-Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
-Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,\
-":${GOPATH}/src" \
-    "${i}" >/dev/stderr
-done
+        -I /go/pkg/mod/github.com/alta/protopatch@v0.5.0 \
+        src/admin/admin.proto >/dev/stderr
 
-pushd src > /dev/stderr
-read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
-protoc \
-    --proto_path . \
-    --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
-    "-I${GOPATH}/pkg/mod/github.com/gogo/protobuf@${GOGO_PROTO_VERSION}" \
-    --pach_out="../v2/src" \
-    "${proto_files[@]}" > /dev/stderr
-
-popd > /dev/stderr
-
-# TODO (brendon): figure out how to configure protoc
-pushd v2 > /dev/stderr
+#pushd src > /dev/stderr
+#read -ra proto_files < <(find . -name "*.proto" -print0 | xargs -0)
+#protoc \
+#    --proto_path . \
+#    --plugin=protoc-gen-pach="${GOPATH}/bin/protoc-gen-pach" \
+#    -I /go/pkg/mod/github.com/alta/protopatch@v0.5.0 \
+#    --pach_out="../v2/src" \
+#    admin/admin.proto  > /dev/stderr
+#
+#popd > /dev/stderr
+#
+## TODO (brendon): figure out how to configure protoc
+#pushd v2 > /dev/stderr
 gofmt -w src > /dev/stderr
 find src -regex ".*\.go" -print0 | xargs -0 tar cf -
