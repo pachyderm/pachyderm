@@ -1021,30 +1021,40 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 
 func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_ListDatumServer) (retErr error) {
 	// TODO: Auth?
-	if request.Input != nil {
-		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
-			di := convertDatumMetaToInfo(meta, nil)
-			di.State = pps.DatumState_UNKNOWN
-			return errors.EnsureStack(server.Send(di))
-		})
+	input := request.Input
+	if request.Job != nil {
+		info, err := a.InspectJob(server.Context(), &pps.InspectJobRequest{Job: request.Job, Details: true})
+		if err != nil {
+			return err
+		}
+		if info.Finished != nil {
+			return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
+				return errors.EnsureStack(server.Send(convertDatumMetaToInfo(meta, request.Job)))
+			})
+		}
+		input = info.Details.Input
 	}
-	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
-		return errors.EnsureStack(server.Send(convertDatumMetaToInfo(meta, request.Job)))
+	return a.listDatumInput(server.Context(), input, func(meta *datum.Meta) error {
+		di := convertDatumMetaToInfo(meta, nil)
+		di.State = pps.DatumState_UNKNOWN
+		return errors.EnsureStack(server.Send(di))
 	})
+
 }
 
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
 	setInputDefaults("", input)
 	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
-		if input.Pfs != nil {
-			pachClient := a.env.GetPachClient(ctx)
-			ci, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Branch, "")
+		if input.Pfs != nil && input.Pfs.Commit == "" {
+			bi, err := a.env.PFSServer.InspectBranch(ctx, &pfs.InspectBranchRequest{
+				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+			})
 			if err != nil {
 				return err
 			}
-			input.Pfs.Commit = ci.Commit.ID
+			input.Pfs.Commit = bi.Head.ID
 		}
-		if input.Cron != nil {
+		if input.Cron != nil && input.Cron.Commit == "" {
 			return errors.Errorf("can't list datums with a cron input, there will be no datums until the pipeline is created")
 		}
 		return nil
