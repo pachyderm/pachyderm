@@ -57,8 +57,59 @@ Cypress.Commands.add('authenticatePachctl', () => {
 
 })
 
-Cypress.Commands.add('setupProject', () => {
-    return cy.authenticatePachctl()
+Cypress.Commands.add("setupProject", (projectTemplate) => {
+  if (projectTemplate === "error-opencv") {
+    return cy
+      .authenticatePachctl()
+      .exec("jq -r .pachyderm version.json")
+      .then((res) => {
+        cy.exec("pachctl create repo images")
+          // invalid image to trigger an error state
+          .exec(
+            `echo "gibberish" | pachctl put file images@master:badImage.png`
+          )
+          .exec(
+            `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v${res.stdout}/examples/opencv/edges.json`
+          )
+          .exec(
+            `echo '${JSON.stringify({
+              pipeline: {
+                name: "montage",
+              },
+              description:
+                "A pipeline that combines images from the `images` and `edges` repositories into a montage.",
+              input: {
+                cross: [
+                  {
+                    pfs: {
+                      glob: "/",
+                      repo: "images",
+                    },
+                  },
+                  {
+                    pfs: {
+                      glob: "/",
+                      repo: "edges",
+                    },
+                  },
+                ],
+              },
+              transform: {
+                cmd: ["sh"],
+                image: "dpokidov/imagemagick:7.0.10-58",
+                stdin: [
+                  "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png",
+                ],
+              },
+              egress: {
+                URL: "s3://test",
+              },
+            })}' | pachctl create pipeline`
+          );
+      });
+  }
+
+  return cy.authenticatePachctl()
       .exec('jq -r .pachyderm version.json').then(res => {
         cy.exec('pachctl create repo images')
           .exec('pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png')

@@ -3,7 +3,7 @@ declare namespace Cypress {
     login(email?: string, password?: string): Chainable<any>;
     logout(): Chainable<any>;
     authenticatePachctl(): Chainable<any>;
-    setupProject(): Chainable<any>;
+    setupProject(projectTemplate?: string): Chainable<any>;
     deleteReposAndPipelines(): Chainable<any>;
   }
 }

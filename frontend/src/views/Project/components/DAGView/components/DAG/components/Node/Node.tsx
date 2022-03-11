@@ -110,6 +110,7 @@ const Node: React.FC<NodeProps> = ({
             y={NODE_ICON_Y_OFFSET}
             pointerEvents="none"
             href={nodeIconHref}
+            data-testid={`Node__state-${node.state}`}
           />
         </>
       )}
