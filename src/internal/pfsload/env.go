@@ -33,7 +33,7 @@ func NewEnv(pachClient *client.APIClient, taskService task.Service, spec *Commit
 		return nil, err
 	}
 	authToken, err := auth.GetAuthToken(pachClient.Ctx())
-	if err != nil {
+	if err != nil && !auth.IsErrNotSignedIn(err) {
 		return nil, err
 	}
 	return &Env{
