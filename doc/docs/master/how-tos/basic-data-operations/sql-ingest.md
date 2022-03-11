@@ -113,14 +113,14 @@ Where:
 
      where:
 
-      - the *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html){target=_blank}* takes one of the following forms for most URLs:
+      - The *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html){target=_blank}* takes one of the following forms for most URLs:
 
         - Option 1 - [Account Name](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-1-account-name-in-your-organization){target=_blank}:`organization_name`-`account_name`
         - Option 2 - [Account Locator](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-2-account-locator-in-a-region){target=_blank}: `account_locator`.`region`.`cloud`
     
         In both cases, if you are used to connecting to Snowflake via an URL such as `https://account_identifier.snowflakecomputing.com`, you can use the full domain name `account_identifier.snowflakecomputing.com` in the url.
 
-      - and *`db_name`/`schema_name`* are respectively the Database Name and the Schema (namespace) targeted.
+      - And *`db_name`/`schema_name`* are respectively the Database Name and the Schema (namespace) targeted.
       - Additionally, a *[`warehouse`](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses){target=_blank}*, or “compute resource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
 
      Here is an example of connection string to Snowflake: 
