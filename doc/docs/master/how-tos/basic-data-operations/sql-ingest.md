@@ -39,7 +39,7 @@ Where the parameters passed to the jsonnet pipeline spec are:
 
     In this example, we are leveraging Snowflake's support for queries traversing semi-structured data (here, JSON).
 
-    - Find the [documentation for the support of semi-structured data in Snowflake](https://docs.snowflake.com/en/user-guide/semistructured-concepts.html#:~:text=Snowflake%20provides%20native%20support%20for,fast%20and%20efficient%20SQL%20querying.) here. 
+    - Find the [documentation for the support of semi-structured data in Snowflake](https://docs.snowflake.com/en/user-guide/semistructured-concepts.html#:~:text=Snowflake%20provides%20native%20support%20for,fast%20and%20efficient%20SQL%20querying.){target=_blank} here. 
 
     - The query in the following example will use the WEATHER schema in the public test database SNOWFLAKE_SAMPLE_DATA in the COMPUTE_WH warehouse. The column V of the table DAILY_14_TOTAL stores JSON files.
 
@@ -76,15 +76,15 @@ Before you create your SQL Ingest pipelines, make sure to create a [generic secr
     ```
 
 !!! Info "TL;DR"
-     Run the following command to generate your secret:
+    - Run the following command to generate your secret:
 
-     `kubectl create secret generic <secret-name>  --from-literal=PACHYDERM_SQL_PASSWORD=<password-to-warehouse> --dry-run=client  --output=json > yourwarehousesecret.json`
+        `kubectl create secret generic <secret-name>  --from-literal=PACHYDERM_SQL_PASSWORD=<password-to-warehouse> --dry-run=client --output=json > yourwarehousesecret.json`
 
-     Then apply it to your Pachyderm cluster:
-     
-     `pachctl create secret -f yourwarehousesecret.json`
+    - Then apply it to your Pachyderm cluster:
 
-     The list returned by `kubectl get secret` should feature the secret name. 
+        `pachctl create secret -f yourwarehousesecret.json`
+
+    - The list returned by `kubectl get secret` should feature the secret name. 
 ### Database Connection URL
 Pachyderm's SQL Ingest will take an URL as its connection string to the database of your choice.
 
@@ -105,20 +105,23 @@ Where:
 
 
 
-!!! Attention "Snowflake users, you will need a variant of the url above."
-     Pachyderm supports two connection URL patterns to query Snowflake: 
+!!! Attention "Snowflake users, you will need a variant of the URL above."
+     Pachyderm supports two connection URL patterns to  query Snowflake: 
 
       - `snowflake://username@<account_identifier>/<db_name>/<schema_name>?warehouse=<warehouse_name>`
       - `snowflake://username@hostname:port/<db_name>/<schema_name>?account=<account_identifier>&warehouse=<warehouse_name>`
 
      where:
 
-      - *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html)* takes the following form for most URLs:
+      - the *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html){target=_blank}* takes one of the following forms for most URLs:
 
-        - short:  `organization_name`-`account_name`.
-        - long: If you are used to connecting to Snowflake via an URL such as `https://organization_name-account_name.snowflakecomputing.com`, you can use the full domain name `organization_name-account_name.snowflakecomputing.com`.
-      - *`db_name`/`schema_name`* are respectfully the Database Name and the Schema (namespace) targeted.
-      - Additionally, a *[`warehouse`](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses)*, or “compute resource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
+        - Option 1 - [Account Name](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-1-account-name-in-your-organization){target=_blank}:`organization_name`-`account_name`
+        - Option 2 - [Account Locator](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-2-account-locator-in-a-region){target=_blank}: `account_locator`.`region`.`cloud`
+    
+        In both cases, if you are used to connecting to Snowflake via an URL such as `https://account_identifier.snowflakecomputing.com`, you can use the full domain name `account_identifier.snowflakecomputing.com` in the url.
+
+      - and *`db_name`/`schema_name`* are respectively the Database Name and the Schema (namespace) targeted.
+      - Additionally, a *[`warehouse`](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses){target=_blank}*, or “compute resource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
 
      Here is an example of connection string to Snowflake: 
 
@@ -142,7 +145,7 @@ SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://gith
 !!! Note
     The name of each pipeline and related input and output repos are derived from the `name` parameter. In the example above, we have set `--arg name=myingest`.
 
-The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf) is used in both pipelines.
+The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf){target=_blank} is used in both pipelines.
 
 Check the visual representation of the SQL Ingest DAG created above in Console: 
 
