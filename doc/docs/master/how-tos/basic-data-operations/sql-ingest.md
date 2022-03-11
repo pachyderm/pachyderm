@@ -48,7 +48,7 @@ Where the parameters passed to the jsonnet pipeline spec are:
           ```shell
           pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/templates/sql_ingest_cron.jsonnet  
           --arg name=mysnowflakeingest 
-          --arg url="snowflake://username@GVCNUNW-MF57120/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" 
+          --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" 
           --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" 
           --arg cronSpec="@every 30s" 
           --arg secretName="snowflakesecret" 
@@ -97,7 +97,7 @@ Where:
 
 | Parameter     | Description | 
 | ------------- |-------------| 
-| **protocol**   | The name of the database protocol. <br> As of today, we support: <br>- `postgres` : connect to Postgresql or compatible (for example Redshift).<br>- `mysql` : connect to MySQL or compatible (for example MariaDB). <br>- `snowflake` : connect to Snowflake. |
+| **protocol**   | The name of the database protocol. <br> As of today, we support: <br>- `postgres` and `postgresql` : connect to Postgresql or compatible (for example Redshift).<br>- `mysql` : connect to MySQL or compatible (for example MariaDB). <br>- `snowflake` : connect to Snowflake. |
 | **username**  | The user used to access the database.|
 | **host**      | The hostname of your database instance.|
 | **port**      | The port number your instance is listening on.|
@@ -113,9 +113,12 @@ Where:
 
      where:
 
-      - *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html)* takes the following form for most URLs: `organization_name`-`account_name` .
+      - *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html)* takes the following form for most URLs:
+
+        - short:  `organization_name`-`account_name`.
+        - long: If you are used to connecting to Snowflake via an URL such as `https://organization_name-account_name.snowflakecomputing.com`, you can use the full domain name `organization_name-account_name.snowflakecomputing.com`.
       - *`db_name`/`schema_name`* are respectfully the Database Name and the Schema (namespace) targeted.
-      - Additionally, a *[`warehouse`](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses)*, or “compute ressource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
+      - Additionally, a *[`warehouse`](https://docs.snowflake.com/en/user-guide/warehouses.html#virtual-warehouses)*, or “compute resource” is required for all queries. Pass your warehouse as a parameter to the url: `warehouse=<warehouse_name>`
 
      Here is an example of connection string to Snowflake: 
 
@@ -128,7 +131,7 @@ Where:
     - The additional parameters (`<param1>=<value1>`) are optional and specific to the driver.
     For example, Snowflake requires to pass the warehouse as a parameter `warehouse=<your-warehouse>`.
 
-## How does this work?
+## How Does This Work?
 
 SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
 
