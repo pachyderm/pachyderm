@@ -124,7 +124,8 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 
 	testutil.DeleteAll(t)
 	defer testutil.DeleteAll(t)
-	aliceClient := testutil.GetAuthenticatedPachClient(t, "robot:alice")
+	c, _ := minikubetestenv.AcquireCluster(t)
+	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice")
 	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())

@@ -34,8 +34,8 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 
 // ConfigureOIDCProvider configures the identity service and the auth service to
 // use a mock connector.
-func ConfigureOIDCProvider(t *testing.T) error {
-	adminClient := GetAuthenticatedPachClient(t, auth.RootUser)
+func ConfigureOIDCProvider(t *testing.T, c *client.APIClient) error {
+	adminClient := AuthenticateClient(t, c, auth.RootUser)
 
 	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
 	require.NoError(t, err)
