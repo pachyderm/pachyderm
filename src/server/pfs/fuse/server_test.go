@@ -69,8 +69,14 @@ func TestBasicServerSameNames(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 
-		_, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
+
+		defer resp.Body.Close()
+		mountResp := &MountResponse{}
+		json.NewDecoder(resp.Body).Decode(mountResp)
+		require.Equal(t, "repo", mountResp.Repo)
+		require.Equal(t, "master", mountResp.Branch)
 
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
@@ -187,8 +193,13 @@ func TestUnmountAll(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 
-		_, err = put("repos/_unmount", nil)
+		resp, err := put("repos/_unmount", nil)
 		require.NoError(t, err)
+
+		defer resp.Body.Close()
+		unmountResp := &[]UnmountResponse{}
+		json.NewDecoder(resp.Body).Decode(unmountResp)
+		require.Equal(t, 2, len(*unmountResp))
 
 		repos, err = ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
