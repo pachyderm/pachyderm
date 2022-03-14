@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -197,10 +198,9 @@ func TestUnmountAll(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	c = tu.AuthenticateClient(t, c, auth.RootUser)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
 		type Config struct {
@@ -263,12 +263,11 @@ func TestConfig(t *testing.T) {
 }
 
 func TestAuthLoginLogout(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	// Auth is activated in this step
-	tu.ConfigureOIDCProvider(t)
-	c := tu.GetUnauthenticatedPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	tu.ConfigureOIDCProvider(t, c)
+	c = tu.UnauthenticatedPachClient(t, c)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
 		authResp, err := put("auth/_login", nil)
@@ -296,23 +295,19 @@ func TestAuthLoginLogout(t *testing.T) {
 }
 
 func TestUnauthenticatedCode(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetUnauthenticatedPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 200, resp.StatusCode)
 	})
-
-	tu.ActivateAuth(t)
-	c = tu.GetUnauthenticatedPachClient(t)
+	c = tu.UnauthenticatedPachClient(t, c)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 401, resp.StatusCode)
 	})
 
-	c = tu.GetAuthenticatedPachClient(t, "test")
+	c = tu.AuthenticateClient(t, c, "test")
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 200, resp.StatusCode)

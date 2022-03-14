@@ -59,7 +59,6 @@ func TestS3PipelineErrors(t *testing.T) {
 	}
 
 	c, _ := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(repo1))

@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -33,9 +34,8 @@ func TestSpoutPachctl(t *testing.T) {
 	}
 
 	t.Run("SpoutAuth", func(t *testing.T) {
-		tu.DeleteAll(t)
-		defer tu.DeleteAll(t)
-		c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+		c, _ := minikubetestenv.AcquireCluster(t)
+		c = tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauth")
@@ -95,8 +95,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 	})
 	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
-		tu.DeleteAll(t)
-		c := tu.GetPachClient(t)
+		c, _ := minikubetestenv.AcquireCluster(t)
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
@@ -136,8 +135,7 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// activate auth, which will generate a new PPS token for the pipeline and trigger
 		// the RC to be recreated
-		c = tu.GetAuthenticatedPachClient(t, auth.RootUser)
-		defer tu.DeleteAll(t)
+		c = tu.AuthenticateClient(t, c, auth.RootUser)
 
 		// make sure we can delete commits
 		commitInfo, err := c.InspectCommit(pipeline, "master", "")
@@ -179,9 +177,7 @@ func TestSpoutPachctl(t *testing.T) {
 }
 
 func testSpout(t *testing.T, usePachctl bool) {
-	tu.DeleteAll(t)
-	c := tu.GetPachClient(t)
-
+	c, _ := minikubetestenv.AcquireCluster(t)
 	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {
 			return fmt.Sprintf("pachctl put file $PPS_PIPELINE_NAME@%s %s -f %s", branch, flags, file)

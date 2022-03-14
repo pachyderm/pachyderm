@@ -8695,7 +8695,7 @@ func TestSecretsUnauthenticated(t *testing.T) {
 	}
 	// Get an unauthenticated client
 	c, _ := minikubetestenv.AcquireCluster(t)
-	_ = tu.AuthenticatedPachClient(t, c, "robot:unused")
+	tu.ActivateAuthClient(t, c)
 	c.SetAuthToken("")
 	b := []byte(
 		`{
