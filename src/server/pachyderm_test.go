@@ -23,7 +23,6 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -8694,16 +8693,10 @@ func TestSecretsUnauthenticated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	// Enable auth on the cluster
-	tu.DeleteAll(t)
-	tu.GetAuthenticatedPachClient(t, auth.RootUser)
-	defer tu.DeleteAll(t)
-
 	// Get an unauthenticated client
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	_ = tu.AuthenticatedPachClient(t, c, "robot:unused")
 	c.SetAuthToken("")
-
 	b := []byte(
 		`{
 			"kind": "Secret",
@@ -9387,10 +9380,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
+	c, ns := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -9426,7 +9416,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 		if replicas > 4 {
 			replicas = 4
 		}
-		monitorReplicas(t, pipeline, replicas)
+		monitorReplicas(t, c, ns, pipeline, replicas)
 	}
 	commitNFiles(1)
 	commitNFiles(3)
@@ -9926,15 +9916,14 @@ func TestDatumSetCache(t *testing.T) {
 	}
 }
 
-func monitorReplicas(t testing.TB, pipeline string, n int) {
-	c := tu.GetPachClient(t)
+func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
-			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(context.Background(), rcName, metav1.GetOptions{})
+			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
