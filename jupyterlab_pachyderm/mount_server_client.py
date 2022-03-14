@@ -43,7 +43,7 @@ class MountServerClient(MountInterface):
 
 
     async def _is_mount_server_running(self):
-        get_logger().debug("Checking if mount server running")
+        get_logger().debug("Checking if mount server running...")
         try:
             await self.client.fetch(f"{self.address}/config")
         except Exception as e:
@@ -84,21 +84,11 @@ class MountServerClient(MountInterface):
         # TODO: add --socket and --log-file stdout args
         # TODO: add better error handling        
         if await self._is_mount_server_running():
-            return
+            return True
 
-        sp = subprocess.run(
-            ["bash", "-c", "pachctl config get active-context"],
-            capture_output=True,
-            env={
-                "PACH_CONFIG": os.path.expanduser(PACH_CONFIG)
-            }
-        )
-        if sp.stdout.decode("utf-8").strip() == "mount-server":
-            get_logger().info("Starting mount server...")
-            async with lock:
-                if await self._is_mount_server_running():
-                    return
-                    
+        get_logger().info("Starting mount server...")
+        async with lock:
+            if not await self._is_mount_server_running():                
                 subprocess.run(["bash", "-c", f"sudo umount {self.mount_dir}"])
                 subprocess.Popen(
                     [
@@ -114,12 +104,16 @@ class MountServerClient(MountInterface):
                 )
                 
                 tries = 0
+                get_logger().debug("Waiting for mount server...")
                 while not await self._is_mount_server_running():
                     time.sleep(1)
                     tries += 1
 
                     if tries == 10:
-                        raise RuntimeError("unable to start mount server")
+                        get_logger().debug("Unable to start mount server...")
+                        return False
+
+        return True
 
 
     async def list(self):
@@ -182,11 +176,11 @@ class MountServerClient(MountInterface):
             if not self._is_endpoint_valid(body["pachd_address"]):
                 return {"cluster_status": "INVALID", "pachd_address": body["pachd_address"]}
 
-            subprocess.run(["bash", "-c", f"umount {self.mount_dir}"])
             self._update_config_file(body["pachd_address"])
-            await self._ensure_mount_server()
-
-        if await self._is_mount_server_running():
+            get_logger().info(f"Updated config cluster endpoint to {body['pachd_address']}")
+            subprocess.run(["bash", "-c", f"umount {self.mount_dir}"])
+        
+        if await self._ensure_mount_server():
             response = await self.client.fetch(f"{self.address}/config")
             return response.body
         

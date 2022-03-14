@@ -89,7 +89,7 @@ class ReposHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error listing repos.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=e.code, reason=f"Error listing repos: {e}."
+                status_code=getattr(e, "code", 500), reason=f"Error listing repos: {e}."
             )
 
 
@@ -105,7 +105,7 @@ class ReposUnmountHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error unmounting all repos.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=e.code, reason=f"Error unmounting all repos: {e}."
+                status_code=getattr(e, "code", 500), reason=f"Error unmounting all repos: {e}."
             )
 
 
@@ -117,7 +117,7 @@ class RepoHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error listing repos.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=e.code, reason=f"Error listing repos: {e}."
+                status_code=getattr(e, "code", 500), reason=f"Error listing repos: {e}."
             )
 
         if repo not in repos:
@@ -163,7 +163,7 @@ class RepoMountHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error mounting {(repo, branch, name)}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=e.code, reason=f"Error mounting repo {repo}: {e}."
+                status_code=getattr(e, "code", 500), reason=f"Error mounting repo {repo}: {e}."
             )
 
 
@@ -180,7 +180,7 @@ class RepoUnmountHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error unmounting repo {repo}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=e.code, reason=f"Error unmounting repo {repo}: {e}.",
+                status_code=getattr(e, "code", 500), reason=f"Error unmounting repo {repo}: {e}.",
             )
 
 
@@ -237,7 +237,6 @@ class ConfigHandler(BaseHandler):
         try:
             body = self.get_json_body()
             response = await self.mount_client.config(body)
-            get_logger().info(f"Updated config cluster endpoint to {body['pachd_address']}")
             self.finish(response)
         except Exception as e:
             get_logger().error(
