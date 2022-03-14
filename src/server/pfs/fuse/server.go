@@ -279,18 +279,20 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 	return response, response.Error
 }
 
-func (mm *MountManager) UnmountAll() error {
+func (mm *MountManager) UnmountAll() ([]UnmountResponse, error) {
+	unmounted := []UnmountResponse{}
 	for key, msm := range mm.States {
 		if msm.State == "mounted" {
 			//TODO: Add Commit field here once we support mounting specific commits
 			_, err := mm.UnmountBranch(MountKey{Repo: key.Repo, Branch: key.Branch}, msm.Name)
 			if err != nil {
-				return err
+				return nil, err
 			}
+			unmounted = append(unmounted, UnmountResponse{Repo: key.Repo, Branch: key.Branch})
 		}
 	}
 
-	return nil
+	return unmounted, nil
 }
 
 func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
@@ -448,6 +450,12 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			marshalled, err := jsonMarshal(MountResponse{Repo: key.Repo, Branch: key.Branch})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write(marshalled)
 		})
 	router.Methods("PUT").
 		Queries("name", "{name}").
@@ -478,6 +486,12 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		marshalled, err := jsonMarshal(UnmountResponse{Repo: key.Repo, Branch: key.Branch})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isAuthOnAndUserUnauthenticated(mm.Client) {
@@ -485,11 +499,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 
-		err := mm.UnmountAll()
+		resp, err := mm.UnmountAll()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		marshalled, err := jsonMarshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		r, err := getClusterStatus(mm.Client)
@@ -573,7 +593,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = mm.UnmountAll()
+		_, err = mm.UnmountAll()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -673,7 +693,7 @@ func (mm *MountManager) updateClientEndpoint(reqPachdAddress string) (map[string
 				return nil, err
 			}
 			if clusterStatus["cluster_address"] != "INVALID" {
-				err := mm.UnmountAll()
+				_, err := mm.UnmountAll()
 				if err != nil {
 					return nil, err
 				}
@@ -737,6 +757,13 @@ type RepoResponse struct {
 }
 
 type GetResponse RepoResponse
+
+type MountResponse struct {
+	Repo   string `json:"repo"`
+	Branch string `json:"branch"`
+}
+
+type UnmountResponse MountResponse
 
 type MountKey struct {
 	Repo   string
