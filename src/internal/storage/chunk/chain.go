@@ -46,7 +46,7 @@ func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error
 	scb := c.serialCallback()
 	c.eg.Go(func() error {
 		defer c.sem.Release(1)
-		defer scb(func() error { return nil })
+		defer scb(func() error { return nil }) // ensures that scb is called at least once
 		return cb(c.ctx, scb)
 	})
 	return nil
@@ -54,19 +54,23 @@ func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error
 
 // Wait waits on the currently executing tasks to finish.
 func (c *TaskChain) Wait() error {
+	prevChan := c.prevChan
+	c.prevChan = nil // cause calls to CreateTask to panic
 	select {
 	case <-c.ctx.Done():
 		return errors.EnsureStack(c.eg.Wait())
-	case <-c.prevChan:
+	case <-prevChan:
 		return nil
 	}
 }
 
+// serialCallback returns a function g(f) which blocks until the previous
+// serialCallback has completed, and then calls f.
 func (c *TaskChain) serialCallback() func(func() error) error {
 	prevChan := c.prevChan
 	nextChan := make(chan struct{})
 	c.prevChan = nextChan
-	var once sync.Once
+	var once sync.Once // we call the returned function at least once, and so this is necessary to only execute it once.
 	return func(cb func() error) error {
 		defer once.Do(func() { close(nextChan) })
 		select {
