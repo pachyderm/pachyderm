@@ -25,6 +25,15 @@ func (e ErrPipelineNotFound) Error() string {
 	return fmt.Sprintf("pipeline %q not found", e.Pipeline.Name)
 }
 
+type ErrOutputCommitExists struct {
+	Job *pps.Job
+}
+
+func (e ErrOutputCommitExists) Error() string {
+	return fmt.Sprintf("the output commit for job %v still exists, so deleting it would lead to "+
+		"inconsistent pachyderm state. Consider using squash commit or delete commit instead.", e.Job)
+}
+
 var (
 	jobFinishedRe      = regexp.MustCompile("job [^ ]+ has already finished")
 	pipelineNotFoundRe = regexp.MustCompile("pipeline [^ ]+ not found")

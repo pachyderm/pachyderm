@@ -1520,6 +1520,14 @@ func (d *driver) squashCommitSetInternal(txnCtx *txncontext.TransactionContext, 
 		}
 	}
 
+	// 5) delete corresponding jobs, if any
+	for _, ci := range commitInfos {
+		if err := d.env.GetPPSServer().DeleteJobInTransaction(txnCtx, &pps.DeleteJobRequest{
+			Job: client.NewJob(ci.Commit.Branch.Repo.Name, ci.Commit.ID)}); err != nil && !errutil.IsNotFoundError(err) {
+			return errors.EnsureStack(err)
+		}
+	}
+
 	return nil
 }
 

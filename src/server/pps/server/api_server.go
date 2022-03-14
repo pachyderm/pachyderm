@@ -890,7 +890,20 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, errors.New("job cannot be nil")
 	}
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.deleteJobInTransaction(txnCtx, request)
+		var job pps.JobInfo
+		// check if this job's output commit already exists, to ensure we don't cause issues with datum computation
+		// this should only succeed if the output commit was squashed/deleted before those functions cleaned up jobs
+		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(request.Job, &job); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if _, err := a.env.PFSServer.InspectCommitInTransaction(txnCtx,
+			&pfs.InspectCommitRequest{Commit: job.OutputCommit}); err != nil && !pfsServer.IsCommitNotFoundErr(err) {
+			return errors.EnsureStack(err)
+		} else if err == nil {
+			return errors.EnsureStack(&ppsServer.ErrOutputCommitExists{Job: request.Job})
+		}
+
+		return a.DeleteJobInTransaction(txnCtx, request)
 	}); err != nil {
 		return nil, err
 	}
@@ -898,7 +911,8 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) deleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
+// DeleteJobInTransaction deletes a job in a transaction. Note that it does not perform any checks about the
+func (a *apiServer) DeleteJobInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeleteJobRequest) error {
 	if err := a.stopJob(txnCtx, request.Job, "job deleted"); err != nil {
 		return err
 	}
@@ -2483,7 +2497,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	jobInfo := &pps.JobInfo{}
 	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pipelineName, jobInfo, col.DefaultOptions(), func(string) error {
 		job := proto.Clone(jobInfo.Job).(*pps.Job)
-		err := a.deleteJobInTransaction(txnCtx, &pps.DeleteJobRequest{Job: job})
+		err := a.DeleteJobInTransaction(txnCtx, &pps.DeleteJobRequest{Job: job})
 		if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
 			return nil
 		}

@@ -77,6 +77,16 @@ func (mock *mockInspectPipelineInTransaction) Use(cb inspectPipelineInTransactio
 	mock.handler = cb
 }
 
+type deleteJobInTransactionFunc func(*txncontext.TransactionContext, *pps.DeleteJobRequest) error
+
+type mockDeleteJobInTransaction struct {
+	handler deleteJobInTransactionFunc
+}
+
+func (mock *mockDeleteJobInTransaction) Use(cb deleteJobInTransactionFunc) {
+	mock.handler = cb
+}
+
 type ppsTransactionAPI struct {
 	ppsServerAPI
 	mock *MockPPSTransactionServer
@@ -93,6 +103,7 @@ type MockPPSTransactionServer struct {
 	UpdateJobStateInTransaction  mockUpdateJobStateInTransaction
 	CreatePipelineInTransaction  mockCreatePipelineInTransaction
 	InspectPipelineInTransaction mockInspectPipelineInTransaction
+	DeleteJobInTransaction       mockDeleteJobInTransaction
 }
 
 type MockPPSPropagater struct{}
