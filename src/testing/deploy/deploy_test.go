@@ -8,14 +8,25 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestDeployEnterprise(t *testing.T) {
 	k := testutil.GetKubeClient(t)
-	c := minikubetestenv.InstallReleaseEnterprise(t, context.Background(), k, auth.RootUser, true)
+	c := minikubetestenv.InstallRelease(t,
+		context.Background(),
+		"default",
+		k,
+		&minikubetestenv.DeployOpts{
+			AuthUser:     auth.RootUser,
+			Enterprise:   true,
+			CleanupAfter: true,
+		})
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
@@ -48,4 +59,31 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "user:"+testutil.DexMockConnectorEmail, whoami.Username)
+}
+
+func TestParallelDeployments(t *testing.T) {
+	eg, _ := errgroup.WithContext(context.Background())
+	var c1 *client.APIClient
+	var c2 *client.APIClient
+	eg.Go(func() error {
+		c1, _ = minikubetestenv.AcquireCluster(t)
+		_, err := c1.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{Repo: client.NewRepo("c1")})
+		return errors.Wrap(err, "CreateRepo error")
+	})
+	eg.Go(func() error {
+		c2, _ = minikubetestenv.AcquireCluster(t)
+		_, err := c2.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{Repo: client.NewRepo("c2")})
+		return errors.Wrap(err, "CreateRepo error")
+	})
+	require.NoError(t, eg.Wait())
+
+	c1List, err := c1.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(c1List))
+	require.Equal(t, c1List[0].Repo.Name, "c1")
+
+	c2List, err := c2.ListRepo()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(c2List))
+	require.Equal(t, c2List[0].Repo.Name, "c2")
 }

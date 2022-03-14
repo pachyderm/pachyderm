@@ -15,7 +15,7 @@ Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/j
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
-pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet 
+pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet 
   --arg name=myingest
   --arg url="mysql://root@mysql:3306/test_db"
   --arg query="SELECT * FROM test_data"
@@ -79,7 +79,7 @@ Where:
 
 ## How does this work?
 
-SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.search_index_version }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
+SQL Ingest's jsonnet pipeline specs [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) creates two pipelines:
 
 
 - A **[Cron Pipeline](../../../concepts/pipeline-concepts/pipeline/cron/#cron-pipeline)** `myingest_queries` triggering at an interval set by `cronSpec` and outputting a file `/0000` in its output repo `myingest_queries`. `/0000` contains a timestamp and the SQL statement set in `query`.

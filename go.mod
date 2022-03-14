@@ -25,6 +25,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gogo/protobuf v1.3.2
+	github.com/golang/protobuf v1.5.2
 	github.com/google/go-jsonnet v0.17.0
 	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/mux v1.8.0
@@ -47,7 +48,7 @@ require (
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36
-	github.com/pachyderm/s2 v0.0.0-20200609183354-d52f35094520
+	github.com/pachyderm/s2 v0.0.0-20220310153629-eb494ef438b2
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
@@ -158,7 +159,6 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.2
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22 // indirect
