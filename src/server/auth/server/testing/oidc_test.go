@@ -51,7 +51,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	tu.ConfigureOIDCProvider(t, c)
 	testClient := tu.UnauthenticatedPachClient(t, c)
 
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	// Use the id token from the previous OAuth flow with Pach
 	authResp, err := testClient.Authenticate(testClient.Ctx(),

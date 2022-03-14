@@ -206,6 +206,12 @@ func RewriteURL(t testing.TB, urlStr, host string) string {
 
 // DexHost returns the address to access the identity server during tests
 func DexHost(c *client.APIClient) string {
+	if c.GetAddress().Port == 1650 {
+		return c.GetAddress().Host + ":1658"
+	}
+	if c.GetAddress().Port == 31650 {
+		return c.GetAddress().Host + ":31658"
+	}
 	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+2)
 }
 
