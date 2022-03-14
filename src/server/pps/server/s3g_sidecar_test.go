@@ -20,6 +20,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
@@ -44,13 +45,11 @@ func init() {
 }
 
 func initPachClient(t testing.TB) (*client.APIClient, string) {
+	c, _ := minikubetestenv.AcquireCluster(t)
 	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
-		c := tu.GetPachClient(t)
-		require.NoError(t, c.DeleteAll())
 		return c, ""
 	}
-	tu.ActivateAuth(t)
-	c := tu.GetAuthenticatedPachClient(t, tu.UniqueString("user-"))
+	c = tu.AuthenticatedPachClient(t, c, tu.UniqueString("user-"))
 	return c, c.AuthToken()
 }
 
@@ -135,7 +134,6 @@ func TestS3Input(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -226,7 +224,6 @@ func TestS3Chain(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -291,7 +288,6 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	}
 
 	c, _ := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -341,7 +337,6 @@ func TestS3Output(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -427,7 +422,6 @@ func TestFullS3(t *testing.T) {
 	}
 
 	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -515,7 +509,6 @@ func TestS3SkippedDatums(t *testing.T) {
 	name := t.Name()
 
 	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
