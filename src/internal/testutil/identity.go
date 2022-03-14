@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -132,7 +133,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	require.NoError(t, err)
 }
 
-func GetOIDCTokenForTrustedApp(t testing.TB) string {
+func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient) string {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -141,7 +142,6 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	testClient := GetUnauthenticatedPachClient(t)
 
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
@@ -206,13 +206,7 @@ func RewriteURL(t testing.TB, urlStr, host string) string {
 
 // DexHost returns the address to access the identity server during tests
 func DexHost(c *client.APIClient) string {
-	if c.GetAddress().Port == 1650 {
-		return c.GetAddress().Host + ":1658"
-	}
-	if c.GetAddress().Port == 31650 {
-		return c.GetAddress().Host + ":31658"
-	}
-	return c.GetAddress().Host + ":30658"
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+2)
 }
 
 func pachHost(c *client.APIClient) string {

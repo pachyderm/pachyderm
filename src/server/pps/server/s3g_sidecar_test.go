@@ -27,30 +27,19 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // This test is designed to run against pachyderm in custom namespaces and with
 // auth on or off. It reads env vars into here and adjusts tests to make sure
 // our s3 gateway feature works in those contexts
-var Namespace string
-
-func init() {
-	var ok bool
-	Namespace, ok = os.LookupEnv("PACH_NAMESPACE")
-	if !ok {
-		Namespace = v1.NamespaceDefault
-	}
-}
-
-func initPachClient(t testing.TB) (*client.APIClient, string) {
-	c, _ := minikubetestenv.AcquireCluster(t)
+func initPachClient(t testing.TB) (*client.APIClient, string, string) {
+	c, ns := minikubetestenv.AcquireCluster(t)
 	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
-		return c, ""
+		return c, "", ns
 	}
 	c = tu.AuthenticatedPachClient(t, c, tu.UniqueString("user-"))
-	return c, c.AuthToken()
+	return c, c.AuthToken(), ns
 }
 
 func TestS3PipelineErrors(t *testing.T) {
@@ -58,7 +47,7 @@ func TestS3PipelineErrors(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c, _ := initPachClient(t)
+	c, _, _ := initPachClient(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -132,7 +121,7 @@ func TestS3Input(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c, userToken := initPachClient(t)
+	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -207,7 +196,7 @@ func TestS3Input(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -222,7 +211,7 @@ func TestS3Chain(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken := initPachClient(t)
+	c, userToken, _ := initPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -286,7 +275,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c, _ := initPachClient(t)
+	c, _, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -327,7 +316,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	// check S3_ENDPOINT variable
 	var buf bytes.Buffer
 	c.GetFile(pipelineCommit, "s3_endpoint", &buf)
-	require.True(t, strings.Contains(buf.String(), ".default"))
+	require.True(t, strings.Contains(buf.String(), "."+ns))
 }
 
 func TestS3Output(t *testing.T) {
@@ -335,7 +324,7 @@ func TestS3Output(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c, userToken := initPachClient(t)
+	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -404,7 +393,7 @@ func TestS3Output(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -420,7 +409,7 @@ func TestFullS3(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c, userToken := initPachClient(t)
+	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -490,7 +479,7 @@ func TestFullS3(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -507,7 +496,7 @@ func TestS3SkippedDatums(t *testing.T) {
 	}
 	name := t.Name()
 
-	c, userToken := initPachClient(t)
+	c, userToken, ns := initPachClient(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
@@ -538,7 +527,7 @@ func TestS3SkippedDatums(t *testing.T) {
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						Namespace, background,
+						ns, background,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
@@ -640,7 +629,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
 			require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-				svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+				svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
 					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline.Name, jis[j].Job.ID) {
@@ -696,7 +685,7 @@ func TestS3SkippedDatums(t *testing.T) {
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						Namespace, background,
+						ns, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
 					// Write the "background" value to a new file in every datum. As

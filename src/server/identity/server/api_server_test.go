@@ -286,7 +286,7 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	// Exchange the ID token for a pach token and confirm the expiration is < 1h
 	testClient := tu.UnauthenticatedPachClient(t, c)

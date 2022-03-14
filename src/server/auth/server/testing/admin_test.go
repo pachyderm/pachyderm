@@ -1155,7 +1155,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
 	c = tu.AuthenticateClient(t, c, alice)
@@ -1199,7 +1199,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	})
 
 	// delete pipeline RC
-	tu.DeletePipelineRC(t, pipeline)
+	tu.DeletePipelineRC(t, pipeline, ns)
 
 	// Create new input commit (to force pipeline out of standby) & make sure
 	// the pipeline either fails or restarts RC & finishes

@@ -282,7 +282,6 @@ func TestAddClusterNoLicense(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, client)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
 		Address: "grpc://localhost:1650",
