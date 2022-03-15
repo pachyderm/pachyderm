@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -110,17 +111,17 @@ func TestLogin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t, tu.GetAuthenticatedPachClient(t, auth.RootUser))
+	tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser))
 
-	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
+	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser")
 	out, err := cmd.StdoutPipe()
 	require.NoError(t, err)
 
-	c := tu.GetUnauthenticatedPachClient(t)
+	c = tu.UnauthenticatedPachClient(t, c)
 	require.NoError(t, cmd.Start())
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
@@ -130,8 +131,7 @@ func TestLogin(t *testing.T) {
 		}
 	}
 	cmd.Wait()
-
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
 	).Run())
@@ -141,17 +141,14 @@ func TestLoginIDToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	c = tu.AuthenticateClient(t, c, auth.RootUser)
 	// Configure OIDC login
 	tu.ConfigureOIDCProvider(t, c)
-
 	// Get an ID token for a trusted peer app
 	token := tu.GetOIDCTokenForTrustedApp(t, c)
-
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth login --id-token
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,

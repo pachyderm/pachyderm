@@ -225,5 +225,7 @@ func pachHost(c *client.APIClient) string {
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31657"
 	}
-	return c.GetAddress().Host + ":30657"
+	// NOTE: the identity port is dynamically allocated in
+	// src/internal/minikubetestenv/deploy.go
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+1)
 }
