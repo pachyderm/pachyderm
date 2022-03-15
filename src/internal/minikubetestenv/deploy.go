@@ -3,7 +3,6 @@ package minikubetestenv
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -194,9 +193,10 @@ func waitForLoki(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, 
 			for _, c := range p.Status.Conditions {
 				if c.Type == v1.PodReady {
 					if c.Status == v1.ConditionTrue {
-						req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:3100", lokiHost), nil)
-						_, err = http.DefaultClient.Do(req)
-						return errors.Wrap(err, "loki not ready")
+						return nil
+						// req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:3100", lokiHost), nil)
+						// _, err = http.DefaultClient.Do(req)
+						// return errors.Wrap(err, "loki not ready")
 					}
 				}
 			}
