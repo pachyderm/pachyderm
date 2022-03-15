@@ -212,6 +212,9 @@ func DexHost(c *client.APIClient) string {
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31658"
 	}
+	// TODO(acohen4): revisit the way we are doing rewrites here
+	// NOTE: the identity port is dynamically allocated in
+	// src/internal/minikubetestenv/deploy.go
 	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+2)
 }
 

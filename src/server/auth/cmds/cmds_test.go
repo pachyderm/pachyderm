@@ -114,7 +114,7 @@ func TestLogin(t *testing.T) {
 	defer tu.DeleteAll(t)
 
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, tu.GetAuthenticatedPachClient(t, auth.RootUser))
 
 	cmd := exec.Command("pachctl", "auth", "login", "--no-browser")
 	out, err := cmd.StdoutPipe()
@@ -144,11 +144,12 @@ func TestLoginIDToken(t *testing.T) {
 	tu.DeleteAll(t)
 	defer tu.DeleteAll(t)
 
+	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
 	// Get an ID token for a trusted peer app
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	require.NoError(t, tu.BashCmd(`
 		echo '{{.token}}' | pachctl auth login --id-token
@@ -280,8 +281,7 @@ func TestConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.ActivateAuth(t)
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, tu.GetAuthenticatedPachClient(t, auth.RootUser))
 	defer tu.DeleteAll(t)
 
 	require.NoError(t, tu.BashCmd(`
