@@ -85,7 +85,8 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
             {commits.map((commit) => {
               // only animate in if commit is younger than poll interval
               const freshCommit =
-                new Date().getTime() - (commit.started || 0) * 1000 <
+                new Date().getTime() -
+                  (commit.started !== -1 ? commit.started : 0) * 1000 <
                 COMMITS_POLL_INTERVAL_MS;
               return (
                 <CSSTransition

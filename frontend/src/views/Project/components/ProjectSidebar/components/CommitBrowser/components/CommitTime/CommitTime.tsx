@@ -7,14 +7,14 @@ type CommitTimeProps = {
 };
 
 const CommitTime: React.FC<CommitTimeProps> = ({commit}) => {
-  if (commit.finished) {
+  if (commit.finished !== -1) {
     return (
       <>{`Committed
                   ${formatDistanceToNow(commit.finished * 1000, {
                     addSuffix: true,
                   })}`}</>
     );
-  } else if (commit.started) {
+  } else if (commit.started !== -1) {
     return (
       <>{`Commit started ${formatDistanceToNow(commit.started * 1000, {
         addSuffix: true,

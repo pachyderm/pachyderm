@@ -93,7 +93,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
     <>
       Size: {currentCommit.sizeDisplay}
       <br />
-      {currentCommit.started && currentCommit.finished ? (
+      {currentCommit.started !== -1 && currentCommit.finished !== -1 ? (
         <>
           Duration:{' '}
           {formatDistanceStrict(

@@ -70,8 +70,8 @@ export type Commit = {
   originKind?: Maybe<OriginKind>;
   hasLinkedJob: Scalars['Boolean'];
   id: Scalars['ID'];
-  started?: Maybe<Scalars['Int']>;
-  finished?: Maybe<Scalars['Int']>;
+  started: Scalars['Int'];
+  finished: Scalars['Int'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
   diff?: Maybe<Diff>;
@@ -1064,8 +1064,8 @@ export type CommitResolvers<
   >;
   hasLinkedJob?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  started?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  finished?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
