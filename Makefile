@@ -255,8 +255,8 @@ test-cmds:
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
 	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-transaction:
 	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
