@@ -282,7 +282,7 @@ test-s3gateway-unit:
 	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
 
 test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -305,7 +305,7 @@ test-enterprise:
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-tls:
 	./etc/testing/test_tls.sh
