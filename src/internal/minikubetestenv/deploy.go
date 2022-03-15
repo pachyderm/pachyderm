@@ -140,11 +140,12 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
-			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
-			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
+			"pachd.service.apiGRPCPort":                      fmt.Sprintf("%v", port),
+			"pachd.service.oidcPort":                         fmt.Sprintf("%v", port+7),
+			"pachd.service.identityPort":                     fmt.Sprintf("%v", port+8),
+			"pachd.service.s3GatewayPort":                    fmt.Sprintf("%v", port+3),
+			"pachd.service.prometheusPort":                   fmt.Sprintf("%v", port+4),
+			"loki-stack.loki.config.server.http_listen_port": fmt.Sprintf("%v", port+9),
 		},
 	}
 }
@@ -195,7 +196,7 @@ func waitForLoki(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, 
 					if c.Status == v1.ConditionTrue {
 						req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:3100", lokiHost), nil)
 						_, err = http.DefaultClient.Do(req)
-						return err
+						return errors.Wrap(err, "loki not ready")
 					}
 				}
 			}
