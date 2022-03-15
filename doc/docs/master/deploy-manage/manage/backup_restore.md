@@ -47,7 +47,8 @@ Before any manual backup, you need to suspend any state-mutating operations.
 - Suspend all mutation of state by scaling `pachd` and the worker pods down:
 
       ```shell 
-      kubectl scale deployment pachd --replicas 0 kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker
+      kubectl scale deployment pachd --replicas 0 
+      kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker
       ```
 
       Note that it takes some time for scaling down to take effect;
