@@ -98,10 +98,11 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 		SetValues: map[string]string{
 			"deployTarget": "custom",
 
-			"pachd.service.type":        serviceType,
-			"pachd.image.tag":           image,
-			"pachd.clusterDeploymentID": "dev",
-			"pachd.lokiDeploy":          "true",
+			"pachd.service.type":           serviceType,
+			"pachd.image.tag":              image,
+			"pachd.clusterDeploymentID":    "dev",
+			"pachd.lokiDeploy":             "true",
+			"loki-stack.loki.service.type": serviceType,
 
 			"pachd.storage.backend":        "MINIO",
 			"pachd.storage.minio.bucket":   "pachyderm-test",
@@ -139,8 +140,8 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+1),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+2),
+			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
+			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
 			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
 			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
 		},
@@ -166,7 +167,6 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
-// TODO(acohen4): also wait for Loki
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
@@ -178,7 +178,26 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 				return nil
 			}
 		}
-		return errors.Errorf("deployment in progress")
+		return errors.Errorf("pachd deployment in progress")
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+}
+
+func waitForLoki(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	require.NoError(t, backoff.Retry(func() error {
+		lokis, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=loki"})
+		if err != nil {
+			return errors.Wrap(err, "error on pod list")
+		}
+		for _, p := range lokis.Items {
+			for _, c := range p.Status.Conditions {
+				if c.Type == v1.PodReady {
+					if c.Status == v1.ConditionTrue {
+						return nil
+					}
+				}
+			}
+		}
+		return errors.Errorf("loki deployment in progress")
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
@@ -263,6 +282,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, f(t, helmOpts, chartPath, namespace))
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
+	waitForLoki(t, ctx, kubeClient, namespace)
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
 

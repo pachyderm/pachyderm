@@ -215,7 +215,7 @@ func DexHost(c *client.APIClient) string {
 	// TODO(acohen4): revisit the way we are doing rewrites here
 	// NOTE: the identity port is dynamically allocated in
 	// src/internal/minikubetestenv/deploy.go
-	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+2)
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+8)
 }
 
 func pachHost(c *client.APIClient) string {
@@ -227,5 +227,5 @@ func pachHost(c *client.APIClient) string {
 	}
 	// NOTE: the identity port is dynamically allocated in
 	// src/internal/minikubetestenv/deploy.go
-	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+1)
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+7)
 }
