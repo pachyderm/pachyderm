@@ -2315,7 +2315,8 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	if ip == "" {
 		ip = "127.0.0.1"
 	}
-	address := net.JoinHostPort(ip, "30600")
+	// Port set dynamically in src/internal/minikubetestenv/deploy.go
+	address := net.JoinHostPort(ip, fmt.Sprint(c.GetAddress().Port+3))
 
 	// anon login via V2 - should fail
 	minioClientV2, err := minio.NewV2(address, "", "", false)

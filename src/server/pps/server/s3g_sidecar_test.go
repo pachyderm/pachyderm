@@ -684,8 +684,9 @@ func TestS3SkippedDatums(t *testing.T) {
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						ns, background,
+						// NOTE: in tests the S3G port is assigned dynamically in src/internal/minikubetestenv/deploy.go
+						"aws --endpoint=http://pachd.%s:%v s3 cp s3://master.%s/round /tmp/bg",
+						ns, c.GetAddress().Port+3, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
 					// Write the "background" value to a new file in every datum. As

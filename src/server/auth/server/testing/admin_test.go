@@ -735,7 +735,7 @@ func TestGetIndefiniteRobotToken(t *testing.T) {
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	token1 := resp.Token
-	robotClient1 := tu.GetUnauthenticatedPachClient(t)
+	robotClient1 := tu.UnauthenticatedPachClient(t, c)
 	robotClient1.SetAuthToken(token1)
 
 	// Confirm identity tied to 'token1'
@@ -759,7 +759,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, TTL: 600})
 	require.NoError(t, err)
 	token1 := resp.Token
-	robotClient1 := tu.GetUnauthenticatedPachClient(t)
+	robotClient1 := tu.UnauthenticatedPachClient(t, c)
 	robotClient1.SetAuthToken(token1)
 
 	// Confirm identity tied to 'token1'
@@ -1040,10 +1040,10 @@ func TestRevokeTokensForUser(t *testing.T) {
 	require.True(t, contains(preRevokeTokens, auth.HashToken(aliceTokenB.Token)), "Alice's Token B should be extracted")
 	require.True(t, contains(preRevokeTokens, auth.HashToken(bobToken.Token)), "Bob's Token should be extracted")
 
-	aliceClient := tu.GetUnauthenticatedPachClient(t)
+	aliceClient := tu.UnauthenticatedPachClient(t, c)
 	aliceClient.SetAuthToken(aliceTokenA.Token)
 
-	bobClient := tu.GetUnauthenticatedPachClient(t)
+	bobClient := tu.UnauthenticatedPachClient(t, c)
 	bobClient.SetAuthToken(bobToken.Token)
 
 	// delete all tokens for user Alice
