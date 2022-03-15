@@ -1,15 +1,47 @@
 import {FINISH_COMMIT_MUTATION} from '@dash-frontend/mutations/FinishCommit';
 import {START_COMMIT_MUTATION} from '@dash-frontend/mutations/StartCommit';
+import {GET_COMMIT_QUERY} from '@dash-frontend/queries/GetCommitQuery';
 import {GET_COMMITS_QUERY} from '@dash-frontend/queries/GetCommitsQuery';
 
 import {executeMutation, executeQuery} from '@dash-backend/testHelpers';
 import {
   FinishCommitMutation,
   GetCommitsQuery,
+  CommitQuery,
   StartCommitMutation,
 } from '@graphqlTypes';
 
 describe('resolvers/Commits', () => {
+  describe('commit', () => {
+    it('should inspect a given commit id', async () => {
+      const projectId = '3';
+      const repoName = 'cron';
+      const id = '0918ac9d5daa76b86e3bb5e88e4c43a4';
+      const {data, errors = []} = await executeQuery<CommitQuery>(
+        GET_COMMIT_QUERY,
+        {
+          args: {
+            projectId,
+            repoName,
+            id,
+            withDiff: true,
+          },
+        },
+      );
+
+      expect(errors.length).toBe(0);
+      expect(data?.commit.id).toBe(id);
+      expect(data?.commit.repoName).toBe(repoName);
+      expect(data?.commit.branch?.name).toBe('master');
+      expect(data?.commit.description).toBe('added mako');
+      expect(data?.commit.originKind).toBe('AUTO');
+      expect(data?.commit.hasLinkedJob).toBeFalsy();
+      expect(data?.commit.started).toBe(1614136389);
+      expect(data?.commit.finished).toBe(1614136391);
+      expect(data?.commit.sizeBytes).toBe(44276);
+      expect(data?.commit.sizeDisplay).toBe('43.24 KB');
+    });
+  });
   describe('commits', () => {
     it('should return commits for a given repo', async () => {
       const projectId = '3';

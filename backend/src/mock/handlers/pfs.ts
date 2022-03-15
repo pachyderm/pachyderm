@@ -60,6 +60,7 @@ const pfs = () => {
       PfsIAPIServer,
       | 'listRepo'
       | 'inspectRepo'
+      | 'inspectCommit'
       | 'listCommit'
       | 'listFile'
       | 'diffFile'
@@ -106,6 +107,45 @@ const pfs = () => {
             callback(null, repo);
           } else {
             callback({code: Status.NOT_FOUND, details: 'repo not found'});
+          }
+        },
+        inspectCommit: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const [accountId] = call.metadata.get('authn-token');
+          const commitId = call.request.getCommit()?.getId();
+          const repo = call.request.getCommit()?.getBranch()?.getRepo();
+          const commit = (
+            projectId
+              ? MockState.state.commits[projectId.toString()]
+              : MockState.state.commits['tutorial']
+          ).find((c) => c.getCommit()?.getId() === commitId);
+
+          const authInfo =
+            repoAuthInfos[accountId.toString()] || repoAuthInfos['default'];
+
+          if (repo && accountId) {
+            const authRepoInfo = authInfo[repo.getName()];
+
+            if (
+              authRepoInfo &&
+              !authRepoInfo
+                .getPermissionsList()
+                .includes(Permission.REPO_LIST_COMMIT)
+            ) {
+              call.emit(
+                'error',
+                createServiceError({
+                  code: Status.UNKNOWN,
+                  details: 'not authorized',
+                }),
+              );
+            }
+          }
+
+          if (commit) {
+            callback(null, commit);
+          } else {
+            callback({code: Status.NOT_FOUND, details: 'commit not found'});
           }
         },
         listCommit: (call) => {

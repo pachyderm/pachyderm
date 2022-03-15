@@ -29,9 +29,9 @@ describe('File Resolver', () => {
       const files = data?.files.files;
       expect(errors?.length).toBe(0);
       expect(files?.length).toEqual(16);
-      expect(data?.files.sizeDiff).toBe(58644);
-      expect(data?.files.sizeDiffDisplay).toBe('57.27 KB');
-      expect(data?.files.filesAdded).toBe(1);
+      expect(data?.files.diff.size).toBe(58644);
+      expect(data?.files.diff.sizeDisplay).toBe('57.27 KB');
+      expect(data?.files.diff.filesAdded).toBe(1);
       expect(files?.[0]?.path).toEqual('/AT-AT.png');
       expect(files?.[1]?.path).toEqual('/liberty.png');
       expect(files?.[2]?.path).toEqual('/cats/');

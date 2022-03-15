@@ -74,11 +74,20 @@ export type Commit = {
   finished?: Maybe<Scalars['Int']>;
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
+  diff?: Maybe<Diff>;
 };
 
 export type CommitInput = {
   id: Scalars['ID'];
   branch?: Maybe<BranchInput>;
+};
+
+export type CommitQueryArgs = {
+  id: Scalars['ID'];
+  repoName: Scalars['String'];
+  branchName?: Maybe<Scalars['String']>;
+  projectId: Scalars['String'];
+  withDiff?: Maybe<Scalars['Boolean']>;
 };
 
 export type CommitsQueryArgs = {
@@ -145,6 +154,15 @@ export type DeleteRepoArgs = {
   projectId: Scalars['String'];
 };
 
+export type Diff = {
+  __typename?: 'Diff';
+  size: Scalars['Float'];
+  sizeDisplay: Scalars['String'];
+  filesAdded: Scalars['Int'];
+  filesUpdated: Scalars['Int'];
+  filesDeleted: Scalars['Int'];
+};
+
 export type File = {
   __typename?: 'File';
   committed?: Maybe<Timestamp>;
@@ -181,11 +199,7 @@ export type FileQueryArgs = {
 
 export type FileQueryResponse = {
   __typename?: 'FileQueryResponse';
-  sizeDiff: Scalars['Float'];
-  sizeDiffDisplay: Scalars['String'];
-  filesAdded: Scalars['Int'];
-  filesUpdated: Scalars['Int'];
-  filesDeleted: Scalars['Int'];
+  diff: Diff;
   files: Array<File>;
 };
 
@@ -508,6 +522,7 @@ export type Query = {
   account: Account;
   authConfig: AuthConfig;
   branch: Branch;
+  commit: Commit;
   commits: Array<Commit>;
   dag: Array<Vertex>;
   files: FileQueryResponse;
@@ -530,6 +545,10 @@ export type Query = {
 
 export type QueryBranchArgs = {
   args: BranchQueryArgs;
+};
+
+export type QueryCommitArgs = {
+  args: CommitQueryArgs;
 };
 
 export type QueryCommitsArgs = {
@@ -844,6 +863,7 @@ export type ResolversTypes = ResolversObject<{
   Int: ResolverTypeWrapper<Scalars['Int']>;
   Float: ResolverTypeWrapper<Scalars['Float']>;
   CommitInput: CommitInput;
+  CommitQueryArgs: CommitQueryArgs;
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
@@ -853,6 +873,7 @@ export type ResolversTypes = ResolversObject<{
   DeleteFileArgs: DeleteFileArgs;
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
+  Diff: ResolverTypeWrapper<Diff>;
   File: ResolverTypeWrapper<File>;
   FileCommitState: FileCommitState;
   FileFromURL: FileFromUrl;
@@ -927,6 +948,7 @@ export type ResolversParentTypes = ResolversObject<{
   Int: Scalars['Int'];
   Float: Scalars['Float'];
   CommitInput: CommitInput;
+  CommitQueryArgs: CommitQueryArgs;
   CommitsQueryArgs: CommitsQueryArgs;
   CreateBranchArgs: CreateBranchArgs;
   CreatePipelineArgs: CreatePipelineArgs;
@@ -936,6 +958,7 @@ export type ResolversParentTypes = ResolversObject<{
   DeleteFileArgs: DeleteFileArgs;
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
+  Diff: Diff;
   File: File;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
@@ -1045,6 +1068,7 @@ export type CommitResolvers<
   finished?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1054,6 +1078,18 @@ export type CronInputResolvers<
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type DiffResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Diff'] = ResolversParentTypes['Diff'],
+> = ResolversObject<{
+  size?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  filesAdded?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1091,11 +1127,7 @@ export type FileQueryResponseResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['FileQueryResponse'] = ResolversParentTypes['FileQueryResponse'],
 > = ResolversObject<{
-  sizeDiff?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  sizeDiffDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  filesAdded?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  filesDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  diff?: Resolver<ResolversTypes['Diff'], ParentType, ContextType>;
   files?: Resolver<Array<ResolversTypes['File']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1408,6 +1440,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryBranchArgs, 'args'>
   >;
+  commit?: Resolver<
+    ResolversTypes['Commit'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryCommitArgs, 'args'>
+  >;
   commits?: Resolver<
     Array<ResolversTypes['Commit']>,
     ParentType,
@@ -1650,6 +1688,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   BranchInfo?: BranchInfoResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
+  Diff?: DiffResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
@@ -1683,6 +1722,24 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
  * Use "Resolvers" root object instead. If you wish to get "IResolvers", add "typesPrefix: I" to your config.
  */
 export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
+
+export type CommitFragmentFragment = {__typename?: 'Commit'} & Pick<
+  Commit,
+  | 'repoName'
+  | 'description'
+  | 'originKind'
+  | 'id'
+  | 'started'
+  | 'finished'
+  | 'sizeBytes'
+  | 'sizeDisplay'
+  | 'hasLinkedJob'
+> & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>};
+
+export type DiffFragmentFragment = {__typename?: 'Diff'} & Pick<
+  Diff,
+  'size' | 'sizeDisplay' | 'filesUpdated' | 'filesAdded' | 'filesDeleted'
+>;
 
 export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
   Job,
@@ -1848,25 +1905,22 @@ export type AuthConfigQuery = {__typename?: 'Query'} & {
   >;
 };
 
+export type CommitQueryVariables = Exact<{
+  args: CommitQueryArgs;
+}>;
+
+export type CommitQuery = {__typename?: 'Query'} & {
+  commit: {__typename?: 'Commit'} & {
+    diff?: Maybe<{__typename?: 'Diff'} & DiffFragmentFragment>;
+  } & CommitFragmentFragment;
+};
+
 export type GetCommitsQueryVariables = Exact<{
   args: CommitsQueryArgs;
 }>;
 
 export type GetCommitsQuery = {__typename?: 'Query'} & {
-  commits: Array<
-    {__typename?: 'Commit'} & Pick<
-      Commit,
-      | 'repoName'
-      | 'description'
-      | 'originKind'
-      | 'id'
-      | 'started'
-      | 'finished'
-      | 'sizeBytes'
-      | 'sizeDisplay'
-      | 'hasLinkedJob'
-    > & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>}
-  >;
+  commits: Array<{__typename?: 'Commit'} & CommitFragmentFragment>;
 };
 
 export type GetDagQueryVariables = Exact<{
@@ -1912,34 +1966,28 @@ export type GetFilesQueryVariables = Exact<{
 }>;
 
 export type GetFilesQuery = {__typename?: 'Query'} & {
-  files: {__typename?: 'FileQueryResponse'} & Pick<
-    FileQueryResponse,
-    | 'sizeDiff'
-    | 'sizeDiffDisplay'
-    | 'filesUpdated'
-    | 'filesAdded'
-    | 'filesDeleted'
-  > & {
-      files: Array<
-        {__typename?: 'File'} & Pick<
-          File,
-          | 'commitId'
-          | 'download'
-          | 'hash'
-          | 'path'
-          | 'repoName'
-          | 'sizeBytes'
-          | 'type'
-          | 'sizeDisplay'
-          | 'downloadDisabled'
-          | 'commitAction'
-        > & {
-            committed?: Maybe<
-              {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>
-            >;
-          }
-      >;
-    };
+  files: {__typename?: 'FileQueryResponse'} & {
+    diff: {__typename?: 'Diff'} & DiffFragmentFragment;
+    files: Array<
+      {__typename?: 'File'} & Pick<
+        File,
+        | 'commitId'
+        | 'download'
+        | 'hash'
+        | 'path'
+        | 'repoName'
+        | 'sizeBytes'
+        | 'type'
+        | 'sizeDisplay'
+        | 'downloadDisabled'
+        | 'commitAction'
+      > & {
+          committed?: Maybe<
+            {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>
+          >;
+        }
+    >;
+  };
 };
 
 export type JobQueryVariables = Exact<{

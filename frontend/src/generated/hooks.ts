@@ -4,6 +4,31 @@ import {gql} from '@apollo/client';
 import * as Apollo from '@apollo/client';
 import * as Types from '@graphqlTypes';
 const defaultOptions = {};
+export const CommitFragmentFragmentDoc = gql`
+  fragment CommitFragment on Commit {
+    repoName
+    branch {
+      name
+    }
+    description
+    originKind
+    id
+    started
+    finished
+    sizeBytes
+    sizeDisplay
+    hasLinkedJob
+  }
+`;
+export const DiffFragmentFragmentDoc = gql`
+  fragment DiffFragment on Diff {
+    size
+    sizeDisplay
+    filesUpdated
+    filesAdded
+    filesDeleted
+  }
+`;
 export const JobOverviewFragmentDoc = gql`
   fragment JobOverview on Job {
     id
@@ -678,23 +703,72 @@ export type AuthConfigQueryResult = Apollo.QueryResult<
   Types.AuthConfigQuery,
   Types.AuthConfigQueryVariables
 >;
+export const CommitDocument = gql`
+  query commit($args: CommitQueryArgs!) {
+    commit(args: $args) {
+      ...CommitFragment
+      diff {
+        ...DiffFragment
+      }
+    }
+  }
+  ${CommitFragmentFragmentDoc}
+  ${DiffFragmentFragmentDoc}
+`;
+
+/**
+ * __useCommitQuery__
+ *
+ * To run a query within a React component, call `useCommitQuery` and pass it any options that fit your needs.
+ * When your component renders, `useCommitQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useCommitQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useCommitQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.CommitQuery,
+    Types.CommitQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.CommitQuery, Types.CommitQueryVariables>(
+    CommitDocument,
+    options,
+  );
+}
+export function useCommitLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.CommitQuery,
+    Types.CommitQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.CommitQuery, Types.CommitQueryVariables>(
+    CommitDocument,
+    options,
+  );
+}
+export type CommitQueryHookResult = ReturnType<typeof useCommitQuery>;
+export type CommitLazyQueryHookResult = ReturnType<typeof useCommitLazyQuery>;
+export type CommitQueryResult = Apollo.QueryResult<
+  Types.CommitQuery,
+  Types.CommitQueryVariables
+>;
 export const GetCommitsDocument = gql`
   query getCommits($args: CommitsQueryArgs!) {
     commits(args: $args) {
-      repoName
-      branch {
-        name
-      }
-      description
-      originKind
-      id
-      started
-      finished
-      sizeBytes
-      sizeDisplay
-      hasLinkedJob
+      ...CommitFragment
     }
   }
+  ${CommitFragmentFragmentDoc}
 `;
 
 /**
@@ -855,11 +929,9 @@ export type GetDagsSubscriptionResult =
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {
-      sizeDiff
-      sizeDiffDisplay
-      filesUpdated
-      filesAdded
-      filesDeleted
+      diff {
+        ...DiffFragment
+      }
       files {
         committed {
           nanos
@@ -878,6 +950,7 @@ export const GetFilesDocument = gql`
       }
     }
   }
+  ${DiffFragmentFragmentDoc}
 `;
 
 /**

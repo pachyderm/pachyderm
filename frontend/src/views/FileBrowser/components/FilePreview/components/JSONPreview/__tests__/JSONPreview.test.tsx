@@ -17,7 +17,9 @@ describe('JSON Preview', () => {
     );
     const {findByText} = render(<FileBrowser />);
 
-    expect(await findByText('07-06-19')).toBeInTheDocument();
+    expect(
+      await findByText('07-06-19', {}, {timeout: 12000}),
+    ).toBeInTheDocument();
     expect(await findByText('231221B')).toBeInTheDocument();
   });
 });

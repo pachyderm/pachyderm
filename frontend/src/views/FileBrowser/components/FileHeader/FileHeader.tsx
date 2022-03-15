@@ -68,12 +68,12 @@ const FileHeader: React.FC<FileHeaderProps> = ({
     const updates = [];
     let updatesString = '';
 
-    if (files?.filesAdded && files?.filesAdded > 0)
-      updates.push({count: files.filesAdded, status: 'added'});
-    if (files?.filesUpdated && files?.filesUpdated > 0)
-      updates.push({count: files.filesUpdated, status: 'updated'});
-    if (files?.filesDeleted && files?.filesDeleted > 0)
-      updates.push({count: files.filesDeleted, status: 'deleted'});
+    if (files?.diff.filesAdded && files?.diff.filesAdded > 0)
+      updates.push({count: files.diff.filesAdded, status: 'added'});
+    if (files?.diff.filesUpdated && files?.diff.filesUpdated > 0)
+      updates.push({count: files.diff.filesUpdated, status: 'updated'});
+    if (files?.diff.filesDeleted && files?.diff.filesDeleted > 0)
+      updates.push({count: files.diff.filesDeleted, status: 'deleted'});
 
     if (updates[0])
       updatesString = `${updates[0].count} ${
@@ -181,9 +181,9 @@ const FileHeader: React.FC<FileHeaderProps> = ({
                 files && (
                   <>
                     <span className={styles.datelabel}>{diffString}</span>
-                    {files.sizeDiff !== 0 &&
-                      ` (${files.sizeDiff > 0 ? '+' : ''}${
-                        files.sizeDiffDisplay
+                    {files.diff.size !== 0 &&
+                      ` (${files.diff.size > 0 ? '+' : ''}${
+                        files.diff.sizeDisplay
                       })`}
                   </>
                 )

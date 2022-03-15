@@ -152,6 +152,14 @@ type RepoInfo {
   type: String
 }
 
+type Diff {
+  size: Float!,
+  sizeDisplay: String!,
+  filesAdded: Int!,
+  filesUpdated: Int!,
+  filesDeleted: Int!,
+}
+
 type Commit {
   repoName: String!
   branch: Branch
@@ -163,6 +171,7 @@ type Commit {
   finished: Int
   sizeBytes: Float!
   sizeDisplay: String!
+  diff: Diff,
 }
 
 type Repo {
@@ -280,11 +289,7 @@ input FileQueryArgs {
 }
 
 type FileQueryResponse {
-  sizeDiff: Float!,
-  sizeDiffDisplay: String!,
-  filesAdded: Int!,
-  filesUpdated: Int!,
-  filesDeleted: Int!,
+  diff: Diff!,
   files: [File!]!,
 }
 
@@ -346,6 +351,14 @@ input RepoQueryArgs {
 input ReposQueryArgs {
   projectId: String!
   jobSetId: ID
+}
+
+input CommitQueryArgs {
+  id: ID!
+  repoName: String!
+  branchName: String
+  projectId: String!
+  withDiff: Boolean
 }
 
 input CommitsQueryArgs {
@@ -493,6 +506,7 @@ type Query {
   jobSets(args: JobSetsQueryArgs!): [JobSet!]!
   workspaceLogs(args: WorkspaceLogsArgs!): [Log]!
   logs(args: LogsArgs!): [Log]!
+  commit(args: CommitQueryArgs!): Commit!
   commits(args: CommitsQueryArgs!): [Commit!]!
   branch(args: BranchQueryArgs!): Branch!
 }

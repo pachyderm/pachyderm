@@ -1,3 +1,6 @@
+import {CommitState} from '@pachyderm/node-pachyderm';
+
+import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
 import {MutationResolvers, QueryResolvers} from '@graphqlTypes';
@@ -7,6 +10,7 @@ import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
 interface CommitResolver {
   Query: {
     commits: QueryResolvers['commits'];
+    commit: QueryResolvers['commit'];
   };
   Mutation: {
     startCommit: MutationResolvers['startCommit'];
@@ -28,6 +32,39 @@ const getJobSetIds = async (pachClient: PachClient) => {
 
 const commitResolver: CommitResolver = {
   Query: {
+    commit: async (
+      _parent,
+      {args: {id, repoName, branchName, withDiff}},
+      {pachClient},
+    ) => {
+      let diff = undefined;
+      const jobSetIds = await getJobSetIds(pachClient);
+
+      if (withDiff) {
+        const diffResponse = await pachClient.pfs().diffFile({
+          commitId: id || 'master',
+          path: '/',
+          branch: {name: branchName || 'master', repo: {name: repoName}},
+        });
+        diff = formatDiff(diffResponse).diff;
+      }
+
+      const commit = commitInfoToGQLCommit(
+        await pachClient.pfs().inspectCommit({
+          wait: CommitState.COMMIT_STATE_UNKNOWN,
+          commit: {
+            id,
+            branch: {name: branchName || 'master', repo: {name: repoName}},
+          },
+        }),
+      );
+
+      return {
+        ...commit,
+        diff,
+        hasLinkedJob: commit.id ? jobSetIds.has(commit.id) : false,
+      };
+    },
     commits: async (
       _parent,
       {args: {repoName, branchName, number, originKind, pipelineName}},
