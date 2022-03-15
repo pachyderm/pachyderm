@@ -31,6 +31,7 @@ GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 # Default upper bound for test timeouts
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
+CLUSTERS_REUSE ?= true
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
@@ -244,18 +245,18 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 10 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server -parallel 10 -timeout $(TIMEOUT) -clusters.reuse $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-transaction:
 	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
@@ -278,33 +279,33 @@ test-s3gateway-integration:
 	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
 test-s3gateway-unit:
-	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
+	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-identity:
 	etc/testing/forward-postgres.sh
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-license:
-	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/server -timeout -clusters.reuse $(CLUSTERS_REUSE) $(TIMEOUT) $(TESTFLAGS)
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/testing -timeout -clusters.reuse $(CLUSTERS_REUSE) $(TIMEOUT) $(TESTFLAGS)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -313,7 +314,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 
