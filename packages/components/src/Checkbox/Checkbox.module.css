@@ -52,3 +52,7 @@
 .input:disabled {
   cursor: not-allowed;
 }
+
+.readOnly, .readOnly * {
+  cursor: default;
+}

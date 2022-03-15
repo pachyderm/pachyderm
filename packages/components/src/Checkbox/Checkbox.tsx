@@ -92,11 +92,13 @@ export const PureCheckbox: React.FC<PureCheckboxProps> = ({
   small = false,
   className,
   disabled = false,
+  readOnly = false,
   ...rest
 }) => {
   const classes = classNames(styles.base, className, {
     [styles.small]: small,
     [styles.disabled]: disabled,
+    [styles.readOnly]: readOnly,
   });
 
   return (
@@ -106,6 +108,7 @@ export const PureCheckbox: React.FC<PureCheckboxProps> = ({
           type="checkbox"
           className={styles.input}
           disabled={disabled}
+          readOnly={readOnly}
           {...rest}
         />
 

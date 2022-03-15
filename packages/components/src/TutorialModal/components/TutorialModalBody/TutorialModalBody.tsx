@@ -31,6 +31,7 @@ const NextTaskInstance: React.FC<{
   if (currentTask === storyLength) {
     return (
       <PureCheckbox
+        readOnly
         name="Continue"
         selected={false}
         label={'Continue to the next story'}
