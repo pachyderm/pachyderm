@@ -301,11 +301,11 @@ test-admin:
 	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout -clusters.reuse $(CLUSTERS_REUSE) $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout -clusters.reuse $(CLUSTERS_REUSE) $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-tls:
 	./etc/testing/test_tls.sh
