@@ -258,6 +258,9 @@ pachd:
     loadBalancerIP: ""
     apiGRPCPort: 30650
     s3GatewayPort: 30600
+    # by default use the service proxy. set to false for upgrades of existing installs using ingress
+    # set your externally accessible hostname at oidc.userAccessibleOauthIssuerHost and include port if needed (localhost:8080)
+    serviceProxy: true
     annotations: {}
   service:
     # labels specifies labels to add to the pachd service.
@@ -578,6 +581,7 @@ oidc:
   IDTokenExpiry: 24h
   # (Optional) If set, enables OIDC rotation tokens, and specifies the duration where they are valid.
   RotationTokenExpiry: 48h
+  # Required if using Proxy- Set the externally available hostname clients will use to access 
   # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   userAccessibleOauthIssuerHost: ""
   ## to set up upstream IDPs, set pachd.mockIDP to false,

@@ -149,11 +149,11 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
-        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        {{- if and (not .Values.pachd.externalService.serviceProxy ) .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
         {{- end }}
-        {{ if .Values.global.proxy }}
+        {{- if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
         - name: https_proxy
@@ -219,7 +219,7 @@ spec:
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
           name: pachyderm-storage-secret
-        {{- if .Values.pachd.tls.enabled }}
+        {{- if and (not .Values.pachd.externalService.serviceProxy) .Values.pachd.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
@@ -242,7 +242,7 @@ spec:
       - name: pachyderm-storage-secret
         secret:
           secretName: pachyderm-storage-secret
-      {{- if .Values.pachd.tls.enabled }}
+      {{- if and (not .Values.pachd.externalService.serviceProxy) .Values.pachd.tls.enabled  }}
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}

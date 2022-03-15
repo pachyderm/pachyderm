@@ -9,7 +9,17 @@ metadata:
   name: pachd-lb
   namespace: {{ .Release.Namespace }}
 spec:
-  ports:
+  ports: 
+  {{- if .Values.pachd.externalService.serviceProxy }}
+  - name: http
+    port: 80
+  {{- if .Values.pachd.tls.enabled }}
+  - name: https
+    port: 443
+  {{- end }}
+  selector:
+    app: pachd-proxy
+  {{ else -}}
   - name: api-grpc-port
     port: {{ .Values.pachd.externalService.apiGRPCPort }}
     targetPort: api-grpc-port
@@ -18,6 +28,7 @@ spec:
     targetPort: s3gateway-port
   selector:
     app: pachd
+  {{ end -}}
   type: LoadBalancer
   loadBalancerIP: {{ .Values.pachd.externalService.loadBalancerIP }}
 {{ end -}}

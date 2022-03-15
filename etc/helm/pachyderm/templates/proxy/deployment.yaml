@@ -1,0 +1,96 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Values.pachd.externalService.enabled .Values.pachd.externalService.serviceProxy -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: pachd-proxy
+    suite: pachyderm
+  name: pachd-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pachd-proxy
+  template:
+    metadata:
+      labels:
+        app: pachd-proxy
+      name: pachd-proxy
+    spec:
+      containers:
+      - args:
+        - -c
+        - /etc/envoy/envoy.yaml
+        - --service-node
+        - $(MY_POD_NAME)
+        - --service-zone
+        - $(MY_NODE_NAME)
+        - --service-cluster
+        - pachyderm-envoy
+        command:
+        - envoy
+        env:
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: envoyproxy/envoy:v1.20.1
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /server_info
+            port: 9901
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: envoy
+        ports:
+        - containerPort: 9901
+          name: envoy-admin
+          protocol: TCP
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        - containerPort: 443
+          name: https
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: 9901
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+        - mountPath: /etc/envoy
+          name: proxy-config
+        {{- if .Values.pachd.tls.enabled }}
+        - mountPath: /pachd-tls-cert
+          name: pachd-tls-cert
+        {{- end }}
+      volumes:
+      - configMap:
+          name: proxy-config
+        name: proxy-config
+        {{- if .Values.pachd.tls.enabled }}
+      - name: pachd-tls-cert
+        secret:
+          secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+        {{- end }}
+{{- end }}

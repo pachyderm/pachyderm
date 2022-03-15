@@ -538,6 +538,9 @@
                         },
                         "s3GatewayPort": {
                             "type": "integer"
+                        },
+                        "serviceProxy": {
+                            "type": "boolean"
                         }
                     }
                 },
