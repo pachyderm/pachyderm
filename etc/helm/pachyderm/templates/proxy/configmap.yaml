@@ -159,33 +159,6 @@ data:
                                       socket_address:
                                           address: pachd
                                           port_value: 30650
-            - name: pachd-peer
-              type: logical_dns
-              lb_policy: round_robin
-              connect_timeout: 10s
-              dns_lookup_family: V4_ONLY
-              upstream_connection_options:
-                  tcp_keepalive: {}
-              typed_extension_protocol_options:
-                  envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-                      "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-                      explicit_http_config:
-                          http2_protocol_options: {}
-              health_checks:
-                  - timeout: 10s
-                    interval: 10s
-                    healthy_threshold: 1
-                    unhealthy_threshold: 2
-                    grpc_health_check: {}
-              load_assignment:
-                  cluster_name: pachd-peer
-                  endpoints:
-                      - lb_endpoints:
-                            - endpoint:
-                                  address:
-                                      socket_address:
-                                          address: pachd-peer
-                                          port_value: 30653
             - name: pachd-identity
               type: logical_dns
               lb_policy: round_robin
