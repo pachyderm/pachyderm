@@ -22,6 +22,7 @@ export * from './Card';
 export * from './Circle';
 export * from './Checkbox';
 export * from './Chip';
+export * from './CodePreview';
 export * from './Dropdown';
 export * from './EllipsisMessage';
 export * from './ErrorRetry';
