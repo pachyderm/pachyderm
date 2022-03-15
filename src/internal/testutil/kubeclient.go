@@ -44,9 +44,9 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 	return k
 }
 
-func DeletePod(t testing.TB, app string) {
+func DeletePod(t testing.TB, app, ns string) {
 	kubeClient := GetKubeClient(t)
-	podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+	podList, err := kubeClient.CoreV1().Pods(ns).List(
 		context.Background(),
 		metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -55,14 +55,14 @@ func DeletePod(t testing.TB, app string) {
 		})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(podList.Items))
-	require.NoError(t, kubeClient.CoreV1().Pods(v1.NamespaceDefault).Delete(
+	require.NoError(t, kubeClient.CoreV1().Pods(ns).Delete(
 		context.Background(),
 		podList.Items[0].ObjectMeta.Name, metav1.DeleteOptions{}))
 
 	// Make sure the pod goes down
 	startTime := time.Now()
 	require.NoError(t, backoff.Retry(func() error {
-		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -83,7 +83,7 @@ func DeletePod(t testing.TB, app string) {
 
 	// Make sure the pod comes back up
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -100,7 +100,7 @@ func DeletePod(t testing.TB, app string) {
 	})
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(

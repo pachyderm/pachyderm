@@ -4132,8 +4132,7 @@ func TestLokiLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -4331,6 +4330,8 @@ func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
+	_, ns := minikubetestenv.AcquireCluster(t)
 	kubeClient := tu.GetKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
@@ -4354,7 +4355,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	var c v1.Container
 	for _, app := range []string{"pachd", "etcd"} {
 		err := backoff.Retry(func() error {
-			podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -9868,7 +9869,7 @@ func TestDatumSetCache(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 	dataRepo := tu.UniqueString("TestDatumSetCache_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9904,7 +9905,7 @@ func TestDatumSetCache(t *testing.T) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				tu.DeletePod(t, "etcd")
+				tu.DeletePod(t, "etcd", ns)
 			}
 		}
 	}()
