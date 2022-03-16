@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -50,6 +52,21 @@ func (cf *ClusterFactory) assignClient(assigned string, c *client.APIClient) {
 	cf.managedClusters[assigned] = c
 }
 
+func clusterIdx(t testing.TB, name string) int {
+	s := strings.Split(name, "-")
+	r, err := strconv.Atoi(s[len(s)-1])
+	require.NoError(t, err)
+	return r
+}
+
+func deployOpts(clusterIdx int, loki bool) *DeployOpts {
+	return &DeployOpts{
+		PortOffset:         uint16(clusterIdx * 10),
+		UseLeftoverCluster: *useLeftoverClusters,
+		Loki:               loki,
+	}
+}
+
 func deleteAll(t testing.TB, c *client.APIClient) {
 	tok := c.AuthToken()
 	c.SetAuthToken(testutil.RootToken)
@@ -72,7 +89,7 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 	return "", nil
 }
 
-func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APIClient) {
+func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *client.APIClient) {
 	assigned, clusterIdx := func() (string, int) {
 		cf.mu.Lock()
 		defer cf.mu.Unlock()
@@ -96,10 +113,8 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 		context.Background(),
 		assigned,
 		kube,
-		&DeployOpts{
-			PortOffset:         uint16(clusterIdx * 10),
-			UseLeftoverCluster: *useLeftoverClusters,
-		})
+		deployOpts(clusterIdx, as.WaitForLoki),
+	)
 	cf.assignClient(assigned, c)
 	return assigned, c
 }
@@ -130,10 +145,16 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	}
 	assigned, c := clusterFactory.acquireFreeCluster()
 	if assigned == "" {
-		assigned, c = clusterFactory.acquireNewCluster(t)
+		assigned, c = clusterFactory.acquireNewCluster(t, as)
 	}
+	// in the case loki is requested, upgrade the cluster to include it
 	if as.WaitForLoki {
-		waitForLoki(t, c.GetAddress().Host, int(c.GetAddress().Port)+9)
+		c = UpgradeRelease(t,
+			context.Background(),
+			assigned,
+			testutil.GetKubeClient(t),
+			deployOpts(clusterIdx(t, assigned), as.WaitForLoki),
+		)
 	}
 	deleteAll(t, c)
 	return c, assigned
