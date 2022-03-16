@@ -117,8 +117,9 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
 		},
 		SetStrValues: map[string]string{
-			"pachd.storage.minio.signature": "",
-			"pachd.storage.minio.secure":    "false",
+			"pachd.storage.minio.signature":             "",
+			"pachd.storage.minio.secure":                "false",
+			"loki-stack.promtail.initContainer.enabled": "true",
 		},
 	}
 }
