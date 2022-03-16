@@ -4133,7 +4133,7 @@ func TestLokiLogs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -9206,7 +9206,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))

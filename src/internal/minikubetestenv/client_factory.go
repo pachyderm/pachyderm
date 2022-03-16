@@ -19,6 +19,16 @@ const (
 	namespacePrefix = "test-cluster-"
 )
 
+type acquireSettings struct {
+	WaitForLoki bool
+}
+
+type Option func(*acquireSettings)
+
+var WaitForLokiOption = func(ds *acquireSettings) {
+	ds.WaitForLoki = true
+}
+
 var (
 	clusterFactory      *ClusterFactory
 	setup               sync.Once
@@ -96,7 +106,7 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
 // clusters deployed in separate namespace, along with the associated namespace
-func AcquireCluster(t testing.TB) (*client.APIClient, string) {
+func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*client.APIClient{},
@@ -114,9 +124,16 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
+	as := &acquireSettings{}
+	for _, o := range opts {
+		o(as)
+	}
 	assigned, c := clusterFactory.acquireFreeCluster()
 	if assigned == "" {
 		assigned, c = clusterFactory.acquireNewCluster(t)
+	}
+	if as.WaitForLoki {
+		waitForLoki(t, c.GetAddress().Host)
 	}
 	deleteAll(t, c)
 	return c, assigned

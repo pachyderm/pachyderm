@@ -184,24 +184,14 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-func waitForLoki(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, lokiHost string) {
+func waitForLoki(t testing.TB, lokiHost string) {
 	require.NoError(t, backoff.Retry(func() error {
-		lokis, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=loki"})
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:3100", lokiHost), nil)
+		_, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return errors.Wrap(err, "error on pod list")
+			return errors.Wrap(err, "loki not ready")
 		}
-		for _, p := range lokis.Items {
-			for _, c := range p.Status.Conditions {
-				if c.Type == v1.PodReady {
-					if c.Status == v1.ConditionTrue {
-						req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:3100", lokiHost), nil)
-						_, err = http.DefaultClient.Do(req)
-						return errors.Wrap(err, "loki not ready")
-					}
-				}
-			}
-		}
-		return errors.Errorf("loki deployment in progress")
+		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
@@ -286,7 +276,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, f(t, helmOpts, chartPath, namespace))
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
-	waitForLoki(t, ctx, kubeClient, namespace, pachAddress.Host)
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
 
