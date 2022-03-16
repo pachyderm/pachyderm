@@ -44,7 +44,8 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset uint16
+	PortOffset  uint16
+	WaitForLoki bool
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -140,12 +141,12 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.apiGRPCPort":                      fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":                         fmt.Sprintf("%v", port+7),
-			"pachd.service.identityPort":                     fmt.Sprintf("%v", port+8),
-			"pachd.service.s3GatewayPort":                    fmt.Sprintf("%v", port+3),
-			"pachd.service.prometheusPort":                   fmt.Sprintf("%v", port+4),
-			"loki-stack.loki.config.server.http_listen_port": fmt.Sprintf("%v", port+9),
+			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
+			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
+			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
+			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
+			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
+			"loki-stack.loki.service.port": fmt.Sprintf("%v", port+9),
 		},
 	}
 }
@@ -286,7 +287,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, f(t, helmOpts, chartPath, namespace))
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
-	waitForLoki(t, ctx, kubeClient, namespace, pachAddress.Host, int(pachAddress.Port)+9)
+	if opts.WaitForLoki {
+		waitForLoki(t, ctx, kubeClient, namespace, pachAddress.Host, int(pachAddress.Port)+9)
+	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
 
