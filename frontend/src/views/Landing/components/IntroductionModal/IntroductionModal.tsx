@@ -41,7 +41,7 @@ const pages = [
             <ul>
               <li>Pipelines</li>
               <li>Versioned Data</li>
-              <li>Directional Acylic Diagrams (DAGs)</li>
+              <li>Directional Acyclic Diagrams (DAGs)</li>
               <li>Data Lineage</li>
               <li>Reproducibility</li>
               <li>Incremental Scalability</li>

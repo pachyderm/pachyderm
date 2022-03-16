@@ -44,7 +44,7 @@ const EasyToUseVersionedData: Story = {
           <p>
             Pachyderm can also output your pipeline&apos;s results to any
             third-party tool that uses S3 to access its data, like LabelStudio
-            or Selden, or be the data source for those tools via its S3 gateway.
+            or Seldon, or be the data source for those tools via its S3 gateway.
           </p>
           <p>
             In the next section, we&apos;ll create a DAG by adding another
