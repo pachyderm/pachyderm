@@ -9269,6 +9269,7 @@ func TestDebug(t *testing.T) {
 			}
 		}
 	}
+	fmt.Printf("EXPECTED FILES:::: %v\n", expectedFiles)
 	require.Equal(t, 0, len(expectedFiles))
 }
 
