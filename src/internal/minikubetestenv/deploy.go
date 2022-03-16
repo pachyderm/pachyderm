@@ -113,6 +113,11 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
 
+			"pachd.resources.requests.cpu":    "250m",
+			"pachd.resources.requests.memory": "512M",
+			"etcd.resources.requests.cpu":     "250m",
+			"etcd.resources.requests.memory":  "512M",
+
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
 		},
