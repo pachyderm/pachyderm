@@ -4,13 +4,16 @@ import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
 import {useDeleteFileMutation} from '@dash-frontend/generated/hooks';
+import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const useDeleteFileButton = (file: File) => {
   const {openModal, closeModal, isOpen} = useModal(false);
   const {repoId, branchId, projectId} = useUrlState();
-  const [deleteFileMutation, {loading, error}] = useDeleteFileMutation();
+  const [deleteFileMutation, {loading: deleteLoading, error}] =
+    useDeleteFileMutation();
+  const {loading: repoLoading, repo} = useCurrentRepo();
   const browserHistory = useHistory();
 
   const deleteFile = useCallback(async () => {
@@ -47,8 +50,9 @@ const useDeleteFileButton = (file: File) => {
     openModal,
     closeModal,
     deleteFile,
-    loading,
+    loading: deleteLoading,
     error,
+    deleteDisabled: Boolean(repo?.linkedPipeline) || repoLoading,
   };
 };
 

@@ -216,6 +216,17 @@ describe('File Browser', () => {
         expect(mockServer.getState().files['3']['/']).toHaveLength(15),
       );
     });
+
+    it('should not allow file deletion for outputRepos', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/3/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+      );
+      const {queryByTestId} = render(<FileBrowser />);
+
+      expect(queryByTestId('DeleteFileButton__link')).not.toBeInTheDocument();
+    });
   });
 
   describe('File Browser icon view', () => {
@@ -290,6 +301,17 @@ describe('File Browser', () => {
         expect(mockServer.getState().files['3']['/']).toHaveLength(15),
       );
     });
+
+    it('should not allow file deletion for outputRepos', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/3/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+      );
+      const {queryByTestId} = render(<FileBrowser />);
+
+      expect(queryByTestId('DeleteFileButton__link')).not.toBeInTheDocument();
+    });
   });
 
   describe('File Browser file preview', () => {
@@ -348,6 +370,17 @@ describe('File Browser', () => {
       await waitFor(() =>
         expect(mockServer.getState().files['3']['/']).toHaveLength(15),
       );
+    });
+
+    it('should not allow file deletion for outputRepos', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/3/repos/processor/branch/master/commit/f4e23cf347c342d98bd9015e4c3ad52a',
+      );
+      const {queryByTestId} = render(<FileBrowser />);
+
+      expect(queryByTestId('DeleteFileButton__link')).not.toBeInTheDocument();
     });
   });
 });

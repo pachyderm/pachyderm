@@ -12,8 +12,15 @@ const DeleteRepoButton: React.FC<DeleteFileButtonProps> = ({
   file,
   children,
 }) => {
-  const {isOpen, openModal, closeModal, deleteFile, loading, error} =
-    useDeleteFileButton(file);
+  const {
+    isOpen,
+    openModal,
+    closeModal,
+    deleteFile,
+    loading,
+    error,
+    deleteDisabled,
+  } = useDeleteFileButton(file);
 
   return (
     <>
@@ -32,9 +39,11 @@ const DeleteRepoButton: React.FC<DeleteFileButtonProps> = ({
         <br />
         {`${file.repoName}@${file.commitId}`}
       </BasicModal>
-      <ButtonLink onClick={openModal} data-testid="DeleteFileButton__link">
-        {children}
-      </ButtonLink>
+      {!deleteDisabled && (
+        <ButtonLink onClick={openModal} data-testid="DeleteFileButton__link">
+          {children}
+        </ButtonLink>
+      )}
     </>
   );
 };
