@@ -67,6 +67,7 @@ func TestGetSetBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -185,6 +186,7 @@ func TestGetSetReverse(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -310,6 +312,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -365,6 +368,7 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -393,6 +397,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	type createArgs struct {
@@ -586,6 +591,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	type createArgs struct {
 		client *client.APIClient
 		name   string
@@ -780,6 +786,7 @@ func TestPipelineRevoke(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -887,6 +894,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1018,6 +1026,7 @@ func TestStopJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -1084,6 +1093,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1192,6 +1202,7 @@ func TestGetPermissions(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1234,6 +1245,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1258,6 +1270,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	client, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, client)
 	alice := robot(tu.UniqueString("alice"))
@@ -1284,6 +1297,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// Dont't run this test in parallel, since it deactivates the auth system
@@ -1331,6 +1345,7 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1353,6 +1368,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	anonClient := tu.UnauthenticatedPachClient(t, c)
@@ -1369,6 +1385,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1417,6 +1434,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1480,6 +1498,7 @@ func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -1517,6 +1536,7 @@ func TestDeleteAllRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -1547,6 +1567,7 @@ func TestListDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1639,6 +1660,7 @@ func TestListJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
@@ -1713,6 +1735,7 @@ func TestInspectDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -1917,6 +1940,7 @@ func TestPipelineNewInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2003,6 +2027,7 @@ func TestModifyMembers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2128,6 +2153,7 @@ func TestSetGroupsForUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2218,6 +2244,7 @@ func TestGetOwnGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2249,6 +2276,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2300,6 +2328,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
@@ -2349,6 +2378,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2393,6 +2423,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2437,6 +2468,7 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2461,6 +2493,7 @@ func TestExtractAuthToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
@@ -2509,6 +2542,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// Create a request to restore a token with known plaintext
@@ -2577,6 +2611,7 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 	tu.ActivateAuthClient(t, c)
 	// Get all the authenticated clients at the beginning of the test.
@@ -2653,6 +2688,7 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
@@ -2716,6 +2752,7 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -2780,6 +2817,7 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -2838,6 +2876,7 @@ func TestRolesForPermission(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.UniqueString("robot:alice")
@@ -2860,6 +2899,7 @@ func TestLoad(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.UniqueString("robot:alice")
