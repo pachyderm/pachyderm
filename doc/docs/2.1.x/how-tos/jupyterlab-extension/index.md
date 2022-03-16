@@ -1,12 +1,14 @@
 # Pachyderm JupyterLab Mount Extension
 
+![Mount extension in action](../images/mount-extension.gif)
+
  We implemented a [JupyterLab extension](https://pypi.org/project/jupyterlab-pachyderm/){target=_blank} that selectively **maps the contents of data repositories right into your Jupyter environment**. Any named branch in a repo can be “mounted” into your file system via the Jupyter environment, making it feel like the data in Pachyderm is on your computer. 
 
- In particular, for Data Scientists whose data are stored in Pachyderm, the extension provides a seamless way to:
+ For Data Scientists whose data are stored in Pachyderm, the extension provides a seamless way to:
 
 - Connect your Notebook to a Pachyderm cluster.
 - Browse, explore, analyze data stored in Pachyderm directly from your Notebook.
-- Run and test out your pipeline code before creating its image. Pachyderm Jupyterlab extension provides a simple and reliable data development environments that can be shared. 
+- Run and test out your pipeline code before creating a Docker image. Pachyderm JupyterLab Mount Extension provides a quick and reliable data development environments that can be shared. 
 
 !!! Important "TL;DR - Quick Start"
     We will provide two sets of instructions, depending on whether you know the cluster address (`pachd_address`) you want to connect your JupyterHub to or don't.
@@ -34,10 +36,10 @@
         You are all logged in. Start experimenting.
 
 Note that we are assuming that you **already have a Pachyderm cluster running** to connect your JupyterHub/JupyterLab. Find Pachyderm installation instructions in the [Deploy/Manage](../../../deploy-manage/deploy/) section of our documentation.
-## Use The Extension
+## Using The Extension
 ### Connect The Extension To Your Pachyderm Cluster
 
-To connect your JupyterHub to your Pachyderm cluster, fill in the full `pachd_address` (i.e., Pachyderm cluster address) in the login form accessible by clicking on the mount extension icon in the far left tab bar. It should look like "grpc://`<external-IP-address-or-domain-name>`:`<port-number>`".
+To connect the extension to your Pachyderm cluster, fill in the full `pachd_address` (i.e., Pachyderm cluster address) in the login form accessible by clicking on the mount extension icon in the far left tab bar. It should look like "grpc://`<external-IP-address-or-domain-name>`:`<port-number>`".
 
 If you are experimenting with data living in different Pachyderm clusters, you can change the connection string and direct your notebooks to another cluster.
 
@@ -51,13 +53,11 @@ You might be prompted to authenticate in a separate tab of your browser if Authe
 
 After connecting to your cluster via the login interface, you are presented with a list of the repos in your cluster. **Any named branch in a repo can be “mounted” into your file system** by clicking the mount button next to the repo. 
 
-The extension connects to your versioned data stored in Pachyderm and simulates a mounted drive on your file system at `/pfs`, similar to how a pipeline would see data when running a job. Files are lazily loaded, so you don’t have to worry about how much data is stored in your repo. This saves you time by only **loading the data as you access it**.
+The extension connects to your versioned data stored in Pachyderm and simulates a mounted drive on your file system at `/pfs`, similar to how a pipeline would see data when running a job. Files are lazily loaded, meaning they are only downloaded locally when you access them. This saves you time by only **loading the data as you access it**.
 
 To make interacting with the mounted data easier, the extension also provides you with a file browser to the `/pfs` location. This lets you explore, search and open the data you have mounted in the same way you would the files on your computer. 
 
 You should see the repositories ready to be mounted from your Pachyderm instance.
-
-![Mount extension in action](../images/mount-extension.gif)
 
 !!! Info 
     - All mounted repositories are **read-only**. 
@@ -65,27 +65,27 @@ You should see the repositories ready to be mounted from your Pachyderm instance
     - We apply the `/` globbing pattern to all directories/files in mounted repo@branch. 
 
 Make sure to check our [data science notebook examples](https://github.com/pachyderm/examples){target=_blank} running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. You will also find integration examples with open-source products, such as labeling or model serving applications. 
+
 ## Install The Mount Extension
 
-The deployment instructions for Pachyderm Mount Extension come in two flavors, depending on what (*JupyterLab or JupyterHub on Kubernetes*) your deployment target is.
+The deployment instructions for Pachyderm Mount Extension come in two flavors, depending on what your deployment target is (e.g. *JupyterLab or JupyterHub on Kubernetes*).
 
 Pick the option that fits your use case:
 
-- Deploy in [JupyterLab's container](#deploy-the-extension-in-jupiterLab-container).
-- Deploy on [JupyterHub running in Kubernetes](#deploy-the-extension-on-jupyterHub-in-kubernetes-with-helm).
+- Run with our [JupyterLab container](#running-the-jupiterLab-container).
+- Deploy on [JupyterHub with Helm](#adding-the-extension-to-your-jupyterHub-deployment-with-helm).
 
 !!! Info "Versions"
 
-     - Find the latest available version of our Pachyderm Mount Extension in [Pypi](https://pypi.org/project/jupyterlab-pachyderm/){target=_blank}.
+     - Find the latest available version of our Pachyderm Mount Extension in [PyPi](https://pypi.org/project/jupyterlab-pachyderm/){target=_blank}.
      - We recommend JupyterLab >= 3.0.
 <!-- Deploy the extension [locally](#on-your-machine) on a JupyterLab installed on your machine.-->
 Just before your installation... 
 ### Pre-built Image vs Make Your Own
 
 Depending on your setup, you might choose to use our pre-built image containing the extension or add the extension to your image.
- We will go through each of those two options:
 
-- Use Pachyderm's pre-built image `pachyderm/notebooks-user` directly:
+- Using Pachyderm's pre-built image `pachyderm/notebooks-user`:
 
     !!! Note 
 
@@ -100,7 +100,7 @@ Depending on your setup, you might choose to use our pre-built image containing 
         
          The image is based on a GPU-enabled version of [jupyter/base-notebook¶](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/selecting.html#jupyter-base-notebook).
 
-- Or, add the following to your Jupyterlab Dockerfile, then re-build your image:
+- Add the extension to your existing Jupyterlab Docker image:
 
     !!! Note 
         Replace the following `${PACHCTL_VERSION}` with the version of `pachctl` that matches your cluster's, and update `<version>` with the release number of the extension.
@@ -131,7 +131,7 @@ Depending on your setup, you might choose to use our pre-built image containing 
 
     Then, [build, tag, and push your image](../../../how-tos/developer-workflow/working-with-pipelines/#step-2-build-your-docker-image).
 
-### Deploy The Extension In JupiterLab Container
+### Running the JupyterLab Container
 
 If you are using our pre-built image:
 
@@ -147,7 +147,7 @@ If you are using our pre-built image:
 
 Replace the image name with your own image otherwise.
 
-### Deploy The Extension On JupyterHub In Kubernetes With Helm
+### Adding The Extension To Your JupyterHub Deployment With Helm
 
 !!! Info
     Find the complete installation instructions of JupyterHub on Kubernetes in [Jupyterhub for Kubernetes documentation](https://zero-to-jupyterhub.readthedocs.io/en/latest/#setup-jupyterhub){target=_blank}.
@@ -191,7 +191,7 @@ Replace the image name with your own image otherwise.
     ```
 
 
-- Run the following commands to install Jupyterhub:
+- Run the following commands to install JupyterHub:
 
     ```shell
     helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
