@@ -146,7 +146,6 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
 			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
 			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
-			"loki-stack.loki.service.port": fmt.Sprintf("%v", port+9),
 		},
 	}
 }
@@ -288,7 +287,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
 	if opts.WaitForLoki {
-		waitForLoki(t, ctx, kubeClient, namespace, pachAddress.Host, int(pachAddress.Port)+9)
+		waitForLoki(t, ctx, kubeClient, namespace, pachAddress.Host, 3100)
 	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
