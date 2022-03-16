@@ -105,6 +105,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"pachd.clusterDeploymentID":    "dev",
 			"pachd.lokiDeploy":             "true",
 			"loki-stack.loki.service.type": serviceType,
+			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "1000",
 
 			"pachd.storage.backend":        "MINIO",
 			"pachd.storage.minio.bucket":   "pachyderm-test",
