@@ -170,6 +170,13 @@ func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.Tr
 	return nil, errors.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
 }
 
+func (api *ppsTransactionAPI) DeleteJobInTransaction(txnCtx *txncontext.TransactionContext, req *pps.DeleteJobRequest) error {
+	if api.mock.InspectPipelineInTransaction.handler != nil {
+		return api.mock.DeleteJobInTransaction.handler(txnCtx, req)
+	}
+	return errors.Errorf("unhandled pachd mock: pps.DeleteJobInTransaction")
+}
+
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer
 func NewMockPPSTransactionServer() *MockPPSTransactionServer {
 	result := &MockPPSTransactionServer{}
