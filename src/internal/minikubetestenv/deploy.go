@@ -147,6 +147,7 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 			"pachd.service.s3GatewayPort":                    fmt.Sprintf("%v", port+3),
 			"pachd.service.prometheusPort":                   fmt.Sprintf("%v", port+4),
 			"loki-stack.loki.service.port":                   fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.service.nodePort":               fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.config.server.http_listen_port": fmt.Sprintf("%v", port+9),
 			"loki-stack.promtail.loki.servicePort":           fmt.Sprintf("%v", port+9),
 		},
