@@ -9205,7 +9205,6 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
