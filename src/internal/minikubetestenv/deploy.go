@@ -141,11 +141,14 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
-			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
-			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
+			"pachd.service.apiGRPCPort":                      fmt.Sprintf("%v", port),
+			"pachd.service.oidcPort":                         fmt.Sprintf("%v", port+7),
+			"pachd.service.identityPort":                     fmt.Sprintf("%v", port+8),
+			"pachd.service.s3GatewayPort":                    fmt.Sprintf("%v", port+3),
+			"pachd.service.prometheusPort":                   fmt.Sprintf("%v", port+4),
+			"loki-stack.loki.service.port":                   fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.config.server.http_listen_port": fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.loki.servicePort":           fmt.Sprintf("%v", port+9),
 		},
 	}
 }
@@ -184,9 +187,9 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-func waitForLoki(t testing.TB, lokiHost string) {
+func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.Retry(func() error {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:3100", lokiHost), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v", lokiHost, lokiPort), nil)
 		_, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return errors.Wrap(err, "loki not ready")

@@ -133,7 +133,7 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		assigned, c = clusterFactory.acquireNewCluster(t)
 	}
 	if as.WaitForLoki {
-		waitForLoki(t, c.GetAddress().Host)
+		waitForLoki(t, c.GetAddress().Host, int(c.GetAddress().Port)+9)
 	}
 	deleteAll(t, c)
 	return c, assigned
