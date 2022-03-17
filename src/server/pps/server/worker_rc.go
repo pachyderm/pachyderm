@@ -88,6 +88,22 @@ func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 		}
 }
 
+// getPachctlSecretVolumeAndMount returns a Volume and
+// VolumeMount object configured for the pachctl secret (currently used in spout pipelines).
+func getTLSCertSecretVolumeAndMount(secret, mountPath string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: secret,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secret,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      secret,
+			MountPath: mountPath,
+		}
+}
+
 func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
 	pullPolicy := pc.env.Config.WorkerImagePullPolicy
 	if pullPolicy == "" {
@@ -273,6 +289,14 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
+
+	// in the case the pachd is deployed with custom root certs, propagate them to the side-cars
+	if path, ok := os.LookupEnv("SSL_CERT_DIR"); ok {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "SSL_CERT_DIR", Value: path})
+		certSecretVolume, certSecretMount := getTLSCertSecretVolumeAndMount(pc.env.Config.TLSCertsSecretName, path)
+		options.volumes = append(options.volumes, certSecretVolume)
+		sidecarVolumeMounts = append(sidecarVolumeMounts, certSecretMount)
+	}
 
 	// mount secret for spouts using pachctl
 	if pipelineInfo.Details.Spout != nil {
