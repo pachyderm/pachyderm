@@ -143,7 +143,7 @@ If you are using our pre-built image:
 
 - Click on the link provided in the stdout of your terminal to run JupyterLab in a browser.
 
-- Jump to the [`Connect Your JupyterLab Extension To Your Pachyderm Cluster`](#connect-your-jupyterlab-extension-to-your-pachyderm-cluster) section.
+- Jump to the [`Connect Your JupyterLab Extension To Your Pachyderm Cluster`](#connect-the-extension-to-your-pachyderm-cluster) section.
 
 Replace the image name with your own image otherwise.
 
