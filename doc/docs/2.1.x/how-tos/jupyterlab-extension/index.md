@@ -8,7 +8,7 @@
 
 - Connect your Notebook to a Pachyderm cluster.
 - Browse, explore, analyze data stored in Pachyderm directly from your Notebook.
-- Run and test out your pipeline code before creating a Docker image. Pachyderm JupyterLab Mount Extension provides a quick and reliable data development environments that can be shared. 
+- Run and test out your pipeline code before creating a Docker image. The extension provides a quick and reliable data **development environment** that can be shared. 
 
 !!! Important "TL;DR - Quick Start"
     We will provide two sets of instructions, depending on whether you know the cluster address (`pachd_address`) you want to connect your JupyterHub to or don't.
