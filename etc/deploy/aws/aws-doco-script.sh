@@ -7,20 +7,22 @@ set -xeou pipefail
 jq --version || echo "This script required jq, install jq from https://stedolan.github.io/jq/download/"
 psql --version || echo "This script required psql, install psql from https://www.postgresql.org/download/"
 
-GLOBAL_TAG="jose-testing-2"
+GLOBAL_TAG="jose-testing-4"
 
-CLUSTER_NAME="jose-pachyderm-cluster-2"
+CLUSTER_NAME="jose-pachyderm-cluster-4"
 AWS_REGION="us-east-2"
 AWS_PROFILE="default"
 
-BUCKET_NAME="jose-temp-bucket-2"
-S3_BUCKET_IAM_POLICY_NAME="jose-temp-bucket-iam-policy-2"
-S3_BUCKET_IAM_ROLE_NAME="jose-temp-bucket-iam-role-2"
+BUCKET_NAME="jose-temp-bucket-4"
+S3_BUCKET_IAM_POLICY_NAME="jose-temp-bucket-iam-policy-4"
+S3_BUCKET_IAM_ROLE_NAME="jose-temp-bucket-iam-role-4"
 
-PODS_BUCKET_ACCESS_IAM_SA="jose-pods-bucket-access-iam-sa-2"
+PODS_BUCKET_ACCESS_IAM_SA="jose-pods-bucket-access-iam-sa-4"
 
-POSTGRES_SQL_ID="jose-pachyderm-postgresql-2"
-DB_SUBNET_GROUP_NAME="jose-pachyderm-db-public-subnet-group-2"
+EBS_CSI_DRIVER_POLICY_NAME="JoseAmazonEKS_EBS_CSI_Driver_Policy-4"
+
+POSTGRES_SQL_ID="jose-pachyderm-postgresql-4"
+DB_SUBNET_GROUP_NAME="jose-pachyderm-db-public-subnet-group-4"
 
 POSTGRES_SQL_DB_NAME_1="pachyderm"
 POSTGRES_SQL_DB_NAME_2="dex"
@@ -36,25 +38,16 @@ eksctl create cluster --name ${CLUSTER_NAME} --region ${AWS_REGION} --profile ${
 kubectl get all
 
 # Create an S3 object store bucket for data
-aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION} --tags Key=Name,Value=${GLOBAL_TAG}
+LOCATION=$(aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION})
 
 # Verify that the S3 bucket was created
 aws s3 ls
 
 # Create an IAM OIDC identity provider for cluster
-# But first determine whether you have an existing IAM OIDC provider for your cluster.
 # View cluster's OIDC provider URL.
 OIDC_PROVIDER_URL=$(aws eks describe-cluster --name ${CLUSTER_NAME} --query "cluster.identity.oidc.issuer" --output text)
-OPENID_CONNECT_PROVIDER=$(aws iam list-open-id-connect-providers | grep ${OIDC_PROVIDER_URL##*/})
 
-if [ -z "$OPENID_CONNECT_PROVIDER" ]
-then
-      echo "Already have a OpenID provider for your cluster"
-else
-    echo "Creating an IAM OIDC identity provider for cluster.."
-    eksctl utils associate-iam-oidc-provider --cluster ${CLUSTER_NAME} --approve
-fi
-
+eksctl utils associate-iam-oidc-provider --cluster ${CLUSTER_NAME} --approve
 
 # Create an IAM policy that gives access to bucket:
 cat <<EOF > policy.json
@@ -86,7 +79,11 @@ cat <<EOF > policy.json
 EOF
 
 # Create managed policy and capture policy's Amazon resource name (ARN)
-MANAGED_POLICY_ARN=$(aws iam list-open-id-connect-providers | grep ${OIDC_PROVIDER_URL##*/})
+MANAGED_POLICY_ARN=$(aws iam create-policy \
+    --policy-name ${S3_BUCKET_IAM_POLICY_NAME} \
+    --policy-document file://policy.json \
+    --tags Key=Name,Value=${GLOBAL_TAG} | jq -r '.Policy.Arn')
+
 
 #Create an IAM service account with the policy attached.
 ACCOUNTID=$(aws sts get-caller-identity --query Account --output text)
@@ -126,7 +123,7 @@ EOF
 
 ROLE_ARN=$(aws iam create-role --role-name ${S3_BUCKET_IAM_ROLE_NAME} --assume-role-policy-document file://Test-Role-Trust-Policy.json --tags Key=Name,Value=${GLOBAL_TAG} | jq -r '.Role.Arn')
 
-# # Attach a managed policy to an IAM role
+# Attach a managed policy to an IAM role
 aws iam attach-role-policy --policy-arn ${MANAGED_POLICY_ARN} --role-name ${S3_BUCKET_IAM_ROLE_NAME}
 
 # (Optional) Set Up Bucket Encryption
@@ -136,17 +133,17 @@ ACCOUNTID=$(aws sts get-caller-identity --query Account --output text)
 
 curl -o example-iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-ebs-csi-driver/master/docs/example-iam-policy.json
 
-aws iam create-policy \
-    --policy-name JoseAmazonEKS_EBS_CSI_Driver_Policy \
+CREATED_POLICY=$(aws iam create-policy \
+    --policy-name ${EBS_CSI_DRIVER_POLICY_NAME} \
     --policy-document file://example-iam-policy.json \
-    --tags Key=Name,Value=${GLOBAL_TAG}
+    --tags Key=Name,Value=${GLOBAL_TAG})
     
 
 eksctl create iamserviceaccount \
     --name ebs-csi-controller-sa \
     --namespace kube-system \
     --cluster ${CLUSTER_NAME} \
-    --attach-policy-arn arn:aws:iam::${ACCOUNTID}:policy/JoseAmazonEKS_EBS_CSI_Driver_Policy \
+    --attach-policy-arn arn:aws:iam::${ACCOUNTID}:policy/${EBS_CSI_DRIVER_POLICY_NAME} \
     --approve \
     --role-only \
     --tags Key=Name,Value=${GLOBAL_TAG}
@@ -155,8 +152,8 @@ eksctl create iamserviceaccount \
 STACK_NAME=$(aws cloudformation describe-stacks | jq -r '.Stacks[0].StackName')
 
 CREATED_ROLE_NAME=$(aws cloudformation describe-stack-resources --query 'StackResources[0].PhysicalResourceId' --output text --stack-name ${STACK_NAME})
-
-eksctl create addon --name aws-ebs-csi-driver --cluster ${CLUSTER_NAME} --service-account-role-arn arn:aws:iam::${ACCOUNTID}:role/${CREATED_ROLE_NAME} --force --tags Key=Name,Value=${GLOBAL_TAG}
+CREATED_ROLE_NAME="eksctl-jose-pachyderm-cluster-3-addon-iamser-Role1-119RKLUIXNLZM"
+eksctl create addon --name aws-ebs-csi-driver --cluster ${CLUSTER_NAME} --service-account-role-arn arn:aws:iam::${ACCOUNTID}:role/${CREATED_ROLE_NAME} --force
 
 # Get the cluster VPC ids
 CLUSTER_VPC_IDS=$(aws eks describe-cluster --name ${CLUSTER_NAME} \
@@ -165,14 +162,13 @@ CLUSTER_VPC_IDS=$(aws eks describe-cluster --name ${CLUSTER_NAME} \
 # AWS describe cluster get vpc id
 CLUSTER_VPC_ID=$(aws eks describe-cluster --name ${CLUSTER_NAME} | jq -r '.cluster.resourcesVpcConfig.vpcId')
 
-# Get the cluster public subnet ids
-CLUSTER_SUBNET_IDS=$(aws ec2 describe-subnets --filter Name=vpc-id,Values=${CLUSTER_VPC_ID} --query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId')
-
+# Get the cluster public subnet ids as an array
+CLUSTER_SUBNET_IDS=$(aws ec2 describe-subnets --filter Name=vpc-id,Values=${CLUSTER_VPC_ID} --query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId' | jq -r '.[]')
 # aws cli Create a DB subnet group
-aws rds create-db-subnet-group --db-subnet-group-name ${DB_SUBNET_GROUP_NAME} --db-subnet-group-description "DB subnet group - public subnets" --subnet-ids ${CLUSTER_SUBNET_IDS} --tags Key=Name,Value=${GLOBAL_TAG}
+CREATED_SUBNET_GROUP=$(aws rds create-db-subnet-group --db-subnet-group-name ${DB_SUBNET_GROUP_NAME} --db-subnet-group-description "DB subnet group - public subnets" --subnet-ids $CLUSTER_SUBNET_IDS --tags Key=Name,Value=${GLOBAL_TAG})
 
 # AWS CLI Create postgresql rds instance
-aws rds create-db-instance \
+CREATED_DB_INSTANCE=$(aws rds create-db-instance \
     --db-instance-identifier ${POSTGRES_SQL_ID} \
     --db-name ${POSTGRES_SQL_DB_NAME_1} \
     --db-instance-class db.m6g.large \
@@ -186,13 +182,13 @@ aws rds create-db-instance \
     --db-subnet-group-name ${DB_SUBNET_GROUP_NAME}  \
     --publicly-accessible \
     --tags Key=Name,Value=${GLOBAL_TAG} \
-    --no-multi-az
+    --no-multi-az)
 
 # Check if the postgresql rds instance is available
 aws rds wait db-instance-available --db-instance-identifier ${POSTGRES_SQL_ID}
 
 # Amazon aws cli expose postgresql port 5432 on VPC security group
-aws ec2 authorize-security-group-ingress --group-id ${CLUSTER_VPC_IDS} --protocol tcp --port 5432 --cidr 0.0.0.0/0
+AUTHORIZED_RESPONSE=$(aws ec2 authorize-security-group-ingress --group-id ${CLUSTER_VPC_IDS} --protocol tcp --port 5432 --cidr 0.0.0.0/0)
 
 # Get the postgresql rds instance endpoint
 POSTGRES_SQL_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier ${POSTGRES_SQL_ID} | jq -r '.DBInstances[0].Endpoint.Address')
@@ -275,7 +271,7 @@ helm install pachyderm -f ./values.yaml pach/pachyderm
 
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
-STATIC_IP_ADDR_NO_QUOTES=$(echo "$STATIC_IP_ADDR" | tr -d '"')
+STATIC_IP_ADDR_NO_QUOTES=$(echo "" | tr -d '"')
 echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR_NO_QUOTES}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite
 pachctl config set active-context ${CLUSTER_NAME}
 pachctl config get active-context
