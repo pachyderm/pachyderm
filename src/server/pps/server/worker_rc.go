@@ -88,8 +88,8 @@ func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 		}
 }
 
-// getPachctlSecretVolumeAndMount returns a Volume and
-// VolumeMount object configured for the pachctl secret (currently used in spout pipelines).
+// getTLSCertSecretVolumeAndMount returns a Volume and VolumeMount object
+// configured for the pach-tls secret to be stored in pipeline side-cars.
 func getTLSCertSecretVolumeAndMount(secret, mountPath string) (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: secret,
