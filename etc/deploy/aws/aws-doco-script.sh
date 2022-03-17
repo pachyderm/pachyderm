@@ -152,7 +152,7 @@ eksctl create iamserviceaccount \
 STACK_NAME=$(aws cloudformation describe-stacks | jq -r '.Stacks[0].StackName')
 
 CREATED_ROLE_NAME=$(aws cloudformation describe-stack-resources --query 'StackResources[0].PhysicalResourceId' --output text --stack-name ${STACK_NAME})
-CREATED_ROLE_NAME="eksctl-jose-pachyderm-cluster-3-addon-iamser-Role1-119RKLUIXNLZM"
+
 eksctl create addon --name aws-ebs-csi-driver --cluster ${CLUSTER_NAME} --service-account-role-arn arn:aws:iam::${ACCOUNTID}:role/${CREATED_ROLE_NAME} --force
 
 # Get the cluster VPC ids
