@@ -1,5 +1,10 @@
 # Changelog
 <!-- <START NEW CHANGELOG ENTRY> -->
+
+# 0.3.0-beta2
+53ade2e Tag docker images on tag push (#93)
+e8d6432 Use config file if provided to start mount server (#91)
+
 # 0.3.0-beta1
 New Feature: Auth screen added
 
