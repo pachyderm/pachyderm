@@ -1,5 +1,9 @@
 
 # Changelog
+## 2.1.4
+- Add Snowflake driver - #7406
+- Upgrade to latest S2 library - #7398
+
 ## 2.1.3
 - Fix debug dump segfault on failed jobs - #7377
 - Fix: check sql.ErrNoRows in error chain - #7381
