@@ -86,7 +86,7 @@ func (w *Writer) setupLevel(idx *Index, level int) {
 	// then get the write lock, check again and maybe create another level.
 	w.levelsMu.Lock()
 	defer w.levelsMu.Unlock()
-	if level < len(w.levels) {
+	if level >= len(w.levels) {
 		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
 		lw := &levelWriter{
 			cw:       cw,
