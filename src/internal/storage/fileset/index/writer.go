@@ -75,14 +75,25 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	return errors.EnsureStack(err)
 }
 
+// setupLevel ensures that the level exists, creating one if necessary.
+// setupLevels takes levelsMu in read and write mode as needed, and releases it before returning
 func (w *Writer) setupLevel(idx *Index, level int) {
-	if level == w.numLevels() {
+	// check first with the read lock
+	if level < w.numLevels() {
+		// this should be the common case
+		return
+	}
+	// then get the write lock, check again and maybe create another level.
+	w.levelsMu.Lock()
+	defer w.levelsMu.RLock()
+	if level < len(w.levels) {
 		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
-		w.createLevel(&levelWriter{
+		lw := &levelWriter{
 			cw:       cw,
 			pbw:      pbutil.NewWriter(cw),
 			firstIdx: idx,
-		})
+		}
+		w.levels = append(w.levels, lw)
 	}
 }
 
@@ -146,18 +157,14 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 	return nil, nil
 }
 
-func (w *Writer) createLevel(l *levelWriter) {
-	w.levelsMu.Lock()
-	defer w.levelsMu.Unlock()
-	w.levels = append(w.levels, l)
-}
-
+// getLevel holds levelsMu while finding the the levelWriter at level
 func (w *Writer) getLevel(level int) *levelWriter {
 	w.levelsMu.RLock()
 	defer w.levelsMu.RUnlock()
 	return w.levels[level]
 }
 
+// numLevels holds levelsMu while determining the length of levels
 func (w *Writer) numLevels() int {
 	w.levelsMu.RLock()
 	defer w.levelsMu.RUnlock()
