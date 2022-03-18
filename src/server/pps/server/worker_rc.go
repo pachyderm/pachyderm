@@ -293,7 +293,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	// in the case the pachd is deployed with custom root certs, propagate them to the side-cars
 	if path, ok := os.LookupEnv("SSL_CERT_DIR"); ok {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "SSL_CERT_DIR", Value: path})
-		certSecretVolume, certSecretMount := getTLSCertSecretVolumeAndMount(pc.env.Config.TLSCertsSecretName, path)
+		certSecretVolume, certSecretMount := getTLSCertSecretVolumeAndMount(pc.env.Config.TLSCertSecretName, path)
 		options.volumes = append(options.volumes, certSecretVolume)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, certSecretMount)
 	}
