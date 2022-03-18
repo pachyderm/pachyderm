@@ -204,7 +204,7 @@ func (w *Writer) createChunk() error {
 	chunk := w.buf.Bytes()
 	edge := w.first || w.last
 	annotations := w.splitAnnotations()
-	if err := w.chain.CreateTask(func(ctx context.Context) (func(context.Context) error, error) {
+	if err := w.chain.CreateTask(func(ctx context.Context) (func() error, error) {
 		return w.processChunk(ctx, chunk, edge, annotations)
 	}); err != nil {
 		return err
@@ -235,7 +235,7 @@ func copyAnnotation(a *Annotation) *Annotation {
 	return copyA
 }
 
-func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool, annotations []*Annotation) (func(context.Context) error, error) {
+func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool, annotations []*Annotation) (func() error, error) {
 	pointsTo := w.getPointsTo(annotations)
 	ref, err := w.maybeUpload(ctx, chunkBytes, pointsTo)
 	if err != nil {
@@ -252,7 +252,7 @@ func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool,
 	if err := w.processAnnotations(ctx, chunkDataRef, chunkBytes, annotations); err != nil {
 		return nil, err
 	}
-	return func(context.Context) error {
+	return func() error {
 		return w.cb(annotations)
 	}, nil
 }
@@ -412,8 +412,8 @@ func (w *Writer) maybeCheapCopy() error {
 		lastDataRef := w.annotations[len(w.annotations)-1].NextDataRef
 		if lastDataRef.OffsetBytes+lastDataRef.SizeBytes == lastDataRef.Ref.SizeBytes {
 			annotations := w.splitAnnotations()
-			if err := w.chain.CreateTask(func(_ context.Context) (func(context.Context) error, error) {
-				return func(context.Context) error {
+			if err := w.chain.CreateTask(func(_ context.Context) (func() error, error) {
+				return func() error {
 					return w.cb(annotations)
 				}, nil
 			}); err != nil {

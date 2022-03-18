@@ -39,7 +39,7 @@ func NewTaskChain(ctx context.Context, parallelism int64) *TaskChain {
 
 // TaskChainFunc is a function which is computed in parallel, and then returns
 // a closure to be computed serially, or an error.
-type TaskChainFunc = func(context.Context) (serCB func(context.Context) error, err error)
+type TaskChainFunc = func(context.Context) (serCB func() error, err error)
 
 // CreateTask creates a new task in the task chain.
 func (c *TaskChain) CreateTask(cb TaskChainFunc) error {
@@ -62,9 +62,9 @@ func (c *TaskChain) CreateTask(cb TaskChainFunc) error {
 		// - There hasn't been an error from anything yet, and we need to wait our turn to do the serial callback
 		select {
 		case <-c.ctx.Done():
-			return c.ctx.Err()
+			return errors.EnsureStack(c.ctx.Err())
 		case <-prevChan:
-			if err := serCB(c.ctx); err != nil {
+			if err := serCB(); err != nil {
 				return err
 			}
 			close(nextChan)

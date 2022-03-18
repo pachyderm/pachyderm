@@ -86,11 +86,11 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		}
 	}()
 	return r.Iterate(func(dr *DataReader) error {
-		return taskChain.CreateTask(func(ctx context.Context) (func(context.Context) error, error) {
+		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 			if err := dr.Prefetch(); err != nil {
 				return nil, err
 			}
-			return func(context.Context) error {
+			return func() error {
 				return dr.Get(w)
 			}, nil
 		})
