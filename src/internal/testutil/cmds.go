@@ -134,6 +134,10 @@ func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	return res
 }
 
+func getEnterpriseContext() {
+
+}
+
 func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...string) *exec.Cmd {
 	t.Helper()
 

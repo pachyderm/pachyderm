@@ -56,12 +56,9 @@ func TestActivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetUnauthenticatedPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --supply-root-token
 		pachctl auth whoami | match {{.user}}
 		echo 'y' | pachctl auth deactivate
@@ -78,27 +75,24 @@ func TestActivateFailureRollback(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetUnauthenticatedPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 	clientId := tu.UniqueString("clientId")
 	// activation fails to activate with bad issuer URL
-	require.YesError(t, tu.BashCmd(`
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --issuer 'bad-url.com' --client-id {{.id}} --supply-root-token`,
 		"token", tu.RootToken,
 		"id", clientId,
 	).Run())
 
 	// the OIDC client does not exist in pachd
-	require.YesError(t, tu.BashCmd(`
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
 		pachctl idp list-client | match '{{.id}}'`,
 		"id", clientId,
 	).Run())
 
 	// activation succeeds when passed happy-path values
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --client-id {{.id}} --supply-root-token
 		pachctl auth whoami | match {{.user}}`,
 		"token", tu.RootToken,
@@ -162,8 +156,7 @@ func TestWhoAmI(t *testing.T) {
 	}
 	alice := tu.UniqueString("robot:alice")
 	loginAsUser(t, alice)
-	defer tu.DeleteAll(t)
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match {{.alice}}`,
 		"alice", alice,
 	).Run())
