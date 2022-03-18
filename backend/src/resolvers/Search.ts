@@ -1,7 +1,10 @@
-import {ApolloError} from 'apollo-server-express';
+import {Pipeline, RepoInfo, PipelineInfo} from '@pachyderm/node-pachyderm';
+import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-backend/constants/pachCore';
+import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
+import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import hasRepoReadPermissions from '@dash-backend/lib/hasRepoReadPermissions';
 import {QueryResolvers} from '@graphqlTypes';
 
@@ -21,47 +24,80 @@ const searchResolver: SearchResolver = {
   Query: {
     searchResults: async (
       _parent,
-      {args: {query, limit, projectId}},
+      {args: {query, limit, projectId, globalIdFilter}},
       {pachClient, log},
     ) => {
       if (query) {
+        const lowercaseQuery = query.toLowerCase();
+        let repos: RepoInfo.AsObject[];
+        let pipelines: PipelineInfo.AsObject[];
+
         //Check if query is commit or job id
         if (UUID_WITHOUT_DASHES_REGEX.test(query)) {
-          try {
-            const jobSet = jobInfosToGQLJobSet(
-              await pachClient.pps().inspectJobSet({id: query, projectId}),
-              query,
-            );
+          const jobSet = jobInfosToGQLJobSet(
+            await pachClient.pps().inspectJobSet({id: query, projectId}),
+            query,
+          );
 
+          if (jobSet.jobs.length === 0) {
             return {
               pipelines: [],
               repos: [],
-              jobSet,
+              jobSet: null,
             };
-          } catch (e) {
-            if ((e as ApolloError).extensions.code === 'NOT_FOUND') {
-              return {
-                pipelines: [],
-                repos: [],
-                jobSet: null,
-              };
-            }
-            throw e;
           }
+
+          return {
+            pipelines: [],
+            repos: [],
+            jobSet,
+          };
         }
 
-        const lowercaseQuery = query.toLowerCase();
-        const jq = `select(.pipeline.name | ascii_downcase | startswith("${lowercaseQuery}"))`;
+        if (globalIdFilter) {
+          const jobSet = await pachClient
+            .pps()
+            .inspectJobSet({id: globalIdFilter, projectId, details: false});
 
-        log.info(
-          {eventSource: 'searchResolver', meta: {jq}},
-          'querying pipelines with jq filter',
-        );
+          const jobs = await getJobsFromJobSet({
+            jobSet,
+            projectId,
+            pachClient,
+          });
 
-        const [repos, pipelines] = await Promise.all([
-          pachClient.pfs().listRepo(),
-          pachClient.pps().listPipeline(jq),
-        ]);
+          const pipelineMap = jobs.reduce<Record<string, Pipeline.AsObject>>(
+            (acc, job) => {
+              if (job.job?.pipeline?.name) {
+                return {...acc, [job.job?.pipeline?.name]: job.job?.pipeline};
+              }
+              return acc;
+            },
+            {},
+          );
+
+          const inputRepos = flattenDeep(
+            jobs.map((job) =>
+              job.details?.input ? flattenPipelineInput(job.details.input) : [],
+            ),
+          );
+
+          repos = (await pachClient.pfs().listRepo()).filter(
+            (repo) =>
+              repo.repo?.name &&
+              (pipelineMap[repo.repo?.name] ||
+                inputRepos.includes(repo.repo?.name)),
+          );
+
+          pipelines = (await pachClient.pps().listPipeline()).filter(
+            (pipeline) =>
+              pipeline.pipeline?.name && pipelineMap[pipeline.pipeline?.name],
+          );
+        } else {
+          [repos, pipelines] = await Promise.all([
+            pachClient.pfs().listRepo(),
+            pachClient.pps().listPipeline(),
+          ]);
+        }
 
         const filteredRepos = repos.filter(
           (r) =>
@@ -75,7 +111,9 @@ const searchResolver: SearchResolver = {
         );
 
         const filteredPipelines = pipelines.filter(
-          (p) => authorizedRepoMap[p.pipeline?.name || ''],
+          (p) =>
+            authorizedRepoMap[p.pipeline?.name || ''] &&
+            p.pipeline?.name.toLowerCase().startsWith(lowercaseQuery),
         );
 
         return {

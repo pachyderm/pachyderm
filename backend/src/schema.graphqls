@@ -374,6 +374,7 @@ input SearchResultQueryArgs {
   projectId: String!
   query: String!
   limit: Int
+  globalIdFilter: ID
 }
 
 input JobSetQueryArgs {

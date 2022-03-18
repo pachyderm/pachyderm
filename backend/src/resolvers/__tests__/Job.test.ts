@@ -86,7 +86,7 @@ describe('Jobs', () => {
       expect(data?.jobSet?.jobs[4].pipelineName).toBe('test');
     });
 
-    it('should return a NOT_FOUND error if a jobset is not found', async () => {
+    it('should return an empty jobset if a jobset is not found', async () => {
       const {data, errors = []} = await executeQuery<JobSetQuery>(
         JOB_SET_QUERY,
         {
@@ -97,9 +97,11 @@ describe('Jobs', () => {
         },
       );
 
-      expect(errors.length).toBe(1);
-      expect(data).toBeNull();
-      expect(errors[0].extensions.code).toBe('NOT_FOUND');
+      expect(errors.length).toBe(0);
+      expect(data?.jobSet.createdAt).toBe(null);
+      expect(data?.jobSet.id).toBe('bogus');
+      expect(data?.jobSet.state).toBe(JobState.JOB_SUCCESS);
+      expect(data?.jobSet.jobs.length).toBe(0);
     });
 
     it('should return all jobsets for a given project', async () => {

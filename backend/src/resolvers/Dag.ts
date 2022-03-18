@@ -1,10 +1,10 @@
-import {RepoInfo, Input, PipelineInfo} from '@pachyderm/node-pachyderm';
+import {RepoInfo, PipelineInfo} from '@pachyderm/node-pachyderm';
 import flatMap from 'lodash/flatMap';
-import flattenDeep from 'lodash/flattenDeep';
 import keyBy from 'lodash/keyBy';
 import uniqBy from 'lodash/uniqBy';
 import objectHash from 'object-hash';
 
+import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
 import getJobsFromJobSet from '@dash-backend/lib/getJobsFromJobSet';
 import {
   toGQLJobState,
@@ -32,30 +32,6 @@ interface DagResolver {
     dags: SubscriptionResolvers['dags'];
   };
 }
-
-const flattenPipelineInput = (input: Input.AsObject): string[] => {
-  const result = [];
-
-  if (input.pfs) {
-    const {repo} = input.pfs;
-    result.push(repo);
-  }
-
-  if (input.cron) {
-    const {repo} = input.cron;
-
-    result.push(repo);
-  }
-
-  // TODO: Update to indicate which elemets are crossed, unioned, joined, grouped, with.
-  return flattenDeep([
-    result,
-    input.crossList.map((i) => flattenPipelineInput(i)),
-    input.unionList.map((i) => flattenPipelineInput(i)),
-    input.joinList.map((i) => flattenPipelineInput(i)),
-    input.groupList.map((i) => flattenPipelineInput(i)),
-  ]);
-};
 
 const deriveVertices = (
   repos: RepoInfo.AsObject[],
@@ -149,7 +125,7 @@ const dagResolver: DagResolver = {
               .pps()
               .inspectJobSet({id: jobSetId, projectId, details: false});
 
-            // stabalize elkjs inputs.
+            // stabilize elkjs inputs.
             // listRepo and listPipeline are both stabalized on 'name',
             // but jobsets come back in a stream with random order.
             const sortedJobSet = sortJobInfos(

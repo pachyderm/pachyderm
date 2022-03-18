@@ -128,15 +128,7 @@ const pps = () => {
           const foundJobSet =
             projectJobSets[call.request.getJobSet()?.getId() || ''];
 
-          if (!foundJobSet) {
-            call.emit(
-              'error',
-              createServiceError({
-                code: Status.UNKNOWN,
-                details: 'no commits found',
-              }),
-            );
-          } else {
+          if (foundJobSet) {
             foundJobSet.forEach((job) => call.write(job));
           }
           call.end();

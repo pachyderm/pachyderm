@@ -658,6 +658,7 @@ export type SearchResultQueryArgs = {
   projectId: Scalars['String'];
   query: Scalars['String'];
   limit?: Maybe<Scalars['Int']>;
+  globalIdFilter?: Maybe<Scalars['ID']>;
 };
 
 export type SearchResults = {

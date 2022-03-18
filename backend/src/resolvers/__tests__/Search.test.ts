@@ -60,6 +60,39 @@ describe('Search resolver', () => {
       const searchResults = data?.searchResults;
       expect(searchResults?.pipelines?.length).toBe(0);
     });
+
+    it('should return pipelines with matching jobset if globalId filter is set', async () => {
+      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
+        GET_SEARCH_RESULTS_QUERY,
+        {
+          args: {
+            query: 'like',
+            projectId: '2',
+            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
+          },
+        },
+      );
+      expect(errors.length).toBe(0);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.pipelines?.length).toBe(1);
+      expect(searchResults?.pipelines[0]?.name).toBe('likelihoods');
+    });
+
+    it('should not return pipelines without matching jobset if globalId filter is set', async () => {
+      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
+        GET_SEARCH_RESULTS_QUERY,
+        {
+          args: {
+            query: 'sel',
+            projectId: '2',
+            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
+          },
+        },
+      );
+      expect(errors.length).toBe(0);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.pipelines?.length).toBe(0);
+    });
   });
 
   describe('Job id search', () => {
@@ -123,6 +156,39 @@ describe('Search resolver', () => {
         GET_SEARCH_RESULTS_QUERY,
         {
           args: {query: 'montage', projectId},
+        },
+      );
+      expect(errors.length).toBe(0);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.repos?.length).toBe(0);
+    });
+
+    it('should return repos with matching jobset if globalId filter is set', async () => {
+      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
+        GET_SEARCH_RESULTS_QUERY,
+        {
+          args: {
+            query: 'like',
+            projectId: '2',
+            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
+          },
+        },
+      );
+      expect(errors.length).toBe(0);
+      const searchResults = data?.searchResults;
+      expect(searchResults?.repos?.length).toBe(1);
+      expect(searchResults?.repos[0]?.name).toBe('likelihoods');
+    });
+
+    it('should not return repos without matching jobset if globalId filter is set', async () => {
+      const {data, errors = []} = await executeQuery<SearchResultsQuery>(
+        GET_SEARCH_RESULTS_QUERY,
+        {
+          args: {
+            query: 'sel',
+            projectId: '2',
+            globalIdFilter: '23b9af7d5d4343219bc8e02ff4acd33a',
+          },
         },
       );
       expect(errors.length).toBe(0);

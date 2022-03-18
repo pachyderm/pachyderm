@@ -4,6 +4,7 @@ export const useSearchResults = (
   projectId: string,
   query: string,
   limit?: number,
+  globalIdFilter?: string,
 ) => {
   const {data, error, loading, previousData} = useSearchResultsQuery({
     variables: {
@@ -11,6 +12,7 @@ export const useSearchResults = (
         projectId,
         query: query || '',
         limit: limit,
+        globalIdFilter,
       },
     },
   });
