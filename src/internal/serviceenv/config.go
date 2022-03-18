@@ -98,6 +98,7 @@ type PachdSpecificConfiguration struct {
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
+	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
 }
 
 // StorageConfiguration contains the storage configuration.
