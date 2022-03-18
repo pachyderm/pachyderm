@@ -204,8 +204,8 @@ func (w *Writer) createChunk() error {
 	chunk := w.buf.Bytes()
 	edge := w.first || w.last
 	annotations := w.splitAnnotations()
-	if err := w.chain.CreateTask(func(ctx context.Context, serial func(func() error) error) error {
-		return w.processChunk(ctx, chunk, edge, annotations, serial)
+	if err := w.chain.CreateTask(func(ctx context.Context) (func(context.Context) error, error) {
+		return w.processChunk(ctx, chunk, edge, annotations)
 	}); err != nil {
 		return err
 	}
@@ -235,11 +235,11 @@ func copyAnnotation(a *Annotation) *Annotation {
 	return copyA
 }
 
-func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool, annotations []*Annotation, serial func(func() error) error) error {
+func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool, annotations []*Annotation) (func(context.Context) error, error) {
 	pointsTo := w.getPointsTo(annotations)
 	ref, err := w.maybeUpload(ctx, chunkBytes, pointsTo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ref.Edge = edge
 	contentHash := Hash(chunkBytes)
@@ -250,11 +250,11 @@ func (w *Writer) processChunk(ctx context.Context, chunkBytes []byte, edge bool,
 	}
 	// Process the annotations for the current chunk.
 	if err := w.processAnnotations(ctx, chunkDataRef, chunkBytes, annotations); err != nil {
-		return err
+		return nil, err
 	}
-	return serial(func() error {
+	return func(context.Context) error {
 		return w.cb(annotations)
-	})
+	}, nil
 }
 
 func (w *Writer) maybeUpload(ctx context.Context, chunkBytes []byte, pointsTo []ID) (*Ref, error) {
@@ -412,10 +412,10 @@ func (w *Writer) maybeCheapCopy() error {
 		lastDataRef := w.annotations[len(w.annotations)-1].NextDataRef
 		if lastDataRef.OffsetBytes+lastDataRef.SizeBytes == lastDataRef.Ref.SizeBytes {
 			annotations := w.splitAnnotations()
-			if err := w.chain.CreateTask(func(_ context.Context, serial func(func() error) error) error {
-				return serial(func() error {
+			if err := w.chain.CreateTask(func(_ context.Context) (func(context.Context) error, error) {
+				return func(context.Context) error {
 					return w.cb(annotations)
-				})
+				}, nil
 			}); err != nil {
 				return err
 			}
