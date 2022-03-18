@@ -1,4 +1,4 @@
-FROM scratch
+FROM debian:stable
 
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
@@ -7,7 +7,7 @@ COPY LICENSE /LICENSE
 COPY licenses /licenses
 
 WORKDIR /app
-COPY worker . 
+COPY worker .
 COPY worker_init init
 COPY pachctl .
 

@@ -1,9 +1,5 @@
-FROM alpine:3.10 AS pachyderm_build
-
-RUN mkdir -p /tmp/to-copy/tmp && chmod -R 777 /tmp/to-copy 
-RUN apk add -U ca-certificates
-
-FROM scratch
+FROM debian:stable
+RUN apt-get update && apt-get -y install ca-certificates
 
 MAINTAINER jdoliner@pachyerm.io
 
@@ -14,8 +10,6 @@ COPY LICENSE /LICENSE
 COPY licenses /licenses
 COPY pachd /pachd
 COPY dex-assets /dex-assets
-COPY --from=pachyderm_build /tmp/to-copy /
-COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 USER 1000
 

@@ -1,4 +1,4 @@
-FROM alpine:3.15
+FROM debian:stable
 
 LABEL name="Pachyderm" \
       vendor="Pachyderm"
