@@ -153,6 +153,10 @@ spec:
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
         {{- end }}
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - name: TLS_CERT_SECRET_NAME
+          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
+        {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
