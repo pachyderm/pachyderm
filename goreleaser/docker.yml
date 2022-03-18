@@ -7,7 +7,9 @@ builds:
     main: main.go
     binary: pachd
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+    flags:
+        - "-race"
     ldflags:
       - "{{ .Env.LD_FLAGS }}"
     goos:
@@ -22,7 +24,9 @@ builds:
     main: main.go
     binary: worker
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+    flags:
+        - "-race"
     ldflags:
       - "{{ .Env.LD_FLAGS }}"
     goos:
@@ -37,7 +41,9 @@ builds:
     main: init.go
     binary: worker_init
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+    flags:
+        - "-race"
     ldflags:
       - "{{ .Env.LD_FLAGS }}"
     goos:
@@ -66,7 +72,9 @@ builds:
     main: main.go
     binary: pachtf
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
+    flags:
+        - "-race"
     ldflags:
       - "{{ .Env.LD_FLAGS }}"
     goos:
@@ -160,4 +168,3 @@ dockers:
     extra_files:
       - LICENSE
       - licenses
- 

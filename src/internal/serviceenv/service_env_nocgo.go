@@ -1,6 +1,3 @@
-//go:build !cgo
-// +build !cgo
-
 package serviceenv
 
 import (
