@@ -144,7 +144,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-5-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v6-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
