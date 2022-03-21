@@ -400,6 +400,9 @@ workflows:
           pulumi-version: v3.22.1
           requires:
             - docker-build
+          filters:
+            branches:
+              ignore: main
       - test-publish:
           requires:
             - build
