@@ -280,7 +280,30 @@ func (step *pcStep) updateRcAndState(ctx context.Context) error {
 		return nil
 	}
 
-	if step.rc != nil && !step.rcIsFresh() {
+	if step.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING || step.pipelineInfo.State == pps.PipelineState_PIPELINE_RESTARTING {
+		if step.rc != nil && !step.rcIsFresh() {
+			// old RC is not down yet
+			return step.restartPipeline(ctx, "stale RC") // step() will be called again after collection write
+		} else if step.rc == nil {
+			// default: old RC (if any) is down but new RC is not up yet
+			if err := step.createPipelineResources(ctx); err != nil {
+				return err
+			}
+		}
+		if step.pipelineInfo.Stopped {
+			return step.setPipelineState(ctx, pps.PipelineState_PIPELINE_PAUSED, "")
+		}
+		step.pc.stopCrashingPipelineMonitor()
+		// trigger another event
+		target := pps.PipelineState_PIPELINE_RUNNING
+		if step.pipelineInfo.Details.Autoscaling && step.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
+			// start in standby
+			target = pps.PipelineState_PIPELINE_STANDBY
+		}
+		return step.setPipelineState(ctx, target, "")
+	}
+
+	if !step.rcIsFresh() {
 		// old RC is not down yet
 		return step.restartPipeline(ctx, "stale RC") // step() will be called again after collection write
 	}
@@ -308,21 +331,6 @@ func (step *pcStep) updateRcAndState(ctx context.Context) error {
 	}
 
 	switch step.pipelineInfo.State {
-	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
-		if step.rc == nil {
-			// default: old RC (if any) is down but new RC is not up yet
-			if err := step.createPipelineResources(ctx); err != nil {
-				return err
-			}
-		}
-		step.pc.stopCrashingPipelineMonitor()
-		// trigger another event
-		target := pps.PipelineState_PIPELINE_RUNNING
-		if step.pipelineInfo.Details.Autoscaling && step.pipelineInfo.State == pps.PipelineState_PIPELINE_STARTING {
-			// start in standby
-			target = pps.PipelineState_PIPELINE_STANDBY
-		}
-		return step.setPipelineState(ctx, target, "")
 	case pps.PipelineState_PIPELINE_RUNNING:
 		step.pc.stopCrashingPipelineMonitor()
 		step.startPipelineMonitor()
