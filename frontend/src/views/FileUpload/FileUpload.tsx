@@ -9,7 +9,8 @@ import {
   Select,
   UploadSVG,
   Icon,
-  CopySVG,
+  ExternalLinkSVG,
+  Link,
 } from '@pachyderm/components';
 import React from 'react';
 import {Helmet} from 'react-helmet';
@@ -35,8 +36,6 @@ const FileUpload: React.FC = () => {
     handleFileCancel,
     fileRegister,
     onChangeHandler,
-    handleCopy,
-    copySupported,
     error,
     uploadId,
     maxStreamIndex,
@@ -58,16 +57,16 @@ const FileUpload: React.FC = () => {
           <Group className={styles.base}>
             <Group spacing={32} vertical className={styles.fileForm}>
               <Group vertical spacing={8} align="start">
-                <ButtonLink
+                <Link
                   className={styles.terminal}
-                  onClick={handleCopy}
-                  disabled={!copySupported}
+                  externalLink
+                  to="https://docs.pachyderm.com/latest/how-tos/basic-data-operations/load-data-into-pachyderm/#pachctl-put-file"
                 >
-                  Upload via terminal
+                  For large file uploads via CTL
                   <Icon className={styles.copySVG} color="plum" small>
-                    <CopySVG />
+                    <ExternalLinkSVG />
                   </Icon>
-                </ButtonLink>
+                </Link>
                 <h4 className={styles.header}>Upload Files</h4>
               </Group>
               <Group spacing={16} vertical>

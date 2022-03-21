@@ -1,8 +1,4 @@
-import {
-  useClipboardCopy,
-  useModal,
-  useNotificationBanner,
-} from '@pachyderm/components';
+import {useModal} from '@pachyderm/components';
 import {
   DragEventHandler,
   useCallback,
@@ -208,17 +204,6 @@ const useFileUpload = () => {
     [onChange],
   );
 
-  const {copy, supported} = useClipboardCopy(
-    'pachctl put file <repo>@<branch-or-commit>[:<path/to/file>] [flags]',
-  );
-
-  const {add} = useNotificationBanner();
-
-  const handleCopy = useCallback(() => {
-    copy();
-    add('Terminal Command Copied');
-  }, [add, copy]);
-
   const uploadsFinished = useMemo(() => {
     return files.length > 0 && maxStreamIndex - 10 === files.length && !error;
   }, [maxStreamIndex, files, error]);
@@ -257,8 +242,6 @@ const useFileUpload = () => {
     isValid,
     handleSubmit,
     setValue,
-    handleCopy,
-    copySupported: supported,
     branch,
     repo: repoId,
     uploadId: startData?.uploadId,
