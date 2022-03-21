@@ -33,6 +33,8 @@ import {
   JobQueryArgs,
   ServiceArgs,
   GetLogsRequestArgs,
+  InspectDatumRequestArgs,
+  ListDatumsRequestArgs,
 } from '../lib/types';
 import {APIClient} from '../proto/pps/pps_grpc_pb';
 import {
@@ -50,6 +52,11 @@ import {
   JobSetInfo,
   CreatePipelineRequest,
   DeletePipelineRequest,
+  InspectDatumRequest,
+  ListDatumRequest,
+  DatumInfo,
+  Datum,
+  Job,
 } from '../proto/pps/pps_pb';
 import {DEFAULT_JOBS_LIMIT} from '../services/constants/pps';
 import streamToObjectArray from '../utils/streamToObjectArray';
@@ -311,10 +318,11 @@ const pps = ({
       );
     },
 
-    inspectJob: ({id, pipelineName}: JobQueryArgs) => {
+    inspectJob: ({id, pipelineName, wait = false}: JobQueryArgs) => {
       return new Promise<JobInfo.AsObject>((resolve, reject) => {
         client.inspectJob(
           new InspectJobRequest()
+            .setWait(wait)
             .setJob(
               jobFromObject({id}).setPipeline(
                 pipelineFromObject({name: pipelineName}),
@@ -387,6 +395,42 @@ const pps = ({
           return resolve({});
         });
       });
+    },
+
+    inspectDatum: ({id, jobId, pipelineName}: InspectDatumRequestArgs) => {
+      return new Promise<DatumInfo>((resolve, reject) => {
+        client.inspectDatum(
+          new InspectDatumRequest().setDatum(
+            new Datum()
+              .setId(id)
+              .setJob(
+                new Job()
+                  .setId(jobId)
+                  .setPipeline(new Pipeline().setName(pipelineName)),
+              ),
+          ),
+          credentialMetadata,
+          (error, res) => {
+            if (error) {
+              return reject(error);
+            }
+            return resolve(res);
+          },
+        );
+      });
+    },
+
+    listDatums: ({jobId, pipelineName}: ListDatumsRequestArgs) => {
+      const stream = client.listDatum(
+        new ListDatumRequest().setJob(
+          new Job()
+            .setId(jobId)
+            .setPipeline(new Pipeline().setName(pipelineName)),
+        ),
+        credentialMetadata,
+      );
+
+      return streamToObjectArray<DatumInfo, DatumInfo.AsObject>(stream);
     },
   };
 };

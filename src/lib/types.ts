@@ -48,6 +48,7 @@ export type JobQueryArgs = {
   id: string;
   projectId: string;
   pipelineName: string;
+  wait?: boolean;
 };
 
 export type GetLogsRequestArgs = {
@@ -126,6 +127,17 @@ export type CreateBranchArgs = {
 export type DeleteBranchRequestArgs = {
   branch: BranchObject;
   force?: DeleteBranchRequest.AsObject['force'];
+};
+
+export type InspectDatumRequestArgs = {
+  id: string;
+  jobId: string;
+  pipelineName: string;
+};
+
+export type ListDatumsRequestArgs = {
+  jobId: string;
+  pipelineName: string;
 };
 
 export type RenewFileSetRequestArgs = {

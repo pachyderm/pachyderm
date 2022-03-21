@@ -2,6 +2,7 @@ import crypto from 'crypto';
 
 import client from '../../client';
 import {
+  DatumState,
   Input,
   PFSInput,
   PipelineState,
@@ -28,7 +29,7 @@ describe('services/pps', () => {
     const transform = new Transform()
       .setCmdList(['sh'])
       .setImage('alpine')
-      .setStdinList([`cp /pfs/${inputRepoName}/*.dat /pfs/out/`]);
+      .setStdinList([`cp /pfs/${inputRepoName}/* /pfs/out/`]);
     const input = new Input();
     const pfsInput = new PFSInput().setGlob('/*').setRepo(inputRepoName);
     input.setPfs(pfsInput);
@@ -158,6 +159,59 @@ describe('services/pps', () => {
 
       const updatedPipelines = await pachClient.pps().listPipeline();
       expect(updatedPipelines).toHaveLength(0);
+    });
+  });
+
+  describe('listDatums + inspectDatum', () => {
+    it('should list datums for a pipeline job', async () => {
+      jest.setTimeout(60000);
+
+      const {pachClient, inputRepoName} = await createSandBox('listDatums');
+      const commit = await pachClient.pfs().startCommit({
+        branch: {name: 'master', repo: {name: inputRepoName}},
+      });
+
+      const fileClient = await pachClient.pfs().modifyFile();
+
+      await fileClient
+        .setCommit(commit)
+        .putFileFromBytes('dummyData.csv', Buffer.from('a,b,c'))
+        .end();
+
+      await pachClient.pfs().finishCommit({commit});
+      const jobs = await pachClient.pps().listJobs();
+
+      const jobId = jobs[0]?.job?.id;
+      expect(jobId).toBeDefined();
+
+      await pachClient.pps().inspectJob({
+        id: jobId || '',
+        pipelineName: 'listDatums',
+        wait: true,
+        projectId: 'default',
+      });
+
+      const datums = await pachClient.pps().listDatums({
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+      });
+
+      expect(datums).toHaveLength(1);
+      expect(datums[0].state).toEqual(DatumState.SUCCESS);
+      expect(datums[0].dataList[0]?.file?.path).toEqual('/dummyData.csv');
+      expect(datums[0].dataList[0]?.sizeBytes).toEqual(5);
+
+      const datum = await pachClient.pps().inspectDatum({
+        id: datums[0]?.datum?.id || '',
+        jobId: jobId || '',
+        pipelineName: 'listDatums',
+      });
+
+      const datumObject = datum.toObject();
+
+      expect(datumObject.state).toEqual(DatumState.SUCCESS);
+      expect(datumObject.dataList[0]?.file?.path).toEqual('/dummyData.csv');
+      expect(datumObject.dataList[0]?.sizeBytes).toEqual(5);
     });
   });
 });
