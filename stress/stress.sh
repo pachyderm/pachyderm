@@ -15,7 +15,7 @@ while true; do
     sleep 1
     curl -XPUT 'localhost:9002/repos/data/master/_mount?name=data&mode=ro'
     sleep 1
-    cat /pfs/data2/myfile.txt
+    cat /pfs/data/myfile.txt
     sleep 1
     curl -XPUT 'localhost:9002/repos/data/master/_unmount?name=data'
     sleep 1
@@ -23,7 +23,7 @@ while true; do
     sleep 1
     curl -XPUT 'localhost:9002/repos/data/master/_mount?name=data&mode=ro'
     sleep 1
-    cat /pfs/data2/myfile.txt
+    cat /pfs/data/myfile.txt
     sleep 1
     pachctl delete repo data
     sleep 1
