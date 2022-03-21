@@ -36,6 +36,7 @@
     "module-alias": "^2.2.2",
     "object-hash": "2.1.1",
     "openid-client": "4.4.0",
+    "p-queue": "6.6.2",
     "uuid": "8.3.2"
   },
   "devDependencies": {

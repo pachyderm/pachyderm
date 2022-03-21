@@ -10,6 +10,7 @@ type EmptyStateProps = {
   title: string;
   message?: string;
   connect?: boolean;
+  className?: string;
 };
 
 const EmptyState: React.FC<EmptyStateProps> = ({
@@ -17,12 +18,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   message = null,
   connect,
   children = null,
+  className,
 }) => {
   const {workspaceName, pachdAddress, pachVersion} = useWorkspace();
   const [connectModalShow, showConnectModal] = useState(false);
 
   return (
-    <div className={styles.base}>
+    <div className={`${styles.base} ${className}`}>
       <img
         src="/elephant_empty_state.png"
         className={styles.elephantImage}

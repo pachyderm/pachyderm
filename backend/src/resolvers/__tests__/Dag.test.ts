@@ -11,7 +11,7 @@ import {Vertex} from '@graphqlTypes';
 describe('Dag resolver', () => {
   let subscription: ZenObservable.Subscription | null = null;
 
-  afterEach(() => {
+  afterAll(() => {
     if (subscription) {
       subscription.unsubscribe();
       subscription = null;
@@ -61,20 +61,19 @@ describe('Dag resolver', () => {
     expect(montagePipeline?.access).toBe(false);
   });
 
-  it('should correctly filter sub-dag for jobsets', () => {
-    const {observable} = createSubscriptionClients<{data: {dags: Vertex[]}}>(
-      GET_DAGS_QUERY,
-      {
-        args: {
-          projectId: '1',
-          jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
-        },
+  it('should correctly filter sub-dag for jobsets', async () => {
+    const {observable} = createSubscriptionClients<{
+      data: {dags: Vertex[]};
+    }>(GET_DAGS_QUERY, {
+      args: {
+        projectId: '1',
+        jobSetId: '33b9af7d5d4343219bc8e02ff44cd55a',
       },
-    );
+    });
 
-    return new Promise<void>((resolve) => {
+    await new Promise<void>((resolve) => {
       subscription = observable.subscribe({
-        next: (data) => {
+        next: (data: {data: {dags: Vertex[]}}) => {
           const vertices = data.data?.dags;
 
           expect(vertices?.length).toBe(4);
@@ -91,5 +90,6 @@ describe('Dag resolver', () => {
         },
       });
     });
+    subscription?.unsubscribe();
   });
 });

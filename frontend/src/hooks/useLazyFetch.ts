@@ -9,7 +9,8 @@ type FetchState<ResponseType> = {
 type FetchAction<ResponseType> =
   | {type: 'FETCHING'}
   | {type: 'FETCHED'; payload: ResponseType}
-  | {type: 'ERROR'; payload: string};
+  | {type: 'ERROR'; payload: string}
+  | {type: 'RESET'};
 
 interface fetchParams {
   method?: string;
@@ -26,6 +27,8 @@ export interface useFetchParams<Type> extends fetchParams {
   formatResponse: (data: Response) => Promise<Type> | Type;
   mode?: string;
   credentials?: string;
+  onComplete?: (data: Type) => void;
+  onError?: (err: unknown) => void;
 }
 
 export const useLazyFetch = <ResponseType>({
@@ -36,9 +39,11 @@ export const useLazyFetch = <ResponseType>({
   mode = 'cors',
   credentials = 'include',
   body,
+  onComplete,
+  onError,
 }: useFetchParams<ResponseType>): [
   (arg0?: fetchParams) => Promise<void>,
-  FetchState<ResponseType>,
+  FetchState<ResponseType> & {reset: () => void},
 ] => {
   const initialState: FetchState<ResponseType> = {
     loading: false,
@@ -52,6 +57,8 @@ export const useLazyFetch = <ResponseType>({
           return {...initialState, data: action.payload};
         case 'ERROR':
           return {...initialState, error: action.payload};
+        case 'RESET':
+          return initialState;
         default:
           return state;
       }
@@ -77,20 +84,34 @@ export const useLazyFetch = <ResponseType>({
 
         if (res.ok) {
           const data = await formatResponse(res);
+          if (onComplete) onComplete(data);
           dispatch({type: 'FETCHED', payload: data});
         } else {
           const data = await res.json();
           dispatch({type: 'ERROR', payload: data.errors[0].detail});
         }
       } catch (error) {
+        if (onError) onError(error);
         dispatch({
           type: 'ERROR',
           payload: 'Something went wrong. Please try again.',
         });
       }
     },
-    [fetchFunc, formatResponse, url, body, method, credentials, mode],
+    [
+      fetchFunc,
+      formatResponse,
+      url,
+      body,
+      method,
+      credentials,
+      mode,
+      onError,
+      onComplete,
+    ],
   );
 
-  return [execFetch, state];
+  const reset = () => dispatch({type: 'RESET'});
+
+  return [execFetch, {...state, reset}];
 };

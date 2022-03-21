@@ -35,6 +35,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/graphql': 'http://localhost:3000',
+      '/upload': 'http://localhost:3000',
     },
     port: 4000,
   },

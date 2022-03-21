@@ -4,7 +4,6 @@ import path from 'path';
 
 import * as Sentry from '@sentry/node';
 import cookieParser from 'cookie-parser';
-import cors from 'cors';
 import {renderFile} from 'ejs';
 import express, {Express, urlencoded, json} from 'express';
 
@@ -13,15 +12,13 @@ import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
 import log from '@dash-backend/lib/log';
 
 import createWebsocketServer from './createWebsocketServer';
-import {handleFileUpload} from './handlers/handleFileUpload';
+import uploadsRouter from './handlers/handleFileUpload';
+import fileUploads from './lib/FileUploads';
 
 const PORT = process.env.GRAPHQL_PORT || '3000';
 const FE_BUILD_DIRECTORY =
   process.env.FE_BUILD_DIRECTORY ||
   path.join(__dirname, '../../frontend/build');
-
-const noCors =
-  process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 
 const attachWebServer = (app: Express) => {
   // Attach all environment variables prefixed with REACT_APP
@@ -63,12 +60,13 @@ const attachFileHandlers = (app: Express) => {
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     next();
   });
 
   app.use(cookieParser());
+  app.use('/upload', uploadsRouter);
   app.get('/download/:repoName/:branchName/:commitId/*', handleFileDownload);
-  app.post('/upload', noCors ? [] : cors(), handleFileUpload);
 };
 
 const createServer = () => {
@@ -118,6 +116,7 @@ const createServer = () => {
     },
     stop: async () => {
       return new Promise((res, rej) => {
+        fileUploads.clearInterval();
         if (app.locals.server) {
           const server = app.locals.server as Server;
 

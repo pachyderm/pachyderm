@@ -2,9 +2,10 @@ import {render, waitFor} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
-import {click, type, withContextProviders} from '@dash-frontend/testHelpers';
+import {type, withContextProviders} from '@dash-frontend/testHelpers';
 
 import FileUploadComponent from '..';
+import {GLOB_CHARACTERS} from '../lib/constants';
 
 describe('File Upload', () => {
   beforeEach(() => {
@@ -19,6 +20,7 @@ describe('File Upload', () => {
     const {findByText, findByLabelText} = render(<FileUpload />);
 
     const pathInput = await findByLabelText('File Path');
+    await waitFor(() => expect(pathInput).not.toBeDisabled());
     userEvent.clear(pathInput);
 
     expect(await findByText('A path is required')).toBeInTheDocument();
@@ -28,6 +30,7 @@ describe('File Upload', () => {
     const {findByLabelText, queryByText, findByText} = render(<FileUpload />);
 
     const pathInput = await findByLabelText('File Path');
+    await waitFor(() => expect(pathInput).not.toBeDisabled());
     await type(pathInput, '$');
 
     expect(
@@ -70,6 +73,8 @@ describe('File Upload', () => {
     const {findByLabelText, queryByText, findByText} = render(<FileUpload />);
 
     const pathInput = await findByLabelText('File Path');
+    await waitFor(() => expect(pathInput).not.toBeDisabled());
+
     userEvent.clear(pathInput);
 
     await type(pathInput, 't');
@@ -93,25 +98,20 @@ describe('File Upload', () => {
   });
 
   it('should allow a user to input a file with the file input', async () => {
-    const {findByLabelText, queryByText, getByLabelText} = render(
-      <FileUpload />,
-    );
-
-    await waitFor(() =>
-      expect(getByLabelText('Attach File')).not.toBeDisabled(),
-    );
+    const {findByLabelText, findByText} = render(<FileUpload />);
 
     const fileInput = (await findByLabelText(
-      'Attach File',
+      'Attach Files',
     )) as HTMLInputElement;
 
-    userEvent.upload(
-      fileInput,
-      new File(['hello'], 'hello.png', {type: 'image/png'}),
-    );
+    await waitFor(() => expect(fileInput).not.toBeDisabled());
 
-    expect(queryByText('hello.png')).not.toBeNull();
-    expect(fileInput.files).toHaveLength(1);
+    userEvent.upload(fileInput, [
+      new File(['hello'], 'hello.png', {type: 'image/png'}),
+    ]);
+
+    expect(await findByText('hello.png', {}, {timeout: 10000})).not.toBeNull();
+    expect(fileInput.files?.length).toEqual(1);
   });
 
   it('should not allow a user to upload a file with regex metacharacters', async () => {
@@ -120,52 +120,22 @@ describe('File Upload', () => {
     );
 
     await waitFor(() =>
-      expect(getByLabelText('Attach File')).not.toBeDisabled(),
+      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
     );
 
     const fileInput = (await findByLabelText(
-      'Attach File',
+      'Attach Files',
     )) as HTMLInputElement;
 
-    userEvent.upload(
-      fileInput,
+    userEvent.upload(fileInput, [
       new File(['hello'], 'hel^lo.png', {type: 'image/png'}),
-    );
+    ]);
 
     expect(await findByText('hel^lo.png')).toBeInTheDocument();
     expect(
-      await findByText('File names cannot contain regex metacharacters.'),
+      await findByText(
+        `Below file names cannot contain ${GLOB_CHARACTERS}. Please rename or re-upload.`,
+      ),
     ).not.toBeNull();
-  });
-
-  it('should allow a user to clear the file input', async () => {
-    const {
-      findByLabelText,
-      queryByText,
-      getByLabelText,
-      findByRole,
-      findByTestId,
-    } = render(<FileUpload />);
-
-    await waitFor(() =>
-      expect(getByLabelText('Attach File')).not.toBeDisabled(),
-    );
-
-    const fileInput = (await findByLabelText(
-      'Attach File',
-    )) as HTMLInputElement;
-
-    userEvent.upload(
-      fileInput,
-      new File(['hello'], 'hello.png', {type: 'image/png'}),
-    );
-
-    expect(queryByText('hello.png')).not.toBeNull();
-
-    const removeButton = await findByTestId('UploadInfo__cancel');
-    click(removeButton);
-
-    expect(await findByRole('button', {name: 'Upload'})).toBeDisabled();
-    expect(queryByText('hello.png')).toBeNull();
   });
 });

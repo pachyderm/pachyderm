@@ -1,4 +1,8 @@
-import {useModal} from '@pachyderm/components';
+import {
+  useClipboardCopy,
+  useModal,
+  useNotificationBanner,
+} from '@pachyderm/components';
 import {
   DragEventHandler,
   useCallback,
@@ -12,85 +16,131 @@ import {useHistory} from 'react-router';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import {useLazyFetch} from '@dash-frontend/hooks/useLazyFetch';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import getAllFileEntries from '@dash-frontend/lib/getAllFileEntries';
+
+import {GLOB_CHARACTERS, ERROR_MESSAGE} from '../lib/constants';
 
 type FileUploadFormValues = {
   branch: string;
   path: string;
-  file: FileList;
+  files: FileList;
 };
 
 const useFileUpload = () => {
   const formCtx = useForm<FileUploadFormValues>({
     mode: 'onChange',
   });
-  const {goBack} = useHistory();
+
+  const {
+    setValue,
+    formState: {errors, isValid},
+    register,
+    handleSubmit,
+    watch,
+    getValues,
+    clearErrors,
+  } = formCtx;
 
   const {repoId} = useUrlState();
   const {repo, loading: repoLoading} = useCurrentRepo();
   const {closeModal, isOpen} = useModal(true);
-  const [success, setSuccess] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const {
-    setValue,
-    formState: {errors, isValid},
-    reset,
-    clearErrors,
-    register,
-    handleSubmit,
-  } = formCtx;
+  const [files, setFiles] = useState<File[]>([]);
+  const [maxStreamIndex, setMaxStreamIndex] = useState(10); // Limit the number of streams so that we don't overwhelm pachd
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const [execFetch, {loading, error, data}] = useLazyFetch({
-    url:
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3000/upload'
-        : '/upload',
-    formatResponse: (data) => data,
+  const {goBack} = useHistory();
+
+  const onClose = useCallback(() => {
+    closeModal();
+    setError('Upload cancelled');
+    setTimeout(goBack, 500);
+  }, [goBack, closeModal]);
+
+  const [
+    startUpload,
+    {loading: startLoading, data: startData, reset: startReset},
+  ] = useLazyFetch<{
+    uploadId: string;
+  }>({
+    url: '/upload/start',
+    formatResponse: async (data) => await data.json(),
     method: 'POST',
+    onError: () => setError(ERROR_MESSAGE),
+    onComplete: () => setError(''),
   });
 
-  useEffect(() => {
-    if (data) setSuccess(true);
-  }, [data]);
+  const [finishUpload, {loading: finishLoading}] = useLazyFetch<{
+    commitId: string;
+  }>({
+    url: '/upload/finish',
+    formatResponse: async (data) => await data.json(),
+    method: 'POST',
+    onComplete: () => {
+      closeModal();
+      setTimeout(goBack, 500);
+    },
+    onError: () => setError(ERROR_MESSAGE),
+  });
+
+  const branch = watch('branch');
 
   const onSubmit = useCallback(
     (values: FileUploadFormValues, e?: React.BaseSyntheticEvent) => {
       e?.preventDefault();
 
-      const uploadForm = new FormData();
-      uploadForm.append('path', `${values.path}/${values.file[0].name}`);
-      uploadForm.append('branch', values.branch);
-      uploadForm.append('repo', repoId);
-      uploadForm.append('file', values.file[0]);
-      execFetch({
-        headers: {},
-        body: uploadForm,
+      setLoading(true);
+
+      startUpload({
+        body: JSON.stringify({
+          path: values.path,
+          repo: repoId,
+          branch: values.branch,
+        }),
       });
     },
-    [execFetch, repoId],
+    [repoId, startUpload],
   );
 
   const fileDrag: DragEventHandler<HTMLDivElement> = useCallback(
     async (event) => {
       event.preventDefault();
+
       if (loading) return;
 
-      const entry = event.dataTransfer.items[0].webkitGetAsEntry();
-      if (!entry || entry.isDirectory) return;
+      try {
+        const fileEntries = await getAllFileEntries(event.dataTransfer.items);
 
-      const list = new DataTransfer();
-      list.items.add(event.dataTransfer.files[0]);
-      setSuccess(false);
-      setValue('file', list.files, {shouldValidate: true});
-      setFile(list.files[0]);
+        const files = await Promise.all(
+          fileEntries.map((entry) => {
+            return new Promise<File>((resolve, reject) => {
+              entry.file(
+                (file) => {
+                  resolve(file);
+                },
+                (err) => reject(err.message),
+              );
+            });
+          }),
+        );
+
+        const list = new DataTransfer();
+        files.forEach((file) => {
+          list.items.add(file);
+        });
+
+        setValue('files', list.files, {shouldValidate: true});
+        setFiles(files);
+      } catch (err) {
+        if (typeof err === 'string' && err.length > 0) {
+          setError(err);
+        } else {
+          setError(ERROR_MESSAGE);
+        }
+      }
     },
     [setValue, loading],
   );
-
-  const onClose = useCallback(() => {
-    closeModal();
-
-    setTimeout(goBack, 500);
-  }, [goBack, closeModal]);
 
   const branches = useMemo(() => {
     return (repo?.branches || []).reduce(
@@ -102,36 +152,93 @@ const useFileUpload = () => {
     );
   }, [repo?.branches]);
 
-  const handleFileCancel = useCallback(() => {
-    setFile(null);
-    reset({file: undefined});
-    clearErrors('file');
-  }, [reset, clearErrors, setFile]);
+  const handleFileCancel = useCallback(
+    (index: number, success: boolean) => {
+      const files = getValues('files');
+      const list = new DataTransfer();
 
-  const {onChange, ...fileRegister} = register('file', {
-    validate: (files) => {
-      if (files && files.length === 1) {
-        const file = files[0];
-        if (/[\^$\\/()|?+[\]{}><]/.test(file.name)) {
-          return 'File names cannot contain regex metacharacters.';
+      for (let i = 0; i < files.length; i++) {
+        const file = files.item(i);
+        if (i === index) {
+          continue;
+        } else if (file) {
+          list.items.add(file);
         }
+      }
+      if (success) {
+        setMaxStreamIndex((prevValue) => prevValue - 1);
+      }
 
-        if (file.size > 1024 * 1024 * 1024) {
-          return 'Please upload bigger file through terminal instead.';
+      setFiles((prevValue) => {
+        return prevValue.filter((_file, i) => i !== index);
+      });
+      setValue('files', list.files);
+
+      if (list.files.length === 0) {
+        setLoading(false);
+        setError('');
+        startReset();
+        clearErrors('files');
+      }
+    },
+    [setFiles, getValues, setValue, startReset, clearErrors],
+  );
+
+  const {onChange, ...fileRegister} = register('files', {
+    validate: (files) => {
+      if (files) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files.item(i);
+          if (file) {
+            if (/[\^$\\/()|?+[\]{}><]/.test(file.name)) {
+              return `Below file names cannot contain ${GLOB_CHARACTERS}. Please rename or re-upload.`;
+            }
+          }
         }
         return true;
-      } else return false;
+      }
     },
   });
 
   const onChangeHandler = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFile(e.currentTarget.files ? e.currentTarget.files[0] : null);
-      setSuccess(false);
+      setFiles(e.currentTarget.files ? Array.from(e.currentTarget.files) : []);
       onChange(e);
     },
     [onChange],
   );
+
+  const {copy, supported} = useClipboardCopy(
+    'pachctl put file <repo>@<branch-or-commit>[:<path/to/file>] [flags]',
+  );
+
+  const {add} = useNotificationBanner();
+
+  const handleCopy = useCallback(() => {
+    copy();
+    add('Terminal Command Copied');
+  }, [add, copy]);
+
+  const uploadsFinished = useMemo(() => {
+    return files.length > 0 && maxStreamIndex - 10 === files.length && !error;
+  }, [maxStreamIndex, files, error]);
+
+  const handleDoneClick = useCallback(() => {
+    if (startData?.uploadId) {
+      finishUpload({
+        body: JSON.stringify({
+          uploadId: startData.uploadId,
+        }),
+      });
+    }
+  }, [finishUpload, startData?.uploadId]);
+
+  useEffect(() => {
+    if (error) {
+      setLoading(false);
+      setMaxStreamIndex(10);
+    }
+  }, [error]);
 
   return {
     onClose,
@@ -139,21 +246,30 @@ const useFileUpload = () => {
     isOpen,
     formCtx,
     onSubmit,
-    file,
-    loading: loading || repoLoading,
-    uploadError: error,
-    fileError: errors['file'],
+    files,
+    loading: repoLoading || startLoading || loading,
     branches,
     handleFileCancel,
     onChangeHandler,
     fileRegister,
-    setFile,
+    setFiles,
     errors,
     isValid,
     handleSubmit,
     setValue,
-    success,
-    setSuccess,
+    handleCopy,
+    copySupported: supported,
+    branch,
+    repo: repoId,
+    uploadId: startData?.uploadId,
+    error: error,
+    maxStreamIndex,
+    setMaxStreamIndex,
+    onError: setError,
+    fileNameError: errors['files'],
+    uploadsFinished,
+    handleDoneClick,
+    finishLoading,
   };
 };
 

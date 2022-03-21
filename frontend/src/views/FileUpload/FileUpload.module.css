@@ -1,14 +1,11 @@
 .form {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   padding-top: 2.5rem;
-  flex-grow: 10;
 }
 
 .base {
   padding-left: 1rem;
-  flex-grow: 10;
+  height: 94%;
 }
 
 .header {
@@ -18,17 +15,12 @@
 
 .terminal {
   font-size: var(--font-size-body-large);
+  display: flex;
+  align-items: flex-start;
 }
 
-.terminal >*:first-child {
-  font-weight: 700;
-}
-
-.prompt {
-  font-weight: 700;
-  font-size: 0.75rem;
-  padding-right: 3rem;
-  display: inline-block;
+.copySVG {
+  margin-left: 0.5rem;
 }
 
 .fileUploadInput {
@@ -76,9 +68,13 @@
 }
 
 .footer {
+  position: absolute;
+  width: 100%;
+  height: auto;
   margin-left: -1rem;
+  background-color: var(--white);
+
   margin-right: -1rem;
-  margin-bottom: -1rem;
   border-top: 1px solid var(--grey-20);
   display: flex;
   justify-content: flex-end;
@@ -87,7 +83,7 @@
 }
 
 .fileForm {
-  flex-grow: 1;
+  width: 34.375rem;
 }
 
 .fileButton:disabled {
@@ -98,6 +94,41 @@
   color: var(--pachyderm-red);
   font-weight: 500;
   white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.uploadSucessText {
+  font-size: 0.75rem;
+}
+
+.uploadInfo {
+  flex-grow: 3;
+  margin-top: -3.5rem;
+  margin-right: -1rem;
+  background-color: var(--grey-2);
+}
+
+.fileCards > * {
+  max-width: 34.375rem;
+}
+
+.uploadHelp {
+  font-size: 0.875rem;
+  margin-left: 1rem;
+  margin-top: 0.5rem;
+}
+
+.fileCards {
+  overflow-y: scroll;
+}
+
+.emptyState {
+  padding-left: 2.875rem;
+  padding-top: 2.5;
+}
+
+.emptyState img {
+  margin-top: 0;
 }
 
 @media screen and (max-width: 1023px) {
@@ -116,16 +147,55 @@
   .fileForm {
     margin-right: 8.625rem;
   }
+
+  .uploadInfo {
+    background-color: transparent;
+    max-width: 35.375rem;
+  }
+
+  .uploadInfoText {
+    padding-left: 1rem;
+  }
+
+  .uploadHelp {
+    visibility: hidden;
+    height: 0;
+    width: 0;
+  }
+
+  .fileCards {
+    max-height: calc(100vh - 45rem);
+  }
+
+  .emptyState {
+    visibility: hidden;
+    height: 0;
+    width: 0;
+  }
 }
 
 @media screen and (min-width: 1024px) {
   .fileForm {
     margin-right: 1rem;
   }
+
+  .uploadInfo {
+    margin-left: 0.5rem;
+    padding-top: 7.25rem;
+    padding-left: 0.5rem;
+  }
+
+  .fileCards {
+    max-height: calc(100vh - 15rem);
+  }
 }
 
 @media screen and (min-width: 1440px) {
   .fileForm {
     margin-right: 8.625rem;
+  }
+
+  .uploadInfo > * {
+    margin-left: 4rem;
   }
 }

@@ -26,30 +26,54 @@ describe('Repos', () => {
     cy.findByText('New repo description', {timeout: 15000});
   })
 
-  it('should allow a user to upload an image', () => {
+  it('should allow a user to cancel an upload', () => {
     cy.findByText('NewRepo', {timeout: 12000}).click();
     cy.findByText('Upload Files').click();
-    cy.findByText('Upload File');
+    cy.findByText('Upload Files');
   
     cy.fixture('AT-AT.png', null).as('file')
-    cy.waitUntil(() => cy.findByLabelText('Attach File').should('not.be.disabled'));
-    cy.findByLabelText('Attach File').selectFile({
+    cy.waitUntil(() => cy.findByLabelText('Attach Files').should('not.be.disabled'));
+    cy.findByLabelText('Attach Files').selectFile([{
       contents: '@file',
       fileName: 'AT-AT.png',
-    })
+    }]);
+
+    cy.findByText('AT-AT.png').should('exist');
     cy.findByRole('button', {name: 'Upload'}).click();
-    cy.findByTestId('UploadInfo__success');
-    cy.findByTestId('FullPageModal__close').click();
+    cy.findByTestId('FileCard__cancel').click({force: true}); // file card can sometimes be above the fold
+    cy.findByText('AT-AT.png').should('not.exist');
+  })
+
+  it('should allow a user to upload images', () => {
+    cy.findByText('NewRepo', {timeout: 12000}).click();
+    cy.findByText('Upload Files').click();
+    cy.findByText('Upload Files');
+  
+    cy.fixture('AT-AT.png', null).as('file1')
+    cy.fixture('puppy.png', null).as('file2')
+
+    cy.waitUntil(() => cy.findByLabelText('Attach Files').should('not.be.disabled'));
+    cy.findByLabelText('Attach Files').selectFile([{
+      contents: '@file1',
+      fileName: 'AT-AT.png',
+    }, {
+      contents: '@file2',
+      fileName: 'puppy.png',
+    }])
+    
+    cy.findByRole('button', {name: 'Upload'}).click();
+    cy.findByRole('button', {name: 'Done'}).click();
     // Needs to wait for commit polling to update
-    cy.findAllByText('View Files', {timeout: 20000}).first().click();
+    cy.findAllByText('View Files', {timeout: 30000}).first().click();
   })
 
   it('should allow a user to view files and see differences between commits', () => {
     cy.findByText('NewRepo', {timeout: 12000}).click();
     cy.findAllByText('View Files').first().click();
 
-    cy.findByText('1 File added');
+    cy.findByText('2 Files added');
     cy.findByText('AT-AT.png');
+    cy.findByText('puppy.png');
   })
 
   it('should allow a user to delete a repo', () => {
