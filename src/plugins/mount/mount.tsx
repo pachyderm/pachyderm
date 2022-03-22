@@ -13,12 +13,13 @@ import createCustomFileBrowser from './customFileBrowser';
 import {AuthConfig, IMountPlugin, Repo} from './types';
 import Config from './components/Config/Config';
 import SortableList from './components/SortableList/SortableList';
-import {requestAPI} from '../../handler';
+import {LoadingDots} from '@pachyderm/components';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
+  private _loader: ReactWidget;
   private _config: ReactWidget;
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
@@ -39,22 +40,48 @@ export class MountPlugin implements IMountPlugin {
     this._app = app;
     this._poller = new PollRepos('PollRepos');
 
+    // This is used to detect if the config goes bad (pachd address changes)
+    this._poller.configSignal.connect((_, config) => {
+      if (config.cluster_status === 'INVALID' && !this._showConfig) {
+        this.setShowConfig(true);
+      }
+    });
+
+    // This is used to detect if the user becomes unauthenticated
+    this._poller.statusSignal.connect((_, status) => {
+      //TODO: Error page for 500s from repo poll check made here
+      if (status === 401 && !this._showConfig) {
+        this.setShowConfig(true);
+      }
+    });
+
     this._readyPromise = this.setup();
 
     this._config = ReactWidget.create(
       <UseSignal signal={this._showConfigSignal}>
         {(_, showConfig) => (
           <>
-            <UseSignal signal={this._poller.authenticatedSignal}>
-              {(_, authenticated) => (
+            <UseSignal signal={this._poller.configSignal}>
+              {(_, authConfig) => (
                 <>
-                  <Config
-                    showConfig={showConfig ? showConfig : this._showConfig}
-                    setShowConfig={this.setShowConfig}
-                    authenticated={
-                      authenticated ? authenticated : this._poller.authenticated
-                    }
-                  />
+                  <UseSignal signal={this._poller.statusSignal}>
+                    {(_, status) => (
+                      <>
+                        <Config
+                          showConfig={
+                            showConfig ? showConfig : this._showConfig
+                          }
+                          setShowConfig={this.setShowConfig}
+                          reposStatus={status ? status : this._poller.status}
+                          updateConfig={this.updateConfig}
+                          authConfig={
+                            authConfig ? authConfig : this._poller.config
+                          }
+                          refresh={this._poller.refresh}
+                        />
+                      </>
+                    )}
+                  </UseSignal>
                 </>
               )}
             </UseSignal>
@@ -62,7 +89,6 @@ export class MountPlugin implements IMountPlugin {
         )}
       </UseSignal>,
     );
-
     this._config.addClass('pachyderm-mount-config-wrapper');
 
     this._mountedList = ReactWidget.create(
@@ -74,7 +100,7 @@ export class MountPlugin implements IMountPlugin {
                 Mounted Repositories
               </div>
               <button
-                className="pachyderm-button "
+                className="pachyderm-button-link"
                 onClick={() => this.setShowConfig(true)}
               >
                 Config <settingsIcon.react tag="span" />
@@ -107,6 +133,13 @@ export class MountPlugin implements IMountPlugin {
     );
     this._unmountedList.addClass('pachyderm-mount-react-wrapper');
 
+    this._loader = ReactWidget.create(
+      <>
+        <LoadingDots />
+      </>,
+    );
+    this._loader.addClass('pachyderm-mount-react-wrapper');
+
     this._mountBrowser = createCustomFileBrowser(app, manager, factory);
 
     this._panel = new SplitPanel();
@@ -120,15 +153,17 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._mountBrowser);
     SplitPanel.setStretch(this._mountedList, 1);
     SplitPanel.setStretch(this._unmountedList, 1);
-    SplitPanel.setStretch(this._mountBrowser, 1);
+    SplitPanel.setStretch(this._mountBrowser, 3);
 
+    this._panel.addWidget(this._loader);
     this._panel.addWidget(this._config);
 
-    //default view
+    //default view: hide all till ready
+    this._config.setHidden(false);
     this._config.setHidden(true);
-    this._mountedList.setHidden(false);
-    this._unmountedList.setHidden(false);
-    this._mountBrowser.setHidden(false);
+    this._mountedList.setHidden(true);
+    this._unmountedList.setHidden(true);
+    this._mountBrowser.setHidden(true);
 
     window.addEventListener('resize', () => {
       this._panel.update();
@@ -160,18 +195,17 @@ export class MountPlugin implements IMountPlugin {
     this._showConfigSignal.emit(shouldShow);
   };
 
+  updateConfig = (config: AuthConfig): void => {
+    this._poller.config = config;
+  };
+
   setup = async (): Promise<void> => {
-    // Decide what screen to load on render
-    try {
-      const currentConfig = await requestAPI<AuthConfig>('config', 'GET');
-      if (currentConfig.pachd_address) {
-        await requestAPI<Repo[]>('repos', 'GET');
-      } else {
-        this.setShowConfig(true);
-      }
-    } catch (e) {
-      this.setShowConfig(true);
-    }
+    await this._poller.refresh();
+    this.setShowConfig(
+      this._poller.config.cluster_status === 'INVALID' ||
+        this._poller.status !== 200,
+    );
+    this._loader.setHidden(true);
   };
 
   get mountedRepos(): Repo[] {

@@ -1,4 +1,34 @@
+/* === Button === */
 .pachyderm-button {
+  box-sizing: border-box;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: color 300ms ease-in-out, background-color 300ms ease-in-out,
+    border 300ms ease-in-out;
+  font-weight: 600;
+  width: 100%;
+  cursor: pointer;
+  font-size: inherit;
+
+  border: 1px solid rgba(255, 255, 255, 0);
+  background-color: var(--pachyderm-plum);
+  color: var(--white);
+  font-size: 0.875rem;
+}
+
+.pachyderm-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pachyderm-button:not(:disabled):hover,
+.pachyderm-button:active,
+.pachyderm-button:focus {
+  background-color: var(--hover-plum);
+}
+
+/* === ButtonLink === */
+.pachyderm-button-link {
   font-weight: 600;
   font-size: inherit;
   cursor: pointer;
@@ -14,13 +44,13 @@
   transition: color 300ms ease-in-out;
 }
 
-.pachyderm-button:disabled {
+.pachyderm-button-link:disabled {
   cursor: not-allowed;
   opacity: 0.4;
 }
 
-.pachyderm-button:not(:disabled):hover,
-.pachyderm-button:active,
-.pachyderm-button:focus {
+.pachyderm-button-link:not(:disabled):hover,
+.pachyderm-button-link:active,
+.pachyderm-button-link:focus {
   color: var(--jp-brand-color0);
 }

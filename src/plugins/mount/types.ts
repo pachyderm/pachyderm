@@ -10,6 +10,8 @@ export type mountState =
   | 'unmounted'
   | '';
 
+export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
+
 export type Branch = {
   branch: string;
   mount: Mount;
@@ -29,7 +31,7 @@ export type Repo = {
 };
 
 export type AuthConfig = {
-  cluster_status: string;
+  cluster_status: clusterStatus;
   pachd_address?: string;
 };
 

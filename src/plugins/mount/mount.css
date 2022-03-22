@@ -166,7 +166,8 @@
 .pachyderm-mount-config-wrapper {
   font-size: var(--jp-ui-font-size1);
   min-width: 18.75rem;
-
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -200,13 +201,39 @@
   width: 100%;
 }
 
+.pachyderm-mount-config-address-wrapper {
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pachyderm-mount-config-address-label {
+  font-weight: 500;
+}
+
+.pachyderm-mount-config-address {
+  margin-bottom: 15px;
+}
+
+.pachyderm-mount-config-address-error {
+  color: var(--jp-error-color0);
+}
+
+.pachyderm-mount-config-set-address {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
 .pachyderm-mount-config-graphic-base {
   display: flex;
   justify-content: center;
+  align-items: center;
   width: 100%;
   height: 264px;
   border-top: 3px solid#5BA3B1;
-
-  /* background-color: var(--cyan-10); */
   background-color: #f0f6f8;
+}
+
+.pachyderm-mount-config-graphic-container {
+  width: 230px;
 }

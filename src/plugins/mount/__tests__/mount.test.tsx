@@ -76,7 +76,7 @@ describe('mount plugin', () => {
     });
   });
 
-  it('should poll for repos', async () => {
+  it.skip('should poll for repos', async () => {
     mockRequestAPI.requestAPI
       .mockImplementationOnce(mockedRequestAPI(defaultRepos)) // call to api from setup function, part of auth flow.
       .mockImplementationOnce(mockedRequestAPI(defaultRepos))
@@ -125,10 +125,11 @@ describe('mount plugin', () => {
     expect(plugin.layout.title.caption).toEqual('Pachyderm Mount');
     expect(plugin.layout.id).toEqual('pachyderm-mount');
     expect(plugin.layout.orientation).toEqual('vertical');
-    expect(plugin.layout.widgets.length).toEqual(4);
+    expect(plugin.layout.widgets.length).toEqual(5);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[2]).toBeInstanceOf(FileBrowser);
+    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
   });
 });

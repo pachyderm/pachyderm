@@ -131,7 +131,7 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
         <button
           disabled={disabled}
           onClick={onClickHandler}
-          className="pachyderm-button"
+          className="pachyderm-button-link"
           data-testid={`ListItem__${buttonText.toLowerCase()}`}
         >
           {buttonText}

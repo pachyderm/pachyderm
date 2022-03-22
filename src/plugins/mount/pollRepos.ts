@@ -2,7 +2,8 @@ import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import partition from 'lodash/partition';
 import {requestAPI} from '../../handler';
-import {Branch, mountState, Repo} from './types';
+import {AuthConfig, Branch, mountState, Repo} from './types';
+import {ServerConnection} from '@jupyterlab/services';
 
 export const MOUNTED_STATES: mountState[] = [
   'unmounting',
@@ -16,6 +17,11 @@ export const UNMOUNTED_STATES: mountState[] = [
   'unmounted',
 ];
 
+export type RepoStatus = {
+  status: number;
+  message: string;
+};
+
 export class PollRepos {
   constructor(name: string) {
     this.name = name;
@@ -26,11 +32,13 @@ export class PollRepos {
 
   private _mounted: Repo[] = [];
   private _unmounted: Repo[] = [];
-  private _authenticated = false;
+  private _status = 999;
+  private _config: AuthConfig = {pachd_address: '', cluster_status: 'INVALID'};
 
   private _mountedSignal = new Signal<this, Repo[]>(this);
   private _unmountedSignal = new Signal<this, Repo[]>(this);
-  private _authenticatedSignal = new Signal<this, boolean>(this);
+  private _statusSignal = new Signal<this, number>(this);
+  private _configSignal = new Signal<this, AuthConfig>(this);
 
   private _dataPoll = new Poll({
     auto: true,
@@ -66,16 +74,28 @@ export class PollRepos {
     this._unmountedSignal.emit(data);
   }
 
-  get authenticated(): boolean {
-    return this._authenticated;
+  get status(): number {
+    return this._status;
   }
 
-  set authenticated(authenticated: boolean) {
-    if (authenticated === this._authenticated) {
+  set status(status: number) {
+    if (status === this._status) {
       return;
     }
-    this._authenticated = authenticated;
-    this._authenticatedSignal.emit(authenticated);
+    this._status = status;
+    this._statusSignal.emit(status);
+  }
+
+  get config(): AuthConfig {
+    return this._config;
+  }
+
+  set config(config: AuthConfig) {
+    if (JSON.stringify(config) === JSON.stringify(this._config)) {
+      return;
+    }
+    this._config = config;
+    this._configSignal.emit(config);
   }
 
   get mountedSignal(): ISignal<this, Repo[]> {
@@ -85,30 +105,44 @@ export class PollRepos {
     return this._unmountedSignal;
   }
 
-  get authenticatedSignal(): ISignal<this, boolean> {
-    return this._authenticatedSignal;
+  get statusSignal(): ISignal<this, number> {
+    return this._statusSignal;
+  }
+
+  get configSignal(): ISignal<this, AuthConfig> {
+    return this._configSignal;
   }
 
   get poll(): Poll {
     return this._dataPoll;
   }
 
+  refresh = async (): Promise<void> => {
+    await this._dataPoll.refresh();
+    await this._dataPoll.tick;
+  };
+
   async getData(): Promise<void> {
     try {
-      const data = await requestAPI<Repo[]>('repos', 'GET');
-      this.authenticated = true;
-      if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
-        this._rawData = data;
-        const [mountedPartition, unmountedPartition] = partition(
-          data,
-          (rep: Repo) => findMountedBranch(rep),
-        );
-        this.mounted = mountedPartition;
-        this.unmounted = unmountedPartition;
+      const config = await requestAPI<AuthConfig>('config', 'GET');
+      this.config = config;
+      if (config.cluster_status !== 'INVALID') {
+        const data = await requestAPI<Repo[]>('repos', 'GET');
+        this.status = 200;
+        if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
+          this._rawData = data;
+          const [mountedPartition, unmountedPartition] = partition(
+            data,
+            (rep: Repo) => findMountedBranch(rep),
+          );
+          this.mounted = mountedPartition;
+          this.unmounted = unmountedPartition;
+        }
       }
     } catch (error) {
-      //TODO: add status to requestAPI
-      this.authenticated = false;
+      if (error instanceof ServerConnection.ResponseError) {
+        this.status = error.response.status;
+      }
     }
   }
 }

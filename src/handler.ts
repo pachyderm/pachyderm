@@ -24,8 +24,8 @@ export async function requestAPI<T>(
   let response: Response;
   try {
     response = await ServerConnection.makeRequest(requestUrl, init, settings);
-  } catch {
-    throw new Error();
+  } catch (error) {
+    throw new ServerConnection.NetworkError(error as TypeError);
   }
 
   let data: any = await response.text();
@@ -33,12 +33,17 @@ export async function requestAPI<T>(
     try {
       data = JSON.parse(data);
     } catch (error) {
-      console.log('Not a JSON response body.');
+      console.log('Not a JSON response body.', response);
     }
   }
 
   if (!response.ok) {
-    throw new Error();
+    const {message, traceback} = data;
+    throw new ServerConnection.ResponseError(
+      response,
+      message || `Invalid response: ${response.status} ${response.statusText}`,
+      traceback || '',
+    );
   }
 
   return data;
