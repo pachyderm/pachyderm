@@ -175,7 +175,7 @@ type MountManager struct {
 	mu     sync.Mutex
 }
 
-func (mm *MountManager) List() (ListResponse, error) {
+func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
@@ -218,6 +218,45 @@ func (mm *MountManager) List() (ListResponse, error) {
 	// tell them they're "stranded" or "missing" probably?
 
 	return lr, nil
+}
+
+func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	mr := ListMountResponse{
+		Mounted:   map[string]MountState{},
+		Unmounted: []MountState{},
+	}
+	seen := map[MountKey]bool{}
+	for name, msm := range mm.States {
+		if msm.State == "mounted" || msm.State == "unmouting" {
+			mr.Mounted[name] = msm.MountState
+			seen[msm.MountKey] = true
+		}
+	}
+	// Iterate through repos/branches because there will be some not present in
+	// state machine
+	repos, err := mm.Client.ListRepo()
+	if err != nil {
+		return mr, err
+	}
+	for _, repo := range repos {
+		bs, err := mm.Client.ListBranch(repo.Repo.Name)
+		if err != nil {
+			return mr, err
+		}
+		for _, branch := range bs {
+			mk := MountKey{Repo: repo.Repo.Name, Branch: branch.Branch.Name}
+			// TODO: Might need to modify this when we start using Commit and
+			// and compare only repo and branch names
+			if _, ok := seen[mk]; !ok {
+				mr.Unmounted = append(mr.Unmounted, MountState{MountKey: mk, State: "unmounted"})
+			}
+		}
+	}
+
+	return mr, nil
 }
 
 func NewMountStateMachine(name string, mm *MountManager) *MountStateMachine {
@@ -391,7 +430,25 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 
-		l, err := mm.List()
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := json.Marshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Write(marshalled)
+	})
+	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		l, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -726,7 +783,7 @@ type MountStateMachine struct {
 }
 
 // TODO: switch to pach internal types if appropriate?
-type ListResponse map[string]RepoResponse
+type ListRepoResponse map[string]RepoResponse
 
 type BranchResponse struct {
 	Name  string       `json:"name"`
@@ -739,12 +796,17 @@ type RepoResponse struct {
 	// TODO: Commits map[string]CommitResponse
 }
 
+type ListMountResponse struct {
+	Mounted   map[string]MountState `json:"mounted"`
+	Unmounted []MountState          `json:"unmounted"`
+}
+
 type GetResponse RepoResponse
 
 type MountKey struct {
-	Repo   string
-	Branch string
-	Commit string
+	Repo   string `json:"repo"`
+	Branch string `json:"branch"`
+	Commit string `json:"commit"`
 }
 
 func (m *MountKey) String() string {
