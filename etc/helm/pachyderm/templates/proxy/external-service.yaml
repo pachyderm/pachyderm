@@ -19,7 +19,7 @@ spec:
   {{- end }}
   selector:
     app: pachd-proxy
-  {{ else -}}
+  {{ else }}
   - name: api-grpc-port
     port: {{ .Values.pachd.externalService.apiGRPCPort }}
     targetPort: api-grpc-port
