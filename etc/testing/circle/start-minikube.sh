@@ -11,6 +11,7 @@ minikube_args=(
   "--kubernetes-version=${VERSION}"
   "--cpus=7"
   "--memory=12Gi"
+  "--wait=all"
 )
 while getopts ":v" opt; do
   case "${opt}" in
