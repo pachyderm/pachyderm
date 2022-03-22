@@ -8,7 +8,7 @@
 
 - Connect your Notebook to a Pachyderm cluster.
 - Browse, explore, analyze data stored in Pachyderm directly from your Notebook.
-- Run and test out your pipeline code before creating a Docker image. Pachyderm JupyterLab Mount Extension provides a quick and reliable data development environments that can be shared. 
+- Run and test out your pipeline code before creating a Docker image. The extension provides a quick and reliable data **development environment** that can be shared. 
 
 !!! Important "TL;DR - Quick Start"
     We will provide two sets of instructions, depending on whether you know the cluster address (`pachd_address`) you want to connect your JupyterHub to or don't.
@@ -35,7 +35,7 @@
         - Access your JupyterLab session through a local browser (check the link in the stdout).
         You are all logged in. Start experimenting.
 
-Note that we are assuming that you **already have a Pachyderm cluster running** to connect your JupyterHub/JupyterLab. Find Pachyderm installation instructions in the [Deploy/Manage](../../../deploy-manage/deploy/) section of our documentation.
+Note that we are assuming that you **already have a Pachyderm cluster running** to connect your JupyterHub/JupyterLab. Find Pachyderm installation instructions in the [Deploy/Manage](../../deploy-manage/deploy/) section of our documentation.
 ## Using The Extension
 ### Connect The Extension To Your Pachyderm Cluster
 
@@ -72,8 +72,8 @@ The deployment instructions for Pachyderm Mount Extension come in two flavors, d
 
 Pick the option that fits your use case:
 
-- Run with our [JupyterLab container](#running-the-jupiterLab-container).
-- Deploy on [JupyterHub with Helm](#adding-the-extension-to-your-jupyterHub-deployment-with-helm).
+- Run with our [JupyterLab container](#running-the-jupyterlab-container).
+- Deploy on [JupyterHub with Helm](#adding-the-extension-to-your-jupyterhub-deployment-with-helm).
 
 !!! Info "Versions"
 
@@ -129,7 +129,7 @@ Depending on your setup, you might choose to use our pre-built image containing 
     RUN pip install jupyterlab-pachyderm==<version> 
     ```
 
-    Then, [build, tag, and push your image](../../../how-tos/developer-workflow/working-with-pipelines/#step-2-build-your-docker-image).
+    Then, [build, tag, and push your image](../developer-workflow/working-with-pipelines/#step-2-build-your-docker-image).
 
 ### Running the JupyterLab Container
 
@@ -143,7 +143,7 @@ If you are using our pre-built image:
 
 - Click on the link provided in the stdout of your terminal to run JupyterLab in a browser.
 
-- Jump to the [`Connect Your JupyterLab Extension To Your Pachyderm Cluster`](#connect-your-jupyterlab-extension-to-your-pachyderm-cluster) section.
+- Jump to the [`Connect Your JupyterLab Extension To Your Pachyderm Cluster`](#connect-the-extension-to-your-pachyderm-cluster) section.
 
 Replace the image name with your own image otherwise.
 
@@ -208,7 +208,7 @@ Replace the image name with your own image otherwise.
 
 - Find the IP address you will use to access the JupyterHub as described in these [Helm installation instructions](https://zero-to-jupyterhub.readthedocs.io/en/latest/jupyterhub#setup-jupyterhub) (Step 5 and 6) and open Jupyterlab.
 
-- Click on the link provided in the stdout of your terminal to run JupyterLab in a browser, then jump to the [`Connect Your JupyterLab Extension To Your Pachyderm Cluster`](#connect-your-jupyterlab-extension-to-your-pachyderm-cluster) section.
+- Click on the link provided in the stdout of your terminal to run JupyterLab in a browser, then jump to the [`Connect Your JupyterLab Extension To Your Pachyderm Cluster`](#connect-the-extension-to-your-pachyderm-cluster) section.
 
 - Run the following command to refresh the mount server:
 
@@ -284,7 +284,7 @@ If you are using the same USER to run JupyterLab, the Mount Extension, and have 
      podman machine ssh
      sudo rpm-ostree install qemu-user-static && sudo systemctl reboot THEN
      ```
-     then replace the keyword `docker` with `podman` in all the commands below. 
+     then replace the keyword `docker` with `podman` in all the commands above. 
      - Or make sure that your qemu version is > `6.2`.
 
 
