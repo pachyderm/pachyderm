@@ -5,7 +5,6 @@ import React from 'react';
 
 import {Node as GraphQLNode} from '@dash-frontend/lib/types';
 
-import LeaveJobButton from './components/LeaveJobButton';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
@@ -41,9 +40,6 @@ const Node: React.FC<NodeProps> = ({
     groupName,
     isEgress,
     showSuccess,
-    showLeaveJob,
-    handleLeaveJobClick,
-    closeLeaveJob,
     nodeIconHref,
   } = useNode(node, isInteractive);
 
@@ -52,7 +48,6 @@ const Node: React.FC<NodeProps> = ({
     [styles.selected]: selectedNode === node.name,
     [styles.hover]: isHovered,
     [styles.access]: node.access,
-    [styles.showLeaveJob]: showLeaveJob,
   });
 
   const getNodeImageHref = (node: GraphQLNode) => {
@@ -113,17 +108,6 @@ const Node: React.FC<NodeProps> = ({
             data-testid={`Node__state-${node.state}`}
           />
         </>
-      )}
-
-      {showLeaveJob && (
-        <LeaveJobButton
-          onClick={handleLeaveJobClick}
-          onClose={closeLeaveJob}
-          isRepo={
-            node.type === NodeType.OUTPUT_REPO ||
-            node.type === NodeType.INPUT_REPO
-          }
-        />
       )}
 
       <image

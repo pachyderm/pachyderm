@@ -1,5 +1,5 @@
 import {LoadingDots} from '@pachyderm/components';
-import React from 'react';
+import React, {useMemo} from 'react';
 
 import {
   CREATE_FIRST_JOB_MESSAGE,
@@ -7,11 +7,25 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import JobList from '@dash-frontend/components/JobList';
 import {useJobSets} from '@dash-frontend/hooks/useJobSets';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import ProjectSidebar from '@dash-frontend/views/Project/components/ProjectSidebar';
 
 const ProjectJobList: React.FC = () => {
   const {projectId} = useUrlState();
-  const {jobSets, loading: jobSetsLoading} = useJobSets({projectId});
+  const {viewState} = useUrlQueryState();
+  const {jobSets, loading: jobSetsLoading} = useJobSets({
+    projectId,
+  });
+
+  const filteredJobSets = useMemo(
+    () =>
+      jobSets.filter(
+        (job) =>
+          !viewState.globalIdFilter || job.id === viewState.globalIdFilter,
+      ),
+    [jobSets, viewState.globalIdFilter],
+  );
 
   return (
     <>
@@ -20,7 +34,7 @@ const ProjectJobList: React.FC = () => {
       ) : (
         <JobList
           projectId={projectId}
-          jobs={jobSets}
+          jobs={filteredJobSets}
           loading={jobSetsLoading}
           showStatusFilter
           emptyStateTitle={LETS_START_TITLE}
@@ -29,6 +43,7 @@ const ProjectJobList: React.FC = () => {
           selectJobByDefault
         />
       )}
+      <ProjectSidebar resizable={false} />
     </>
   );
 };

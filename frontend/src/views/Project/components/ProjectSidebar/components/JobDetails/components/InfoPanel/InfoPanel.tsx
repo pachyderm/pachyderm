@@ -1,4 +1,3 @@
-import {NOT_FOUND_ERROR_CODE} from '@dash-backend/lib/types';
 import {Link} from '@pachyderm/components';
 import {
   fromUnixTime,
@@ -6,33 +5,26 @@ import {
   formatDistanceStrict,
 } from 'date-fns';
 import React, {useMemo} from 'react';
-import {useRouteMatch, Redirect} from 'react-router';
 
 import Description from '@dash-frontend/components/Description';
 import JSONBlock from '@dash-frontend/components/JSONBlock';
 import JsonSpec from '@dash-frontend/components/JsonSpec';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import {useJob} from '@dash-frontend/hooks/useJob';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import readableJobState from '@dash-frontend/lib/readableJobState';
-import {ProjectRouteParams} from '@dash-frontend/lib/types';
-import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './InfoPanel.module.css';
 
-interface InfoPanelParams extends ProjectRouteParams {
-  jobId: string;
-  pipelineId: string;
-}
-
 const InfoPanel = () => {
-  const {
-    params: {jobId, projectId, pipelineId},
-  } = useRouteMatch<InfoPanelParams>();
+  const {jobId, projectId, pipelineId} = useUrlState();
+  const {viewState} = useUrlQueryState();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
 
-  const {job, loading, error} = useJob({
-    id: jobId,
+  const {job, loading} = useJob({
+    id: viewState.globalIdFilter || jobId,
     pipelineName: pipelineId,
     projectId,
   });
@@ -71,21 +63,6 @@ const InfoPanel = () => {
         )
       : 'N/A';
   }, [job?.startedAt, job?.finishedAt]);
-
-  if (
-    error?.graphQLErrors.some(
-      (err) => err.extensions?.code === NOT_FOUND_ERROR_CODE,
-    )
-  ) {
-    return (
-      <Redirect
-        to={jobRoute({
-          projectId,
-          jobId,
-        })}
-      />
-    );
-  }
 
   return (
     <dl className={styles.base}>

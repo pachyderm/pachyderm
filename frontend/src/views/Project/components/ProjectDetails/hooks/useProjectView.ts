@@ -16,7 +16,7 @@ import {
 export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {isOpen, sidebarSize} = useSidebarInfo();
   const {viewState} = useUrlQueryState();
-  const {projectId, jobId} = useUrlState();
+  const {projectId} = useUrlState();
   const [dagDirectionSetting] = useLocalProjectSettings({
     projectId,
     key: 'dag_direction',
@@ -26,7 +26,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     viewState.dagDirection || dagDirectionSetting || DagDirection.RIGHT;
 
   const {dags, loading, error} = useProjectDagsData({
-    jobSetId: jobId,
+    jobSetId: viewState.globalIdFilter || undefined,
     projectId,
     nodeHeight,
     nodeWidth,

@@ -2,6 +2,7 @@ import {SkeletonDisplayText, Tooltip} from '@pachyderm/components';
 import React, {useCallback, useState} from 'react';
 import {Link} from 'react-router-dom';
 
+import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import Header from '@dash-frontend/components/Header';
 import Search from '@dash-frontend/components/Search';
 
@@ -48,6 +49,7 @@ const ProjectHeader = () => {
         )}
       </div>
       <Search />
+      <GlobalFilter />
     </Header>
   );
 };

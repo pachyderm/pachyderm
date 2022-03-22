@@ -2,6 +2,7 @@ import React, {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
 import {useSearchResults} from '@dash-frontend/hooks/useSearchResults';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   jobRoute,
@@ -35,11 +36,13 @@ const SearchResultsDropdown: React.FC = () => {
   );
 
   const {projectId} = useUrlState();
+  const {viewState} = useUrlQueryState();
   const browserHistory = useHistory();
   const {loading, searchResults} = useSearchResults(
     projectId,
     debouncedValue,
     MAX_SEARCH_RESULTS,
+    viewState.globalIdFilter,
   );
 
   const repoOnClick = useCallback(

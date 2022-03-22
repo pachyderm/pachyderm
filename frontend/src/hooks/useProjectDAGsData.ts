@@ -1,12 +1,21 @@
 import {DagQueryArgs, GetDagsSubscription, NodeType} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
-import {useHistory} from 'react-router';
+import {useHistory, useRouteMatch} from 'react-router';
 
 import {useGetDagsSubscription} from '@dash-frontend/generated/hooks';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import buildDags from '@dash-frontend/lib/dag';
 import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
 import {Dag, DagDirection} from '@dash-frontend/lib/types';
-import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
+import {
+  PROJECT_PIPELINES_PATH,
+  PROJECT_REPOS_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
+import {
+  lineageRoute,
+  projectReposRoute,
+  projectPipelinesRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 
 import useUrlState from './useUrlState';
 
@@ -30,6 +39,12 @@ export const useProjectDagsData = ({
 }: useProjectDagsDataProps) => {
   const {repoId, pipelineId, projectId: routeProjectId} = useUrlState();
   const browserHistory = useHistory();
+  const projectReposMatch = useRouteMatch(PROJECT_REPOS_PATH);
+  const projectPipelinesMatch = useRouteMatch(PROJECT_PIPELINES_PATH);
+  const [listDefaultView] = useLocalProjectSettings({
+    projectId,
+    key: 'list_view_default',
+  });
   const [isFirstCall, setIsFirstCall] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [prevData, setPrevData] = useState<GetDagsSubscription | undefined>();
@@ -60,7 +75,16 @@ export const useProjectDagsData = ({
           );
         })
       ) {
-        browserHistory.push(lineageRoute({projectId}));
+        // redirect if we were at a route that got deleted or filtered out
+        // by a global id filter and is no longer in any dags
+        if (listDefaultView) {
+          if (projectReposMatch)
+            browserHistory.push(projectReposRoute({projectId}));
+          if (projectPipelinesMatch)
+            browserHistory.push(projectPipelinesRoute({projectId}));
+        } else {
+          browserHistory.push(lineageRoute({projectId}));
+        }
       } else {
         client.reFetchObservableQueries();
       }

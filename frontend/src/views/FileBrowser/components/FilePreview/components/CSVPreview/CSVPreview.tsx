@@ -58,7 +58,12 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
     [headers],
   );
 
-  if (loading) return <LoadingDots />;
+  if (loading)
+    return (
+      <span data-testid="CSVPreview__loading">
+        <LoadingDots />
+      </span>
+    );
 
   return (
     <>

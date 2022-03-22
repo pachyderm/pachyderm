@@ -12,6 +12,7 @@ export interface UrlState {
   jobFilters?: JobState[];
   prevFileBrowserPath?: string;
   tutorialId?: string;
+  globalIdFilter?: string;
 }
 
 const getViewStateFromSearchParams = (searchParams: URLSearchParams) => {

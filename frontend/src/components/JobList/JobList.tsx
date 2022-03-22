@@ -48,7 +48,10 @@ const JobList: React.FC<JobListProps> = ({
   const {jobId} = useUrlState();
 
   useEffect(() => {
-    if (selectJobByDefault && !jobId && jobs.length > 0) {
+    if (
+      selectJobByDefault &&
+      ((!jobId && jobs.length > 0) || !jobs.find((job) => job.id === jobId))
+    ) {
       browserHistory.push(
         jobRoute({
           projectId,

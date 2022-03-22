@@ -76,6 +76,9 @@ const ProjectDetails: React.FC = () => {
           </Route>
         </>
       )}
+      <Route path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH]}>
+        <ProjectSidebar resizable={false} dagsLoading={loading} />
+      </Route>
       <Route path={TUTORIAL_PATH}>
         <ProjectSidebar />
         <ProjectTutorial />

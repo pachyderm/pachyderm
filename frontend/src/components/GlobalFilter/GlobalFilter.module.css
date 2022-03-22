@@ -1,0 +1,68 @@
+.base {
+  position: relative;
+}
+
+.filter, .filter:not(:disabled):hover {
+  font-size: var(--font-size-body-small);
+  text-decoration: underline;
+  color: var(--white);
+  font-weight: 600;
+  max-width: 11.5rem;
+  text-overflow: ellipsis;
+  overflow-x: hidden;
+  white-space: nowrap;
+}
+
+.filter .dot {
+  display: inline-block;
+  margin-right: 0.5rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 1rem;
+  background-color: var(--success-green);
+}
+
+.dropdownBase {
+  position: absolute;
+  width: 24rem;
+  left: -17.75rem;
+  top: 2rem;
+  z-index: var(--z-index-dropdown-menu);
+  border: 1px solid var(--border-grey);
+  border-radius: 0px 0px 3px 3px;
+  background-color: var(--white);
+  box-shadow: 0 1px 2px 0 rgba(184,184,184,0.5);
+}
+
+.infoText {
+  padding: 1rem;
+  font-size: var(--font-size-body-medium);
+  border-bottom: solid 1px var(--line-grey);
+  margin-bottom: 1rem;
+}
+
+.link {
+  margin-left: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.form {
+  margin: 1rem;
+  text-align: right;
+  position: relative;
+}
+
+.submitButton {
+  margin-top: 1rem;
+  display: block;
+  width: 6rem;
+  white-space: nowrap;
+  margin-left: calc(100% - 6rem);
+}
+
+.checkMarkSVG {
+  position: absolute;
+  top: 0;
+  right: 0;
+}

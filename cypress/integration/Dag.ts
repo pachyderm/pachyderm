@@ -31,15 +31,25 @@ describe('Dag', () => {
     cy.get("#GROUP").should("exist");
   });
 
-  it('should render failed nodes', () => {
-    const jobs = cy.findByTestId("ProjectSideNav__seeJobs", { timeout: 10000 });
+  it('should render a sub-dag with a globalId filter', () => {
+    const jobs = cy.findByTestId("ProjectSideNav__seeJobs", {timeout: 10000});
     jobs.click();
 
-    const failedJob = cy.findAllByText("Failure", { timeout: 120000 });
+    const failedJob = cy.findAllByText("Failure", {timeout: 60000});
     failedJob.should('exist');
-    failedJob.first().click();
+    failedJob.last().click();
 
-    cy.findByTestId('Node__state-ERROR').should('exist');
+    cy.findByTestId('CommitIdCopy__id').invoke('text').then((jobId) => {
+      cy.findByText('Filter by Global ID').click();
+      cy.findByTestId('GlobalFilter__name').type(jobId);
+      cy.findByText('Apply').click();
+    });
+
+    cy.get("#images_repoGROUP", { timeout: 10000 }).should("exist");
+    cy.get("#edges_repoGROUP").should("exist");
+    cy.get('#montage_repoGROUP').should("not.exist");
+
+    cy.findByTestId('Node__state-ERROR', {timeout: 12000}).should('exist');
   });
 
   it('should derive the correct selected repo from the url', () => {

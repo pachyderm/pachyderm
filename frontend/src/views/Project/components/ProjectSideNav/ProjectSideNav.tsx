@@ -28,7 +28,7 @@ import styles from './ProjectSidenav.module.css';
 
 const ProjectSideNav: React.FC = () => {
   const {openModal, closeModal, isOpen} = useModal(false);
-  const {projectId, numOfFailedJobs, handleListDefaultView, jobsLink} =
+  const {projectId, numOfFailedJobs, handleListDefaultView, getJobsLink} =
     useProjectSideNav();
   const swapPath = useLineageListViewSwap();
 
@@ -106,7 +106,7 @@ const ProjectSideNav: React.FC = () => {
             tooltipContent="Jobs"
             styleMode="light"
             showIconWhenExpanded
-            to={jobsLink}
+            to={getJobsLink()}
             data-testid="ProjectSideNav__seeJobs"
           >
             {numOfFailedJobs > 0 && (

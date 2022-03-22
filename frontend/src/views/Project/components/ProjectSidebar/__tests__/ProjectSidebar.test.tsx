@@ -102,6 +102,25 @@ describe('ProjectSidebar', () => {
         expect(mockServer.getState().pipelines['8']).toHaveLength(0),
       );
     });
+
+    it('should show job details by default with a globalId filter', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/pipelines/likelihoods?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
+      );
+
+      const {getByTestId} = render(<Project />);
+
+      await waitFor(() =>
+        expect(getByTestId('InfoPanel__id')).toHaveTextContent(
+          '23b9af7d5d4343219bc8e02ff4acd33a',
+        ),
+      );
+      expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent(
+        'likelihoods',
+      );
+    });
   });
 
   describe('repos', () => {
@@ -182,6 +201,25 @@ describe('ProjectSidebar', () => {
       );
 
       expect(emptyMessage).toBeInTheDocument();
+    });
+
+    it('should show a single commit with diff with a globalId filter', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/repos/likelihoods/branch/master?view=eyJnbG9iYWxJZEZpbHRlciI6IjIzYjlhZjdkNWQ0MzQzMjE5YmM4ZTAyZmY0YWNkMzNhIn0%3D',
+      );
+
+      const {getByTestId} = render(<Project />);
+
+      await waitFor(() =>
+        expect(getByTestId('CommitDetails__id')).toHaveTextContent(
+          '23b9af7d5d4343219bc8e02ff4acd33a',
+        ),
+      );
+      expect(getByTestId('CommitDetails__fileUpdates')).toHaveTextContent(
+        '1 File updated',
+      );
     });
 
     it('should show empty repo message when repo has no commits', async () => {

@@ -1,5 +1,5 @@
 import classnames from 'classnames';
-import React, {memo} from 'react';
+import React from 'react';
 import {Route, Switch} from 'react-router';
 
 import {
@@ -29,10 +29,14 @@ import useProjectSidebar from './hooks/useProjectSidebar';
 import styles from './ProjectSidebar.module.css';
 
 type ProjectSidebarProps = {
+  dagsLoading?: boolean;
   resizable?: boolean;
 };
 
-const ProjectSidebar: React.FC<ProjectSidebarProps> = ({resizable = true}) => {
+const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
+  dagsLoading,
+  resizable = true,
+}) => {
   const {
     projectId,
     handleClose,
@@ -85,7 +89,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({resizable = true}) => {
               <JobDetails />
             </Route>
             <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
-              <RepoDetails />
+              <RepoDetails dagsLoading={!!dagsLoading} />
             </Route>
             <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]} exact>
               <PipelineDetails />
@@ -97,4 +101,4 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({resizable = true}) => {
   );
 };
 
-export default memo(ProjectSidebar);
+export default ProjectSidebar;

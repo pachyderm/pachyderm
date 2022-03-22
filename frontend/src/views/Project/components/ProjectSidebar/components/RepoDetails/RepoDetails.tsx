@@ -5,17 +5,20 @@ import {Helmet} from 'react-helmet';
 
 import Description from '@dash-frontend/components/Description';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {pipelineRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import CommitBrowser from '../CommitBrowser';
+import CommitDetails from '../CommitBrowser/components/CommitDetails';
 import Title from '../Title';
 
 import styles from './RepoDetails.module.css';
 
-const RepoDetails = () => {
+const RepoDetails = ({dagsLoading}: {dagsLoading: boolean}) => {
   const {projectId} = useUrlState();
   const {loading, repo} = useCurrentRepo();
+  const {viewState} = useUrlQueryState();
   const repoBaseRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -58,7 +61,11 @@ const RepoDetails = () => {
         </Description>
       </dl>
       <div className={styles.divider} />
-      <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
+      {viewState.globalIdFilter ? (
+        !dagsLoading && <CommitDetails commitId={viewState.globalIdFilter} />
+      ) : (
+        <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
+      )}
     </div>
   );
 };

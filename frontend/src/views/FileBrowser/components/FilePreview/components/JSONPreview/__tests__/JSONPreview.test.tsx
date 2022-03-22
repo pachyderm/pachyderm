@@ -1,4 +1,4 @@
-import {render} from '@testing-library/react';
+import {render, waitFor} from '@testing-library/react';
 import React from 'react';
 
 import {withContextProviders} from '@dash-frontend/testHelpers';
@@ -15,11 +15,12 @@ describe('JSON Preview', () => {
       '',
       '/project/3/repos/cron/branch/master/commit/9d5daa0918ac4c43a476b86e3bb5e88e/json_mixed.json',
     );
-    const {findByText} = render(<FileBrowser />);
+    const {findByText, queryByTestId} = render(<FileBrowser />);
 
-    expect(
-      await findByText('07-06-19', {}, {timeout: 12000}),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(queryByTestId('JSONPreview__loading')).not.toBeInTheDocument(),
+    );
+    expect(await findByText('07-06-19')).toBeInTheDocument();
     expect(await findByText('231221B')).toBeInTheDocument();
   });
 });

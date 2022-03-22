@@ -1,10 +1,9 @@
 import {NodeState, NodeType} from '@graphqlTypes';
 import {useClipboardCopy} from '@pachyderm/components';
 import {select} from 'd3-selection';
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useRouteMatch} from 'react-router';
 
-import useIsViewingJob from '@dash-frontend/hooks/useIsViewingJob';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_HEIGHT} from '@dash-frontend/views/Project/constants/nodeSizes';
@@ -20,8 +19,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
   const {hoveredNode, setHoveredNode} = useHoveredNode();
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
-  const [showLeaveJob, setShowLeaveJob] = useState(false);
-  const isViewingJob = useIsViewingJob();
 
   const isEgress = node.type === NodeType.EGRESS;
   const noAccess = !node.access;
@@ -40,10 +37,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [node]);
 
   const onClick = useCallback(() => {
-    if (isViewingJob && !isEgress && node.type !== NodeType.PIPELINE) {
-      setShowLeaveJob(true);
-      return;
-    }
     if (noAccess) return;
     if (isInteractive) navigateToNode(node);
     if (isInteractive && isEgress && supported) copy();
@@ -55,7 +48,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
     supported,
     copy,
     noAccess,
-    isViewingJob,
   ]);
 
   const onMouseOver = useCallback(() => {
@@ -68,21 +60,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
   const onMouseOut = useCallback(() => {
     if (isInteractive) setHoveredNode('');
   }, [isInteractive, setHoveredNode]);
-
-  const closeLeaveJob = useCallback(() => {
-    setShowLeaveJob(false);
-  }, [setShowLeaveJob]);
-
-  const handleLeaveJobClick = useCallback(
-    (e: React.MouseEvent) => {
-      // prevent click event from bubbling to node group
-      e.stopPropagation();
-
-      setShowLeaveJob(false);
-      navigateToNode(node);
-    },
-    [node, navigateToNode],
-  );
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -197,9 +174,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
     groupName,
     isEgress,
     showSuccess,
-    showLeaveJob,
-    handleLeaveJobClick,
-    closeLeaveJob,
     nodeIconHref,
   };
 };

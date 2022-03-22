@@ -55,7 +55,11 @@ const JobDetails = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
   const {jobSet, loading} = useJobSet({id: jobId, projectId});
 
-  if (!pipelineId && jobSet && jobSet.jobs.length > 0) {
+  if (
+    jobSet &&
+    jobSet.jobs.length > 0 &&
+    (!pipelineId || !jobSet.jobs.find((job) => job.pipelineName === pipelineId))
+  ) {
     return (
       <Redirect
         to={jobRoute({

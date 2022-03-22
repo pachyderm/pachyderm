@@ -1,0 +1,51 @@
+.commitWrapper {
+  margin-top: 2rem;
+}
+
+.commit {
+  overflow-y: hidden;
+  transition: all 400ms ease-in;
+  padding: 0 1.5625rem;
+}
+
+.loadingDots {
+  margin-top: 6rem;
+}
+
+.diffUpdates {
+  font-size: var(--font-size-body-medium);
+  width: 13rem;
+  margin-bottom: 2rem;
+}
+
+.filesAdded, .filesUpdated, .filesDeleted {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-weight: 500;
+  width: 13rem;
+  white-space: nowrap;
+  margin-top: 0.5rem;
+}
+
+.filesAdded {
+  background-color: var(--background-green-light);
+  color: var(--icon-green);
+}
+
+.filesUpdated, .filesUpdated svg {
+  background-color: var(--background-blue);
+  color: var(--chart-dark-blue);
+}
+
+.filesDeleted, .filesDeleted svg  {
+  background-color: var(--hover-grey);
+  color: var(--pachyderm-black)
+}
+
+.commitStatusIcon {
+  margin-right: 0.25rem;
+}

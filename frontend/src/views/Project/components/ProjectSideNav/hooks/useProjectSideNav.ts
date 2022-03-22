@@ -1,5 +1,5 @@
 import {JobState} from '@graphqlTypes';
-import {useMemo} from 'react';
+import {useMemo, useCallback} from 'react';
 import {useRouteMatch} from 'react-router';
 
 import {useJobSets} from '@dash-frontend/hooks/useJobSets';
@@ -39,7 +39,7 @@ export const useProjectSideNav = () => {
     path: LINEAGE_PATH,
   });
 
-  const jobsLink = useMemo(() => {
+  const getJobsLink = useCallback(() => {
     const jobsClosedPath = lineageMatch
       ? lineageRoute({projectId})
       : jobsRoute({projectId});
@@ -51,6 +51,6 @@ export const useProjectSideNav = () => {
     projectId,
     numOfFailedJobs,
     handleListDefaultView,
-    jobsLink,
+    getJobsLink,
   };
 };

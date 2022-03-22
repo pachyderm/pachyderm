@@ -21,15 +21,19 @@ const useLineageListViewSwap = () => {
   const projectId = getDecodedRouteParam(match, 'projectId');
 
   if (view === 'lineage') {
-    return location.pathname.replace(
-      `/lineage/${projectId}`,
-      `/project/${projectId}`,
+    return (
+      location.pathname.replace(
+        `/lineage/${projectId}`,
+        `/project/${projectId}`,
+      ) + location.search
     );
   }
   if (view === 'project') {
-    return location.pathname.replace(
-      `/project/${projectId}`,
-      `/lineage/${projectId}`,
+    return (
+      location.pathname.replace(
+        `/project/${projectId}`,
+        `/lineage/${projectId}`,
+      ) + location.search
     );
   }
   return `/${view}/${projectId}`;

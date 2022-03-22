@@ -57,7 +57,12 @@ const JSONPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
     );
   };
 
-  if (loading) return <LoadingDots />;
+  if (loading)
+    return (
+      <span data-testid="JSONPreview__loading">
+        <LoadingDots />
+      </span>
+    );
 
   return (
     <ContentWrapper>
