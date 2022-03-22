@@ -1,6 +1,11 @@
 # Changelog
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+# 0.4.0
+2c9dc889 fix logo SVG, UI tweaks
+2c9dc889 adding a loader component that will display till the setup function resolves
+2c9dc889 use auth-related HTTP error codes in the UI
+
 # 0.3.0-beta3
 No-op: test release
 
