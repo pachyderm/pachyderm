@@ -17,7 +17,7 @@
 
         - Run:
         ```shell
-        docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:6195b152515219fcb8f5217623fa974d7516ca8f  lab --allow-root
+        docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:v0.4.0  lab --allow-root
         ```
         - Access your JupyterLab session through a local browser (check the link in the stdout).
         - Then [connect your JupyterLab to your Pachyderm cluster](#connect-the-extension-to-your-pachyderm-cluster). 
@@ -30,7 +30,7 @@
         - Then, [connect that CLI to your cluster](../../getting_started/local_installation/#have-pachctl-and-your-cluster-communicate){target=_blank}.
         - And run:
         ```shell
-        docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:6195b152515219fcb8f5217623fa974d7516ca8f  lab --allow-root
+        docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:v0.4.0  lab --allow-root
         ```
         - Access your JupyterLab session through a local browser (check the link in the stdout).
         You are all logged in. Start experimenting.
@@ -85,7 +85,7 @@ Just before your installation...
 
 Depending on your setup, you might choose to use our pre-built image containing the extension or add the extension to your image.
 
-- Using Pachyderm's pre-built image `pachyderm/notebooks-user`:
+- Using Pachyderm's pre-built image `pachyderm/notebooks-user:v0.4.0`:
 
     !!! Note 
 
@@ -135,10 +135,10 @@ Depending on your setup, you might choose to use our pre-built image containing 
 
 If you are using our pre-built image:
 
-- Update the tag version of the image `pachyderm/notebooks-user` in the script below, then run:
+- Run the script below:
 
     ```shell
-    docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:31d95f869ead4c96aaede284f8d3804020a8d370 lab --allow-root 
+    docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:v0.4.0 lab --allow-root 
     ```
 
 - Click on the link provided in the stdout of your terminal to run JupyterLab in a browser.
@@ -163,7 +163,7 @@ Replace the image name with your own image otherwise.
         defaultUrl: "/lab"
         cmd:   "start-singleuser.sh"
         image:
-            name: pachyderm/notebooks-user
+            name: pachyderm/notebooks-user:v0.4.0
             tag: 624337360beaff8514be329386f3ca554fc7a34d
         uid:   0
         fsGid: 0
