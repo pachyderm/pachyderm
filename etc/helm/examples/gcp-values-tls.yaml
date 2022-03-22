@@ -15,7 +15,8 @@ pachd:
     google:
       bucket: "fake-bucket"
       cred: ""
-
+  externalService:
+    serviceProxy: false
   tls:
     enabled: true
     secretName: "pach-tls"
