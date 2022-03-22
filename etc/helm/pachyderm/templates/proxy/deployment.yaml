@@ -2,6 +2,10 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
+{{- if and .Values.pachd.externalService.serviceProxy .Values.ingress.enabled -}}
+{{- fail "Cannot have both .Values.pachd.externalService.serviceProxy and .Values.ingress.enabled" }}
+{{- end }}
+
 {{- if and .Values.pachd.externalService.enabled .Values.pachd.externalService.serviceProxy -}}
 apiVersion: apps/v1
 kind: Deployment
