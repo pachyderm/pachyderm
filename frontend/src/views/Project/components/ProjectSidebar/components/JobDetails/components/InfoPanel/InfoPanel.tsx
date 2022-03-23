@@ -15,6 +15,7 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import readableJobState from '@dash-frontend/lib/readableJobState';
+import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
 
 import styles from './InfoPanel.module.css';
 
@@ -66,6 +67,9 @@ const InfoPanel = () => {
 
   return (
     <dl className={styles.base}>
+      <div className={styles.logsButtonWrapper}>
+        <ReadLogsButton />
+      </div>
       <Description
         term="Output Commit"
         loading={loading}
@@ -101,7 +105,6 @@ const InfoPanel = () => {
       >
         {job?.state ? readableJobState(job.state) : 'N/A'}
       </Description>
-
       {job?.reason && (
         <Description
           term="Reason"
@@ -111,7 +114,6 @@ const InfoPanel = () => {
           {extractAndShortenIds(job.reason)}
         </Description>
       )}
-
       <Description
         term="Started"
         loading={loading}
@@ -119,7 +121,6 @@ const InfoPanel = () => {
       >
         {started}
       </Description>
-
       <Description
         term="Duration"
         loading={loading}
@@ -127,7 +128,6 @@ const InfoPanel = () => {
       >
         {duration}
       </Description>
-
       <Description
         term="Datums Processed"
         loading={loading}
@@ -135,7 +135,6 @@ const InfoPanel = () => {
       >
         {job?.dataProcessed}
       </Description>
-
       <Description
         term="Datums Skipped"
         loading={loading}
@@ -143,7 +142,6 @@ const InfoPanel = () => {
       >
         {job?.dataSkipped}
       </Description>
-
       <Description
         term="Datums Failed"
         loading={loading}
@@ -151,7 +149,6 @@ const InfoPanel = () => {
       >
         {job?.dataFailed}
       </Description>
-
       <Description
         term="Datums Recovered"
         loading={loading}
@@ -159,7 +156,6 @@ const InfoPanel = () => {
       >
         {job?.dataRecovered}
       </Description>
-
       <Description
         term="Datums Total"
         loading={loading}
@@ -167,9 +163,7 @@ const InfoPanel = () => {
       >
         {job?.dataTotal}
       </Description>
-
       <hr className={styles.divider} />
-
       <Description
         term="Inputs"
         lines={9}
@@ -186,7 +180,6 @@ const InfoPanel = () => {
           'N/A'
         )}
       </Description>
-
       <Description
         term="Transform"
         loading={loading}
@@ -195,7 +188,6 @@ const InfoPanel = () => {
       >
         {transformString}
       </Description>
-
       <Description
         term="Details"
         lines={9}

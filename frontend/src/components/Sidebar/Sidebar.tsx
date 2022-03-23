@@ -15,8 +15,6 @@ import {
   PROJECT_PIPELINE_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
-  PROJECT_PIPELINE_JOB_PATH,
-  LINEAGE_PIPELINE_JOB_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
 import useSidebar from './hooks/useSidebar';
@@ -93,14 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <DeleteRepoButton />
             </Route>
 
-            <Route
-              path={[
-                PROJECT_PIPELINE_PATH,
-                LINEAGE_PIPELINE_PATH,
-                PROJECT_PIPELINE_JOB_PATH,
-                LINEAGE_PIPELINE_JOB_PATH,
-              ]}
-            >
+            <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
               <ReadLogsButton />
             </Route>
             <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>

@@ -8,3 +8,11 @@
   border-top: 1px dashed var(--line-grey);
   margin: 1.5rem 0;
 }
+
+.logsButtonWrapper {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
