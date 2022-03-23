@@ -103,7 +103,10 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                   }
                   key={commit.id}
                 >
-                  <div className={styles.commit}>
+                  <div
+                    className={styles.commit}
+                    data-testid="CommitBrowser__commit"
+                  >
                     <div className={styles.commitTime}>
                       <CommitTime commit={commit} />
                       {` (${commit.sizeDisplay})`}
