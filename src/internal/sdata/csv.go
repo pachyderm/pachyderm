@@ -59,6 +59,8 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 	const null = "null"
 	var y string
 	switch x := x.(type) {
+	case *bool:
+		y = strconv.FormatBool(*x)
 	case *int16:
 		y = strconv.FormatInt(int64(*x), 10)
 	case *int32:
@@ -79,6 +81,18 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		y = string(*x)
 	case *time.Time:
 		y = x.Format(time.RFC3339Nano)
+	case *sql.NullBool:
+		if x.Valid {
+			y = strconv.FormatBool(x.Bool)
+		} else {
+			y = null
+		}
+	case *sql.NullByte:
+		if x.Valid {
+			y = strconv.FormatUint(uint64(x.Byte), 10)
+		} else {
+			y = null
+		}
 	case *sql.NullInt16:
 		if x.Valid {
 			y = strconv.FormatInt(int64(x.Int16), 10)

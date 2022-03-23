@@ -37,6 +37,18 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 	for i := range row {
 		var y interface{}
 		switch x := row[i].(type) {
+		case *sql.NullBool:
+			if x.Valid {
+				y = x.Bool
+			} else {
+				y = nil
+			}
+		case *sql.NullByte:
+			if x.Valid {
+				y = x.Byte
+			} else {
+				y = nil
+			}
 		case *sql.NullInt16:
 			if x.Valid {
 				y = x.Int16
@@ -85,7 +97,7 @@ func (m *JSONWriter) Flush() error {
 	return errors.EnsureStack(m.bufw.Flush())
 }
 
-type jsonParser struct {
+type JSONParser struct {
 	dec        *json.Decoder
 	fieldNames []string
 
@@ -98,13 +110,13 @@ func NewJSONParser(r io.Reader, fieldNames []string) TupleReader {
 	// as json.Numbers and then handle those in convert.  Otherwise they are parsed as float64s
 	// and precision is lost for values above ~2^53.
 	dec.UseNumber()
-	return &jsonParser{
+	return &JSONParser{
 		dec:        dec,
 		fieldNames: fieldNames,
 	}
 }
 
-func (p *jsonParser) Next(row Tuple) error {
+func (p *JSONParser) Next(row Tuple) error {
 	if len(row) != len(p.fieldNames) {
 		return ErrTupleFields{Fields: p.fieldNames, Tuple: row}
 	}
@@ -126,7 +138,7 @@ func (p *jsonParser) Next(row Tuple) error {
 	return nil
 }
 
-func (p *jsonParser) getMap() map[string]interface{} {
+func (p *JSONParser) getMap() map[string]interface{} {
 	if p.m == nil {
 		p.m = make(map[string]interface{})
 	}

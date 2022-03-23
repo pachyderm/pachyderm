@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"math/rand"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -52,14 +53,16 @@ func TestFormatParse(t *testing.T) {
 		b := float64(0)
 		c := ""
 		d := sql.NullInt64{}
-		return Tuple{&a, &b, &c, &d}
+		e := false
+		return Tuple{&a, &b, &c, &d, &e}
 	}
-	fieldNames := []string{"a", "b", "c", "d"}
+	fieldNames := []string{"a", "b", "c", "d", "e"}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			const N = 10
 			buf := &bytes.Buffer{}
 			fz := fuzz.New()
+			fz.RandSource(rand.NewSource(0))
 			fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
 				*ti = time.Now()
 			})
@@ -67,6 +70,14 @@ func TestFormatParse(t *testing.T) {
 				if co.RandBool() {
 					x.Valid = true
 					x.Int64 = co.Int63()
+				} else {
+					x.Valid = false
+				}
+			})
+			fz.Funcs(func(x *sql.NullString, co fuzz.Continue) {
+				if co.RandBool() {
+					x.Valid = true
+					x.String = co.RandString()
 				} else {
 					x.Valid = false
 				}
@@ -95,7 +106,10 @@ func TestFormatParse(t *testing.T) {
 				require.NoError(t, err)
 				actual = append(actual, y)
 			}
-			require.Equal(t, expected, actual)
+			require.Len(t, actual, len(expected))
+			for i := range actual {
+				require.Equal(t, expected[i], actual[i])
+			}
 		})
 	}
 }

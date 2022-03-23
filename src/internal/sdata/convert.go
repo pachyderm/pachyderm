@@ -4,22 +4,12 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
-
-type ErrCannotConvert struct {
-	Value interface{}
-	Dest  interface{}
-}
-
-func (e ErrCannotConvert) Error() string {
-	return fmt.Sprintf("cannot convert %T to %T)", e.Value, e.Dest)
-}
 
 func convert(dst, x interface{}) error {
 	dv := reflect.ValueOf(dst)
@@ -60,6 +50,8 @@ func convert(dst, x interface{}) error {
 		return asNullInt64(dst, x)
 	case *sql.NullFloat64:
 		return asNullFloat64(dst, x)
+	case *sql.NullString:
+		return asNullString(dst, x)
 	case *sql.NullTime:
 		return asNullTime(dst, x)
 	default:
@@ -268,12 +260,12 @@ func asNullBool(dst *sql.NullBool, x interface{}) error {
 			break
 		}
 		if err := asBool(&dst.Bool, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asBool(&dst.Bool, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	}
@@ -290,12 +282,12 @@ func asNullByte(dst *sql.NullByte, x interface{}) error {
 			break
 		}
 		if err := asByte(&dst.Byte, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asByte(&dst.Byte, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	}
@@ -312,12 +304,12 @@ func asNullInt16(dst *sql.NullInt16, x interface{}) error {
 			break
 		}
 		if err := asInt16(&dst.Int16, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asInt16(&dst.Int16, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	}
@@ -334,12 +326,12 @@ func asNullInt32(dst *sql.NullInt32, x interface{}) error {
 			break
 		}
 		if err := asInt32(&dst.Int32, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asInt32(&dst.Int32, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	}
@@ -356,12 +348,12 @@ func asNullInt64(dst *sql.NullInt64, x interface{}) error {
 			break
 		}
 		if err := asInt64(&dst.Int64, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asInt64(&dst.Int64, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	}
@@ -378,12 +370,25 @@ func asNullFloat64(dst *sql.NullFloat64, x interface{}) error {
 			break
 		}
 		if err := asFloat64(&dst.Float64, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asFloat64(&dst.Float64, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
+		}
+		dst.Valid = true
+	}
+	return nil
+}
+
+func asNullString(dst *sql.NullString, x interface{}) error {
+	switch x := x.(type) {
+	case nil:
+		dst.Valid = false
+	default:
+		if err := asString(&dst.String, x); err != nil {
+			return err
 		}
 		dst.Valid = true
 	}
@@ -400,12 +405,12 @@ func asNullTime(dst *sql.NullTime, x interface{}) error {
 			break
 		}
 		if err := asTime(&dst.Time, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	default:
 		if err := asTime(&dst.Time, x); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 		dst.Valid = true
 	}

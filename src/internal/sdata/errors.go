@@ -13,3 +13,13 @@ type ErrTupleFields struct {
 func (e ErrTupleFields) Error() string {
 	return fmt.Sprintf("tuple has invalid fields for this writer (%T). expected: (%v), only have %d", e.Writer, e.Fields, (e.Tuple))
 }
+
+// ErrCannotConvert is returned when a value cannot be converted to a value of a different type.
+type ErrCannotConvert struct {
+	Value interface{}
+	Dest  interface{}
+}
+
+func (e ErrCannotConvert) Error() string {
+	return fmt.Sprintf("cannot convert %T to %T)", e.Value, e.Dest)
+}
