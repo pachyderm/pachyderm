@@ -16,11 +16,6 @@ while true; do
     ls /pfs/data |grep myfile
     cat /pfs/data/myfile.txt
     curl -XPUT 'localhost:9002/repos/data/master/_unmount?name=data'
-    pachctl create branch data@v1 --head master
-    curl -XPUT 'localhost:9002/repos/data/master/_mount?name=data&mode=ro'
-    echo case 2
-    ls /pfs/data |grep myfile
-    cat /pfs/data/myfile.txt
     pachctl delete repo data
 
 done
