@@ -140,17 +140,17 @@ func (m *CSVWriter) Flush() error {
 	return errors.EnsureStack(m.cw.Error())
 }
 
-type csvParser struct {
+type CSVParser struct {
 	dec *csv.Reader
 }
 
 func NewCSVParser(r io.Reader) TupleReader {
-	return &csvParser{
+	return &CSVParser{
 		dec: csv.NewReader(r),
 	}
 }
 
-func (p *csvParser) Next(row Tuple) error {
+func (p *CSVParser) Next(row Tuple) error {
 	rec, err := p.dec.Read()
 	if err != nil {
 		return errors.EnsureStack(err)
