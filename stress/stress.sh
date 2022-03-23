@@ -3,6 +3,7 @@ set -xeuo pipefail
 
 pachctl delete repo data || true
 umount /pfs || true
+pachctl mount-server &
 
 # waiting for the browser to prompt the python backend to prompt the mount server to exist again
 sleep 10
