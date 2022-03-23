@@ -247,6 +247,9 @@ export const UIIcons = () => {
         <SVGWrapper title="FullscreenSVG">
           <IconsSVG.FullscreenSVG />
         </SVGWrapper>
+        <SVGWrapper title="GlobalIdSVG">
+          <IconsSVG.GlobalIdSVG />
+        </SVGWrapper>
         <SVGWrapper title="HomeSVG">
           <IconsSVG.HomeSVG />
         </SVGWrapper>

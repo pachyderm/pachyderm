@@ -42,6 +42,7 @@ export {ReactComponent as FileUnknownSVG} from './fileUnknown.svg';
 export {ReactComponent as FileVideoSVG} from './fileVideo.svg';
 export {ReactComponent as FlipSVG} from './flip.svg';
 export {ReactComponent as FullscreenSVG} from './fullscreen.svg';
+export {ReactComponent as GlobalIdSVG} from './globalId.svg';
 export {ReactComponent as HomeSVG} from './home.svg';
 export {ReactComponent as InfoSVG} from './info.svg';
 export {ReactComponent as JobsSVG} from './jobs.svg';

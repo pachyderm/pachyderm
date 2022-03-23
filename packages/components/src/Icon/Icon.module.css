@@ -31,6 +31,10 @@
   color: var(--icon-green);
 }
 
+.blue  {
+  color: var(--chart-dark-blue);
+}
+
 .highlightGreen  {
   color: var(--banner-green);
 }

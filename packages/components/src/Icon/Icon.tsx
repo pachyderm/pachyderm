@@ -9,6 +9,7 @@ const Colors = {
   plum: 'plum',
   grey: 'grey',
   green: 'green',
+  blue: 'blue',
   red: 'red',
   yellow: 'yellow',
   highlightGreen: 'highlightGreen',

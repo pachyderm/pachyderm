@@ -24,6 +24,9 @@ export const Default = () => {
       <Icon color="green">
         <InfoSVG />
       </Icon>
+      <Icon color="blue">
+        <InfoSVG />
+      </Icon>
       <Icon color="red">
         <InfoSVG />
       </Icon>
