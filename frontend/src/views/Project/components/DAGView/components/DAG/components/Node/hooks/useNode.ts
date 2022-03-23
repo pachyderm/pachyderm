@@ -4,6 +4,7 @@ import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useRouteMatch} from 'react-router';
 
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_HEIGHT} from '@dash-frontend/views/Project/constants/nodeSizes';
@@ -17,6 +18,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
   const {navigateToNode, selectedNode} = useRouteController();
   const match = useRouteMatch(PROJECT_PIPELINE_JOB_PATH);
   const {hoveredNode, setHoveredNode} = useHoveredNode();
+  const {viewState} = useUrlQueryState();
   const [showSuccess, setShowSuccess] = useState(false);
   const {copy, supported, copied, reset} = useClipboardCopy(node.name);
 
@@ -175,6 +177,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
     isEgress,
     showSuccess,
     nodeIconHref,
+    viewState,
   };
 };
 

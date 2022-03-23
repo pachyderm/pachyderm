@@ -1,6 +1,6 @@
 .base {
   width: 100%;
-  display: block;
+  display: inline-flex;
   font-size: 0.75rem;
   color: var(--pachyderm-black);
   padding: 0.75rem;
@@ -14,7 +14,7 @@
 }
 
 .base.cardStyle {
-  width: auto;
+  width: calc(100% - 2rem);
   background-color: var(--white);
   border: solid 1px var(--grey-3);
   border-radius: 4px;
@@ -49,22 +49,13 @@
   align-items: center;
 }
 
-.innerContentItem {
-  padding: 0 0.5rem;
-}
-
-.innerContentItem:last-of-type {
-  padding: 0;
-  margin-left: 0.5rem;
+.timestamp {
+  flex: 1;
 }
 
 .jobId {
   font-weight: 600;
   margin-right: 0.5rem;
-}
-
-.expandActions .innerContentItem + .innerContentItem {
-  margin-left: 1.625rem;
 }
 
 .jobStatus {

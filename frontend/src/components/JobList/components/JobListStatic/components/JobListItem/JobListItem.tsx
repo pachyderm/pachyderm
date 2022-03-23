@@ -3,12 +3,19 @@ import {
   JobSetFieldsFragment,
   JobState,
 } from '@graphqlTypes';
-import {ArrowRightSVG, ButtonLink, Tooltip} from '@pachyderm/components';
+import {
+  ArrowRightSVG,
+  ButtonLink,
+  Tooltip,
+  GlobalIdSVG,
+  Group,
+} from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import readableJobState from '@dash-frontend/lib/readableJobState';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -31,6 +38,7 @@ const JobListItem: React.FC<JobListItemProps> = ({
   cardStyle,
 }) => {
   const {jobId} = useUrlState();
+  const {viewState} = useUrlQueryState();
 
   return (
     <li>
@@ -59,19 +67,11 @@ const JobListItem: React.FC<JobListItemProps> = ({
               : 'Creating...'
           }`}
         >
-          <div className={styles.innerContent}>
-            <span
-              className={classNames(
-                styles.jobStatus,
-                styles.innerContentItem,
-                styles[job.state],
-              )}
-            >
+          <Group className={styles.innerContent} spacing={8}>
+            <span className={classNames(styles.jobStatus, styles[job.state])}>
               {readableJobState(job.state)}
             </span>
-            <span
-              className={classNames(styles.timestamp, styles.innerContentItem)}
-            >
+            <span className={styles.timestamp}>
               {cardStyle && (
                 <b className={styles.jobId}>{job.id.slice(0, 8)}</b>
               )}
@@ -86,20 +86,16 @@ const JobListItem: React.FC<JobListItemProps> = ({
             </span>
 
             {expandActions ? (
-              <>
-                <ButtonLink className={styles.innerContentItem}>
-                  See Details
-                </ButtonLink>
-              </>
+              <ButtonLink className={styles.innerContentItem}>
+                See Details
+              </ButtonLink>
             ) : (
               !cardStyle && (
-                <ArrowRightSVG
-                  aria-hidden
-                  className={classNames(styles.icon, styles.innerContentItem)}
-                />
+                <ArrowRightSVG aria-hidden className={styles.icon} />
               )
             )}
-          </div>
+            {viewState.globalIdFilter && <GlobalIdSVG />}
+          </Group>
         </Tooltip>
       </Link>
     </li>

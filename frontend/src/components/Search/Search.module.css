@@ -20,3 +20,13 @@
   opacity: 1;
   visibility: visible;
 }
+
+.globalIdFilter {
+  margin: 1rem;
+  font-weight: 600;
+  font-size: var(--font-size-body-medium);
+}
+
+.globalIdFilter > svg {
+  margin-right: 0.5rem;
+}

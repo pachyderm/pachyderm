@@ -41,6 +41,7 @@ const Node: React.FC<NodeProps> = ({
     isEgress,
     showSuccess,
     nodeIconHref,
+    viewState,
   } = useNode(node, isInteractive);
 
   const classes = classNames(styles.nodeGroup, {
@@ -107,6 +108,15 @@ const Node: React.FC<NodeProps> = ({
             href={nodeIconHref}
             data-testid={`Node__state-${node.state}`}
           />
+          {viewState.globalIdFilter && (
+            <image
+              x={nodeWidth - NODE_ICON_X_OFFSET}
+              y={nodeHeight - NODE_ICON_Y_OFFSET - 16}
+              pointerEvents="none"
+              href="/dag_globalId.svg"
+              data-testid="Node__globalId"
+            />
+          )}
         </>
       )}
 
