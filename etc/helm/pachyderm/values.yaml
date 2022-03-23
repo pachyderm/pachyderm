@@ -410,11 +410,17 @@ pachd:
       id: ""
       secret: ""
     minio:
+      # minio bucket name
       bucket: ""
+      # the minio endpoint. Should only be the hostname:port, no http/https.
       endpoint: ""
+      # the username/id with readwrite access to the bucket.
       id: ""
+      # the secret/password of the user with readwrite access to the bucket.
       secret: ""
+      # enable https for minio with "true" defaults to "false"
       secure: ""
+      # Enable S3v2 support by setting signature to "1". This feature is being deprecated
       signature: ""
     # putFileConcurrencyLimit sets the maximum number of files to
     # upload or fetch from remote sources (HTTP, blob storage) using
