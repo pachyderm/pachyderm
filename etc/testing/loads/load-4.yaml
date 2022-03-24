@@ -1,22 +1,14 @@
 # This workload tests a mix of small, medium, and large files.
 count: 5 
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100 
-validator:
-  frequency:
-    prob: 0 
+    putFile:
+      count: 5
+      source: "random"
 fileSources:
   - name: "random"
     random:
-      size:
+      sizes:
         - min: 1000
           max: 10000
           prob: 50 
@@ -26,3 +18,6 @@ fileSources:
         - min: 100000000
           max: 1000000000
           prob: 10 
+validator:
+  frequency:
+    prob: 0 
