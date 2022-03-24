@@ -1,12 +1,12 @@
 package sdata
 
 import (
+	"context"
 	"database/sql"
 	"io"
-	"reflect"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 // Tuple is an alias for []interface{}.
@@ -78,32 +78,12 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 func NewTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {
-		var rType reflect.Type
-		switch cType.DatabaseTypeName() {
-		case "VARCHAR", "TEXT":
-			// force scan type to be string
-			rType = reflect.TypeOf("")
-		default:
-			rType = cType.ScanType()
+		var err error
+		isNull, nullOk := cType.Nullable()
+		row[i], err = makeTupleElement(cType.DatabaseTypeName(), isNull || nullOk)
+		if err != nil {
+			panic(err)
 		}
-		v := reflect.New(rType).Interface()
-		if nullable, ok := cType.Nullable(); !ok || nullable {
-			switch v.(type) {
-			case *int16:
-				v = &sql.NullInt16{}
-			case *int32:
-				v = &sql.NullInt32{}
-			case *int64:
-				v = &sql.NullInt64{}
-			case *float64:
-				v = &sql.NullFloat64{}
-			case *string:
-				v = &sql.NullString{}
-			case *time.Time:
-				v = &sql.NullTime{}
-			}
-		}
-		row[i] = v
 	}
 	return row
 }
@@ -123,4 +103,62 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 		n++
 	}
 	return n, nil
+}
+
+func NewTupleFromTable(ctx context.Context, db *pachsql.DB, tableName string) (Tuple, error) {
+	colInfos, err := pachsql.GetTableColumns(ctx, db, tableName)
+	if err != nil {
+		return nil, err
+	}
+	tuple := make(Tuple, len(colInfos))
+	for i := range colInfos {
+		var err error
+		tuple[i], err = makeTupleElement(colInfos[i].DataType, colInfos[i].IsNullable)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
+	switch dbType {
+	case "BOOL":
+		if nullable {
+			return &sql.NullBool{}, nil
+		} else {
+			ret := false
+			return &ret, nil
+		}
+	case "INT":
+		if nullable {
+			return &sql.NullInt32{}, nil
+		} else {
+			ret := false
+			return &ret, nil
+		}
+	case "BIGINT":
+		if nullable {
+			return &sql.NullInt64{}, nil
+		} else {
+			ret := false
+			return &ret, nil
+		}
+	case "FLOAT":
+		if nullable {
+			return &sql.NullFloat64{}, nil
+		} else {
+			ret := false
+			return &ret, nil
+		}
+	case "VARCHAR", "TEXT":
+		if nullable {
+			return &sql.NullString{}, nil
+		} else {
+			ret := ""
+			return &ret, nil
+		}
+	default:
+		return nil, errors.Errorf("unrecognized type: %v", dbType)
+	}
 }
