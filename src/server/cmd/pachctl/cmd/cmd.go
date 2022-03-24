@@ -661,13 +661,13 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	portForward.Flags().Uint16VarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
-	portForward.Flags().Uint16Var(&remotePort, "remote-port", 1650, "The remote port that pachd is bound to in the cluster.")
+	portForward.Flags().Uint16Var(&remotePort, "remote-port", 30650, "The remote port that pachd is bound to in the cluster.")
 	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30657, "The local port to bind pachd's OIDC callback to.")
-	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 1657, "The remote port that OIDC callback is bound to in the cluster.")
+	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 30657, "The remote port that OIDC callback is bound to in the cluster.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
-	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
+	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 30600, "The remote port that the s3 gateway is bound to.")
 	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
+	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 30658, "The local port to bind the identity service to.")
 	portForward.Flags().Uint16Var(&consolePort, "console-port", 4000, "The local port to bind the console service to.")
 	portForward.Flags().Uint16Var(&remoteConsolePort, "remote-console-port", 4000, "The remote port to bind the console  service to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")

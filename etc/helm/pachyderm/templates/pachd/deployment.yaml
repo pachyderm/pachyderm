@@ -47,11 +47,14 @@ spec:
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
-      {{- end }} 
+      {{- end }}
       {{- end }}
       containers:
       - command:
         - /pachd
+        args:
+        - --mode
+        - "$(MODE)"
         env:
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
@@ -68,7 +71,7 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
@@ -150,6 +153,10 @@ spec:
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
         {{- end }}
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - name: TLS_CERT_SECRET_NAME
+          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
+        {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
@@ -167,12 +174,20 @@ spec:
           value:  {{.Values.global.noProxy}}
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
-          value: {{ .Values.pachd.securityContext.enabled | quote }}    
+          value: {{ .Values.pachd.securityContext.enabled | quote }}
+        - name: UNPAUSED_MODE
+          value: "full"
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
           - secretRef:
               name: pachyderm-deployment-id-secret
+          - configMapRef:
+              # This ConfigMap is managed outside of Helm and will not
+              # exist on first installation, hence it is optional.  It
+              # is currently used to manage the pause/unpause feature.
+              name: pachd-config
+              optional: true
         image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd

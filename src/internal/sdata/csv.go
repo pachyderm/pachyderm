@@ -1,38 +1,14 @@
-// package sdata deals with structured data.
 package sdata
 
 import (
-	"bufio"
 	"database/sql"
 	"encoding/csv"
-	"encoding/json"
-	"fmt"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
-
-// ErrTupleFields is returned by writers to indicate that
-// a tuple is not the right shape to be written to them.
-type ErrTupleFields struct {
-	Writer TupleWriter
-	Tuple  Tuple
-	Fields []string
-}
-
-func (e ErrTupleFields) Error() string {
-	return fmt.Sprintf("tuple has invalid fields for this writer (%T). expected: (%v), only have %d", e.Writer, e.Fields, (e.Tuple))
-}
-
-// TupleWriter is the type of Writers for structured data.
-type TupleWriter interface {
-	WriteTuple(row Tuple) error
-	Flush() error
-}
-
-type Tuple = []interface{}
 
 // CSVWriter writes Tuples in CSV format.
 type CSVWriter struct {
@@ -83,6 +59,8 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 	const null = "null"
 	var y string
 	switch x := x.(type) {
+	case *bool:
+		y = strconv.FormatBool(*x)
 	case *int16:
 		y = strconv.FormatInt(int64(*x), 10)
 	case *int32:
@@ -101,6 +79,20 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		// TODO: what to do here? might not be printable.
 		// Maybe have a list of base64 encoded columns.
 		y = string(*x)
+	case *time.Time:
+		y = x.Format(time.RFC3339Nano)
+	case *sql.NullBool:
+		if x.Valid {
+			y = strconv.FormatBool(x.Bool)
+		} else {
+			y = null
+		}
+	case *sql.NullByte:
+		if x.Valid {
+			y = strconv.FormatUint(uint64(x.Byte), 10)
+		} else {
+			y = null
+		}
 	case *sql.NullInt16:
 		if x.Valid {
 			y = strconv.FormatInt(int64(x.Int16), 10)
@@ -137,8 +129,6 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		} else {
 			y = null
 		}
-	case *time.Time:
-		y = x.Format(time.RFC3339Nano)
 	default:
 		return "", errors.Errorf("unrecognized value (%v: %T)", x, x)
 	}
@@ -150,78 +140,29 @@ func (m *CSVWriter) Flush() error {
 	return errors.EnsureStack(m.cw.Error())
 }
 
-// JSONWriter writes tuples as newline separated json objects.
-type JSONWriter struct {
-	bufw   *bufio.Writer
-	enc    *json.Encoder
-	fields []string
-	record map[string]interface{}
+type CSVParser struct {
+	dec *csv.Reader
 }
 
-// TODO: figure out some way to specify a projection so that we can write nested structures.
-func NewJSONWriter(w io.Writer, fieldNames []string) *JSONWriter {
-	bufw := bufio.NewWriter(w)
-	enc := json.NewEncoder(bufw)
-	return &JSONWriter{
-		bufw:   bufw,
-		enc:    enc,
-		fields: fieldNames,
-		record: make(map[string]interface{}, len(fieldNames)),
+func NewCSVParser(r io.Reader) TupleReader {
+	return &CSVParser{
+		dec: csv.NewReader(r),
 	}
 }
 
-func (m *JSONWriter) WriteTuple(row Tuple) error {
-	if len(row) != len(m.fields) {
-		return ErrTupleFields{Writer: m, Fields: m.fields, Tuple: row}
+func (p *CSVParser) Next(row Tuple) error {
+	rec, err := p.dec.Read()
+	if err != nil {
+		return errors.EnsureStack(err)
 	}
-	record := m.record
+	if len(rec) != len(row) {
+		return errors.Errorf("csv parsing: wrong number of fields HAVE: %d WANT: %d ", len(rec), len(row))
+	}
 	for i := range row {
-		var y interface{}
-		switch x := row[i].(type) {
-		case *sql.NullInt16:
-			if x.Valid {
-				y = x.Int16
-			} else {
-				y = nil
-			}
-		case *sql.NullInt32:
-			if x.Valid {
-				y = x.Int32
-			} else {
-				y = nil
-			}
-		case *sql.NullInt64:
-			if x.Valid {
-				y = x.Int64
-			} else {
-				y = nil
-			}
-		case *sql.NullFloat64:
-			if x.Valid {
-				y = x.Float64
-			} else {
-				y = nil
-			}
-		case *sql.NullString:
-			if x.Valid {
-				y = x.String
-			} else {
-				y = nil
-			}
-		case *sql.NullTime:
-			if x.Valid {
-				y = x.Time
-			} else {
-				y = nil
-			}
-		default:
-			y = row[i]
+		// row[i] will be a pointer to something. See Tuple comments
+		if err := convert(row[i], rec[i]); err != nil {
+			return err
 		}
-		record[m.fields[i]] = y
 	}
-	return errors.EnsureStack(m.enc.Encode(record))
-}
-
-func (m *JSONWriter) Flush() error {
-	return errors.EnsureStack(m.bufw.Flush())
+	return nil
 }

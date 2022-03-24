@@ -17,7 +17,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
     environment:
@@ -68,7 +68,9 @@ jobs:
                 paths:
                   - /home/circleci/.gocache
       - run: etc/testing/circle/launch.sh
-      - run: etc/testing/circle/run_tests.sh
+      - run:
+          no_output_timeout: 20m
+          command: etc/testing/circle/run_tests.sh
       - run: etc/testing/circle/upload_stats.sh
       - run:
           name: Dump debugging info in case of failure
@@ -144,9 +146,9 @@ jobs:
       - checkout
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: 
+      - run:
           command: etc/testing/circle/run_hub_load_tests.sh
-          no_output_timeout: 1h 
+          no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -159,7 +161,7 @@ jobs:
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
   deploy:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
     steps:
