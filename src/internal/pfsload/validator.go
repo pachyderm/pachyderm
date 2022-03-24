@@ -3,9 +3,9 @@ package pfsload
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math/rand"
-	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -17,8 +17,9 @@ import (
 type Validator struct {
 	spec   *ValidatorSpec
 	random *rand.Rand
-	hash   []byte
-	count  int64
+	// TODO: Potentially make this pachhash.Output.
+	hash  []byte
+	count int64
 }
 
 func NewValidator(spec *ValidatorSpec, random *rand.Rand) (*Validator, error) {
@@ -77,7 +78,8 @@ func validate(client Client, commit *pfs.Commit, expectedHash []byte) error {
 			return nil
 		}
 		h := pfs.NewHash()
-		h.Write(append([]byte(fi.File.Path), []byte(strconv.FormatInt(fi.SizeBytes, 10))...))
+		h.Write([]byte(fi.File.Path))
+		h.Write([]byte(fmt.Sprintf("%016d", fi.SizeBytes)))
 		hash = xor(hash, h.Sum(nil))
 		return nil
 	}); err != nil {
@@ -133,7 +135,8 @@ func (vcfsc *validatorCreateFileSetClient) PutFile(path string, r io.Reader, opt
 		return errors.EnsureStack(err)
 	}
 	hash := pfs.NewHash()
-	hash.Write(append([]byte(path), []byte(strconv.FormatInt(sr.size, 10))...))
+	hash.Write([]byte(path))
+	hash.Write([]byte(fmt.Sprintf("%016d", sr.size)))
 	if vcfsc.hash == nil {
 		vcfsc.hash = hash.Sum(nil)
 		return nil
