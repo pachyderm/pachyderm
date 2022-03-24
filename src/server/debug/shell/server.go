@@ -357,7 +357,7 @@ func (d *debugDump) getLogs(req *pps.GetLogsRequest, srv pps.API_GetLogsServer) 
 }
 
 func (d *debugDump) listJob(req *pps.ListJobRequest, srv pps.API_ListJobServer) error {
-	glob := fmt.Sprintf(jobPatternFormatString, req.Pipeline)
+	glob := fmt.Sprintf(jobPatternFormatString, req.Pipeline.Name)
 	var found bool
 	var info pps.JobInfo
 	if err := d.globTarProtos(glob, &info, func(_ string) error {
@@ -375,7 +375,7 @@ func (d *debugDump) listJob(req *pps.ListJobRequest, srv pps.API_ListJobServer) 
 }
 
 func (d *debugDump) inspectJob(_ context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
-	glob := fmt.Sprintf(jobPatternFormatString, req.Job.Pipeline)
+	glob := fmt.Sprintf(jobPatternFormatString, req.Job.Pipeline.Name)
 	var info pps.JobInfo
 	var found bool
 	err := d.globTarProtos(glob, &info, func(_ string) error {

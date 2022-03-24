@@ -784,6 +784,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
+	shell.RegisterCompletionFunc(inspectPipeline, shell.PipelineCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 	debugCommands = append(debugCommands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 

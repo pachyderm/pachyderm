@@ -258,22 +258,30 @@ func jobDesc(ji *pps.JobInfo) string {
 	return fmt.Sprintf("%s: %s - %s", ji.Job.Pipeline.Name, pps_pretty.Progress(ji), statusString)
 }
 
-// JobCompletion completes job parameters of the form <job>
+// JobCompletion completes job parameters of the form <pipeline>@<job>
 func JobCompletion(c *client.APIClient, _, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, 0, false, func(ji *pps.JobInfo) error {
-		if maxCompletions > 0 {
-			maxCompletions--
-		} else {
-			return errutil.ErrBreak
+	partialFile := cmdutil.ParsePartialFile(text)
+	part := parsePart(text)
+	switch part {
+	case repoPart:
+		return PipelineCompletion(c, "", text, maxCompletions)
+	case commitOrBranchPart:
+		var result []prompt.Suggest
+		if err := c.ListJobF(partialFile.Commit.Branch.Repo.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+			if maxCompletions > 0 {
+				maxCompletions--
+			} else {
+				return errutil.ErrBreak
+			}
+			result = append(result, prompt.Suggest{
+				Text:        ji.Job.ID,
+				Description: jobDesc(ji),
+			})
+			return nil
+		}); err != nil {
+			return nil, CacheNone
 		}
-		result = append(result, prompt.Suggest{
-			Text:        ji.Job.ID,
-			Description: jobDesc(ji),
-		})
-		return nil
-	}); err != nil {
-		return nil, CacheNone
+		return result, CacheAll
 	}
-	return result, CacheAll
+	return nil, CacheNone
 }
