@@ -246,6 +246,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		if err != nil {
 			return mr, err
 		}
+		// TODO: Fix for case of repo with no branch
 		for _, branch := range bs {
 			mk := MountKey{Repo: repo.Repo.Name, Branch: branch.Branch.Name}
 			// TODO: Might need to modify this when we start using Commit and
