@@ -60,6 +60,9 @@ Tests to write:
 */
 
 func TestBasicServerSameNames(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -95,6 +98,9 @@ func TestBasicServerSameNames(t *testing.T) {
 }
 
 func TestBasicServerNonMasterBranch(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "dev", "")
@@ -130,6 +136,9 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 }
 
 func TestBasicServerDifferingNames(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -165,6 +174,9 @@ func TestBasicServerDifferingNames(t *testing.T) {
 }
 
 func TestUnmountAll(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
@@ -327,6 +339,56 @@ func TestMountNonexistentRepo(t *testing.T) {
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 		resp, _ := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
 		require.Equal(t, 400, resp.StatusCode)
+	})
+}
+
+func TestMultipleMount(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "master", "")
+	err := env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, env.PachClient.CreateRepo("repo2"))
+	commit = client.NewCommit("repo2", "master", "")
+	err = env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		_, err := put("repos/repo/master/_mount?name=mount1&mode=ro", nil)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_mount?name=mount2&mode=ro", nil)
+		require.NoError(t, err)
+
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(repos))
+		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
+		require.Equal(t, "mount2", filepath.Base(repos[1].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+		data, err = ioutil.ReadFile(filepath.Join(mountPoint, "mount2", "dir", "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+
+		_, err = put("repos/repo/master/_unmount?name=mount2", nil)
+		require.NoError(t, err)
+
+		repos, err = ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
+
+		data, err = ioutil.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+
+		resp, _ := put("repos/repo2/master/_mount?name=mount1&mode=ro", nil)
+		require.Equal(t, 500, resp.StatusCode)
 	})
 }
 
