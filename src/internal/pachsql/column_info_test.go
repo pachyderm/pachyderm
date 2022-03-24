@@ -17,7 +17,7 @@ func TestGetTableColumns(t *testing.T) {
 	tcs := []testCase{
 		{
 			Name:  "Postgres",
-			NewDB: dockertestenv.NewTestDB,
+			NewDB: dockertestenv.NewPostgres,
 		},
 		{
 			Name:  "MySQL",

@@ -68,6 +68,13 @@ func NewTestDirectDB(t testing.TB) *pachsql.DB {
 	return testutil.NewTestDB(t, opts)
 }
 
+// NewPostgres will always return a direct connection to an ephemeral Postgres
+// backed by the stock Postgres image.
+func NewPostgres(t testing.TB) *pachsql.DB {
+	opts := NewTestDBOptions(t)
+	return testutil.NewTestDB(t, opts)
+}
+
 func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	ctx := context.Background()
 	require.NoError(t, ensureDBEnv(t, ctx))

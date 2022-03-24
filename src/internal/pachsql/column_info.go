@@ -2,6 +2,8 @@ package pachsql
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -19,8 +21,25 @@ func GetTableColumns(ctx context.Context, db *DB, tableName string) ([]ColumnInf
 		tableName = parts[1]
 	}
 	var cinfos []ColumnInfo
-	if err := db.SelectContext(ctx, &cinfos, `SELECT table_schema, table_name, data_type, is_nullable FROM INFORMATION_SCHEMA.columns`); err != nil {
+	q := `SELECT table_schema, table_name, data_type, is_nullable
+		FROM INFORMATION_SCHEMA.columns
+	`
+	q += makeWhereClause(db.DriverName())
+	if err := db.SelectContext(ctx, &cinfos, q, schemaName, tableName); err != nil {
 		return nil, err
 	}
 	return cinfos, nil
+}
+
+func makeWhereClause(driver string) string {
+	var placeholder func(int) string
+	switch driver {
+	case "pgx":
+		placeholder = func(i int) string { return "$" + strconv.Itoa(i) }
+	case "mysql":
+		placeholder = func(i int) string { return "?" }
+	default:
+		panic(driver)
+	}
+	return fmt.Sprintf(`WHERE table_schema = %s AND = table_name = %s`, placeholder(0), placeholder(1))
 }

@@ -124,7 +124,7 @@ func TestMaterializeSQL(t *testing.T) {
 	}{
 		{
 			"Postgres",
-			dockertestenv.NewTestDB,
+			dockertestenv.NewPostgres,
 		},
 		{
 			"MySQL",
