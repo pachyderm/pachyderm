@@ -3808,6 +3808,21 @@ func TestStopJob(t *testing.T) {
 	dataRepo := tu.UniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline-stop-job")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"sleep", "10"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/"),
+		"",
+		false,
+	))
+
 	// Create three input commits to trigger jobs.
 	// We will stop the second job midway through, and assert that the
 	// last job finishes.
@@ -3825,21 +3840,6 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit3, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit3.Branch.Name, commit3.ID))
-
-	// create pipeline
-	pipelineName := tu.UniqueString("pipeline-stop-job")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"sleep", "10"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(dataRepo, "/"),
-		"",
-		false,
-	))
 
 	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
