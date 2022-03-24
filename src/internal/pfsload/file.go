@@ -33,23 +33,12 @@ func (f *RandomFile) Read(data []byte) (int, error) {
 	return res, errors.EnsureStack(err)
 }
 
-type FileSourceSpec struct {
-	Name                 string                `yaml:"name,omitempty"`
-	RandomFileSourceSpec *RandomFileSourceSpec `yaml:"random,omitempty"`
-}
-
 type FileSource interface {
 	Next() (*RandomFile, error)
 }
 
 func NewFileSource(spec *FileSourceSpec, random *rand.Rand) FileSource {
-	return newRandomFileSource(spec.RandomFileSourceSpec, random)
-}
-
-type RandomFileSourceSpec struct {
-	IncrementPath       bool                 `yaml:"incrementPath,omitempty"`
-	RandomDirectorySpec *RandomDirectorySpec `yaml:"directory,omitempty"`
-	SizeSpecs           []*SizeSpec          `yaml:"size,omitempty"`
+	return newRandomFileSource(spec.Random, random)
 }
 
 type randomFileSource struct {
@@ -61,9 +50,9 @@ type randomFileSource struct {
 
 func newRandomFileSource(spec *RandomFileSourceSpec, random *rand.Rand) FileSource {
 	var dirSource *randomDirectorySource
-	if spec.RandomDirectorySpec != nil {
+	if spec.Directory != nil {
 		dirSource = &randomDirectorySource{
-			spec:   spec.RandomDirectorySpec,
+			spec:   spec.Directory,
 			random: random,
 		}
 	}
@@ -75,14 +64,14 @@ func newRandomFileSource(spec *RandomFileSourceSpec, random *rand.Rand) FileSour
 }
 
 func (rfs *randomFileSource) Next() (*RandomFile, error) {
-	sizeSpec, err := FuzzSize(rfs.spec.SizeSpecs, rfs.random)
+	sizeSpec, err := FuzzSize(rfs.spec.Sizes, rfs.random)
 	if err != nil {
 		return nil, err
 	}
-	min, max := sizeSpec.Min, sizeSpec.Max
+	min, max := sizeSpec.MinSize, sizeSpec.MaxSize
 	size := min
 	if max > min {
-		size += rfs.random.Intn(max - min)
+		size += rfs.random.Int63n(max - min)
 	}
 	return NewRandomFile(rfs.nextPath(), randutil.NewBytesReader(rfs.random, int64(size))), nil
 }
@@ -100,11 +89,6 @@ func (rfs *randomFileSource) nextPath() string {
 	return path.Join(dir, string(randutil.Bytes(rfs.random, pathSize)))
 }
 
-type RandomDirectorySpec struct {
-	Depth *SizeSpec `yaml:"depth,omitempty"`
-	Run   int64     `yaml:"run,omitempty"`
-}
-
 type randomDirectorySource struct {
 	spec   *RandomDirectorySpec
 	random *rand.Rand
@@ -114,10 +98,10 @@ type randomDirectorySource struct {
 
 func (rds *randomDirectorySource) nextPath() string {
 	if rds.next == "" {
-		min, max := rds.spec.Depth.Min, rds.spec.Depth.Max
-		depth := min
+		min, max := rds.spec.Depth.MinSize, rds.spec.Depth.MaxSize
+		depth := int(min)
 		if max > min {
-			depth += rds.random.Intn(max - min)
+			depth += rds.random.Intn(int(max - min))
 		}
 		for i := 0; i < depth; i++ {
 			rds.next = path.Join(rds.next, string(randutil.Bytes(rds.random, pathSize)))
@@ -133,36 +117,14 @@ func (rds *randomDirectorySource) nextPath() string {
 
 }
 
-type FilesSpec struct {
-	Count     int         `yaml:"count,omitempty"`
-	FileSpecs []*FileSpec `yaml:"file,omitempty"`
-}
-
-func Files(env *Env, spec *FilesSpec) ([]*RandomFile, error) {
+func Files(fileSource FileSource, count int) ([]*RandomFile, error) {
 	var files []*RandomFile
-	for i := 0; i < spec.Count; i++ {
-		file, err := FuzzFile(env, spec.FileSpecs)
+	for i := 0; i < count; i++ {
+		file, err := fileSource.Next()
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		files = append(files, file)
 	}
 	return files, nil
-}
-
-// TODO: Add different types of files.
-type FileSpec struct {
-	Source string `yaml:"source,omitempty"`
-	Prob   int    `yaml:"prob,omitempty"`
-}
-
-func File(env *Env, spec *FileSpec) (*RandomFile, error) {
-	res, err := env.FileSource(spec.Source).Next()
-	return res, errors.EnsureStack(err)
-}
-
-type SizeSpec struct {
-	Min  int `yaml:"min,omitempty"`
-	Max  int `yaml:"max,omitempty"`
-	Prob int `yaml:"prob,omitempty"`
 }
