@@ -168,6 +168,11 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				// Finish the commit.
 				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				var baseErr pfsserver.ErrBaseCommitNotFinished
+				if ok := errors.As(err, &baseErr); ok {
+					// likely got commits out of order, restart watch to find out
+					return err
+				}
 				log.Errorf("error finishing commit %v: %v, retrying in %v", commit, err, d)
 				return nil
 			})
