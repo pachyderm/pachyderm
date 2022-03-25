@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // TableInfo contains information about a SQL table
@@ -23,12 +25,12 @@ type ColumnInfo struct {
 func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, error) {
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	defer tx.Rollback()
 	ti, err := GetTableInfoTx(tx, tableName)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return ti, tx.Rollback()
 }
@@ -53,21 +55,21 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	// and sqlx complains about scanning using struct tags.
 	rows, err := tx.Query(q, args...)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var ci ColumnInfo
 		var isNullable string
 		if err := rows.Scan(&ci.TableSchema, &ci.TableName, &ci.DataType, &isNullable); err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		switch isNullable {
 		}
 		cinfos = append(cinfos, ci)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return &TableInfo{Columns: cinfos}, nil
 }

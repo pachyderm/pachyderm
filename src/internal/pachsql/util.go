@@ -10,6 +10,7 @@ import (
 	"time"
 
 	fuzz "github.com/google/gofuzz"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // Placeholder returns a placeholder for the given driver
@@ -87,7 +88,7 @@ func CreateTestTable(db *DB, name string) error {
 		c_time_null TIMESTAMP NULL
 	)`, name)
 	_, err := db.Exec(q)
-	return err
+	return errors.EnsureStack(err)
 }
 
 func LoadTestData(db *DB, tableName string, n int) error {
@@ -105,7 +106,7 @@ func LoadTestData(db *DB, tableName string, n int) error {
 		x.Id = i
 		insertStatement := `INSERT INTO test_data ` + formatColumns(x) + ` VALUES ` + formatValues(x, db)
 		if _, err := db.Exec(insertStatement, makeArgs(x)...); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	return nil
