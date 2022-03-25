@@ -8,10 +8,10 @@ import (
 	"path"
 	"testing"
 
-	"github.com/coreos/pkg/capnslog"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
 	etcdwal "go.etcd.io/etcd/server/v3/wal"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -77,16 +77,11 @@ func NewEnv(t testing.TB) *Env {
 
 	etcdConfig.LPUrls = []url.URL{}
 	etcdConfig.LCUrls = []url.URL{*clientURL}
-
-	// Throw away noisy messages from etcd - comment these out if you need to debug
-	// a failed start
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+	etcdConfig.LogLevel = "panic"
 
 	env.Etcd, err = embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
 	t.Cleanup(env.Etcd.Close)
-
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
 
 	eg.Go(func() error {
 		return errorWait(ctx, env.Etcd.Err())
@@ -96,6 +91,7 @@ func NewEnv(t testing.TB) *Env {
 		Context:     env.Context,
 		Endpoints:   []string{clientURL.String()},
 		DialOptions: client.DefaultDialOptions(),
+		Logger:      zap.NewNop(),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
