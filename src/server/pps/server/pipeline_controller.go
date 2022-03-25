@@ -195,7 +195,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		// set pc.rc
 		// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 		// the pipeline indefinitely)
-		rc, err := pc.getRC(ctx)
+		rc, err := pc.getRC(ctx, pi)
 		if err != nil && !errors.Is(err, errRCNotFound) {
 			return err
 		}
