@@ -180,7 +180,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, cf *
 		}), nil
 	}
 
-	return uw.Copy(srcPath, cf.Datum, cf.Append, getFS)
+	return uw.Copy(dstPath, cf.Datum, cf.Append, getFS)
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {

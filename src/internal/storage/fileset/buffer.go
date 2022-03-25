@@ -6,6 +6,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 type fileMap map[string]map[string]*file
@@ -132,7 +134,7 @@ func (b *Buffer) WalkAdditive(ctx context.Context, onAdd func(path, datum string
 			if err := fs.Iterate(ctx, func(f File) error {
 				return onCopy(f, file.datum)
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		} else if err := onAdd(file.path, file.datum, bytes.NewReader(file.buf.Bytes())); err != nil {
 			return err
@@ -170,7 +172,7 @@ func (b *Buffer) WalkDeletive(ctx context.Context, cb func(path, datum string) e
 			if err := fs.Iterate(ctx, func(f File) error {
 				return cb(f.Index().Path, file.datum)
 			}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		} else if err := cb(file.path, file.datum); err != nil {
 			return err
