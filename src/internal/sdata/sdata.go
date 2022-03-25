@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -75,16 +76,36 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	}, nil
 }
 
+// TODO: replace this with makeTupleElement
 func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {
-		var err error
-		isNull, nullOk := cType.Nullable()
-		// If the driver doesn't support null, then use a nullable type just to be safe
-		row[i], err = makeTupleElement(cType.DatabaseTypeName(), isNull || !nullOk)
-		if err != nil {
-			panic(err)
+		var rType reflect.Type
+		switch cType.DatabaseTypeName() {
+		case "VARCHAR", "TEXT":
+			// force scan type to be string
+			rType = reflect.TypeOf("")
+		default:
+			rType = cType.ScanType()
 		}
+		v := reflect.New(rType).Interface()
+		if nullable, ok := cType.Nullable(); !ok || nullable {
+			switch v.(type) {
+			case *int16:
+				v = &sql.NullInt16{}
+			case *int32:
+				v = &sql.NullInt32{}
+			case *int64:
+				v = &sql.NullInt64{}
+			case *float64:
+				v = &sql.NullFloat64{}
+			case *string:
+				v = &sql.NullString{}
+			case *time.Time:
+				v = &sql.NullTime{}
+			}
+		}
+		row[i] = v
 	}
 	return row
 }
@@ -119,7 +140,7 @@ func NewTupleFromTable(ctx context.Context, db *pachsql.DB, tableName string) (T
 			return nil, err
 		}
 	}
-	return nil, nil
+	return tuple, nil
 }
 
 func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
