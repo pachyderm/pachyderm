@@ -3843,7 +3843,7 @@ func TestStopJob(t *testing.T) {
 
 	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jobInfos))
+	require.Equal(t, 4, len(jobInfos))
 	require.Equal(t, commit3.ID, jobInfos[0].Job.ID)
 	require.Equal(t, commit2.ID, jobInfos[1].Job.ID)
 	require.Equal(t, commit1.ID, jobInfos[2].Job.ID)
