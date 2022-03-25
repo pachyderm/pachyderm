@@ -397,7 +397,8 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 				return bytesRead, err
 			}
 		case *pfs.ModifyFileRequest_CopyFile:
-			if err := a.driver.copyFile(ctx, uw, mod.CopyFile); err != nil {
+			cf := mod.CopyFile
+			if err := a.driver.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
 				return bytesRead, err
 			}
 		case *pfs.ModifyFileRequest_SetCommit:

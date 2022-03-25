@@ -147,40 +147,34 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit, opts ...ind
 	return commitInfo, fs, nil
 }
 
-func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, cf *pfs.CopyFile) (retErr error) {
-	// resolve commit immediately, even though we don't read from it until later
-	srcCommitInfo, err := d.inspectCommit(ctx, cf.Src.Commit, pfs.CommitState_STARTED)
+func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
+	srcCommitInfo, err := d.inspectCommit(ctx, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
-	srcPath := cleanPath(cf.Src.Path)
-	dstPath := cleanPath(cf.Dst)
-	datum := cf.Datum
-
-	getFS := func(ctx context.Context) (fileset.FileSet, error) {
-		srcCommit := srcCommitInfo.Commit
-		pathTransform := func(x string) string {
-			relPath, err := filepath.Rel(srcPath, x)
-			if err != nil {
-				panic("cannot apply path transform")
-			}
-			return path.Join(dstPath, relPath)
-		}
-		_, fs, err := d.openCommit(ctx, srcCommit, index.WithPrefix(srcPath), index.WithDatum(datum))
+	srcCommit := srcCommitInfo.Commit
+	srcPath := cleanPath(src.Path)
+	dstPath := cleanPath(dst)
+	pathTransform := func(x string) string {
+		relPath, err := filepath.Rel(srcPath, x)
 		if err != nil {
-			return nil, err
+			panic("cannot apply path transform")
 		}
-		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-			return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
-		})
-		return fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
-			idx2 := *idx
-			idx2.Path = pathTransform(idx2.Path)
-			return &idx2
-		}), nil
+		return path.Join(dstPath, relPath)
 	}
-
-	return uw.Copy(dstPath, cf.Datum, cf.Append, getFS)
+	_, fs, err := d.openCommit(ctx, srcCommit, index.WithPrefix(srcPath), index.WithDatum(src.Datum))
+	if err != nil {
+		return err
+	}
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
+	})
+	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
+		idx2 := *idx
+		idx2.Path = pathTransform(idx2.Path)
+		return &idx2
+	})
+	return uw.Copy(ctx, fs, tag, appendFile)
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {

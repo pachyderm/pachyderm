@@ -51,16 +51,17 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 	if err := uw.validate(p); err != nil {
 		return err
 	}
-	if !uw.buffer.CanWriteToPath(p) {
-		if err := uw.serialize(); err != nil {
-			return err
-		}
-	}
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
 	if !appendFile {
 		uw.buffer.Delete(p, datum)
+	}
+	// we can write to the file as long as it isn't a copy
+	if _, hasCopy := uw.buffer.Stat(p, datum); hasCopy {
+		if err := uw.serialize(); err != nil {
+			return err
+		}
 	}
 	w := uw.buffer.Add(p, datum)
 	for {
@@ -95,14 +96,14 @@ func (uw *UnorderedWriter) serialize() error {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(uw.ctx, func(path, datum string, r io.Reader) error {
+		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 			return w.Add(path, datum, r)
-		}, func(file File, datum string) error {
-			return w.Copy(file, datum)
+		}, func(f File, datum string) error {
+			return w.Copy(f, datum)
 		}); err != nil {
 			return err
 		}
-		return uw.buffer.WalkDeletive(uw.ctx, func(path, datum string) error {
+		return uw.buffer.WalkDeletive(func(path, datum string) error {
 			return w.Delete(path, datum)
 		})
 	})
@@ -143,11 +144,6 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
-	if !uw.buffer.CanWriteToPath(p) {
-		if err := uw.serialize(); err != nil {
-			return err
-		}
-	}
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
 		uw.buffer.Delete(p, datum)
@@ -172,16 +168,71 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(p, datum string, withAppend bool, getFS func(ctx context.Context) (FileSet, error)) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
-	if !uw.buffer.CanCopyToDir(p) {
+
+	ctx, cancel := context.WithCancel(ctx)
+	fileChan := make(chan File, 10)
+	go func() {
+		defer close(fileChan)
+		fs.Iterate(ctx, func(f File) error {
+			fileChan <- f
+			return nil
+		})
+	}()
+
+	firstFile, more := <-fileChan
+	if !more {
+		return nil // nothing to do
+	}
+	secondFile, more := <-fileChan
+	if more {
+		// multiple files, serialize and do the copy in a new fileset
+		if err := uw.serialize(); err != nil {
+			return err
+		}
+		doCopy := func(w *Writer, f File) error {
+			if !appendFile {
+				if err := w.Delete(f.Index().Path, datum); err != nil {
+					return err
+				}
+			}
+			return w.Copy(f, datum)
+		}
+		return uw.withWriter(func(w *Writer) error {
+			defer cancel() // stop iteration on error
+			if err := doCopy(w, firstFile); err != nil {
+				return err
+			}
+			if err := doCopy(w, secondFile); err != nil {
+				return err
+			}
+			for f := range fileChan {
+				if err := doCopy(w, f); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	// single file, special case
+	return uw.copySingle(firstFile, datum, appendFile)
+}
+
+func (uw *UnorderedWriter) copySingle(file File, datum string, appendFile bool) error {
+	singlePath := file.Index().Path
+	if !appendFile {
+		uw.buffer.Delete(singlePath, datum)
+	}
+	// make sure the file doesn't already exist
+	if size, hasCopy := uw.buffer.Stat(singlePath, datum); hasCopy || size > 0 {
 		if err := uw.serialize(); err != nil {
 			return err
 		}
 	}
-	uw.buffer.Copy(p, datum, withAppend, getFS)
+	uw.buffer.Copy(file, datum)
 	return nil
 }
 
