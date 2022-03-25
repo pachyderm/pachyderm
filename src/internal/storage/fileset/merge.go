@@ -1,10 +1,12 @@
 package fileset
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -113,23 +115,33 @@ func (mfr *MergeFileReader) Content(ctx context.Context, w io.Writer, opts ...ch
 
 // Hash returns the hash of the file.
 func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
-	var resolvedDataRefs []*chunk.DataRef
-	cw := mfr.chunks.NewWriter(ctx, "resolve-writer", func(annotations []*chunk.Annotation) error {
-		if annotations[0].NextDataRef != nil {
-			resolvedDataRefs = append(resolvedDataRefs, annotations[0].NextDataRef)
-		}
-		return nil
-	}, chunk.WithNoUpload())
-	cw.Annotate(&chunk.Annotation{})
-	for _, dataRef := range mfr.idx.File.DataRefs {
-		if err := cw.Copy(dataRef); err != nil {
+	var hashes [][]byte
+	size := index.SizeBytes(mfr.idx)
+	if size >= DefaultBatchThreshold {
+		// TODO: Optimize to handle large files that can mostly be copy by reference?
+		if err := miscutil.WithPipe(func(w io.Writer) error {
+			r := mfr.chunks.NewReader(ctx, mfr.idx.File.DataRefs)
+			return r.Get(w)
+		}, func(r io.Reader) error {
+			uploader := mfr.chunks.NewUploader(ctx, "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
+				for _, dataRef := range dataRefs {
+					hashes = append(hashes, dataRef.Hash)
+				}
+				return nil
+			})
+			return uploader.Upload(nil, r)
+		}); err != nil {
 			return nil, err
 		}
+	} else {
+		buf := &bytes.Buffer{}
+		r := mfr.chunks.NewReader(ctx, mfr.idx.File.DataRefs)
+		if err := r.Get(buf); err != nil {
+			return nil, err
+		}
+		hashes = [][]byte{chunk.Hash(buf.Bytes())}
 	}
-	if err := cw.Close(); err != nil {
-		return nil, err
-	}
-	return hashDataRefs(resolvedDataRefs)
+	return computeFileHash(hashes)
 }
 
 type fileStream struct {

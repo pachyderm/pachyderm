@@ -29,3 +29,25 @@ func Reference(dataRef *DataRef) *DataRef {
 	chunkDataRef.SizeBytes = dataRef.Ref.SizeBytes
 	return chunkDataRef
 }
+
+func FullDataRefs(dataRefs []*DataRef) bool {
+	for _, dataRef := range dataRefs {
+		if dataRef.OffsetBytes != 0 || dataRef.SizeBytes != dataRef.Ref.SizeBytes {
+			return false
+		}
+	}
+	return true
+}
+
+func NewDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataRef {
+	dataRef := &DataRef{}
+	dataRef.Ref = chunkRef.Ref
+	if chunkRef.SizeBytes == size {
+		dataRef.Hash = chunkRef.Hash
+	} else {
+		dataRef.Hash = Hash(chunkBytes[offset : offset+size])
+	}
+	dataRef.OffsetBytes = offset
+	dataRef.SizeBytes = size
+	return dataRef
+}

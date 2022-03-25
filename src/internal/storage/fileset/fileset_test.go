@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
 
 	units "github.com/docker/go-units"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -44,25 +45,13 @@ func writeFileSet(t *testing.T, s *Storage, files []*testFile) ID {
 }
 
 func checkFile(t *testing.T, f File, tf *testFile) {
-	r, w := io.Pipe()
-	eg := errgroup.Group{}
-	eg.Go(func() error {
+	require.NoError(t, miscutil.WithPipe(func(w io.Writer) error {
 		return errors.EnsureStack(f.Content(context.Background(), w))
-	})
-	eg.Go(func() (retErr error) {
-		defer func() {
-			if retErr != nil {
-				r.CloseWithError(retErr)
-			}
-		}()
+	}, func(r io.Reader) error {
 		actual := make([]byte, len(tf.data))
 		_, err := io.ReadFull(r, actual)
-		if err != nil && err != io.EOF {
-			return errors.EnsureStack(err)
-		}
-		return errors.EnsureStack(r.Close())
-	})
-	require.NoError(t, eg.Wait())
+		return errors.EnsureStack(err)
+	}))
 }
 
 // newTestStorage creates a storage object with a test db and test tracker
@@ -81,8 +70,12 @@ func TestWriteThenRead(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
+		var datums []string
 		for _, datumInt := range random.Perm(maxDatums) {
-			datum := fmt.Sprintf("%08x", datumInt)
+			datums = append(datums, fmt.Sprintf("%08x", datumInt))
+		}
+		sort.Strings(datums)
+		for _, datum := range datums {
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path:  "/" + fileName,
@@ -116,8 +109,12 @@ func TestWriteThenReadFuzz(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
+		var datums []string
 		for _, datumInt := range random.Perm(maxDatums) {
-			datum := fmt.Sprintf("%08x", datumInt)
+			datums = append(datums, fmt.Sprintf("%08x", datumInt))
+		}
+		sort.Strings(datums)
+		for _, datum := range datums {
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path:  "/" + fileName,
@@ -159,8 +156,12 @@ func TestCopy(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
+		var datums []string
 		for _, datumInt := range random.Perm(maxDatums) {
-			datum := fmt.Sprintf("%08x", datumInt)
+			datums = append(datums, fmt.Sprintf("%08x", datumInt))
+		}
+		sort.Strings(datums)
+		for _, datum := range datums {
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path:  "/" + fileName,
