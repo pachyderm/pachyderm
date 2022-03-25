@@ -24,13 +24,4 @@ case "${BUCKET}" in
  LOAD7)
     etc/testing/circle/run_hub_tests.sh etc/testing/loads/load-7.yaml -s 1630089896104084026
     ;;
- LOAD8)
-    etc/testing/circle/run_hub_tests.sh etc/testing/loads/load-8.yaml -s 1630089896104084026
-    ;;
- LOAD9)
-    etc/testing/circle/run_hub_tests.sh etc/testing/loads/load-9.yaml -s 1630089896104084026
-    ;;
- LOAD10)
-    etc/testing/circle/run_hub_tests.sh etc/testing/loads/load-10.yaml -s 1630089896104084026
-    ;;
 esac

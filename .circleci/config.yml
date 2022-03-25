@@ -229,9 +229,6 @@ workflows:
                 - LOAD5
                 - LOAD6
                 - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
   deploy:
     jobs:
     - deploy
