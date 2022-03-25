@@ -389,9 +389,6 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
 		return false
 	}
-	if pi == nil {
-		return true
-	}
 	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
@@ -400,25 +397,25 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	rcPipelineVersion := rc.ObjectMeta.Annotations[pipelineVersionAnnotation]
 	rcSpecCommit := rc.ObjectMeta.Annotations[pipelineSpecCommitAnnotation]
 	switch {
-	case rcAuthTokenHash != hashAuthToken(pi.AuthToken):
-		log.Errorf("PPS master: auth token in %q is stale %s != %s",
-			pi.Pipeline.Name, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
-		return false
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
-		log.Errorf("PPS master: pipeline version in %q looks stale %s != %d",
+		log.Infof("PPS master: pipeline version in %q looks stale %s != %d",
 			pi.Pipeline.Name, rcPipelineVersion, pi.Version)
 		return false
 	case rcSpecCommit != pi.SpecCommit.ID:
-		log.Errorf("PPS master: pipeline spec commit in %q looks stale %s != %s",
+		log.Infof("PPS master: pipeline spec commit in %q looks stale %s != %s",
 			pi.Pipeline.Name, rcSpecCommit, pi.SpecCommit.ID)
 		return false
 	case rcPachVersion != version.PrettyVersion():
-		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",
+		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
 			pi.Pipeline.Name, rcPachVersion, version.PrettyVersion())
 		return false
 	case rcName != expectedName:
-		log.Errorf("PPS master: %q has an unexpected (likely stale) name %q != %q",
+		log.Infof("PPS master: %q has an unexpected (likely stale) name %q != %q",
 			pi.Pipeline.Name, rcName, expectedName)
+	case rcAuthTokenHash != hashAuthToken(pi.AuthToken):
+		log.Infof("PPS master: auth token in %q is stale %s != %s",
+			pi.Pipeline.Name, rcAuthTokenHash, hashAuthToken(pi.AuthToken))
+		return false
 	}
 	return true
 }
@@ -724,7 +721,7 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 			}
 			return err //return whatever the most recent error was
 		}
-		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
+		log.Warnf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
 		return nil
 	})
 	return rc, err
