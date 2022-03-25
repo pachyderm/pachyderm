@@ -2,6 +2,7 @@ package pachsql_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -28,10 +29,11 @@ func TestGetTableInfo(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
-			// Create Table
-			infos, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			require.NoError(t, pachsql.CreateTestTable(db, "test_table"))
+			info, err := pachsql.GetTableInfo(ctx, db, "test_table")
 			require.NoError(t, err)
-			require.Len(t, infos, 3)
+			t.Log(info)
+			require.Len(t, info.Columns, reflect.TypeOf(pachsql.TestRow{}).NumField())
 		})
 	}
 }

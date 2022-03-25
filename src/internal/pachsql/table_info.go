@@ -4,20 +4,22 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 )
 
+// TableInfo contains information about a SQL table
 type TableInfo struct {
 	Columns []ColumnInfo
 }
 
+// ColumnInfo is information about a single column in a SQL table
 type ColumnInfo struct {
-	TableSchema string `db:"table_schema"`
-	TableName   string `db:"table_name"`
-	DataType    string `db:"data_type"`
-	IsNullable  bool   `db:"is_nullable"`
+	TableSchema string
+	TableName   string
+	DataType    string
+	IsNullable  bool
 }
 
+// GetTableInfo looks up information about the table using INFORMATION_SCHEMA
 func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, error) {
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -32,23 +34,40 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 }
 
 // GetTableInfoTx looks up information about the table using INFORMATION_SCHEMA
-func GetTableInfoTx(tx *Tx, tableName string) (*TableInfo, error) {
-	var schemaName string
-	if parts := strings.SplitN(schemaName, "", 2); len(parts) == 2 {
-		schemaName = parts[0]
-		tableName = parts[1]
-	}
+func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
+	schemaName, tableName := SplitTableSchema(tx.DriverName(), tablePath)
 	var cinfos []ColumnInfo
 	q := `SELECT table_schema, table_name, data_type, is_nullable
 		FROM INFORMATION_SCHEMA.columns
 	`
-	q += makeWhereClause(tx.DriverName())
-	if err := tx.Select(&cinfos, q, schemaName, tableName); err != nil {
+	var args []interface{}
+	// table_name
+	q += fmt.Sprintf(" WHERE table_name = %s", Placeholder(tx.DriverName(), len(args)))
+	args = append(args, tableName)
+	// schema_name
+	if schemaName != "" {
+		q += " AND table_schema = " + Placeholder(tx.DriverName(), len(args))
+		args = append(args, schemaName)
+	}
+	// We use tx.Query, not tx.Select here because MySQL and Postgres have conflicting capitalization
+	// and sqlx complains about scanning using struct tags.
+	rows, err := tx.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ci ColumnInfo
+		var isNullable string
+		if err := rows.Scan(&ci.TableSchema, &ci.TableName, &ci.DataType, &isNullable); err != nil {
+			return nil, err
+		}
+		switch isNullable {
+		}
+		cinfos = append(cinfos, ci)
+	}
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return &TableInfo{Columns: cinfos}, nil
-}
-
-func makeWhereClause(driver string) string {
-	return fmt.Sprintf(`WHERE table_schema = %s AND = table_name = %s`, Placeholder(driver, 0), Placeholder(driver, 1))
 }

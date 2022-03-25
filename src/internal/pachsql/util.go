@@ -12,15 +12,40 @@ import (
 	fuzz "github.com/google/gofuzz"
 )
 
+// Placeholder returns a placeholder for the given driver
+// assuming i placeholders have been provided before it.  It is 0 indexed in this way.
+//
+// This means that the first Postgres placeholder is `$1` when i = 0.
+// This is more ergonimic for contructing a list of arguments since i = len(args)
+// but is perhaps unintuitive for those familiar with Postgres.
 func Placeholder(driverName string, i int) string {
 	switch driverName {
 	case "pgx":
-		return "$" + strconv.Itoa(i)
+		return "$" + strconv.Itoa(i+1)
 	case "mysql":
 		return "?"
 	default:
 		panic(driverName)
 	}
+}
+
+// SplitTableSchema splits the tablePath on the first . and interprets the first part
+// as the schema, if the driver supports schemas.
+func SplitTableSchema(driver string, tablePath string) (schemaName string, tableName string) {
+	if parts := strings.SplitN(tablePath, ".", 2); len(parts) == 2 {
+		schemaName = parts[0]
+		tableName = parts[1]
+	} else {
+		tableName = tablePath
+		switch driver {
+		case "mysql":
+		case "pgx":
+			schemaName = "public"
+		default:
+			panic(driver)
+		}
+	}
+	return schemaName, tableName
 }
 
 // TestRow is the type of a row in the test table

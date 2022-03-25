@@ -75,7 +75,6 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	}, nil
 }
 
-// NewTupleFromSQL returns a new Tuple based on column types from the sql package.
 func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {
