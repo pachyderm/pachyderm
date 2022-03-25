@@ -159,7 +159,7 @@ func (pc *pipelineController) tryFinish() {
 	}
 }
 
-// step takes 'pipelineInfo', a newly-changed pipeline pointer in the pipeline collection, and
+// step fetches 'pipelineInfo', the latest pipeline pointer in the pipeline collection, and
 // 1. retrieves its full pipeline spec and RC into the 'Details' field
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'pipelineInfo', if needed, to reflect the action it just took
@@ -225,7 +225,8 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	return false, err
 }
 
-// returns nil, nil, nil if the step is found to be a delete operation
+// returns PipelineInfo corresponding to the latest pipeline state, a context loaded with the pipeline's auth info, and error
+// NOTE: returns nil, nil, nil if the step is found to be a delete operation
 func (pc *pipelineController) fetchState() (*pps.PipelineInfo, context.Context, error) {
 	// query pipelineInfo
 	var pi *pps.PipelineInfo
@@ -380,8 +381,8 @@ func (pc *pipelineController) loadLatestPipelineInfo(message *pps.PipelineInfo) 
 	return nil
 }
 
-// rcIsFresh returns a boolean indicating whether pc.rc has the right labels
-// corresponding to pc.pipelineInfo. If this returns false, it likely means the
+// rcIsFresh returns a boolean indicating whether rc has the right labels
+// corresponding to pipelineInfo. If this returns false, it likely means the
 // current RC is using e.g. an old spec commit or something.
 func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 	if rc == nil {
@@ -600,7 +601,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 
 // restartPipeline updates the RC/service associated with pc's pipeline, and
 // then sets its state to RESTARTING. Note that restartPipeline only deletes
-// pc.rc if it's stale--a prior bug was that it would delete all of pc's
+// rc if it's stale--a prior bug was that it would delete all of pc's
 // resources, and then get stuck in a loop deleting and recreating pc's RC if
 // the cluster was busy and the RC was taking too long to start.
 //
