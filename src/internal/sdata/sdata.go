@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -51,7 +52,7 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 		dbTypes = append(dbTypes, cType.DatabaseTypeName())
 	}
 	var count uint64
-	row := NewTupleFromSQL(cTypes)
+	row := newTupleFromSQL(cTypes)
 	for rows.Next() {
 		if err := rows.Scan(row...); err != nil {
 			return nil, errors.EnsureStack(err)
@@ -75,12 +76,13 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 }
 
 // NewTupleFromSQL returns a new Tuple based on column types from the sql package.
-func NewTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
+func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
 	row := make([]interface{}, len(colTypes))
 	for i, cType := range colTypes {
 		var err error
 		isNull, nullOk := cType.Nullable()
-		row[i], err = makeTupleElement(cType.DatabaseTypeName(), isNull || nullOk)
+		// If the driver doesn't support null, then use a nullable type just to be safe
+		row[i], err = makeTupleElement(cType.DatabaseTypeName(), isNull || !nullOk)
 		if err != nil {
 			panic(err)
 		}
@@ -106,14 +108,14 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 }
 
 func NewTupleFromTable(ctx context.Context, db *pachsql.DB, tableName string) (Tuple, error) {
-	colInfos, err := pachsql.GetTableColumns(ctx, db, tableName)
+	info, err := pachsql.GetTableInfo(ctx, db, tableName)
 	if err != nil {
 		return nil, err
 	}
-	tuple := make(Tuple, len(colInfos))
-	for i := range colInfos {
+	tuple := make(Tuple, len(info.Columns))
+	for i, ci := range info.Columns {
 		var err error
-		tuple[i], err = makeTupleElement(colInfos[i].DataType, colInfos[i].IsNullable)
+		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable)
 		if err != nil {
 			return nil, err
 		}
@@ -127,36 +129,43 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		if nullable {
 			return &sql.NullBool{}, nil
 		} else {
-			ret := false
-			return &ret, nil
+			return new(bool), nil
 		}
-	case "INT":
+	case "SMALLINT", "INT2":
+		if nullable {
+			return &sql.NullInt16{}, nil
+		} else {
+			return new(int16), nil
+		}
+	case "INT", "INT4":
 		if nullable {
 			return &sql.NullInt32{}, nil
 		} else {
-			ret := false
-			return &ret, nil
+			return new(int32), nil
 		}
-	case "BIGINT":
+	case "BIGINT", "INT8":
 		if nullable {
 			return &sql.NullInt64{}, nil
 		} else {
-			ret := false
-			return &ret, nil
+			return new(int64), nil
 		}
-	case "FLOAT":
+	case "FLOAT", "FLOAT8":
 		if nullable {
 			return &sql.NullFloat64{}, nil
 		} else {
-			ret := false
-			return &ret, nil
+			return new(float64), nil
 		}
 	case "VARCHAR", "TEXT":
 		if nullable {
 			return &sql.NullString{}, nil
 		} else {
-			ret := ""
-			return &ret, nil
+			return new(string), nil
+		}
+	case "TIMESTAMP":
+		if nullable {
+			return &sql.NullTime{}, nil
+		} else {
+			return new(time.Time), nil
 		}
 	default:
 		return nil, errors.Errorf("unrecognized type: %v", dbType)

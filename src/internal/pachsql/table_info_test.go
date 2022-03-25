@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-func TestGetTableColumns(t *testing.T) {
+func TestGetTableInfo(t *testing.T) {
 	type testCase struct {
 		Name  string
 		NewDB func(t testing.TB) *pachsql.DB
@@ -29,7 +29,7 @@ func TestGetTableColumns(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
 			// Create Table
-			infos, err := pachsql.GetTableColumns(ctx, db, "test_table")
+			infos, err := pachsql.GetTableInfo(ctx, db, "test_table")
 			require.NoError(t, err)
 			require.Len(t, infos, 3)
 		})

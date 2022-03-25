@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -174,99 +172,9 @@ func TestMaterializeSQL(t *testing.T) {
 }
 
 func setupTable(t testing.TB, db *pachsql.DB) {
-	type rowType struct {
-		Id int
-
-		Smallint int16
-		Int      int32
-		Bigint   int64
-		Float    float32
-		Varchar  string
-		Time     time.Time
-
-		SmallintNull sql.NullInt16
-		IntNull      sql.NullInt32
-		BigintNull   sql.NullInt64
-		FloatNull    sql.NullFloat64
-		VarcharNull  sql.NullString
-		TimeNull     sql.NullTime
-	}
-	_, err := db.Exec(`CREATE TABLE test_data (
-		c_id INT PRIMARY KEY NOT NULL,
-
-		c_smallint SMALLINT NOT NULL,
-		c_int INT NOT NULL,
-		c_bigint BIGINT NOT NULL,
-		c_float FLOAT NOT NULL,
-		c_varchar VARCHAR(100) NOT NULL,
-		c_time TIMESTAMP NOT NULL,
-
-		c_smallint_null SMALLINT NULL,
-		c_int_null INT NULL,
-		c_bigint_null BIGINT NULL,
-		c_float_null FLOAT NULL,
-		c_varchar_null VARCHAR(100) NULL,
-		c_time_null TIMESTAMP NULL
-	)`)
-	require.NoError(t, err)
 	const N = 10
-	fz := fuzz.New()
-	fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
-		*ti = time.Now()
-	})
-	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
-	for i := 0; i < N; i++ {
-		var x rowType
-		x.Time = time.Now()
-		if i > 0 {
-			fz.Fuzz(&x)
-		}
-		x.Id = i
-		insertStatement := `INSERT INTO test_data ` + formatColumns(x) + ` VALUES ` + formatValues(x, db)
-		_, err = db.Exec(insertStatement, makeArgs(x)...)
-		require.NoError(t, err)
-	}
-}
-
-func formatColumns(x interface{}) string {
-	var cols []string
-	rty := reflect.TypeOf(x)
-	for i := 0; i < rty.NumField(); i++ {
-		field := rty.Field(i)
-		col := "c_" + toSnakeCase(field.Name)
-		cols = append(cols, col)
-	}
-	return "(" + strings.Join(cols, ", ") + ")"
-}
-
-func formatValues(x interface{}, db *pachsql.DB) string {
-	var placeholder func(i int) string
-	switch db.DriverName() {
-	case "pgx":
-		placeholder = func(i int) string { return "$" + strconv.Itoa(i+1) }
-	case "mysql", "snowflake":
-		placeholder = func(int) string { return "?" }
-	default:
-		panic(db.DriverName())
-	}
-	var ret string
-	for i := 0; i < reflect.TypeOf(x).NumField(); i++ {
-		if i > 0 {
-			ret += ", "
-		}
-		ret += placeholder(i)
-	}
-	return "(" + ret + ")"
-}
-
-func makeArgs(x interface{}) []interface{} {
-	var vals []interface{}
-	rval := reflect.ValueOf(x)
-	for i := 0; i < rval.NumField(); i++ {
-		v := rval.Field(i).Interface()
-		vals = append(vals, v)
-	}
-	return vals
+	require.NoError(t, pachsql.CreateTestTable(db, "test_data"))
+	require.NoError(t, pachsql.LoadTestData(db, "test_data", N))
 }
 
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
