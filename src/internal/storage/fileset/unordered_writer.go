@@ -51,6 +51,11 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 	if err := uw.validate(p); err != nil {
 		return err
 	}
+	if !uw.buffer.CanWriteToPath(p) {
+		if err := uw.serialize(); err != nil {
+			return err
+		}
+	}
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
@@ -90,12 +95,14 @@ func (uw *UnorderedWriter) serialize() error {
 		return nil
 	}
 	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
+		if err := uw.buffer.WalkAdditive(uw.ctx, func(path, datum string, r io.Reader) error {
 			return w.Add(path, datum, r)
+		}, func(file File, datum string) error {
+			return w.Copy(file, datum)
 		}); err != nil {
 			return err
 		}
-		return uw.buffer.WalkDeletive(func(path, datum string) error {
+		return uw.buffer.WalkDeletive(uw.ctx, func(path, datum string) error {
 			return w.Delete(path, datum)
 		})
 	})
@@ -136,6 +143,11 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
+	if !uw.buffer.CanWriteToPath(p) {
+		if err := uw.serialize(); err != nil {
+			return err
+		}
+	}
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
 		uw.buffer.Delete(p, datum)
@@ -160,24 +172,17 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
-	if err := uw.serialize(); err != nil {
-		return err
-	}
+func (uw *UnorderedWriter) Copy(p, datum string, withAppend bool, getFS func(ctx context.Context) (FileSet, error)) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
-	return uw.withWriter(func(w *Writer) error {
-		err := fs.Iterate(ctx, func(f File) error {
-			if !appendFile {
-				if err := w.Delete(f.Index().Path, datum); err != nil {
-					return err
-				}
-			}
-			return w.Copy(f, datum)
-		})
-		return errors.EnsureStack(err)
-	})
+	if !uw.buffer.CanCopyToDir(p) {
+		if err := uw.serialize(); err != nil {
+			return err
+		}
+	}
+	uw.buffer.Copy(p, datum, withAppend, getFS)
+	return nil
 }
 
 // Close closes the writer.
