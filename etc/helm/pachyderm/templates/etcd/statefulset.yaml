@@ -85,19 +85,8 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       {{- end }}
-  volumeClaimTemplates:
-  - metadata:
-      labels:
-        app: etcd
-        suite: pachyderm
-      name: etcd-storage
-      namespace: {{ .Release.Namespace }}
-    spec:
-      {{- if .Values.etcd.storageClass }}
-      storageClassName: {{ .Values.etcd.storageClass }}
-      {{- end }}
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: {{ .Values.etcd.storageSize }}
+      volumes:
+          - name: etcd-storage
+            emptyDir:
+                medium: Memory
+                sizeLimit: {{ .Values.etcd.storageSize }}
