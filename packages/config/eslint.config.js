@@ -4,7 +4,6 @@ module.exports = {
     'eslint:recommended',
     'plugin:react/recommended',
     'plugin:@typescript-eslint/recommended',
-    'prettier/@typescript-eslint',
     'plugin:prettier/recommended',
     'plugin:cypress/recommended',
     'plugin:import/errors',
@@ -76,7 +75,7 @@ module.exports = {
   settings: {
     react: {
       pragma: 'React',
-      version: 'latest',
+      version: 'detect',
     },
     'import/extensions': ['.js', '.jsx', '.ts', '.tsx'],
     'import/parsers': {
