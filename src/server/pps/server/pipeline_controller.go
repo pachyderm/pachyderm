@@ -192,7 +192,6 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	var stepErr stepError
 	errCount := 0
 	err = backoff.RetryNotify(func() error {
-		// set pc.rc
 		// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 		// the pipeline indefinitely)
 		rc, err := pc.getRC(ctx, pi)
@@ -442,22 +441,14 @@ func (pc *pipelineController) setPipelineState(ctx context.Context, specCommit *
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
 func (pc *pipelineController) startPipelineMonitor(pi *pps.PipelineInfo) {
-	// since *pc.pipelineInfo may be modified on a Bump, and startMonitor() passes its
-	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of pc.pipelineInfo to
-	// avoid a race condition
 	if pc.monitorCancel == nil {
-		// TODO(acohen4): assess whether we should remove &(*pi)
-		pc.monitorCancel = pc.startMonitor(pc.ctx, &(*pi))
+		pc.monitorCancel = pc.startMonitor(pc.ctx, pi)
 	}
 }
 
 func (pc *pipelineController) startCrashingPipelineMonitor(pi *pps.PipelineInfo) {
-	// since *pc.pipelineInfo may be modified on a Bump, and startMonitor() passes its
-	// input pipelineInfo to a monitor goroutine, send a pointer to a copy of pc.pipelineInfo to
-	// avoid a race condition
 	if pc.crashingMonitorCancel == nil {
-		// TODO(acohen4): assess whether we should remove &(*pi)
-		pc.crashingMonitorCancel = pc.startCrashingMonitor(pc.ctx, &(*pi))
+		pc.crashingMonitorCancel = pc.startCrashingMonitor(pc.ctx, pi)
 	}
 }
 
