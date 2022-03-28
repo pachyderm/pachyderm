@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -42,9 +41,9 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, _ ...boo
 		}
 		return emit(p, f)
 	}
-	return errors.EnsureStack(s.x.Iterate(ctx, func(f File) error {
+	return s.x.Iterate(ctx, func(f File) error {
 		return emit(f.Index().Path, f)
-	}))
+	})
 }
 
 func parentOf(x string) string {

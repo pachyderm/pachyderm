@@ -151,10 +151,9 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 		if err != nil {
 			return err
 		}
-		err = fs.Iterate(uw.ctx, func(f File) error {
+		return fs.Iterate(uw.ctx, func(f File) error {
 			return uw.Delete(f.Index().Path, datum)
 		})
-		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
 	return nil
@@ -176,7 +175,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 			}
 			return w.Copy(f, datum)
 		})
-		return errors.EnsureStack(err)
+		return err
 	})
 }
 

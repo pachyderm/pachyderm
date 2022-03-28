@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
@@ -57,12 +56,12 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) MetadataStore) {
 
 func setMetadata(ctx context.Context, mds MetadataStore, id ID, md *Metadata) error {
 	return dbutil.WithTx(ctx, mds.DB(), func(tx *pachsql.Tx) error {
-		return errors.EnsureStack(mds.SetTx(tx, id, md))
+		return mds.SetTx(tx, id, md)
 	})
 }
 
 func deleteMetadata(ctx context.Context, mds MetadataStore, id ID) error {
 	return dbutil.WithTx(ctx, mds.DB(), func(tx *pachsql.Tx) error {
-		return errors.EnsureStack(mds.DeleteTx(tx, id))
+		return mds.DeleteTx(tx, id)
 	})
 }

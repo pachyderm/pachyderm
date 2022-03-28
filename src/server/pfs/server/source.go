@@ -77,7 +77,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
 		return cb(fi, f)
 	})
-	return errors.EnsureStack(err)
+	return err
 }
 
 func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, f fileset.File) (*pfs.FileInfo, bool, error) {

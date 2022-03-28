@@ -32,12 +32,12 @@ func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) err
 			idx := f.Index()
 			return w.Delete(idx.Path, idx.File.Datum)
 		}, deletive...); err != nil {
-			return errors.EnsureStack(err)
+			return err
 		}
 	}
-	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
+	return fs.Iterate(ctx, func(f File) error {
 		return w.Copy(f, f.Index().File.Datum)
-	}))
+	})
 }
 
 // WriteTarEntry writes an tar entry for f to w
@@ -48,7 +48,7 @@ func WriteTarEntry(ctx context.Context, w io.Writer, f File) error {
 		return errors.EnsureStack(err)
 	}
 	if err := f.Content(ctx, tw); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	return errors.EnsureStack(tw.Flush())
 }
@@ -59,7 +59,7 @@ func WriteTarStream(ctx context.Context, w io.Writer, fs FileSet) error {
 	if err := fs.Iterate(ctx, func(f File) error {
 		return WriteTarEntry(ctx, w, f)
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	return errors.EnsureStack(tar.NewWriter(w).Close())
 }

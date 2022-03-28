@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"go/types"
 	"io"
 	"runtime"
 
@@ -58,6 +59,8 @@ func EnsureStack(err error) error {
 	if _, ok := status.FromError(err); ok {
 		return &gRPCStatusError{WithStack(err)}
 	}
+
+	types.TypeString()
 
 	return WithStack(err)
 }

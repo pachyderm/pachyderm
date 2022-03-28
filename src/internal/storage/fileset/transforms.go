@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -48,7 +47,7 @@ func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, delet
 		}
 		return nil
 	}, deletive...)
-	return errors.EnsureStack(err)
+	return err
 }
 
 var _ FileSet = &indexMapper{}
@@ -71,7 +70,7 @@ func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, deletiv
 			inner: fr,
 		})
 	}, deletive...)
-	return errors.EnsureStack(err)
+	return err
 }
 
 var _ File = &indexMap{}
@@ -86,10 +85,9 @@ func (im *indexMap) Index() *index.Index {
 }
 
 func (im *indexMap) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
-	return errors.EnsureStack(im.inner.Content(ctx, w))
+	return im.inner.Content(ctx, w)
 }
 
 func (im *indexMap) Hash(ctx context.Context) ([]byte, error) {
-	res, err := im.inner.Hash(ctx)
-	return res, errors.EnsureStack(err)
+	return im.inner.Hash(ctx)
 }

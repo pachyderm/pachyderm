@@ -199,7 +199,7 @@ func (d *driver) validate(ctx context.Context, id *fileset.ID) (int64, string, e
 		size += index.SizeBytes(idx)
 		return nil
 	}); err != nil {
-		return 0, "", errors.EnsureStack(err)
+		return 0, "", err
 	}
 	return size, validationError, nil
 }
