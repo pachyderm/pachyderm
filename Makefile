@@ -32,6 +32,7 @@ GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
 CLUSTERS_REUSE ?= true
+PARALLELISM ?= 6
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
@@ -245,7 +246,7 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 4 -timeout $(TIMEOUT) -clusters.reuse $(RUN) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
