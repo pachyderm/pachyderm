@@ -78,16 +78,15 @@ func (b *Buffer) Delete(path, datum string) {
 func (b *Buffer) Stat(path, datum string) (int, bool) {
 	path = Clean(path, false)
 	f := b.additive[path][datum]
-	var size int
-	if f != nil {
-		size = f.buf.Len()
+	if f == nil {
+		return 0, false
 	}
-	return size, f.copy != nil
+	return f.buf.Len(), f.copy != nil
 }
 
 func (b *Buffer) Copy(file File, datum string) {
 	f := b.addInternal(file.Index().Path, datum)
-	if f.buf.Len() > 0 {
+	if f.buf.Len() > 0 || f.copy != nil {
 		panic("unsafe copy")
 	}
 	f.copy = file

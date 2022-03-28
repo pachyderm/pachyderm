@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -173,22 +176,33 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 		datum = DefaultFileDatum
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	eg, ctx := errgroup.WithContext(ctx)
 	fileChan := make(chan File, 10)
-	go func() {
+
+	eg.Go(func() error {
 		defer close(fileChan)
-		fs.Iterate(ctx, func(f File) error {
-			fileChan <- f
+		return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
+			select {
+			case <-ctx.Done():
+				return errutil.ErrBreak
+			case fileChan <- f:
+			}
 			return nil
-		})
-	}()
+		}))
+	})
 
 	firstFile, more := <-fileChan
 	if !more {
 		return nil // nothing to do
 	}
+
 	secondFile, more := <-fileChan
-	if more {
+	if !more {
+		// just one file in the file set, special case
+		if err := uw.copySingle(firstFile, datum, appendFile); err != nil {
+			return err
+		}
+	} else {
 		// multiple files, serialize and do the copy in a new fileset
 		if err := uw.serialize(); err != nil {
 			return err
@@ -201,24 +215,24 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 			}
 			return w.Copy(f, datum)
 		}
-		return uw.withWriter(func(w *Writer) error {
-			defer cancel() // stop iteration on error
-			if err := doCopy(w, firstFile); err != nil {
-				return err
-			}
-			if err := doCopy(w, secondFile); err != nil {
-				return err
-			}
-			for f := range fileChan {
-				if err := doCopy(w, f); err != nil {
+		eg.Go(func() error {
+			return uw.withWriter(func(w *Writer) error {
+				if err := doCopy(w, firstFile); err != nil {
 					return err
 				}
-			}
-			return nil
+				if err := doCopy(w, secondFile); err != nil {
+					return err
+				}
+				for f := range fileChan {
+					if err := doCopy(w, f); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
 		})
 	}
-	// single file, special case
-	return uw.copySingle(firstFile, datum, appendFile)
+	return errors.EnsureStack(eg.Wait())
 }
 
 func (uw *UnorderedWriter) copySingle(file File, datum string, appendFile bool) error {
