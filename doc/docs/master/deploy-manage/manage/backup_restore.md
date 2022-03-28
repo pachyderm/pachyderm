@@ -3,6 +3,9 @@
 This page will walk you through the main steps required
 to manually back up and restore the state of a Pachyderm cluster in production.
 
+!!! Warning "Reminder"
+     A production setting of Pachyderm implies that you are running a managed PostgreSQL instance.
+
 Details on how to perform those steps might vary depending
 on your infrastructure and cloud provider / on-premises setup. 
 
