@@ -124,7 +124,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
 					if !dbPipelines[pipeline] {
-						m.eventCh <- &pipelineEvent{eventType: deleteEv, pipeline: pipeline}
+						m.eventCh <- &pipelineEvent{pipeline: pipeline}
 					}
 				}
 			}
@@ -153,7 +153,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 		// generate a pipeline event for 'pipeline'
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
 		select {
-		case m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}:
+		case m.eventCh <- &pipelineEvent{pipeline: pipeline}:
 			break
 		case <-ctx.Done():
 			break
@@ -288,13 +288,11 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			switch event.Type {
 			case watch.EventPut:
 				e = &pipelineEvent{
-					eventType: writeEv,
 					pipeline:  pipelineName,
 					timestamp: time.Unix(event.Rev, 0),
 				}
 			case watch.EventDelete:
 				e = &pipelineEvent{
-					eventType: deleteEv,
 					pipeline:  pipelineName,
 					timestamp: time.Unix(event.Rev, 0),
 				}
