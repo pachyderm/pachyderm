@@ -284,24 +284,19 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			if err != nil {
 				return errors.Wrap(err, "bad watch event key")
 			}
-			var e *pipelineEvent
 			switch event.Type {
-			case watch.EventPut:
-				e = &pipelineEvent{
+			case watch.EventPut, watch.EventDelete:
+				e := &pipelineEvent{
 					pipeline:  pipelineName,
 					timestamp: time.Unix(event.Rev, 0),
 				}
-			case watch.EventDelete:
-				e = &pipelineEvent{
-					pipeline:  pipelineName,
-					timestamp: time.Unix(event.Rev, 0),
+				select {
+				case m.eventCh <- e:
+				case <-m.masterCtx.Done():
+					return errors.Wrap(err, "pipeline event arrived while master is restarting")
 				}
-			}
-			select {
-			case m.eventCh <- e:
-				continue
-			case <-m.masterCtx.Done():
-				return errors.Wrap(err, "pipeline event arrived while master is restarting")
+			case watch.EventError:
+				log.Errorf("watchPipelines received an errored event from the pipelines watcher, %v", event.Err)
 			}
 		}
 		return nil // reset until ctx is cancelled (RetryUntilCancel)
