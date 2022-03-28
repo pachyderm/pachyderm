@@ -82,28 +82,28 @@ you can use `pg_dumpall` to dump your entire PostgreSQL state.
     Note that if you are using a cloud provider, you might
     choose to use the provider’s method of making PostgreSQL backups.
 
-    Here are some pointers to the relevant documentation:
+    !!! Info "Here are some pointers to the relevant documentation"
 
-      - [PostgreSQL on AWS RDS backup](https://aws.amazon.com/backup/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc){target=_blank}
-      - [GCP Cloud SQL backup](https://cloud.google.com/sql/docs/postgres/backup-recovery/backing-up){target=_blank}
-      - [Azure Database for PostgreSQL backup](https://docs.microsoft.com/en-us/azure/backup/backup-azure-database-postgresql){target=_blank}
+         - [PostgreSQL on AWS RDS backup](https://aws.amazon.com/backup/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc){target=_blank}
+         - [GCP Cloud SQL backup](https://cloud.google.com/sql/docs/postgres/backup-recovery/backing-up){target=_blank}
+         - [Azure Database for PostgreSQL backup](https://docs.microsoft.com/en-us/azure/backup/backup-azure-database-postgresql){target=_blank}
 
-        For on-premises Kubernetes deployments, check the vendor documentation
-        for your on-premises PostgreSQL for details on backing up and restoring your databases.
+         For on-premises Kubernetes deployments, check the vendor documentation
+         for your on-premises PostgreSQL for details on backing up and restoring your databases.
 
 - To back up the object store, you can either download all objects or
 use the object store provider’s backup method.  
     The latter is preferable since it will typically not incur egress costs.
 
-    Here are some pointers to the relevant documentation:
+    !!! Info "Here are some pointers to the relevant documentation"
 
-      - [AWS backup for S3](https://aws.amazon.com/backup/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc){target=_blank}
-      - [GCP Cloud storage bucket backup](https://cloud.google.com/storage-transfer/docs/overview){target=_blank}
-      - [Azure blob backup](https://docs.microsoft.com/en-us/azure/backup/blob-backup-configure-manage){target=_blank}
+         - [AWS backup for S3](https://aws.amazon.com/backup/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc){target=_blank}
+         - [GCP Cloud storage bucket backup](https://cloud.google.com/storage-transfer/docs/overview){target=_blank}
+         - [Azure blob backup](https://docs.microsoft.com/en-us/azure/backup/blob-backup-configure-manage){target=_blank}
 
-        For on-premises Kubernetes deployments, check the vendor documentation
-        for your on-premises object store for details on backing up and
-        restoring a bucket.
+         For on-premises Kubernetes deployments, check the vendor documentation
+         for your on-premises object store for details on backing up and
+         restoring a bucket.
 
 ### Resuming operations
 
