@@ -2,6 +2,8 @@ package chunk
 
 import (
 	"context"
+
+	"golang.org/x/sync/semaphore"
 )
 
 type ChunkFunc = func([]interface{}, *DataRef) error
@@ -31,7 +33,7 @@ func (s *Storage) NewBatcher(ctx context.Context, name string, threshold int, op
 	b := &Batcher{
 		client:    client,
 		threshold: threshold,
-		taskChain: NewTaskChain(ctx, 100),
+		taskChain: NewTaskChain(ctx, semaphore.NewWeighted(chunkParallelism)),
 	}
 	for _, opt := range opts {
 		opt(b)
