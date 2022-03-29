@@ -20,7 +20,7 @@ Pachyderm is the leader in data versioning and pipelines for MLOps.  We provide 
 - Data-Driven Pipelines — Pachyderm’s Containerized Pipelines speed data processing while lowering compute costs
 - Immutable Data Lineage — Pachyderm’s Data Lineage provides an immutable record for all activities and assets in the ML lifecycle
 - Console — The Pachyderm Console provides an intuitive visualization of your DAG (directed acyclic graph) and aids in reproducibility
-- Notebooks — Pachyderm Notebooks provide an easy way to interact with Pachyderm Data Versioning and Pipelines via Jupyter notebooks
+- Notebooks — Pachyderm’s JupyterLab Mount Extension provides a point-and-click interface to Pachyderm versioned data
 - Enterprise Administration — Pachyderm provides robust tools for deploying and administering Pachyderm at scale across different teams in your organization
 
 
