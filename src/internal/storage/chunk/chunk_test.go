@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"bytes"
 	"math/rand"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // TODO: Write new tests.
@@ -42,7 +44,7 @@ func BenchmarkRollingHash(b *testing.B) {
 	seed := time.Now().UTC().UnixNano()
 	random := rand.New(rand.NewSource(seed))
 	data := randutil.Bytes(random, 100*units.MB)
-	b.SetBytes(100 * units.MB)
+	b.SetBytes(int64(len(data)))
 	hash := buzhash64.New()
 	splitMask := uint64((1 << uint64(23)) - 1)
 	b.ResetTimer()
@@ -55,6 +57,17 @@ func BenchmarkRollingHash(b *testing.B) {
 			if hash.Sum64()&splitMask == 0 {
 			}
 		}
+	}
+}
+
+func BenchmarkComputeChunks(b *testing.B) {
+	seed := time.Now().UTC().UnixNano()
+	random := rand.New(rand.NewSource(seed))
+	data := randutil.Bytes(random, 100*units.MB)
+	b.SetBytes(int64(len(data)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		require.NoError(b, ComputeChunks(bytes.NewReader(data), func(_ []byte) error { return nil }))
 	}
 }
 

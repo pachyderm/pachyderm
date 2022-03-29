@@ -1,8 +1,7 @@
 package chunk
 
 import (
-	io "io"
-	"math"
+	"io"
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
@@ -19,62 +18,47 @@ const (
 var initialWindow = make([]byte, WindowSize)
 
 const (
-	defaultAverageBits  = 23
-	defaultSeed         = 1
-	defaultMinChunkSize = 1 * units.MB
-	defaultMaxChunkSize = 20 * units.MB
+	DefaultAverageBits  = 23
+	DefaultSeed         = 1
+	DefaultMinChunkSize = 1 * units.MB
+	DefaultMaxChunkSize = 20 * units.MB
 )
-
-type chunkSize struct {
-	min, avg, max int
-}
 
 // TODO: Expose configuration.
 func ComputeChunks(r io.Reader, cb func([]byte) error) error {
 	buf := make([]byte, units.MB)
-	hash := buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(defaultSeed))
-	resetHash(hash)
-	splitMask := uint64((1 << uint64(defaultAverageBits)) - 1)
 	var chunkBuf []byte
-	chunkSize := &chunkSize{
-		min: defaultMinChunkSize,
-		avg: int(math.Pow(2, float64(defaultAverageBits))),
-		max: defaultMaxChunkSize,
-	}
+	hash := buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(DefaultSeed))
+	resetHash(hash)
+	splitMask := uint64((1 << uint64(DefaultAverageBits)) - 1)
 	for {
 		n, err := r.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
 			return errors.EnsureStack(err)
 		}
 		data := buf[:n]
-		offset := 0
-		for i, b := range data {
-			hash.Roll(b)
-			if hash.Sum64()&splitMask == 0 {
-				if len(chunkBuf)+len(data[offset:i+1]) < chunkSize.min {
-					continue
-				}
-				chunkBuf = append(chunkBuf, data[offset:i+1]...)
+		for _, b := range data {
+			chunkBuf = append(chunkBuf, b)
+			if len(chunkBuf) >= DefaultMaxChunkSize {
 				if err := cb(chunkBuf); err != nil {
 					return err
 				}
 				resetHash(hash)
 				chunkBuf = nil
-				offset = i + 1
 				continue
 			}
-			// TODO: This can be optimized a bit by accounting for it before rolling the data.
-			if len(chunkBuf)+len(data[offset:i+1]) >= chunkSize.max {
-				chunkBuf = append(chunkBuf, data[offset:i+1]...)
+			hash.Roll(b)
+			if hash.Sum64()&splitMask == 0 {
+				if len(chunkBuf) < DefaultMinChunkSize {
+					continue
+				}
 				if err := cb(chunkBuf); err != nil {
 					return err
 				}
 				resetHash(hash)
 				chunkBuf = nil
-				offset = i + 1
 			}
 		}
-		chunkBuf = append(chunkBuf, data[offset:]...)
 		if errors.Is(err, io.EOF) {
 			return cb(chunkBuf)
 		}
