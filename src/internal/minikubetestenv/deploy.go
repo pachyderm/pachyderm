@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -59,15 +60,16 @@ func helmLock(f helmPutE) helmPutE {
 func helmChartLocalPath(t testing.TB) string {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
-	cnt := 0
-	parts := strings.Split(dir, "/")
+	parts := strings.Split(dir, string(os.PathSeparator))
+	var relPathParts []string
 	for i := len(parts) - 1; i >= 0; i-- {
-		cnt++
+		relPathParts = append(relPathParts, "..")
 		if parts[i] == "src" {
 			break
 		}
 	}
-	return strings.Repeat("../", cnt) + "etc/helm/pachyderm"
+	relPathParts = append(relPathParts, "etc", "helm", "pachyderm")
+	return filepath.Join(relPathParts...)
 }
 
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
