@@ -2,6 +2,7 @@ import {ServiceError} from '@grpc/grpc-js';
 import {
   RepoInfo,
   CommitInfo,
+  DatumInfo,
   PipelineInfo,
   JobInfo,
   LogMessage,
@@ -13,6 +14,7 @@ import {
 import cloneDeep from 'lodash/cloneDeep';
 
 import commits from '@dash-backend/mock/fixtures/commits';
+import datums from '@dash-backend/mock/fixtures/datums';
 import diffResponses from '@dash-backend/mock/fixtures/diffResponses';
 import files, {Files} from '@dash-backend/mock/fixtures/files';
 import jobs from '@dash-backend/mock/fixtures/jobs';
@@ -52,6 +54,9 @@ export type StateType = {
     [projectId: string]: Project;
   };
   projectInfo: Projects;
+  datums: {
+    [projectId: string]: {[pipelineId: string]: {[jobId: string]: DatumInfo[]}};
+  };
 };
 
 const defaultState: StateType = {
@@ -68,6 +73,7 @@ const defaultState: StateType = {
   workspaceLogs,
   projects,
   projectInfo,
+  datums,
 };
 
 class MockState {

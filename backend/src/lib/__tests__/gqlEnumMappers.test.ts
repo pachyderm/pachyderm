@@ -4,6 +4,7 @@ import {
   PipelineState,
   ProjectStatus,
   OriginKind,
+  DatumState,
 } from '@pachyderm/node-pachyderm';
 
 import {OriginKind as GQLOriginKind} from '@graphqlTypes';
@@ -15,6 +16,7 @@ import {
   toGQLProjectStatus,
   toGQLCommitOrigin,
   toProtoCommitOrigin,
+  toGQLDatumState,
 } from '../gqlEnumMappers';
 
 describe('gqlEnumMappers', () => {
@@ -68,6 +70,15 @@ describe('gqlEnumMappers', () => {
       Object.values(GQLOriginKind).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toProtoCommitOrigin(val)).not.toThrowError();
+      });
+    });
+  });
+
+  describe('toGQLDatumState', () => {
+    it('should not return an error for any proto datum state', () => {
+      Object.values(DatumState).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toGQLDatumState(val)).not.toThrowError();
       });
     });
   });

@@ -20,6 +20,16 @@ export const CommitFragmentFragmentDoc = gql`
     hasLinkedJob
   }
 `;
+export const DatumFragmentDoc = gql`
+  fragment Datum on Datum {
+    id
+    state
+    downloadBytes
+    uploadTime
+    processTime
+    downloadTime
+  }
+`;
 export const DiffFragmentFragmentDoc = gql`
   fragment DiffFragment on Diff {
     size
@@ -926,6 +936,116 @@ export type GetDagsSubscriptionHookResult = ReturnType<
 >;
 export type GetDagsSubscriptionResult =
   Apollo.SubscriptionResult<Types.GetDagsSubscription>;
+export const DatumDocument = gql`
+  query datum($args: DatumQueryArgs!) {
+    datum(args: $args) {
+      ...Datum
+    }
+  }
+  ${DatumFragmentDoc}
+`;
+
+/**
+ * __useDatumQuery__
+ *
+ * To run a query within a React component, call `useDatumQuery` and pass it any options that fit your needs.
+ * When your component renders, `useDatumQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useDatumQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useDatumQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.DatumQuery,
+    Types.DatumQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.DatumQuery, Types.DatumQueryVariables>(
+    DatumDocument,
+    options,
+  );
+}
+export function useDatumLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.DatumQuery,
+    Types.DatumQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.DatumQuery, Types.DatumQueryVariables>(
+    DatumDocument,
+    options,
+  );
+}
+export type DatumQueryHookResult = ReturnType<typeof useDatumQuery>;
+export type DatumLazyQueryHookResult = ReturnType<typeof useDatumLazyQuery>;
+export type DatumQueryResult = Apollo.QueryResult<
+  Types.DatumQuery,
+  Types.DatumQueryVariables
+>;
+export const DatumsDocument = gql`
+  query datums($args: DatumsQueryArgs!) {
+    datums(args: $args) {
+      ...Datum
+    }
+  }
+  ${DatumFragmentDoc}
+`;
+
+/**
+ * __useDatumsQuery__
+ *
+ * To run a query within a React component, call `useDatumsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useDatumsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useDatumsQuery({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useDatumsQuery(
+  baseOptions: Apollo.QueryHookOptions<
+    Types.DatumsQuery,
+    Types.DatumsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<Types.DatumsQuery, Types.DatumsQueryVariables>(
+    DatumsDocument,
+    options,
+  );
+}
+export function useDatumsLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.DatumsQuery,
+    Types.DatumsQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<Types.DatumsQuery, Types.DatumsQueryVariables>(
+    DatumsDocument,
+    options,
+  );
+}
+export type DatumsQueryHookResult = ReturnType<typeof useDatumsQuery>;
+export type DatumsLazyQueryHookResult = ReturnType<typeof useDatumsLazyQuery>;
+export type DatumsQueryResult = Apollo.QueryResult<
+  Types.DatumsQuery,
+  Types.DatumsQueryVariables
+>;
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {

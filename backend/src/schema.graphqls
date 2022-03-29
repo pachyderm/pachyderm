@@ -65,6 +65,15 @@ enum NodeState {
   ERROR
 }
 
+enum DatumState {
+  UNKOWN
+  FAILED
+  SUCCESS
+  SKIPPED
+  STARTING
+  RECOVERED
+}
+
 enum OriginKind {
   USER
   AUTO
@@ -488,6 +497,30 @@ type Log {
   user: Boolean!
 }
 
+type Datum {
+  id: ID!
+  state: DatumState!
+  downloadBytes: Float
+  uploadTime: Int
+  processTime: Int
+  downloadTime: Int
+}
+
+input DatumsQueryArgs {
+  projectId: String!
+  jobId: ID!
+  pipelineId: ID!
+  limit: Int
+  offset: Int
+}
+
+input DatumQueryArgs {
+  projectId: String!
+  id: ID!
+  jobId: ID!
+  pipelineId: ID!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -510,6 +543,8 @@ type Query {
   commit(args: CommitQueryArgs!): Commit!
   commits(args: CommitsQueryArgs!): [Commit!]!
   branch(args: BranchQueryArgs!): Branch!
+  datum(args: DatumQueryArgs!): Datum!
+  datums(args: DatumsQueryArgs!): [Datum!]
 }
 
 type Subscription {

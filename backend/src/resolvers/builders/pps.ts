@@ -5,6 +5,7 @@ import {
   LogMessage,
   JobInfo,
   JobSetInfo,
+  DatumInfo,
 } from '@pachyderm/node-pachyderm';
 import isEmpty from 'lodash/isEmpty';
 
@@ -12,6 +13,7 @@ import formatBytes from '@dash-backend/lib/formatBytes';
 import {
   toGQLJobState,
   toGQLPipelineState,
+  toGQLDatumState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import omitByDeep from '@dash-backend/lib/omitByDeep';
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
@@ -23,6 +25,7 @@ import {
   Repo,
   Branch as GQLBranch,
   JobSet,
+  Datum,
 } from '@graphqlTypes';
 
 const derivePipelineType = (pipelineInfo: PipelineInfo.AsObject) => {
@@ -193,5 +196,16 @@ export const logMessageToGQLLog = (logMessage: LogMessage.AsObject) => {
     message: logMessage.message,
     timestamp: logMessage.ts,
     user: logMessage.user,
+  };
+};
+
+export const datumInfoToGQLDatum = (datumInfo: DatumInfo.AsObject): Datum => {
+  return {
+    id: datumInfo.datum?.id || '',
+    state: toGQLDatumState(datumInfo.state),
+    downloadBytes: datumInfo.stats?.downloadBytes,
+    uploadTime: datumInfo.stats?.uploadTime?.seconds,
+    processTime: datumInfo.stats?.processTime?.seconds,
+    downloadTime: datumInfo.stats?.downloadTime?.seconds,
   };
 };

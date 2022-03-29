@@ -4,6 +4,7 @@ import {
   PipelineState,
   ProjectStatus,
   OriginKind,
+  DatumState,
 } from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 
@@ -13,6 +14,7 @@ import {
   PipelineState as GQLPipelineState,
   JobState as GQLJobState,
   OriginKind as GQLOriginKind,
+  DatumState as GQLDatumState,
 } from '@graphqlTypes';
 
 /*
@@ -126,5 +128,24 @@ export const toProtoCommitOrigin = (originKind?: GQLOriginKind): OriginKind => {
       return OriginKind.ORIGIN_KIND_UNKNOWN;
     default:
       throw new ApolloError(`Unknown origin kind ${originKind}`);
+  }
+};
+
+export const toGQLDatumState = (state: DatumState) => {
+  switch (state) {
+    case DatumState.FAILED:
+      return GQLDatumState.FAILED;
+    case DatumState.RECOVERED:
+      return GQLDatumState.RECOVERED;
+    case DatumState.SKIPPED:
+      return GQLDatumState.SKIPPED;
+    case DatumState.STARTING:
+      return GQLDatumState.STARTING;
+    case DatumState.SUCCESS:
+      return GQLDatumState.SUCCESS;
+    case DatumState.UNKNOWN:
+      return GQLDatumState.UNKOWN;
+    default:
+      throw new ApolloError(`Uknown datum state ${state}`);
   }
 };

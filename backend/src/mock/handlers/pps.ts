@@ -35,6 +35,8 @@ const pps = () => {
       | 'getLogs'
       | 'createPipeline'
       | 'deletePipeline'
+      | 'inspectDatum'
+      | 'listDatum'
     > => {
       return {
         listPipeline: async (call) => {
@@ -268,6 +270,42 @@ const pps = () => {
             });
 
           callback(null, new Empty());
+        },
+        listDatum: async (call) => {
+          const [projectId] = call.metadata.get('project-id');
+          const pipelineName =
+            call.request.getJob()?.getPipeline()?.getName() || '';
+          const jobId = call.request.getJob()?.getId() || '';
+          const projectDatums =
+            MockState.state.datums[projectId.toString()] ||
+            MockState.state.datums['default'];
+
+          const datums = projectDatums[pipelineName][jobId];
+
+          datums.forEach((datum) => call.write(datum));
+          call.end();
+        },
+        inspectDatum: (call, callback) => {
+          const [projectId] = call.metadata.get('project-id');
+          const pipelineName =
+            call.request.getDatum()?.getJob()?.getPipeline()?.getName() || '';
+          const jobId = call.request.getDatum()?.getJob()?.getId() || '';
+          const datumId = call.request.getDatum()?.getId();
+          const projectDatums =
+            MockState.state.datums[projectId.toString()] ||
+            MockState.state.datums['default'];
+
+          const datums = projectDatums[pipelineName][jobId];
+
+          const matchingDatum = datums.find(
+            (datumInfo) => datumInfo.getDatum()?.getId() === datumId,
+          );
+
+          if (matchingDatum) {
+            callback(null, matchingDatum);
+          } else {
+            callback({code: Status.NOT_FOUND, details: 'datum not found'});
+          }
         },
       };
     },

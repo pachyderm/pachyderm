@@ -7,6 +7,7 @@ import authResolver from './Auth';
 import branchResolver from './Branch';
 import commitResolver from './Commit';
 import dagResolver from './Dag';
+import datumResolver from './Datum';
 import fileResolver from './File';
 import jobResolver from './Job';
 import logsResolver from './Logs';
@@ -18,6 +19,7 @@ import searchResolver from './Search';
 const resolvers: Resolvers = merge(
   fileResolver,
   dagResolver,
+  datumResolver,
   logsResolver,
   repoResolver,
   authResolver,

@@ -135,6 +135,40 @@ export type DagQueryArgs = {
   jobSetId?: Maybe<Scalars['ID']>;
 };
 
+export type Datum = {
+  __typename?: 'Datum';
+  id: Scalars['ID'];
+  state: DatumState;
+  downloadBytes?: Maybe<Scalars['Float']>;
+  uploadTime?: Maybe<Scalars['Int']>;
+  processTime?: Maybe<Scalars['Int']>;
+  downloadTime?: Maybe<Scalars['Int']>;
+};
+
+export type DatumQueryArgs = {
+  projectId: Scalars['String'];
+  id: Scalars['ID'];
+  jobId: Scalars['ID'];
+  pipelineId: Scalars['ID'];
+};
+
+export enum DatumState {
+  UNKOWN = 'UNKOWN',
+  FAILED = 'FAILED',
+  SUCCESS = 'SUCCESS',
+  SKIPPED = 'SKIPPED',
+  STARTING = 'STARTING',
+  RECOVERED = 'RECOVERED',
+}
+
+export type DatumsQueryArgs = {
+  projectId: Scalars['String'];
+  jobId: Scalars['ID'];
+  pipelineId: Scalars['ID'];
+  limit?: Maybe<Scalars['Int']>;
+  offset?: Maybe<Scalars['Int']>;
+};
+
 export type DeleteFileArgs = {
   filePath: Scalars['String'];
   repo: Scalars['String'];
@@ -525,6 +559,8 @@ export type Query = {
   commit: Commit;
   commits: Array<Commit>;
   dag: Array<Vertex>;
+  datum: Datum;
+  datums?: Maybe<Array<Datum>>;
   files: FileQueryResponse;
   job: Job;
   jobSet: JobSet;
@@ -557,6 +593,14 @@ export type QueryCommitsArgs = {
 
 export type QueryDagArgs = {
   args: DagQueryArgs;
+};
+
+export type QueryDatumArgs = {
+  args: DatumQueryArgs;
+};
+
+export type QueryDatumsArgs = {
+  args: DatumsQueryArgs;
 };
 
 export type QueryFilesArgs = {
@@ -871,6 +915,10 @@ export type ResolversTypes = ResolversObject<{
   CreateRepoArgs: CreateRepoArgs;
   CronInput: ResolverTypeWrapper<CronInput>;
   DagQueryArgs: DagQueryArgs;
+  Datum: ResolverTypeWrapper<Datum>;
+  DatumQueryArgs: DatumQueryArgs;
+  DatumState: DatumState;
+  DatumsQueryArgs: DatumsQueryArgs;
   DeleteFileArgs: DeleteFileArgs;
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
@@ -956,6 +1004,9 @@ export type ResolversParentTypes = ResolversObject<{
   CreateRepoArgs: CreateRepoArgs;
   CronInput: CronInput;
   DagQueryArgs: DagQueryArgs;
+  Datum: Datum;
+  DatumQueryArgs: DatumQueryArgs;
+  DatumsQueryArgs: DatumsQueryArgs;
   DeleteFileArgs: DeleteFileArgs;
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
@@ -1079,6 +1130,27 @@ export type CronInputResolvers<
 > = ResolversObject<{
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   repo?: Resolver<ResolversTypes['Repo'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type DatumResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['Datum'] = ResolversParentTypes['Datum'],
+> = ResolversObject<{
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['DatumState'], ParentType, ContextType>;
+  downloadBytes?: Resolver<
+    Maybe<ResolversTypes['Float']>,
+    ParentType,
+    ContextType
+  >;
+  uploadTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  processTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  downloadTime?: Resolver<
+    Maybe<ResolversTypes['Int']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1459,6 +1531,18 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryDagArgs, 'args'>
   >;
+  datum?: Resolver<
+    ResolversTypes['Datum'],
+    ParentType,
+    ContextType,
+    RequireFields<QueryDatumArgs, 'args'>
+  >;
+  datums?: Resolver<
+    Maybe<Array<ResolversTypes['Datum']>>,
+    ParentType,
+    ContextType,
+    RequireFields<QueryDatumsArgs, 'args'>
+  >;
   files?: Resolver<
     ResolversTypes['FileQueryResponse'],
     ParentType,
@@ -1689,6 +1773,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   BranchInfo?: BranchInfoResolvers<ContextType>;
   Commit?: CommitResolvers<ContextType>;
   CronInput?: CronInputResolvers<ContextType>;
+  Datum?: DatumResolvers<ContextType>;
   Diff?: DiffResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
@@ -1736,6 +1821,16 @@ export type CommitFragmentFragment = {__typename?: 'Commit'} & Pick<
   | 'sizeDisplay'
   | 'hasLinkedJob'
 > & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>};
+
+export type DatumFragment = {__typename?: 'Datum'} & Pick<
+  Datum,
+  | 'id'
+  | 'state'
+  | 'downloadBytes'
+  | 'uploadTime'
+  | 'processTime'
+  | 'downloadTime'
+>;
 
 export type DiffFragmentFragment = {__typename?: 'Diff'} & Pick<
   Diff,
@@ -1960,6 +2055,22 @@ export type GetDagsSubscription = {__typename?: 'Subscription'} & {
       | 'createdAt'
     >
   >;
+};
+
+export type DatumQueryVariables = Exact<{
+  args: DatumQueryArgs;
+}>;
+
+export type DatumQuery = {__typename?: 'Query'} & {
+  datum: {__typename?: 'Datum'} & DatumFragment;
+};
+
+export type DatumsQueryVariables = Exact<{
+  args: DatumsQueryArgs;
+}>;
+
+export type DatumsQuery = {__typename?: 'Query'} & {
+  datums?: Maybe<Array<{__typename?: 'Datum'} & DatumFragment>>;
 };
 
 export type GetFilesQueryVariables = Exact<{
