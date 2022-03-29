@@ -129,7 +129,10 @@ func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 				}
 				return nil
 			})
-			return uploader.Upload(nil, r)
+			if err := uploader.Upload(nil, r); err != nil {
+				return err
+			}
+			return uploader.Close()
 		}); err != nil {
 			return nil, err
 		}
