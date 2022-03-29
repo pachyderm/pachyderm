@@ -457,8 +457,9 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 func newPachdConfigMap(namespace, unpausedMode string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pachd-config",
-			Namespace: namespace,
+			Name:        "pachd-config",
+			Namespace:   namespace,
+			Annotations: make(map[string]string),
 		},
 		Data: map[string]string{"MODE": unpausedMode},
 	}
