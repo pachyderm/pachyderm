@@ -148,6 +148,12 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	}
 }
 
+// UpdateReplicationController intends to server {scaleUp,scaleDown}Pipeline.
+// It includes all of the logic for writing an updated RC spec to kubernetes,
+// and updating/retrying if k8s rejects the write. It presents a strange API,
+// since the the RC being updated is already available to the caller, but update()
+// may be called muliple times if the k8s write fails. It may be helpful to think
+// of the 'old' rc passed to update() as mutable.
 func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	rcs := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace)
 	kd.limiter.Acquire()
