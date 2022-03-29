@@ -12,6 +12,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 )
 
+const (
+	DefaultBatchThreshold = units.MB
+)
+
 type levelWriter struct {
 	buf               *bytes.Buffer
 	batcher           *chunk.Batcher
@@ -72,7 +76,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 
 func (w *Writer) setupLevel(idx *Index, level int) {
 	if level == w.numLevels() {
-		batcher := w.chunks.NewBatcher(w.ctx, w.tmpID, units.MB, chunk.WithChunkCallback(w.callback(level)))
+		batcher := w.chunks.NewBatcher(w.ctx, w.tmpID, DefaultBatchThreshold, chunk.WithChunkCallback(w.callback(level)))
 		w.createLevel(&levelWriter{
 			buf:      &bytes.Buffer{},
 			batcher:  batcher,

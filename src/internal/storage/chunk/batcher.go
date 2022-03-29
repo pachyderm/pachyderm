@@ -6,9 +6,19 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+// ChunkFunc is a function that provides the metadata for the entries in a chunk and a reference to the chunk.
 type ChunkFunc = func([]interface{}, *DataRef) error
+
+// EntryFunc is a function that provides the metadata for an entry and a reference to the entry in a chunk.
 type EntryFunc = func(interface{}, *DataRef) error
 
+// Batcher batches entries into chunks.
+// Entries are buffered until they are past the configured threshold, then a chunk is created.
+// Chunk creation is asynchronous with respect to the client, which is why the interface
+// is callback based.
+// Batcher provides one of two callback based interfaces defined by ChunkFunc and EntryFunc.
+// Callbacks will be executed with respect to the order the entries are added (for the ChunkFunc
+// interface, entries are ordered within as well as across calls).
 type Batcher struct {
 	client    Client
 	entries   []*entry

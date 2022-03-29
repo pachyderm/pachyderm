@@ -73,7 +73,7 @@ func (w *Writer) Add(path, datum string, r io.Reader) error {
 		return err
 	}
 	w.idx = idx
-	// Handle files less than or equal to the batch threshold.
+	// Handle files less than the batch threshold.
 	buf := &bytes.Buffer{}
 	_, err := io.CopyN(buf, r, int64(w.batchThreshold))
 	if err != nil {
@@ -82,7 +82,7 @@ func (w *Writer) Add(path, datum string, r io.Reader) error {
 		}
 		return errors.EnsureStack(err)
 	}
-	// Handle files greater than the batch threshold.
+	// Handle files greater than or equal to the batch threshold.
 	r = io.MultiReader(buf, r)
 	return w.uploader.Upload(idx, r)
 }
@@ -157,7 +157,7 @@ func (w *Writer) Close() (*ID, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Rethink / rework merging the two additive indexes.
+	// TODO: Rethink / rework merging the two additive indexes?
 	additiveMerge := index.NewWriter(w.ctx, w.storage.ChunkStorage(), "additive-merge-index-writer")
 	if err := index.Merge(w.ctx, w.storage.ChunkStorage(), []*index.Index{additiveIdx, additiveSmallIdx}, func(idx *index.Index) error {
 		return additiveMerge.WriteIndex(idx)

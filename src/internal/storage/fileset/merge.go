@@ -114,6 +114,7 @@ func (mfr *MergeFileReader) Content(ctx context.Context, w io.Writer, opts ...ch
 }
 
 // Hash returns the hash of the file.
+// TODO: It would be good to remove this potential performance footgun, but it would require removing the append functionality.
 func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 	var hashes [][]byte
 	size := index.SizeBytes(mfr.idx)

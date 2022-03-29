@@ -13,18 +13,23 @@ const (
 	chunkParallelism = 100
 )
 
-type uploadFunc = func(interface{}, []*DataRef) error
+// UploadFunc is a function that provides the metadata for a task and the corresponding set of chunk references.
+type UploadFunc = func(interface{}, []*DataRef) error
 
+// Uploader uploads chunks.
+// Each upload call creates an upload task with the provided metadata.
+// Upload tasks are performed asynchronously, which is why the interface is callback based.
+// Callbacks will be executed with respect to the order the upload tasks are created.
 type Uploader struct {
 	ctx       context.Context
 	client    Client
 	taskChain *TaskChain
 	chunkSem  *semaphore.Weighted
 	noUpload  bool
-	cb        uploadFunc
+	cb        UploadFunc
 }
 
-func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, cb uploadFunc) *Uploader {
+func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, cb UploadFunc) *Uploader {
 	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
 	return &Uploader{
 		ctx:       ctx,
