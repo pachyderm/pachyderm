@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -200,13 +201,31 @@ func countChunks(t *testing.T, s *Storage) (count int64) {
 	return count
 }
 
+// This test ensures that future changes do not affect the stable hashes of files since that would be a breaking change.
 func TestStableHash(t *testing.T) {
-	ctx := context.Background()
-	storage := newTestStorage(t)
+	seed := int64(1648577872380609229)
+	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+	output, err := pachhash.ParseHex([]byte("27e12145099615b6bf0364a4472452dfe0e8105e6d58d7fbc5d0c038c7a50736"))
+	require.NoError(t, err)
+	random := rand.New(rand.NewSource(seed))
+	testStableHash(t, randutil.Bytes(random, 100*units.KB), output[:], msg)
+	output, err = pachhash.ParseHex([]byte("5672e6f3e1841f3f1e284c2d4b7c12dc213ffc88878c9d3e2302be8acd0198ef"))
+	require.NoError(t, err)
+	random = rand.New(rand.NewSource(seed))
+	testStableHash(t, randutil.Bytes(random, 100*units.MB), output[:], msg)
+}
+
+func TestStableHashFuzz(t *testing.T) {
 	seed := time.Now().UTC().UnixNano()
 	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 	random := rand.New(rand.NewSource(seed))
-	data := randutil.Bytes(random, 100*units.MB)
+	testStableHash(t, randutil.Bytes(random, 100*units.KB), nil, msg)
+	testStableHash(t, randutil.Bytes(random, 100*units.MB), nil, msg)
+}
+
+func testStableHash(t *testing.T, data, expected []byte, msg string) {
+	ctx := context.Background()
+	storage := newTestStorage(t)
 	var ids []ID
 	write := func(data []byte) {
 		w := storage.NewWriter(ctx)
@@ -238,6 +257,9 @@ func TestStableHash(t *testing.T) {
 	// Compute hash after writing to one writer.
 	write(data)
 	stableHash := getHash()
+	if expected != nil {
+		require.True(t, bytes.Equal(expected, stableHash))
+	}
 	// Compute hash after writing to two writers.
 	ids = nil
 	size := len(data) / 2
