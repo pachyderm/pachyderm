@@ -7,10 +7,7 @@ import (
 
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 // TODO: Write new tests.
@@ -63,8 +60,8 @@ func BenchmarkRollingHash(b *testing.B) {
 
 // newTestStorage is like NewTestStorage except it doesn't need an external tracker
 // it is for testing this package, not for reuse.
-func newTestStorage(t testing.TB) (obj.Client, *Storage) {
-	db := dockertestenv.NewTestDB(t)
-	tr := track.NewTestTracker(t, db)
-	return NewTestStorage(t, db, tr)
-}
+//func newTestStorage(t testing.TB) (obj.Client, *Storage) {
+//	db := dockertestenv.NewTestDB(t)
+//	tr := track.NewTestTracker(t, db)
+//	return NewTestStorage(t, db, tr)
+//}

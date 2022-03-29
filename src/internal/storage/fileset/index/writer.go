@@ -65,7 +65,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	pbw := pbutil.NewWriter(l.buf)
 	_, err := pbw.Write(idx)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return l.batcher.Add(idx, l.buf.Bytes(), pointsTo)
 }

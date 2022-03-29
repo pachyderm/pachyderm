@@ -44,7 +44,7 @@ func ComputeChunks(r io.Reader, cb func([]byte) error) error {
 	for {
 		n, err := r.Read(buf)
 		if err != nil && !errors.Is(err, io.EOF) {
-			return err
+			return errors.EnsureStack(err)
 		}
 		data := buf[:n]
 		offset := 0

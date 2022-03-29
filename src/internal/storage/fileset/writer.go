@@ -31,7 +31,6 @@ type Writer struct {
 	batcher                           *chunk.Batcher
 	idx                               *index.Index
 	deleteIdx                         *index.Index
-	taskChain                         chunk.TaskChain
 	ttl                               time.Duration
 	sizeBytes                         int64
 }
@@ -81,7 +80,7 @@ func (w *Writer) Add(path, datum string, r io.Reader) error {
 		if errors.Is(err, io.EOF) {
 			return w.batcher.Add(idx, buf.Bytes(), nil)
 		}
-		return err
+		return errors.EnsureStack(err)
 	}
 	// Handle files greater than the batch threshold.
 	r = io.MultiReader(buf, r)
