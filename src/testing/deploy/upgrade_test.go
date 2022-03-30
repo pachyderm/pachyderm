@@ -34,6 +34,7 @@ var (
 // runs the upgrade test from all versions specified in "fromVersions" against the local image
 func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing.T, *client.APIClient), postUpgrade func(*testing.T, *client.APIClient)) {
 	k := testutil.GetKubeClient(suite)
+
 	for _, from := range fromVersions {
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
 			preUpgrade(t, minikubetestenv.InstallRelease(t,
