@@ -493,6 +493,7 @@ pgbouncer:
     #  cpu: "1"
     #  memory: "2G"
   maxConnections: 1000
+  defaultPoolSize: 20
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
