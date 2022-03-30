@@ -44,12 +44,17 @@ Before any manual backup, you need to suspend any state-mutating operations.
     - Downtime duration is a function of the size of the data be to backed up and the
     networks involved; Testing before going into production and monitoring backup times on an ongoing basis might help make accurate predictions.
 
+
 ### Suspend Operations
 
 - Pause any external automated process ingressing data to Pachyderm input repos,
  or queue/divert those as they will fail to connect to the cluster while the backup occurs.
 
 - Suspend all mutation of state by scaling `pachd` and the worker pods down:
+     
+    !!! Important
+             Before you start, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank} .
+             Run `kubectl config view` to list all available clusters and contexts, then `kubectl config use-context <your-context-name>` to set the proper active context.
 
       ```shell 
       kubectl scale deployment pachd --replicas 0 
@@ -146,3 +151,37 @@ Pachyderm into the new cluster.
 ### [Have 'pachctl' And Your Restored Cluster Communicate](../../../deploy-manage/deploy/aws-deploy-pachyderm/#7-have-pachctl-and-your-cluster-communicate){target=_blank}
 
 ...and [check that your cluster is up and running](../../../deploy-manage/deploy/aws-deploy-pachyderm/#8-check-that-your-cluster-is-up-and-running).
+
+## Backup/Restore A Stand-Alone Enterprise Server
+Backing up / restoring an Enterprise Server is similar to the back up / restore of a regular cluster explained at a high-level above, with two slight variations:
+
+1. The name of its Kubernetes deployment is `pach-enterprise` versus `pachd` in the case of a regular cluster.
+1. The Enterprise Server does not use an Object Store.
+
+
+### Backup A Standalone Enterprise Server
+
+- Check your [Enterprise Server](../../../enterprise/auth/enterprise-server/setup/){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
+
+- [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster. Note that there is a slight difference. As the deployment of the enterprise server is named `pach-enterprise`, the first command should be:
+
+    ```shell
+    kubectl scale deployment pach-enterprise --replicas 0 
+    ``` 
+
+    !!! Note
+            There is no need to pause all the Pachyderm clusters registered to the Enterprise Server to backup the enterprise server; however, pausing the Enterprise server will result in your clusters becoming unavailable.
+
+- As a reminder, the Enterprise Server does not use any object-store. Therefore, the [backup of the Enterprise Server](#back-up-the-databases-and-the-object-store) will consist in backing up the databases only.
+
+- [Resume the operations on your Enterprise Server](#resuming-operations) by scaling the `pach-enterprise` deployment back up: 
+
+    ```shell
+    kubectl scale deployment pachd --replicas 1
+    ```
+
+### Restore An Enterprise Server
+
+- [Follow the steps above](#restore-pachyderm) while skipping all tasks related to creating and populating a new object-store.
+
+- Once your cluster is up and running, [register your clusters with your new Enterprise Server](../../../enterprise/auth/enterprise-server/setup/#3-register-your-cluster-with-the-enterprise-server){target=_blank}.
