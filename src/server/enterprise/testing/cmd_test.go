@@ -346,11 +346,6 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	require.NoError(t, inspectErr)
 	clusterId := clusterInfo.DeploymentID
 
-	host := c.GetAddress().Host
-	if host == "0.0.0.0" {
-		host = "localhost"
-	}
-
 	// register a new cluster
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate

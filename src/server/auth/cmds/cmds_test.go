@@ -156,7 +156,8 @@ func TestWhoAmI(t *testing.T) {
 	}
 	alice := tu.UniqueString("robot:alice")
 	loginAsUser(t, alice)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	defer tu.DeleteAll(t)
+	require.NoError(t, tu.BashCmd(`
 		pachctl auth whoami | match {{.alice}}`,
 		"alice", alice,
 	).Run())
