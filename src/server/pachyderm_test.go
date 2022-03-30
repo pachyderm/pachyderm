@@ -4132,8 +4132,8 @@ func TestLokiLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c := tu.GetPachClient(t)
+	require.NoError(t, c.DeleteAll())
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -9269,7 +9269,6 @@ func TestDebug(t *testing.T) {
 			}
 		}
 	}
-	fmt.Printf("EXPECTED FILES:::: %v\n", expectedFiles)
 	require.Equal(t, 0, len(expectedFiles))
 }
 
