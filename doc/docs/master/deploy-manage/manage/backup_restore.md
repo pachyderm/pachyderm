@@ -184,4 +184,4 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 - [Follow the steps above](#restore-pachyderm) while skipping all tasks related to creating and populating a new object-store.
 
-- Once your cluster is up and running, [register your clusters with your new Enterprise Server](../../../enterprise/auth/enterprise-server/setup/#3-register-your-cluster-with-the-enterprise-server){target=_blank}.
+- Once your cluster is up and running, check that all [your clusters are automatically registered with your new Enterprise Server](../../../enterprise/auth/enterprise-server/manage/#list-all-registered-clusters){target=_blank}.
