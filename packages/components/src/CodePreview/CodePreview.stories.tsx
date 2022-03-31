@@ -2,9 +2,6 @@ import React from 'react';
 
 import CodePreview from './CodePreview';
 
-/* eslint-disable-next-line import/no-anonymous-default-export */
-export default {title: 'CodePreview'};
-
 const openCvJson = `
 {
   "pipeline": {
@@ -61,8 +58,21 @@ postgresql:
   service:
     type: NodePort`;
 
-export const Default = () => {
-  return <CodePreview>{openCvJson}</CodePreview>;
+/* eslint-disable-next-line import/no-anonymous-default-export */
+export default {
+  title: 'CodePreview',
+  component: CodePreview,
+  argTypes: {
+    children: {
+      defaultValue: openCvJson,
+      control: {type: 'radio'},
+      options: [openCvJson, localDevYaml],
+    },
+  },
+};
+
+export const Default: React.FC = (args) => {
+  return <CodePreview>{args.children}</CodePreview>;
 };
 
 export const Yaml = () => {

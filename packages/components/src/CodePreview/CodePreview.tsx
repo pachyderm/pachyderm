@@ -19,7 +19,8 @@ const CodePreview = ({
     if (element.current) {
       hljs.highlightElement(element.current);
     }
-  }, [element]);
+  }, [element, children]);
+
   return (
     <div className={styles.code} ref={element} {...props}>
       {children}
