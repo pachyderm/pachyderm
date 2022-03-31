@@ -1,5 +1,19 @@
 
 # Changelog
+## 2.1.5
+- Expose PG Bouncer default pool size - #7456
+- Block task service setup on etcd client creation. - #7452
+- Remove deleted load tests from circle - #7440
+- Make mockIDP user clusterAdmin - #7432
+- Distribute load testing - #7430
+- add the --wait all for minikube start - #7429
+- Fix Secure (HTTPS) setting for Minio - #7399
+- Helm Publish include --version - #7424
+- Fix typo and improve verbiage in pachctl pps cmds - #7410
+- Strip build directory from pachd stack traces - #7412
+- storage/chunk: Fix TaskChain - #7419
+- Propagating Custom certs referenced in pachd's SSL_CERT_DIR to side-cars - #7417
+
 ## 2.1.4
 - Add Snowflake driver - #7406
 - Upgrade to latest S2 library - #7398
