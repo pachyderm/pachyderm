@@ -131,6 +131,7 @@ func (n *loopbackNode) root() *loopbackRoot {
 }
 
 func (n *loopbackNode) c() *client.APIClient {
+	logrus.Infof("Fetching client!")
 	return n.root().c
 }
 
@@ -387,6 +388,7 @@ func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 }
 
 func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	logrus.Infof("Starting Open")
 	p := n.path()
 	state := full
 	if isWrite(flags) {
@@ -414,6 +416,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 }
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
+	logrus.Infof("Starting Opendir")
 	if err := n.download(n.path(), meta); err != nil {
 		return fs.ToErrno(err)
 	}
@@ -426,6 +429,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 }
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
+	logrus.Infof("Starting Readdir")
 	if err := n.download(n.path(), meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -570,6 +574,8 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
+	logrus.Infof("Starting download('%s')", origPath)
+
 	if n.getFileState(origPath) >= state {
 		// Already got this file, so we can just return
 		return nil
