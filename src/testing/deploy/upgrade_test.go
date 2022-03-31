@@ -26,8 +26,8 @@ const (
 var (
 	fromVersions = []string{
 		"2.0.4",
-		"2.0.5",
-		"2.1.0",
+		// "2.0.5",
+		// "2.1.0",
 	}
 )
 
@@ -48,7 +48,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				"default",
 				k,
 				&minikubetestenv.DeployOpts{
-					CleanupAfter: true,
+					// CleanupAfter: true,
 				}))
 		})
 	}
