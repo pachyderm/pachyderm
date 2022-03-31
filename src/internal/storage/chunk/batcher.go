@@ -6,10 +6,11 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// ChunkFunc is a function that provides the metadata for the entries in a chunk and a reference to the chunk.
+// ChunkFunc is a function that provides the metadata for the entries in a chunk and a data reference to the chunk.
 type ChunkFunc = func([]interface{}, *DataRef) error
 
-// EntryFunc is a function that provides the metadata for an entry and a reference to the entry in a chunk.
+// EntryFunc is a function that provides the metadata for an entry and a data reference to the entry in a chunk.
+// Size zero entries will have a nil data reference.
 type EntryFunc = func(interface{}, *DataRef) error
 
 // Batcher batches entries into chunks.
@@ -37,7 +38,6 @@ type entry struct {
 }
 
 // TODO: Add config for number of entries.
-// TODO: Size zero entries.
 func (s *Storage) NewBatcher(ctx context.Context, name string, threshold int, opts ...BatcherOption) *Batcher {
 	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
 	b := &Batcher{
@@ -89,6 +89,9 @@ func (b *Batcher) createBatch(entries []*entry, buf []byte) error {
 		if b.entryFunc != nil {
 			offset := 0
 			for _, entry := range entries {
+				if entry.size == 0 {
+					continue
+				}
 				entry.dataRef = NewDataRef(dataRef, buf, int64(offset), int64(entry.size))
 				offset += entry.size
 			}

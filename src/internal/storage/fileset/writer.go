@@ -53,7 +53,9 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 	w.additiveSmall = index.NewWriter(ctx, storage.ChunkStorage(), "additive-small-index-writer")
 	w.batcher = storage.ChunkStorage().NewBatcher(ctx, "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
 		idx := meta.(*index.Index)
-		idx.File.DataRefs = []*chunk.DataRef{dataRef}
+		if dataRef != nil {
+			idx.File.DataRefs = []*chunk.DataRef{dataRef}
+		}
 		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
 		return w.additiveSmall.WriteIndex(idx)
 	}))
