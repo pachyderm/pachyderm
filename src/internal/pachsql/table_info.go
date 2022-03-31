@@ -24,7 +24,11 @@ type ColumnInfo struct {
 
 // GetTableInfo looks up information about the table using INFORMATION_SCHEMA
 func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, error) {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: false}) // TODO Snowflake doesn't support ReadOnly
+	readonly := true
+	if db.DriverName() == "snowflake" {
+		readonly = false
+	}
+	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: readonly}) // TODO Snowflake doesn't support ReadOnly
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
