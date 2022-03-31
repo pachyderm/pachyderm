@@ -44,7 +44,8 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset uint16
+	PortOffset  uint16
+	WaitSeconds int
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -184,6 +185,21 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
+func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	require.NoError(t, backoff.Retry(func() error {
+		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pg-bouncer"})
+		if err != nil {
+			return errors.Wrap(err, "error on pod list")
+		}
+		for _, p := range pbs.Items {
+			if p.Status.Phase == v1.PodRunning && p.Status.ContainerStatuses[0].Ready && len(pbs.Items) == 1 {
+				return nil
+			}
+		}
+		return errors.Errorf("deployment in progress")
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+}
+
 func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string) *client.APIClient {
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
@@ -265,6 +281,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, f(t, helmOpts, chartPath, namespace))
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
+	waitForPgbouncer(t, ctx, kubeClient, namespace)
+	if opts.WaitSeconds > 0 {
+		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
+	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
 
