@@ -116,6 +116,7 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		}
 		return errors.Errorf("deployment in progress")
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	time.Sleep(time.Duration(10) * time.Second)
 }
 
 // Deploy pachyderm using a `helm install ...`, then run a test with an API Client corresponding to the deployment
