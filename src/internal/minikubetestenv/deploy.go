@@ -116,9 +116,21 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		}
 		return errors.Errorf("deployment in progress")
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
-	// use a timeout in case neighboring services such as pg-bouncer also
-	// restart, and prolongue the stabilization period
-	time.Sleep(time.Duration(10) * time.Second)
+}
+
+func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string) {
+	require.NoError(t, backoff.Retry(func() error {
+		pbs, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pg-bouncer"})
+		if err != nil {
+			return errors.Wrap(err, "error on pod list")
+		}
+		for _, p := range pbs.Items {
+			if p.Status.Phase == v1.PodRunning && p.Status.ContainerStatuses[0].Ready && len(pbs.Items) == 1 {
+				return nil
+			}
+		}
+		return errors.Errorf("deployment in progress")
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
 // Deploy pachyderm using a `helm install ...`, then run a test with an API Client corresponding to the deployment
@@ -133,6 +145,10 @@ func UpgradeRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientse
 	maybeCleanup(t, cleanup, kubeClient)
 	require.NoError(t, helm.UpgradeE(t, localDeploymentWithMinioOptions(ns, localImage), helmChartLocalPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, localImage)
+	waitForPgbouncer(t, ctx, kubeClient, ns)
+	// use a timeout in case neighboring services such as pg-bouncer also
+	// restart, and prolongue the stabilization period
+	time.Sleep(time.Duration(10) * time.Second)
 	return testutil.AuthenticatedPachClient(t, testutil.NewPachClient(t), user)
 }
 
