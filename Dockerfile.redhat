@@ -1,0 +1,12 @@
+FROM registry.access.redhat.com/ubi8/ubi-minimal@sha256:2e4bbb2be6e7aff711ddc93f0b07e49c93d41e4c2ffc8ea75f804ad6fe25564e
+WORKDIR /usr/src/app
+ENV PATH=/usr/local/node-v16.14.0-linux-x64/bin:${PATH}
+ADD . .
+RUN microdnf install pango giflib cmake cairo libjpeg-turbo libjpeg-turbo-devel tar xz && \
+ curl -sLO https://nodejs.org/dist/v16.14.0/node-v16.14.0-linux-x64.tar.xz && \
+ tar xf node-v16.14.0-linux-x64.tar.xz -C /usr/local
+RUN make ci && \
+    make build && \
+    make prune-deps
+CMD ["npm", "start", "--prefix", "./backend"]
+EXPOSE 4000
