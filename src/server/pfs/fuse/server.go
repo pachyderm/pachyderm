@@ -846,9 +846,13 @@ func mountKeyFromString(key string) (MountKey, error) {
 type StateFn func(*MountStateMachine) StateFn
 
 func (m *MountStateMachine) transitionedTo(state, status string) {
+
+	// before we lock, as this fn takes the same lock.
+	m.manager.root.setState(m.Name, state)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	logrus.Infof("[%s] %s -> %s", m.MountKey, m.State, state)
+	logrus.Infof("[%s] (%s) %s -> %s", m.Name, m.MountKey, m.State, state)
 	m.State = state
 	m.Status = status
 }
