@@ -24,11 +24,11 @@ When exceeding the number of pipelines:
 !!! Note
     If `update pipeline` fails for any other reason, it does not log any message related to pipeline limits.
 
-- `pachctl restore` fails when trying to restore with too many pipelines. 
+- Restoring a cluster with too many pipelines will fail.  
 
-All of the commands listed above create a distinct message to STDERR and to the pachd logs. This message includes information such as the limit on the number of pipelines in the Community Edition, the total number of pipelines deployed, and provides a link to request an Enterprise key to lift those limitations.
+All of the actions listed above create a distinct message to STDERR and to the pachd logs. This message includes information such as the limit on the number of pipelines in the Community Edition, the total number of pipelines deployed, and provides a link to request an Enterprise key to lift those limitations.
 
-- all other `extract`, `list`, `run`, `start`, `stop pipeline` commands' behavior remains unchanged.
+- all other `list`, `run`, `start`, `stop pipeline` commands' behavior remains unchanged.
 
 ### Limit on the number of workers per pipeline
 When `constant` parallelism > 8: 
