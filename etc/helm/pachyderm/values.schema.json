@@ -877,6 +877,9 @@
                 "annotations": {
                     "type": "object"
                 },
+                "defaultPoolSize": {
+                    "type": "integer"
+                },
                 "maxConnections": {
                     "type": "integer"
                 },
