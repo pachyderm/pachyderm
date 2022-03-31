@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 // TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
@@ -35,7 +34,7 @@ type Writer struct {
 	sizeBytes                         int64
 }
 
-func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chunks *chunk.Storage, opts ...WriterOption) *Writer {
+func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Writer {
 	w := &Writer{
 		ctx:            ctx,
 		storage:        storage,
@@ -44,21 +43,21 @@ func newWriter(ctx context.Context, storage *Storage, tracker track.Tracker, chu
 	for _, opt := range opts {
 		opt(w)
 	}
-	w.additive = index.NewWriter(ctx, chunks, "additive-index-writer")
+	w.additive = index.NewWriter(ctx, storage.ChunkStorage(), "additive-index-writer")
 	w.uploader = storage.ChunkStorage().NewUploader(ctx, "chunk-uploader", false, func(meta interface{}, dataRefs []*chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		idx.File.DataRefs = dataRefs
 		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
 		return w.additive.WriteIndex(idx)
 	})
-	w.additiveSmall = index.NewWriter(ctx, chunks, "additive-small-index-writer")
+	w.additiveSmall = index.NewWriter(ctx, storage.ChunkStorage(), "additive-small-index-writer")
 	w.batcher = storage.ChunkStorage().NewBatcher(ctx, "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		idx.File.DataRefs = []*chunk.DataRef{dataRef}
 		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
 		return w.additiveSmall.WriteIndex(idx)
 	}))
-	w.deletive = index.NewWriter(ctx, chunks, "deletive-index-writer")
+	w.deletive = index.NewWriter(ctx, storage.ChunkStorage(), "deletive-index-writer")
 	return w
 }
 
@@ -143,6 +142,7 @@ func (w *Writer) Copy(file File, datum string) error {
 
 // Close closes the writer.
 func (w *Writer) Close() (*ID, error) {
+	// The uploader writes to the additive index, so close it first.
 	if err := w.uploader.Close(); err != nil {
 		return nil, err
 	}
@@ -150,6 +150,7 @@ func (w *Writer) Close() (*ID, error) {
 	if err != nil {
 		return nil, err
 	}
+	// The batcher writes to the additive small index, so close it first.
 	if err := w.batcher.Close(); err != nil {
 		return nil, err
 	}

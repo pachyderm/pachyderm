@@ -101,7 +101,7 @@ func (s *Storage) NewWriter(ctx context.Context, opts ...WriterOption) *Writer {
 }
 
 func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s, s.tracker, s.chunks, opts...)
+	return newWriter(ctx, s, opts...)
 }
 
 func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
