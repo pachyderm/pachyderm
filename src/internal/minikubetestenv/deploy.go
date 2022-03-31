@@ -116,6 +116,8 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		}
 		return errors.Errorf("deployment in progress")
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	// use a timeout in case neighboring services such as pg-bouncer also
+	// restart, and prolongue the stabilization period
 	time.Sleep(time.Duration(10) * time.Second)
 }
 
