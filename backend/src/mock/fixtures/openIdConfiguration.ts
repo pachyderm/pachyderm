@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 const config = {
   grant_types_supported: [
     'authorization_code',

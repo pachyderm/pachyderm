@@ -1,7 +1,7 @@
 const withCancel = <T>(
-  asyncIterator: AsyncIterator<T | undefined>,
+  asyncIterator: AsyncIterator<T>,
   onCancel: () => void,
-): AsyncIterator<T | undefined> => {
+): AsyncIterator<T> => {
   if (!asyncIterator.return) {
     asyncIterator.return = () =>
       Promise.resolve({value: undefined, done: true});

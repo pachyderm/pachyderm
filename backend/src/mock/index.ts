@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import http from 'http';
 import {AddressInfo} from 'net';
 import {URL} from 'url';

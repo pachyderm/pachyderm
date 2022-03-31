@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable import/no-duplicates */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -7,6 +6,7 @@ import {GraphQLResolveInfo} from 'graphql';
 
 import {Context} from '@dash-backend/lib/types';
 export type Maybe<T> = T | null;
+export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends {[key: string]: unknown}> = {[K in keyof T]: T[K]};
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & {
   [SubKey in K]?: Maybe<T[SubKey]>;
@@ -14,9 +14,9 @@ export type MakeOptional<T, K extends keyof T> = Omit<T, K> & {
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & {
   [SubKey in K]: Maybe<T[SubKey]>;
 };
-export type RequireFields<T, K extends keyof T> = {
-  [X in Exclude<keyof T, K>]?: T[X];
-} & {[P in K]-?: NonNullable<T[P]>};
+export type RequireFields<T, K extends keyof T> = Omit<T, K> & {
+  [P in K]-?: NonNullable<T[P]>;
+};
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
   ID: string;
@@ -28,8 +28,8 @@ export type Scalars = {
 
 export type Account = {
   __typename?: 'Account';
-  id: Scalars['ID'];
   email: Scalars['String'];
+  id: Scalars['ID'];
   name?: Maybe<Scalars['String']>;
 };
 
@@ -58,70 +58,70 @@ export type BranchInput = {
 };
 
 export type BranchQueryArgs = {
-  projectId: Scalars['String'];
   branch: BranchInput;
+  projectId: Scalars['String'];
 };
 
 export type Commit = {
   __typename?: 'Commit';
-  repoName: Scalars['String'];
   branch?: Maybe<Branch>;
   description?: Maybe<Scalars['String']>;
-  originKind?: Maybe<OriginKind>;
+  diff?: Maybe<Diff>;
+  finished: Scalars['Int'];
   hasLinkedJob: Scalars['Boolean'];
   id: Scalars['ID'];
-  started: Scalars['Int'];
-  finished: Scalars['Int'];
+  originKind?: Maybe<OriginKind>;
+  repoName: Scalars['String'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  diff?: Maybe<Diff>;
+  started: Scalars['Int'];
 };
 
 export type CommitInput = {
+  branch?: InputMaybe<BranchInput>;
   id: Scalars['ID'];
-  branch?: Maybe<BranchInput>;
 };
 
 export type CommitQueryArgs = {
+  branchName?: InputMaybe<Scalars['String']>;
   id: Scalars['ID'];
-  repoName: Scalars['String'];
-  branchName?: Maybe<Scalars['String']>;
   projectId: Scalars['String'];
-  withDiff?: Maybe<Scalars['Boolean']>;
+  repoName: Scalars['String'];
+  withDiff?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type CommitsQueryArgs = {
+  branchName?: InputMaybe<Scalars['String']>;
+  number?: InputMaybe<Scalars['Int']>;
+  originKind?: InputMaybe<OriginKind>;
+  pipelineName?: InputMaybe<Scalars['String']>;
   projectId: Scalars['String'];
   repoName: Scalars['String'];
-  branchName?: Maybe<Scalars['String']>;
-  pipelineName?: Maybe<Scalars['String']>;
-  originKind?: Maybe<OriginKind>;
-  number?: Maybe<Scalars['Int']>;
 };
 
 export type CreateBranchArgs = {
-  head?: Maybe<CommitInput>;
-  branch?: Maybe<BranchInput>;
-  provenance?: Maybe<Array<BranchInput>>;
-  newCommitSet?: Maybe<Scalars['Boolean']>;
+  branch?: InputMaybe<BranchInput>;
+  head?: InputMaybe<CommitInput>;
+  newCommitSet?: InputMaybe<Scalars['Boolean']>;
   projectId: Scalars['String'];
+  provenance?: InputMaybe<Array<BranchInput>>;
 };
 
 export type CreatePipelineArgs = {
+  crossList?: InputMaybe<Array<Pfs>>;
+  description?: InputMaybe<Scalars['String']>;
   name: Scalars['String'];
-  transform: TransformInput;
-  pfs?: Maybe<Pfs>;
-  crossList?: Maybe<Array<Pfs>>;
+  pfs?: InputMaybe<Pfs>;
   projectId: Scalars['String'];
-  description?: Maybe<Scalars['String']>;
-  update?: Maybe<Scalars['Boolean']>;
+  transform: TransformInput;
+  update?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type CreateRepoArgs = {
+  description?: InputMaybe<Scalars['String']>;
   name: Scalars['String'];
-  description?: Maybe<Scalars['String']>;
-  update?: Maybe<Scalars['Boolean']>;
   projectId: Scalars['String'];
+  update?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type CronInput = {
@@ -131,50 +131,50 @@ export type CronInput = {
 };
 
 export type DagQueryArgs = {
+  jobSetId?: InputMaybe<Scalars['ID']>;
   projectId: Scalars['ID'];
-  jobSetId?: Maybe<Scalars['ID']>;
 };
 
 export type Datum = {
   __typename?: 'Datum';
-  id: Scalars['ID'];
-  state: DatumState;
   downloadBytes?: Maybe<Scalars['Float']>;
-  uploadTime?: Maybe<Scalars['Int']>;
-  processTime?: Maybe<Scalars['Int']>;
   downloadTime?: Maybe<Scalars['Int']>;
+  id: Scalars['ID'];
+  processTime?: Maybe<Scalars['Int']>;
+  state: DatumState;
+  uploadTime?: Maybe<Scalars['Int']>;
 };
 
 export type DatumQueryArgs = {
-  projectId: Scalars['String'];
   id: Scalars['ID'];
   jobId: Scalars['ID'];
   pipelineId: Scalars['ID'];
+  projectId: Scalars['String'];
 };
 
 export enum DatumState {
-  UNKOWN = 'UNKOWN',
   FAILED = 'FAILED',
-  SUCCESS = 'SUCCESS',
+  RECOVERED = 'RECOVERED',
   SKIPPED = 'SKIPPED',
   STARTING = 'STARTING',
-  RECOVERED = 'RECOVERED',
+  SUCCESS = 'SUCCESS',
+  UNKOWN = 'UNKOWN',
 }
 
 export type DatumsQueryArgs = {
-  projectId: Scalars['String'];
   jobId: Scalars['ID'];
+  limit?: InputMaybe<Scalars['Int']>;
+  offset?: InputMaybe<Scalars['Int']>;
   pipelineId: Scalars['ID'];
-  limit?: Maybe<Scalars['Int']>;
-  offset?: Maybe<Scalars['Int']>;
+  projectId: Scalars['String'];
 };
 
 export type DeleteFileArgs = {
-  filePath: Scalars['String'];
-  repo: Scalars['String'];
   branch: Scalars['String'];
-  force?: Maybe<Scalars['Boolean']>;
+  filePath: Scalars['String'];
+  force?: InputMaybe<Scalars['Boolean']>;
   projectId: Scalars['String'];
+  repo: Scalars['String'];
 };
 
 export type DeletePipelineArgs = {
@@ -183,52 +183,52 @@ export type DeletePipelineArgs = {
 };
 
 export type DeleteRepoArgs = {
-  repo: RepoInput;
-  force?: Maybe<Scalars['Boolean']>;
+  force?: InputMaybe<Scalars['Boolean']>;
   projectId: Scalars['String'];
+  repo: RepoInput;
 };
 
 export type Diff = {
   __typename?: 'Diff';
+  filesAdded: Scalars['Int'];
+  filesDeleted: Scalars['Int'];
+  filesUpdated: Scalars['Int'];
   size: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  filesAdded: Scalars['Int'];
-  filesUpdated: Scalars['Int'];
-  filesDeleted: Scalars['Int'];
 };
 
 export type File = {
   __typename?: 'File';
-  committed?: Maybe<Timestamp>;
+  commitAction?: Maybe<FileCommitState>;
   commitId: Scalars['String'];
+  committed?: Maybe<Timestamp>;
   download?: Maybe<Scalars['String']>;
+  downloadDisabled?: Maybe<Scalars['Boolean']>;
   hash: Scalars['String'];
   path: Scalars['String'];
   repoName: Scalars['String'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  downloadDisabled?: Maybe<Scalars['Boolean']>;
   type: FileType;
-  commitAction?: Maybe<FileCommitState>;
 };
 
 export enum FileCommitState {
   ADDED = 'ADDED',
-  UPDATED = 'UPDATED',
   DELETED = 'DELETED',
+  UPDATED = 'UPDATED',
 }
 
 export type FileFromUrl = {
-  url: Scalars['String'];
   path: Scalars['String'];
+  url: Scalars['String'];
 };
 
 export type FileQueryArgs = {
-  projectId: Scalars['String'];
-  commitId?: Maybe<Scalars['String']>;
-  path?: Maybe<Scalars['String']>;
-  repoName: Scalars['String'];
   branchName: Scalars['String'];
+  commitId?: InputMaybe<Scalars['String']>;
+  path?: InputMaybe<Scalars['String']>;
+  projectId: Scalars['String'];
+  repoName: Scalars['String'];
 };
 
 export type FileQueryResponse = {
@@ -238,9 +238,9 @@ export type FileQueryResponse = {
 };
 
 export enum FileType {
-  RESERVED = 'RESERVED',
   DIR = 'DIR',
   FILE = 'FILE',
+  RESERVED = 'RESERVED',
 }
 
 export type FinishCommitArgs = {
@@ -256,15 +256,15 @@ export type GitInput = {
 
 export type Input = {
   __typename?: 'Input';
-  id: Scalars['ID'];
-  type: InputType;
-  joinedWith: Array<Scalars['String']>;
-  groupedWith: Array<Scalars['String']>;
-  crossedWith: Array<Scalars['String']>;
-  unionedWith: Array<Scalars['String']>;
-  pfsInput?: Maybe<PfsInput>;
   cronInput?: Maybe<CronInput>;
+  crossedWith: Array<Scalars['String']>;
   gitInput?: Maybe<GitInput>;
+  groupedWith: Array<Scalars['String']>;
+  id: Scalars['ID'];
+  joinedWith: Array<Scalars['String']>;
+  pfsInput?: Maybe<PfsInput>;
+  type: InputType;
+  unionedWith: Array<Scalars['String']>;
 };
 
 export type InputPipeline = {
@@ -273,44 +273,44 @@ export type InputPipeline = {
 };
 
 export enum InputType {
-  PFS = 'PFS',
   CRON = 'CRON',
   GIT = 'GIT',
+  PFS = 'PFS',
 }
 
 export type Job = {
   __typename?: 'Job';
-  id: Scalars['ID'];
   createdAt?: Maybe<Scalars['Int']>;
-  startedAt?: Maybe<Scalars['Int']>;
-  finishedAt?: Maybe<Scalars['Int']>;
-  state: JobState;
-  pipelineName: Scalars['String'];
-  transform?: Maybe<Transform>;
-  inputString?: Maybe<Scalars['String']>;
-  inputBranch?: Maybe<Scalars['String']>;
-  outputBranch?: Maybe<Scalars['String']>;
-  reason?: Maybe<Scalars['String']>;
-  jsonDetails: Scalars['String'];
-  dataProcessed: Scalars['Int'];
-  dataSkipped: Scalars['Int'];
   dataFailed: Scalars['Int'];
+  dataProcessed: Scalars['Int'];
   dataRecovered: Scalars['Int'];
+  dataSkipped: Scalars['Int'];
   dataTotal: Scalars['Int'];
+  finishedAt?: Maybe<Scalars['Int']>;
+  id: Scalars['ID'];
+  inputBranch?: Maybe<Scalars['String']>;
+  inputString?: Maybe<Scalars['String']>;
+  jsonDetails: Scalars['String'];
+  outputBranch?: Maybe<Scalars['String']>;
+  pipelineName: Scalars['String'];
+  reason?: Maybe<Scalars['String']>;
+  startedAt?: Maybe<Scalars['Int']>;
+  state: JobState;
+  transform?: Maybe<Transform>;
 };
 
 export type JobQueryArgs = {
   id: Scalars['ID'];
-  projectId: Scalars['String'];
   pipelineName: Scalars['String'];
+  projectId: Scalars['String'];
 };
 
 export type JobSet = {
   __typename?: 'JobSet';
-  id: Scalars['ID'];
   createdAt?: Maybe<Scalars['Int']>;
-  state: JobState;
+  id: Scalars['ID'];
   jobs: Array<Job>;
+  state: JobState;
 };
 
 export type JobSetQueryArgs = {
@@ -323,21 +323,21 @@ export type JobSetsQueryArgs = {
 };
 
 export enum JobState {
-  JOB_STATE_UNKNOWN = 'JOB_STATE_UNKNOWN',
   JOB_CREATED = 'JOB_CREATED',
-  JOB_STARTING = 'JOB_STARTING',
-  JOB_RUNNING = 'JOB_RUNNING',
-  JOB_FAILURE = 'JOB_FAILURE',
-  JOB_SUCCESS = 'JOB_SUCCESS',
-  JOB_KILLED = 'JOB_KILLED',
   JOB_EGRESSING = 'JOB_EGRESSING',
+  JOB_FAILURE = 'JOB_FAILURE',
   JOB_FINISHING = 'JOB_FINISHING',
+  JOB_KILLED = 'JOB_KILLED',
+  JOB_RUNNING = 'JOB_RUNNING',
+  JOB_STARTING = 'JOB_STARTING',
+  JOB_STATE_UNKNOWN = 'JOB_STATE_UNKNOWN',
+  JOB_SUCCESS = 'JOB_SUCCESS',
 }
 
 export type JobsQueryArgs = {
+  limit?: InputMaybe<Scalars['Int']>;
+  pipelineId?: InputMaybe<Scalars['String']>;
   projectId: Scalars['ID'];
-  limit?: Maybe<Scalars['Int']>;
-  pipelineId?: Maybe<Scalars['String']>;
 };
 
 export type Log = {
@@ -348,65 +348,65 @@ export type Log = {
 };
 
 export type LogsArgs = {
-  projectId: Scalars['String'];
+  jobId?: InputMaybe<Scalars['String']>;
   pipelineName: Scalars['String'];
-  jobId?: Maybe<Scalars['String']>;
-  start?: Maybe<Scalars['Int']>;
-  reverse?: Maybe<Scalars['Boolean']>;
+  projectId: Scalars['String'];
+  reverse?: InputMaybe<Scalars['Boolean']>;
+  start?: InputMaybe<Scalars['Int']>;
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
-  exchangeCode: Tokens;
-  createRepo: Repo;
-  deleteRepo?: Maybe<Scalars['Boolean']>;
-  createPipeline: Pipeline;
-  deletePipeline?: Maybe<Scalars['Boolean']>;
   createBranch: Branch;
-  putFilesFromURLs: Array<Scalars['String']>;
+  createPipeline: Pipeline;
+  createRepo: Repo;
   deleteFile: Scalars['ID'];
-  startCommit: OpenCommit;
+  deletePipeline?: Maybe<Scalars['Boolean']>;
+  deleteRepo?: Maybe<Scalars['Boolean']>;
+  exchangeCode: Tokens;
   finishCommit: Scalars['Boolean'];
-};
-
-export type MutationExchangeCodeArgs = {
-  code: Scalars['String'];
-};
-
-export type MutationCreateRepoArgs = {
-  args: CreateRepoArgs;
-};
-
-export type MutationDeleteRepoArgs = {
-  args: DeleteRepoArgs;
-};
-
-export type MutationCreatePipelineArgs = {
-  args: CreatePipelineArgs;
-};
-
-export type MutationDeletePipelineArgs = {
-  args: DeletePipelineArgs;
+  putFilesFromURLs: Array<Scalars['String']>;
+  startCommit: OpenCommit;
 };
 
 export type MutationCreateBranchArgs = {
   args: CreateBranchArgs;
 };
 
-export type MutationPutFilesFromUrLsArgs = {
-  args: PutFilesFromUrLsArgs;
+export type MutationCreatePipelineArgs = {
+  args: CreatePipelineArgs;
+};
+
+export type MutationCreateRepoArgs = {
+  args: CreateRepoArgs;
 };
 
 export type MutationDeleteFileArgs = {
   args: DeleteFileArgs;
 };
 
-export type MutationStartCommitArgs = {
-  args: StartCommitArgs;
+export type MutationDeletePipelineArgs = {
+  args: DeletePipelineArgs;
+};
+
+export type MutationDeleteRepoArgs = {
+  args: DeleteRepoArgs;
+};
+
+export type MutationExchangeCodeArgs = {
+  code: Scalars['String'];
 };
 
 export type MutationFinishCommitArgs = {
   args: FinishCommitArgs;
+};
+
+export type MutationPutFilesFromUrLsArgs = {
+  args: PutFilesFromUrLsArgs;
+};
+
+export type MutationStartCommitArgs = {
+  args: StartCommitArgs;
 };
 
 export type NodeSelector = {
@@ -416,18 +416,18 @@ export type NodeSelector = {
 };
 
 export enum NodeState {
-  SUCCESS = 'SUCCESS',
-  IDLE = 'IDLE',
-  PAUSED = 'PAUSED',
   BUSY = 'BUSY',
   ERROR = 'ERROR',
+  IDLE = 'IDLE',
+  PAUSED = 'PAUSED',
+  SUCCESS = 'SUCCESS',
 }
 
 export enum NodeType {
-  PIPELINE = 'PIPELINE',
-  OUTPUT_REPO = 'OUTPUT_REPO',
-  INPUT_REPO = 'INPUT_REPO',
   EGRESS = 'EGRESS',
+  INPUT_REPO = 'INPUT_REPO',
+  OUTPUT_REPO = 'OUTPUT_REPO',
+  PIPELINE = 'PIPELINE',
 }
 
 export type OpenCommit = {
@@ -442,18 +442,18 @@ export type OpenCommitInput = {
 };
 
 export enum OriginKind {
-  USER = 'USER',
+  ALIAS = 'ALIAS',
   AUTO = 'AUTO',
   FSCK = 'FSCK',
-  ALIAS = 'ALIAS',
   ORIGIN_KIND_UNKNOWN = 'ORIGIN_KIND_UNKNOWN',
+  USER = 'USER',
 }
 
 export type Pfs = {
+  branch?: InputMaybe<Scalars['String']>;
+  glob?: InputMaybe<Scalars['String']>;
   name: Scalars['String'];
   repo: RepoInput;
-  glob?: Maybe<Scalars['String']>;
-  branch?: Maybe<Scalars['String']>;
 };
 
 export type PfsInput = {
@@ -469,74 +469,74 @@ export type Pach = {
 
 export type Pipeline = {
   __typename?: 'Pipeline';
-  id: Scalars['ID'];
-  name: Scalars['String'];
-  version: Scalars['Int'];
   createdAt: Scalars['Int'];
-  state: PipelineState;
-  stopped: Scalars['Boolean'];
-  recentError?: Maybe<Scalars['String']>;
-  lastJobState?: Maybe<JobState>;
-  description?: Maybe<Scalars['String']>;
-  type: PipelineType;
   datumTimeoutS?: Maybe<Scalars['Int']>;
   datumTries: Scalars['Int'];
-  jobTimeoutS?: Maybe<Scalars['Int']>;
-  outputBranch: Scalars['String'];
-  s3OutputRepo?: Maybe<Scalars['String']>;
+  description?: Maybe<Scalars['String']>;
   egress: Scalars['Boolean'];
+  id: Scalars['ID'];
+  jobTimeoutS?: Maybe<Scalars['Int']>;
   jsonSpec: Scalars['String'];
+  lastJobState?: Maybe<JobState>;
+  name: Scalars['String'];
+  outputBranch: Scalars['String'];
   reason?: Maybe<Scalars['String']>;
+  recentError?: Maybe<Scalars['String']>;
+  s3OutputRepo?: Maybe<Scalars['String']>;
+  state: PipelineState;
+  stopped: Scalars['Boolean'];
+  type: PipelineType;
+  version: Scalars['Int'];
 };
 
 export type PipelineQueryArgs = {
-  projectId: Scalars['String'];
   id: Scalars['ID'];
+  projectId: Scalars['String'];
 };
 
 export enum PipelineState {
-  PIPELINE_STATE_UNKNOWN = 'PIPELINE_STATE_UNKNOWN',
-  PIPELINE_STARTING = 'PIPELINE_STARTING',
-  PIPELINE_RUNNING = 'PIPELINE_RUNNING',
-  PIPELINE_RESTARTING = 'PIPELINE_RESTARTING',
+  PIPELINE_CRASHING = 'PIPELINE_CRASHING',
   PIPELINE_FAILURE = 'PIPELINE_FAILURE',
   PIPELINE_PAUSED = 'PIPELINE_PAUSED',
+  PIPELINE_RESTARTING = 'PIPELINE_RESTARTING',
+  PIPELINE_RUNNING = 'PIPELINE_RUNNING',
   PIPELINE_STANDBY = 'PIPELINE_STANDBY',
-  PIPELINE_CRASHING = 'PIPELINE_CRASHING',
+  PIPELINE_STARTING = 'PIPELINE_STARTING',
+  PIPELINE_STATE_UNKNOWN = 'PIPELINE_STATE_UNKNOWN',
 }
 
 export enum PipelineType {
-  STANDARD = 'STANDARD',
-  SPOUT = 'SPOUT',
   SERVICE = 'SERVICE',
+  SPOUT = 'SPOUT',
+  STANDARD = 'STANDARD',
 }
 
 export type PipelinesQueryArgs = {
+  jobSetId?: InputMaybe<Scalars['ID']>;
   projectId: Scalars['String'];
-  jobSetId?: Maybe<Scalars['ID']>;
 };
 
 export type Project = {
   __typename?: 'Project';
+  createdAt: Scalars['Int'];
+  description: Scalars['String'];
   id: Scalars['ID'];
   name: Scalars['String'];
   status: ProjectStatus;
-  description: Scalars['String'];
-  createdAt: Scalars['Int'];
 };
 
 export type ProjectDetails = {
   __typename?: 'ProjectDetails';
-  repoCount: Scalars['Int'];
+  jobSets: Array<JobSet>;
   pipelineCount: Scalars['Int'];
+  repoCount: Scalars['Int'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  jobSets: Array<JobSet>;
 };
 
 export type ProjectDetailsQueryArgs = {
+  jobSetsLimit?: InputMaybe<Scalars['Int']>;
   projectId: Scalars['String'];
-  jobSetsLimit?: Maybe<Scalars['Int']>;
 };
 
 export enum ProjectStatus {
@@ -545,10 +545,10 @@ export enum ProjectStatus {
 }
 
 export type PutFilesFromUrLsArgs = {
-  files: Array<FileFromUrl>;
   branch: Scalars['String'];
-  repo: Scalars['String'];
+  files: Array<FileFromUrl>;
   projectId: Scalars['String'];
+  repo: Scalars['String'];
 };
 
 export type Query = {
@@ -665,10 +665,10 @@ export type Repo = {
   createdAt: Scalars['Int'];
   description: Scalars['String'];
   id: Scalars['ID'];
+  linkedPipeline?: Maybe<Pipeline>;
   name: Scalars['ID'];
   sizeBytes: Scalars['Float'];
   sizeDisplay: Scalars['String'];
-  linkedPipeline?: Maybe<Pipeline>;
 };
 
 export type RepoInfo = {
@@ -679,17 +679,17 @@ export type RepoInfo = {
 
 export type RepoInput = {
   name: Scalars['ID'];
-  type?: Maybe<Scalars['String']>;
+  type?: InputMaybe<Scalars['String']>;
 };
 
 export type RepoQueryArgs = {
-  projectId: Scalars['String'];
   id: Scalars['ID'];
+  projectId: Scalars['String'];
 };
 
 export type ReposQueryArgs = {
+  jobSetId?: InputMaybe<Scalars['ID']>;
   projectId: Scalars['String'];
-  jobSetId?: Maybe<Scalars['ID']>;
 };
 
 export type SchedulingSpec = {
@@ -699,54 +699,54 @@ export type SchedulingSpec = {
 };
 
 export type SearchResultQueryArgs = {
+  globalIdFilter?: InputMaybe<Scalars['ID']>;
+  limit?: InputMaybe<Scalars['Int']>;
   projectId: Scalars['String'];
   query: Scalars['String'];
-  limit?: Maybe<Scalars['Int']>;
-  globalIdFilter?: Maybe<Scalars['ID']>;
 };
 
 export type SearchResults = {
   __typename?: 'SearchResults';
+  jobSet?: Maybe<JobSet>;
   pipelines: Array<Pipeline>;
   repos: Array<Repo>;
-  jobSet?: Maybe<JobSet>;
 };
 
 export type StartCommitArgs = {
   branchName: Scalars['String'];
-  repoName: Scalars['String'];
   projectId: Scalars['String'];
+  repoName: Scalars['String'];
 };
 
 export type Subscription = {
   __typename?: 'Subscription';
   dags: Array<Vertex>;
-  workspaceLogs: Log;
   logs: Log;
+  workspaceLogs: Log;
 };
 
 export type SubscriptionDagsArgs = {
   args: DagQueryArgs;
 };
 
-export type SubscriptionWorkspaceLogsArgs = {
-  args: WorkspaceLogsArgs;
-};
-
 export type SubscriptionLogsArgs = {
   args: LogsArgs;
 };
 
+export type SubscriptionWorkspaceLogsArgs = {
+  args: WorkspaceLogsArgs;
+};
+
 export type Timestamp = {
   __typename?: 'Timestamp';
-  seconds: Scalars['Int'];
   nanos: Scalars['Int'];
+  seconds: Scalars['Int'];
 };
 
 export type Tokens = {
   __typename?: 'Tokens';
-  pachToken: Scalars['String'];
   idToken: Scalars['String'];
+  pachToken: Scalars['String'];
 };
 
 export type Transform = {
@@ -758,22 +758,22 @@ export type Transform = {
 export type TransformInput = {
   cmdList: Array<Scalars['String']>;
   image: Scalars['String'];
-  stdinList?: Maybe<Array<Scalars['String']>>;
+  stdinList?: InputMaybe<Array<Scalars['String']>>;
 };
 
 export type Vertex = {
   __typename?: 'Vertex';
-  name: Scalars['String'];
-  state?: Maybe<NodeState>;
   access: Scalars['Boolean'];
-  parents: Array<Scalars['String']>;
-  type: NodeType;
-  jobState?: Maybe<JobState>;
   createdAt?: Maybe<Scalars['Int']>;
+  jobState?: Maybe<JobState>;
+  name: Scalars['String'];
+  parents: Array<Scalars['String']>;
+  state?: Maybe<NodeState>;
+  type: NodeType;
 };
 
 export type WorkspaceLogsArgs = {
-  start?: Maybe<Scalars['Int']>;
+  start?: InputMaybe<Scalars['Int']>;
 };
 
 export type WithIndex<TObject> = TObject & Record<string, any>;
@@ -781,21 +781,12 @@ export type ResolversObject<TObject> = WithIndex<TObject>;
 
 export type ResolverTypeWrapper<T> = Promise<T> | T;
 
-export type LegacyStitchingResolver<TResult, TParent, TContext, TArgs> = {
-  fragment: string;
+export type ResolverWithResolve<TResult, TParent, TContext, TArgs> = {
   resolve: ResolverFn<TResult, TParent, TContext, TArgs>;
 };
-
-export type NewStitchingResolver<TResult, TParent, TContext, TArgs> = {
-  selectionSet: string;
-  resolve: ResolverFn<TResult, TParent, TContext, TArgs>;
-};
-export type StitchingResolver<TResult, TParent, TContext, TArgs> =
-  | LegacyStitchingResolver<TResult, TParent, TContext, TArgs>
-  | NewStitchingResolver<TResult, TParent, TContext, TArgs>;
 export type Resolver<TResult, TParent = {}, TContext = {}, TArgs = {}> =
   | ResolverFn<TResult, TParent, TContext, TArgs>
-  | StitchingResolver<TResult, TParent, TContext, TArgs>;
+  | ResolverWithResolve<TResult, TParent, TContext, TArgs>;
 
 export type ResolverFn<TResult, TParent, TContext, TArgs> = (
   parent: TParent,
@@ -809,7 +800,7 @@ export type SubscriptionSubscribeFn<TResult, TParent, TContext, TArgs> = (
   args: TArgs,
   context: TContext,
   info: GraphQLResolveInfo,
-) => AsyncIterator<TResult> | Promise<AsyncIterator<TResult>>;
+) => AsyncIterable<TResult> | Promise<AsyncIterable<TResult>>;
 
 export type SubscriptionResolveFn<TResult, TParent, TContext, TArgs> = (
   parent: TParent,
@@ -896,17 +887,13 @@ export type DirectiveResolverFn<
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   Account: ResolverTypeWrapper<Account>;
-  ID: ResolverTypeWrapper<Scalars['ID']>;
-  String: ResolverTypeWrapper<Scalars['String']>;
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
+  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Branch: ResolverTypeWrapper<Branch>;
   BranchInfo: ResolverTypeWrapper<BranchInfo>;
   BranchInput: BranchInput;
   BranchQueryArgs: BranchQueryArgs;
   Commit: ResolverTypeWrapper<Commit>;
-  Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
-  Int: ResolverTypeWrapper<Scalars['Int']>;
-  Float: ResolverTypeWrapper<Scalars['Float']>;
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
   CommitsQueryArgs: CommitsQueryArgs;
@@ -930,10 +917,13 @@ export type ResolversTypes = ResolversObject<{
   FileQueryResponse: ResolverTypeWrapper<FileQueryResponse>;
   FileType: FileType;
   FinishCommitArgs: FinishCommitArgs;
+  Float: ResolverTypeWrapper<Scalars['Float']>;
   GitInput: ResolverTypeWrapper<GitInput>;
+  ID: ResolverTypeWrapper<Scalars['ID']>;
   Input: ResolverTypeWrapper<Input>;
   InputPipeline: ResolverTypeWrapper<InputPipeline>;
   InputType: InputType;
+  Int: ResolverTypeWrapper<Scalars['Int']>;
   Job: ResolverTypeWrapper<Job>;
   JobQueryArgs: JobQueryArgs;
   JobSet: ResolverTypeWrapper<JobSet>;
@@ -973,6 +963,7 @@ export type ResolversTypes = ResolversObject<{
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: ResolverTypeWrapper<SearchResults>;
   StartCommitArgs: StartCommitArgs;
+  String: ResolverTypeWrapper<Scalars['String']>;
   Subscription: ResolverTypeWrapper<{}>;
   Timestamp: ResolverTypeWrapper<Timestamp>;
   Tokens: ResolverTypeWrapper<Tokens>;
@@ -985,17 +976,13 @@ export type ResolversTypes = ResolversObject<{
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   Account: Account;
-  ID: Scalars['ID'];
-  String: Scalars['String'];
   AuthConfig: AuthConfig;
+  Boolean: Scalars['Boolean'];
   Branch: Branch;
   BranchInfo: BranchInfo;
   BranchInput: BranchInput;
   BranchQueryArgs: BranchQueryArgs;
   Commit: Commit;
-  Boolean: Scalars['Boolean'];
-  Int: Scalars['Int'];
-  Float: Scalars['Float'];
   CommitInput: CommitInput;
   CommitQueryArgs: CommitQueryArgs;
   CommitsQueryArgs: CommitsQueryArgs;
@@ -1016,9 +1003,12 @@ export type ResolversParentTypes = ResolversObject<{
   FileQueryArgs: FileQueryArgs;
   FileQueryResponse: FileQueryResponse;
   FinishCommitArgs: FinishCommitArgs;
+  Float: Scalars['Float'];
   GitInput: GitInput;
+  ID: Scalars['ID'];
   Input: Input;
   InputPipeline: InputPipeline;
+  Int: Scalars['Int'];
   Job: Job;
   JobQueryArgs: JobQueryArgs;
   JobSet: JobSet;
@@ -1051,6 +1041,7 @@ export type ResolversParentTypes = ResolversObject<{
   SearchResultQueryArgs: SearchResultQueryArgs;
   SearchResults: SearchResults;
   StartCommitArgs: StartCommitArgs;
+  String: Scalars['String'];
   Subscription: {};
   Timestamp: Timestamp;
   Tokens: Tokens;
@@ -1064,8 +1055,8 @@ export type AccountResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Account'] = ResolversParentTypes['Account'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1102,25 +1093,25 @@ export type CommitResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Commit'] = ResolversParentTypes['Commit'],
 > = ResolversObject<{
-  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   branch?: Resolver<Maybe<ResolversTypes['Branch']>, ParentType, ContextType>;
   description?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
+  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
+  finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  hasLinkedJob?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   originKind?: Resolver<
     Maybe<ResolversTypes['OriginKind']>,
     ParentType,
     ContextType
   >;
-  hasLinkedJob?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  finished?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
+  started?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1137,20 +1128,20 @@ export type DatumResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Datum'] = ResolversParentTypes['Datum'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  state?: Resolver<ResolversTypes['DatumState'], ParentType, ContextType>;
   downloadBytes?: Resolver<
     Maybe<ResolversTypes['Float']>,
     ParentType,
     ContextType
   >;
-  uploadTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  processTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   downloadTime?: Resolver<
     Maybe<ResolversTypes['Int']>,
     ParentType,
     ContextType
   >;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  processTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['DatumState'], ParentType, ContextType>;
+  uploadTime?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1158,11 +1149,11 @@ export type DiffResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Diff'] = ResolversParentTypes['Diff'],
 > = ResolversObject<{
+  filesAdded?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   size?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  filesAdded?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  filesDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1170,29 +1161,29 @@ export type FileResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['File'] = ResolversParentTypes['File'],
 > = ResolversObject<{
-  committed?: Resolver<
-    Maybe<ResolversTypes['Timestamp']>,
-    ParentType,
-    ContextType
-  >;
-  commitId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  download?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  downloadDisabled?: Resolver<
-    Maybe<ResolversTypes['Boolean']>,
-    ParentType,
-    ContextType
-  >;
-  type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
   commitAction?: Resolver<
     Maybe<ResolversTypes['FileCommitState']>,
     ParentType,
     ContextType
   >;
+  commitId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  committed?: Resolver<
+    Maybe<ResolversTypes['Timestamp']>,
+    ParentType,
+    ContextType
+  >;
+  download?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  downloadDisabled?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType
+  >;
+  hash?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  path?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  repoName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['FileType'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1218,15 +1209,8 @@ export type InputResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Input'] = ResolversParentTypes['Input'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  type?: Resolver<ResolversTypes['InputType'], ParentType, ContextType>;
-  joinedWith?: Resolver<
-    Array<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  groupedWith?: Resolver<
-    Array<ResolversTypes['String']>,
+  cronInput?: Resolver<
+    Maybe<ResolversTypes['CronInput']>,
     ParentType,
     ContextType
   >;
@@ -1235,7 +1219,18 @@ export type InputResolvers<
     ParentType,
     ContextType
   >;
-  unionedWith?: Resolver<
+  gitInput?: Resolver<
+    Maybe<ResolversTypes['GitInput']>,
+    ParentType,
+    ContextType
+  >;
+  groupedWith?: Resolver<
+    Array<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  joinedWith?: Resolver<
     Array<ResolversTypes['String']>,
     ParentType,
     ContextType
@@ -1245,13 +1240,9 @@ export type InputResolvers<
     ParentType,
     ContextType
   >;
-  cronInput?: Resolver<
-    Maybe<ResolversTypes['CronInput']>,
-    ParentType,
-    ContextType
-  >;
-  gitInput?: Resolver<
-    Maybe<ResolversTypes['GitInput']>,
+  type?: Resolver<ResolversTypes['InputType'], ParentType, ContextType>;
+  unionedWith?: Resolver<
+    Array<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
@@ -1270,14 +1261,16 @@ export type JobResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  dataFailed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataProcessed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataRecovered?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataSkipped?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  dataTotal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   finishedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
-  pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  transform?: Resolver<
-    Maybe<ResolversTypes['Transform']>,
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  inputBranch?: Resolver<
+    Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
@@ -1286,23 +1279,21 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
-  inputBranch?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
+  jsonDetails?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   outputBranch?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
+  pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  jsonDetails?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  dataProcessed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  dataSkipped?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  dataFailed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  dataRecovered?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  dataTotal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
+  transform?: Resolver<
+    Maybe<ResolversTypes['Transform']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1310,10 +1301,10 @@ export type JobSetResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['JobSet'] = ResolversParentTypes['JobSet'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   jobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobState'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1335,23 +1326,11 @@ export type MutationResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = ResolversObject<{
-  exchangeCode?: Resolver<
-    ResolversTypes['Tokens'],
+  createBranch?: Resolver<
+    ResolversTypes['Branch'],
     ParentType,
     ContextType,
-    RequireFields<MutationExchangeCodeArgs, 'code'>
-  >;
-  createRepo?: Resolver<
-    ResolversTypes['Repo'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationCreateRepoArgs, 'args'>
-  >;
-  deleteRepo?: Resolver<
-    Maybe<ResolversTypes['Boolean']>,
-    ParentType,
-    ContextType,
-    RequireFields<MutationDeleteRepoArgs, 'args'>
+    RequireFields<MutationCreateBranchArgs, 'args'>
   >;
   createPipeline?: Resolver<
     ResolversTypes['Pipeline'],
@@ -1359,23 +1338,11 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationCreatePipelineArgs, 'args'>
   >;
-  deletePipeline?: Resolver<
-    Maybe<ResolversTypes['Boolean']>,
+  createRepo?: Resolver<
+    ResolversTypes['Repo'],
     ParentType,
     ContextType,
-    RequireFields<MutationDeletePipelineArgs, 'args'>
-  >;
-  createBranch?: Resolver<
-    ResolversTypes['Branch'],
-    ParentType,
-    ContextType,
-    RequireFields<MutationCreateBranchArgs, 'args'>
-  >;
-  putFilesFromURLs?: Resolver<
-    Array<ResolversTypes['String']>,
-    ParentType,
-    ContextType,
-    RequireFields<MutationPutFilesFromUrLsArgs, 'args'>
+    RequireFields<MutationCreateRepoArgs, 'args'>
   >;
   deleteFile?: Resolver<
     ResolversTypes['ID'],
@@ -1383,17 +1350,41 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationDeleteFileArgs, 'args'>
   >;
-  startCommit?: Resolver<
-    ResolversTypes['OpenCommit'],
+  deletePipeline?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
     ParentType,
     ContextType,
-    RequireFields<MutationStartCommitArgs, 'args'>
+    RequireFields<MutationDeletePipelineArgs, 'args'>
+  >;
+  deleteRepo?: Resolver<
+    Maybe<ResolversTypes['Boolean']>,
+    ParentType,
+    ContextType,
+    RequireFields<MutationDeleteRepoArgs, 'args'>
+  >;
+  exchangeCode?: Resolver<
+    ResolversTypes['Tokens'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationExchangeCodeArgs, 'code'>
   >;
   finishCommit?: Resolver<
     ResolversTypes['Boolean'],
     ParentType,
     ContextType,
     RequireFields<MutationFinishCommitArgs, 'args'>
+  >;
+  putFilesFromURLs?: Resolver<
+    Array<ResolversTypes['String']>,
+    ParentType,
+    ContextType,
+    RequireFields<MutationPutFilesFromUrLsArgs, 'args'>
+  >;
+  startCommit?: Resolver<
+    ResolversTypes['OpenCommit'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationStartCommitArgs, 'args'>
   >;
 }>;
 
@@ -1436,44 +1427,44 @@ export type PipelineResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Pipeline'] = ResolversParentTypes['Pipeline'],
 > = ResolversObject<{
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  version?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  state?: Resolver<ResolversTypes['PipelineState'], ParentType, ContextType>;
-  stopped?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  recentError?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  lastJobState?: Resolver<
-    Maybe<ResolversTypes['JobState']>,
-    ParentType,
-    ContextType
-  >;
-  description?: Resolver<
-    Maybe<ResolversTypes['String']>,
-    ParentType,
-    ContextType
-  >;
-  type?: Resolver<ResolversTypes['PipelineType'], ParentType, ContextType>;
   datumTimeoutS?: Resolver<
     Maybe<ResolversTypes['Int']>,
     ParentType,
     ContextType
   >;
   datumTries?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
-  jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  s3OutputRepo?: Resolver<
+  description?: Resolver<
     Maybe<ResolversTypes['String']>,
     ParentType,
     ContextType
   >;
   egress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   jsonSpec?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  lastJobState?: Resolver<
+    Maybe<ResolversTypes['JobState']>,
+    ParentType,
+    ContextType
+  >;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  recentError?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  s3OutputRepo?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
+  state?: Resolver<ResolversTypes['PipelineState'], ParentType, ContextType>;
+  stopped?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['PipelineType'], ParentType, ContextType>;
+  version?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1481,11 +1472,11 @@ export type ProjectResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Project'] = ResolversParentTypes['Project'],
 > = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['ProjectStatus'], ParentType, ContextType>;
-  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1493,11 +1484,11 @@ export type ProjectDetailsResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['ProjectDetails'] = ResolversParentTypes['ProjectDetails'],
 > = ResolversObject<{
-  repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  jobSets?: Resolver<Array<ResolversTypes['JobSet']>, ParentType, ContextType>;
   pipelineCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  repoCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  jobSets?: Resolver<Array<ResolversTypes['JobSet']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1643,14 +1634,14 @@ export type RepoResolvers<
   createdAt?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
-  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   linkedPipeline?: Resolver<
     Maybe<ResolversTypes['Pipeline']>,
     ParentType,
     ContextType
   >;
+  name?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  sizeBytes?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
+  sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1684,13 +1675,13 @@ export type SearchResultsResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['SearchResults'] = ResolversParentTypes['SearchResults'],
 > = ResolversObject<{
+  jobSet?: Resolver<Maybe<ResolversTypes['JobSet']>, ParentType, ContextType>;
   pipelines?: Resolver<
     Array<ResolversTypes['Pipeline']>,
     ParentType,
     ContextType
   >;
   repos?: Resolver<Array<ResolversTypes['Repo']>, ParentType, ContextType>;
-  jobSet?: Resolver<Maybe<ResolversTypes['JobSet']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1705,13 +1696,6 @@ export type SubscriptionResolvers<
     ContextType,
     RequireFields<SubscriptionDagsArgs, 'args'>
   >;
-  workspaceLogs?: SubscriptionResolver<
-    ResolversTypes['Log'],
-    'workspaceLogs',
-    ParentType,
-    ContextType,
-    RequireFields<SubscriptionWorkspaceLogsArgs, 'args'>
-  >;
   logs?: SubscriptionResolver<
     ResolversTypes['Log'],
     'logs',
@@ -1719,14 +1703,21 @@ export type SubscriptionResolvers<
     ContextType,
     RequireFields<SubscriptionLogsArgs, 'args'>
   >;
+  workspaceLogs?: SubscriptionResolver<
+    ResolversTypes['Log'],
+    'workspaceLogs',
+    ParentType,
+    ContextType,
+    RequireFields<SubscriptionWorkspaceLogsArgs, 'args'>
+  >;
 }>;
 
 export type TimestampResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Timestamp'] = ResolversParentTypes['Timestamp'],
 > = ResolversObject<{
-  seconds?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   nanos?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  seconds?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1734,8 +1725,8 @@ export type TokensResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Tokens'] = ResolversParentTypes['Tokens'],
 > = ResolversObject<{
-  pachToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   idToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  pachToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1752,17 +1743,17 @@ export type VertexResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['Vertex'] = ResolversParentTypes['Vertex'],
 > = ResolversObject<{
-  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  state?: Resolver<Maybe<ResolversTypes['NodeState']>, ParentType, ContextType>;
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  parents?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
-  type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
+  createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   jobState?: Resolver<
     Maybe<ResolversTypes['JobState']>,
     ParentType,
     ContextType
   >;
-  createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  parents?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  state?: Resolver<Maybe<ResolversTypes['NodeState']>, ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['NodeType'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1803,302 +1794,394 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   Vertex?: VertexResolvers<ContextType>;
 }>;
 
-/**
- * @deprecated
- * Use "Resolvers" root object instead. If you wish to get "IResolvers", add "typesPrefix: I" to your config.
- */
-export type IResolvers<ContextType = Context> = Resolvers<ContextType>;
+export type CommitFragmentFragment = {
+  __typename?: 'Commit';
+  repoName: string;
+  description?: string | null;
+  originKind?: OriginKind | null;
+  id: string;
+  started: number;
+  finished: number;
+  sizeBytes: number;
+  sizeDisplay: string;
+  hasLinkedJob: boolean;
+  branch?: {__typename?: 'Branch'; name: string} | null;
+};
 
-export type CommitFragmentFragment = {__typename?: 'Commit'} & Pick<
-  Commit,
-  | 'repoName'
-  | 'description'
-  | 'originKind'
-  | 'id'
-  | 'started'
-  | 'finished'
-  | 'sizeBytes'
-  | 'sizeDisplay'
-  | 'hasLinkedJob'
-> & {branch?: Maybe<{__typename?: 'Branch'} & Pick<Branch, 'name'>>};
+export type DatumFragment = {
+  __typename?: 'Datum';
+  id: string;
+  state: DatumState;
+  downloadBytes?: number | null;
+  uploadTime?: number | null;
+  processTime?: number | null;
+  downloadTime?: number | null;
+};
 
-export type DatumFragment = {__typename?: 'Datum'} & Pick<
-  Datum,
-  | 'id'
-  | 'state'
-  | 'downloadBytes'
-  | 'uploadTime'
-  | 'processTime'
-  | 'downloadTime'
->;
+export type DiffFragmentFragment = {
+  __typename?: 'Diff';
+  size: number;
+  sizeDisplay: string;
+  filesUpdated: number;
+  filesAdded: number;
+  filesDeleted: number;
+};
 
-export type DiffFragmentFragment = {__typename?: 'Diff'} & Pick<
-  Diff,
-  'size' | 'sizeDisplay' | 'filesUpdated' | 'filesAdded' | 'filesDeleted'
->;
+export type JobOverviewFragment = {
+  __typename?: 'Job';
+  id: string;
+  state: JobState;
+  createdAt?: number | null;
+  startedAt?: number | null;
+  finishedAt?: number | null;
+  pipelineName: string;
+  reason?: string | null;
+  dataProcessed: number;
+  dataSkipped: number;
+  dataFailed: number;
+  dataTotal: number;
+  dataRecovered: number;
+};
 
-export type JobOverviewFragment = {__typename?: 'Job'} & Pick<
-  Job,
-  | 'id'
-  | 'state'
-  | 'createdAt'
-  | 'startedAt'
-  | 'finishedAt'
-  | 'pipelineName'
-  | 'reason'
-  | 'dataProcessed'
-  | 'dataSkipped'
-  | 'dataFailed'
-  | 'dataTotal'
-  | 'dataRecovered'
->;
+export type JobSetFieldsFragment = {
+  __typename?: 'JobSet';
+  id: string;
+  state: JobState;
+  createdAt?: number | null;
+  jobs: Array<{
+    __typename?: 'Job';
+    inputString?: string | null;
+    inputBranch?: string | null;
+    id: string;
+    state: JobState;
+    createdAt?: number | null;
+    startedAt?: number | null;
+    finishedAt?: number | null;
+    pipelineName: string;
+    reason?: string | null;
+    dataProcessed: number;
+    dataSkipped: number;
+    dataFailed: number;
+    dataTotal: number;
+    dataRecovered: number;
+    transform?: {
+      __typename?: 'Transform';
+      cmdList: Array<string>;
+      image: string;
+    } | null;
+  }>;
+};
 
-export type JobSetFieldsFragment = {__typename?: 'JobSet'} & Pick<
-  JobSet,
-  'id' | 'state' | 'createdAt'
-> & {
-    jobs: Array<
-      {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
-          transform?: Maybe<
-            {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
-          >;
-        } & JobOverviewFragment
-    >;
-  };
-
-export type LogFieldsFragment = {__typename?: 'Log'} & Pick<
-  Log,
-  'user' | 'message'
-> & {
-    timestamp?: Maybe<
-      {__typename?: 'Timestamp'} & Pick<Timestamp, 'seconds' | 'nanos'>
-    >;
-  };
+export type LogFieldsFragment = {
+  __typename?: 'Log';
+  user: boolean;
+  message: string;
+  timestamp?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
+};
 
 export type CreateBranchMutationVariables = Exact<{
   args: CreateBranchArgs;
 }>;
 
-export type CreateBranchMutation = {__typename?: 'Mutation'} & {
-  createBranch: {__typename?: 'Branch'} & Pick<Branch, 'name'> & {
-      repo?: Maybe<{__typename?: 'RepoInfo'} & Pick<RepoInfo, 'name'>>;
-    };
+export type CreateBranchMutation = {
+  __typename?: 'Mutation';
+  createBranch: {
+    __typename?: 'Branch';
+    name: string;
+    repo?: {__typename?: 'RepoInfo'; name?: string | null} | null;
+  };
 };
 
 export type CreatePipelineMutationVariables = Exact<{
   args: CreatePipelineArgs;
 }>;
 
-export type CreatePipelineMutation = {__typename?: 'Mutation'} & {
-  createPipeline: {__typename?: 'Pipeline'} & Pick<
-    Pipeline,
-    | 'id'
-    | 'name'
-    | 'state'
-    | 'type'
-    | 'description'
-    | 'datumTimeoutS'
-    | 'datumTries'
-    | 'jobTimeoutS'
-    | 'outputBranch'
-    | 's3OutputRepo'
-    | 'egress'
-    | 'jsonSpec'
-    | 'reason'
-  >;
+export type CreatePipelineMutation = {
+  __typename?: 'Mutation';
+  createPipeline: {
+    __typename?: 'Pipeline';
+    id: string;
+    name: string;
+    state: PipelineState;
+    type: PipelineType;
+    description?: string | null;
+    datumTimeoutS?: number | null;
+    datumTries: number;
+    jobTimeoutS?: number | null;
+    outputBranch: string;
+    s3OutputRepo?: string | null;
+    egress: boolean;
+    jsonSpec: string;
+    reason?: string | null;
+  };
 };
 
 export type CreateRepoMutationVariables = Exact<{
   args: CreateRepoArgs;
 }>;
 
-export type CreateRepoMutation = {__typename?: 'Mutation'} & {
-  createRepo: {__typename?: 'Repo'} & Pick<
-    Repo,
-    'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
-  >;
+export type CreateRepoMutation = {
+  __typename?: 'Mutation';
+  createRepo: {
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+  };
 };
 
 export type DeleteFileMutationVariables = Exact<{
   args: DeleteFileArgs;
 }>;
 
-export type DeleteFileMutation = {__typename?: 'Mutation'} & Pick<
-  Mutation,
-  'deleteFile'
->;
+export type DeleteFileMutation = {__typename?: 'Mutation'; deleteFile: string};
 
 export type DeletePipelineMutationVariables = Exact<{
   args: DeletePipelineArgs;
 }>;
 
-export type DeletePipelineMutation = {__typename?: 'Mutation'} & Pick<
-  Mutation,
-  'deletePipeline'
->;
+export type DeletePipelineMutation = {
+  __typename?: 'Mutation';
+  deletePipeline?: boolean | null;
+};
 
 export type DeleteRepoMutationVariables = Exact<{
   args: DeleteRepoArgs;
 }>;
 
-export type DeleteRepoMutation = {__typename?: 'Mutation'} & Pick<
-  Mutation,
-  'deleteRepo'
->;
+export type DeleteRepoMutation = {
+  __typename?: 'Mutation';
+  deleteRepo?: boolean | null;
+};
 
 export type ExchangeCodeMutationVariables = Exact<{
   code: Scalars['String'];
 }>;
 
-export type ExchangeCodeMutation = {__typename?: 'Mutation'} & {
-  exchangeCode: {__typename?: 'Tokens'} & Pick<Tokens, 'pachToken' | 'idToken'>;
+export type ExchangeCodeMutation = {
+  __typename?: 'Mutation';
+  exchangeCode: {__typename?: 'Tokens'; pachToken: string; idToken: string};
 };
 
 export type FinishCommitMutationVariables = Exact<{
   args: FinishCommitArgs;
 }>;
 
-export type FinishCommitMutation = {__typename?: 'Mutation'} & Pick<
-  Mutation,
-  'finishCommit'
->;
+export type FinishCommitMutation = {
+  __typename?: 'Mutation';
+  finishCommit: boolean;
+};
 
 export type PutFilesFromUrLsMutationVariables = Exact<{
   args: PutFilesFromUrLsArgs;
 }>;
 
-export type PutFilesFromUrLsMutation = {__typename?: 'Mutation'} & Pick<
-  Mutation,
-  'putFilesFromURLs'
->;
+export type PutFilesFromUrLsMutation = {
+  __typename?: 'Mutation';
+  putFilesFromURLs: Array<string>;
+};
 
 export type StartCommitMutationVariables = Exact<{
   args: StartCommitArgs;
 }>;
 
-export type StartCommitMutation = {__typename?: 'Mutation'} & {
-  startCommit: {__typename?: 'OpenCommit'} & Pick<OpenCommit, 'id'> & {
-      branch: {__typename?: 'Branch'} & Pick<Branch, 'name'> & {
-          repo?: Maybe<
-            {__typename?: 'RepoInfo'} & Pick<RepoInfo, 'name' | 'type'>
-          >;
-        };
+export type StartCommitMutation = {
+  __typename?: 'Mutation';
+  startCommit: {
+    __typename?: 'OpenCommit';
+    id: string;
+    branch: {
+      __typename?: 'Branch';
+      name: string;
+      repo?: {
+        __typename?: 'RepoInfo';
+        name?: string | null;
+        type?: string | null;
+      } | null;
     };
+  };
 };
 
 export type GetAccountQueryVariables = Exact<{[key: string]: never}>;
 
-export type GetAccountQuery = {__typename?: 'Query'} & {
-  account: {__typename?: 'Account'} & Pick<Account, 'id' | 'email' | 'name'>;
+export type GetAccountQuery = {
+  __typename?: 'Query';
+  account: {
+    __typename?: 'Account';
+    id: string;
+    email: string;
+    name?: string | null;
+  };
 };
 
 export type AuthConfigQueryVariables = Exact<{[key: string]: never}>;
 
-export type AuthConfigQuery = {__typename?: 'Query'} & {
-  authConfig: {__typename?: 'AuthConfig'} & Pick<
-    AuthConfig,
-    'authEndpoint' | 'clientId' | 'pachdClientId'
-  >;
+export type AuthConfigQuery = {
+  __typename?: 'Query';
+  authConfig: {
+    __typename?: 'AuthConfig';
+    authEndpoint: string;
+    clientId: string;
+    pachdClientId: string;
+  };
 };
 
 export type CommitQueryVariables = Exact<{
   args: CommitQueryArgs;
 }>;
 
-export type CommitQuery = {__typename?: 'Query'} & {
-  commit: {__typename?: 'Commit'} & {
-    diff?: Maybe<{__typename?: 'Diff'} & DiffFragmentFragment>;
-  } & CommitFragmentFragment;
+export type CommitQuery = {
+  __typename?: 'Query';
+  commit: {
+    __typename?: 'Commit';
+    repoName: string;
+    description?: string | null;
+    originKind?: OriginKind | null;
+    id: string;
+    started: number;
+    finished: number;
+    sizeBytes: number;
+    sizeDisplay: string;
+    hasLinkedJob: boolean;
+    diff?: {
+      __typename?: 'Diff';
+      size: number;
+      sizeDisplay: string;
+      filesUpdated: number;
+      filesAdded: number;
+      filesDeleted: number;
+    } | null;
+    branch?: {__typename?: 'Branch'; name: string} | null;
+  };
 };
 
 export type GetCommitsQueryVariables = Exact<{
   args: CommitsQueryArgs;
 }>;
 
-export type GetCommitsQuery = {__typename?: 'Query'} & {
-  commits: Array<{__typename?: 'Commit'} & CommitFragmentFragment>;
+export type GetCommitsQuery = {
+  __typename?: 'Query';
+  commits: Array<{
+    __typename?: 'Commit';
+    repoName: string;
+    description?: string | null;
+    originKind?: OriginKind | null;
+    id: string;
+    started: number;
+    finished: number;
+    sizeBytes: number;
+    sizeDisplay: string;
+    hasLinkedJob: boolean;
+    branch?: {__typename?: 'Branch'; name: string} | null;
+  }>;
 };
 
 export type GetDagQueryVariables = Exact<{
   args: DagQueryArgs;
 }>;
 
-export type GetDagQuery = {__typename?: 'Query'} & {
-  dag: Array<
-    {__typename?: 'Vertex'} & Pick<
-      Vertex,
-      | 'name'
-      | 'state'
-      | 'access'
-      | 'parents'
-      | 'type'
-      | 'jobState'
-      | 'createdAt'
-    >
-  >;
+export type GetDagQuery = {
+  __typename?: 'Query';
+  dag: Array<{
+    __typename?: 'Vertex';
+    name: string;
+    state?: NodeState | null;
+    access: boolean;
+    parents: Array<string>;
+    type: NodeType;
+    jobState?: JobState | null;
+    createdAt?: number | null;
+  }>;
 };
 
 export type GetDagsSubscriptionVariables = Exact<{
   args: DagQueryArgs;
 }>;
 
-export type GetDagsSubscription = {__typename?: 'Subscription'} & {
-  dags: Array<
-    {__typename?: 'Vertex'} & Pick<
-      Vertex,
-      | 'name'
-      | 'state'
-      | 'access'
-      | 'parents'
-      | 'type'
-      | 'jobState'
-      | 'createdAt'
-    >
-  >;
+export type GetDagsSubscription = {
+  __typename?: 'Subscription';
+  dags: Array<{
+    __typename?: 'Vertex';
+    name: string;
+    state?: NodeState | null;
+    access: boolean;
+    parents: Array<string>;
+    type: NodeType;
+    jobState?: JobState | null;
+    createdAt?: number | null;
+  }>;
 };
 
 export type DatumQueryVariables = Exact<{
   args: DatumQueryArgs;
 }>;
 
-export type DatumQuery = {__typename?: 'Query'} & {
-  datum: {__typename?: 'Datum'} & DatumFragment;
+export type DatumQuery = {
+  __typename?: 'Query';
+  datum: {
+    __typename?: 'Datum';
+    id: string;
+    state: DatumState;
+    downloadBytes?: number | null;
+    uploadTime?: number | null;
+    processTime?: number | null;
+    downloadTime?: number | null;
+  };
 };
 
 export type DatumsQueryVariables = Exact<{
   args: DatumsQueryArgs;
 }>;
 
-export type DatumsQuery = {__typename?: 'Query'} & {
-  datums?: Maybe<Array<{__typename?: 'Datum'} & DatumFragment>>;
+export type DatumsQuery = {
+  __typename?: 'Query';
+  datums?: Array<{
+    __typename?: 'Datum';
+    id: string;
+    state: DatumState;
+    downloadBytes?: number | null;
+    uploadTime?: number | null;
+    processTime?: number | null;
+    downloadTime?: number | null;
+  }> | null;
 };
 
 export type GetFilesQueryVariables = Exact<{
   args: FileQueryArgs;
 }>;
 
-export type GetFilesQuery = {__typename?: 'Query'} & {
-  files: {__typename?: 'FileQueryResponse'} & {
-    diff: {__typename?: 'Diff'} & DiffFragmentFragment;
-    files: Array<
-      {__typename?: 'File'} & Pick<
-        File,
-        | 'commitId'
-        | 'download'
-        | 'hash'
-        | 'path'
-        | 'repoName'
-        | 'sizeBytes'
-        | 'type'
-        | 'sizeDisplay'
-        | 'downloadDisabled'
-        | 'commitAction'
-      > & {
-          committed?: Maybe<
-            {__typename?: 'Timestamp'} & Pick<Timestamp, 'nanos' | 'seconds'>
-          >;
-        }
-    >;
+export type GetFilesQuery = {
+  __typename?: 'Query';
+  files: {
+    __typename?: 'FileQueryResponse';
+    diff: {
+      __typename?: 'Diff';
+      size: number;
+      sizeDisplay: string;
+      filesUpdated: number;
+      filesAdded: number;
+      filesDeleted: number;
+    };
+    files: Array<{
+      __typename?: 'File';
+      commitId: string;
+      download?: string | null;
+      hash: string;
+      path: string;
+      repoName: string;
+      sizeBytes: number;
+      type: FileType;
+      sizeDisplay: string;
+      downloadDisabled?: boolean | null;
+      commitAction?: FileCommitState | null;
+      committed?: {
+        __typename?: 'Timestamp';
+        nanos: number;
+        seconds: number;
+      } | null;
+    }>;
   };
 };
 
@@ -2106,61 +2189,170 @@ export type JobQueryVariables = Exact<{
   args: JobQueryArgs;
 }>;
 
-export type JobQuery = {__typename?: 'Query'} & {
-  job: {__typename?: 'Job'} & Pick<
-    Job,
-    'inputString' | 'inputBranch' | 'outputBranch' | 'reason' | 'jsonDetails'
-  > & {
-      transform?: Maybe<
-        {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
-      >;
-    } & JobOverviewFragment;
+export type JobQuery = {
+  __typename?: 'Query';
+  job: {
+    __typename?: 'Job';
+    inputString?: string | null;
+    inputBranch?: string | null;
+    outputBranch?: string | null;
+    reason?: string | null;
+    jsonDetails: string;
+    id: string;
+    state: JobState;
+    createdAt?: number | null;
+    startedAt?: number | null;
+    finishedAt?: number | null;
+    pipelineName: string;
+    dataProcessed: number;
+    dataSkipped: number;
+    dataFailed: number;
+    dataTotal: number;
+    dataRecovered: number;
+    transform?: {
+      __typename?: 'Transform';
+      cmdList: Array<string>;
+      image: string;
+    } | null;
+  };
 };
 
 export type JobSetsQueryVariables = Exact<{
   args: JobSetsQueryArgs;
 }>;
 
-export type JobSetsQuery = {__typename?: 'Query'} & {
-  jobSets: Array<{__typename?: 'JobSet'} & JobSetFieldsFragment>;
+export type JobSetsQuery = {
+  __typename?: 'Query';
+  jobSets: Array<{
+    __typename?: 'JobSet';
+    id: string;
+    state: JobState;
+    createdAt?: number | null;
+    jobs: Array<{
+      __typename?: 'Job';
+      inputString?: string | null;
+      inputBranch?: string | null;
+      id: string;
+      state: JobState;
+      createdAt?: number | null;
+      startedAt?: number | null;
+      finishedAt?: number | null;
+      pipelineName: string;
+      reason?: string | null;
+      dataProcessed: number;
+      dataSkipped: number;
+      dataFailed: number;
+      dataTotal: number;
+      dataRecovered: number;
+      transform?: {
+        __typename?: 'Transform';
+        cmdList: Array<string>;
+        image: string;
+      } | null;
+    }>;
+  }>;
 };
 
 export type JobsQueryVariables = Exact<{
   args: JobsQueryArgs;
 }>;
 
-export type JobsQuery = {__typename?: 'Query'} & {
-  jobs: Array<
-    {__typename?: 'Job'} & Pick<Job, 'inputString' | 'inputBranch'> & {
-        transform?: Maybe<
-          {__typename?: 'Transform'} & Pick<Transform, 'cmdList' | 'image'>
-        >;
-      } & JobOverviewFragment
-  >;
+export type JobsQuery = {
+  __typename?: 'Query';
+  jobs: Array<{
+    __typename?: 'Job';
+    inputString?: string | null;
+    inputBranch?: string | null;
+    id: string;
+    state: JobState;
+    createdAt?: number | null;
+    startedAt?: number | null;
+    finishedAt?: number | null;
+    pipelineName: string;
+    reason?: string | null;
+    dataProcessed: number;
+    dataSkipped: number;
+    dataFailed: number;
+    dataTotal: number;
+    dataRecovered: number;
+    transform?: {
+      __typename?: 'Transform';
+      cmdList: Array<string>;
+      image: string;
+    } | null;
+  }>;
 };
 
 export type JobSetQueryVariables = Exact<{
   args: JobSetQueryArgs;
 }>;
 
-export type JobSetQuery = {__typename?: 'Query'} & {
-  jobSet: {__typename?: 'JobSet'} & JobSetFieldsFragment;
+export type JobSetQuery = {
+  __typename?: 'Query';
+  jobSet: {
+    __typename?: 'JobSet';
+    id: string;
+    state: JobState;
+    createdAt?: number | null;
+    jobs: Array<{
+      __typename?: 'Job';
+      inputString?: string | null;
+      inputBranch?: string | null;
+      id: string;
+      state: JobState;
+      createdAt?: number | null;
+      startedAt?: number | null;
+      finishedAt?: number | null;
+      pipelineName: string;
+      reason?: string | null;
+      dataProcessed: number;
+      dataSkipped: number;
+      dataFailed: number;
+      dataTotal: number;
+      dataRecovered: number;
+      transform?: {
+        __typename?: 'Transform';
+        cmdList: Array<string>;
+        image: string;
+      } | null;
+    }>;
+  };
 };
 
 export type GetWorkspaceLogsQueryVariables = Exact<{
   args: WorkspaceLogsArgs;
 }>;
 
-export type GetWorkspaceLogsQuery = {__typename?: 'Query'} & {
-  workspaceLogs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
+export type GetWorkspaceLogsQuery = {
+  __typename?: 'Query';
+  workspaceLogs: Array<{
+    __typename?: 'Log';
+    user: boolean;
+    message: string;
+    timestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+  } | null>;
 };
 
 export type GetLogsQueryVariables = Exact<{
   args: LogsArgs;
 }>;
 
-export type GetLogsQuery = {__typename?: 'Query'} & {
-  logs: Array<Maybe<{__typename?: 'Log'} & LogFieldsFragment>>;
+export type GetLogsQuery = {
+  __typename?: 'Query';
+  logs: Array<{
+    __typename?: 'Log';
+    user: boolean;
+    message: string;
+    timestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+  } | null>;
 };
 
 export type GetWorkspaceLogStreamSubscriptionVariables = Exact<{
@@ -2169,143 +2361,202 @@ export type GetWorkspaceLogStreamSubscriptionVariables = Exact<{
 
 export type GetWorkspaceLogStreamSubscription = {
   __typename?: 'Subscription';
-} & {workspaceLogs: {__typename?: 'Log'} & LogFieldsFragment};
+  workspaceLogs: {
+    __typename?: 'Log';
+    user: boolean;
+    message: string;
+    timestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+  };
+};
 
 export type GetLogsStreamSubscriptionVariables = Exact<{
   args: LogsArgs;
 }>;
 
-export type GetLogsStreamSubscription = {__typename?: 'Subscription'} & {
-  logs: {__typename?: 'Log'} & LogFieldsFragment;
+export type GetLogsStreamSubscription = {
+  __typename?: 'Subscription';
+  logs: {
+    __typename?: 'Log';
+    user: boolean;
+    message: string;
+    timestamp?: {
+      __typename?: 'Timestamp';
+      seconds: number;
+      nanos: number;
+    } | null;
+  };
 };
 
 export type PipelineQueryVariables = Exact<{
   args: PipelineQueryArgs;
 }>;
 
-export type PipelineQuery = {__typename?: 'Query'} & {
-  pipeline: {__typename?: 'Pipeline'} & Pick<
-    Pipeline,
-    | 'id'
-    | 'name'
-    | 'state'
-    | 'type'
-    | 'description'
-    | 'datumTimeoutS'
-    | 'datumTries'
-    | 'jobTimeoutS'
-    | 'outputBranch'
-    | 's3OutputRepo'
-    | 'egress'
-    | 'jsonSpec'
-    | 'reason'
-  >;
+export type PipelineQuery = {
+  __typename?: 'Query';
+  pipeline: {
+    __typename?: 'Pipeline';
+    id: string;
+    name: string;
+    state: PipelineState;
+    type: PipelineType;
+    description?: string | null;
+    datumTimeoutS?: number | null;
+    datumTries: number;
+    jobTimeoutS?: number | null;
+    outputBranch: string;
+    s3OutputRepo?: string | null;
+    egress: boolean;
+    jsonSpec: string;
+    reason?: string | null;
+  };
 };
 
 export type PipelinesQueryVariables = Exact<{
   args: PipelinesQueryArgs;
 }>;
 
-export type PipelinesQuery = {__typename?: 'Query'} & {
-  pipelines: Array<
-    Maybe<
-      {__typename?: 'Pipeline'} & Pick<
-        Pipeline,
-        | 'id'
-        | 'name'
-        | 'state'
-        | 'type'
-        | 'description'
-        | 'datumTimeoutS'
-        | 'datumTries'
-        | 'jobTimeoutS'
-        | 'outputBranch'
-        | 's3OutputRepo'
-        | 'egress'
-        | 'jsonSpec'
-        | 'reason'
-      >
-    >
-  >;
+export type PipelinesQuery = {
+  __typename?: 'Query';
+  pipelines: Array<{
+    __typename?: 'Pipeline';
+    id: string;
+    name: string;
+    state: PipelineState;
+    type: PipelineType;
+    description?: string | null;
+    datumTimeoutS?: number | null;
+    datumTries: number;
+    jobTimeoutS?: number | null;
+    outputBranch: string;
+    s3OutputRepo?: string | null;
+    egress: boolean;
+    jsonSpec: string;
+    reason?: string | null;
+  } | null>;
 };
 
 export type ProjectDetailsQueryVariables = Exact<{
   args: ProjectDetailsQueryArgs;
 }>;
 
-export type ProjectDetailsQuery = {__typename?: 'Query'} & {
-  projectDetails: {__typename?: 'ProjectDetails'} & Pick<
-    ProjectDetails,
-    'sizeDisplay' | 'repoCount' | 'pipelineCount'
-  > & {jobSets: Array<{__typename?: 'JobSet'} & JobSetFieldsFragment>};
+export type ProjectDetailsQuery = {
+  __typename?: 'Query';
+  projectDetails: {
+    __typename?: 'ProjectDetails';
+    sizeDisplay: string;
+    repoCount: number;
+    pipelineCount: number;
+    jobSets: Array<{
+      __typename?: 'JobSet';
+      id: string;
+      state: JobState;
+      createdAt?: number | null;
+      jobs: Array<{
+        __typename?: 'Job';
+        inputString?: string | null;
+        inputBranch?: string | null;
+        id: string;
+        state: JobState;
+        createdAt?: number | null;
+        startedAt?: number | null;
+        finishedAt?: number | null;
+        pipelineName: string;
+        reason?: string | null;
+        dataProcessed: number;
+        dataSkipped: number;
+        dataFailed: number;
+        dataTotal: number;
+        dataRecovered: number;
+        transform?: {
+          __typename?: 'Transform';
+          cmdList: Array<string>;
+          image: string;
+        } | null;
+      }>;
+    }>;
+  };
 };
 
 export type ProjectQueryVariables = Exact<{
   id: Scalars['ID'];
 }>;
 
-export type ProjectQuery = {__typename?: 'Query'} & {
-  project: {__typename?: 'Project'} & Pick<
-    Project,
-    'id' | 'name' | 'description' | 'createdAt' | 'status'
-  >;
+export type ProjectQuery = {
+  __typename?: 'Query';
+  project: {
+    __typename?: 'Project';
+    id: string;
+    name: string;
+    description: string;
+    createdAt: number;
+    status: ProjectStatus;
+  };
 };
 
 export type ProjectsQueryVariables = Exact<{[key: string]: never}>;
 
-export type ProjectsQuery = {__typename?: 'Query'} & {
-  projects: Array<
-    {__typename?: 'Project'} & Pick<
-      Project,
-      'id' | 'name' | 'description' | 'createdAt' | 'status'
-    >
-  >;
+export type ProjectsQuery = {
+  __typename?: 'Query';
+  projects: Array<{
+    __typename?: 'Project';
+    id: string;
+    name: string;
+    description: string;
+    createdAt: number;
+    status: ProjectStatus;
+  }>;
 };
 
 export type RepoQueryVariables = Exact<{
   args: RepoQueryArgs;
 }>;
 
-export type RepoQuery = {__typename?: 'Query'} & {
-  repo: {__typename?: 'Repo'} & Pick<
-    Repo,
-    'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
-  > & {
-      branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'name'>>;
-      linkedPipeline?: Maybe<
-        {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
-      >;
-    };
+export type RepoQuery = {
+  __typename?: 'Query';
+  repo: {
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+    branches: Array<{__typename?: 'Branch'; name: string}>;
+    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+  };
 };
 
 export type ReposQueryVariables = Exact<{
   args: ReposQueryArgs;
 }>;
 
-export type ReposQuery = {__typename?: 'Query'} & {
-  repos: Array<
-    Maybe<
-      {__typename?: 'Repo'} & Pick<
-        Repo,
-        'createdAt' | 'description' | 'id' | 'name' | 'sizeDisplay'
-      > & {
-          branches: Array<{__typename?: 'Branch'} & Pick<Branch, 'name'>>;
-          linkedPipeline?: Maybe<
-            {__typename?: 'Pipeline'} & Pick<Pipeline, 'id' | 'name'>
-          >;
-        }
-    >
-  >;
+export type ReposQuery = {
+  __typename?: 'Query';
+  repos: Array<{
+    __typename?: 'Repo';
+    createdAt: number;
+    description: string;
+    id: string;
+    name: string;
+    sizeDisplay: string;
+    branches: Array<{__typename?: 'Branch'; name: string}>;
+    linkedPipeline?: {__typename?: 'Pipeline'; id: string; name: string} | null;
+  } | null>;
 };
 
 export type SearchResultsQueryVariables = Exact<{
   args: SearchResultQueryArgs;
 }>;
 
-export type SearchResultsQuery = {__typename?: 'Query'} & {
-  searchResults: {__typename?: 'SearchResults'} & {
-    pipelines: Array<{__typename?: 'Pipeline'} & Pick<Pipeline, 'name' | 'id'>>;
-    repos: Array<{__typename?: 'Repo'} & Pick<Repo, 'name' | 'id'>>;
-    jobSet?: Maybe<{__typename?: 'JobSet'} & Pick<JobSet, 'id'>>;
+export type SearchResultsQuery = {
+  __typename?: 'Query';
+  searchResults: {
+    __typename?: 'SearchResults';
+    pipelines: Array<{__typename?: 'Pipeline'; name: string; id: string}>;
+    repos: Array<{__typename?: 'Repo'; name: string; id: string}>;
+    jobSet?: {__typename?: 'JobSet'; id: string} | null;
   };
 };

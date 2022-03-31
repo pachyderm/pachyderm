@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import {ApolloError, AuthenticationError} from 'apollo-server-express';
 
 import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';

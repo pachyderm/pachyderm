@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import {AuthenticationError} from 'apollo-server-errors';
 import {GetPublicKeyOrSecret, verify} from 'jsonwebtoken';
 import {Issuer} from 'openid-client';

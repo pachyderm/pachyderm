@@ -3,7 +3,7 @@ import {Redirect} from 'react-router';
 
 import useAuthenticatedRoute from './hooks/useAuthenticatedRoute';
 
-const AuthenticatedRoute = <T extends unknown>(
+const AuthenticatedRoute = <T,>(
   Component: React.ComponentType<T>,
 ): React.ComponentType<T> => {
   const WrappedComponent: React.FC<T> = (props) => {

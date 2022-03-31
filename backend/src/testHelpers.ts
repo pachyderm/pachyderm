@@ -87,7 +87,7 @@ const createSubscriptionClients = <T>(
       client.subscribe<T>(
         {query: print(query), variables},
         {
-          next: (data) => observer.next(data),
+          next: (data) => observer.next(data as T),
           error: (err) => observer.error(err),
           complete: () => observer.complete(),
         },

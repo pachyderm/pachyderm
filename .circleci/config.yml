@@ -16,7 +16,7 @@ jobs:
     backend-test:
         resource_class: xlarge
         docker:
-            - image: cimg/node:16.11.0
+            - image: cimg/node:16.14.2
         steps:
             - checkout
             - run: make ci
@@ -27,7 +27,7 @@ jobs:
     frontend-test:
         resource_class: xlarge
         docker:
-            - image: cimg/node:16.11.0
+            - image: cimg/node:16.14.2
         steps:
             - checkout
             - run: make ci
@@ -72,7 +72,7 @@ jobs:
     build:
         resource_class: xlarge
         docker:
-            - image: cimg/node:16.11.0
+            - image: cimg/node:16.14.2
         steps:
             - checkout
             - run: make ci
@@ -80,7 +80,7 @@ jobs:
     check-types:
         resource_class: xlarge
         docker:
-            - image: cimg/node:16.11.0
+            - image: cimg/node:16.14.2
         steps:
             - checkout
             - run: make ci

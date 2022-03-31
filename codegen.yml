@@ -18,7 +18,6 @@ generates:
       - typescript-operations
       - add:
           content:
-            - "/* eslint-disable @typescript-eslint/naming-convention */"
             - "/* eslint-disable @typescript-eslint/ban-types */"
             - "/* eslint-disable import/no-duplicates */"
             - "/* eslint-disable @typescript-eslint/no-explicit-any */\n"
@@ -28,8 +27,5 @@ generates:
       typesPath: \@graphqlTypes
     plugins:
       - typescript-react-apollo
-      - add:
-          content:
-            - /* eslint-disable @typescript-eslint/naming-convention */
     config:
       withHooks: true

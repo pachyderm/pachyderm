@@ -78,11 +78,14 @@ const logsResolver: LogsResolver = {
           .pps()
           .getLogsStream({since: calculateSince(start)});
 
-        return withStream<Log, LogMessage>({
-          triggerName: `${uuid()}_WORKSPACE_LOGS`,
-          stream: stream,
-          onData: (chunk) => parseWorkspaceLog(chunk.toObject()),
-        });
+        return {
+          [Symbol.asyncIterator]: () =>
+            withStream<Log, LogMessage>({
+              triggerName: `${uuid()}_WORKSPACE_LOGS`,
+              stream: stream,
+              onData: (chunk) => parseWorkspaceLog(chunk.toObject()),
+            }),
+        };
       },
       resolve: (result: Log) => {
         return result;
@@ -105,11 +108,14 @@ const logsResolver: LogsResolver = {
           pipelineName && jobId
             ? `${uuid()}_${pipelineName}_${jobId}_LOGS`
             : `${uuid()}_${pipelineName}_LOGS`;
-        return withStream<Log, LogMessage>({
-          triggerName: triggerName,
-          stream: stream,
-          onData: (chunk) => logMessageToGQLLog(chunk.toObject()),
-        });
+        return {
+          [Symbol.asyncIterator]: () =>
+            withStream<Log, LogMessage>({
+              triggerName: triggerName,
+              stream: stream,
+              onData: (chunk) => logMessageToGQLLog(chunk.toObject()),
+            }),
+        };
       },
       resolve: (result: Log) => {
         return result;

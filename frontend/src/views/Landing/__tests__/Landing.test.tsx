@@ -227,7 +227,7 @@ describe('Landing', () => {
     const {findByText} = render(<Landing />);
 
     expect(await findByText('17/10')).toBeInTheDocument();
-    expect(await findByText('2.93 KB')).toBeInTheDocument();
+    expect(await findByText('3 kB')).toBeInTheDocument();
   });
 
   it('should not display the project details when the project is empty', async () => {

@@ -5,7 +5,7 @@
   "scripts": {
     "check-version": "node scripts/checkVersion.js",
     "cypress:ci": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config video=false --record --parallel --group e2e",
-    "cypress:local": "NODE_ENV=development dotenv-flow -- cypress run --browser chrome --config video=false",
+    "cypress:local": "NODE_ENV=development dotenv-flow -- cypress open",
     "cypress:open": "NODE_ENV=test dotenv-flow -- cypress open",
     "cypress:headless": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config video=false",
     "e2e": "start-server-and-test start:e2e http-get://localhost:4000 cypress:ci",
@@ -25,22 +25,21 @@
   "license": "ISC",
   "devDependencies": {
     "@cypress/code-coverage": "3.9.12",
-    "@graphql-codegen/add": "2.0.2",
-    "@graphql-codegen/cli": "1.19.2",
-    "@graphql-codegen/import-types-preset": "1.18.1",
-    "@graphql-codegen/typescript": "1.20.0",
-    "@graphql-codegen/typescript-operations": "1.17.15",
-    "@graphql-codegen/typescript-react-apollo": "2.2.3",
-    "@graphql-codegen/typescript-resolvers": "1.18.1",
+    "@graphql-codegen/add": "3.1.1",
+    "@graphql-codegen/cli": "2.6.2",
+    "@graphql-codegen/import-types-preset": "2.1.15",
+    "@graphql-codegen/typescript": "2.4.8",
+    "@graphql-codegen/typescript-operations": "2.3.5",
+    "@graphql-codegen/typescript-react-apollo": "3.2.11",
+    "@graphql-codegen/typescript-resolvers": "2.6.1",
     "@testing-library/cypress": "8.0.2",
-    "cypress": "9.3.1",
-    "cypress-wait-until": "1.7.1",
+    "cypress": "9.5.2",
+    "cypress-wait-until": "1.7.2",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
-    "envfile": "6.14.0",
-    "graphql": "15.5.0",
-    "react-transition-group": "4.4.2",
+    "envfile": "6.17.0",
+    "graphql": "16.3.0",
     "start-server-and-test": "1.14.0",
-    "typescript": "4.1.2"
+    "typescript": "4.6.3"
   }
 }

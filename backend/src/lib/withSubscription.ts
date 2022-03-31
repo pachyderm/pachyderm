@@ -1,4 +1,4 @@
-import {PubSub} from 'apollo-server-express';
+import {PubSub} from 'graphql-subscriptions';
 import noop from 'lodash/noop';
 
 import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';

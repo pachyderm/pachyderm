@@ -33,7 +33,7 @@ describe('File Browser', () => {
       const {findByText} = render(<FileBrowser />);
 
       expect(await findByText('1 File added')).toBeInTheDocument();
-      expect(await findByText('(+57.27 KB)')).toBeInTheDocument();
+      expect(await findByText('(+58.65 kB)')).toBeInTheDocument();
     });
 
     it('should filter files', async () => {
@@ -120,7 +120,7 @@ describe('File Browser', () => {
       const {findByText} = render(<FileBrowser />);
 
       expect(await findByText('liberty.png')).toBeInTheDocument();
-      expect(await findByText('57.27 KB')).toBeInTheDocument();
+      expect(await findByText('58.65 kB')).toBeInTheDocument();
     });
 
     it('should sort rows based on different headers', async () => {
@@ -237,7 +237,7 @@ describe('File Browser', () => {
       click(iconViewIcon);
 
       expect(await findByText('liberty.png')).toBeInTheDocument();
-      expect(await findByText('Size: 57.27 KB')).toBeInTheDocument();
+      expect(await findByText('Size: 58.65 kB')).toBeInTheDocument();
     });
 
     it('should navigate to dir path on action click', async () => {
@@ -327,7 +327,7 @@ describe('File Browser', () => {
       const {findByText, findByRole} = render(<FileBrowser />);
 
       expect(
-        await findByText('Uploaded: January 8, 2021 (57.27 KB)'),
+        await findByText('Uploaded: January 8, 2021 (58.65 kB)'),
       ).toBeInTheDocument();
       expect(await findByRole('img')).toHaveAttribute(
         'src',

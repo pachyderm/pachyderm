@@ -10,7 +10,6 @@ import resolvers from '@dash-backend/resolvers';
 import createContext from './lib/createContext';
 
 const gqlServer = new ApolloServer({
-  uploads: false,
   context: async ({req}) => {
     const idToken = req.header('id-token') || '';
     const authToken = req.header('auth-token') || '';

@@ -1,20 +1,32 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-const path = require('path');
 
-const {GraphQLFileLoader} = require('@graphql-tools/graphql-file-loader');
-const {loadSchemaSync} = require('@graphql-tools/load');
-const {printSchema} = require('graphql');
-
-const schemaString = printSchema(
-  loadSchemaSync(path.join(__dirname, '../backend/src/schema.graphqls'), {
-    loaders: [new GraphQLFileLoader()],
-  }),
-);
 
 module.exports = {
   extends: require.resolve('@pachyderm/config/eslint.config'),
+  root: true,
+  overrides: [
+    {
+      files: ['./src/queries/*'],
+      processor: '@graphql-eslint/graphql',
+      extends: ['eslint:recommended'],
+      env: {
+        node: true,
+        es6: true,
+      },
+    },
+    {
+      files: ['*.graphqls'],
+      parser: '@graphql-eslint/eslint-plugin',
+      plugins: ['@graphql-eslint'],
+      rules: {
+        '@graphql-eslint/no-anonymous-operations': 'error',
+      },
+      parserOptions: {
+        schema: '../backend/src/schema.graphqls',
+      },
+    },
+  ],
   rules: {
-    'graphql/template-strings': ['error', {env: 'apollo', schemaString}],
+    '@typescript-eslint/naming-convention': 'off',
   },
-  plugins: ['graphql'],
 };

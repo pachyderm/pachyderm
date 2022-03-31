@@ -4,41 +4,49 @@ import {Context} from '@dash-backend/lib/types';
 
 const loggingPlugin: ApolloServerPlugin<Context> = {
   requestDidStart: ({request, context}) => {
-    context.log.info(
-      {
-        eventSource: 'apollo-server',
-        meta: {
-          operationName: request.operationName,
+    return new Promise((resolve) => {
+      context.log.info(
+        {
+          eventSource: 'apollo-server',
+          meta: {
+            operationName: request.operationName,
+          },
         },
-      },
-      'request did start',
-    );
+        'request did start',
+      );
 
-    return {
-      didEncounterErrors: ({request, context, errors}) => {
-        context.log.error(
-          {
-            eventSource: 'apollo-server',
-            meta: {
-              operationName: request.operationName,
-              errors,
-            },
-          },
-          'did encounter errors',
-        );
-      },
-      willSendResponse: ({request, context}) => {
-        context.log.info(
-          {
-            eventSource: 'apollo-server',
-            meta: {
-              operationName: request.operationName,
-            },
-          },
-          'will send response',
-        );
-      },
-    };
+      resolve({
+        didEncounterErrors: ({request, context, errors}) => {
+          return new Promise((resolve) => {
+            context.log.error(
+              {
+                eventSource: 'apollo-server',
+                meta: {
+                  operationName: request.operationName,
+                  errors,
+                },
+              },
+              'did encounter errors',
+            );
+            resolve();
+          });
+        },
+        willSendResponse: ({request, context}) => {
+          return new Promise((resolve) => {
+            context.log.info(
+              {
+                eventSource: 'apollo-server',
+                meta: {
+                  operationName: request.operationName,
+                },
+              },
+              'will send response',
+            );
+            resolve();
+          });
+        },
+      });
+    });
   },
 };
 

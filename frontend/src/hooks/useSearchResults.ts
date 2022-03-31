@@ -15,6 +15,7 @@ export const useSearchResults = (
         globalIdFilter,
       },
     },
+    skip: !query,
   });
 
   return {

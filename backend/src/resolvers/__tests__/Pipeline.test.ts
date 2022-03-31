@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import {CREATE_PIPELINE_MUTATION} from '@dash-frontend/mutations/CreatePipeline';
 import {GET_PIPELINE_QUERY} from '@dash-frontend/queries/GetPipelineQuery';
 import {GET_PIPELINES_QUERY} from '@dash-frontend/queries/GetPipelinesQuery';

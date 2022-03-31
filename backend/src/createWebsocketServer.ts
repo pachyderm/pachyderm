@@ -2,9 +2,9 @@ import fs from 'fs';
 import {Server} from 'http';
 import path from 'path';
 
+import {makeExecutableSchema} from '@graphql-tools/schema';
 import * as Sentry from '@sentry/node';
 import {AuthenticationError} from 'apollo-server-errors';
-import {makeExecutableSchema} from 'graphql-tools';
 import {useServer as createServer} from 'graphql-ws/lib/use/ws';
 import {Server as wsServer} from 'ws';
 
@@ -86,7 +86,9 @@ const createWebsocketServer = (server: Server) => {
         const authToken = ctx.connectionParams
           ? (ctx.connectionParams['auth-token'] as string)
           : '';
-        const projectId: string = args.variableValues?.args?.projectId || '';
+        const projectId: string =
+          (args.variableValues?.args as Record<string, string> | undefined)
+            ?.projectId || '';
         return createContext({idToken, authToken, projectId});
       },
     },

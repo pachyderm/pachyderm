@@ -1,5 +1,5 @@
 import {ClientReadableStream} from '@grpc/grpc-js';
-import {PubSub} from 'apollo-server-express';
+import {PubSub} from 'graphql-subscriptions';
 import identity from 'lodash/identity';
 import noop from 'lodash/noop';
 

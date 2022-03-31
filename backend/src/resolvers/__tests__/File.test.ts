@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import {PUT_FILES_FROM_URLS_MUTATION} from '@dash-frontend/mutations/PutFilesFromURLs';
 import {GET_FILES_QUERY} from '@dash-frontend/queries/GetFilesQuery';
 
@@ -30,7 +29,7 @@ describe('File Resolver', () => {
       expect(errors?.length).toBe(0);
       expect(files?.length).toEqual(16);
       expect(data?.files.diff.size).toBe(58644);
-      expect(data?.files.diff.sizeDisplay).toBe('57.27 KB');
+      expect(data?.files.diff.sizeDisplay).toBe('58.65 kB');
       expect(data?.files.diff.filesAdded).toBe(1);
       expect(files?.[0]?.path).toEqual('/AT-AT.png');
       expect(files?.[1]?.path).toEqual('/liberty.png');
@@ -51,7 +50,7 @@ describe('File Resolver', () => {
       );
       expect(files?.[0]?.repoName).toBe('images');
       expect(files?.[0]?.sizeBytes).toBe(80588);
-      expect(files?.[0]?.sizeDisplay).toBe('78.7 KB');
+      expect(files?.[0]?.sizeDisplay).toBe('80.59 kB');
       expect(files?.[0]?.type).toBe(FileType.FILE);
       expect(files?.[1]?.commitAction).toBe('ADDED');
     });

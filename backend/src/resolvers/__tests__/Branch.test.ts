@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import {CREATE_BRANCH_MUTATION} from '@dash-frontend/mutations/CreateBranch';
 import {GET_COMMITS_QUERY} from '@dash-frontend/queries/GetCommitsQuery';
 import {GET_REPO_QUERY} from '@dash-frontend/queries/GetRepoQuery';

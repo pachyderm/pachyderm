@@ -51,7 +51,7 @@ describe('Search', () => {
     assertDropdown().toBeShown();
     expect(getByText('There are no recent searches.')).toBeInTheDocument();
     expect(getByText('There are no jobs on this project.')).toBeInTheDocument();
-    userEvent.type(await findByRole('searchbox'), 'anything');
+    userEvent.type(searchBar, 'anything');
     expect(
       await findByText('No matching pipelines, jobs or global ID found.'),
     ).toBeInTheDocument();
@@ -177,15 +177,15 @@ describe('Search', () => {
     click(await findByRole('button', {name: 'All (2)'}));
     expect(window.location.pathname).toBe('/project/1/jobs');
     expect(getUrlState().jobFilters).toEqual([
-      JobState.JOB_STATE_UNKNOWN,
       JobState.JOB_CREATED,
-      JobState.JOB_STARTING,
-      JobState.JOB_RUNNING,
-      JobState.JOB_FAILURE,
-      JobState.JOB_SUCCESS,
-      JobState.JOB_KILLED,
       JobState.JOB_EGRESSING,
+      JobState.JOB_FAILURE,
       JobState.JOB_FINISHING,
+      JobState.JOB_KILLED,
+      JobState.JOB_RUNNING,
+      JobState.JOB_STARTING,
+      JobState.JOB_STATE_UNKNOWN,
+      JobState.JOB_SUCCESS,
     ]);
     assertDropdown().toBeHidden();
   });

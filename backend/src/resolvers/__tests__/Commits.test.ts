@@ -39,7 +39,7 @@ describe('resolvers/Commits', () => {
       expect(data?.commit.started).toBe(1614136389);
       expect(data?.commit.finished).toBe(1614136391);
       expect(data?.commit.sizeBytes).toBe(44276);
-      expect(data?.commit.sizeDisplay).toBe('43.24 KB');
+      expect(data?.commit.sizeDisplay).toBe('44.28 kB');
     });
   });
   describe('commits', () => {

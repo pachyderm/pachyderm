@@ -1,22 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/naming-convention */
+
 import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
-import {Account, NodeType} from '@graphqlTypes';
+import {Account} from '@graphqlTypes';
 import {act} from '@testing-library/react';
-import userEvent, {ITypeOpts, TargetElement} from '@testing-library/user-event';
+import userEvent from '@testing-library/user-event';
+import {typeOptions} from '@testing-library/user-event/dist/type/typeImplementation';
 import React, {ReactElement} from 'react';
-import {BrowserRouter, Route} from 'react-router-dom';
+import {BrowserRouter} from 'react-router-dom';
 
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 
-import {useProjectDagsData} from './hooks/useProjectDAGsData';
-import useRouteController from './hooks/useRouteController';
 import {UrlState} from './hooks/useUrlQueryState';
-import useUrlState from './hooks/useUrlState';
-import {DagDirection} from './lib/types';
 import LoggedInProvider from './providers/LoggedInProvider';
-import useDeletePipelineButton from './views/Project/components/ProjectSidebar/components/DeletePipelineButton/hooks/useDeletePipelineButton';
-import {LINEAGE_PATH} from './views/Project/constants/projectPaths';
 
 export {default as server} from '@dash-backend/index';
 export {default as mockServer} from '@dash-backend/mock';
@@ -68,9 +64,9 @@ export const tab: typeof userEvent.tab = (...args) => {
 // "delay". This has caused problems for us in the past,
 // which is why we have a custom return type here.
 export const type = async (
-  element: TargetElement,
+  element: Element,
   text: string,
-  userOpts?: ITypeOpts,
+  userOpts?: typeOptions & {delay?: 0 | undefined},
 ) => {
   await act(async () => {
     await userEvent.type(element, text, userOpts);

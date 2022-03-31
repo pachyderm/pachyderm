@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/naming-convention */
-
 import {gql} from '@apollo/client';
 import * as Apollo from '@apollo/client';
 import * as Types from '@graphqlTypes';
-const defaultOptions = {};
+const defaultOptions = {} as const;
 export const CommitFragmentFragmentDoc = gql`
   fragment CommitFragment on Commit {
     repoName

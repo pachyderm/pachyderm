@@ -134,7 +134,7 @@ describe('ProjectSidebar', () => {
       const {findByTestId, getByText} = render(<Project />);
 
       const repoName = await findByTestId('Title__name');
-      const size = getByText('607.28 KB');
+      const size = getByText('621.86 kB');
 
       expect(repoName).toHaveTextContent('cron');
       expect(size).toBeInTheDocument();

@@ -1,3 +1,4 @@
+import {Subscription} from '@apollo/client/node_modules/zen-observable-ts';
 import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
 import {GET_DAGS_QUERY} from '@dash-frontend/queries/GetDagsQuery';
 
@@ -9,7 +10,7 @@ import {
 import {Vertex} from '@graphqlTypes';
 
 describe('Dag resolver', () => {
-  let subscription: ZenObservable.Subscription | null = null;
+  let subscription: Subscription | null = null;
 
   afterAll(() => {
     if (subscription) {

@@ -13,9 +13,15 @@ import styles from './ProjectHeader.module.css';
 const ProjectHeader = () => {
   const {projectName, loading} = useProjectHeader();
   const [showTooltip, setShowTooltip] = useState(false);
-  const setProjectNameRef = useCallback((element: HTMLHeadingElement) => {
-    setShowTooltip(element && element.clientWidth < element.scrollWidth);
-  }, []);
+
+  const setProjectNameRef: React.RefCallback<HTMLHeadingElement> = useCallback(
+    (element: HTMLHeadingElement | null) => {
+      if (element && element.clientWidth < element.scrollWidth) {
+        setShowTooltip(true);
+      } else setShowTooltip(false);
+    },
+    [],
+  );
 
   return (
     <Header>

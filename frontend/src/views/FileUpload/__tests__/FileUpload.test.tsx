@@ -17,7 +17,13 @@ describe('File Upload', () => {
   });
 
   it('should require a path', async () => {
-    const {findByText, findByLabelText} = render(<FileUpload />);
+    const {findByText, findByLabelText, getByLabelText} = render(
+      <FileUpload />,
+    );
+
+    await waitFor(() =>
+      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+    );
 
     const pathInput = await findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
@@ -27,7 +33,13 @@ describe('File Upload', () => {
   });
 
   it('should allow users to enter paths with only alphanumeric characters', async () => {
-    const {findByLabelText, queryByText, findByText} = render(<FileUpload />);
+    const {findByLabelText, queryByText, findByText, getByLabelText} = render(
+      <FileUpload />,
+    );
+
+    await waitFor(() =>
+      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+    );
 
     const pathInput = await findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
@@ -70,7 +82,13 @@ describe('File Upload', () => {
   });
 
   it('should require paths start with a forward slash', async () => {
-    const {findByLabelText, queryByText, findByText} = render(<FileUpload />);
+    const {findByLabelText, queryByText, findByText, getByLabelText} = render(
+      <FileUpload />,
+    );
+
+    await waitFor(() =>
+      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+    );
 
     const pathInput = await findByLabelText('File Path');
     await waitFor(() => expect(pathInput).not.toBeDisabled());
@@ -98,7 +116,13 @@ describe('File Upload', () => {
   });
 
   it('should allow a user to input a file with the file input', async () => {
-    const {findByLabelText, findByText} = render(<FileUpload />);
+    const {findByLabelText, findByText, getByLabelText} = render(
+      <FileUpload />,
+    );
+
+    await waitFor(() =>
+      expect(getByLabelText('Attach Files')).not.toBeDisabled(),
+    );
 
     const fileInput = (await findByLabelText(
       'Attach Files',

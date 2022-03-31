@@ -209,14 +209,17 @@ const dagResolver: DagResolver = {
           return data;
         };
 
-        return withSubscription<Vertex[]>({
-          triggerNames: [
-            `${account.id}_DAGS_UPDATED_JOB_${jobSetId}`,
-            `DAGS_UPDATED_${jobSetId}`,
-          ],
-          resolver: getDags,
-          intervalKey: projectId,
-        });
+        return {
+          [Symbol.asyncIterator]: () =>
+            withSubscription<Vertex[]>({
+              triggerNames: [
+                `${account.id}_DAGS_UPDATED_JOB_${jobSetId}`,
+                `DAGS_UPDATED_${jobSetId}`,
+              ],
+              resolver: getDags,
+              intervalKey: projectId,
+            }),
+        };
       },
       resolve: (result: Vertex[]) => {
         return result;

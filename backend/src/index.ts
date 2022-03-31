@@ -80,8 +80,6 @@ const createServer = () => {
     tracesSampleRate: 0.5,
   });
 
-  gqlServer.applyMiddleware({app});
-
   attachFileHandlers(app);
 
   if (process.env.NODE_ENV !== 'development') {
@@ -90,6 +88,8 @@ const createServer = () => {
 
   return {
     start: async () => {
+      await gqlServer.start();
+      gqlServer.applyMiddleware({app});
       return new Promise<string>((res) => {
         app.locals.server = app.listen(PORT, () => {
           const address: AddressInfo = app.locals.server.address();
@@ -107,7 +107,7 @@ const createServer = () => {
           log.info(
             `Websocket server ready at ${
               process.env.NODE_ENV === 'production' ? 'wss' : 'ws'
-            }://${host}:${port}${gqlServer.subscriptionsPath}`,
+            }://${host}:${port}${gqlServer.graphqlPath}`,
           );
 
           res(String(address.port));
