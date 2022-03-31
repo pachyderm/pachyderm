@@ -172,7 +172,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
     !!! Note
             There is no need to pause all the Pachyderm clusters registered to the Enterprise Server to backup the enterprise server; however, pausing the Enterprise server will result in your clusters becoming unavailable.
 
-- As a reminder, the Enterprise Server does not use any object-store. Therefore, the [backup of the Enterprise Server](#back-up-the-databases-and-the-object-store) will consist in backing up the databases only.
+- As a reminder, the Enterprise Server does not use any object-store. Therefore, the [backup of the Enterprise Server](#back-up-the-databases-and-the-object-store) only consists in backing up the databases.
 
 - [Resume the operations on your Enterprise Server](#resuming-operations) by scaling the `pach-enterprise` deployment back up: 
 
