@@ -118,7 +118,7 @@ func (w *Writer) Delete(path, datum string) error {
 func (w *Writer) Copy(file File, datum string) error {
 	idx := file.Index()
 	size := index.SizeBytes(idx)
-	if size >= int64(w.batchThreshold) && chunk.FullDataRefs(idx.File.DataRefs) {
+	if size >= int64(w.batchThreshold) && chunk.StableDataRefs(idx.File.DataRefs) {
 		if err := w.checkIndex(w.idx, idx); err != nil {
 			return err
 		}

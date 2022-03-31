@@ -63,6 +63,10 @@ func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
 		if err := taskChain.Wait(); err != nil {
 			return nil, err
 		}
+		if len(dataRefs) > 0 {
+			dataRefs[0].Ref.Edge = true
+			dataRefs[len(dataRefs)-1].Ref.Edge = true
+		}
 		return func() error {
 			return u.cb(meta, dataRefs)
 		}, nil
