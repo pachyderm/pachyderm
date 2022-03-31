@@ -14,4 +14,4 @@ helm repo add pach https://helm.pachyderm.com
 
 helm repo update
 
-go test -v ./src/testing/deploy -run "TestUpgradeSimple"
+go test -v ./src/testing/deploy
