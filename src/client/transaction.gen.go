@@ -171,6 +171,18 @@ func (c *unsupportedEnterpriseBuilderClient) Heartbeat(_ context.Context, _ *ent
 	return nil, unsupportedError("Heartbeat")
 }
 
+func (c *unsupportedEnterpriseBuilderClient) Pause(_ context.Context, _ *enterprise_v2.PauseRequest, opts ...grpc.CallOption) (*enterprise_v2.PauseResponse, error) {
+	return nil, unsupportedError("Pause")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) PauseStatus(_ context.Context, _ *enterprise_v2.PauseStatusRequest, opts ...grpc.CallOption) (*enterprise_v2.PauseStatusResponse, error) {
+	return nil, unsupportedError("PauseStatus")
+}
+
+func (c *unsupportedEnterpriseBuilderClient) Unpause(_ context.Context, _ *enterprise_v2.UnpauseRequest, opts ...grpc.CallOption) (*enterprise_v2.UnpauseResponse, error) {
+	return nil, unsupportedError("Unpause")
+}
+
 type unsupportedIdentityBuilderClient struct{}
 
 func (c *unsupportedIdentityBuilderClient) CreateIDPConnector(_ context.Context, _ *identity_v2.CreateIDPConnectorRequest, opts ...grpc.CallOption) (*identity_v2.CreateIDPConnectorResponse, error) {

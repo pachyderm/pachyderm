@@ -649,13 +649,14 @@ func (d *driver) aliasCommit(txnCtx *txncontext.TransactionContext, parent *pfs.
 			if parentCommitInfo.Finished != nil {
 				commitInfo.Finished = txnCtx.Timestamp
 				commitInfo.Details = parentCommitInfo.Details
-				// if the parent is already finished we can just use its total fileset.
-				total, err := d.commitStore.GetTotalFileSetTx(txnCtx.SqlTx, parentCommitInfo.Commit)
-				if err != nil {
-					return nil, errors.EnsureStack(err)
-				}
-				if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, *total); err != nil {
-					return nil, errors.EnsureStack(err)
+				if parentCommitInfo.Error == "" {
+					total, err := d.commitStore.GetTotalFileSetTx(txnCtx.SqlTx, parentCommitInfo.Commit)
+					if err != nil {
+						return nil, errors.EnsureStack(err)
+					}
+					if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, *total); err != nil {
+						return nil, errors.EnsureStack(err)
+					}
 				}
 			}
 			commitInfo.Error = parentCommitInfo.Error

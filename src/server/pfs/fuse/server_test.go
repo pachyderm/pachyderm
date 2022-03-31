@@ -314,6 +314,17 @@ func TestUnauthenticatedCode(t *testing.T) {
 	})
 }
 
+func TestMountNonexistentRepo(t *testing.T) {
+	tu.DeleteAll(t)
+	defer tu.DeleteAll(t)
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, _ := put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
+		require.Equal(t, 400, resp.StatusCode)
+	})
+}
+
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
 func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {

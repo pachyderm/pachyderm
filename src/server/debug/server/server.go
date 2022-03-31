@@ -505,7 +505,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 	// Reverse the x values since we collect them from newest to oldest.
 	// TODO: It would probably be better to support listing jobs in reverse order.
 	reverseContinuousSeries(compacting, validating, finishing)
-	return collectGraph(tw, "commits-chart", "number of commits", []chart.Series{compacting, validating, finishing}, prefix...)
+	return collectGraph(tw, "commits-chart.png", "number of commits", []chart.Series{compacting, validating, finishing}, prefix...)
 }
 
 func reverseContinuousSeries(series ...chart.ContinuousSeries) {
@@ -810,7 +810,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	// Reverse the x values since we collect them from newest to oldest.
 	// TODO: It would probably be better to support listing jobs in reverse order.
 	reverseContinuousSeries(download, process, upload)
-	return collectGraph(tw, "jobs-chart", "number of jobs", []chart.Series{download, process, upload}, prefix...)
+	return collectGraph(tw, "jobs-chart.png", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
 func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {

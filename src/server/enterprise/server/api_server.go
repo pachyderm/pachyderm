@@ -9,6 +9,12 @@ import (
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -31,6 +37,9 @@ const (
 
 	heartbeatFrequency = time.Hour
 	heartbeatTimeout   = time.Minute
+
+	updatedAtFieldName   = "pachyderm.com/updatedAt"
+	restartedAtFieldName = "kubectl.kubernetes.io/restartedAt"
 )
 
 type apiServer struct {
@@ -177,6 +186,10 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
+	// must not activate while paused
+	if a.env.mode == PausedMode {
+		return nil, errors.New("cannot activate paused cluster; unpause first")
+	}
 	// Try to heartbeat before persisting the configuration
 	heartbeatResp, err := a.heartbeatToServer(ctx, req.LicenseServer, req.Id, req.Secret)
 	if err != nil {
@@ -296,6 +309,10 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // Deactivate deletes the current cluster's enterprise token, and puts the
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
+	// must not deactivate while paused
+	if a.env.mode == PausedMode {
+		return nil, errors.New("cannot deactivate paused cluster; unpause first")
+	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
@@ -331,4 +348,246 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}
 
 	return &ec.DeactivateResponse{}, nil
+}
+
+// Pause sets the cluster to paused mode, restarting all pachds in a paused
+// status.  If they are already paused, it is a no-op.
+func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
+	if a.env.mode == UnpausableMode {
+		return nil, errors.Errorf("this pachd instance is not in a pausable mode")
+	}
+	if err := a.rollPachd(ctx, true); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	return &ec.PauseResponse{}, nil
+}
+
+// rollPachd changes pachds from paused to unpaused, or unpaused to paused.  It
+// does this by creating a ConfigMap with a MODE value, then updating the pachd
+// deployment spec’s template’s annotations with a new value, which causes
+// Kubernetes to terminate existing pods and start new ones.
+//
+// Since the ConfigMap is not managed by Helm, it will persist through Helm
+// operations: a cluster which is upgraded by Helm in a paused state will thus
+// remain paused.
+//
+// If the ConfigMap is already in the desired state, no changes are made; this
+// ensures that PauseStatus can do its checking appropriately.
+//
+// There is a special case in main to handle the case where there is no
+// ConfigMap and the '$(MODE)' reference is verbatim.
+func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
+	var (
+		kc        *kubernetes.Clientset = a.env.getKubeClient()
+		namespace                       = a.env.namespace
+	)
+	cc := kc.CoreV1().ConfigMaps(namespace)
+	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// if the ConfigMap is not found, then the cluster is by definition unpaused
+		if !paused {
+			return nil
+		}
+		// Since pachd-config is not managed by Helm, it may not exist.
+		c = newPachdConfigMap(namespace, a.env.unpausedMode)
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
+		c.Data["MODE"] = "paused"
+		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
+			return errors.Errorf("could not create configmap: %w", err)
+		}
+	} else if err != nil {
+		return errors.Errorf("could not get configmap pachd-config: %w", err)
+	} else {
+		// Curiously, Get can return no error and an empty configmap!
+		// If this happens, need to set the name and namespace.
+		if c.ObjectMeta.Name == "" {
+			c = newPachdConfigMap(namespace, a.env.unpausedMode)
+		}
+		if c.Data == nil {
+			c.Data = make(map[string]string)
+		}
+		if paused && c.Data["MODE"] == "paused" {
+			// Short-circuit and do not update if configmap
+			// is already in the correct state.  This keeps
+			// the updatedAt semantics correct when checking
+			// the pause status.
+			return nil
+		} else if !paused && c.Data["MODE"] != "paused" {
+			// Short-circuit and do not update if configmap
+			// is already in the correct state.  This keeps
+			// the updatedAt semantics correct when checking
+			// the pause status.
+			return nil
+		}
+		if paused {
+			c.Data["MODE"] = "paused"
+		} else {
+			c.Data["MODE"] = a.env.unpausedMode
+		}
+		if c.Annotations == nil {
+			c.Annotations = make(map[string]string)
+		}
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
+		if _, err := cc.Update(ctx, c, metav1.UpdateOptions{}); err != nil {
+			return errors.Errorf("could not update configmap: %w", err)
+		}
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		dd := kc.AppsV1().Deployments(namespace)
+		d, err := dd.Get(ctx, "pachd", metav1.GetOptions{})
+		if err != nil {
+			return err //nolint:wrapcheck
+		}
+		// Updating the spec rolls the deployment, killing each pod and causing
+		// a new one to start.
+		d.Spec.Template.Annotations[restartedAtFieldName] = time.Now().Format(time.RFC3339Nano)
+		if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
+			return err //nolint:wrapcheck
+		}
+		return nil
+	}); err != nil {
+		return errors.Errorf("could not updated pachd deployment: %v", err)
+	}
+
+	return nil
+}
+
+func newPachdConfigMap(namespace, unpausedMode string) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "pachd-config",
+			Namespace:   namespace,
+			Annotations: make(map[string]string),
+		},
+		Data: map[string]string{"MODE": unpausedMode},
+	}
+}
+
+func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace string) error {
+	rc := kc.CoreV1().ReplicationControllers(namespace)
+	ww, err := rc.List(ctx, metav1.ListOptions{
+		LabelSelector: "suite=pachyderm,component=worker",
+	})
+	if err != nil {
+		return errors.Errorf("could not list workers: %v", err)
+	}
+	for _, w := range ww.Items {
+		if _, err := rc.UpdateScale(ctx, w.GetName(), &autoscalingv1.Scale{
+			Spec: autoscalingv1.ScaleSpec{
+				Replicas: 0,
+			},
+		}, metav1.UpdateOptions{
+			FieldManager: "enterprise-server",
+		}); err != nil {
+			return errors.Errorf("could not scale down %s: %v", w.GetName(), err)
+		}
+	}
+	return nil
+}
+
+func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
+	if a.env.mode == UnpausableMode {
+		return nil, errors.Errorf("this pachd instance is not in an unpausable mode")
+	}
+	if err := a.rollPachd(ctx, false); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	return &ec.UnpauseResponse{}, nil
+}
+
+// PauseStatus checks the pause status of a cluster.  It does this by checking
+// first for the pachd-config ConfigMap; if it does not exist, then the cluster
+// is by default unpaused.  Next it looks for the “pachyderm.com/updatedAt”
+// field; if that field does not exist then this must be an empty config map and
+// the cluster is by default paused.  If it does exist, though, it is remembered.
+//
+// Finally it cycles through all pachd pods, checking that they were created
+// before the updateAt value; if some are before & some after (or at the exact
+// same instant), then the cluster is considered partially paused; if all pachd
+// pods were created before the ConfigMap was updated then it has not taken
+// effect and the cluster is in the reverse state; if all pods were created
+// after the ConfigMap was updated then it has taken effect and the cluster is
+// in the indicated state.
+func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
+	kc := a.env.getKubeClient()
+	cc := kc.CoreV1().ConfigMaps(a.env.namespace)
+	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		// If there is no configmap, then the pachd pods must be
+		// unpaused.
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_UNPAUSED,
+		}, nil
+	} else if err != nil {
+		return nil, errors.Errorf("could not get configmap: %v", err)
+	}
+	if c.Annotations[updatedAtFieldName] == "" {
+		// If there is no updatedAt, then then the pachd pods must be in
+		// their default, unpaused, state.
+		return &ec.PauseStatusResponse{
+			Status: ec.PauseStatusResponse_UNPAUSED,
+		}, nil
+	}
+	updatedAt, err := time.Parse(time.RFC3339Nano, c.Annotations[updatedAtFieldName])
+	if err != nil {
+		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations[updatedAtFieldName], err)
+	}
+
+	pods := kc.CoreV1().Pods(a.env.namespace)
+	pp, err := pods.List(ctx, metav1.ListOptions{
+		LabelSelector: "app=pachd",
+	})
+	if err != nil {
+		return nil, errors.Errorf("could not get pachd pods: %v", err)
+	}
+	var sawAfter, sawBefore bool
+	for _, p := range pp.Items {
+		// We cannot rely on p.CreationTimestamp.Time, because it only
+		// has one-second resolution.  Instead, we store our own
+		// nanosecond-resolution timestamp.
+		//
+		// If the pod does not have the Kubernetes restartedAt
+		// annotation, then it must have existed before the configMap
+		// was updated.
+		if p.Annotations[restartedAtFieldName] == "" {
+			sawBefore = true
+			continue
+		}
+		restartedAt, err := time.Parse(time.RFC3339Nano, p.Annotations[restartedAtFieldName])
+		if err != nil {
+			return nil, errors.Errorf("could not parse restarted time %v: %v", p.Annotations[restartedAtFieldName], err)
+		}
+		if restartedAt.Before(updatedAt) {
+			sawBefore = true
+		} else {
+			sawAfter = true
+		}
+	}
+	var status ec.PauseStatusResponse_PauseStatus
+	switch {
+	case sawBefore && sawAfter:
+		status = ec.PauseStatusResponse_PARTIALLY_PAUSED
+	case sawBefore:
+		// nothing has cycled yet; configmap has yet to take effect
+		if c.Data["MODE"] == "paused" {
+			status = ec.PauseStatusResponse_UNPAUSED
+		} else {
+			status = ec.PauseStatusResponse_PAUSED
+		}
+	case sawAfter:
+		// everything has cycled; configmap has taken effect
+		if c.Data["MODE"] == "paused" {
+			status = ec.PauseStatusResponse_PAUSED
+		} else {
+			status = ec.PauseStatusResponse_UNPAUSED
+		}
+	default:
+		return nil, errors.Errorf("no paused or unpaused pachds found")
+	}
+	return &ec.PauseStatusResponse{
+		Status: status,
+	}, nil
 }
