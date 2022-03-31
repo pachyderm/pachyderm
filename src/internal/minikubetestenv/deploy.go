@@ -281,6 +281,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
+	// wait for pachd a second time, in case pgbouncer caused it to restart
+	waitForPachd(t, ctx, kubeClient, namespace, version)
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
 
