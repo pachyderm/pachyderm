@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
 
 func TestGetTableInfo(t *testing.T) {
@@ -23,6 +24,10 @@ func TestGetTableInfo(t *testing.T) {
 		{
 			Name:  "MySQL",
 			NewDB: dockertestenv.NewMySQL,
+		},
+		{
+			Name:  "Snowflake",
+			NewDB: testsnowflake.NewSnowSQL,
 		},
 	}
 	ctx := context.Background()

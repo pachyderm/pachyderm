@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -23,7 +24,7 @@ type ColumnInfo struct {
 
 // GetTableInfo looks up information about the table using INFORMATION_SCHEMA
 func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, error) {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := db.BeginTxx(ctx, &sql.TxOptions{ReadOnly: false}) // TODO Snowflake doesn't support ReadOnly
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -32,7 +33,7 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return ti, tx.Rollback()
+	return ti, errors.EnsureStack(tx.Rollback())
 }
 
 // GetTableInfoTx looks up information about the table using INFORMATION_SCHEMA
@@ -44,11 +45,11 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	`
 	var args []interface{}
 	// table_name
-	q += fmt.Sprintf(" WHERE table_name = %s", Placeholder(tx.DriverName(), len(args)))
+	q += fmt.Sprintf(" WHERE lower(table_name) = lower(%s)", Placeholder(tx.DriverName(), len(args)))
 	args = append(args, tableName)
 	// schema_name
 	if schemaName != "" {
-		q += " AND table_schema = " + Placeholder(tx.DriverName(), len(args))
+		q += " AND lower(table_schema) = " + fmt.Sprintf("lower(%s)", Placeholder(tx.DriverName(), len(args)))
 		args = append(args, schemaName)
 	}
 	// We use tx.Query, not tx.Select here because MySQL and Postgres have conflicting capitalization
@@ -60,11 +61,13 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var ci ColumnInfo
-		var isNullable string
-		if err := rows.Scan(&ci.TableSchema, &ci.TableName, &ci.DataType, &isNullable); err != nil {
+		var isNullableS string
+		if err := rows.Scan(&ci.TableSchema, &ci.TableName, &ci.DataType, &isNullableS); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		switch isNullable {
+		switch strings.ToLower(isNullableS) {
+		case "yes":
+			ci.IsNullable = true
 		}
 		cinfos = append(cinfos, ci)
 	}

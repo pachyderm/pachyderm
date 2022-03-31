@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -175,13 +173,4 @@ func setupTable(t testing.TB, db *pachsql.DB) {
 	const N = 10
 	require.NoError(t, pachsql.CreateTestTable(db, "test_data"))
 	require.NoError(t, pachsql.LoadTestData(db, "test_data", N))
-}
-
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-func toSnakeCase(str string) string {
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
 }

@@ -23,7 +23,7 @@ func Placeholder(driverName string, i int) string {
 	switch driverName {
 	case "pgx":
 		return "$" + strconv.Itoa(i+1)
-	case "mysql":
+	case "mysql", "snowflake":
 		return "?"
 	default:
 		panic(driverName)
@@ -40,10 +40,10 @@ func SplitTableSchema(driver string, tablePath string) (schemaName string, table
 		tableName = tablePath
 		switch driver {
 		case "mysql":
-		case "pgx":
+		case "pgx", "snowflake":
 			schemaName = "public"
 		default:
-			panic(driver)
+			panic(fmt.Sprintf("driver not supported: %s", driver))
 		}
 	}
 	return schemaName, tableName
