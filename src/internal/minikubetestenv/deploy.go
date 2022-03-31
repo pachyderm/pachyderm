@@ -44,7 +44,8 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset uint16
+	PortOffset  uint16
+	WaitSeconds int
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -281,9 +282,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
-	// wait for pachd a second time, in case pgbouncer caused it to restart
-	waitForPachd(t, ctx, kubeClient, namespace, version)
-	time.Sleep(10 * time.Second)
+	if opts.WaitSeconds > 0 {
+		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
+	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace)
 }
 
