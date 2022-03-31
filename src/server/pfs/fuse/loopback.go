@@ -72,7 +72,7 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
-	stateMap map[string]string
+	stateMap map[string]string       // key is mount name, value is 'mounted', etc
 	repoOpts map[string]*RepoOptions // key is mount name
 	branches map[string]string       // key is mount name
 	commits  map[string]string       // key is mount name
@@ -594,7 +594,8 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	// don't download while we're anything other than mounted
 	// TODO: we probably want some more locking/coordination (in the other
 	// direction) to stop the state machine changing state _during_ a download()
-	if st != "mounted" {
+	// NB: empty string case is to support pachctl mount as well as mount-server
+	if !(st == "" || st == "mounted") {
 		logrus.Infof(
 			"Skipping download('%s') because %s state was %s; "+
 				"getFileState(%s) -> %s, state=%s",
