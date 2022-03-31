@@ -228,6 +228,9 @@ volume later.
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
 For production environments, it is **strongly recommended that you disable the bundled version and use an RDS PostgreSQL instance**. 
 
+!!! Attention
+      Note that [Aurora Serverless PostgreSQL](https://aws.amazon.com/rds/aurora/serverless/){target=_blank} is not supported and will not work.
+
 This section will provide guidance on the configuration settings you will need to: 
 
 - Create an environment to run your AWS PostgreSQL databases. Note that you will be creating **two databases** (`pachyderm` and `dex`).
