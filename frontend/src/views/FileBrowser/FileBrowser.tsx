@@ -17,8 +17,10 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import {
-  FILE_BROWSER_DIR_PATH,
-  FILE_BROWSER_FILE_PATH,
+  PROJECT_FILE_BROWSER_DIR_PATH,
+  PROJECT_FILE_BROWSER_FILE_PATH,
+  LINEAGE_FILE_BROWSER_DIR_PATH,
+  LINEAGE_FILE_BROWSER_FILE_PATH,
 } from '../Project/constants/projectPaths';
 
 import FileHeader from './components/FileHeader';
@@ -79,7 +81,13 @@ const FileBrowser: React.FC = () => {
           <div className={styles.subHeader}>
             <Breadcrumb />
             <Switch>
-              <Route path={FILE_BROWSER_DIR_PATH} exact>
+              <Route
+                path={[
+                  PROJECT_FILE_BROWSER_DIR_PATH,
+                  LINEAGE_FILE_BROWSER_DIR_PATH,
+                ]}
+                exact
+              >
                 <Tooltip
                   tooltipText="List View"
                   placement="left"
@@ -114,7 +122,13 @@ const FileBrowser: React.FC = () => {
             </Switch>
           </div>
           <Switch>
-            <Route path={FILE_BROWSER_DIR_PATH} exact>
+            <Route
+              path={[
+                PROJECT_FILE_BROWSER_DIR_PATH,
+                LINEAGE_FILE_BROWSER_DIR_PATH,
+              ]}
+              exact
+            >
               {fileView === 'icon' && filteredFiles.length > 0 && (
                 <div
                   className={styles.fileIcons}
@@ -129,7 +143,13 @@ const FileBrowser: React.FC = () => {
                 <ListViewTable files={filteredFiles} />
               )}
             </Route>
-            <Route path={FILE_BROWSER_FILE_PATH} exact>
+            <Route
+              path={[
+                PROJECT_FILE_BROWSER_FILE_PATH,
+                LINEAGE_FILE_BROWSER_FILE_PATH,
+              ]}
+              exact
+            >
               {fileToPreview && <FilePreview file={fileToPreview} />}
             </Route>
           </Switch>

@@ -19,9 +19,12 @@ import {
   PROJECT_JOBS_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
-  FILE_BROWSER_PATH,
-  LOGS_VIEWER_JOB_PATH,
-  LOGS_VIEWER_PIPELINE_PATH,
+  LINEAGE_FILE_BROWSER_PATH,
+  PROJECT_FILE_BROWSER_PATH,
+  LINEAGE_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
+  PROJECT_LOGS_VIEWER_JOB_PATH,
+  PROJECT_LOGS_VIEWER_PIPELINE_PATH,
   LINEAGE_PATH,
   PROJECT_FILE_UPLOAD_PATH,
   LINEAGE_FILE_UPLOAD_PATH,
@@ -54,13 +57,20 @@ const Project: React.FC = () => {
         <Route path={PROJECT_JOBS_PATH}>
           <ProjectJobList />
         </Route>
-        <Route path={FILE_BROWSER_PATH}>
+        <Route path={[LINEAGE_FILE_BROWSER_PATH, PROJECT_FILE_BROWSER_PATH]}>
           <FileBrowser />
         </Route>
-        <Route path={LOGS_VIEWER_PIPELINE_PATH}>
+        <Route
+          path={[
+            PROJECT_LOGS_VIEWER_PIPELINE_PATH,
+            LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
+          ]}
+        >
           <PipelineLogsViewer />
         </Route>
-        <Route path={LOGS_VIEWER_JOB_PATH}>
+        <Route
+          path={[PROJECT_LOGS_VIEWER_JOB_PATH, LINEAGE_LOGS_VIEWER_JOB_PATH]}
+        >
           <JobLogsViewer />
         </Route>
         <Route path={[PROJECT_FILE_UPLOAD_PATH, LINEAGE_FILE_UPLOAD_PATH]}>

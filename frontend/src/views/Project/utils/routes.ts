@@ -10,10 +10,13 @@ import {
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
   PROJECT_REPO_PATH,
-  FILE_BROWSER_PATH,
+  LINEAGE_FILE_BROWSER_PATH,
+  PROJECT_FILE_BROWSER_PATH,
   PROJECT_JOB_PATH,
-  LOGS_VIEWER_JOB_PATH,
-  LOGS_VIEWER_PIPELINE_PATH,
+  LINEAGE_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
+  PROJECT_LOGS_VIEWER_JOB_PATH,
+  PROJECT_LOGS_VIEWER_PIPELINE_PATH,
   LINEAGE_JOBS_PATH,
   LINEAGE_JOB_PATH,
   LINEAGE_PIPELINE_JOB_PATH,
@@ -74,10 +77,17 @@ export const pipelineRoute = generateLineageOrProjectRouteFn(
   LINEAGE_PIPELINE_PATH,
 );
 
-export const fileBrowserRoute = generateRouteFn(FILE_BROWSER_PATH);
-export const logsViewerJobRoute = generateRouteFn(LOGS_VIEWER_JOB_PATH);
-export const logsViewerPipelneRoute = generateRouteFn(
-  LOGS_VIEWER_PIPELINE_PATH,
+export const fileBrowserRoute = generateLineageOrProjectRouteFn(
+  PROJECT_FILE_BROWSER_PATH,
+  LINEAGE_FILE_BROWSER_PATH,
+);
+export const logsViewerJobRoute = generateLineageOrProjectRouteFn(
+  PROJECT_LOGS_VIEWER_JOB_PATH,
+  LINEAGE_LOGS_VIEWER_JOB_PATH,
+);
+export const logsViewerPipelneRoute = generateLineageOrProjectRouteFn(
+  PROJECT_LOGS_VIEWER_PIPELINE_PATH,
+  LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
 );
 
 export const fileUploadRoute = generateLineageOrProjectRouteFn(
