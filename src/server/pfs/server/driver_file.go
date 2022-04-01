@@ -53,6 +53,11 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 				return parentID, nil
 			}))
 		}
+		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
+			// open alias commit
+			// TODO: resolve this to the proper commit, which the user likely intended?
+			return errors.Errorf("cannot write to alias commit %s", commitInfo.Commit)
+		}
 		return d.withCommitUnorderedWriter(ctx, renewer, commitInfo.Commit, cb)
 	})
 }
