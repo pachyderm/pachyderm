@@ -773,6 +773,9 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		subvBIs = append(subvBIs, branchData)
 	}
 	sort.Slice(subvBIs, func(i, j int) bool {
+		if len(subvBIs[i].Provenance) == len(subvBIs[j].Provenance) {
+			return subvBIs[i].Branch.String() < subvBIs[j].Branch.String()
+		}
 		return len(subvBIs[i].Provenance) < len(subvBIs[j].Provenance)
 	})
 

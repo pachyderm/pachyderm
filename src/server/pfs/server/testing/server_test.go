@@ -6137,6 +6137,56 @@ func TestPFS(suite *testing.T) {
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
 	})
+	suite.Run("ErrorMessages", func(t *testing.T) {
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		c := env.PachClient
+		br := "branch"
+
+		_, err := c.StartTransaction()
+		require.NoError(t, err)
+
+		require.NoError(t, c.CreateRepo("inA"))
+		require.NoError(t, c.CreateRepo("inB"))
+		require.NoError(t, c.CreateRepo("inCommon"))
+		require.NoError(t, c.CreateRepo("A"))
+		require.NoError(t, c.CreateRepo("B"))
+
+		require.NoError(t, c.CreateBranch("inA", br, "", "", nil))
+		require.NoError(t, c.CreateBranch("inB", br, "", "", nil))
+		require.NoError(t, c.CreateBranch("inCommon", br, "", "", nil))
+		require.NoError(t, c.CreateBranch("A", br, "", "",
+			[]*pfs.Branch{client.NewBranch("inA", br), client.NewBranch("inCommon", br)}))
+		require.NoError(t, c.CreateBranch("B", br, "", "",
+			[]*pfs.Branch{client.NewBranch("inB", br), client.NewBranch("inCommon", br)}))
+
+		newCommit, err := c.StartCommit("inB", br)
+		require.NoError(t, err)
+
+		// B should have an auto commit provenant on the new input
+		ci, err := c.InspectCommit("B", br, "")
+		require.NoError(t, err)
+		require.Equal(t, pfs.OriginKind_AUTO, ci.Origin.Kind)
+		require.Equal(t, newCommit.ID, ci.Commit.ID)
+
+		// inCommon should have an alias commit with the same ID
+		ci, err = c.InspectCommit("inCommon", br, "")
+		require.NoError(t, err)
+		require.Equal(t, pfs.OriginKind_ALIAS, ci.Origin.Kind)
+		require.Equal(t, newCommit.ID, ci.Commit.ID)
+
+		// A should not have changed
+		prevAHead, err := c.InspectCommit("A", br, "")
+		require.NoError(t, err)
+		require.NotEqual(t, newCommit.ID, ci.Commit.ID)
+
+		// recreate inCommon - this should do nothing
+		require.NoError(t, c.CreateBranch("inCommon", br, "", "", nil))
+
+		ci, err = c.InspectCommit("A", br, "")
+		require.NoError(t, err)
+		require.Equal(t, prevAHead.Commit.ID, ci.Commit.ID)
+	})
 }
 
 var (
