@@ -4,13 +4,13 @@ describe('Project List', () => {
   })
 
   beforeEach(() => {
-    cy.findAllByText('View Project').eq(0).click();
+    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
     cy.findByText('View List', {timeout: 8000}).click();
   });
 
   afterEach(() => {
     cy.visit('/')
-    cy.findAllByText('View Project', {timeout: 8000}).eq(0).click();
+    cy.findAllByText(/^View(\sProject)*$/, {timeout: 8000}).eq(0).click();
     cy.findByText('View Lineage', {timeout: 8000}).click();
     cy.visit('/')
   })

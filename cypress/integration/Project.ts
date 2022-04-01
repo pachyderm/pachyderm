@@ -4,7 +4,7 @@ describe('Project', () => {
   })
 
   beforeEach(() => {
-    cy.findAllByText('View Project').eq(0).click();
+    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
   });
 
   afterEach(() => {

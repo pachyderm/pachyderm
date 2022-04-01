@@ -15,7 +15,7 @@ describe('Landing', () => {
   })
 
   it('should show deafult project info', () => {
-    cy.findByText('Default Pachyderm project.').click();
+    cy.findByText('Default').click();
     cy.findByText('Project Preview');
     cy.findByText('Total No. of Repos/Pipelines');
     cy.findByText('Total Data Size');

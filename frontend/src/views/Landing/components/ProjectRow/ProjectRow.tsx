@@ -1,5 +1,5 @@
 import {Project} from '@graphqlTypes';
-import {Button, Info} from '@pachyderm/components';
+import {Button, Group, Info} from '@pachyderm/components';
 import classNames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import noop from 'lodash/noop';
@@ -45,41 +45,45 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     <tr
       className={classNames(styles.row, {
         [styles[`${project.status}Selected`]]: isSelected,
-        [styles.rowHover]: multiProject,
+        [styles.rowHover]: multiProject && !isSelected,
       })}
       onClick={(e: React.MouseEvent<HTMLTableRowElement, MouseEvent>) =>
         setSelectedProject()
       }
     >
       <td>
-        <h3 className={styles.title}>{project.name}</h3>
-      </td>
-      <td>
-        <Info header="Project Status" headerId="project-status">
-          <ProjectStatus
-            status={project.status}
-            data-testid="ProjectRow__status"
-          />
-        </Info>
-      </td>
-      <td>
-        <Info header="Created On" headerId="project-creation">
-          <span data-testid="ProjectRow__created">{date}</span>
-        </Info>
-      </td>
-      <td>
-        <Info header="Description" headerId="project-description">
-          {project.description}
-        </Info>
-      </td>
-      <td>
-        <Button
-          className={styles.button}
-          buttonType="secondary"
-          onClick={onClick}
-        >
-          View Project
-        </Button>
+        <Group vertical spacing={16}>
+          <Group justify="between" align="baseline" spacing={16}>
+            <h3 className={styles.title}>{project.name}</h3>
+            <Button
+              autoSize
+              buttonType="secondary"
+              onClick={onClick}
+              className={styles.button}
+            >
+              <span>View</span>
+              <span className={styles.responsiveHide}> Project</span>
+            </Button>
+          </Group>
+          <Group spacing={64}>
+            <Info header="Project Status" headerId="project-status">
+              <ProjectStatus
+                status={project.status}
+                data-testid="ProjectRow__status"
+              />
+            </Info>
+            <Info header="Created On" headerId="project-creation">
+              <span data-testid="ProjectRow__created">{date}</span>
+            </Info>
+            <Info
+              header="Description"
+              headerId="project-description"
+              className={styles.responsiveHide}
+            >
+              {project.description}
+            </Info>
+          </Group>
+        </Group>
       </td>
     </tr>
   );

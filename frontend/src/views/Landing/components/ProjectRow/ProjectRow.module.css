@@ -1,11 +1,10 @@
 .button {
-  width: 10rem;
-  height: 2.625rem
+  white-space: nowrap;
 }
 
 .row {
   border-radius: 3px;
-  height: 7.875rem;
+  height: 10rem;
   width: 100%;
   font-size: var(--font-size-body-medium);
   filter: drop-shadow(0 1px 1px var(--border-grey));
@@ -18,33 +17,30 @@
 
 .row td {
   background-color: var(--white);
-  padding: 1.5rem 2rem;
-}
-
-.row td:first-child {
-  padding-left: 1.5rem;
-  border-radius: 3px 0 0 3px;
-}
-
-.row td:last-child {
-  padding-right: 1.5rem;
-  border-radius: 0 3px 3px 0;
+  padding: 1rem 1rem 1rem 2rem;
+  border-radius: 3px;
+  border-left: solid 6px var(--white)
 }
 
 .title {
   color: var(--pachyderm-black);
   font-size: 1rem;
   line-height: 25px;
+  font-weight: 700;
 }
 
 /* stylelint-disable-next-line selector-class-pattern */
-.row.HEALTHYSelected td:first-child {
+.row.HEALTHYSelected td {
   border-left: solid 6px var(--banner-green);
-  padding-left: calc(1.5rem - 6px);
 }
 
 /* stylelint-disable-next-line selector-class-pattern */
-.row.UNHEALTHYSelected td:first-child {
+.row.UNHEALTHYSelected td {
   border-left: solid 6px var(--error-red);
-  padding-left: calc(1.5rem - 6px);
+}
+
+@media screen and (max-width: 1024px) {
+  .responsiveHide {
+    display: none !important;
+  }
 }
