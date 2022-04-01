@@ -42,23 +42,12 @@
 
 .inline {
   display: inline-flex;
+  justify-content: space-between;
   width: 100%;
 }
 
 .inline a {
   text-align: right;
-}
-
-.extras {
-  margin-left: 0.5rem;
-  flex: 1;
-  display: inline-flex;
-  justify-content: space-between;
-  text-align: right;
-}
-
-.icon {
-  transform: scale(0.75);
 }
 
 .link {
