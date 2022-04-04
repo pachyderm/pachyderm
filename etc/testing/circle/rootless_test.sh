@@ -13,6 +13,8 @@ minikube start \
     --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy \
     --addons=pod-security-policy
 
+minikube addons enable default-storageclass
+
 # add a PodSecurityPolicy which disables root
 kubectl delete psp restricted privileged || true
 kubectl apply -f etc/testing/pod-security-policy.yaml
