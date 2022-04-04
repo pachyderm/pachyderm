@@ -19,7 +19,11 @@ import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSideb
 
 import styles from './InfoPanel.module.css';
 
-const InfoPanel = () => {
+type InfoPanelProps = {
+  showReadLogs?: boolean;
+};
+
+const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
   const {jobId, projectId, pipelineId} = useUrlState();
   const {viewState} = useUrlQueryState();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
@@ -67,9 +71,11 @@ const InfoPanel = () => {
 
   return (
     <dl className={styles.base}>
-      <div className={styles.logsButtonWrapper}>
-        <ReadLogsButton />
-      </div>
+      {showReadLogs && (
+        <div className={styles.logsButtonWrapper}>
+          <ReadLogsButton />
+        </div>
+      )}
       <Description
         term="Output Commit"
         loading={loading}

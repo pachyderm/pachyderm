@@ -163,7 +163,7 @@ const JobDetails = () => {
 
         <div className={styles.pipelineSpec}>
           <Route path={[PROJECT_PIPELINE_JOB_PATH, LINEAGE_PIPELINE_JOB_PATH]}>
-            <InfoPanel />
+            <InfoPanel showReadLogs />
           </Route>
         </div>
       </section>

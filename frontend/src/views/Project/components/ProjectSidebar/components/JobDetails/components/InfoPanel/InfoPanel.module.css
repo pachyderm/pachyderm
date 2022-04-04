@@ -1,6 +1,6 @@
 .base {
   max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
-  padding: 1.5rem 1.125rem 0 1.125rem;
+  padding: 0.25rem 1.5rem;
   overflow-y: auto;
 }
 
@@ -14,5 +14,5 @@
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
 }
