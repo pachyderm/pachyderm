@@ -171,7 +171,13 @@ spec:
           value:  {{.Values.global.noProxy}}
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
-          value: {{ .Values.pachd.securityContext.enabled | quote }}    
+          value: {{ .Values.pachd.securityContext.enabled | quote }}
+        - name: UNPAUSED_MODE
+          value: "full"
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        - name: IDENTITY_SERVER_DATABASE
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        {{ end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
