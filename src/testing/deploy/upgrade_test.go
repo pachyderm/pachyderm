@@ -48,6 +48,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				"default",
 				k,
 				&minikubetestenv.DeployOpts{
+					WaitSeconds:  10,
 					CleanupAfter: true,
 				}))
 		})
@@ -63,7 +64,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 func TestUpgradeSimple(t *testing.T) {
 	upgradeTest(t, context.Background(),
 		func(t *testing.T, c *client.APIClient) {
-			testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(inputRepo))
 			require.NoError(t,
 				c.CreatePipeline(outputRepo,
@@ -94,7 +95,7 @@ func TestUpgradeSimple(t *testing.T) {
 		},
 
 		func(t *testing.T, c *client.APIClient) {
-			testutil.AuthenticatedPachClient(t, c, upgradeSubject)
+			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)

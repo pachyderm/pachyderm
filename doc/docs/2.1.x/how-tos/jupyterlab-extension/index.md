@@ -163,8 +163,8 @@ Replace the image name with your own image otherwise.
         defaultUrl: "/lab"
         cmd:   "start-singleuser.sh"
         image:
-            name: pachyderm/notebooks-user:v0.4.0
-            tag: 624337360beaff8514be329386f3ca554fc7a34d
+            name: pachyderm/notebooks-user
+            tag: {{ config.jupyterlab_extension_image_tag }}
         uid:   0
         fsGid: 0
         extraEnv:
