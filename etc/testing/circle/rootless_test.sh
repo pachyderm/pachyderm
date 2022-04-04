@@ -4,7 +4,7 @@ set -ve
 
 export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
 
-VERSION=v1.23.0
+VERSION=v1.19.0
 
 # start minikube with pod security admission plugin
 minikube start \
