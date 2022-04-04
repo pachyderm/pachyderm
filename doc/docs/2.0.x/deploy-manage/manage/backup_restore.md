@@ -182,6 +182,6 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 - Once your cluster is up and running, check that all [your clusters are automatically registered with your new Enterprise Server](../../../enterprise/auth/enterprise-server/manage/#list-all-registered-clusters){target=_blank}.
 
-## Info
+## Additional Info
    
 For additional questions about backup / restore, you can post them in the community #help channel on [Slack](https://www.pachyderm.com/slack/){target=_blank}, or reach out to your TAM if you are an Enterprise customer.
