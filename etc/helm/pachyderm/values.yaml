@@ -320,7 +320,8 @@ pachd:
   #   robot:eve:
   #   - repoWriter
   pachAuthClusterRoleBindings: {}
-  identityDatabaseFullNameOverride: dex
+  # Indicates the DB name that dex connects to
+  identityDatabaseFullNameOverride: ""
   serviceAccount:
     create: true
     additionalAnnotations: {}

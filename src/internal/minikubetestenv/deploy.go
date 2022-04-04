@@ -133,6 +133,8 @@ func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddre
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
 			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
+			// to test that the override works
+			"pachd.identityDatabaseFullNameOverride": "dexdb",
 		},
 	}
 }
