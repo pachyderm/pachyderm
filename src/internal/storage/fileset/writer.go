@@ -22,16 +22,16 @@ import (
 
 // Writer provides functionality for writing a file set.
 type Writer struct {
-	ctx                               context.Context
-	storage                           *Storage
-	additive, additiveSmall, deletive *index.Writer
-	uploader                          *chunk.Uploader
-	batchThreshold                    int
-	batcher                           *chunk.Batcher
-	idx                               *index.Index
-	deleteIdx                         *index.Index
-	ttl                               time.Duration
-	sizeBytes                         int64
+	ctx                                 context.Context
+	storage                             *Storage
+	additive, additiveBatched, deletive *index.Writer
+	uploader                            *chunk.Uploader
+	batchThreshold                      int
+	batcher                             *chunk.Batcher
+	idx                                 *index.Index
+	deleteIdx                           *index.Index
+	ttl                                 time.Duration
+	sizeBytes                           int64
 }
 
 func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Writer {
@@ -50,14 +50,14 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
 		return w.additive.WriteIndex(idx)
 	})
-	w.additiveSmall = index.NewWriter(ctx, storage.ChunkStorage(), "additive-small-index-writer")
+	w.additiveBatched = index.NewWriter(ctx, storage.ChunkStorage(), "additive-batched-index-writer")
 	w.batcher = storage.ChunkStorage().NewBatcher(ctx, "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		if dataRef != nil {
 			idx.File.DataRefs = []*chunk.DataRef{dataRef}
 		}
 		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
-		return w.additiveSmall.WriteIndex(idx)
+		return w.additiveBatched.WriteIndex(idx)
 	}))
 	w.deletive = index.NewWriter(ctx, storage.ChunkStorage(), "deletive-index-writer")
 	return w
@@ -152,17 +152,17 @@ func (w *Writer) Close() (*ID, error) {
 	if err != nil {
 		return nil, err
 	}
-	// The batcher writes to the additive small index, so close it first.
+	// The batcher writes to the additive batched index, so close it first.
 	if err := w.batcher.Close(); err != nil {
 		return nil, err
 	}
-	additiveSmallIdx, err := w.additiveSmall.Close()
+	additiveBatchedIdx, err := w.additiveBatched.Close()
 	if err != nil {
 		return nil, err
 	}
 	// TODO: Rethink / rework merging the two additive indexes?
 	additiveMerge := index.NewWriter(w.ctx, w.storage.ChunkStorage(), "additive-merge-index-writer")
-	if err := index.Merge(w.ctx, w.storage.ChunkStorage(), []*index.Index{additiveIdx, additiveSmallIdx}, func(idx *index.Index) error {
+	if err := index.Merge(w.ctx, w.storage.ChunkStorage(), []*index.Index{additiveIdx, additiveBatchedIdx}, func(idx *index.Index) error {
 		return additiveMerge.WriteIndex(idx)
 	}); err != nil {
 		return nil, err
