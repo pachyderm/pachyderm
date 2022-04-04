@@ -16,26 +16,32 @@ Refer to your provider's documentation.
 
 ## Overview
 
-Pachyderm state is stored in three places 
-(See our high-level [instructure diagram](../../../deploy-manage/#overview)):
+Pachyderm state is stored in two main places
+(See our high-level [architecture diagram](../../../deploy-manage/#overview)):
 
 - an **object-store** holding Pachyderm's data.
 - a PostgreSQL instance made up of **two databases**: `pachyderm` holding Pachyderm's metadata and `dex` holding authentication data. 
-- and in Kubernetes itself (`etcd`). This last item is automatically managed using Helm, **assuming that you have retained a copy of the initial Helm values used to deploy the cluster you are planning to backup**. 
+
+!!! Note
+     We are storing extra metadata in `etcd`, however, those are automatically managed using Helm. 
 
 Backing up a Pachyderm cluster involves snapshotting both
 the object store and the PostgreSQL databases (see above),
 in a consistent state, at a given point in time.
 
-Restoring it involves populating the databases in a new PostgreSQL instance 
-and a new object store using those backups, then recreating a Pachyderm cluster.
+Restoring it involves re-populating the databases and the object store using those backups, then recreating a Pachyderm cluster.
 
-!!! Important
-    Make sure that you have a bucket for backup use, 
+!!! Note
+    - Make sure that you have a bucket for backup use, 
     separate from the object store used by your cluster.
+    - Depending on the reasons behind the restoration of a cluster, you might choose to use an existing vs. a new instance of PostgreSQL and/or the object store.
+
 ## Manual Back Up Of A Pachyderm Cluster
 
-Before any manual backup, you need to suspend any state-mutating operations.
+Before any manual backup:
+
+- Make sure to retain a copy of the Helm values used to deploy your cluster.
+- Then, suspend any state-mutating operations.
 
 !!! Note 
 
@@ -54,7 +60,7 @@ Before any manual backup, you need to suspend any state-mutating operations.
      
     !!! Important
              Before you start, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank} .
-             Run `kubectl config view` to list all available clusters and contexts, then `kubectl config use-context <your-context-name>` to set the proper active context.
+             Run `kubectl config get-contexts` to list all available clusters and contexts (the current context is marked with a `*`), then `kubectl config use-context <your-context-name>` to set the proper active context.
 
       ```shell 
       kubectl scale deployment pachd --replicas 0 
@@ -76,13 +82,13 @@ Before any manual backup, you need to suspend any state-mutating operations.
 
 ### Back Up The Databases And The Object Store
 
-This step is specific to your database and object store hosting.
+This step is specific to your database and object store hosting. 
 
 - If your PostgreSQL instance is solely dedicated to Pachyderm, 
-you can use `pg_dumpall` to dump your entire PostgreSQL state.  
+you can use PostgreSQL's tools, like `pg_dumpall`, to dump your entire PostgreSQL state.  
 
-    Otherwise, use targeted `pg_dump` commands to dump the
-    `pachyderm` and `dex` databases.  
+    Alternatively, you can use targeted `pg_dump` commands to dump the
+    `pachyderm` and `dex` databases, or use your Cloud Provider's backup product.  
     In any case, make sure to use TLS.
     Note that if you are using a cloud provider, you might
     choose to use the provider’s method of making PostgreSQL backups.
@@ -121,13 +127,16 @@ of restoring the worker pods.
 
 ## Restore Pachyderm
 
-The most straightforward way to restore a Pachyderm cluster is to:
-###  Create A New PostgreSQL Instance, A New Bucket, A New K8s Cluster
+There are two primary use cases for restoring a cluster:
 
-- Create a new PostgreSQL instance with `pachyderm` and `dex` databases
-- Create a new bucket or use the backed-up object
-store (note that, in that case, it will no longer be a backup)
-- Create a new empty Kubernetes cluster and give it access to your databases and new bucket
+1. Your data have been corrupted, preventing your cluster from functioning correctly. You want the same version of Pachyderm re-installed on the latest uncorrupted data set. 
+1. You have upgraded a cluster and are encountering problems. You decide to uninstall the current version and restore the latest backup of a previous version of Pachyderm.
+
+Depending on your scenario, pick all or a subset of the following steps:
+
+- Populate new `pachyderm` and `dex` databases on your PostgreSQL instance
+- Populate a new bucket or use the backed-up object-store (note that, in that case, it will no longer be a backup)
+- Create a new empty Kubernetes cluster and give it access to your databases and bucket
 
 !!! Info
     Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, and permissions setup for each Cloud Provider in the [Deploy section of our Documentation](../../../deploy-manage/deploy/){target=_blank}
@@ -136,13 +145,11 @@ store (note that, in that case, it will no longer be a backup)
 
 - Restore PostgreSQL backups into your new databases using the appropriate
 method (this is most straightforward when using a cloud provider).
-- Copy the objects from the backed-up object store to your new bucket.
+- Copy the objects from the backed-up object store to your new bucket or re-use your backup.
 
 ### Deploy Pachyderm Into The New Cluster
 
-Finally, make a copy of your original Helm values,
-update them accordingly to point Pachyderm at the new databases and the
-new object store, then use Helm to install
+Finally, update the copy of your original Helm values to point Pachyderm to the new databases and the new object store, then use Helm to install
 Pachyderm into the new cluster.
 
 !!! Info
@@ -153,7 +160,7 @@ Pachyderm into the new cluster.
 ...and [check that your cluster is up and running](../../../deploy-manage/deploy/aws-deploy-pachyderm/#8-check-that-your-cluster-is-up-and-running).
 
 ## Backup/Restore A Stand-Alone Enterprise Server
-Backing up / restoring an Enterprise Server is similar to the back up / restore of a regular cluster explained at a high-level above, with two slight variations:
+Backing up / restoring an Enterprise Server is similar to the back up / restore of a regular cluster (see above), with two slight variations:
 
 1. The name of its Kubernetes deployment is `pach-enterprise` versus `pachd` in the case of a regular cluster.
 1. The Enterprise Server does not use an Object Store.
@@ -161,9 +168,9 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 ### Backup A Standalone Enterprise Server
 
-- Check your [Enterprise Server](../../../enterprise/auth/enterprise-server/setup/){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
+- Make sure that `pachctl/kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../../enterprise/auth/enterprise-server/setup/){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
 
-- [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster. Note that there is a slight difference. As the deployment of the enterprise server is named `pach-enterprise`, the first command should be:
+- [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster. Note that there is a slight difference. The deployment of the enterprise server is named `pach-enterprise`; therefore, the first command should be:
 
     ```shell
     kubectl scale deployment pach-enterprise --replicas 0 
