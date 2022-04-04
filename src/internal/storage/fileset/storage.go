@@ -23,7 +23,8 @@ const (
 	DefaultMemoryThreshold = units.GB
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
-	DefaultShardThreshold = units.GB
+	DefaultShardSizeThreshold  = units.GB
+	DefaultShardCountThreshold = 1000000
 	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
 	// This is expressed as the number of primitive filesets.
 	// TODO: Potentially remove this configuration.
@@ -48,13 +49,13 @@ var (
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
-	tracker                      track.Tracker
-	store                        MetadataStore
-	chunks                       *chunk.Storage
-	memThreshold, shardThreshold int64
-	compactionConfig             *CompactionConfig
-	filesetSem                   *semaphore.Weighted
-	prefetchLimit                int
+	tracker                                               track.Tracker
+	store                                                 MetadataStore
+	chunks                                                *chunk.Storage
+	memThreshold, shardSizeThreshold, shardCountThreshold int64
+	compactionConfig                                      *CompactionConfig
+	filesetSem                                            *semaphore.Weighted
+	prefetchLimit                                         int
 }
 
 type CompactionConfig struct {
@@ -64,11 +65,12 @@ type CompactionConfig struct {
 // NewStorage creates a new Storage.
 func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		store:          mds,
-		tracker:        tr,
-		chunks:         chunks,
-		memThreshold:   DefaultMemoryThreshold,
-		shardThreshold: DefaultShardThreshold,
+		store:               mds,
+		tracker:             tr,
+		chunks:              chunks,
+		memThreshold:        DefaultMemoryThreshold,
+		shardSizeThreshold:  DefaultShardSizeThreshold,
+		shardCountThreshold: DefaultShardCountThreshold,
 		compactionConfig: &CompactionConfig{
 			FixedDelay:  DefaultCompactionFixedDelay,
 			LevelFactor: DefaultCompactionLevelFactor,
