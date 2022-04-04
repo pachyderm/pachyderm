@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -167,4 +168,15 @@ func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.R
 		}
 	}
 	return nil
+}
+
+// Used to nudge pipeline controllers with refresh events.
+func (kd *kubeDriver) ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error) {
+	return nil, nil
+}
+
+// Used to discover crashing pods which signals the controller to transition
+// a pipeline to CRASHING
+func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (chan<- watch.Event, error) {
+	return nil, nil
 }
