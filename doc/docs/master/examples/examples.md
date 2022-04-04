@@ -1,17 +1,5 @@
----
-# YAML header
-ignore_macros: true
----
-
-<!-- git-snippet: enable -->
 
 # Examples
-
-
-
-{{ gitsnippet('pachyderm/examples', 'README.md', section='## Getting Started') }}
-
-
 
 A curated list of examples that use Pachyderm.
 
