@@ -135,7 +135,6 @@ func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddre
 			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
-			"postgresql.useInitdbScripts":                        "true",
 		},
 	}
 }

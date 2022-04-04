@@ -211,7 +211,6 @@ Returns dex's database name.
 Returns the db init script for setting up the dex database.
 */}}
 {{- define "postgresql.initdbScripts" -}}
-{{- if .Values.useInitdbScripts -}}
 dex.sh: |
   #!/bin/bash
   set -e
@@ -219,7 +218,6 @@ dex.sh: |
     CREATE DATABASE {{ include "postgresql.dexDbName" . }};
     GRANT ALL PRIVILEGES ON DATABASE {{ include "postgresql.dexDbName" . }} TO "$POSTGRES_USER";
   EOSQL
-{{- end -}}
 {{- end -}}
 
 {{/*

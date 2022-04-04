@@ -970,9 +970,6 @@
                             "type": "array"
                         }
                     }
-                },
-                "useInitdbScripts": {
-                    "type": "boolean"
                 }
             }
         }

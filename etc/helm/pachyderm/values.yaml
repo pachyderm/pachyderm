@@ -509,8 +509,6 @@ postgresql:
   enabled: true
   image:
     tag: "13.3.0"
-  # instructs the creation of the dex database in the postgresql subchart
-  useInitdbScripts: false
   # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
     dex.sh: |
