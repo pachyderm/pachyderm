@@ -134,7 +134,8 @@ func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddre
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
 			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
 			// to test that the override works
-			"pachd.identityDatabaseFullNameOverride": "dexdb",
+			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
+			"postgresql.useInitdbScripts":                        "true",
 		},
 	}
 }

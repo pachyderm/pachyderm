@@ -201,6 +201,28 @@ Return true if a configmap should be mounted with PostgreSQL configuration
 {{- end -}}
 
 {{/*
+Returns dex's database name.
+*/}}
+{{- define "postgresql.dexDbName" -}}
+{{ default "dex" .Values.global.postgresql.identityDatabaseFullNameOverride }}
+{{- end -}}
+
+{{/*
+Returns the db init script for setting up the dex database.
+*/}}
+{{- define "postgresql.initdbScripts" -}}
+{{- if .Values.useInitdbScripts -}}
+dex.sh: |
+  #!/bin/bash
+  set -e
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    CREATE DATABASE {{ include "postgresql.dexDbName" . }};
+    GRANT ALL PRIVILEGES ON DATABASE {{ include "postgresql.dexDbName" . }} TO "$POSTGRES_USER";
+  EOSQL
+{{- end -}}
+{{- end -}}
+
+{{/*
 Get the initialization scripts ConfigMap name.
 */}}
 {{- define "postgresql.initdbScriptsCM" -}}

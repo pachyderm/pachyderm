@@ -78,9 +78,9 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
-        {{ if .Values.pachd.identityDatabaseFullNameOverride }}
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE
-          value: {{ .Values.pachd.identityDatabaseFullNameOverride }}
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
         {{ end }}
         envFrom:
           - secretRef:

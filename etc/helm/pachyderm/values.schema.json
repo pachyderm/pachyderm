@@ -316,6 +316,9 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
+                        "identityDatabaseFullNameOverride": {
+                            "type": "string"
+                        },
                         "postgresqlDatabase": {
                             "type": "string"
                         },
@@ -543,9 +546,6 @@
                 },
                 "goMaxProcs": {
                     "type": "integer"
-                },
-                "identityDatabaseFullNameOverride": {
-                    "type": "string"
                 },
                 "image": {
                     "type": "object",
@@ -970,6 +970,9 @@
                             "type": "array"
                         }
                     }
+                },
+                "useInitdbScripts": {
+                    "type": "boolean"
                 }
             }
         }
