@@ -34,7 +34,7 @@ Restoring it involves re-populating the databases and the object store using tho
 !!! Note
     - Make sure that you have a bucket for backup use, 
     separate from the object store used by your cluster.
-    - Depending on the reasons behind the restoration of a cluster, you might choose to use an existing vs. a new instance of PostgreSQL and/or the object store.
+    - Depending on the reasons behind your cluster recovery, you might choose to use an existing vs. a new instance of PostgreSQL and/or the object store.
 
 ## Manual Back Up Of A Pachyderm Cluster
 
