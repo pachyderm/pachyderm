@@ -544,6 +544,9 @@
                 "goMaxProcs": {
                     "type": "integer"
                 },
+                "identityDatabaseFullNameOverride": {
+                    "type": "string"
+                },
                 "image": {
                     "type": "object",
                     "properties": {

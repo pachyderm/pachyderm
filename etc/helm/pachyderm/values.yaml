@@ -320,6 +320,7 @@ pachd:
   #   robot:eve:
   #   - repoWriter
   pachAuthClusterRoleBindings: {}
+  identityDatabaseFullNameOverride: dex
   serviceAccount:
     create: true
     additionalAnnotations: {}
