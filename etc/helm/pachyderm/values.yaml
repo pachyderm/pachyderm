@@ -27,6 +27,8 @@ global:
     postgresqlPort: "5432"
     # postgresqlSSL is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
     postgresqlSSL: "disable"
+    # Indicates the DB name that dex connects to
+    identityDatabaseFullNameOverride: ""
   # imagePullSecrets allow you to pull images from private repositories, these will also be added to pipeline workers
   # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
   # Example:
@@ -507,6 +509,7 @@ postgresql:
   enabled: true
   image:
     tag: "13.3.0"
+  # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
     dex.sh: |
       #!/bin/bash

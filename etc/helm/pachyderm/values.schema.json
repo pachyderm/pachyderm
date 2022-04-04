@@ -316,6 +316,9 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
+                        "identityDatabaseFullNameOverride": {
+                            "type": "string"
+                        },
                         "postgresqlDatabase": {
                             "type": "string"
                         },
