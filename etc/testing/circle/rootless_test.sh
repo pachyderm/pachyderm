@@ -21,7 +21,7 @@ done
 minikube start \
     --vm-driver=docker \
     --kubernetes-version=${VERSION} \
-    --cpus=7 \
+    --cpus=4 \
     --memory=12Gi \
     --wait=all \
     --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy \
