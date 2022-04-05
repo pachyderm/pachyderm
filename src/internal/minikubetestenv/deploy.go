@@ -38,23 +38,6 @@ var (
 	computedPachAddress *grpcutil.PachdAddress
 )
 
-func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
-	if computedPachAddress == nil {
-		cfg, err := config.Read(true, true)
-		require.NoError(t, err)
-		_, context, err := cfg.ActiveContext(false)
-		require.NoError(t, err)
-		computedPachAddress, err = client.GetUserMachineAddr(context)
-		require.NoError(t, err)
-		if computedPachAddress == nil {
-			copy := grpcutil.DefaultPachdAddress
-			computedPachAddress = &copy
-		}
-	}
-	copy := *computedPachAddress
-	return &copy
-}
-
 type DeployOpts struct {
 	Version            string
 	Enterprise         bool
@@ -91,6 +74,23 @@ func helmChartLocalPath(t testing.TB) string {
 	}
 	relPathParts = append(relPathParts, "etc", "helm", "pachyderm")
 	return filepath.Join(relPathParts...)
+}
+
+func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
+	if computedPachAddress == nil {
+		cfg, err := config.Read(true, true)
+		require.NoError(t, err)
+		_, context, err := cfg.ActiveContext(false)
+		require.NoError(t, err)
+		computedPachAddress, err = client.GetUserMachineAddr(context)
+		require.NoError(t, err)
+		if computedPachAddress == nil {
+			copy := grpcutil.DefaultPachdAddress
+			computedPachAddress = &copy
+		}
+	}
+	copy := *computedPachAddress
+	return &copy
 }
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
