@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -221,8 +222,15 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
+
 			if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
 				txnCtx.FinishJob(commitInfo)
+				if validationError != "" {
+					if err := d.propagateError(txnCtx, ppsutil.MetaCommit(commitInfo.Commit),
+						fmt.Sprintf("output validation error: %s", validationError)); err != nil {
+						return err
+					}
+				}
 			}
 			if err := d.finishAliasDescendents(txnCtx, commitInfo, *totalId); err != nil {
 				return err
@@ -236,9 +244,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 	})
 }
 
-// finishAliasDescendents will traverse the given commit's descendents, finding all
-// contiguous aliases and finishing them.
-func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, id fileset.ID) error {
+func (d *driver) forEachAliasDescendent(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, cb func(*pfs.CommitInfo) error) error {
 	// Build the starting set of commits to consider
 	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)
 
@@ -252,21 +258,56 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 		}
 
 		if commitInfo.Origin.Kind == pfs.OriginKind_ALIAS {
-			if commitInfo.Finishing == nil {
-				commitInfo.Finishing = txnCtx.Timestamp
-			}
-			commitInfo.Finished = txnCtx.Timestamp
-			commitInfo.Details = parentCommitInfo.Details
-			commitInfo.Error = parentCommitInfo.Error
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, id); err != nil {
-				return errors.EnsureStack(err)
-			}
-
 			descendents = append(descendents, commitInfo.ChildCommits...)
+			if err := cb(commitInfo); err != nil {
+				return err
+			}
 		}
+	}
+	return nil
+}
+
+// finishAliasDescendents will traverse the given commit's descendents, finding all
+// contiguous aliases and finishing them.
+func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, id fileset.ID) error {
+	return d.forEachAliasDescendent(txnCtx, parentCommitInfo, func(commitInfo *pfs.CommitInfo) error {
+		if commitInfo.Finishing == nil {
+			commitInfo.Finishing = txnCtx.Timestamp
+		}
+		commitInfo.Finished = txnCtx.Timestamp
+		commitInfo.Details = parentCommitInfo.Details
+		commitInfo.Error = parentCommitInfo.Error
+		if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return errors.EnsureStack(
+			d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, id))
+	})
+}
+
+func (d *driver) propagateError(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, valError string) error {
+	var commitInfo pfs.CommitInfo
+	var needsUpdate bool
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(
+		commit, &commitInfo, func() error {
+			if commitInfo.Error == "" {
+				// if the commit isn't finished yet, the error will be propagated to alias descendents when it is
+				// otherwise, we need to take care of it now
+				needsUpdate = commitInfo.Finished != nil
+				commitInfo.Error = valError
+			}
+			return nil
+		}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	if needsUpdate {
+		return d.forEachAliasDescendent(txnCtx, &commitInfo, func(aliasInfo *pfs.CommitInfo) error {
+			var toUpdate pfs.CommitInfo
+			return d.commits.ReadWrite(txnCtx.SqlTx).Update(aliasInfo.Commit, &toUpdate, func() error {
+				toUpdate.Error = valError
+				return nil
+			})
+		})
 	}
 	return nil
 }
