@@ -126,9 +126,10 @@ Depending on your scenario, pick all or a subset of the following steps:
 - Populate new `pachyderm` and `dex` databases on your PostgreSQL instance
 - Populate a new bucket or use the backed-up object-store (note that, in that case, it will no longer be a backup)
 - Create a new empty Kubernetes cluster and give it access to your databases and bucket
+- Deploy Pachyderm into your new cluster
 
 !!! Info
-    Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, and permissions setup for each Cloud Provider in the [Deploy section of our Documentation](../../../deploy-manage/deploy/){target=_blank}
+    Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, permissions setup, and Pachyderm deployment for each Cloud Provider in the [Deploy section of our Documentation](../../../deploy-manage/deploy/){target=_blank}
 
 ### Restore The Databases And Objects
 
