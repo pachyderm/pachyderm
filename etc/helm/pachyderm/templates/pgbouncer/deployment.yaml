@@ -55,6 +55,10 @@ spec:
           value: "300"
         - name: PGBOUNCER_IGNORE_STARTUP_PARAMETERS
           value: "extra_float_digits"
+        {{- if .Values.global.postgresql.postgresqlSSL }}
+        - name: SERVER_TLS_SSLMODE
+          value: "require"
+        {{- end }}
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
         - name: POSTGRESQL_PASSWORD
@@ -62,7 +66,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: bitnami/pgbouncer:1.16.0
+        image: pachyderm/pgbouncer:1.16.1-1
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
