@@ -41,8 +41,8 @@ spec:
          {{- else }}
           value: {{ .Values.global.postgresql.postgresqlHost }}
          {{- end }}
-        - name: PGBOUNCER_PORT
-          value: "5432"
+        - name: POSTGRESQL_PORT
+          value: {{ .Values.global.postgresql.postgresqlPort }}
         - name: PGBOUNCER_DATABASE
           value: "*"
         - name: PGBOUNCER_MAX_CLIENT_CONN
@@ -55,10 +55,8 @@ spec:
           value: "300"
         - name: PGBOUNCER_IGNORE_STARTUP_PARAMETERS
           value: "extra_float_digits"
-        {{- if .Values.global.postgresql.postgresqlSSL }}
         - name: SERVER_TLS_SSLMODE
-          value: "require"
-        {{- end }}
+          value: "{{ .Values.global.postgresql.postgresqlSSL }}"
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
         - name: POSTGRESQL_PASSWORD
