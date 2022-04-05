@@ -42,7 +42,7 @@ spec:
           value: {{ .Values.global.postgresql.postgresqlHost }}
          {{- end }}
         - name: POSTGRESQL_PORT
-          value: {{ .Values.global.postgresql.postgresqlPort }}
+          value: "{{ .Values.global.postgresql.postgresqlPort }}"
         - name: PGBOUNCER_DATABASE
           value: "*"
         - name: PGBOUNCER_MAX_CLIENT_CONN
