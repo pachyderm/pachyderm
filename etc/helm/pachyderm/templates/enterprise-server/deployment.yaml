@@ -78,6 +78,10 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        - name: IDENTITY_SERVER_DATABASE
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        {{ end }}
         envFrom:
           - secretRef:
               name: pachyderm-deployment-id-secret

@@ -74,12 +74,13 @@ func withEnterprise(t testing.TB, namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
-			"pachd.rootToken":                      testutil.RootToken,
-			"pachd.oauthClientSecret":              "oidc-client-secret",
-			"pachd.enterpriseSecret":               "enterprise-secret",
-			"oidc.userAccessibleOauthIssuerHost":   fmt.Sprintf("%s:30658", addr.Host),
-			"ingress.host":                         fmt.Sprintf("%s:30657", addr.Host),
+			"pachd.enterpriseLicenseKeySecretName":               licenseKeySecretName,
+			"pachd.rootToken":                                    testutil.RootToken,
+			"pachd.oauthClientSecret":                            "oidc-client-secret",
+			"pachd.enterpriseSecret":                             "enterprise-secret",
+			"oidc.userAccessibleOauthIssuerHost":                 fmt.Sprintf("%s:30658", addr.Host),
+			"ingress.host":                                       fmt.Sprintf("%s:30657", addr.Host),
+			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
 	}
 }
