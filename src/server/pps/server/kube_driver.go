@@ -169,11 +169,27 @@ func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.R
 
 // Used to nudge pipeline controllers with refresh events.
 func (kd *kubeDriver) ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error) {
-	return nil, nil
+	return kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
+		ctx,
+		metav1.ListOptions{
+			LabelSelector: "suite=pachyderm,pipelineName",
+		})
 }
 
 // Used to discover crashing pods which signals the controller to transition
 // a pipeline to CRASHING
-func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (chan<- watch.Event, error) {
-	return nil, nil
+func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
+	kubePipelineWatch, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Watch(
+		ctx,
+		metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{
+					"component": "worker",
+				})),
+			Watch: true,
+		})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to watch kubernetes pods")
+	}
+	return kubePipelineWatch.ResultChan(), func() { kubePipelineWatch.Stop() }, nil
 }
