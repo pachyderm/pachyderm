@@ -172,5 +172,5 @@ func TestMaterializeSQL(t *testing.T) {
 func setupTable(t testing.TB, db *pachsql.DB) {
 	const N = 10
 	require.NoError(t, pachsql.CreateTestTable(db, "test_data"))
-	require.NoError(t, pachsql.LoadTestData(db, "test_data", N))
+	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
 }

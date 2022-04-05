@@ -91,7 +91,7 @@ func CreateTestTable(db *DB, name string) error {
 	return errors.EnsureStack(err)
 }
 
-func LoadTestData(db *DB, tableName string, n int) error {
+func GenerateTestData(db *DB, tableName string, n int) error {
 	fz := fuzz.New()
 	fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
 		*ti = time.Now()

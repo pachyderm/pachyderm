@@ -44,21 +44,18 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	schemaName, tableName := SplitTableSchema(tx.DriverName(), tablePath)
 	var cinfos []ColumnInfo
-	q := `SELECT table_schema, table_name, data_type, is_nullable
-		FROM INFORMATION_SCHEMA.columns
-	`
-	var args []interface{}
-	// table_name
-	q += fmt.Sprintf(" WHERE lower(table_name) = lower(%s)", Placeholder(tx.DriverName(), len(args)))
-	args = append(args, tableName)
-	// schema_name
+	where := fmt.Sprintf("lower(table_name) = lower('%s')", tableName)
 	if schemaName != "" {
-		q += " AND lower(table_schema) = " + fmt.Sprintf("lower(%s)", Placeholder(tx.DriverName(), len(args)))
-		args = append(args, schemaName)
+		where += fmt.Sprintf(" AND lower(table_schema) = lower('%s')", schemaName)
 	}
+	q := fmt.Sprintf(`
+	SELECT table_schema, table_name, data_type, is_nullable
+	FROM INFORMATION_SCHEMA.columns
+	WHERE %s
+	ORDER BY ordinal_position`, where)
 	// We use tx.Query, not tx.Select here because MySQL and Postgres have conflicting capitalization
 	// and sqlx complains about scanning using struct tags.
-	rows, err := tx.Query(q, args...)
+	rows, err := tx.Query(q)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

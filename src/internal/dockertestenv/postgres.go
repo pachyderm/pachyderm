@@ -42,7 +42,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
-	dbName := testutil.CreateEphemeralDB(t, db)
+	dbName := testutil.CreateEphemeralDB(t, db, testutil.GenerateEphermeralDBName(t))
 	return func(c *serviceenv.Configuration) {
 		// common
 		c.PostgresDBName = dbName
