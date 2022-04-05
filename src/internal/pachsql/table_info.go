@@ -11,15 +11,16 @@ import (
 
 // TableInfo contains information about a SQL table
 type TableInfo struct {
+	Name    string
+	Schema  string
 	Columns []ColumnInfo
 }
 
 // ColumnInfo is information about a single column in a SQL table
 type ColumnInfo struct {
-	TableSchema string
-	TableName   string
-	DataType    string
-	IsNullable  bool
+	Name       string
+	DataType   string
+	IsNullable bool
 }
 
 // GetTableInfo looks up information about the table using INFORMATION_SCHEMA
@@ -49,7 +50,7 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 		where += fmt.Sprintf(" AND lower(table_schema) = lower('%s')", schemaName)
 	}
 	q := fmt.Sprintf(`
-	SELECT table_schema, table_name, data_type, is_nullable
+	SELECT column_name, data_type, is_nullable
 	FROM INFORMATION_SCHEMA.columns
 	WHERE %s
 	ORDER BY ordinal_position`, where)
@@ -63,7 +64,7 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	for rows.Next() {
 		var ci ColumnInfo
 		var isNullableS string
-		if err := rows.Scan(&ci.TableSchema, &ci.TableName, &ci.DataType, &isNullableS); err != nil {
+		if err := rows.Scan(&ci.Name, &ci.DataType, &isNullableS); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 		switch strings.ToLower(isNullableS) {
@@ -75,5 +76,5 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	if err := rows.Err(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &TableInfo{Columns: cinfos}, nil
+	return &TableInfo{Name: tableName, Schema: schemaName, Columns: cinfos}, nil
 }

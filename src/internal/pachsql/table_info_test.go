@@ -2,7 +2,6 @@ package pachsql_test
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -23,20 +22,22 @@ func TestGetTableInfo(t *testing.T) {
 			Name:  "Postgres",
 			NewDB: dockertestenv.NewPostgres,
 			Expected: &pachsql.TableInfo{
+				"test_table",
+				"public",
 				[]pachsql.ColumnInfo{
-					{"public", "test_table", "integer", false},
-					{"public", "test_table", "smallint", false},
-					{"public", "test_table", "integer", false},
-					{"public", "test_table", "bigint", false},
-					{"public", "test_table", "double precision", false},
-					{"public", "test_table", "character varying", false},
-					{"public", "test_table", "timestamp without time zone", false},
-					{"public", "test_table", "smallint", true},
-					{"public", "test_table", "integer", true},
-					{"public", "test_table", "bigint", true},
-					{"public", "test_table", "double precision", true},
-					{"public", "test_table", "character varying", true},
-					{"public", "test_table", "timestamp without time zone", true},
+					{"c_id", "integer", false},
+					{"c_smallint", "smallint", false},
+					{"c_int", "integer", false},
+					{"c_bigint", "bigint", false},
+					{"c_float", "double precision", false},
+					{"c_varchar", "character varying", false},
+					{"c_time", "timestamp without time zone", false},
+					{"c_smallint_null", "smallint", true},
+					{"c_int_null", "integer", true},
+					{"c_bigint_null", "bigint", true},
+					{"c_float_null", "double precision", true},
+					{"c_varchar_null", "character varying", true},
+					{"c_time_null", "timestamp without time zone", true},
 				},
 			},
 		},
@@ -44,20 +45,22 @@ func TestGetTableInfo(t *testing.T) {
 			Name:  "MySQL",
 			NewDB: dockertestenv.NewMySQL,
 			Expected: &pachsql.TableInfo{
+				"test_table",
+				"",
 				[]pachsql.ColumnInfo{
-					{"public", "test_table", "int", false},
-					{"public", "test_table", "smallint", false},
-					{"public", "test_table", "int", false},
-					{"public", "test_table", "bigint", false},
-					{"public", "test_table", "float", false},
-					{"public", "test_table", "varchar", false},
-					{"public", "test_table", "timestamp", false},
-					{"public", "test_table", "smallint", true},
-					{"public", "test_table", "int", true},
-					{"public", "test_table", "bigint", true},
-					{"public", "test_table", "float", true},
-					{"public", "test_table", "varchar", true},
-					{"public", "test_table", "timestamp", true},
+					{"c_id", "int", false},
+					{"c_smallint", "smallint", false},
+					{"c_int", "int", false},
+					{"c_bigint", "bigint", false},
+					{"c_float", "float", false},
+					{"c_varchar", "varchar", false},
+					{"c_time", "timestamp", false},
+					{"c_smallint_null", "smallint", true},
+					{"c_int_null", "int", true},
+					{"c_bigint_null", "bigint", true},
+					{"c_float_null", "float", true},
+					{"c_varchar_null", "varchar", true},
+					{"c_time_null", "timestamp", true},
 				},
 			},
 		},
@@ -65,33 +68,33 @@ func TestGetTableInfo(t *testing.T) {
 			Name:  "Snowflake",
 			NewDB: testsnowflake.NewSnowSQL,
 			Expected: &pachsql.TableInfo{
+				"test_table",
+				"public",
 				[]pachsql.ColumnInfo{
-					{"PUBLIC", "TEST_TABLE", "NUMBER", false},
-					{"PUBLIC", "TEST_TABLE", "NUMBER", false},
-					{"PUBLIC", "TEST_TABLE", "NUMBER", false},
-					{"PUBLIC", "TEST_TABLE", "NUMBER", false},
-					{"PUBLIC", "TEST_TABLE", "FLOAT", false},
-					{"PUBLIC", "TEST_TABLE", "TEXT", false},
-					{"PUBLIC", "TEST_TABLE", "TIMESTAMP_NTZ", false},
-					{"PUBLIC", "TEST_TABLE", "NUMBER", true},
-					{"PUBLIC", "TEST_TABLE", "NUMBER", true},
-					{"PUBLIC", "TEST_TABLE", "NUMBER", true},
-					{"PUBLIC", "TEST_TABLE", "FLOAT", true},
-					{"PUBLIC", "TEST_TABLE", "TEXT", true},
-					{"PUBLIC", "TEST_TABLE", "TIMESTAMP_NTZ", true},
+					{"C_ID", "NUMBER", false},
+					{"C_SMALLINT", "NUMBER", false},
+					{"C_INT", "NUMBER", false},
+					{"C_BIGINT", "NUMBER", false},
+					{"C_FLOAT", "FLOAT", false},
+					{"C_VARCHAR", "TEXT", false},
+					{"C_TIME", "TIMESTAMP_NTZ", false},
+					{"C_SMALLINT_NULL", "NUMBER", true},
+					{"C_INT_NULL", "NUMBER", true},
+					{"C_BIGINT_NULL", "NUMBER", true},
+					{"C_FLOAT_NULL", "FLOAT", true},
+					{"C_VARCHAR_NULL", "TEXT", true},
+					{"C_TIME_NULL", "TIMESTAMP_NTZ", true},
 				},
 			},
 		},
 	}
 	ctx := context.Background()
 	for _, tc := range tcs {
-		t.Log(fmt.Sprintf("Running: %s", tc.Name))
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
 			require.NoError(t, pachsql.CreateTestTable(db, "test_table"))
 			info, err := pachsql.GetTableInfo(ctx, db, "test_table")
 			require.NoError(t, err)
-			t.Log(info)
 			require.Len(t, info.Columns, reflect.TypeOf(pachsql.TestRow{}).NumField())
 			require.Equal(t, tc.Expected, info)
 		})
