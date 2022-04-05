@@ -1,10 +1,5 @@
-.commitWrapper {
-  margin-top: 2rem;
-}
-
 .commit {
   overflow-y: hidden;
-  transition: all 400ms ease-in;
   padding: 0 1.5625rem;
 }
 

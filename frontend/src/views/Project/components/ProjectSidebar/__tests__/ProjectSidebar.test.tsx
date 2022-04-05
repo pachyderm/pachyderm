@@ -163,7 +163,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/2/repos/test/branch/master',
+        '/project/2/repos/test/branch/master/commits',
       );
 
       const {queryByRole} = render(<Project />);
@@ -177,7 +177,7 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/2/repos/training/branch/master',
+        '/project/2/repos/training/branch/master/commits',
       );
 
       const {queryByRole} = render(<Project />);

@@ -4,7 +4,7 @@ export const PROJECT_PATH = '/project/:projectId';
 export const PROJECT_REPOS_PATH = '/project/:projectId/repos';
 export const PROJECT_PIPELINES_PATH = '/project/:projectId/pipelines';
 
-export const PROJECT_REPO_PATH = '/project/:projectId/repos/:repoId/branch/:branchId';
+export const PROJECT_REPO_PATH = '/project/:projectId/repos/:repoId/branch/:branchId/:tabId?';
 export const PROJECT_PIPELINE_PATH = '/project/:projectId/pipelines/:pipelineId/:tabId?';
 export const PROJECT_JOBS_PATH = '/project/:projectId/jobs';
 export const PROJECT_JOB_PATH = '/project/:projectId/jobs/:jobId/:pipelineId?';
@@ -23,7 +23,7 @@ export const LINEAGE_PATH = '/lineage/:projectId'
 export const LINEAGE_REPOS_PATH = '/lineage/:projectId/repos'
 export const LINEAGE_PIPELINES_PATH = '/lineage/:projectId/pipelines'
 
-export const LINEAGE_REPO_PATH = '/lineage/:projectId/repos/:repoId/branch/:branchId';;
+export const LINEAGE_REPO_PATH = '/lineage/:projectId/repos/:repoId/branch/:branchId/:tabId?';;
 export const LINEAGE_PIPELINE_PATH = '/lineage/:projectId/pipelines/:pipelineId/:tabId?';
 export const LINEAGE_JOBS_PATH = '/lineage/:projectId/jobs';
 export const LINEAGE_JOB_PATH = '/lineage/:projectId/jobs/:jobId/:pipelineId?';

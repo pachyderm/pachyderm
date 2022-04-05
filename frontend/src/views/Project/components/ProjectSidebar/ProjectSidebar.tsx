@@ -29,11 +29,13 @@ import useProjectSidebar from './hooks/useProjectSidebar';
 import styles from './ProjectSidebar.module.css';
 
 type ProjectSidebarProps = {
+  dagLinks?: Record<string, string[]>;
   dagsLoading?: boolean;
   resizable?: boolean;
 };
 
 const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
+  dagLinks,
   dagsLoading,
   resizable = true,
 }) => {
@@ -89,10 +91,13 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
               <JobDetails />
             </Route>
             <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
-              <RepoDetails dagsLoading={!!dagsLoading} />
+              <RepoDetails dagsLoading={!!dagsLoading} dagLinks={dagLinks} />
             </Route>
             <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]} exact>
-              <PipelineDetails />
+              <PipelineDetails
+                dagsLoading={!!dagsLoading}
+                dagLinks={dagLinks}
+              />
             </Route>
           </Switch>
         </Sidebar>

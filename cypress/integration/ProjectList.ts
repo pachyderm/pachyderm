@@ -4,14 +4,11 @@ describe('Project List', () => {
   })
 
   beforeEach(() => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
-    cy.findByText('View List', {timeout: 8000}).click();
+    cy.findAllByText(/^View(\sProject)*$/, {timeout: 6000}).eq(0).click();
+    cy.findByText('View List', {timeout: 12000}).click();
   });
 
   afterEach(() => {
-    cy.visit('/')
-    cy.findAllByText(/^View(\sProject)*$/, {timeout: 8000}).eq(0).click();
-    cy.findByText('View Lineage', {timeout: 8000}).click();
     cy.visit('/')
   })
 
@@ -21,9 +18,11 @@ describe('Project List', () => {
 
   it('should show the correct number of commits', () => {
     cy.findByText('images').click();
+    cy.findByText('Commits').click();
     cy.findAllByTestId('CommitBrowser__commit').should('have.length', 3);
     cy.findAllByText('(10 B)', {exact: false}).should('have.length', 3);
     cy.findAllByText('edges').eq(0).click();
+    cy.findByText('Commits').click();
     cy.findAllByTestId('CommitBrowser__commit').should('have.length', 2);
   });
 
@@ -47,7 +46,7 @@ describe('Project List', () => {
     const jobs = cy.findByTestId("ProjectSideNav__seeJobs");
     jobs.click();
 
-    const job = cy.findByTestId('JobList__projectdefault', {timeout: 8000}).findAllByText("Failure");
+    const job = cy.findByTestId('JobList__projectdefault', {timeout: 16000}).findAllByText("Failure");
     job.should('have.length', 2);
     job.last().click();
 
@@ -69,7 +68,7 @@ describe('Project List', () => {
     cy.findByTestId('Title__name').should('have.text', 'edges');
   
     cy.findAllByTestId('CommitIdCopy__id').last().invoke('text').then((jobId) => {
-      cy.findByText('montage').click();
+      cy.findAllByText('montage').eq(0).click();
       cy.findByTestId('Title__name').should('have.text', 'montage');
       cy.findByText('Filter by Global ID').click();
       cy.findByTestId('GlobalFilter__name').type(jobId);

@@ -33,7 +33,7 @@
     "@graphql-codegen/typescript-react-apollo": "3.2.11",
     "@graphql-codegen/typescript-resolvers": "2.6.1",
     "@testing-library/cypress": "8.0.2",
-    "cypress": "9.5.2",
+    "cypress": "9.3.1",
     "cypress-wait-until": "1.7.2",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",

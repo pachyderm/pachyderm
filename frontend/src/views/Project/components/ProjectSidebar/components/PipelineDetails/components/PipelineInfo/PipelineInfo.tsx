@@ -1,22 +1,41 @@
-import {Link} from '@pachyderm/components';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
 import Description from '@dash-frontend/components/Description';
 import PipelineStateComponent from '@dash-frontend/components/PipelineState';
+import RepoPipelineLink from '@dash-frontend/components/RepoPipelineLink';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
-import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './PipelineInfo.module.css';
 
-const PipelineInfo = () => {
-  const {projectId, pipelineId} = useUrlState();
+type PipelineDetailsProps = {
+  dagLinks?: Record<string, string[]>;
+};
+
+const PipelineInfo: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
+  const {pipelineId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
     <dl className={styles.base}>
+      {dagLinks && dagLinks[pipeline?.name || ''] && (
+        <Description loading={loading} term="Inputs">
+          <div className={styles.repoGroup}>
+            {dagLinks[pipeline?.name || ''].map((name) => (
+              <RepoPipelineLink name={name} type="repo" key={name} />
+            ))}
+          </div>
+        </Description>
+      )}
+
+      <Description term="Output Repo" loading={loading}>
+        <div className={styles.repoGroup}>
+          <RepoPipelineLink name={pipelineId} type="repo" />
+        </div>
+      </Description>
+
       <Description term="Pipeline Status" loading={loading}>
         {pipeline && <PipelineStateComponent state={pipeline.state} />}
       </Description>
@@ -33,18 +52,6 @@ const PipelineInfo = () => {
 
       <Description term="Description" loading={loading}>
         {pipeline?.description ? pipeline.description : 'N/A'}
-      </Description>
-
-      <Description term="Output Repo" loading={loading}>
-        <Link
-          to={repoRoute({
-            branchId: 'master',
-            projectId,
-            repoId: pipelineId,
-          })}
-        >
-          {pipeline?.name}
-        </Link>
       </Description>
 
       <Description term="Datum Timeout" loading={loading}>

@@ -15,7 +15,12 @@ import {TAB_ID} from './constants/tabIds';
 import usePipelineDetails from './hooks/usePipelineDetails';
 import styles from './PipelineDetails.module.css';
 
-const PipelineDetails = () => {
+type PipelineDetailsProps = {
+  dagLinks?: Record<string, string[]>;
+  dagsLoading?: boolean;
+};
+
+const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
   const {viewState} = useUrlQueryState();
   const {loading, pipelineName, filteredTabIds, tabsBasePath} =
     usePipelineDetails();
@@ -51,7 +56,7 @@ const PipelineDetails = () => {
         </Tabs.TabsHeader>
 
         <Tabs.TabPanel id={TAB_ID.INFO}>
-          <PipelineInfo />
+          <PipelineInfo dagLinks={dagLinks} />
         </Tabs.TabPanel>
         <Tabs.TabPanel id={TAB_ID.SPEC}>
           <PipelineSpec />

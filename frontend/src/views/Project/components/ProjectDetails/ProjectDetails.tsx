@@ -29,6 +29,7 @@ const ProjectDetails: React.FC = () => {
   const {
     dags,
     nodes,
+    inputRepoLinks,
     error,
     loading,
     isSidebarOpen,
@@ -77,7 +78,11 @@ const ProjectDetails: React.FC = () => {
         </>
       )}
       <Route path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH]}>
-        <ProjectSidebar resizable={false} dagsLoading={loading} />
+        <ProjectSidebar
+          resizable={false}
+          dagsLoading={loading}
+          dagLinks={inputRepoLinks}
+        />
       </Route>
       <Route path={TUTORIAL_PATH}>
         <ProjectSidebar />

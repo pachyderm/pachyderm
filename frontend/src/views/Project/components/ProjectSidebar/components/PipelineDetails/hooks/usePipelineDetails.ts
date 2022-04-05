@@ -7,12 +7,12 @@ import {
   PROJECT_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 
-import {TAB_ID, TAB_IDS} from '../constants/tabIds';
+import {TAB_ID} from '../constants/tabIds';
 
 const usePipelineDetails = () => {
   const {loading, pipeline, isServiceOrSpout} = useCurrentPipeline();
 
-  const filteredTabIds = TAB_IDS.filter(
+  const filteredTabIds = Object.values(TAB_ID).filter(
     (tabId) => tabId !== TAB_ID.JOBS || (!loading && !isServiceOrSpout),
   );
 

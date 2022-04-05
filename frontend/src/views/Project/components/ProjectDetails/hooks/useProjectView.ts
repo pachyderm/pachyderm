@@ -33,6 +33,27 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     direction: dagDirection,
   });
 
+  // list input repos by pipeline, and pipeline outputs by repo
+  const inputRepoLinks = useMemo(() => {
+    let links = {} as Record<string, string[]>;
+    dags?.forEach((dag) => {
+      dag.links.forEach((link) => {
+        if (!link.target.includes('repo') && !link.target.includes('http')) {
+          links = {
+            ...links,
+            [link.target]: links[link.target]
+              ? [...links[link.target], link.source]
+              : [link.source],
+            [link.source]: links[link.source]
+              ? [...links[link.source], link.target]
+              : [link.target],
+          };
+        }
+      });
+    });
+    return links;
+  }, [dags]);
+
   // make a list of repos and pipelines per dag
   const nodes = useMemo(
     () =>
@@ -92,6 +113,7 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   return {
     dags,
     nodes,
+    inputRepoLinks,
     error,
     loading,
     isSidebarOpen: isOpen,

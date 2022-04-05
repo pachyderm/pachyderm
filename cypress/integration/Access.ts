@@ -12,7 +12,7 @@ describe('Access', () => {
 
   it('should let non-admins see the DAG', () => {
     cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
-    const edgeNodes = cy.findAllByText('edges', {timeout: 8000});
+    const edgeNodes = cy.findAllByText('edges', {timeout: 16000});
     edgeNodes.should('have.length', 2);
     edgeNodes.first().click();
     cy.url().should('not.include', 'edges');

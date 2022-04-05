@@ -2,24 +2,27 @@
   height: calc(100vh - var(--header-height));
   overflow-y: auto;
   scrollbar-width: none;
+  padding-top: 2rem;
+}
+
+.tabsHeader,
+.title {
+  padding: 0 1.5625rem 0 1.375rem;
+}
+
+.tabsHeader {
+  display: flex;
 }
 
 .base::-webkit-scrollbar {
   display: none;
 }
 
-.repoInfo, .title {
+.repoInfo {
   padding: 0 1.5625rem;
 }
 
-.title {
-  padding-top: 2rem;
-}
-
-.divider {
-  background-color: var(--line-grey);
-  height: 1px;
-  margin-bottom: 0.625rem;
-  margin-top: 1.5625rem;
-  width: 100%;
+.pipelineGroup {
+  border: solid 1px var(--line-grey);
+  border-radius: 4px;
 }

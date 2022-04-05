@@ -50,129 +50,119 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId}) => {
   }
 
   return commit ? (
-    <div className={styles.commitWrapper}>
-      <div className={styles.commit}>
-        <dl>
+    <div className={styles.commit}>
+      <dl>
+        <Description
+          loading={loading}
+          term="Commit ID"
+          data-testid="CommitDetails__id"
+        >
+          {commit.id}
+        </Description>
+        {commit.started && commit.finished !== -1 && (
           <Description
             loading={loading}
-            term="Commit ID"
-            data-testid="CommitDetails__id"
+            term="Start Time"
+            data-testid="CommitDetails__start"
           >
-            {commit.id}
+            {format(fromUnixTime(commit.started), 'MM/dd/yyyy h:mm:ssaaa')}
           </Description>
-          {commit.started && (
+        )}
+        {commit.finished && commit.finished !== -1 && (
+          <Description
+            loading={loading}
+            term="End Time"
+            data-testid="CommitDetails__end"
+          >
+            {format(fromUnixTime(commit.finished), 'MM/dd/yyyy h:mm:ssaaa')}
+          </Description>
+        )}
+        {commit.description && (
+          <Description
+            term="Description"
+            data-testid="CommitDetails__description"
+          >
+            {commit.description}
+          </Description>
+        )}
+        {commit.diff &&
+          (commit.diff.filesAdded ||
+            commit.diff.filesUpdated ||
+            commit.diff.filesDeleted) !== 0 && (
             <Description
-              loading={loading}
-              term="Start Time"
-              data-testid="CommitDetails__start"
+              term={`File Updates (${commit.diff.size > 0 ? '+' : ''}${
+                commit.diff.sizeDisplay
+              })`}
+              className={styles.diffUpdates}
+              data-testid="CommitDetails__fileUpdates"
             >
-              {format(fromUnixTime(commit.started), 'MM/dd/yyyy h:mm:ssaaa')}
+              {commit.diff.filesAdded > 0 && (
+                <div className={styles.filesAdded}>
+                  <Icon small color="green" className={styles.commitStatusIcon}>
+                    <AddCircleSVG />
+                  </Icon>
+                  {`${commit.diff.filesAdded} File${
+                    commit.diff.filesAdded > 1 ? 's' : ''
+                  } added`}
+                </div>
+              )}
+              {commit.diff.filesUpdated > 0 && (
+                <div className={styles.filesUpdated}>
+                  <Icon small color="green" className={styles.commitStatusIcon}>
+                    <UpdatedCircleSVG />
+                  </Icon>
+                  {`${commit.diff.filesUpdated} File${
+                    commit.diff.filesUpdated > 1 ? 's' : ''
+                  } updated`}
+                </div>
+              )}
+              {commit.diff.filesDeleted > 0 && (
+                <div className={styles.filesDeleted}>
+                  <Icon small color="red" className={styles.commitStatusIcon}>
+                    <CloseCircleSVG />
+                  </Icon>
+                  {`${commit.diff.filesDeleted} File${
+                    commit.diff.filesDeleted > 1 ? 's' : ''
+                  } deleted`}
+                </div>
+              )}
             </Description>
           )}
-          {commit.finished && (
-            <Description
-              loading={loading}
-              term="End Time"
-              data-testid="CommitDetails__end"
-            >
-              {format(fromUnixTime(commit.finished), 'MM/dd/yyyy h:mm:ssaaa')}
-            </Description>
-          )}
-          {commit.description && (
-            <Description
-              term="Description"
-              data-testid="CommitDetails__description"
-            >
-              {commit.description}
-            </Description>
-          )}
-          {commit.diff &&
-            (commit.diff.filesAdded ||
-              commit.diff.filesUpdated ||
-              commit.diff.filesDeleted) !== 0 && (
-              <Description
-                term={`File Updates (${commit.diff.size > 0 ? '+' : ''}${
-                  commit.diff.sizeDisplay
-                })`}
-                className={styles.diffUpdates}
-                data-testid="CommitDetails__fileUpdates"
-              >
-                {commit.diff.filesAdded > 0 && (
-                  <div className={styles.filesAdded}>
-                    <Icon
-                      small
-                      color="green"
-                      className={styles.commitStatusIcon}
-                    >
-                      <AddCircleSVG />
-                    </Icon>
-                    {`${commit.diff.filesAdded} File${
-                      commit.diff.filesAdded > 1 ? 's' : ''
-                    } added`}
-                  </div>
-                )}
-                {commit.diff.filesUpdated > 0 && (
-                  <div className={styles.filesUpdated}>
-                    <Icon
-                      small
-                      color="green"
-                      className={styles.commitStatusIcon}
-                    >
-                      <UpdatedCircleSVG />
-                    </Icon>
-                    {`${commit.diff.filesUpdated} File${
-                      commit.diff.filesUpdated > 1 ? 's' : ''
-                    } updated`}
-                  </div>
-                )}
-                {commit.diff.filesDeleted > 0 && (
-                  <div className={styles.filesDeleted}>
-                    <Icon small color="red" className={styles.commitStatusIcon}>
-                      <CloseCircleSVG />
-                    </Icon>
-                    {`${commit.diff.filesDeleted} File${
-                      commit.diff.filesDeleted > 1 ? 's' : ''
-                    } deleted`}
-                  </div>
-                )}
-              </Description>
-            )}
-        </dl>
-        <Group spacing={8}>
+      </dl>
+      <Group spacing={8}>
+        <Button
+          autoWidth
+          onClick={() =>
+            browserHistory.push(
+              getPathToFileBrowser({
+                projectId,
+                branchId,
+                repoId: repoId,
+                commitId: commit.id,
+              }),
+            )
+          }
+        >
+          View Files
+        </Button>
+        {commit.hasLinkedJob && (
           <Button
             autoWidth
+            buttonType="secondary"
             onClick={() =>
               browserHistory.push(
-                getPathToFileBrowser({
+                jobRoute({
                   projectId,
-                  branchId,
-                  repoId: repoId,
-                  commitId: commit.id,
+                  jobId: commit.id,
+                  pipelineId: commit.repoName,
                 }),
               )
             }
           >
-            View Files
+            Linked Job
           </Button>
-          {commit.hasLinkedJob && (
-            <Button
-              autoWidth
-              buttonType="secondary"
-              onClick={() =>
-                browserHistory.push(
-                  jobRoute({
-                    projectId,
-                    jobId: commit.id,
-                    pipelineId: commit.repoName,
-                  }),
-                )
-              }
-            >
-              Linked Job
-            </Button>
-          )}
-        </Group>
-      </div>
+        )}
+      </Group>
     </div>
   ) : (
     <div />

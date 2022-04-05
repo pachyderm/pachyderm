@@ -63,12 +63,14 @@ describe('Repos', () => {
     
     cy.findByRole('button', {name: 'Upload'}).click();
     cy.findByRole('button', {name: 'Done'}).click();
+    cy.findAllByText('Commits').click();
     // Needs to wait for commit polling to update
     cy.findAllByText('View Files', {timeout: 30000}).first().click();
   })
 
   it('should allow a user to view files and see differences between commits', () => {
     cy.findByText('NewRepo', {timeout: 12000}).click();
+    cy.findAllByText('Commits').click();
     cy.findAllByText('View Files').first().click();
 
     cy.findByText('2 Files added');
