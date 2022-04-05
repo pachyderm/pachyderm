@@ -553,7 +553,8 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if err != nil {
 		return err
 	}
-	if commitInfo.Finishing != nil {
+	if commitInfo.Finished != nil || (commitInfo.Finishing != nil && !force) {
+		// allow setting an error with force
 		return pfsserver.ErrCommitFinished{
 			Commit: commitInfo.Commit,
 		}
@@ -574,7 +575,9 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 	if description != "" {
 		commitInfo.Description = description
 	}
-	commitInfo.Finishing = txnCtx.Timestamp
+	if commitInfo.Finishing == nil {
+		commitInfo.Finishing = txnCtx.Timestamp
+	}
 	commitInfo.Error = commitError
 	return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Put(commitInfo.Commit, commitInfo))
 }
