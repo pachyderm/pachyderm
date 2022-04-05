@@ -271,10 +271,7 @@ func (pc *pipelineController) transitionStates(ctx context.Context, pi *pps.Pipe
 	}
 
 	if pi.State == pps.PipelineState_PIPELINE_STARTING || pi.State == pps.PipelineState_PIPELINE_RESTARTING {
-		if rc != nil && !rcIsFresh(pi, rc) {
-			// old RC is not down yet
-			return pc.restartPipeline(ctx, pi, rc, "stale RC") // step() will be called again after collection write
-		} else if rc == nil {
+		if rc == nil {
 			// default: old RC (if any) is down but new RC is not up yet
 			if err := pc.createPipelineResources(ctx, pi); err != nil {
 				return err
@@ -291,6 +288,11 @@ func (pc *pipelineController) transitionStates(ctx context.Context, pi *pps.Pipe
 			target = pps.PipelineState_PIPELINE_STANDBY
 		}
 		return pc.setPipelineState(ctx, pi.SpecCommit, target, "")
+	}
+
+	if rc == nil {
+		// may happen if an external system deletes the RC
+		return pc.restartPipeline(ctx, pi, rc, "missing RC")
 	}
 
 	if pi.State == pps.PipelineState_PIPELINE_PAUSED {
@@ -609,7 +611,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 //   return pc.restartPipeline("entered error state")
 // }
 func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, reason string) error {
-	if rc != nil {
+	if rc != nil && !rcIsFresh(pi, rc) {
 		// delete old RC, monitorPipeline goro, and worker service
 		if err := pc.deletePipelineResources(); err != nil {
 			return newRetriableError(err, "error deleting resources for restart")
