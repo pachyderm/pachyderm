@@ -190,14 +190,17 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		return true, nil
 	}
 	var stepErr stepError
+	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
+	// the pipeline indefinitely)
+	rc, restart, err := pc.getRC(ctx, pi)
+	if restart != "" {
+		return false, pc.restartPipeline(ctx, pi, rc, restart)
+	}
+	if err != nil && !errors.Is(err, errRCNotFound) {
+		return false, err
+	}
 	errCount := 0
 	err = backoff.RetryNotify(func() error {
-		// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
-		// the pipeline indefinitely)
-		rc, err := pc.getRC(ctx, pi)
-		if err != nil && !errors.Is(err, errRCNotFound) {
-			return err
-		}
 		// Create/Modify/Delete pipeline resources as needed per new state
 		return pc.transitionStates(ctx, pi, rc)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
@@ -657,7 +660,7 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 // pc's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
-func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (rc *v1.ReplicationController, retErr error) {
+func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (rc *v1.ReplicationController, restart string, retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/GetRC", "pipeline", pc.pipeline)
 	defer func(span opentracing.Span) {
@@ -717,14 +720,15 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 		if errCount >= maxErrCount {
 			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
 			if invalidRCState {
-				return pc.restartPipeline(ctx, pi, rc, fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
+				restart = fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err)
+				return errutil.ErrBreak
 			}
 			return err //return whatever the most recent error was
 		}
 		log.Warnf("PPS master: error retrieving RC for %q: %v; retrying in %v", pc.pipeline, err, d)
 		return nil
 	})
-	return rc, err
+	return rc, restart, err
 }
 
 // updateRC is a helper for {scaleUp,scaleDown}Pipeline. It includes all of the
