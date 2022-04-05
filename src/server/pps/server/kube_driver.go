@@ -19,9 +19,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type infraState struct{}
-type pipelineState struct{}
-
 type kubeDriver struct {
 	kubeClient *kubernetes.Clientset
 	namespace  string
