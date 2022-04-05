@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -58,6 +61,7 @@ func NewDumpServer(filePath string) *debugDump {
 	mock.PPS.InspectJobSet.Use(d.inspectJobSet)
 
 	mock.PPS.GetLogs.Use(d.getLogs)
+	mock.Version.GetVersion.Use(d.getVersion)
 
 	return d
 }
@@ -349,7 +353,7 @@ func (d *debugDump) getLogs(req *pps.GetLogsRequest, srv pps.API_GetLogsServer) 
 		glob = "pachd/*/pachd/logs.txt"
 		plainText = true
 	} else {
-		glob = fmt.Sprintf("pipelines/%s/pods/*/logs.txt", req.Pipeline.Name)
+		glob = fmt.Sprintf("pipelines/%s/pods/*/user/logs.txt", req.Pipeline.Name)
 	}
 	return d.globTar(glob, func(_ string, r io.Reader) error {
 		return ppsutil.FilterLogLines(req, r, plainText, srv.Send)
@@ -491,4 +495,47 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 		}
 		return srv.Send(&info)
 	})
+}
+
+func (d *debugDump) getVersion(context.Context, *types.Empty) (*versionpb.Version, error) {
+	var version *versionpb.Version
+	err := d.globTar("pachd/*/pachd/version.txt", func(_ string, r io.Reader) error {
+		b, err := ioutil.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		parts := strings.Split(strings.TrimSpace(string(b)), ".")
+		if len(parts) != 3 {
+			return fmt.Errorf("bad version string %s", b)
+		}
+		last := strings.Split(parts[2], "-")
+		major, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return err
+		}
+		minor, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return err
+		}
+		micro, err := strconv.Atoi(last[0])
+		if err != nil {
+			return err
+		}
+		version = &versionpb.Version{
+			Major: uint32(major),
+			Minor: uint32(minor),
+			Micro: uint32(micro),
+		}
+		if len(last) > 1 {
+			version.Additional = last[1]
+		}
+		return errutil.ErrBreak
+	})
+	if err != nil {
+		return nil, err
+	}
+	if version == nil {
+		return nil, fmt.Errorf("no version file captured")
+	}
+	return version, nil
 }
