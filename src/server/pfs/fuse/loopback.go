@@ -50,15 +50,15 @@ func (l *loopbackRoot) getState(mountName string) string {
 	return s
 }
 
-func (l *loopbackRoot) deleteState(mountName string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	_, ok := l.stateMap[mountName]
-	if !ok {
-		return
-	}
-	delete(l.stateMap, mountName)
-}
+// func (l *loopbackRoot) deleteState(mountName string) {
+// 	l.mu.Lock()
+// 	defer l.mu.Unlock()
+// 	_, ok := l.stateMap[mountName]
+// 	if !ok {
+// 		return
+// 	}
+// 	delete(l.stateMap, mountName)
+// }
 
 type loopbackRoot struct {
 	loopbackNode
@@ -598,12 +598,12 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	if !(st == "" || st == "mounted") {
 		logrus.Infof(
 			"Skipping download('%s') because %s state was %s; "+
-				"getFileState(%s) -> %s, state=%s",
+				"getFileState(%s) -> %d, state=%d",
 			origPath, name, st, origPath, n.getFileState(origPath), state,
 		)
 		// return an error to stop an empty directory listing being cached by
 		// the OS
-		return fmt.Errorf("repo at %s is not mounted", name)
+		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
 	}
 	branch := n.root().branch(name)
 	commit, err := n.commit(name)
