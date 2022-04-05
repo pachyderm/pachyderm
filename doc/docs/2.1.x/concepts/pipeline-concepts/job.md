@@ -30,7 +30,7 @@ Each job has the following stages:
 |KILLED|The job timed out, or a user called StopJob|
 |SUCCESS| None of the bad stuff happened.|
 
-Below, a job state transition diagram: 
+Below, the state transition diagram of a job:  
 
 ![Job State Diagram](../../images/job_state_diagram.png)
 
