@@ -21,14 +21,18 @@ Each job has the following stages:
 
 | Stage     | Description  |
 | --------- | ------------ |
-|CREATED| An output commit exists, but the job has not been started by a worker yet.|
+|CREATED| An input commit exists, but the job has not been started by a worker yet.|
 |STARTING| The worker has allocated resources for the job (that is, the job counts towards parallelism), but it is still waiting on the inputs to be ready.|
 |RUNNING|The worker is processing datums.|
-|EGRESS|The worker has completed all the datums but is uploading the output to the egress endpoint.|
-|FINISHING| After all of the datum processing and egress (if any) is done, the job transitions to a finishing state where all of the post-processing cleanup tasks such as garbage collection and compaction are performed.|
+|EGRESS|The worker has completed all the datums and is uploading the output to the egress endpoint.|
+|FINISHING| After all of the datum processing and egress (if any) is done, the job transitions to a finishing state where all of the post-processing tasks such as compaction are performed.|
 |FAILURE|The worker encountered too many errors when processing a datum.|
-|KILLED|The job timed out, the output commits were deleted, or a user otherwise called StopJob|
+|KILLED|The job timed out, or a user called StopJob|
 |SUCCESS| None of the bad stuff happened.|
+
+Below, a job state transition diagram: 
+
+![Job State Diagram](../../images/job_state_diagram.png)
 
 ## List Jobs
 
