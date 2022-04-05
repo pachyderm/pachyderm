@@ -1,4 +1,6 @@
+
 # Examples
+
 A curated list of examples that use Pachyderm.
 
 !!! Warning
@@ -120,7 +122,7 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
     with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/){target=_blank}.
 
     1. In this first simple example, we train a data-driven model using Pachyderm (LogisticRegression on the Iris dataset with sklearn),
-    expose the model's artifacts through Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/){target=_blank}, and serve this model in production using Seldon-core. https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-simple/index.ipynb
+    expose the model's artifacts through Pachyderm's [S3 gateway](https://docs.pachyderm.com/latest/reference/s3gateway_api/){target=_blank}, and serve this model in production using Seldon-core. https://github.com/SeldonIO/seldon-core/blob/master/examples/pachyderm-simple/index.ipynb
 
         !!! Highlights
             You can trace the model artifact's lineage right back to the version of the data that it was trained on.  
