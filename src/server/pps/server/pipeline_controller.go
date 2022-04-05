@@ -188,10 +188,10 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 	// the pipeline indefinitely)
 	rc, restart, err := pc.getRC(ctx, pi)
-	if err != nil && !errors.Is(err, errRCNotFound) {
-		return false, err
-	} else if restart != "" {
+	if restart != "" {
 		return false, pc.restartPipeline(ctx, pi, rc, restart)
+	} else if err != nil && !errors.Is(err, errRCNotFound) {
+		return false, err
 	}
 	errCount := 0
 	err = backoff.RetryNotify(func() error {
@@ -646,11 +646,29 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 		otherErrCount int
 	err := backoff.RetryNotify(func() error {
 		var err error
-		rc, err = pc.kd.ReadReplicationController(pc.ctx, pi)
+		rcs, err := pc.kd.ReadReplicationController(pc.ctx, pi)
 		if err != nil {
 			return err
 		}
-		return nil
+		if len(rcs.Items) == 0 {
+			return errRCNotFound
+		}
+		rc := &rcs.Items[0]
+		switch {
+		case len(rcs.Items) > 1:
+			// select stale RC if possible, so that we delete it in restartPipeline
+			for i := range rcs.Items {
+				rc = &rcs.Items[i]
+				if !rcIsFresh(pi, rc) {
+					break
+				}
+			}
+			return errTooManyRCs
+		case !rcIsFresh(pi, rc):
+			return errStaleRC
+		default:
+			return nil
+		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		switch {
 		case errors.Is(err, errRCNotFound):

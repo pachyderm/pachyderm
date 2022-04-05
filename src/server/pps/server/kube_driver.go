@@ -115,35 +115,13 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline stri
 	return nil
 }
 
-func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationController, error) {
+func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
-	rcs, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
+	return kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)})
-	if err != nil && !errutil.IsNotFoundError(err) {
-		return nil, errors.EnsureStack(err)
-	}
-	if len(rcs.Items) == 0 {
-		return nil, errRCNotFound
-	}
-	rc := &rcs.Items[0]
-	switch {
-	case len(rcs.Items) > 1:
-		// select stale RC if possible, so that we delete it in restartPipeline
-		for i := range rcs.Items {
-			rc = &rcs.Items[i]
-			if !rcIsFresh(pi, rc) {
-				break
-			}
-		}
-		return nil, errTooManyRCs
-	case !rcIsFresh(pi, rc):
-		return nil, errStaleRC
-	default:
-		return rc, nil
-	}
 }
 
 // UpdateReplicationController intends to server {scaleUp,scaleDown}Pipeline.
@@ -153,14 +131,14 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 // may be called muliple times if the k8s write fails. It may be helpful to think
 // of the 'old' rc passed to update() as mutable.
 func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
-	rcs := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace)
-	kd.limiter.Acquire()
-	defer kd.limiter.Release()
 	// Apply op's update to rc
 	rc := old.DeepCopy()
 	if update(rc) {
 		// write updated RC to k8s
-		if _, err := rcs.Update(ctx, rc, metav1.UpdateOptions{}); err != nil {
+		kd.limiter.Acquire()
+		defer kd.limiter.Release()
+		if _, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).Update(
+			ctx, rc, metav1.UpdateOptions{}); err != nil {
 			return newRetriableError(err, "error updating RC")
 		}
 	}
