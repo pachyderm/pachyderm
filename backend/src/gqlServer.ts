@@ -7,6 +7,7 @@ import {ApolloServer, gql} from 'apollo-server-express';
 import loggingPlugin from '@dash-backend/apollo/plugins/loggingPlugin';
 import resolvers from '@dash-backend/resolvers';
 
+import httpPlugin from './apollo/plugins/httpPlugin';
 import createContext from './lib/createContext';
 
 const gqlServer = new ApolloServer({
@@ -30,7 +31,7 @@ const gqlServer = new ApolloServer({
   typeDefs: gql(
     fs.readFileSync(path.join(__dirname, '../src/schema.graphqls'), 'utf8'),
   ),
-  plugins: [loggingPlugin],
+  plugins: [loggingPlugin, httpPlugin],
 });
 
 export default gqlServer;

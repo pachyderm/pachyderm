@@ -15,7 +15,7 @@ import {Metadata, StatusBuilder, status} from '@grpc/grpc-js';
 import {callErrorFromStatus} from '@grpc/grpc-js/build/src/call';
 import {ApolloError} from 'apollo-server-errors';
 import fetch from 'cross-fetch';
-import {print} from 'graphql';
+import {GraphQLError, print} from 'graphql';
 import {SubscribePayload, createClient} from 'graphql-ws';
 import {sign} from 'jsonwebtoken';
 import {v4 as uuid} from 'uuid';
@@ -125,11 +125,16 @@ const executeQuery = async <T>(
   };
 
   let data: ApolloQueryResult<T> | undefined;
-  let errors: ApolloError[] | undefined;
+  let errors: GraphQLError[] | undefined;
   try {
     data = await client.query<T>({query, variables, context});
   } catch (err) {
-    errors = (err as Record<string, unknown>).graphQLErrors as ApolloError[];
+    const error = err as ApolloError;
+    if (error.graphQLErrors.length > 0) {
+      errors = error.graphQLErrors as GraphQLError[];
+    } else if (error.networkError) {
+      errors = error.networkError.result.errors as GraphQLError[];
+    }
   }
 
   return {data: data?.data || null, errors};
@@ -162,12 +167,16 @@ const executeMutation = async <T>(
   let data:
     | FetchResult<T, Record<string, unknown>, Record<string, unknown>>
     | undefined;
-  let errors: ApolloError[] | undefined;
+  let errors: GraphQLError[] | undefined;
   try {
     data = await client.mutate<T>({mutation, variables, context});
   } catch (err) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    errors = (err as Record<string, any>).graphQLErrors as ApolloError[];
+    const error = err as ApolloError;
+    if (error.graphQLErrors.length > 0) {
+      errors = error.graphQLErrors as GraphQLError[];
+    } else if (error.networkError) {
+      errors = error.networkError.result.errors as GraphQLError[];
+    }
   }
 
   return {data: data?.data || null, errors};

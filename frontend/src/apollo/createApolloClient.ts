@@ -6,6 +6,7 @@ import {errorLink} from '@dash-frontend/apollo/links/errorLink';
 
 import cacheConfig from './cacheConfig';
 import {contextLink} from './links/contextLink';
+import {retryLink} from './links/retryLink';
 import {splitLink} from './links/splitLink';
 
 const createApolloClient = (browserHistory: BrowserHistory) => {
@@ -16,6 +17,7 @@ const createApolloClient = (browserHistory: BrowserHistory) => {
     contextLink(),
     sentryLink(),
     errorLink(browserHistory),
+    retryLink(),
     split,
   ]);
   const resolvers = {};

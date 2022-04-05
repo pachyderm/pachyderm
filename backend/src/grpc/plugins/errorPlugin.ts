@@ -59,6 +59,13 @@ const errorPlugin: GRPCPlugin = {
         throw new ApolloError(error.details, 'INVALID_REQUEST');
       }
 
+      if (error.code === Status.ALREADY_EXISTS) {
+        throw new ApolloError(error.details, 'INVALID_REQUEST', {
+          ...error,
+          grpcCode: error.code,
+        });
+      }
+
       // We can transform additional error types below.
       // Unhandled errors will be returned as an INTERNAL_SERVER_ERROR
       throw new ApolloError(error.details, 'INTERNAL_SERVER_ERROR', {
