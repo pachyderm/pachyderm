@@ -271,10 +271,10 @@ func (pc *pipelineController) transitionStates(ctx context.Context, pi *pps.Pipe
 	}
 
 	if pi.State == pps.PipelineState_PIPELINE_STARTING || pi.State == pps.PipelineState_PIPELINE_RESTARTING {
-		if rc != nil {
+		if rc != nil && !rcIsFresh(pi, rc) {
 			// old RC is not down yet
 			return pc.restartPipeline(ctx, pi, rc, "stale RC") // step() will be called again after collection write
-		} else {
+		} else if rc == nil {
 			// default: old RC (if any) is down but new RC is not up yet
 			if err := pc.createPipelineResources(ctx, pi); err != nil {
 				return err
