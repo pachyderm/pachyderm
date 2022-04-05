@@ -133,6 +133,14 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 					}
 					return err
 				}
+				// refresh commit info in case something has changed (e.g. the job it came from was killed)
+				if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+					var err error
+					commitInfo, err = d.resolveCommit(txnCtx.SqlTx, commit)
+					return err
+				}); err != nil {
+					return err
+				}
 				// Skip compaction / validation for errored commits.
 				if commitInfo.Error != "" {
 					return d.finalizeCommit(ctx, commit, "", nil, id)
