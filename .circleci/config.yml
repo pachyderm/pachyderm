@@ -262,9 +262,9 @@ workflows:
                 - LOAD5
                 - LOAD6
                 - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
+  rootless:
+    jobs:
+      - rootless
   deploy:
     jobs:
     - deploy

@@ -316,6 +316,9 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
+                        "identityDatabaseFullNameOverride": {
+                            "type": "string"
+                        },
                         "postgresqlDatabase": {
                             "type": "string"
                         },
@@ -443,6 +446,9 @@
                     "type": "string"
                 },
                 "RotationTokenExpiry": {
+                    "type": "string"
+                },
+                "dexCredentialSecretName": {
                     "type": "string"
                 },
                 "issuerURI": {
@@ -876,6 +882,9 @@
             "properties": {
                 "annotations": {
                     "type": "object"
+                },
+                "defaultPoolSize": {
+                    "type": "integer"
                 },
                 "maxConnections": {
                     "type": "integer"

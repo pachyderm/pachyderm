@@ -19,43 +19,19 @@ Specification:
 -- CommitSpec --
 
 count: int
-operations: [ OperationSpec ]
-validator:
-  frequency: FrequencySpec
-throughput:
-  limit: int
-  prob: int [0, 100]
-cancel:
-  prob: int [0, 100]
+modifications: [ ModificationSpec ]
 fileSources: [ FileSourceSpec ]
+validator: ValidatorSpec
 
--- OperationSpec --
+-- ModificationSpec --
 
 count: int
-operation:
-  putFile: PutFileSpec
-  deleteFile: DeleteFileSpec
-  prob: int [0, 100]
+putFile: PutFileSpec
 
 -- PutFileSpec --
 
 count: int 
-file: [ FileSpec ]
-
--- FileSpec --
-
 source: string
-prob: int [0, 100]
-
--- DeleteFileSpec --
-
-count: int 
-directoryProb: int [0, 100]
-
--- FrequencySpec --
-
-count: int
-prob: int [0, 100]
 
 -- FileSourceSpec --
 
@@ -64,13 +40,13 @@ random: RandomFileSourceSpec
 
 -- RandomFileSourceSpec --
 
-incrementPath: bool
 directory: RandomDirectorySpec
-size: [ SizeSpec ]
+sizes: [ SizeSpec ]
+incrementPath: bool
 
 -- RandomDirectorySpec --
 
-depth: int
+depth: SizeSpec 
 run: int
 
 -- SizeSpec --
@@ -79,24 +55,23 @@ min: int
 max: int
 prob: int [0, 100]
 
+-- ValidatorSpec --
+
+frequency: FrequencySpec
+
+-- FrequencySpec --
+
+count: int
+prob: int [0, 100]
+
 Example: 
 
 count: 5
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 70 
-      - deleteFile:
-          count: 5
-          directoryProb: 20 
-        prob: 30 
-validator: {}
+    putFile:
+      count: 5
+      source: "random"
 fileSources:
   - name: "random"
     random:
@@ -116,6 +91,7 @@ fileSources:
         - min: 10000000
           max: 100000000
           prob: 10 
+validator: {}
 
 ```
 
