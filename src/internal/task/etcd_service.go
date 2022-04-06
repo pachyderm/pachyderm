@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"runtime"
 	"strings"
 	"sync/atomic"
 
@@ -340,29 +341,43 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 			if task.State != State_RUNNING {
 				return nil
 			}
-			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
+			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) (retErr error) {
 				taskOutput, taskErr := cb(ctx, task.Input)
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
 					return nil
 				}
-				task := &Task{}
-				_, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-					err := es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
-						if task.State != State_RUNNING {
+				// write task result in a defer to catch panics during tasks
+				defer func() {
+					if err := recover(); err != nil {
+						taskOutput = nil
+						switch v := err.(type) {
+						case runtime.Error:
+							taskErr = v
+						case string:
+							taskErr = fmt.Errorf(v)
+						default:
+							taskErr = fmt.Errorf("unknown panic: %+v", v)
+						}
+					}
+					task := &Task{}
+					_, retErr = col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
+						err := es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
+							if task.State != State_RUNNING {
+								return nil
+							}
+							task.State = State_SUCCESS
+							task.Output = taskOutput
+							if taskErr != nil {
+								task.State = State_FAILURE
+								task.Reason = taskErr.Error()
+							}
 							return nil
-						}
-						task.State = State_SUCCESS
-						task.Output = taskOutput
-						if taskErr != nil {
-							task.State = State_FAILURE
-							task.Reason = taskErr.Error()
-						}
-						return nil
+						})
+						return errors.EnsureStack(err)
 					})
-					return errors.EnsureStack(err)
-				})
-				return err
+				}()
+				return
 			})
 			return errors.EnsureStack(err)
 		}(); err != nil {

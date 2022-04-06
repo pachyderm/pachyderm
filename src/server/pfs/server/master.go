@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	masterLockPath = "pfs-master-lock"
+	masterLockPath        = "pfs-master-lock"
+	maxCompactionAttempts = 5
 )
 
 func (d *driver) master(ctx context.Context) {
@@ -123,6 +124,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 			return nil
 		}
 		commit := commitInfo.Commit
+		var attempts int
 		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
@@ -135,7 +137,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				}
 				// Skip compaction / validation for errored commits.
 				if commitInfo.Error != "" {
-					return d.finalizeCommit(ctx, commit, "", nil, id)
+					return d.finalizeCommit(ctx, commit, commitInfo.Error, nil, id)
 				}
 				details := &pfs.CommitInfo_Details{}
 				// Compact the commit.
@@ -168,6 +170,10 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				// Finish the commit.
 				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				attempts++
+				if attempts >= maxCompactionAttempts && commitInfo.Error == "" {
+					commitInfo.Error = fmt.Sprintf("abandoned compaction after %d attempts", attempts)
+				}
 				log.Errorf("error finishing commit %v: %v, retrying in %v", commit, err, d)
 				return nil
 			})
