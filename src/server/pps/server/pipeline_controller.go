@@ -307,6 +307,7 @@ func (pc *pipelineController) transitionStates(ctx context.Context, pi *pps.Pipe
 	if pi.Stopped {
 		return pc.setPipelineState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_PAUSED, "")
 	}
+
 	switch pi.State {
 	case pps.PipelineState_PIPELINE_RUNNING:
 		pc.stopCrashingPipelineMonitor()
