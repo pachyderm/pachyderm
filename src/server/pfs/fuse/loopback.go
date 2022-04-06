@@ -16,7 +16,6 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -131,7 +130,7 @@ func (n *loopbackNode) root() *loopbackRoot {
 }
 
 func (n *loopbackNode) c() *client.APIClient {
-	logrus.Infof("Fetching client!")
+	// logrus.Infof("Fetching client!")
 	return n.root().c
 }
 
@@ -141,6 +140,11 @@ func (n *loopbackNode) path() string {
 }
 
 func (n *loopbackNode) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	// _, file, no, ok := runtime.Caller(1)
+	// if ok {
+	// 	logrus.Infof("CALLED FROM %s#%d", file, no)
+	// }
+	// logrus.Infof("Starting LOOKUP")
 	p := filepath.Join(n.path(), name)
 	if err := n.download(p, meta); err != nil {
 		return nil, fs.ToErrno(err)
@@ -388,7 +392,6 @@ func (n *loopbackNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
 }
 
 func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	logrus.Infof("Starting Open")
 	p := n.path()
 	state := full
 	if isWrite(flags) {
@@ -416,7 +419,7 @@ func (n *loopbackNode) Open(ctx context.Context, flags uint32) (fh fs.FileHandle
 }
 
 func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
-	logrus.Infof("Starting Opendir")
+	// logrus.Infof("Starting OPENDIR")
 	if err := n.download(n.path(), meta); err != nil {
 		return fs.ToErrno(err)
 	}
@@ -429,7 +432,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 }
 
 func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
-	logrus.Infof("Starting Readdir")
+	// logrus.Infof("Starting READDIR")
 	if err := n.download(n.path(), meta); err != nil {
 		return nil, fs.ToErrno(err)
 	}
@@ -437,6 +440,7 @@ func (n *loopbackNode) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno
 }
 
 func (n *loopbackNode) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	// logrus.Infof("Starting GETATTR")
 	if f != nil {
 		return f.(fs.FileGetattrer).Getattr(ctx, out)
 	}
@@ -574,10 +578,14 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
-	logrus.Infof("Starting download('%s')", origPath)
+	// logrus.Infof("Starting download('%s')", origPath)
+	// defer func() {
+	// 	// logrus.Infof("")
+	// }()
 
 	if n.getFileState(origPath) >= state {
 		// Already got this file, so we can just return
+		// logrus.Infof("Already got this file")
 		return nil
 	}
 	if err := n.mkdirMountNames(); err != nil {
@@ -602,11 +610,11 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	// direction) to stop the state machine changing state _during_ a download()
 	// NB: empty string case is to support pachctl mount as well as mount-server
 	if !(st == "" || st == "mounted") {
-		logrus.Infof(
-			"Skipping download('%s') because %s state was %s; "+
-				"getFileState(%s) -> %s, state=%s",
-			origPath, name, st, origPath, n.getFileState(origPath), state,
-		)
+		// logrus.Infof(
+		// 	"Skipping download('%s') because %s state was %s; "+
+		// 		"getFileState(%s) -> %s, state=%s",
+		// 	origPath, name, st, origPath, n.getFileState(origPath), state,
+		// )
 		// return an error to stop an empty directory listing being cached by
 		// the OS
 		return fmt.Errorf("repo at %s is not mounted", name)
@@ -626,9 +634,16 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	repoName := ro.Repo
 	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
+			// logrus.Infof("File at %s is DIR", n.namePath(name))
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
 		p := n.filePath(name, fi)
+		// logrus.Infof("Have info for file %s", p)
+		defer func() {
+			if retErr == nil { // TODO: retErr will be per func call right?
+				n.setFileState(p, state)
+			}
+		}()
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially
@@ -640,6 +655,7 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 		if err != nil {
 			return errors.WithStack(err)
 		}
+		// logrus.Infof("Created file for %s", p)
 		defer func() {
 			if err := f.Close(); err != nil && retErr == nil {
 				retErr = errors.WithStack(err)
@@ -649,6 +665,7 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 			return errors.EnsureStack(f.Truncate(int64(fi.SizeBytes)))
 		}
 		if err := n.c().GetFile(fi.File.Commit, fi.File.Path, f); err != nil {
+			// logrus.Infof("ENSURE WE'RE NOT GETTING FILE FOR %s", p)
 			return err
 		}
 		return nil

@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/sirupsen/logrus"
 )
 
 // PutFile puts a file into PFS from a reader.
@@ -619,12 +618,12 @@ func (c APIClient) InspectFile(commit *pfs.Commit, path string) (_ *pfs.FileInfo
 
 // ListFile returns info about all files in a Commit under path, calling cb with each FileInfo.
 func (c APIClient) ListFile(commit *pfs.Commit, path string, cb func(fi *pfs.FileInfo) error) (retErr error) {
-	logrus.Infof("Starting ListFile(%s, %s)", commit, path)
-	start := time.Now()
-	defer func() {
-		elapsed := time.Since(start)
-		logrus.Infof("ListFile took %s", elapsed)
-	}()
+	// logrus.Infof("Starting ListFile(%s, %s)", commit, path)
+	// start := time.Now()
+	// defer func() {
+	// 	elapsed := time.Since(start)
+	// 	logrus.Infof("ListFile took %s", elapsed)
+	// }()
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
