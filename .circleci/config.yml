@@ -205,16 +205,20 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Download goreleaser
+          name: install goreleaser
           command: |
             mkdir -p /home/circleci/bin
             wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
-            wget https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_amd64.tar.gz 
-            tar zxvf yq_linux_amd64.tar.gz -C /home/circleci/bin yq 
-            rm -rf yq_linux_amd64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - run:
+          name: Install yq
+          command: >
+            wget -q
+            https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_amd64
+            sudo mv yq_linux_amd64 /usr/local/bin/yq
+            sudo chmod +x /usr/local/bin/yq
       - run:
           name: set version
           command: |
