@@ -247,9 +247,9 @@ jobs:
           command: |
             make build-pachctl GORELSNAP=--snapshot VERSION=$TAG
       - persist_to_workspace:
-          root: workspace
+          root: /tmp/workspace
           paths:
-            - /dist-pach
+            - dist-pach/*
   release-artifacts:
     machine:
       image: ubuntu-2004:202101-01
