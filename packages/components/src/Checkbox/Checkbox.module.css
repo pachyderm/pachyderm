@@ -36,12 +36,7 @@
 }
 
 .label {
-  font-size: var(--font-size-body-large);
   margin-left: 0.416rem;
-}
-
-.small > .label {
-  font-size: var(--font-size-body-medium);
 }
 
 .disabled {

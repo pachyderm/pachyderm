@@ -1,6 +1,5 @@
 .base {
   color: var(--pachyderm-black);
-  font-size: var(--font-size-body-medium);
   border: none;
   background-color: transparent;
   padding: 1rem 2rem;

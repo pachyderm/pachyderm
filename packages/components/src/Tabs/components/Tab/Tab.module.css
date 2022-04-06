@@ -1,10 +1,7 @@
 .base a {
   color: var(--pachyderm-black);
   text-decoration: none;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 500;
   padding-bottom: 0.5rem;
-  font-size: 0.875rem;
 }
 
 .base a[aria-selected=true] {

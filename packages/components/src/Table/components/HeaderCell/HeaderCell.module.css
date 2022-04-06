@@ -1,9 +1,11 @@
 .base {
   background-color: var(--background-blue);
-  font-size: var(--font-size-body-medium);
-  text-transform: uppercase;
+  text-transform: capitalize;
   padding: 1.5rem;
-  font-weight: 400;
+}
+
+.text {
+  color: var(--pachyderm-black);
 }
 
 .rightAligned {
@@ -34,9 +36,8 @@
   border: none;
   background: none;
   padding-left: 0;
-  font-size: var(--font-size-body-medium);
-  text-transform: uppercase;
-  font-weight: 400;
+  text-transform: capitalize;
+  color: var(--pachyderm-black);
   padding-bottom: 0;
 }
 

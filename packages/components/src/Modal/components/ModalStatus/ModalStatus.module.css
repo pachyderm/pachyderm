@@ -1,7 +1,6 @@
 .base {
   position: relative;
   color: var(--dropshadow-grey);
-  font-size: var(--font-size-body-large);
   padding: 0.5rem 0;
   position: absolute;
   top: 0;

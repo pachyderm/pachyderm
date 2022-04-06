@@ -4,15 +4,13 @@ import {Group} from 'Group';
 import {Icon} from 'Icon';
 import {BoxSVG} from 'Svg';
 
-import styles from './PageHeading.module.css';
-
 const PageHeading: React.FC = ({children}) => (
-  <Group spacing={8}>
+  <Group spacing={8} align="center">
     <Icon aria-hidden={true}>
-      <BoxSVG />{' '}
+      <BoxSVG />
     </Icon>
 
-    <h1 className={styles.pageHeading}>{children}</h1>
+    <h2>{children}</h2>
   </Group>
 );
 

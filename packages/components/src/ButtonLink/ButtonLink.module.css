@@ -1,11 +1,9 @@
 .base {
-  font-weight: 600;
-  font-size: inherit;
   cursor: pointer;
   color: var(--pachyderm-plum);
   user-select: none;
   display: inline-block;
-  font-family: 'Montserrat', sans-serif;
+  white-space: nowrap;
   box-shadow: none;
   border: none;
   background-color: inherit;
@@ -32,8 +30,4 @@ a + .base,
 .base:active,
 .base:focus {
   color: var(--hover-plum);
-}
-
-.small {
-  font-size: var(--font-size-body-medium);
 }

@@ -2,11 +2,10 @@
   padding-left: 0.9375rem;
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
-  font-size: var(--font-size-body-large);
 }
 
 .base[aria-selected="true"] {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--pachyderm-plum);
 }
 

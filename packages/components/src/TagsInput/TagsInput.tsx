@@ -4,7 +4,7 @@ import React, {InputHTMLAttributes} from 'react';
 import {FieldPath, FieldValues} from 'react-hook-form';
 
 import {CloseSVG} from '../Svg';
-import {FieldError} from '../Text';
+import {ErrorText, FieldText} from '../Text';
 
 import {useTagsInput} from './hooks/useTagsInput';
 import styles from './TagsInput.module.css';
@@ -91,11 +91,11 @@ export const TagsInput: React.FC<TagsInputProps> = ({
             type="button"
             onClick={() => handleReset()}
           >
-            {`Clear ${capitalize(name)}`}
+            <FieldText>{`Clear ${capitalize(name)}`}</FieldText>
           </button>
         )}
         {hasVisibleErrors && errorMessage && (
-          <FieldError className={styles.inlineError}>{errorMessage}</FieldError>
+          <ErrorText className={styles.inlineError}>{errorMessage}</ErrorText>
         )}
       </span>
     </>

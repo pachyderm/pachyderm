@@ -1,7 +1,7 @@
 import React, {useCallback} from 'react';
 import {FieldError, useFormContext} from 'react-hook-form';
 
-import {FieldError as FieldErrorComponent} from '../Text';
+import {ErrorText} from '../Text';
 
 const useFormField = (name: string) => {
   const {
@@ -25,9 +25,14 @@ const useFormField = (name: string) => {
       }
 
       return (
-        <FieldErrorComponent id={errorId} {...rest}>
+        <ErrorText
+          id={errorId}
+          {...rest}
+          role="alert"
+          style={{marginLeft: '1rem', lineHeight: '2.5rem'}}
+        >
           {fieldError?.message}
-        </FieldErrorComponent>
+        </ErrorText>
       );
     },
     [errorId, fieldError, hasErrorMessage],

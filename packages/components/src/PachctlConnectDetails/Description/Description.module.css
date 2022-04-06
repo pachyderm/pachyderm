@@ -7,7 +7,6 @@
 }
 
 .mono {
-  font-weight: 400;
   display: inline-flex;
   width: 100%;
 }
@@ -23,15 +22,12 @@
 }
 
 .title {
-  font-weight: 600;
-  font-size: var(--font-size-body-medium);
   margin-bottom: 0.25rem;
   padding-right: 3rem;
   display: inline-block;
 }
 
 .note {
-  font-weight: 400;
   line-height: 2rem;
   margin: 0;
 }

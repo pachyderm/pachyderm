@@ -5,7 +5,6 @@
   border-radius: 3px;
   display: flex;
   flex-wrap: wrap;
-  font-size: 0.875rem;
   padding: 0 0.625rem 0.40625rem 0.625rem;
   max-height: 10rem;
   overflow-x: hidden;
@@ -66,8 +65,6 @@
 .clearButton {
   border: none;
   color: var(--pachyderm-plum);
-  font-size: var(--font-size-body-medium);
   background-color: transparent;
-  font-weight: 600;
   white-space: nowrap;
 }

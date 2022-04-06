@@ -1,0 +1,41 @@
+.wrapper {
+  border: 1px  solid rgba(0, 0, 0, 0.1); 
+  display: inline-flex;
+  max-width: 70rem;
+}
+
+.content {
+  flex: 1;
+}
+
+.name {
+  width: 100%;
+  padding: 0.5rem 2rem;
+  background-color: var(--background-blue);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1); 
+}
+
+.body {
+  padding: 2rem;
+  max-width: 50rem;
+}
+
+.specs {
+  background-color: var(--background-grey);
+  padding: 1rem;
+  width: 13rem;
+  border-right: 1px solid rgba(0, 0, 0, 0.1); 
+}
+
+.specs * {
+  font-size: 0.75rem;
+}
+
+.specs > div {
+  display: inline-flex;
+  width: 100%;
+}
+
+.specs > div > b {
+  flex: 1
+}

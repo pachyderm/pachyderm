@@ -2,8 +2,6 @@
 .base {
   display: flex;
   flex-direction: column;
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 600;
   text-align: center;
   width: var(--width-sidenav);
   transition: width 0.1s ease-out;
@@ -31,8 +29,6 @@
   color: var(--dropshadow-grey);
   background-color: transparent;
   padding: 1.5rem 2rem;
-  font-weight: 600;
-  font-size: var(--font-size-body-medium);
   overflow-x: hidden;
   white-space: nowrap;
   transition: color .2s;

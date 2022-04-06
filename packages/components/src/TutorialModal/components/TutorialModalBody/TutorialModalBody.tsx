@@ -157,15 +157,13 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
               return (
                 <div className={styles.section} key={i}>
                   <div className={styles.headerInfo}>
-                    <div
-                      className={
-                        section.isSubHeader
-                          ? styles.sectionSubHeader
-                          : styles.sectionHeader
-                      }
-                    >
-                      {section.header}
-                    </div>
+                    {section.isSubHeader ? (
+                      <h6 className={styles.sectionSubHeader}>
+                        {section.header}
+                      </h6>
+                    ) : (
+                      <h3 className={styles.sectionHeader}>{section.header}</h3>
+                    )}
                     {section.info}
                   </div>
                   {section.Task && (

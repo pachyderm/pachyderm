@@ -12,21 +12,12 @@
 }
 
 .caption {
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--grey-10);
-}
-
-.subHeaderXS {
-  font-size: 0.75rem;
-  font-weight: 500;
+  display: block;
   color: var(--grey-10);
 }
 
 .taskInfo {
-  font-size: 0.875rem;
   color: var(--grey-10);
-  font-weight: 400;
 }
 
 .dropdown {
@@ -37,8 +28,6 @@
 
 .dropdownButton {
   color: var(--grey-10);
-  font-size: 0.875rem;
-  font-weight: 500;
 }
 
 .dropdownMenu {

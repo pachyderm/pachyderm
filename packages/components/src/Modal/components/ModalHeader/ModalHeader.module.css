@@ -1,11 +1,7 @@
 .base {
   border-bottom: none;
-  font-size: 1.125rem;
-  font-weight: 500;
   padding-left: 0;
   max-width: 34.25rem;
-  font-weight: bold;
-  font-family: 'Montserrat ExtraBold', 'Montserrat', sans-serif;
 }
 
 .base[class$='modal-header'] {

@@ -5,8 +5,6 @@
 
 .text {
   text-align: center;
-  font-size: var(--font-size-body-large);
-  font-weight: 500;
 }
 
 .svg {

@@ -21,7 +21,7 @@
 .base {
   max-width: 12rem;
   position: relative;
-  height: var(--font-size-header);
+  height: 1rem;
   margin-bottom: 1.5rem;
 }
 

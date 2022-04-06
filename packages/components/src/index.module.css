@@ -1,11 +1,9 @@
-@import url('https://fonts.googleapis.com/css?family=Montserrat:400,500,600,800&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Montserrat:400,600,700,800&display=swap');
 @import url('https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,600,800&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Public+Sans:300,600&display=swap');
+@import url('http://fonts.cdnfonts.com/css/menlo');
 
 :root {
-  /* fonts */
-  --font-family: 'Montserrat', sans-serif;
-  --font-family-mono: 'Roboto Mono', monospace;
-
   /* colors */
   --pachyderm-black: #020408;
   --background-black: #272728;
@@ -84,11 +82,6 @@
   --border-radius-bottom-level: 5px;
   --border-radius-top-level: 10px;
   --border-radius-mid-level: 8px;
-  --font-size-body-medium: 0.75rem;
-  --font-size-body-large: 0.875rem;
-  --font-size-body-small: 0.6875rem;
-  --font-size-header: 1rem;
-  --font-size-page-heading: 1.375rem;
   --height-marketing-header: 7.5rem;
   --height-marketing-header-compact: 4.688rem;
   --height-marketing-banner: 3rem;
@@ -108,6 +101,18 @@
   --z-index-modal: 1050;
   --z-index-notification-banner: 1051;
   --z-index-dropdown-menu: 1052;
+
+  /*  font variables are deprecated in 3.0.0 and only used in hub */
+  --font-size-page-heading: 1.375rem;
+  --font-size-header: 1rem;
+  --font-size-body-medium: 0.75rem;
+  --font-size-body-large: 0.875rem;
+  --font-size-body-small: 0.6875rem;
+  --font-size-caption-small: 0.5625rem;
+  --font-family: 'Montserrat', sans-serif;
+  --font-family-mono: 'Roboto Mono', monospace;
+
+  font-size: 16px;
 }
 
 @custom-media --extra-small-viewport (width < 375px);
@@ -115,10 +120,17 @@
 @custom-media --medium-viewport (width < 1024px);
 @custom-media --large-viewport (width >= 1024px);
 
-body {
-  font-weight: auto;
-  font-family: 'Montserrat';
+* {
+  font-family: 'Public Sans';
+  font-weight: 300;
+  font-size: 0.875rem;
+  line-height: 1.437rem;
+  letter-spacing: 0.2px;
   margin: 0;
+}
+
+* b, strong {
+  font-weight: 600;
 }
 
 ::-webkit-scrollbar {
@@ -132,9 +144,56 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-  line-height: 1.2;
+  margin: 0;
+  color: var(--pachyderm-black);
+}
+
+h1 {
+  font-family: 'Montserrat';
+  font-weight: 800;
+  font-size: 2.5rem;
+  line-height: 3.125rem;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-family: 'Montserrat';
+  font-weight: 800;
+  font-size: 1.875rem;
+  line-height: 2.5rem;
+  letter-spacing: 0;
+}
+
+h3 {
+  font-family: 'Montserrat';
+  font-weight: 600;
+  font-size: 1.625rem;
+  line-height: 2.25rem;
+  letter-spacing: 0;
+}
+
+h4 {
+  font-family: 'Montserrat';
+  font-weight: 800;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  letter-spacing: 0;
+}
+
+h5 {
+  font-family: 'Montserrat';
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.625rem;
+  letter-spacing: 0;
+}
+
+h6 {
+  font-family: 'Montserrat';
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  letter-spacing: 0;
 }
 
 pre {

@@ -35,7 +35,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           className={`${styles.taskHeader}
         ${styles.taskHeaderWrapperChild}`}
         >
-          <h6 className={styles.task}>{`Task ${index + 1}`}</h6>
+          <h5 className={styles.task}>{`Task ${index + 1}`}</h5>
           {currentTask > index && (
             <StatusCheckmarkSVG
               aria-label={`Task ${index + 1} complete`}
@@ -48,7 +48,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       {taskInfo && taskInfoTitle && (
         <div className={styles.taskInfoWrapper}>
           <InfoSVG className={styles.infoSVG} />
-          <strong>{taskInfoTitle}</strong>
+          <h6>{taskInfoTitle}</h6>
           <div className={styles.taskInfo}>{taskInfo}</div>
         </div>
       )}
@@ -64,7 +64,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <div className={styles.svgWrapper}>
                 <CheckmarkSVG />
               </div>
-              <div className={styles.completedText}>Task Completed!</div>
+              <strong className={styles.completedText}>Task Completed!</strong>
             </div>
           )}
           {currentTask <= index && (

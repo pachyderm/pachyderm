@@ -1,6 +1,5 @@
 .link {
   color: var(--pachyderm-plum);
-  font-weight: 600;
 }
 
 .link:not([href]) {
@@ -20,5 +19,5 @@
 }
 
 .small {
-  font-size: var(--font-size-body-medium);
+  font-size: 0.75rem;
 }

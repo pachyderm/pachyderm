@@ -7,7 +7,7 @@ import useClipboardCopy from '../../hooks/useClipboardCopy';
 import {Icon} from '../../Icon';
 import {useNotificationBanner} from '../../NotificationBanner';
 import {CopySVG} from '../../Svg';
-import {BodyMonoBlock} from '../../Text';
+import {CodeTextBlock} from '../../Text';
 
 import styles from './Description.module.css';
 
@@ -68,14 +68,15 @@ const Description: React.FC<DescriptionProps> = ({
 
       {children && (
         <div className={styles.mono}>
-          <BodyMonoBlock
+          <CodeTextBlock
             role="button"
             onClick={!disabled && copyText ? handleClick : noop}
             aria-disabled={disabled}
+            className={styles.mono}
             tabIndex={0}
           >
             {children}
-          </BodyMonoBlock>
+          </CodeTextBlock>
 
           {!disabled && (
             <ButtonLink

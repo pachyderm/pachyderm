@@ -13,7 +13,7 @@ const Module: React.FC<ModuleProps> = ({children, title}) => {
     <div className={styles.base}>
       <div className={styles.title}>
         <DocumentSVG className={styles.documentSvg} />
-        {title}
+        <h6>{title}</h6>
       </div>
       {children}
     </div>

@@ -7,9 +7,7 @@
 .title {
   padding: 2rem 0 2rem 2rem;
   display: flex;
-  font-weight: 700;
   color: var(--grey-10);
-  font-size: 0.75rem;
   box-sizing: border-box;
 }
 

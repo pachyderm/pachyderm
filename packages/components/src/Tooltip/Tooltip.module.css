@@ -1,9 +1,6 @@
 .base [class$="inner"] {
   text-emphasis: center;
   color: var(--background-grey);
-  font-size: 0.75rem;
-  font-weight: 500;
-  font-family: 'Montserrat', sans-serif;
   padding: .5rem 1rem;
   border-radius: 3px;
   background-color: var(--pachyderm-black);

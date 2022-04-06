@@ -1,6 +1,5 @@
 .active td {
   background-color: var(--background-blue);
-  font-weight: 500;
 }
 
 .sticky td,

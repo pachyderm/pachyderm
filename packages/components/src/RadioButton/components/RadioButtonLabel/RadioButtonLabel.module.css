@@ -3,5 +3,5 @@
 }
 
 .base.small {
-  font-size: var(--font-size-body-medium);
+  font-size: 0.75rem;
 }

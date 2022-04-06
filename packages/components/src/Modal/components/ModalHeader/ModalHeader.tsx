@@ -30,7 +30,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
       })}
     >
       <Group spacing={8} align="center">
-        {children}
+        <h4>{children}</h4>
       </Group>
     </BootstrapModalHeader>
   );

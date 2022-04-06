@@ -2,6 +2,7 @@ import classNames from 'classnames';
 import React from 'react';
 
 import {Group} from 'Group';
+import {CaptionTextSmall} from 'Text';
 
 import styles from './Info.module.css';
 
@@ -21,9 +22,7 @@ export const Info: React.FC<InfoProps> = ({
 }) => {
   return (
     <Group vertical spacing={8} className={className}>
-      <span className={styles.header} id={headerId}>
-        {header}
-      </span>
+      <CaptionTextSmall id={headerId}>{header}</CaptionTextSmall>
       <span
         aria-labelledby={headerId}
         className={classNames(styles.info, {[styles.disabled]: disabled})}

@@ -8,7 +8,7 @@ export interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {
 
 const CardTitle: React.FC<CardTitleProps> = ({
   className,
-  elemType: ElemType = 'h2',
+  elemType: ElemType = 'h5',
   children,
   ...rest
 }) => {

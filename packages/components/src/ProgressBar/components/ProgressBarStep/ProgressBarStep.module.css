@@ -30,8 +30,6 @@
   width: 100%;
   white-space: nowrap;
   text-align: center;
-  font-size: 0.875rem;
-  font-weight: 600;
 }
 
 .visited > .button {

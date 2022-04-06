@@ -2,6 +2,7 @@ import React from 'react';
 
 import {Dropdown, DropdownProps} from 'Dropdown';
 import ProgressBar from 'ProgressBar';
+import {CaptionTextSmall} from 'Text';
 
 import {Story, Section} from '../../lib/types';
 
@@ -23,9 +24,9 @@ const SideBar = ({
   return (
     <div className={styles.base}>
       <div className={styles.wrapper}>
-        <div className={styles.caption}>
+        <CaptionTextSmall className={styles.caption}>
           {`Story ${currentStory + 1} of ${stories.length}`}
-        </div>
+        </CaptionTextSmall>
         <Dropdown
           selectedId={stories[currentStory].name}
           initialSelectId={stories[0].name}
@@ -33,7 +34,7 @@ const SideBar = ({
           onSelect={handleStoryChange}
         >
           <Dropdown.Button className={styles.dropdownButton}>
-            {stories[currentStory].name}
+            <strong>{stories[currentStory].name}</strong>
           </Dropdown.Button>
           <Dropdown.Menu className={styles.dropdownMenu}>
             {stories.map((story) => {

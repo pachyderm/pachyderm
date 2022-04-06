@@ -4,6 +4,7 @@ import React, {ThHTMLAttributes, useMemo} from 'react';
 
 import {Group} from './../../../Group';
 import {ChevronDownSVG} from './../../../Svg';
+import {CaptionText} from './../../../Text';
 import styles from './HeaderCell.module.css';
 
 export interface HeaderCellProps
@@ -65,12 +66,12 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
           onClick={onClick}
         >
           <Group spacing={8} align="center">
-            {children}
+            <CaptionText className={styles.text}>{children}</CaptionText>
             <ChevronDownSVG className={sortClasses} />
           </Group>
         </button>
       ) : (
-        children
+        <CaptionText className={styles.text}>{children}</CaptionText>
       )}
     </th>
   );

@@ -3,9 +3,6 @@
   align-items: center;
   border: none;
   background-color: transparent;
-  color: var(--pachyderm-black);
-  font-weight: 600;
-  font-size: var(--font-size-body-medium);
   padding: 0;
   text-align: left;
   overflow: hidden;

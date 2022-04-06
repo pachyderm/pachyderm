@@ -6,18 +6,15 @@
 
 .input {
   width: 21.0625rem;
-  font-size: 0.75rem;
   padding-left: 2rem;
   padding-right: 0.6875rem;
   border: none;
-  font-weight: 600;
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--line-grey);
 }
 
 .input::placeholder {
-  font-weight: 400;
   color: var(--pachyderm-black);
 }
 

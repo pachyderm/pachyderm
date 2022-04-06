@@ -46,7 +46,7 @@ const SideNavButton: React.FC<SideNavButtonProps> = ({
         data-testid={dataTestId}
         {...rest}
       >
-        <Group spacing={8}>
+        <Group spacing={8} align="center">
           <Icon className={styles.icon}>
             <IconSVG />
           </Icon>
