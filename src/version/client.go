@@ -1,23 +1,24 @@
 package version
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
-const (
-	// MajorVersion is the current major version for pachyderm.
-	MajorVersion = 2
-	// MinorVersion is the current minor version for pachyderm.
-	MinorVersion = 2
-	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 0
-)
-
 var (
+	// MajorVersion is the current major version for pachyderm.
+	MajorVersion, _ = getenvInt("MAJOR_VERSION")
+	// MinorVersion is the current minor version for pachyderm.
+	MinorVersion, _ = getenvInt("MINOR_VERSION")
+	// MicroVersion is the patch number for pachyderm.
+	MicroVersion, _ = getenvInt("PATCH_VERSION")
+
 	// AdditionalVersion is the string provided at release time
 	// The value is passed to the linker at build time
 	//
@@ -27,15 +28,35 @@ var (
 
 	// Version is the current version for pachyderm.
 	Version = &pb.Version{
-		Major:      MajorVersion,
-		Minor:      MinorVersion,
-		Micro:      MicroVersion,
+		Major:      uint32(MajorVersion),
+		Minor:      uint32(MinorVersion),
+		Micro:      uint32(MicroVersion),
 		Additional: AdditionalVersion,
 	}
 
 	// Custom release have a 40 character commit hash build into the version string
 	customReleaseRegex = regexp.MustCompile(`[0-9a-f]{40}`)
 )
+
+func getenvStr(key string) (string, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return v, errors.New("getenv: environment variable empty")
+	}
+	return v, nil
+}
+
+func getenvInt(key string) (int, error) {
+	s, err := getenvStr(key)
+	if err != nil {
+		return 0, err
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
+}
 
 // IsUnstable will return true for alpha or beta builds, and false otherwise.
 func IsUnstable() bool {

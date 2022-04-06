@@ -76,10 +76,10 @@ release:
 	@make release-pachctl
 	@echo "Release $(VERSION) completed"
 
-release-helper: release-docker-images docker-push-release
+release-helper: build-docker-images docker-push-release
 
-release-docker-images:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
+build-docker-images:
+	DOCKER_BUILDKIT=1 goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
@@ -413,7 +413,7 @@ check-buckets:
 	custom-release \
 	release \
 	release-helper \
-	release-docker-images \
+	build-docker-images \
 	release-pachctl \
 	docker-build \
 	docker-build-proto \

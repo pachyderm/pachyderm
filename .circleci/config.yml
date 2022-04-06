@@ -199,13 +199,7 @@ jobs:
             cd /home/circleci/dist-pach/pachctl/
             gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
             rm /home/circleci/gcpcreds.json
-  build:
-    filters:
-      tags:
-        only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      branches:
-        ignore: /.*/
-    type: approval
+  build-artifacts:
     docker:
       - image: cimg/go:1.17.6
     steps:
@@ -217,75 +211,148 @@ jobs:
             wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_amd64.tar.gz 
+            tar zxvf yq_linux_amd64.tar.gz -C /home/circleci/bin yq 
+            rm -rf yq_linux_amd64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - run:
-          name: Build pachctl
-          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+          name: set version
+          command: |
+            echo 'export TEST_TAG=v2.1.5' >> $BASH_ENV
+            TAG="${TEST_TAG:1}"
+            major=`echo $TAG | cut -d. -f1`
+            minor=`echo $TAG | cut -d. -f2`
+            patch=`echo $TAG | cut -d. -f3`
+            echo 'export MAJOR_VERSION=$major' >> $BASH_ENV
+            echo 'export MINOR_VERSION=$minor' >> $BASH_ENV
+            echo 'export PATCH_VERSION=$patch' >> $BASH_ENV
+      - run:
+          name: go install pachctl
+          command: |
+            make VERSION_ADDITIONAL= install
+            pachctl version --client-only
+      - run:
+          name: update helm chart version
+          command: |
+            TAG="${TEST_TAG:1}"
+            yq w -i ./etc/helm/pachyderm/Chart.yaml version $TAG
+            yq w -i ./etc/helm/pachyderm/Chart.yaml appVersion $TAG
+      - run:
+          name: build docker images
+          command: |
+            TAG="${TEST_TAG:1}"
+            make build-docker-images GORELSNAP=--snapshot VERSION=$TAG
+      - run:
+          name: build pachctl
+          command: |
+            make build-pachctl GORELSNAP=--snapshot VERSION=$TAG
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - /dist-pach
+  release-artifacts:
+    machine:
+      image: ubuntu-2004:202101-01
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: upload docker images
+          command: |
+            echo "uploading images to docker hub..."
+      - run:
+          name: upload helm chart
+          command: |
+            echo "uploading helm charts to artifact hub..."
+      - run:
+          name: update brew tap
+          command: |
+            echo "updating brew tap.."
+      - run:
+          name: create github release
+          command: |
+            echo "update"
+          
+    
 
 workflows:
-  circleci:
+  # circleci:
+  #   jobs:
+  #     - build-pachctl
+  #     - circleci:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #             - MISC
+  #             # If you want to update the number of PPS buckets, you'll neet to
+  #             # update the value of PPS_BUCKETS above
+  #             - AUTH
+  #             - ENTERPRISE
+  #             - PFS
+  #             - PPS1
+  #             - PPS2
+  #             - PPS3
+  #             - PPS4
+  #             - PPS5
+  #             - PPS6
+  #             - EXAMPLES
+  #             - INTERNAL
+  # helm:
+  #   jobs:
+  #     - helm-build:
+  #         filters:
+  #           # Note: Not ignoring branches, so will be run on branches as well as tags
+  #           tags:
+  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #     - helm-publish:
+  #         requires:
+  #           - helm-build
+  #         filters:
+  #           branches:
+  #             ignore: /.*/
+  #           tags:
+  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  # hub_live_tests:
+  #   jobs:
+  #     - hub
+  # hub_load_tests:
+  #   triggers:
+  #     - schedule:
+  #         cron: "0 6 * * *"
+  #         filters:
+  #           branches:
+  #             only:
+  #               - master
+  #               - 2.0.x
+  #   jobs:
+  #     - load:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #               - LOAD1
+  #               - LOAD2
+  #               - LOAD3
+  #               - LOAD4
+  #               - LOAD5
+  #               - LOAD6
+  #               - LOAD7
+  # deploy:
+  #   jobs:
+  #   - deploy
+  release-workflow:
     jobs:
-      - build-pachctl
-      - circleci:
-          matrix:
-            parameters:
-              bucket:
-              - MISC
-              # If you want to update the number of PPS buckets, you'll neet to
-              # update the value of PPS_BUCKETS above
-              - AUTH
-              - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
-              - EXAMPLES
-              - INTERNAL
-  helm:
-    jobs:
-      - helm-build:
-          filters:
-            # Note: Not ignoring branches, so will be run on branches as well as tags
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish:
-          requires:
-            - helm-build
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  hub_live_tests:
-    jobs:
-      - hub
-  hub_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
+      - build-artifacts:
+          type: approval
           filters:
             branches:
               only:
-                - master
-                - 2.0.x
-    jobs:
-      - load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-  deploy:
-    jobs:
-    - deploy
-  release-workflow:
-    jobs:
-      - build
+                - molinamelendezj/circleci-pach-release-CORE-435
+          # filters:
+          #   tags:
+          #     only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          #   branches:
+          #     ignore: /.*/
+      - release-artifacts:
+          type: approval
+          requires:
+            - build-artifacts
