@@ -51,7 +51,7 @@ func SplitTableSchema(driver string, tablePath string) (schemaName string, table
 // TestRow is the type of a row in the test table
 // struct tag: sql:"<column_name>,<data_type>,<table_constraint>"
 type TestRow struct {
-	Id int `sql:"c_id,INT PRIMARY KEY,NOT NULL"`
+	Id int `sql:"c_id,INT,PRIMARY KEY NOT NULL"`
 
 	Smallint int16     `sql:"c_smallint,SMALLINT,NOT NULL"`
 	Int      int32     `sql:"c_int,INT,NOT NULL"`
