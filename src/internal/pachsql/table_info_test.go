@@ -25,19 +25,19 @@ func TestGetTableInfo(t *testing.T) {
 				"test_table",
 				"public",
 				[]pachsql.ColumnInfo{
-					{"c_id", "integer", false},
-					{"c_smallint", "smallint", false},
-					{"c_int", "integer", false},
-					{"c_bigint", "bigint", false},
-					{"c_float", "double precision", false},
-					{"c_varchar", "character varying", false},
-					{"c_time", "timestamp without time zone", false},
-					{"c_smallint_null", "smallint", true},
-					{"c_int_null", "integer", true},
-					{"c_bigint_null", "bigint", true},
-					{"c_float_null", "double precision", true},
-					{"c_varchar_null", "character varying", true},
-					{"c_time_null", "timestamp without time zone", true},
+					{"c_id", "INTEGER", false},
+					{"c_smallint", "SMALLINT", false},
+					{"c_int", "INTEGER", false},
+					{"c_bigint", "BIGINT", false},
+					{"c_float", "DOUBLE PRECISION", false},
+					{"c_varchar", "CHARACTER VARYING", false},
+					{"c_time", "TIMESTAMP WITHOUT TIME ZONE", false},
+					{"c_smallint_null", "SMALLINT", true},
+					{"c_int_null", "INTEGER", true},
+					{"c_bigint_null", "BIGINT", true},
+					{"c_float_null", "DOUBLE PRECISION", true},
+					{"c_varchar_null", "CHARACTER VARYING", true},
+					{"c_time_null", "TIMESTAMP WITHOUT TIME ZONE", true},
 				},
 			},
 		},
@@ -46,21 +46,21 @@ func TestGetTableInfo(t *testing.T) {
 			NewDB: dockertestenv.NewMySQL,
 			Expected: &pachsql.TableInfo{
 				"test_table",
-				"",
+				"public",
 				[]pachsql.ColumnInfo{
-					{"c_id", "int", false},
-					{"c_smallint", "smallint", false},
-					{"c_int", "int", false},
-					{"c_bigint", "bigint", false},
-					{"c_float", "float", false},
-					{"c_varchar", "varchar", false},
-					{"c_time", "timestamp", false},
-					{"c_smallint_null", "smallint", true},
-					{"c_int_null", "int", true},
-					{"c_bigint_null", "bigint", true},
-					{"c_float_null", "float", true},
-					{"c_varchar_null", "varchar", true},
-					{"c_time_null", "timestamp", true},
+					{"c_id", "INT", false},
+					{"c_smallint", "SMALLINT", false},
+					{"c_int", "INT", false},
+					{"c_bigint", "BIGINT", false},
+					{"c_float", "FLOAT", false},
+					{"c_varchar", "VARCHAR", false},
+					{"c_time", "TIMESTAMP", false},
+					{"c_smallint_null", "SMALLINT", true},
+					{"c_int_null", "INT", true},
+					{"c_bigint_null", "BIGINT", true},
+					{"c_float_null", "FLOAT", true},
+					{"c_varchar_null", "VARCHAR", true},
+					{"c_time_null", "TIMESTAMP", true},
 				},
 			},
 		},
@@ -92,8 +92,9 @@ func TestGetTableInfo(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
-			require.NoError(t, pachsql.CreateTestTable(db, "test_table"))
-			info, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			// For mysql, we created a database named public via NewMySQL
+			require.NoError(t, pachsql.CreateTestTable(db, "public.test_table"))
+			info, err := pachsql.GetTableInfo(ctx, db, "public.test_table")
 			require.NoError(t, err)
 			require.Len(t, info.Columns, reflect.TypeOf(pachsql.TestRow{}).NumField())
 			require.Equal(t, tc.Expected, info)

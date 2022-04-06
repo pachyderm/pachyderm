@@ -147,43 +147,43 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	switch dbType {
 	case "BOOL":
 		if nullable {
-			return &sql.NullBool{}, nil
+			return new(sql.NullBool), nil
 		} else {
 			return new(bool), nil
 		}
 	case "SMALLINT", "INT2":
 		if nullable {
-			return &sql.NullInt16{}, nil
+			return new(sql.NullInt16), nil
 		} else {
 			return new(int16), nil
 		}
 	case "INT", "INT4":
 		if nullable {
-			return &sql.NullInt32{}, nil
+			return new(sql.NullInt32), nil
 		} else {
 			return new(int32), nil
 		}
 	case "BIGINT", "INT8":
 		if nullable {
-			return &sql.NullInt64{}, nil
+			return new(sql.NullInt64), nil
 		} else {
 			return new(int64), nil
 		}
 	case "FLOAT", "FLOAT8":
 		if nullable {
-			return &sql.NullFloat64{}, nil
+			return new(sql.NullFloat64), nil
 		} else {
 			return new(float64), nil
 		}
 	case "VARCHAR", "TEXT":
 		if nullable {
-			return &sql.NullString{}, nil
+			return new(sql.NullString), nil
 		} else {
 			return new(string), nil
 		}
 	case "TIMESTAMP":
 		if nullable {
-			return &sql.NullTime{}, nil
+			return new(sql.NullTime), nil
 		} else {
 			return new(time.Time), nil
 		}

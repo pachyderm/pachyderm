@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -50,8 +49,14 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 		where += fmt.Sprintf(" AND lower(table_schema) = lower('%s')", schemaName)
 	}
 	q := fmt.Sprintf(`
-	SELECT column_name, data_type, is_nullable
-	FROM INFORMATION_SCHEMA.columns
+	SELECT
+		column_name,
+	    upper(data_type),
+	    CASE upper(is_nullable)
+			WHEN 'YES' THEN true
+		   	ELSE false
+		END
+	FROM information_schema.columns
 	WHERE %s
 	ORDER BY ordinal_position`, where)
 	// We use tx.Query, not tx.Select here because MySQL and Postgres have conflicting capitalization
@@ -63,13 +68,8 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var ci ColumnInfo
-		var isNullableS string
-		if err := rows.Scan(&ci.Name, &ci.DataType, &isNullableS); err != nil {
+		if err := rows.Scan(&ci.Name, &ci.DataType, &ci.IsNullable); err != nil {
 			return nil, errors.EnsureStack(err)
-		}
-		switch strings.ToLower(isNullableS) {
-		case "yes":
-			ci.IsNullable = true
 		}
 		cinfos = append(cinfos, ci)
 	}

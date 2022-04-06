@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -51,21 +50,21 @@ func SplitTableSchema(driver string, tablePath string) (schemaName string, table
 
 // TestRow is the type of a row in the test table
 type TestRow struct {
-	Id int
+	Id int `sql:"c_id"`
 
-	Smallint int16
-	Int      int32
-	Bigint   int64
-	Float    float32
-	Varchar  string
-	Time     time.Time
+	Smallint int16     `sql:"c_smallint"`
+	Int      int32     `sql:"c_int"`
+	Bigint   int64     `sql:"c_bigint"`
+	Float    float32   `sql:"c_float"`
+	Varchar  string    `sql:"c_varchar"`
+	Time     time.Time `sql:"c_time"`
 
-	SmallintNull sql.NullInt16
-	IntNull      sql.NullInt32
-	BigintNull   sql.NullInt64
-	FloatNull    sql.NullFloat64
-	VarcharNull  sql.NullString
-	TimeNull     sql.NullTime
+	SmallintNull sql.NullInt16   `sql:"c_smallint_null"`
+	IntNull      sql.NullInt32   `sql:"c_int_null"`
+	BigintNull   sql.NullInt64   `sql:"c_bigint_null"`
+	FloatNull    sql.NullFloat64 `sql:"c_float_null"`
+	VarcharNull  sql.NullString  `sql:"c_varchar_null"`
+	TimeNull     sql.NullTime    `sql:"c_time_null"`
 }
 
 // CreateTestTable creates a test table at name in the database
@@ -93,19 +92,18 @@ func CreateTestTable(db *DB, name string) error {
 
 func GenerateTestData(db *DB, tableName string, n int) error {
 	fz := fuzz.New()
+	// support mysql
 	fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
 		*ti = time.Now()
 	})
 	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
+	var row TestRow
+	insertStatement := fmt.Sprintf("INSERT INTO test_data %s VALUES %s", formatColumns(row), formatValues(row, db))
 	for i := 0; i < n; i++ {
-		var x TestRow
-		x.Time = time.Now()
-		if i > 0 {
-			fz.Fuzz(&x)
-		}
-		x.Id = i
-		insertStatement := `INSERT INTO test_data ` + formatColumns(x) + ` VALUES ` + formatValues(x, db)
-		if _, err := db.Exec(insertStatement, makeArgs(x)...); err != nil {
+		fz.Fuzz(&row)
+		row.Id = i
+		row.Time = time.Now() // support mysql
+		if _, err := db.Exec(insertStatement, makeArgs(row)...); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -117,28 +115,19 @@ func formatColumns(x interface{}) string {
 	rty := reflect.TypeOf(x)
 	for i := 0; i < rty.NumField(); i++ {
 		field := rty.Field(i)
-		col := "c_" + toSnakeCase(field.Name)
+		col := field.Tag.Get("sql")
 		cols = append(cols, col)
 	}
 	return "(" + strings.Join(cols, ", ") + ")"
 }
 
 func formatValues(x interface{}, db *DB) string {
-	var placeholder func(i int) string
-	switch db.DriverName() {
-	case "pgx":
-		placeholder = func(i int) string { return "$" + strconv.Itoa(i+1) }
-	case "mysql", "snowflake":
-		placeholder = func(int) string { return "?" }
-	default:
-		panic(db.DriverName())
-	}
 	var ret string
 	for i := 0; i < reflect.TypeOf(x).NumField(); i++ {
 		if i > 0 {
 			ret += ", "
 		}
-		ret += placeholder(i)
+		ret += Placeholder(db.DriverName(), i)
 	}
 	return "(" + ret + ")"
 }
@@ -151,13 +140,4 @@ func makeArgs(x interface{}) []interface{} {
 		vals = append(vals, v)
 	}
 	return vals
-}
-
-var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-func toSnakeCase(str string) string {
-	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	return strings.ToLower(snake)
 }
