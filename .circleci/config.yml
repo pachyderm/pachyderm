@@ -221,9 +221,7 @@ jobs:
       - run:
           name: set version
           command: |
-            echo 'export TEST_TAG=v2.1.5' >> $BASH_ENV
-            echo $TEST_TAG
-            TAG="${TEST_TAG:1}"
+            TAG="${CIRCLE_TAG:1}"
             major=`echo $TAG | cut -d. -f1`
             minor=`echo $TAG | cut -d. -f2`
             patch=`echo $TAG | cut -d. -f3`
@@ -233,6 +231,8 @@ jobs:
             echo $MAJOR_VERSION
             echo $MINOR_VERSION
             echo $PATCH_VERSION
+          environment:
+            CIRCLE_TAG: v2.1.5
       - run:
           name: go install pachctl
           command: |
@@ -241,18 +241,25 @@ jobs:
       - run:
           name: update helm chart version
           command: |
-            TAG="${TEST_TAG:1}"
+            TAG="${CIRCLE_TAG:1}"
             yq w -i ./etc/helm/pachyderm/Chart.yaml version $TAG
             yq w -i ./etc/helm/pachyderm/Chart.yaml appVersion $TAG
+          environment:
+            CIRCLE_TAG: v2.1.5
       - run:
           name: build docker images
           command: |
-            TAG="${TEST_TAG:1}"
+            TAG="${CIRCLE_TAG:1}"
             make build-docker-images GORELSNAP=--snapshot VERSION=$TAG
+          environment:
+            CIRCLE_TAG: v2.1.5
       - run:
           name: build pachctl
           command: |
+            TAG="${CIRCLE_TAG:1}"
             make build-pachctl GORELSNAP=--snapshot VERSION=$TAG
+          environment:
+            CIRCLE_TAG: v2.1.5
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
