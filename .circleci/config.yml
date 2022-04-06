@@ -219,21 +219,6 @@ jobs:
             sudo mv yq_linux_amd64 /usr/local/bin/yq
             sudo chmod +x /usr/local/bin/yq
       - run:
-          name: set version
-          command: |
-            TAG="${CIRCLE_TAG:1}"
-            major=`echo $TAG | cut -d. -f1`
-            minor=`echo $TAG | cut -d. -f2`
-            patch=`echo $TAG | cut -d. -f3`
-            echo 'export MAJOR_VERSION=$major' >> $BASH_ENV
-            echo 'export MINOR_VERSION=$minor' >> $BASH_ENV
-            echo 'export PATCH_VERSION=$patch' >> $BASH_ENV
-            echo $MAJOR_VERSION
-            echo $MINOR_VERSION
-            echo $PATCH_VERSION
-          environment:
-            CIRCLE_TAG: v2.1.5
-      - run:
           name: go install pachctl
           command: |
             make VERSION_ADDITIONAL= install
@@ -241,25 +226,18 @@ jobs:
       - run:
           name: update helm chart version
           command: |
-            TAG="${CIRCLE_TAG:1}"
-            yq w -i ./etc/helm/pachyderm/Chart.yaml version $TAG
-            yq w -i ./etc/helm/pachyderm/Chart.yaml appVersion $TAG
-          environment:
-            CIRCLE_TAG: v2.1.5
+            yq w -i ./etc/helm/pachyderm/Chart.yaml version ${CIRCLE_TAG:1}
+            yq w -i ./etc/helm/pachyderm/Chart.yaml appVersion ${CIRCLE_TAG:1}
       - run:
           name: build docker images
           command: |
             TAG="${CIRCLE_TAG:1}"
-            make build-docker-images GORELSNAP=--snapshot VERSION=$TAG
-          environment:
-            CIRCLE_TAG: v2.1.5
+            make build-docker-images GORELSNAP=--snapshot VERSION=${CIRCLE_TAG:1}
       - run:
           name: build pachctl
           command: |
             TAG="${CIRCLE_TAG:1}"
-            make build-pachctl GORELSNAP=--snapshot VERSION=$TAG
-          environment:
-            CIRCLE_TAG: v2.1.5
+            make build-pachctl GORELSNAP=--snapshot VERSION=${CIRCLE_TAG:1}
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
