@@ -433,6 +433,9 @@
                 "RotationTokenExpiry": {
                     "type": "string"
                 },
+                "dexCredentialSecretName": {
+                    "type": "string"
+                },
                 "issuerURI": {
                     "type": "string"
                 },

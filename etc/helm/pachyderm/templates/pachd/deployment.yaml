@@ -220,6 +220,11 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+        {{- if .Values.oidc.dexCredentialSecretName }}
+        - mountPath: /dexcreds
+          name: dex-creds
+          readOnly: true
+        {{- end }}
       {{-  if .Values.pachd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
       {{- end }}
@@ -243,5 +248,11 @@ spec:
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
+      {{- if .Values.oidc.dexCredentialSecretName }}
+      - name: dex-creds
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.oidc.dexCredentialSecretName }}
       {{- end }}
 {{- end }}
