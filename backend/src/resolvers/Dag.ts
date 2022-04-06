@@ -2,6 +2,7 @@ import {RepoInfo, PipelineInfo} from '@pachyderm/node-pachyderm';
 import flatMap from 'lodash/flatMap';
 import keyBy from 'lodash/keyBy';
 import uniqBy from 'lodash/uniqBy';
+import uniqueId from 'lodash/uniqueId';
 import objectHash from 'object-hash';
 
 import flattenPipelineInput from '@dash-backend/lib/flattenPipelineInput';
@@ -209,15 +210,16 @@ const dagResolver: DagResolver = {
           return data;
         };
 
+        const id = uniqueId();
+
         return {
           [Symbol.asyncIterator]: () =>
             withSubscription<Vertex[]>({
-              triggerNames: [
-                `${account.id}_DAGS_UPDATED_JOB_${jobSetId}`,
-                `DAGS_UPDATED_${jobSetId}`,
-              ],
+              triggerName: `${id}_DAGS_UPDATED${
+                jobSetId ? `_JOB_${jobSetId}` : ''
+              }`,
               resolver: getDags,
-              intervalKey: projectId,
+              intervalKey: id,
             }),
         };
       },

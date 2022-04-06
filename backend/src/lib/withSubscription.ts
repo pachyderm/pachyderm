@@ -6,7 +6,7 @@ import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
 import withCancel from './withCancel';
 
 type withSubscriptionParameters<T> = {
-  triggerNames: [string, string];
+  triggerName: string;
   resolver: () => Promise<T | undefined>;
   intervalKey: string;
   onCancel?: () => void;
@@ -15,50 +15,53 @@ type withSubscriptionParameters<T> = {
 
 type IntervalRecord = {
   interval: NodeJS.Timeout;
-  count: number;
 };
 
 const intervalMap: Record<string, IntervalRecord> = {};
 const pubsub = new PubSub();
 
 const withSubscription = <T>({
-  triggerNames,
+  triggerName,
   resolver,
   intervalKey,
   onCancel = noop,
   interval = SUBSCRIPTION_INTERVAL,
 }: withSubscriptionParameters<T>) => {
   const handleCancel = () => {
-    intervalMap[intervalKey].count -= 1;
-    if (intervalMap[intervalKey].count === 0) {
+    if (intervalMap[intervalKey]) {
       clearInterval(intervalMap[intervalKey].interval);
       delete intervalMap[intervalKey];
     }
     onCancel();
   };
 
-  const asyncIterator = pubsub.asyncIterator<T>(triggerNames);
+  const asyncIterator = pubsub.asyncIterator<T>(triggerName);
   const iteratorWithCancel = withCancel<T>(asyncIterator, handleCancel);
+
+  const getData = async () => {
+    try {
+      const result = await resolver();
+      if (result) pubsub.publish(triggerName, result);
+    } catch (err) {
+      pubsub.publish(triggerName, err);
+    }
+  };
+
+  const startInterval = () => {
+    intervalMap[intervalKey] = {
+      interval: setInterval(async () => {
+        await getData();
+      }, interval),
+    };
+  };
 
   // get initial result so first request does not have to wait
   process.nextTick(async () => {
-    intervalMap[intervalKey].count += 1;
-    const result = await resolver();
-    if (result) {
-      pubsub.publish(triggerNames[0], result);
-    }
+    await getData();
   });
 
-  // initialize polling
-  if (!intervalMap[intervalKey]) {
-    intervalMap[intervalKey] = {
-      interval: setInterval(async () => {
-        const result = await resolver();
-        if (result) pubsub.publish(triggerNames[1], result);
-      }, interval),
-      count: 0,
-    };
-  }
+  //initialize polling
+  startInterval();
 
   return iteratorWithCancel;
 };
