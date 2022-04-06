@@ -339,20 +339,26 @@ workflows:
   # deploy:
   #   jobs:
   #   - deploy
-  release-workflow:
+  testing-release-workflow:
     jobs:
-      - build-artifacts:
+      - build-approval-request:
           type: approval
           filters:
             branches:
               only:
                 - molinamelendezj/circleci-pach-release-CORE-435
+      - build-artifacts:
+          requires:
+            - build-approval-request
           # filters:
           #   tags:
           #     only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           #   branches:
           #     ignore: /.*/
-      - release-artifacts:
+      - release-approval-request:
           type: approval
           requires:
             - build-artifacts
+      - release-artifacts:
+          requires:
+            - release-approval-request
