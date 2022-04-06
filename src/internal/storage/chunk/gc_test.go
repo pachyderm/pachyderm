@@ -2,7 +2,7 @@ package chunk
 
 import (
 	"context"
-	io "io"
+	"io"
 	"math/rand"
 	"strings"
 	"testing"
