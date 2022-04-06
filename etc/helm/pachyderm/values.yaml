@@ -623,5 +623,8 @@ oidc:
   # upstreamIDPsSecretName is used to pass the upstreamIDPs value via an existing k8s secret.
   # The value is pulled from the secret key, "upstream-idps".
   upstreamIDPsSecretName: ""
+  # Some dex configurations (like Google) require a credential file. Whatever secret is included in this
+  # below secret will be mounted to the pachd pod at /dexcreds/ so for example serviceAccountFilePath: /dexcreds/googleAuth.json
+  dexCredentialSecretName: ""
   mockIDP: true
   #TODO scopes:
