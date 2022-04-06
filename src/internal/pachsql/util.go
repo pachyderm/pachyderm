@@ -49,43 +49,34 @@ func SplitTableSchema(driver string, tablePath string) (schemaName string, table
 }
 
 // TestRow is the type of a row in the test table
+// struct tag: sql:"<column_name>,<data_type>,<table_constraint>"
 type TestRow struct {
-	Id int `sql:"c_id"`
+	Id int `sql:"c_id,INT PRIMARY KEY,NOT NULL"`
 
-	Smallint int16     `sql:"c_smallint"`
-	Int      int32     `sql:"c_int"`
-	Bigint   int64     `sql:"c_bigint"`
-	Float    float32   `sql:"c_float"`
-	Varchar  string    `sql:"c_varchar"`
-	Time     time.Time `sql:"c_time"`
+	Smallint int16     `sql:"c_smallint,SMALLINT,NOT NULL"`
+	Int      int32     `sql:"c_int,INT,NOT NULL"`
+	Bigint   int64     `sql:"c_bigint,BIGINT,NOT NULL"`
+	Float    float32   `sql:"c_float,FLOAT,NOT NULL"`
+	Varchar  string    `sql:"c_varchar,VARCHAR(100),NOT NULL"`
+	Time     time.Time `sql:"c_time,TIMESTAMP,NOT NULL"`
 
-	SmallintNull sql.NullInt16   `sql:"c_smallint_null"`
-	IntNull      sql.NullInt32   `sql:"c_int_null"`
-	BigintNull   sql.NullInt64   `sql:"c_bigint_null"`
-	FloatNull    sql.NullFloat64 `sql:"c_float_null"`
-	VarcharNull  sql.NullString  `sql:"c_varchar_null"`
-	TimeNull     sql.NullTime    `sql:"c_time_null"`
+	SmallintNull sql.NullInt16   `sql:"c_smallint_null,SMALLINT,NULL"`
+	IntNull      sql.NullInt32   `sql:"c_int_null,INT,NULL"`
+	BigintNull   sql.NullInt64   `sql:"c_bigint_null,BIGINT,NULL"`
+	FloatNull    sql.NullFloat64 `sql:"c_float_null,FLOAT,NULL"`
+	VarcharNull  sql.NullString  `sql:"c_varchar_null,VARCHAR(100),NULL"`
+	TimeNull     sql.NullTime    `sql:"c_time_null,TIMESTAMP,NULL"`
 }
 
 // CreateTestTable creates a test table at name in the database
 func CreateTestTable(db *DB, name string) error {
-	q := fmt.Sprintf(`CREATE TABLE %s (
-		c_id INT PRIMARY KEY NOT NULL,
-
-		c_smallint SMALLINT NOT NULL,
-		c_int INT NOT NULL,
-		c_bigint BIGINT NOT NULL,
-		c_float FLOAT NOT NULL,
-		c_varchar VARCHAR(100) NOT NULL,
-		c_time TIMESTAMP NOT NULL,
-
-		c_smallint_null SMALLINT NULL,
-		c_int_null INT NULL,
-		c_bigint_null BIGINT NULL,
-		c_float_null FLOAT NULL,
-		c_varchar_null VARCHAR(100) NULL,
-		c_time_null TIMESTAMP NULL
-	)`, name)
+	t := reflect.TypeOf(TestRow{})
+	cols := []string{}
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		cols = append(cols, strings.Join(strings.Split(field.Tag.Get("sql"), ","), " "))
+	}
+	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(cols, ", "))
 	_, err := db.Exec(q)
 	return errors.EnsureStack(err)
 }
@@ -115,7 +106,7 @@ func formatColumns(x interface{}) string {
 	rty := reflect.TypeOf(x)
 	for i := 0; i < rty.NumField(); i++ {
 		field := rty.Field(i)
-		col := field.Tag.Get("sql")
+		col := strings.Split(field.Tag.Get("sql"), ",")[0]
 		cols = append(cols, col)
 	}
 	return "(" + strings.Join(cols, ", ") + ")"
