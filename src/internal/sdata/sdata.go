@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"io"
-	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -32,9 +31,8 @@ type TupleReader interface {
 
 // MaterializationResult is returned by MaterializeSQL
 type MaterializationResult struct {
-	ColumnNames   []string
-	ColumnDBTypes []string
-	RowCount      uint64
+	ColumnNames []string
+	RowCount    uint64
 }
 
 // MaterializeSQL reads all the rows from a *sql.Rows, and writes them to tw.
@@ -48,12 +46,12 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	var dbTypes []string
-	for _, cType := range cTypes {
-		dbTypes = append(dbTypes, cType.DatabaseTypeName())
+	row, err := NewTupleFromColumnTypes(cTypes)
+	if err != nil {
+		return nil, err
 	}
+
 	var count uint64
-	row := newTupleFromSQL(cTypes)
 	for rows.Next() {
 		if err := rows.Scan(row...); err != nil {
 			return nil, errors.EnsureStack(err)
@@ -69,45 +67,28 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	if err := tw.Flush(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return &MaterializationResult{
-		ColumnNames:   colNames,
-		ColumnDBTypes: dbTypes,
-		RowCount:      count,
+		ColumnNames: colNames,
+		RowCount:    count,
 	}, nil
 }
 
-// TODO: replace this with makeTupleElement
-func newTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
-	row := make([]interface{}, len(colTypes))
-	for i, cType := range colTypes {
-		var rType reflect.Type
-		switch cType.DatabaseTypeName() {
-		case "VARCHAR", "TEXT":
-			// force scan type to be string
-			rType = reflect.TypeOf("")
-		default:
-			rType = cType.ScanType()
+func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
+	row := make(Tuple, len(cTypes))
+	for i, cType := range cTypes {
+		dbType := cType.DatabaseTypeName()
+		nullable, ok := cType.Nullable()
+		if !ok {
+			nullable = true
 		}
-		v := reflect.New(rType).Interface()
-		if nullable, ok := cType.Nullable(); !ok || nullable {
-			switch v.(type) {
-			case *int16:
-				v = &sql.NullInt16{}
-			case *int32:
-				v = &sql.NullInt32{}
-			case *int64:
-				v = &sql.NullInt64{}
-			case *float64:
-				v = &sql.NullFloat64{}
-			case *string:
-				v = &sql.NullString{}
-			case *time.Time:
-				v = &sql.NullTime{}
-			}
+		var err error
+		row[i], err = makeTupleElement(dbType, nullable)
+		if err != nil {
+			return nil, err
 		}
-		row[i] = v
 	}
-	return row
+	return row, nil
 }
 
 // Copy copies a tuple from w to r.  Row is used to indicate the correct shape of read data.
@@ -163,13 +144,13 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		} else {
 			return new(int32), nil
 		}
-	case "BIGINT", "INT8":
+	case "BIGINT", "INT8", "FIXED":
 		if nullable {
 			return new(sql.NullInt64), nil
 		} else {
 			return new(int64), nil
 		}
-	case "FLOAT", "FLOAT8":
+	case "FLOAT", "FLOAT8", "REAL":
 		if nullable {
 			return new(sql.NullFloat64), nil
 		} else {
@@ -181,7 +162,7 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		} else {
 			return new(string), nil
 		}
-	case "TIMESTAMP":
+	case "TIMESTAMP", "TIMESTAMP_NTZ":
 		if nullable {
 			return new(sql.NullTime), nil
 		} else {
