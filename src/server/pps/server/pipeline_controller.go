@@ -190,7 +190,8 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	rc, restart, err := pc.getRC(ctx, pi)
 	if restart != "" {
 		return false, pc.restartPipeline(ctx, pi, rc, restart)
-	} else if err != nil && !errors.Is(err, errRCNotFound) {
+	}
+	if err != nil && !errors.Is(err, errRCNotFound) {
 		return false, err
 	}
 	errCount := 0
@@ -264,10 +265,7 @@ func (pc *pipelineController) transitionStates(ctx context.Context, pi *pps.Pipe
 		return nil
 	}
 	if pi.State == pps.PipelineState_PIPELINE_STARTING || pi.State == pps.PipelineState_PIPELINE_RESTARTING {
-		if rc != nil && !rcIsFresh(pi, rc) {
-			// old RC is not down yet
-			return pc.restartPipeline(ctx, pi, rc, "stale RC") // step() will be called again after collection write
-		} else if rc == nil {
+		if rc == nil {
 			// default: old RC (if any) is down but new RC is not up yet
 			if err := pc.kd.CreatePipelineResources(ctx, pi); err != nil {
 				return err
@@ -285,9 +283,9 @@ func (pc *pipelineController) transitionStates(ctx context.Context, pi *pps.Pipe
 		}
 		return pc.setPipelineState(ctx, pi.SpecCommit, target, "")
 	}
-	if !rcIsFresh(pi, rc) {
-		// old RC is not down yet
-		return pc.restartPipeline(ctx, pi, rc, "stale RC") // step() will be called again after collection write
+	if rc == nil {
+		// may happen if an external system deletes the RC
+		return pc.restartPipeline(ctx, pi, rc, "missing RC")
 	}
 	if pi.State == pps.PipelineState_PIPELINE_PAUSED {
 		if !pi.Stopped {
@@ -688,7 +686,7 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
 			if invalidRCState {
 				restart = fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err)
-				return nil
+				return errutil.ErrBreak
 			}
 			return err //return whatever the most recent error was
 		}
