@@ -6,7 +6,8 @@ type Option func(r *Reader)
 // PathRange is a range of paths.
 // The range is inclusive: [Lower, Upper].
 type PathRange struct {
-	Lower, Upper string
+	Lower, Upper           string
+	LowerDatum, UpperDatum string
 }
 
 // WithRange sets a range filter for the read.

@@ -29,18 +29,19 @@ func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallba
 	var size int64
 	pathRange := &index.PathRange{}
 	if err := fs.Iterate(ctx, func(f File) error {
-		// A shard is created when we have encountered more than shardThreshold content bytes
-		// and we've seen a path not already included
-		if size >= shardThreshold && f.Index().Path != pathRange.Upper {
+		// A shard is created when we have encountered more than shardThreshold content bytes.
+		if size >= shardThreshold {
 			if err := cb(pathRange); err != nil {
 				return err
 			}
 			pathRange = &index.PathRange{
-				Lower: f.Index().Path,
+				Lower:      f.Index().Path,
+				LowerDatum: f.Index().File.Datum,
 			}
 			size = 0
 		}
 		pathRange.Upper = f.Index().Path
+		pathRange.UpperDatum = f.Index().File.Datum
 		size += index.SizeBytes(f.Index())
 		return nil
 	}); err != nil {
