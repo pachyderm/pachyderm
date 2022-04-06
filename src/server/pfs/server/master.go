@@ -303,10 +303,10 @@ func (d *driver) propagateError(txnCtx *txncontext.TransactionContext, commit *p
 	if needsUpdate {
 		return d.forEachAliasDescendent(txnCtx, &commitInfo, func(aliasInfo *pfs.CommitInfo) error {
 			var toUpdate pfs.CommitInfo
-			return d.commits.ReadWrite(txnCtx.SqlTx).Update(aliasInfo.Commit, &toUpdate, func() error {
+			return errors.EnsureStack(d.commits.ReadWrite(txnCtx.SqlTx).Update(aliasInfo.Commit, &toUpdate, func() error {
 				toUpdate.Error = valError
 				return nil
-			})
+			}))
 		})
 	}
 	return nil
