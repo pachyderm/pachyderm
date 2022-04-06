@@ -21,12 +21,13 @@ When exceeding the number of pipelines:
 - `pachctl create pipeline` fails once the maximum number of pipelines is reached.
 
 - `pachctl update pipeline`  and `pachctl edit pipeline` succeed on existing pipelines, fail when attempting to create pipelines beyond the limit. 
-!!! Note
-    If `update pipeline` fails for any other reason, it does not log any message related to pipeline limits.
+
+    !!! Note
+        If `update pipeline` fails for any other reason, it does not log any message related to pipeline limits.
 
 - `pachctl restore` fails when trying to restore with too many pipelines. 
 
-All of the commands listed above create a distinct message to STDERR and to the pachd logs. This message includes information such as the limit on the number of pipelines in the Community Edition, the total number of pipelines deployed, and provides a link to request an Enterprise key to lift those limitations.
+    All of the commands listed above create a distinct message to STDERR and to the pachd logs. This message includes information such as the limit on the number of pipelines in the Community Edition, the total number of pipelines deployed, and provides a link to request an Enterprise key to lift those limitations.
 
 - all other `extract`, `list`, `run`, `start`, `stop pipeline` commands' behavior remains unchanged.
 
