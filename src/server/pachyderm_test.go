@@ -4132,8 +4132,8 @@ func TestLokiLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -9205,8 +9205,8 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9966,8 +9966,8 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	require.NoError(t, c.CreateRepo("inA"))
 	require.NoError(t, c.CreateRepo("inB"))

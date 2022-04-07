@@ -36,6 +36,7 @@ var (
 	setup               sync.Once
 	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
+	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "reuse leftover pachyderm clusters if available")
 )
 
 type ClusterFactory struct {
@@ -134,7 +135,9 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	var assigned string
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
-		deleteAll(t, clusterFactory.managedClusters[assigned])
+		if *cleanupDataAfter {
+			deleteAll(t, clusterFactory.managedClusters[assigned])
+		}
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)

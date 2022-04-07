@@ -623,7 +623,7 @@ func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, pre
 		if container != "" {
 			queryStr += `", container="` + container
 		}
-		queryStr += `,namespace="` + s.env.Config().Namespace + `"}`
+		queryStr += `",namespace="` + s.env.Config().Namespace + `"}`
 		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
 			_, err := w.Write([]byte(line))
 			return errors.EnsureStack(err)

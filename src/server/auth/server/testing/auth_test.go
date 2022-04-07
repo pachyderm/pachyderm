@@ -2611,16 +2611,16 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	tu.ActivateAuthClient(t, c)
 
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs
 	// change and recreates all the pods, which used to race with collecting logs.
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
