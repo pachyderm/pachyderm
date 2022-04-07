@@ -324,8 +324,15 @@ const pollRequest = (
 
 const checkWasSuccessful = (res: RefinedResponse<any>) => {
   check(res, {
-    "response was successful": (res) => {
-      const successful = res.status === 200;
+    successfulResponse: (res) => {
+      const bodyString = res.body
+        ? typeof res.body === "string"
+          ? res.body
+          : String.fromCharCode(...res.body)
+        : "{}";
+      const successful =
+        res.status === 200 &&
+        !JSON.parse(bodyString).errors;
       if (!successful) {
         logObject(res);
       }

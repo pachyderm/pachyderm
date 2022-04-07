@@ -4,9 +4,14 @@ import http from "k6/http";
 const DURATION = 90;
 const POLL_INTERVAL = 3;
 
-const POLL_DURATION = DURATION - 10;
+const POLL_DURATION = DURATION - 30;
 
-import { authenticate, Authentication, createGraphqlClient, Operation } from "../utils";
+import {
+  authenticate,
+  Authentication,
+  createGraphqlClient,
+  Operation,
+} from "../utils";
 
 export const options = {
   vus: 30,
@@ -31,9 +36,13 @@ export default function (auth: Authentication) {
         query(Operation.getAccount);
         query(Operation.projects);
 
-        pollRequest(()=>{
-          query(Operation.project);
-        }, POLL_INTERVAL, POLL_DURATION);
+        pollRequest(
+          () => {
+            query(Operation.project);
+          },
+          POLL_INTERVAL,
+          POLL_DURATION
+        );
       });
     },
     () => {
@@ -43,9 +52,13 @@ export default function (auth: Authentication) {
         query(Operation.project);
         query(Operation.repos);
 
-        pollRequest(()=>{
-          query(Operation.jobSets);
-        }, POLL_INTERVAL, POLL_DURATION);
+        pollRequest(
+          () => {
+            query(Operation.jobSets);
+          },
+          POLL_INTERVAL,
+          POLL_DURATION
+        );
       });
     },
     () => {
@@ -55,11 +68,15 @@ export default function (auth: Authentication) {
         query(Operation.repos);
         query(Operation.getDag);
 
-        pollRequest(()=>{
-          query(Operation.repo);
-          query(Operation.jobSets);
-          query(Operation.getCommits);
-        }, POLL_INTERVAL, POLL_DURATION);
+        pollRequest(
+          () => {
+            query(Operation.repo);
+            query(Operation.jobSets);
+            query(Operation.getCommits);
+          },
+          POLL_INTERVAL,
+          POLL_DURATION
+        );
       });
     },
     () => {
@@ -70,10 +87,14 @@ export default function (auth: Authentication) {
         query(Operation.getDag);
         query(Operation.pipeline);
 
-        pollRequest(()=>{
-          query(Operation.jobs);
-          query(Operation.jobSets);
-        }, POLL_INTERVAL, POLL_DURATION)
+        pollRequest(
+          () => {
+            query(Operation.jobs);
+            query(Operation.jobSets);
+          },
+          POLL_INTERVAL,
+          POLL_DURATION
+        );
       });
     },
     () => {
@@ -84,11 +105,15 @@ export default function (auth: Authentication) {
         query(Operation.getDag);
         query(Operation.getFiles);
 
-        pollRequest(()=>{
-          query(Operation.repo);
-          query(Operation.jobSets);
-          query(Operation.getCommits);
-        }, POLL_INTERVAL, POLL_DURATION);
+        pollRequest(
+          () => {
+            query(Operation.repo);
+            query(Operation.jobSets);
+            query(Operation.getCommits);
+          },
+          POLL_INTERVAL,
+          POLL_DURATION
+        );
       });
     },
   ];
@@ -100,14 +125,32 @@ export default function (auth: Authentication) {
 export const handleSummary = (data: any) => {
   const summary = `
 *Concurrent virtual users*: ${data?.metrics?.vus?.values?.value}
-*Requests*: ${data?.metrics?.http_reqs?.values?.count}
-*Failures*: ${data?.metrics?.http_req_failed?.values?.passes} (${(data?.metrics?.http_req_failed?.values?.rate*100).toFixed(2)}%)
-*Avg response time*: ${data?.metrics?.http_req_duration?.values?.avg?.toFixed(2)}ms
-*95% response time*: ${data?.metrics?.http_req_duration?.values['p(95)'].toFixed(2)}ms
-  `
+*Requests*: ${data?.metrics?.http_reqs?.values?.count} 
+${data?.root_group?.groups
+  ?.map(({ name, checks }: any) => {
+    return `  ${name}: ${checks[0].passes}`;
+  })
+  .join(`\n`)}
+*Failures*: ${data?.metrics?.checks?.values?.fails} ${
+    data?.metrics?.checks?.values?.fails
+      ? data?.root_group?.groups
+          ?.map(({ name, checks }: any) => {
+            return `\n  ${name}: ${checks[0].fails}`;
+          })
+          .join(``)
+      : ""
+  }
+*Avg response time*: ${data?.metrics?.http_req_duration?.values?.avg?.toFixed(
+    2
+  )}ms
+*95% response time*: ${data?.metrics?.http_req_duration?.values[
+    "p(95)"
+  ].toFixed(2)}ms
+  `;
+
   http.post(
     `https://hooks.slack.com/services/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`,
-    JSON.stringify({text: summary}),
+    JSON.stringify({ text: summary }),
     {
       headers: {
         "Content-type": "application/json",
@@ -116,6 +159,6 @@ export const handleSummary = (data: any) => {
   );
 
   return {
-    stdout: summary
-  }
+    stdout: summary,
+  };
 };
