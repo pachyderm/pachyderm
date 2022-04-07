@@ -623,7 +623,7 @@ func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, pre
 		if container != "" {
 			queryStr += `", container="` + container
 		}
-		queryStr += `",namespace="` + s.env.Config().Namespace + `"}`
+		queryStr += `"}`
 		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
 			_, err := w.Write([]byte(line))
 			return errors.EnsureStack(err)
@@ -698,7 +698,7 @@ func (s *debugServer) forEachWorkerLoki(pipelineInfo *pps.PipelineInfo, cb func(
 }
 
 func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
-	queryStr := `{` + `namespace="` + s.env.Config().Namespace + `",pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
+	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
 	pods := make(map[string]struct{})
 	if err := s.queryLoki(queryStr, func(labels loki.LabelSet, _ string) error {
 		pod, ok := labels["pod"]
