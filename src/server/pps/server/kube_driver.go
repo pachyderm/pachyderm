@@ -119,9 +119,10 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
-	return kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
+	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
 		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)})
+	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline.Name)
 }
 
 // UpdateReplicationController intends to server {scaleUp,scaleDown}Pipeline.
@@ -147,11 +148,12 @@ func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.R
 
 // Used to nudge pipeline controllers with refresh events.
 func (kd *kubeDriver) ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error) {
-	return kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
+	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
 		ctx,
 		metav1.ListOptions{
 			LabelSelector: "suite=pachyderm,pipelineName",
 		})
+	return rc, errors.Wrap(err, "failed to list rcs")
 }
 
 // Used to discover crashing pods which signals the controller to transition
