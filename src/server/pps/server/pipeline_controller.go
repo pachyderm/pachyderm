@@ -193,8 +193,8 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 	// the pipeline indefinitely)
 	rc, restart, err := pc.getRC(ctx, pi)
-	if restart != "" {
-		return false, pc.restartPipeline(ctx, pi, rc, restart)
+	if restart {
+		return false, pc.restartPipeline(ctx, pi, rc, "could not get RC.")
 	}
 	if err != nil && !errors.Is(err, errRCNotFound) {
 		return false, err
@@ -657,7 +657,7 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 // pc's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
-func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (rc *v1.ReplicationController, restart string, retErr error) {
+func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (rc *v1.ReplicationController, restart bool, retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/GetRC", "pipeline", pc.pipeline)
 	defer func(span opentracing.Span) {
@@ -717,7 +717,7 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 		if errCount >= maxErrCount {
 			invalidRCState := errors.Is(err, errTooManyRCs) || errors.Is(err, errStaleRC)
 			if invalidRCState {
-				restart = fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err)
+				restart = true
 				return errutil.ErrBreak
 			}
 			return err //return whatever the most recent error was
