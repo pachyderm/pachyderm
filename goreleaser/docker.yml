@@ -107,6 +107,7 @@ dockers:
       - LICENSE
       - licenses
     build_flag_templates:
+      - "--network=host"
       - "--label=version={{.Version}}"
       - "--label=release={{.Version}}"
   -
@@ -119,6 +120,7 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile.pachctl
     build_flag_templates:
+      - "--network=host"
       - "--progress=plain"
       - "--label=version={{.Version}}"
       - "--label=release={{.Version}}"
