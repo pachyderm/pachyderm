@@ -1,74 +1,93 @@
-# Examples
-A curated list of examples that use Pachyderm.
+# Pachyderm Examples
+[Pachyderm Examples](https://github.com/pachyderm/examples){target=_blank} (Follow the link to access the Examples repo directly in GitHub) is a curated list of general examples or integration highlights that use Pachyderm and partners' products to accomplish various tasks. Additionally, you will find a selection of didactical tutorials illustrating key concepts of Pachyderm. They might be useful when designing your first pipeline.
 
 !!! Warning
-        For **Informational Purposes** ONLY. Those examples might not be production-ready.
-## OpenCV Edge Detection
+        For **Educational Purposes** ONLY. Those examples might not be production-ready.
 
-This example does edge detection using OpenCV. This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
+!!! Note
+     - All integration examples below are marked with a <sup>`integration`</sup>. 
+     - All example containing a notebook version are marked with a <sup>`notebook`</sup>.
+## Getting Started
 
-[Open CV](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/){target=_blank}
+If you haven't used Pachyderm before, start here:
 
-## Word Count (Map/Reduce)
+- [Open CV](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/){target=_blank}: This example does edge detection using OpenCV. This is our canonical starter demo.  We'll get you started running Pachyderm locally in just a few minutes.
 
-Word count is basically the "hello world" of distributed computation. This example is great for benchmarking in distributed deployments on large swaths of text data.
+You already have a Pachyderm cluster running? 
 
-[Word Count](https://github.com/pachyderm/pachyderm/tree/master/examples/word_count){target=_blank}
+- Try our [Boston Housing Prices](https://github.com/pachyderm/examples/tree/master/housing-prices){target=_blank} - A simple machine learning pipeline to train a regression model on the Boston Housing Dataset using scikit-learn, and predict the value of homes.
+- Or install our [Notebook extension](https://docs.pachyderm.com/latest/how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} then run: 
 
-## Periodic Ingress from a Database
+    - [JupyterLab Pachyderm Mount Extension Tutorial](https://github.com/pachyderm/examples/blob/master/Mount%20Extension%20Demo.ipynb){target=_blank}<sup>`notebook`</sup> - A notebook showing how to use the JupyterLab Pachyderm Mount Extension to mount Pachyderm data repositories into your Notebook environment.
+    - our [Intro to Pachyderm Tutorial](https://github.com/pachyderm/examples/blob/master/Intro%20to%20Pachyderm%20Tutorial.ipynb){target=_blank}<sup>`notebook`</sup> - A **notebook introduction to Pachyderm**, using the pachctl command line utility to illustrate the basics of Pachyderm data repositories and pipelines.
 
-This example pipeline executes a query periodically against a MongoDB database outside of Pachyderm.  The results of the query are stored in a corresponding output repository.  This repository could be used to drive additional pipeline stages periodically based on the results of the query.
 
-[Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/examples/db){target=_blank}
+## Integration
 
-## Lazy Shuffle pipeline
+Pachyderm integrates with a variety of solutions in the ML Tech Stack, and provides examples for the following partners:
 
-This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. These types of pipelines are useful for intermediate processing step that aggregates or rearranges data from one or many sources.
+- [Algorithmia](https://algorithmia.com/)
+- [Clear ML](https://clear.ml/){target=_blank}
+- [Label Studio](https://labelstud.io/){target=_blank}
+- [ML Flow](https://mlflow.org/){target=_blank}
+- [Seldon](https://go.seldon.io){target=_blank}
+- [Superb AI](https://www.superb-ai.com/){target=_blank}
+- [Toloka](https://toloka.ai/){target=_blank}
+- [Weights and Biases](https://wandb.ai/site){target=_blank}
 
-[Lazy Shuffle pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/shuffle){target=_blank}
+![MLOps-stack-integration-with-pachyderm](./MLOps-stack-integration-with-pachyderm.png)
+### Data Labeling
 
-## Variant Calling and Joint Genotyping with GATK
+- [Label Studio Integration](https://github.com/pachyderm/examples/tree/master/label-studio){target=_blank}<sup>`integration`</sup>. 
+- [Superb AI Integration](https://github.com/pachyderm/examples/tree/master/superb-ai){target=_blank}<sup>`integration`</sup> - Version labeled image datasets created in Superb AI Suite using a cron pipeline.
+- [Toloka Integration](https://github.com/Toloka/toloka-pachyderm){target=_blank}<sup>`integration`</sup>  - Uses Pachyderm to create crowdsourced annotation jobs for news headlines in Toloka, aggregate the labeled data, and train a model.
 
-This example illustrates the use of GATK in Pachyderm for Germline variant calling and joint genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc){target=_blank} from GATK, which includes more details about the various stages.
+### Machine Learning
 
-[GATK - Variant Calling](https://github.com/pachyderm/pachyderm/tree/master/examples/gatk){target=_blank}
+- [Boston Housing Prices (Intermediate)](https://github.com/pachyderm/examples/tree/master/housing-prices-intermediate){target=_blank} - Extends the original Boston Housing Prices example to show a multi-pipeline DAG and data rollbacks.
+- [Breast Cancer Detection](https://github.com/pachyderm/examples/tree/master/breast-cancer-detection){target=_blank} - A breast cancer detection system based on radiology scans scaled and visualized using Pachyderm.
+- [Market Sentiment](https://github.com/pachyderm/examples/tree/master/market-sentiment){target=_blank} - Train and deploy a fully automated financial market sentiment BERT model. As data is manually labeled, the model will automatically retrain and deploy.
+- [Apache Spark - MLflow Integration](https://github.com/winderai/pachyderm-mlflow-spark){target=_blank} <sup>`integration`</sup> - End-to-end example demostrating the full ML training process of a fraud detection model with Spark, MLlib, MLflow, and Pachyderm.
 
-## Pachyderm Pipelines
+### ML Experiment Tracking
 
-This section lists all the examples that you can run with various
-Pachyderm pipelines and special features, such as transactions.
+- [Weights and Biases](https://github.com/pachyderm/examples/tree/master/weights_and_biases){target=_blank}<sup>`integration`</sup> - Log pipelines running in Pachyderm to Weights and Biases.
+- [ClearML Integration](https://github.com/JimmyWhitaker/pach_clearml){target=_blank}<sup>`integration`</sup> - Log Pachyderm experiments to ClearML's experiment monitoring platform, using Pachyderm Secrets.
 
-### Inner and Outer Joins Input
+### Model Deployment
 
-A join is a special type of pipeline that enables you to perform
-data operations on files with a specific naming pattern.
+- [Pachyderm - Seldon](https://github.com/winderai/pachyderm-seldon){target=_blank} - Community example showing monitoring and provenance for machine learning models with Pachyderm and Seldon.
+- [Seldon (Market Sentiment)](https://github.com/pachyderm/examples/tree/master/seldon){target=_blank} - Deploy the model created in the Market Sentiment example with Seldon Deploy.
+- [Algorithmia Integration ](https://github.com/pachyderm/examples/tree/master/algorithmia){target=_blank}<sup>`integration`</sup> - Deploy the model created in the Market Sentiment example with Algorithmia.
+
+
+## Tutorials
+In this section, you will find tutorials focused on a particular concept or a feature. Use them to deepen your understanding of one of those subjects:
+
+### Pipeline Inputs
+A pipeline input can have one or multiple [PFS inputs](../../concepts/pipeline-concepts/datum/#pfs-input-and-glob-pattern){target=_blank}. In the latter case, Pachyderm provides a variety of options to aggregate several PFS inputs together.
+
+- Inner and Outer Joins Input
+A join is a special type of pipeline input that enables you to combine files that reside in separate Pachyderm repositories and match a particular naming pattern.  
 
 [Inner and Outer joins 101 - A simplified retail use case](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}
-### Group Input
 
+- Group Input
 A group is a special type of pipeline input that enables 
-you to aggregate files that reside in one or separate Pachyderm
+you to group files that reside in one or separate Pachyderm
 repositories and match a particular naming pattern. 
 
 [Group 101 - An Introductory example](https://github.com/pachyderm/pachyderm/tree/master/examples/group){target=_blank}
 ### Spouts
 
 A spout is a special type of pipeline that you can use to ingest
-streaming data and perform such operations as sorting, filtering, and other.
-
-We have released a new *spouts 2.0* implementation
-in Pachyderm 1.12. Please take a look at our examples:
+streaming data .
 
 - [Spout101](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101){target=_blank}
 
-- More extensive - Pachyderm's integration of spouts with RabbitMQ: https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout 
-
-### Transactions
-
-Pachyderm transactions enable you to execute multiple
-Pachyderm operations simultaneously.
-
-[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/transactions){target=_blank}
+- Advanced -  This is a simple example of using Pachyderm's spouts with RabbitMQ to process messages and write them to files.
+This spout reads messages from a single configurable RabbitMQ queue. 
+Take a look; there is a little more to it, including a fault tolerance mechanism: [Pachyderm's integration of spouts with RabbitMQ](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout){target=_blank} <sup>`integration`</sup>
 
 ### err_cmd
 
@@ -80,42 +99,36 @@ mark the job run as successful.
 
 [Skip Failed Datums in Your Pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/err_cmd){target=_blank}
 
-## Machine Learning
+## Word Count (Map/Reduce)
 
-### Iris flower classification with R, Python, or Julia
+Word count is basically the "hello world" of distributed computation. This example is great for benchmarking in distributed deployments on large swaths of text data.
 
-The "hello world" of machine learning implemented in Pachyderm.  You can deploy this pipeline using R, Python, or Julia components, where the pipeline includes the training of a SVM, LDA, Decision Tree, or Random Forest model and the subsequent utilization of that model to perform inferences.
+[Word Count](https://github.com/pachyderm/pachyderm/tree/master/examples/word_count){target=_blank}
 
-[R, Python, or Julia - Iris flower classification](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/iris){target=_blank}
+## Lazy Shuffle pipeline
 
-### Sentiment analysis with Neon
+This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. These types of pipelines are useful for an intermediate processing step that aggregates or rearranges data from one or many sources.
 
-This example implements the machine learning template pipeline discussed in [this blog post](https://medium.com/pachyderm-data/sustainable-machine-learning-workflows-8c617dd5506d){target=_blank}.  It trains and utilizes a neural network (implemented in Python using Nervana Neon) to infer the sentiment of movie reviews based on data from IMDB. 
+[Lazy Shuffle pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/shuffle){target=_blank}
 
-[Neon - Sentiment Analysis](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/neon){target=_blank}
 
-### pix2pix with TensorFlow
 
-If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com/pixsrv/){target=_blank}.  In this example, we implement the training and image translation of the pix2pix model in Pachyderm, so you can generate cat images from edge drawings, day time photos from night time photos, etc.
+___________________ waiting on feeback as to what to make of those:
 
-[TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/tensorflow){target=_blank}
 
-### Distributed Hyperparameter Tuning
+- [Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/transactions)
+- [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/examples/db)
+- [R, Python, or Julia - Iris flower classification](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/iris)
+- [Neon - Sentiment Analysis](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/neon)
+- [TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/tensorflow)
+- [Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
+- [Spark Example](https://github.com/pachyderm/pachyderm/tree/master/examples/spark/pi)
+- [GATK - Variant Calling](https://github.com/pachyderm/pachyderm/tree/master/examples/gatk)
 
-This example demonstrates how you can evaluate a model or function in a distributed manner on multiple sets of parameters.  In this particular case, we will evaluate many machine learning models, each configured uses different sets of parameters (aka hyperparameters), and we will output only the best performing model or models.
-
-[Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter){target=_blank}
-
-### Spark Example
-This example demonstrates integration of Spark with Pachyderm by launching a Spark job on an existing cluster from within a Pachyderm Job. The job uses configuration info that is versioned within Pachyderm, and stores it's reduced result back into a Pachyderm output repo, maintaining full provenance and version history within Pachyderm, while taking advantage of Spark for computation.
-
-[Spark Example](https://github.com/pachyderm/pachyderm/tree/master/examples/spark/pi){target=_blank}
-
-## Integration with Pachyderm
 ###  S3 gateway 
 - Pachyderm - Seldon integration: Version Controlled Models¶
 
-    In these 2 examples, we showcased how we have integrated Pachyderm's end-to-end pipelines,
+    In this example, we showcased how we can integrate Pachyderm's end-to-end pipelines,
     leveraging our data lineage capabilities, 
     with [Seldon-Core's deployment platform of ML models](https://www.seldon.io/tech/products/core/){target=_blank}.
 
@@ -131,13 +144,3 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
         !!! Highlights 
             - **Provenance** - The traceability of the model artifact's lineage all the way to the data provides the ability to do post-analysis on models performing poorly.  
             - **Automation** -  A new deployment in production is triggered when new model artifacts are exposed to Pachyderm's [S3 getaway](https://docs.pachyderm.com/latest/reference/s3gateway_api/){target=_blank}.
-
-- Pachyderm - Label Studio
-
-    We have integrated Pachyderm's versioned data backend with [Label Studio](https://labelstud.io/){target=_blank}
-    to support versioning datasets and tracking the data lineage of pipelines built off the versioned datasets: https://github.com/pachyderm/examples/tree/master/label-studio
-###  Spout 
-This is a simple example of using the new implementation of
-Pachyderm's spouts with RabbitMQ to process messages and write them to files.
-This spout reads messages from a single configurable RabbitMQ queue. 
-Please take a look; there is a little more to it, including a fault tolerance mechanism: https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/go-rabbitmq-spout 

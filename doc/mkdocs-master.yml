@@ -191,6 +191,7 @@ nav:
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
         - Use Notebooks on Hub: how-tos/use-pachyderm-ide/index.md
         - JupyterLab Mount Extension: how-tos/jupyterlab-extension/index.md
+        - Examples: examples/examples.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
@@ -406,7 +407,6 @@ nav:
             - reference/pachctl/pachctl_wait.md
             - reference/pachctl/pachctl_wait_commit.md
             - reference/pachctl/pachctl_wait_job.md
-        - Examples: examples/examples.md
     - Enterprise:
         - Overview: enterprise/index.md
         - Features: enterprise/overview.md
