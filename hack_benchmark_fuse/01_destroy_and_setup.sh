@@ -13,7 +13,7 @@ rm -rf /tmp/pfs* || true
 (cd ..
  minikube start
  eval $(minikube docker-env)
- make docker-build
+ retry --times 5 make docker-build
  make install
  make launch-dev
 )

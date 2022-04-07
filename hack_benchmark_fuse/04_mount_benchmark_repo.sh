@@ -6,7 +6,7 @@ echo "TIME:MOUNT"
 time curl -XPUT 'localhost:9002/repos/benchmark/master/_mount?name=benchmark&mode=rw'
 echo "TIME:LS"
 time ls /pfs/benchmark
-#echo "TIME:FIND"
-#time find /pfs/benchmark
-#echo "TIME:CAT_SINGLE_FILE"
-#time cat /pfs/benchmark/mount_server.0.0 > /dev/null
+echo "TIME:FIND"
+time find /pfs/benchmark
+echo "TIME:CAT_SINGLE_FILE"
+time cat /pfs/benchmark/mount_server.0.0 > /dev/null
