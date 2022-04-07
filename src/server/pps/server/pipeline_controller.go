@@ -646,13 +646,14 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 	err := backoff.RetryNotify(func() error {
 		var err error
 		rcs, err := pc.kd.ReadReplicationController(pc.ctx, pi)
-		if err != nil {
-			return err
+		if err != nil && !errutil.IsNotFoundError(err) {
+			return errors.EnsureStack(err)
 		}
 		if len(rcs.Items) == 0 {
+			rc = nil
 			return errRCNotFound
 		}
-		rc := &rcs.Items[0]
+		rc = &rcs.Items[0]
 		switch {
 		case len(rcs.Items) > 1:
 			// select stale RC if possible, so that we delete it in restartPipeline
