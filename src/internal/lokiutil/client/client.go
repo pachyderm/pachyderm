@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // ** Why this is here **
@@ -61,7 +62,7 @@ func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, 
 	if err != nil {
 		return err
 	}
-
+	logrus.Errorf("$$$ Loki URL %v\n", us)
 	req, err := http.NewRequestWithContext(ctx, "GET", us, nil)
 	if err != nil {
 		return errors.EnsureStack(err)
