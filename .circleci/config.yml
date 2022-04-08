@@ -234,8 +234,8 @@ jobs:
       - run:
           name: setup pachydermbuildbot git
           command: |
-            git config user.email "buildbot@pachyderm.io"
-            git config user.name "pachydermbuildbot"      
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"      
       - when:
           condition:
             and:
