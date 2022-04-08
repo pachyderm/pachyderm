@@ -220,7 +220,7 @@ jobs:
       - run:
           name: pull pachyderm/etcd:v3.5.1 docker image
           command: |
-            sudo chmod 666 /var/run/docker.sock
+            # sudo chmod 666 /var/run/docker.sock
             docker pull pachyderm/etcd:v3.5.1
       - run:
           name: install goreleaser
