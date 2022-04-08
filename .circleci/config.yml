@@ -11,6 +11,12 @@ parameters:
   retain_slots:
     type: string
     default: "0"
+  RELEASE_PACH_CORE:
+    type: boolean
+    default: false
+  RELEASE_TYPE:
+    type: string
+    default: ""
 
 jobs:
   circleci:
@@ -199,10 +205,61 @@ jobs:
             cd /home/circleci/dist-pach/pachctl/
             gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
             rm /home/circleci/gcpcreds.json
-
+  release_job:
+    docker:
+      - image: cimg/go:1.17.3
+    steps:
+      - checkout
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: pull pachyderm/etcd:v3.5.1 docker image
+          command: |
+            docker pull pachyderm/etcd:v3.5.1
+      - run:
+          name: install goreleaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - add_ssh_keys:
+          fingerprints:
+            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config user.email "buildbot@pachyderm.io"
+            git config user.name "pachydermbuildbot"      
+      - when:
+          condition:
+            and:
+              - equal: [ custom, << pipeline.parameters.RELEASE_TYPE >> ]
+          steps:
+            - run:
+                name: make custom-release
+                command: |
+                  make custom-release
+      - when:
+          condition:
+            and:
+              - equal: [ point, << pipeline.parameters.RELEASE_TYPE >> ]
+          steps:
+            - run:
+                name: make point-release
+                command: |
+                  make point-release
 
 workflows:
   circleci:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - build-pachctl
       - circleci:
@@ -224,6 +281,9 @@ workflows:
               - EXAMPLES
               - INTERNAL
   helm:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - helm-build:
           filters:
@@ -239,6 +299,9 @@ workflows:
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   hub_live_tests:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - hub
   hub_load_tests:
@@ -263,8 +326,22 @@ workflows:
                 - LOAD6
                 - LOAD7
   rootless:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - rootless
   deploy:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
     - deploy
+  pach_core_release:
+    when: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - release_job:
+          filters:
+            branches:
+              only:
+                - 2.1.x
