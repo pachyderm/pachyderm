@@ -254,24 +254,6 @@ jobs:
                 name: make point-release
                 command: |
                   make point-release
-  point_release_job:
-    docker:
-      - image: cimg/go:1.17.6
-    steps:
-      - run:
-          name: install goreleaser
-          command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
-            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
-      - jq/install
-      # - run:
-      #     name: make custom-release
-      #     command: |
-      #       make custom-release
-
 
 workflows:
   circleci:
