@@ -182,7 +182,16 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return nil
-			case event := <-watch:
+			case event, ok := <-watch:
+				if !ok {
+					log.Warn("kubernetes pod watch unexpectdly ended - restarting watch")
+					watch, cancel, err = m.kd.WatchPipelinePods(ctx)
+					if err != nil {
+						return errors.Wrap(err, "failed to watch kubernetes pods")
+					}
+					defer cancel()
+					continue
+				}
 				// if we get an error we restart the watch
 				if event.Type == kube_watch.Error {
 					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
