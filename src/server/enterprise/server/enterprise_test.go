@@ -306,10 +306,7 @@ func TestPauseUnpause(t *testing.T) {
 	client, _ := minikubetestenv.AcquireCluster(t)
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
-	testutil.ActivateAuth(t)
+	testutil.ActivateAuthClient(t, client)
 
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
@@ -352,10 +349,7 @@ func TestPauseUnpauseNoWait(t *testing.T) {
 	client, _ := minikubetestenv.AcquireCluster(t)
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
-	testutil.ActivateAuth(t)
+	testutil.ActivateAuthClient(t, client)
 
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
@@ -386,10 +380,7 @@ func TestDoublePauseUnpause(t *testing.T) {
 	client, _ := minikubetestenv.AcquireCluster(t)
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
-
-	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
-	testutil.ActivateEnterprise(t, client)
-	testutil.ActivateAuth(t)
+	testutil.ActivateAuthClient(t, client)
 
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
