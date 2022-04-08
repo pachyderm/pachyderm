@@ -107,22 +107,4 @@ your favorite programming language.
       </div>
     </div>
   </div>
-  <div class="column-2">
-     <div class="card-square mdl-card mdl-shadow--2dp">
-       <div class="mdl-card__title mdl-card--expand">
-         <h4 class="mdl-card__title-text">Examples &nbsp;&nbsp;&nbsp;<i class="fa fa-flask"></i></h4>
-       </div>
-       <div class="mdl-card__supporting-text">
-         Try out our example pipelines.
-       </div>
-       <div class="mdl-card__actions mdl-card--border">
-         <ul>
-            <li><a href="../examples/examples/" class="md-typeset md-link">
-            Examples
-            </a>
-            </li>
-         </ul>
-       </div>
-     </div>
-   </div>
 </div>
