@@ -3,7 +3,6 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.6.0
-  jq: circleci/jq@2.2.0
 
 parameters:
   run_flaky_tests:
@@ -208,7 +207,7 @@ jobs:
             rm /home/circleci/gcpcreds.json
   release_job:
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.17.3
     steps:
       - checkout
       - run:
@@ -220,7 +219,6 @@ jobs:
       - run:
           name: pull pachyderm/etcd:v3.5.1 docker image
           command: |
-            # sudo chmod 666 /var/run/docker.sock
             docker pull pachyderm/etcd:v3.5.1
       - run:
           name: install goreleaser
@@ -230,39 +228,32 @@ jobs:
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
-      - jq/install
       - add_ssh_keys:
           fingerprints:
             - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config user.email "buildbot@pachyderm.io"
+            git config user.name "pachydermbuildbot"      
       - when:
           condition:
             and:
               - equal: [ custom, << pipeline.parameters.RELEASE_TYPE >> ]
           steps:
             - run:
-                name: setup pachydermbuildbot git
+                name: make custom-release
                 command: |
-                  git config user.email "buildbot@pachyderm.io"
-                  git config user.name "pachydermbuildbot"
-                  git tag -f -am "testing push tag" testtag
-                  git push -f origin testtag
-            #  - run:
-            #     name: make custom-release
-            #     command: |
-            #       make custom-release
+                  make custom-release
       - when:
           condition:
             and:
               - equal: [ point, << pipeline.parameters.RELEASE_TYPE >> ]
           steps:
             - run:
-                name: check if we can use git
+                name: make point-release
                 command: |
-                  git status
-            # - run:
-            #     name: make point-release
-            #     command: |
-            #       make point-release
+                  make point-release
   point_release_job:
     docker:
       - image: cimg/go:1.17.6
@@ -371,4 +362,4 @@ workflows:
           filters:
             branches:
               only:
-                - molinamelendezj/simple-circleci-pach-release-CORE-435
+                - 2.1.x
