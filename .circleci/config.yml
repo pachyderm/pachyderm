@@ -3,6 +3,7 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.6.0
+  jq: circleci/jq@2.2.0
 
 parameters:
   run_flaky_tests:
@@ -11,6 +12,18 @@ parameters:
   retain_slots:
     type: string
     default: "0"
+  PACH_VERSION:
+    type: string
+    default: ""
+  CONSOLE_VERSION:
+    type: string
+    default: ""
+  CUSTOM_RELEASE:
+    type: boolean
+    default: false
+  POINT_RELEASE:
+    type: boolean
+    default: false
 
 jobs:
   circleci:
@@ -199,6 +212,40 @@ jobs:
             cd /home/circleci/dist-pach/pachctl/
             gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
             rm /home/circleci/gcpcreds.json
+  custom_release_job:
+    docker:
+      - image: cimg/go:1.17.6
+    steps:
+      - run:
+          name: install goreleaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - jq/install
+      # - run:
+      #     name: make custom-release
+      #     command: |
+      #       make custom-release
+  point_release_job:
+    docker:
+      - image: cimg/go:1.17.6
+    steps:
+      - run:
+          name: install goreleaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - jq/install
+      # - run:
+      #     name: make custom-release
+      #     command: |
+      #       make custom-release
 
 
 workflows:
@@ -268,3 +315,19 @@ workflows:
   deploy:
     jobs:
     - deploy
+  custom_release:
+    when: << pipeline.parameters.CUSTOM_RELEASE >>
+    jobs:
+      - custom_release_job:
+          filters:
+            branches:
+              only:
+                - molinamelendezj/simple-circleci-pach-release-CORE-435
+  point_release:
+    when: << pipeline.parameters.POINT_RELEASE >>
+    jobs:
+      - point_release_job:
+          filters:
+            branches:
+              only:
+                - molinamelendezj/simple-circleci-pach-release-CORE-435
