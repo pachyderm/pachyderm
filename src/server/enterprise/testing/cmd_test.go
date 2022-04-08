@@ -30,7 +30,7 @@ func TestRegisterPachd(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{.pach_address}}
@@ -52,7 +52,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 
 	cluster := tu.UniqueString("cluster")
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
@@ -77,7 +77,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
@@ -100,7 +100,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
@@ -126,7 +126,7 @@ func TestConfig(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
@@ -171,7 +171,7 @@ func TestLoginEnterprise(t *testing.T) {
 	require.NoError(t, err)
 
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
@@ -214,7 +214,7 @@ func TestLoginPachd(t *testing.T) {
 	defer resetClusterState(t)
 
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 
 	ec, err := client.NewEnterpriseClientForTest()
 	require.NoError(t, err)
@@ -261,7 +261,7 @@ func TestSyncContexts(t *testing.T) {
 	id := tu.UniqueString("cluster")
 	clusterId := tu.UniqueString("clusterDeploymentId")
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 
 	// register a new cluster
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -337,7 +337,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 	defer resetClusterState(t)
 
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 
 	id := tu.UniqueString("cluster")
 
@@ -373,7 +373,7 @@ func TestRegisterRollback(t *testing.T) {
 	defer resetClusterState(t)
 
 	c, ns := minikubetestenv.AcquireCluster(t)
-	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
+	pachAddress := fmt.Sprintf("grpc://pachd.%s.svc.cluster.local:%v", ns, c.GetAddress().Port)
 
 	id := tu.UniqueString("cluster")
 

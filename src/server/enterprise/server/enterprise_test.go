@@ -33,8 +33,8 @@ func TestGetState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	client, _ := minikubetestenv.AcquireCluster(t)
-
 	testutil.ActivateEnterprise(t, client)
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
@@ -84,8 +84,8 @@ func TestGetActivationCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	client, _ := minikubetestenv.AcquireCluster(t)
-
 	testutil.ActivateEnterprise(t, client)
 
 	resp, err := client.Enterprise.GetActivationCode(client.Ctx(), &enterprise.GetActivationCodeRequest{})
@@ -121,9 +121,7 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice")
 	_, err := aliceClient.Enterprise.GetActivationCode(aliceClient.Ctx(), &enterprise.GetActivationCodeRequest{})
@@ -135,6 +133,7 @@ func TestDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
@@ -160,6 +159,7 @@ func TestDoubleDeactivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Deactivate cluster and make sure its state is NONE (enterprise might be
@@ -188,6 +188,7 @@ func TestHeartbeatDeleted(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
 	client, _ := minikubetestenv.AcquireCluster(t)
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
@@ -301,10 +302,10 @@ func TestPauseUnpause(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	t.Parallel()
+	client, _ := minikubetestenv.AcquireCluster(t)
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
@@ -347,10 +348,10 @@ func TestPauseUnpauseNoWait(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	t.Parallel()
+	client, _ := minikubetestenv.AcquireCluster(t)
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
@@ -382,9 +383,9 @@ func TestDoublePauseUnpause(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	testutil.DeleteAll(t)
-	defer testutil.DeleteAll(t)
-	client := testutil.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	testutil.ActivateEnterprise(t, client)
 
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	testutil.ActivateEnterprise(t, client)
