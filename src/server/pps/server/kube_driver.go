@@ -171,5 +171,5 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to watch kubernetes pods")
 	}
-	return kubePipelineWatch.ResultChan(), func() { kubePipelineWatch.Stop() }, nil
+	return kubePipelineWatch.ResultChan(), kubePipelineWatch.Stop, nil
 }
