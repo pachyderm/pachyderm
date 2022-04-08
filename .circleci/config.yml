@@ -12,16 +12,7 @@ parameters:
   retain_slots:
     type: string
     default: "0"
-  PACH_VERSION:
-    type: string
-    default: ""
-  CONSOLE_VERSION:
-    type: string
-    default: ""
-  CUSTOM_RELEASE:
-    type: boolean
-    default: false
-  POINT_RELEASE:
+  RELEASE_PACH_CORE:
     type: boolean
     default: false
 
@@ -250,6 +241,9 @@ jobs:
 
 workflows:
   circleci:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - build-pachctl
       - circleci:
@@ -271,6 +265,9 @@ workflows:
               - EXAMPLES
               - INTERNAL
   helm:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - helm-build:
           filters:
@@ -286,6 +283,9 @@ workflows:
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   hub_live_tests:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - hub
   hub_load_tests:
@@ -310,23 +310,21 @@ workflows:
                 - LOAD6
                 - LOAD7
   rootless:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - rootless
   deploy:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
     - deploy
-  custom_release:
-    when: << pipeline.parameters.CUSTOM_RELEASE >>
+  pach_core_release:
+    when: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - custom_release_job:
-          filters:
-            branches:
-              only:
-                - molinamelendezj/simple-circleci-pach-release-CORE-435
-  point_release:
-    when: << pipeline.parameters.POINT_RELEASE >>
-    jobs:
-      - point_release_job:
           filters:
             branches:
               only:
