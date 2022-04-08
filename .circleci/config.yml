@@ -50,7 +50,7 @@ jobs:
             - run: cd frontend && npm ci
             - run: npm run check-version
             - run: etc/testing/circle/install.sh
-            - run: etc/testing/circle/start-minikube.sh
+            - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
             - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
     load-test:
@@ -65,7 +65,7 @@ jobs:
             - run: sudo apt-get install k6
             - run: make ci
             - run: etc/testing/circle/install.sh
-            - run: etc/testing/circle/start-minikube.sh
+            - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
             - run: npm run load-setup
             - run: pachctl port-forward & npm run load-test:ci
