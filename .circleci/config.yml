@@ -15,6 +15,9 @@ parameters:
   RELEASE_PACH_CORE:
     type: boolean
     default: false
+  RELEASE_TYPE:
+    type: string
+    default: ""
 
 jobs:
   circleci:
@@ -216,6 +219,18 @@ jobs:
             rm -rf goreleaser_Linux_x86_64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - jq/install
+      - when:
+          condition:
+            and:
+              - equal: [ custom, << pipeline.parameters.RELEASE_TYPE >> ]
+          steps:
+            - run: echo "running custom release..."
+      - when:
+          condition:
+            and:
+              - equal: [ point, << pipeline.parameters.RELEASE_TYPE >> ]
+          steps:
+            - run: echo "running point release..."
       # - run:
       #     name: make custom-release
       #     command: |
