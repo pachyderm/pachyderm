@@ -79,13 +79,13 @@ release:
 release-helper: build-docker-images docker-push-release
 
 build-docker-images:
-	DOCKER_BUILDKIT=1 goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
+	DOCKER_BUILDKIT=1 goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --rm-dist --skip-validate -f goreleaser/docker.yml
 
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 build-pachctl:
-	@goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
+	@goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --rm-dist --skip-validate -f goreleaser/pachctl.yml
 
 docker-build:
 	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .

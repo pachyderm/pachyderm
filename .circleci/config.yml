@@ -205,6 +205,12 @@ jobs:
     steps:
       - checkout
       - run:
+          command: |
+            echo $CIRCLE_TAG
+            TAG="${CIRCLE_TAG:1}"
+            echo $TAG
+            echo {$CIRCLE_TAG:1}
+      - run:
           name: install goreleaser
           command: |
             mkdir -p /home/circleci/bin
@@ -215,14 +221,14 @@ jobs:
       - run:
           name: install yq
           command: |
-            wget https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_amd64
+            wget https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
             sudo mv yq_linux_amd64 /usr/local/bin/yq
             sudo chmod +x /usr/local/bin/yq
-      - run:
-          name: go install pachctl
-          command: |
-            make VERSION_ADDITIONAL= install
-            pachctl version --client-only
+      # - run:
+      #     name: go install pachctl
+      #     command: |
+      #       make VERSION_ADDITIONAL= LD_FLAGS="-X github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${CIRCLE_TAG:1}" install
+      #       pachctl version --client-only
       - run:
           name: update helm chart version
           command: |
@@ -231,13 +237,19 @@ jobs:
       - run:
           name: build docker images
           command: |
-            TAG="${CIRCLE_TAG:1}"
-            make build-docker-images GORELSNAP=--snapshot VERSION=${CIRCLE_TAG:1}
+            make build-docker-images VERSION=${CIRCLE_TAG:1}
+      - run:
+          name: list all
+          command: |
+            search_dir=dist-pach/docker/
+            for entry in "$search_dir"*
+            do
+              echo "$entry"
+            done
       - run:
           name: build pachctl
           command: |
-            TAG="${CIRCLE_TAG:1}"
-            make build-pachctl GORELSNAP=--snapshot VERSION=${CIRCLE_TAG:1}
+            make build-pachctl LD_FLAGS="-X github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${CIRCLE_TAG:1}" VERSION=${CIRCLE_TAG:1}
       - persist_to_workspace:
           root: /tmp/workspace
           paths:

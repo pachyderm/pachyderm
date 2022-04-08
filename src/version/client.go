@@ -1,23 +1,18 @@
 package version
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
 var (
-	// MajorVersion is the current major version for pachyderm.
-	MajorVersion, _ = getenvInt("MAJOR_VERSION")
-	// MinorVersion is the current minor version for pachyderm.
-	MinorVersion, _ = getenvInt("MINOR_VERSION")
-	// MicroVersion is the patch number for pachyderm.
-	MicroVersion, _ = getenvInt("PATCH_VERSION")
+	// Overwritten at build time by linker
+	AppVersion = "2.2.0"
+
+	MajorVersion, MinorVersion, MicroVersion = getVersions()
 
 	// AdditionalVersion is the string provided at release time
 	// The value is passed to the linker at build time
@@ -38,24 +33,13 @@ var (
 	customReleaseRegex = regexp.MustCompile(`[0-9a-f]{40}`)
 )
 
-func getenvStr(key string) (string, error) {
-	v := os.Getenv(key)
-	if v == "" {
-		return v, errors.New("getenv: environment variable empty")
+func getVersions() (int, int, int) {
+	var major, minor, micro int
+	_, parseError := fmt.Sscanf(AppVersion, "%d.%d.%d", &major, &minor, &micro)
+	if parseError != nil {
+		panic(parseError)
 	}
-	return v, nil
-}
-
-func getenvInt(key string) (int, error) {
-	s, err := getenvStr(key)
-	if err != nil {
-		return 0, err
-	}
-	v, err := strconv.Atoi(s)
-	if err != nil {
-		return 0, err
-	}
-	return v, nil
+	return major, minor, micro
 }
 
 // IsUnstable will return true for alpha or beta builds, and false otherwise.

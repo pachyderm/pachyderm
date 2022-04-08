@@ -95,7 +95,7 @@ dockers:
     image_templates:
       - pachyderm/pachd
       - pachyderm/pachd:local
-      - "pachyderm/pachd:{{.Version}}"
+      - "pachyderm/pachd:{{ .Env.VERSION }}"
     ids:
       - pachd
     goos: linux
@@ -107,8 +107,9 @@ dockers:
       - LICENSE
       - licenses
     build_flag_templates:
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--output type=tar,dest=../dist-pach/docker/pachd.tar"
+      - "--label=version={{ .Env.VERSION }}"
+      - "--label=release={{ .Env.VERSION }}"
   -
     image_templates:
       - pachyderm/pachctl
@@ -119,9 +120,10 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile.pachctl
     build_flag_templates:
+      - "--output type=tar,dest=../dist-pach/docker/pachctl.tar"
       - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{ .Env.VERSION }}"
+      - "--label=release={{ .Env.VERSION }}"
     extra_files:
       - LICENSE
       - licenses
@@ -138,9 +140,10 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile.worker
     build_flag_templates:
+      - "--output type=tar,dest=../dist-pach/docker/worker.tar"
       - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{ .Env.VERSION }}"
+      - "--label=release={{ .Env.VERSION }}"
     extra_files:
       - LICENSE
       - licenses
@@ -154,9 +157,10 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile.pachtf
     build_flag_templates:
+      - "--output type=tar,dest=../dist-pach/docker/pachtf.tar"
       - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
+      - "--label=version={{ .Env.VERSION }}"
+      - "--label=release={{ .Env.VERSION }}"
     extra_files:
       - LICENSE
       - licenses
