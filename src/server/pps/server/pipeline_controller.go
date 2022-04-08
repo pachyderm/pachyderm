@@ -65,6 +65,7 @@ type pipelineController struct {
 	env                   Env
 	txEnv                 *transactionenv.TransactionEnv
 	pipelines             collection.PostgresCollection
+	etcdPrefix            string
 	monitorCancel         func()
 	crashingMonitorCancel func()
 	bumpChan              chan time.Time
@@ -84,13 +85,14 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		ctx:    ctx,
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
-		pipeline:  pipeline,
-		env:       m.a.env,
-		txEnv:     m.a.txnEnv,
-		pipelines: m.a.pipelines,
-		kd:        m.kd,
-		bumpChan:  make(chan time.Time, 1),
-		pcMgr:     m.pcMgr,
+		pipeline:   pipeline,
+		env:        m.a.env,
+		txEnv:      m.a.txnEnv,
+		etcdPrefix: m.a.etcdPrefix,
+		pipelines:  m.a.pipelines,
+		kd:         m.kd,
+		bumpChan:   make(chan time.Time, 1),
+		pcMgr:      m.pcMgr,
 	}
 	return pc
 }
