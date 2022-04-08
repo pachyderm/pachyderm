@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/wcharczuk/go-chart"
 	v1 "k8s.io/api/core/v1"
@@ -710,6 +711,7 @@ func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[str
 	}); err != nil {
 		return nil, err
 	}
+	logrus.Errorf("~~~~ WORKER PODS: %v\n", pods)
 	return pods, nil
 }
 
