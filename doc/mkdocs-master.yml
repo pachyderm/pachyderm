@@ -122,8 +122,7 @@ nav:
     - Getting Started:
         - Overview: getting_started/index.md
         - WHAT'S NEW?: getting_started/whats_new.md
-        - Quick Start - Get started on Hub: hub/hub_getting_started.md
-        - Local Installation: getting_started/local_installation.md
+        - Quick Start - Local Installation: getting_started/local_installation.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
@@ -189,13 +188,11 @@ nav:
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
             - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
-        - Use Notebooks on Hub: how-tos/use-pachyderm-ide/index.md
         - JupyterLab Mount Extension: how-tos/jupyterlab-extension/index.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Get Started with Pachyderm Hub: hub/hub_getting_started.md
             - Helm Deployment Principles: deploy-manage/deploy/helm_install.md
             - Local Deployment: getting_started/local_installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
