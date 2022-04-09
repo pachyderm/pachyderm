@@ -53,7 +53,7 @@ That scenario is quite easy to troubleshoot:
 
 
 To lift those limitations, Request an [**Enterprise Edition trial token**](https://www.pachyderm.com/trial/). 
-Check out our [Enterprise features](https://docs.pachyderm.com/latest/enterprise/) for more details on our Enterprise Offer. 
+Check out our [Enterprise features](../../enterprise/) for more details on our Enterprise Offer. 
 
 
 ### User Code Failures

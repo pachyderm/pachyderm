@@ -1,7 +1,7 @@
 # Use the Pachyderm IDE with `python-pachyderm`
 
 !!! Warning
-    The Pachyderm IDE is an enterprise feature. Request your FREE 30-day [**Enterprise Edition trial token**](https://www.pachyderm.com/trial/).
+    The Pachyderm IDE is an enterprise feature. Request your [**Enterprise Edition trial token**](https://www.pachyderm.com/trial/).
 
 This section describes how you can use the `python-pachyderm`
 client from within the Pachyderm IDE.
