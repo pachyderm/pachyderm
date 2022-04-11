@@ -501,8 +501,16 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			}
 			// TODO: use response (serialize it to the client, it's polite to hand
 			// back the object you just modified in the API response)
-			// TODO: Only mount if the repo passed actually exists. Otherwise, results
-			// in weird behavior when trying to mount to "name" again.
+			l, err := mm.List()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if _, ok := l[key.Repo]; !ok {
+				http.Error(w, "repo does not exist", http.StatusBadRequest)
+				return
+			}
+
 			_, err = mm.MountBranch(key, name, mode)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)

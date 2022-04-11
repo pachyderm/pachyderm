@@ -33,9 +33,9 @@ type GlobalConfiguration struct {
 	PostgresUser                   string `env:"POSTGRES_USER,required"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
 	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
-	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
+	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=10"`
 	PGBouncerMaxOpenConns          int    `env:"PG_BOUNCER_MAX_OPEN_CONNS,default=10"`
-	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=2"`
+	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=10"`
 	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
@@ -98,6 +98,7 @@ type PachdSpecificConfiguration struct {
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
+	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
 }
 
 // StorageConfiguration contains the storage configuration.

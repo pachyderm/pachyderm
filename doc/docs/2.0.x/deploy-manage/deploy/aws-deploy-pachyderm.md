@@ -229,6 +229,9 @@ volume later.
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
 For production environments, it is **strongly recommended that you disable the bundled version and use an RDS PostgreSQL instance**. 
 
+!!! Attention
+      Note that [Aurora Serverless PostgreSQL](https://aws.amazon.com/rds/aurora/serverless/){target=_blank} is not supported and will not work.
+
 This section will provide guidance on the configuration settings you will need to: 
 
 - Create an environment to run your AWS PostgreSQL databases. Note that you will be creating **two databases** (`pachyderm` and `dex`).
@@ -458,7 +461,8 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
 
 Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml){target=_blank}.
 
-
+!!! Important
+      Retain (ideally in version control) a copy of the Helm values used to deploy your cluster. It might be useful if you need to [restore a cluster from a backup](../../manage/backup_restore).
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 

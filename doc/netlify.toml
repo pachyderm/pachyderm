@@ -153,6 +153,12 @@
   to = "/latest/how-tos/use-pachyderm-ide/"
   status = 301
   force = true
+
+[[redirects]]
+  from = "/:version/how-tos/use-pachyderm-ide/"
+  to = "/:version/how-tos/jupyterlab-extension/"
+  status = 301
+  force = true
   
 [[redirects]]
   from = "/latest/deploy-manage/deploy/deploy_custom/*"
@@ -161,8 +167,8 @@
   force = true
 
 [[redirects]]
-  from = "/latest/deploy-manage/deploy/deploy-pachyderm-ide/"
-  to = "/latest/deploy-manage/"
+  from = "/:version/deploy-manage/deploy/deploy-pachyderm-ide/"
+  to = "/:version/how-tos/jupyterlab-extension/"
   status = 301
   force = true
 
@@ -324,13 +330,19 @@
 
 [[redirects]]
   from = "/hub/hub_getting_started/"
-  to = "/latest/hub/hub_getting_started/"
+  to = "/latest/enterprise/"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/latest/pachhub/pachhub_getting_started/"
-  to = "/latest/hub/hub_getting_started/"
+  from = "/:version/pachhub/pachhub_getting_started/"
+  to = "/:version/enterprise/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/hub/hub_getting_started/"
+  to = "/:version/enterprise/"
   status = 301
   force = true
 

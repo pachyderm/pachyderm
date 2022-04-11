@@ -6,7 +6,6 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 // StorageOption configures a storage.
@@ -24,7 +23,7 @@ func WithMemoryThreshold(threshold int64) StorageOption {
 // be met before a shard is created by the shard function.
 func WithShardThreshold(threshold int64) StorageOption {
 	return func(s *Storage) {
-		s.shardThreshold = threshold
+		s.shardSizeThreshold = threshold
 	}
 }
 
@@ -80,14 +79,6 @@ func WithCompact(maxFanIn int) UnorderedWriterOption {
 
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)
-
-// WithIndexCallback sets a function to be called after each index is written.
-// If WithNoUpload is set, the function is called after the index would have been written.
-func WithIndexCallback(cb func(*index.Index) error) WriterOption {
-	return func(w *Writer) {
-		w.indexFunc = cb
-	}
-}
 
 // WithTTL sets the ttl for the fileset
 func WithTTL(ttl time.Duration) WriterOption {
