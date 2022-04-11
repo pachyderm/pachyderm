@@ -35,3 +35,23 @@ func WithDatum(datum string) Option {
 		r.datum = datum
 	}
 }
+
+func (r *PathRange) atStart(path, datum string) bool {
+	if r.Lower == "" {
+		return true
+	}
+	if path == r.Lower && r.LowerDatum != "" && datum != "" {
+		return datum >= r.LowerDatum
+	}
+	return path >= r.Lower
+}
+
+func (r *PathRange) atEnd(path, datum string) bool {
+	if r.Upper == "" {
+		return false
+	}
+	if path == r.Upper && r.UpperDatum != "" && datum != "" {
+		return datum > r.UpperDatum
+	}
+	return path > r.Upper
+}

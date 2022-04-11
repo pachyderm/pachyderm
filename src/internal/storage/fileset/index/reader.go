@@ -96,37 +96,29 @@ func (r *Reader) topLevel() pbutil.Reader {
 }
 
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
-// For a range filter, this means the name is >= to the lower bound and the datum (if provided)
+// For a range filter, this means the name is >= to the lower bound or the datum (if provided)
 // is >= the lower bound datum at the lower bound path itself
 // For a prefix filter, this means the name is >= to the prefix.
 func (r *Reader) atStart(name, datum string) bool {
 	if r.filter == nil {
 		return true
 	}
-	if r.filter.pathRange != nil && r.filter.pathRange.Lower != "" {
-		if name == r.filter.pathRange.Lower && datum != "" && r.filter.pathRange.LowerDatum != "" {
-			// on boundary, do datum comparison if present
-			return datum >= r.filter.pathRange.LowerDatum
-		}
-		return name >= r.filter.pathRange.Lower
+	if r.filter.pathRange != nil {
+		return r.filter.pathRange.atStart(name, datum)
 	}
 	return name >= r.filter.prefix
 }
 
 // atEnd returns true when the name is past the valid range for a filter (always false if no filter is set).
-// For a range filter, this means the name is > than the upper bound, or if a datum is provided
-// and the name is = the upper bound and the datum is > the upper bound datum
+// For a range filter, this means the name is > than the upper bound, or the datum (if provided)
+// is > the upper bound datum at the upper bound path
 // For a prefix filter, this means the name does not have the prefix and a name with the prefix cannot show up after it.
 func (r *Reader) atEnd(name, datum string) bool {
 	if r.filter == nil {
 		return false
 	}
-	if r.filter.pathRange != nil && r.filter.pathRange.Upper != "" {
-		if name == r.filter.pathRange.Upper && datum != "" && r.filter.pathRange.UpperDatum != "" {
-			// on boundary, do datum comparison if present
-			return datum > r.filter.pathRange.UpperDatum
-		}
-		return name > r.filter.pathRange.Upper
+	if r.filter.pathRange != nil {
+		return r.filter.pathRange.atEnd(name, datum)
 	}
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
 	// (use len(name) bytes for comparison when len(name) < len(prefix)).
