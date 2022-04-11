@@ -34,7 +34,8 @@ func NewSnowSQL(t testing.TB) *sqlx.DB {
 	defer cf()
 
 	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
-	dbname := testutil.CreateEphemeralDB(t, db)
+	dbname := testutil.GenerateEphermeralDBName(t)
+	testutil.CreateEphemeralDB(t, db, dbname)
 	url.Database = dbname
 	url.Schema = "public"
 
