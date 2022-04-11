@@ -501,7 +501,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			}
 			// TODO: use response (serialize it to the client, it's polite to hand
 			// back the object you just modified in the API response)
-			l, err := mm.List()
+			l, err := mm.ListByRepos()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
