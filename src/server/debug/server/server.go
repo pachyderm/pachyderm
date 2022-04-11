@@ -706,6 +706,7 @@ func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[str
 		if !ok {
 			return errors.Errorf("pod label missing from loki label set")
 		}
+		logrus.Errorf("~~~~ pod: %s", pod)
 		pods[pod] = struct{}{}
 		return nil
 	}); err != nil {
@@ -724,7 +725,7 @@ func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) 
 		return errors.EnsureStack(err)
 	}
 	start := time.Now().Add(-(30 * 24 * time.Hour))
-	end := time.Now()
+	end := time.Now().Add(time.Hour)
 	for {
 		// TODO: Need a real context.
 		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, end, "FORWARD", 0, 0, true)
@@ -735,6 +736,7 @@ func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) 
 		if !ok {
 			return errors.Errorf("resp.Data.Result must be of type loki.Streams")
 		}
+		logrus.Errorf("~~~~ Num streams: %v", len(streams))
 		var numLogs int
 		for _, stream := range streams {
 			for _, entry := range stream.Entries {
@@ -747,6 +749,7 @@ func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) 
 				}
 			}
 		}
+		logrus.Errorf("~~~~ Num Logs: %v", numLogs)
 		if numLogs < maxLogs {
 			return nil
 		}
