@@ -15,12 +15,16 @@ func TestGetTableInfo(t *testing.T) {
 	type testCase struct {
 		Name     string
 		NewDB    func(t testing.TB) *pachsql.DB
+		NewTable func(*pachsql.DB) error
 		Expected *pachsql.TableInfo
 	}
 	tcs := []testCase{
 		{
 			Name:  "Postgres",
 			NewDB: dockertestenv.NewPostgres,
+			NewTable: func(db *pachsql.DB) error {
+				return pachsql.CreateTestTable(db, "test_table")
+			},
 			Expected: &pachsql.TableInfo{
 				"test_table",
 				"public",
@@ -44,6 +48,9 @@ func TestGetTableInfo(t *testing.T) {
 		{
 			Name:  "MySQL",
 			NewDB: dockertestenv.NewMySQL,
+			NewTable: func(db *pachsql.DB) error {
+				return pachsql.CreateTestTable(db, "public.test_table")
+			},
 			Expected: &pachsql.TableInfo{
 				"test_table",
 				"public",
@@ -67,6 +74,9 @@ func TestGetTableInfo(t *testing.T) {
 		{
 			Name:  "Snowflake",
 			NewDB: testsnowflake.NewSnowSQL,
+			NewTable: func(db *pachsql.DB) error {
+				return pachsql.CreateTestTable(db, "test_table")
+			},
 			Expected: &pachsql.TableInfo{
 				"test_table",
 				"public",
@@ -93,8 +103,8 @@ func TestGetTableInfo(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
 			// For mysql, we created a database named public via NewMySQL
-			require.NoError(t, pachsql.CreateTestTable(db, "public.test_table"))
-			info, err := pachsql.GetTableInfo(ctx, db, "public.test_table")
+			require.NoError(t, tc.NewTable(db))
+			info, err := pachsql.GetTableInfo(ctx, db, "test_table")
 			require.NoError(t, err)
 			require.Len(t, info.Columns, reflect.TypeOf(pachsql.TestRow{}).NumField())
 			require.Equal(t, tc.Expected, info)

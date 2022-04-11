@@ -44,9 +44,25 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	schemaName, tableName := SplitTableSchema(tx.DriverName(), tablePath)
 	var cinfos []ColumnInfo
-	where := fmt.Sprintf("lower(table_name) = lower('%s')", tableName)
-	if schemaName != "" {
-		where += fmt.Sprintf(" AND lower(table_schema) = lower('%s')", schemaName)
+	if schemaName == "" {
+		// Check whether table is unique, and infer schema_name
+		if rows, err := tx.Query(fmt.Sprintf(`
+		SELECT lower(table_schema) as schema_name
+		FROM information_schema.tables
+		WHERE lower(table_name) = lower('%s')`, tableName)); err != nil {
+			return nil, errors.EnsureStack(err)
+		} else {
+			count := 0
+			for rows.Next() {
+				count++
+				if count > 1 {
+					return nil, errors.Errorf("table %s is not unique, please specify schema name", tableName)
+				}
+				if err = rows.Scan(&schemaName); err != nil {
+					return nil, errors.EnsureStack(err)
+				}
+			}
+		}
 	}
 	q := fmt.Sprintf(`
 	SELECT
@@ -57,8 +73,8 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 		   	ELSE false
 		END
 	FROM information_schema.columns
-	WHERE %s
-	ORDER BY ordinal_position`, where)
+	WHERE upper(table_name) = upper('%s') AND upper(table_schema) = upper('%s')
+	ORDER BY ordinal_position`, tableName, schemaName)
 	// We use tx.Query, not tx.Select here because MySQL and Postgres have conflicting capitalization
 	// and sqlx complains about scanning using struct tags.
 	rows, err := tx.Query(q)
