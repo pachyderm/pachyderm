@@ -15,22 +15,22 @@ func (s *Storage) Shard(ctx context.Context, ids []ID, cb ShardCallback) error {
 	if err != nil {
 		return err
 	}
-	return shard(ctx, fs, s.shardThreshold, cb)
+	return shard(ctx, fs, s.shardSizeThreshold, s.shardCountThreshold, cb)
 }
 
 // ShardCallback is a callback that returns a path range for each shard.
 type ShardCallback func(*index.PathRange) error
 
 // shard creates shards (path ranges) from the file set streams being merged.
-// A shard is created when the size of the content for a path range is greater than
-// the passed in shard threshold.
+// A shard is created when the size of the files is greater than or equal to the passed
+// in size threshold or the file count is greater than or equal to the passed in count threshold.
 // For each shard, the callback is called with the path range for the shard.
-func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallback) error {
-	var size int64
+func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64, cb ShardCallback) error {
+	var size, count int64
 	pathRange := &index.PathRange{}
 	if err := fs.Iterate(ctx, func(f File) error {
 		// A shard is created when we have encountered more than shardThreshold content bytes.
-		if size >= shardThreshold {
+		if size >= sizeThreshold || count >= countThreshold {
 			if err := cb(pathRange); err != nil {
 				return err
 			}
@@ -38,9 +38,11 @@ func shard(ctx context.Context, fs FileSet, shardThreshold int64, cb ShardCallba
 				Lower: f.Index().Path,
 			}
 			size = 0
+			count = 0
 		}
 		pathRange.Upper = f.Index().Path
 		size += index.SizeBytes(f.Index())
+		count++
 		return nil
 	}); err != nil {
 		return errors.EnsureStack(err)
