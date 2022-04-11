@@ -9428,7 +9428,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 		}
 		monitorReplicas(t, pipeline, replicas)
 	}
-	commitNFiles(1)
+	commitNFiles(2)
 	commitNFiles(3)
 	commitNFiles(8)
 }
