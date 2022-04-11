@@ -123,7 +123,6 @@ type pipelineController struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	pipeline   string
-	namespace  string
 	env        Env
 	txEnv      *transactionenv.TransactionEnv
 	pipelines  collection.PostgresCollection
@@ -150,11 +149,10 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:   pipeline,
-		namespace:  m.a.namespace,
-		env:        m.a.env,
-		txEnv:      m.a.txnEnv,
-		pipelines:  m.a.pipelines,
-		etcdPrefix: m.a.etcdPrefix,
+		env:        m.env,
+		txEnv:      m.txEnv,
+		pipelines:  m.pipelines,
+		etcdPrefix: m.etcdPrefix,
 		kd:         m.kd,
 		bumpChan:   make(chan time.Time, 1),
 		pcMgr:      m.pcMgr,
