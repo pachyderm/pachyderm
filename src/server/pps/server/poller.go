@@ -185,6 +185,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			case event, ok := <-watch:
 				if !ok {
 					log.Warn("kubernetes pod watch unexpectdly ended - restarting watch")
+					cancel()
 					watch, cancel, err = m.kd.WatchPipelinePods(ctx)
 					if err != nil {
 						return errors.Wrap(err, "failed to watch kubernetes pods")
