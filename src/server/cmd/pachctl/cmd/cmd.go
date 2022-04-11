@@ -655,8 +655,9 @@ This resets the cluster to its initial state.`,
 
 			fmt.Println("CTRL-C to exit")
 			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
-			signal.Notify(ch, syscall.SIGHUP)
+			// Handle Control-C, closing the terminal window, and pkill (and friends)
+			// cleanly.
+			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
 			<-ch
 
 			return nil
