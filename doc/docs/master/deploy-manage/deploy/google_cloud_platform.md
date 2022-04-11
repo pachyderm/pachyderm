@@ -15,7 +15,7 @@ In particular, you will:
 1. [Deploy Kubernetes](#2-deploy-kubernetes).
 
     !!! Attention
-        For users who want to use an existing cluster, make sure to enable [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity){target=_blank}. Otherwise, the script provided in this documentation takes care of it when creating the cluster.
+        For users who want to use an existing cluster, make sure to enable [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity){target=_blank}. For users creating a new cluster, the script provided in this documentation takes care of it.
 
 1. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
 1. [Enable The Creation of Persistent Volumes](#4-persistent-volumes-creation)
