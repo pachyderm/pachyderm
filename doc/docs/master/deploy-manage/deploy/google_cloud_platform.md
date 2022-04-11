@@ -13,6 +13,10 @@ In particular, you will:
 
 1. Make a few [client installations](#1-prerequisites) before you start.
 1. [Deploy Kubernetes](#2-deploy-kubernetes).
+
+    !!! Attention
+        For users who want to use an existing cluster, make sure to enable [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity){target=_blank}. Otherwise, the script provided in this documentation takes care of it when creating the cluster.
+
 1. [Create an GCS bucket](#3-create-a-gcs-bucket) for your data and grant Pachyderm access.
 1. [Enable The Creation of Persistent Volumes](#4-persistent-volumes-creation)
 1. [Create A GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
@@ -93,7 +97,7 @@ MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or la
 ```
 
 !!! Note
-    Adding `--scopes storage-rw` to the `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` command below will grant the rw scope to whatever service account is on the cluster, which if you don’t provide it, is the default compute service account for the project which has Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
+    Adding `--scopes storage-rw` to the `gcloud container clusters create ${CLUSTER_NAME} --machine-type ${MACHINE_TYPE}` command below will grant the rw scope to whatever service account is on the cluster, which, if you don’t provide it, is the default compute service account for the project with Editor permissions. While this is **not recommended in any production settings**, this option can be useful for a quick setup in development. In that scenario, you do not need any service account or additional GCP Bucket permission (see below).
 
 
 ```shell
