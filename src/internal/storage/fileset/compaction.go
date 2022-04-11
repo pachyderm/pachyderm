@@ -54,11 +54,7 @@ func indexOfCompacted(factor int64, inputs []*Primitive) int {
 // Compact does not renew ids.
 // It is the responsibility of the caller to renew ids.  In some cases they may be permanent and not require renewal.
 func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts ...index.Option) (*ID, error) {
-	var size int64
-	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
-		size += index.SizeBytes(idx)
-		return nil
-	}))
+	w := s.newWriter(ctx, WithTTL(ttl))
 	fs, err := s.Open(ctx, ids, opts...)
 	if err != nil {
 		return nil, err

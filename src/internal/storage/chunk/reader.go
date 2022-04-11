@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"golang.org/x/sync/semaphore"
 )
 
 // Reader reads data from chunk storage.
@@ -76,7 +77,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
 	defer cancel()
-	taskChain := NewTaskChain(ctx, int64(r.prefetchLimit))
+	taskChain := NewTaskChain(ctx, semaphore.NewWeighted(int64(r.prefetchLimit)))
 	defer func() {
 		if retErr != nil {
 			cancel()

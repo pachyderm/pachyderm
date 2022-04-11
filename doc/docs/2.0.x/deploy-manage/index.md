@@ -14,9 +14,7 @@ Before you start... The following high-level architecture diagram lays out Pachy
         <h4 class="mdl-card__title-text">Deploy Pachyderm &nbsp;&nbsp; &nbsp;<i class="fa fa-laptop"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn how to deploy Pachyderm in your
-        cloud environment, locally, or in Pachyderm
-        Hub.
+       Learn how to deploy Pachyderm in your cloud environment, or locally.
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>

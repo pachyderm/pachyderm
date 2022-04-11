@@ -579,6 +579,14 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
 		p := n.filePath(name, fi)
+		// If file manifestation is successful to the given state level, cache
+		// that we know about it, to avoid a subsequent stat() going back to
+		// Pachyderm over gRPC
+		defer func() {
+			if retErr == nil {
+				n.setFileState(p, state)
+			}
+		}()
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially
