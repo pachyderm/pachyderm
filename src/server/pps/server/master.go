@@ -74,6 +74,7 @@ type ppsMaster struct {
 	watchCancel     func() // protected by pollPipelinesMu
 
 	pcMgr *pcManager
+	kd    *kubeDriver
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -93,12 +94,12 @@ func (a *apiServer) master() {
 			return errors.EnsureStack(err)
 		}
 		defer masterLock.Unlock(ctx)
-
 		log.Infof("PPS master: launching master process")
 		m := &ppsMaster{
 			a:         a,
-			pcMgr:     newPcManager(a.env.Config.PPSMaxConcurrentK8sRequests),
+			pcMgr:     newPcManager(),
 			masterCtx: ctx,
+			kd:        newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger),
 		}
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
