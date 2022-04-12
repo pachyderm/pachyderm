@@ -182,7 +182,7 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
 !!! Tip "Tip to uninstall Pachyderm fully"
       Running `helm uninstall pachd` leaves persistent volume claims behind. To wipe your instance clean, run:
       ```shell
-      helm uninstall pachyderm 
+      helm uninstall pachd 
       kubectl delete pvc -l suite=pachyderm 
       ```
 
