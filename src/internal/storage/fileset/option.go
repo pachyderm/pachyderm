@@ -19,11 +19,19 @@ func WithMemoryThreshold(threshold int64) StorageOption {
 	}
 }
 
-// WithShardThreshold sets the size threshold that must
+// WithShardSizeThreshold sets the size threshold that must
 // be met before a shard is created by the shard function.
-func WithShardThreshold(threshold int64) StorageOption {
+func WithShardSizeThreshold(threshold int64) StorageOption {
 	return func(s *Storage) {
 		s.shardSizeThreshold = threshold
+	}
+}
+
+// WithShardCountThreshold sets the count threshold that must
+// be met before a shard is created by the shard function.
+func WithShardCountThreshold(threshold int64) StorageOption {
+	return func(s *Storage) {
+		s.shardCountThreshold = threshold
 	}
 }
 
@@ -93,8 +101,11 @@ func StorageOptions(conf *serviceenv.StorageConfiguration) []StorageOption {
 	if conf.StorageMemoryThreshold > 0 {
 		opts = append(opts, WithMemoryThreshold(conf.StorageMemoryThreshold))
 	}
-	if conf.StorageShardThreshold > 0 {
-		opts = append(opts, WithShardThreshold(conf.StorageShardThreshold))
+	if conf.StorageCompactionShardSizeThreshold > 0 {
+		opts = append(opts, WithShardSizeThreshold(conf.StorageCompactionShardSizeThreshold))
+	}
+	if conf.StorageCompactionShardCountThreshold > 0 {
+		opts = append(opts, WithShardCountThreshold(conf.StorageCompactionShardCountThreshold))
 	}
 	if conf.StorageLevelFactor > 0 {
 		opts = append(opts, WithLevelFactor(conf.StorageLevelFactor))

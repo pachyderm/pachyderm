@@ -149,6 +149,14 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        {{- if .Values.pachd.storage.compactionShardSizeThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardSizeThreshold | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.compactionShardCountThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardCountThreshold | quote }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
