@@ -8,10 +8,9 @@ to complete and introduce you to Pachyderm's original concepts.
 
 This guide assumes that you already have Pachyderm running.
 
-- Install Pachyderm on your local machine as described in our [Local Installation](../local_installation/) page or check out our [Quick Install](../../deploy-manage/deploy/quickstart/) page to deploy on your favorite cloud.
+- For an easy and quick start, install Pachyderm on your local machine as described in our [Local Installation](../local_installation/) page and start experimenting.
 
-- For an easy and quick start, you can also
-[**create a free workspace on Hub**](../../hub/hub_getting_started/), our **SaaS platform**. [Contact us](mailto:sales@pachyderm.com) and start experimenting.
+- Or check out our [Quick Install](../../deploy-manage/deploy/quickstart/) page to deploy on your favorite cloud.
 
 !!! tip
     If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/).
@@ -497,15 +496,14 @@ pachctl get file montage@master:montage.png | display
 
 ## Exploring your DAG in Pachyderm Console
 
-Pachyderm Console let's you interactively
-explore your pipelines, your data, debug jobs, read logs etc...
+Console is Pachyderm's GUI. It will help you interactively
+visualize and explore your pipelines, your data, debug jobs, read logs, etc...
 
-- If you a **running this example on Hub, you have readily access to Pachyderm's Console**.
- Click the **Console** link on your workspace name in the Hub UI.
+!!! Note
+     You will need an Enterprise Key when deploying with Console, locally or otherwise. 
+     To request a FREE trial enterprise license key, [click here](../../enterprise). 
 
-![Console Access](./images/hub_console_access.png)
-
-- If you deployed locally, the Pachyderm Enterprise console
+If you deployed locally, the Pachyderm Enterprise Console
 is also deployed by default.  To access it, visit
 `localhost:30080` in your favorite browser. You
 should see something similar to this:

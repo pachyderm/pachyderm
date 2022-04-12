@@ -182,15 +182,14 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return nil
-			case event := <-watch:
+			case event, ok := <-watch:
+				if !ok {
+					log.Warn("kubernetes pod watch unexpectedly ended - restarting watch")
+					return backoff.ErrContinue
+				}
 				// if we get an error we restart the watch
 				if event.Type == kube_watch.Error {
 					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
-				} else if event.Type == "" {
-					// k8s watches seem to sometimes get stuck in a loop returning events
-					// with Type = "". We treat these as errors as otherwise we get an
-					// endless stream of them and can't do anything.
-					return errors.New("error while watching kubernetes pods: empty event type")
 				}
 				pod, ok := event.Object.(*v1.Pod)
 				if !ok {

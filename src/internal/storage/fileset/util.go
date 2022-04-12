@@ -147,10 +147,10 @@ func (i *Iterator) Next() (File, error) {
 	}
 }
 
-func hashDataRefs(dataRefs []*chunk.DataRef) ([]byte, error) {
+func computeFileHash(hashes [][]byte) ([]byte, error) {
 	h := pachhash.New()
-	for _, dataRef := range dataRefs {
-		_, err := h.Write(dataRef.Hash)
+	for _, hash := range hashes {
+		_, err := h.Write(hash)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

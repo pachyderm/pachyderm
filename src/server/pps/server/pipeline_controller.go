@@ -120,21 +120,18 @@ var sideEffectHandlers map[sideEffect]sideEffectHandler = map[sideEffect]sideEff
 type pipelineController struct {
 	// a pachyderm client wrapping this operation's context (child of the PPS
 	// master's context, and cancelled at the end of Start())
-	ctx        context.Context
-	cancel     context.CancelFunc
-	pipeline   string
-	namespace  string
-	env        Env
-	txEnv      *transactionenv.TransactionEnv
-	pipelines  collection.PostgresCollection
-	etcdPrefix string
-
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	pipeline              string
+	env                   Env
+	txEnv                 *transactionenv.TransactionEnv
+	pipelines             collection.PostgresCollection
+	etcdPrefix            string
 	monitorCancel         func()
 	crashingMonitorCancel func()
-
-	bumpChan chan time.Time
-	pcMgr    *pcManager
-	kd       *kubeDriver
+	bumpChan              chan time.Time
+	pcMgr                 *pcManager
+	kd                    *kubeDriver
 }
 
 var (
@@ -150,11 +147,10 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:   pipeline,
-		namespace:  m.a.namespace,
 		env:        m.a.env,
 		txEnv:      m.a.txnEnv,
-		pipelines:  m.a.pipelines,
 		etcdPrefix: m.a.etcdPrefix,
+		pipelines:  m.a.pipelines,
 		kd:         m.kd,
 		bumpChan:   make(chan time.Time, 1),
 		pcMgr:      m.pcMgr,

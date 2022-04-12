@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 	"unicode"
@@ -654,7 +655,9 @@ This resets the cluster to its initial state.`,
 
 			fmt.Println("CTRL-C to exit")
 			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
+			// Handle Control-C, closing the terminal window, and pkill (and friends)
+			// cleanly.
+			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
 			<-ch
 
 			return nil

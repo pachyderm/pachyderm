@@ -72,10 +72,8 @@ func writeRandom(t testing.TB, s *Storage) {
 	const size = 1e8
 	rng := rand.New(rand.NewSource(seed))
 
-	cb := func(_ []*Annotation) error { return nil }
-	w := s.NewWriter(ctx, "test-writer", cb)
-	require.NoError(t, w.Annotate(&Annotation{}))
-	_, err := io.Copy(w, io.LimitReader(rng, size))
-	require.NoError(t, err)
-	require.NoError(t, w.Close())
+	cb := func(_ interface{}, _ []*DataRef) error { return nil }
+	u := s.NewUploader(ctx, "test-writer", false, cb)
+	require.NoError(t, u.Upload(nil, io.LimitReader(rng, size)))
+	require.NoError(t, u.Close())
 }
