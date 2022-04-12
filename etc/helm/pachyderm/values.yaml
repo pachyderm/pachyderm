@@ -443,6 +443,8 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
+    compactionShardSizeThreshold: 0
+    compactionShardCountThreshold: 0
   ppsWorkerGRPCPort: 1080
   # the number of seconds between pfs's garbage collection cycles. 
   # if this value is set to 0, it will default to pachyderm's internal configuration.
