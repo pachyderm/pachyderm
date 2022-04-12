@@ -34,7 +34,7 @@ const useGlobalFilter = () => {
     });
     getJobSet({variables: {args: {projectId, id: ''}}});
     setDropdownOpen(false);
-    reset();
+    reset({globalId: ''});
   }, [getJobSet, projectId, reset, updateViewState]);
 
   const handleSubmit = useCallback(() => {
@@ -87,8 +87,9 @@ const useGlobalFilter = () => {
   const handleOutsideClick = useCallback(() => {
     if (dropdownOpen) {
       setDropdownOpen(false);
+      reset({globalId: globalIdFilter});
     }
-  }, [dropdownOpen]);
+  }, [dropdownOpen, globalIdFilter, reset]);
 
   useOutsideClick(containerRef, handleOutsideClick);
 
