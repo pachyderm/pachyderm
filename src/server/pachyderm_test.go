@@ -10040,7 +10040,7 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 
 	// add an output file bigger than the sharding threshold so that two in a row
 	// will fall on either side of a naive shard division
-	bigSize := fileset.DefaultShardThreshold * 5 / 4
+	bigSize := fileset.DefaultShardSizeThreshold * 5 / 4
 	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "a",
 		strings.NewReader(strconv.Itoa(bigSize/units.MB))))
 
