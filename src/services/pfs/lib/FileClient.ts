@@ -31,7 +31,13 @@ export class FileClient<T> {
     });
   }
 
-  putFileFromBytes(path: string, bytes: Buffer, callback?: () => void) {
+  putFileFromBytes(
+    path: string,
+    bytes: Buffer,
+    append = false,
+    callback?: () => void,
+  ) {
+    if (!append) this.deleteFile(path);
     const messageLength =
       GRPC_MAX_MESSAGE_LENGTH - STREAM_OVERHEAD_LENGTH - path.length;
     const write = (chunk: Buffer, end: number) => {
@@ -67,7 +73,9 @@ export class FileClient<T> {
     return this;
   }
 
-  putFileFromURL(path: string, url: string) {
+  putFileFromURL(path: string, url: string, append = false) {
+    if (!append) this.deleteFile(path);
+
     const addFile = new AddFile()
       .setPath(path)
       .setUrl(new AddFile.URLSource().setUrl(url));
@@ -75,7 +83,9 @@ export class FileClient<T> {
     return this;
   }
 
-  putFileFromFilepath(sourcePath: string, destPath: string) {
+  putFileFromFilepath(sourcePath: string, destPath: string, append = false) {
+    if (!append) this.deleteFile(destPath);
+
     const data = fs.readFileSync(sourcePath, {});
     return this.putFileFromBytes(destPath, data);
   }
