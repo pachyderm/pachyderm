@@ -31,6 +31,7 @@
 .dateField {
     white-space: nowrap;
     max-height: 1rem;
+    min-width: 8rem
 }
 
 .datelabel {

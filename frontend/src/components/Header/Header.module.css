@@ -8,6 +8,7 @@
 
 .base.hasSubheader {
   display: block;
+  min-height: min-content;
 }
 
 .light {
