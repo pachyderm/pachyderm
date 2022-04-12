@@ -13,10 +13,16 @@ type Buffer struct {
 }
 
 type file struct {
-	path  string
-	datum string
-	buf   *bytes.Buffer
-	copy  File
+	path     string
+	datum    string
+	contents []fileContent
+}
+
+// contents are either raw bytes to be appended or an existing file to be copies
+// Exactly one will be non-nil
+type fileContent struct {
+	buf  *bytes.Buffer
+	copy File
 }
 
 func NewBuffer() *Buffer {
@@ -36,7 +42,6 @@ func (b *Buffer) addInternal(path, datum string) *file {
 		datumFiles[datum] = &file{
 			path:  path,
 			datum: datum,
-			buf:   &bytes.Buffer{},
 		}
 	}
 	return datumFiles[datum]
@@ -44,10 +49,12 @@ func (b *Buffer) addInternal(path, datum string) *file {
 
 func (b *Buffer) Add(path, datum string) io.Writer {
 	f := b.addInternal(path, datum)
-	if f.copy != nil {
-		panic("unsafe add")
+	if len(f.contents) > 0 && f.contents[len(f.contents)-1].copy == nil {
+		return f.contents[len(f.contents)-1].buf
 	}
-	return f.buf
+	buf := &bytes.Buffer{}
+	f.contents = append(f.contents, fileContent{buf: buf})
+	return buf
 }
 
 func (b *Buffer) Delete(path, datum string) {
@@ -75,31 +82,21 @@ func (b *Buffer) Delete(path, datum string) {
 	}
 }
 
-func (b *Buffer) Stat(path, datum string) (int, bool) {
-	path = Clean(path, false)
-	f := b.additive[path][datum]
-	if f == nil {
-		return 0, false
-	}
-	return f.buf.Len(), f.copy != nil
-}
-
 func (b *Buffer) Copy(file File, datum string) {
 	f := b.addInternal(file.Index().Path, datum)
-	if f.buf.Len() > 0 || f.copy != nil {
-		panic("unsafe copy")
-	}
-	f.copy = file
+	f.contents = append(f.contents, fileContent{copy: file})
 }
 
 func (b *Buffer) WalkAdditive(onAdd func(path, datum string, r io.Reader) error, onCopy func(file File, datum string) error) error {
 	for _, file := range sortFiles(b.additive) {
-		if file.copy != nil {
-			if err := onCopy(file.copy, file.datum); err != nil {
+		for _, content := range file.contents {
+			if content.copy != nil {
+				if err := onCopy(content.copy, file.datum); err != nil {
+					return err
+				}
+			} else if err := onAdd(file.path, file.datum, bytes.NewReader(content.buf.Bytes())); err != nil {
 				return err
 			}
-		} else if err := onAdd(file.path, file.datum, bytes.NewReader(file.buf.Bytes())); err != nil {
-			return err
 		}
 	}
 	return nil

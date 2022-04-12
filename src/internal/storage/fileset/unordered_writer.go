@@ -9,8 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -59,12 +57,6 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 	}
 	if !appendFile {
 		uw.buffer.Delete(p, datum)
-	}
-	// we can write to the file as long as it isn't a copy
-	if _, hasCopy := uw.buffer.Stat(p, datum); hasCopy {
-		if err := uw.serialize(); err != nil {
-			return err
-		}
 	}
 	w := uw.buffer.Add(p, datum)
 	for {
@@ -171,80 +163,55 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 	return nil
 }
 
+func getFirstFile(ctx context.Context, fs FileSet) (firstFile File, more bool, retErr error) {
+	retErr = errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
+		if firstFile == nil {
+			firstFile = f
+		} else {
+			more = true
+			return errutil.ErrBreak
+		}
+		return nil
+	}))
+	return
+}
+
 func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
 
-	eg, ctx := errgroup.WithContext(ctx)
-	fileChan := make(chan File, 10)
-
-	eg.Go(func() error {
-		defer close(fileChan)
-		return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
-			select {
-			case <-ctx.Done():
-				return errutil.ErrBreak
-			case fileChan <- f:
-			}
-			return nil
-		}))
-	})
-
-	firstFile, more := <-fileChan
-	if !more {
+	firstFile, more, err := getFirstFile(ctx, fs)
+	if err != nil {
+		return err
+	}
+	if firstFile == nil {
 		return nil // nothing to do
 	}
-
-	secondFile, more := <-fileChan
 	if !more {
 		// just one file in the file set, special case
-		if err := uw.copySingle(firstFile, datum, appendFile); err != nil {
-			return err
-		}
-	} else {
-		// multiple files, serialize and do the copy in a new fileset
-		if err := uw.serialize(); err != nil {
-			return err
-		}
-		doCopy := func(w *Writer, f File) error {
+		return uw.copySingle(firstFile, datum, appendFile)
+	}
+	// multiple files, serialize and do the copy in a new fileset
+	if err := uw.serialize(); err != nil {
+		return err
+	}
+	return uw.withWriter(func(w *Writer) error {
+		return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
 			if !appendFile {
 				if err := w.Delete(f.Index().Path, datum); err != nil {
 					return err
 				}
 			}
 			return w.Copy(f, datum)
-		}
-		eg.Go(func() error {
-			return uw.withWriter(func(w *Writer) error {
-				if err := doCopy(w, firstFile); err != nil {
-					return err
-				}
-				if err := doCopy(w, secondFile); err != nil {
-					return err
-				}
-				for f := range fileChan {
-					if err := doCopy(w, f); err != nil {
-						return err
-					}
-				}
-				return nil
-			})
-		})
-	}
-	return errors.EnsureStack(eg.Wait())
+		}))
+	})
 }
 
 func (uw *UnorderedWriter) copySingle(file File, datum string, appendFile bool) error {
 	singlePath := file.Index().Path
 	if !appendFile {
 		uw.buffer.Delete(singlePath, datum)
-	}
-	// make sure the file doesn't already exist
-	if size, hasCopy := uw.buffer.Stat(singlePath, datum); hasCopy || size > 0 {
-		if err := uw.serialize(); err != nil {
-			return err
-		}
 	}
 	uw.buffer.Copy(file, datum)
 	return nil
