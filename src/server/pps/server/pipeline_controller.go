@@ -133,7 +133,7 @@ type pipelineController struct {
 
 	bumpChan chan time.Time
 	pcMgr    *pcManager
-	kd       *kubeDriver
+	kd       InfraDriver
 }
 
 var (

@@ -30,7 +30,7 @@ type kubeDriver struct {
 	logger     *logrus.Logger
 }
 
-func newKubeDriver(kubeClient *kubernetes.Clientset, config serviceenv.Configuration, logger *logrus.Logger) *kubeDriver {
+func newKubeDriver(kubeClient *kubernetes.Clientset, config serviceenv.Configuration, logger *logrus.Logger) InfraDriver {
 	return &kubeDriver{
 		kubeClient: kubeClient,
 		namespace:  config.Namespace,

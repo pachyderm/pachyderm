@@ -75,9 +75,21 @@ type ppsMaster struct {
 	pollPodsCancel  func() // protected by pollPipelinesMu
 	watchCancel     func() // protected by pollPipelinesMu
 	pcMgr           *pcManager
-	kd              *kubeDriver
+	kd              InfraDriver
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
+}
+
+func newMaster(ctx context.Context, env Env, txEnv *txnenv.TransactionEnv, pipelines collection.PostgresCollection, etcdPrefix string, kd InfraDriver) *ppsMaster {
+	return &ppsMaster{
+		masterCtx:  ctx,
+		env:        env,
+		txEnv:      txEnv,
+		pipelines:  pipelines,
+		etcdPrefix: etcdPrefix,
+		pcMgr:      newPcManager(),
+		kd:         kd,
+	}
 }
 
 // The master process is responsible for creating/deleting workers as
@@ -95,15 +107,8 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 		log.Infof("PPS master: launching master process")
-		m := &ppsMaster{
-			env:        a.env,
-			pipelines:  a.pipelines,
-			etcdPrefix: a.etcdPrefix,
-			txEnv:      a.txnEnv,
-			pcMgr:      newPcManager(),
-			masterCtx:  ctx,
-			kd:         newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger),
-		}
+		kd := newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
+		m := newMaster(ctx, a.env, a.txnEnv, a.pipelines, a.etcdPrefix, kd)
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
