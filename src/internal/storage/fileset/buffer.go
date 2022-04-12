@@ -130,3 +130,8 @@ func (b *Buffer) WalkDeletive(cb func(path, datum string) error) error {
 func (b *Buffer) Empty() bool {
 	return len(b.additive) == 0 && len(b.deletive) == 0
 }
+
+// Count gives the number of paths tracked in the buffer, meant as a proxy for metadata memory usage
+func (b *Buffer) Count() int {
+	return len(b.additive) + len(b.deletive)
+}

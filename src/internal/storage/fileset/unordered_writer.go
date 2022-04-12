@@ -17,6 +17,7 @@ type UnorderedWriter struct {
 	ctx                        context.Context
 	storage                    *Storage
 	memAvailable, memThreshold int64
+	fileThreshold              int64
 	buffer                     *Buffer
 	subFileSet                 int64
 	ttl                        time.Duration
@@ -27,7 +28,7 @@ type UnorderedWriter struct {
 	maxFanIn                   int
 }
 
-func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold, fileThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -35,12 +36,13 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	// The other half will be for buffering in the chunk writer.
 	memThreshold /= 2
 	uw := &UnorderedWriter{
-		ctx:          ctx,
-		storage:      storage,
-		memAvailable: memThreshold,
-		memThreshold: memThreshold,
-		buffer:       NewBuffer(),
-		maxFanIn:     math.MaxInt32,
+		ctx:           ctx,
+		storage:       storage,
+		fileThreshold: fileThreshold,
+		memAvailable:  memThreshold,
+		memThreshold:  memThreshold,
+		buffer:        NewBuffer(),
+		maxFanIn:      math.MaxInt32,
 	}
 	for _, opt := range opts {
 		opt(uw)
@@ -64,7 +66,7 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 		uw.memAvailable -= n
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return nil
+				break
 			}
 			return errors.EnsureStack(err)
 		}
@@ -75,6 +77,11 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 			w = uw.buffer.Add(p, datum)
 		}
 	}
+
+	if int64(uw.buffer.Count()) >= uw.fileThreshold {
+		return uw.serialize()
+	}
+	return nil
 }
 
 func (uw *UnorderedWriter) validate(p string) error {
@@ -160,6 +167,9 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
+	if int64(uw.buffer.Count()) >= uw.fileThreshold {
+		return uw.serialize()
+	}
 	return nil
 }
 
@@ -214,6 +224,9 @@ func (uw *UnorderedWriter) copySingle(file File, datum string, appendFile bool) 
 		uw.buffer.Delete(singlePath, datum)
 	}
 	uw.buffer.Copy(file, datum)
+	if int64(uw.buffer.Count()) >= uw.fileThreshold {
+		return uw.serialize()
+	}
 	return nil
 }
 
