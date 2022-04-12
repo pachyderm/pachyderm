@@ -35,12 +35,14 @@ func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64,
 				return err
 			}
 			pathRange = &index.PathRange{
-				Lower: f.Index().Path,
+				Lower:      f.Index().Path,
+				LowerDatum: f.Index().File.Datum,
 			}
 			size = 0
 			count = 0
 		}
 		pathRange.Upper = f.Index().Path
+		pathRange.UpperDatum = f.Index().File.Datum
 		size += index.SizeBytes(f.Index())
 		count++
 		return nil

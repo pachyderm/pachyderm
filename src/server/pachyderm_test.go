@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
@@ -10021,4 +10022,67 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.Contains(commitInfo.Error, "failed"))
 	require.NoError(t, c.PutFile(client.NewCommit("inB", "master", ""), "file", strings.NewReader("foo")))
+}
+
+func TestTemporaryDuplicatedPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name())
+	other := tu.UniqueString("other-" + t.Name())
+	pipeline := tu.UniqueString("pipeline-" + t.Name())
+
+	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateRepo(other))
+
+	require.NoError(t, c.PutFile(client.NewCommit(other, "master", ""), "empty",
+		strings.NewReader("")))
+
+	// add an output file bigger than the sharding threshold so that two in a row
+	// will fall on either side of a naive shard division
+	bigSize := fileset.DefaultShardThreshold * 5 / 4
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "a",
+		strings.NewReader(strconv.Itoa(bigSize/units.MB))))
+
+	// add some more files to push the fileset that deletes the old datums out of the first fan-in
+	for i := 0; i < 10; i++ {
+		require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), fmt.Sprintf("b-%d", i),
+			strings.NewReader("1")))
+	}
+
+	req := basicPipelineReq(pipeline, repo)
+	req.DatumSetSpec = &pps.DatumSetSpec{
+		Number: 1,
+	}
+	req.Transform.Stdin = []string{
+		fmt.Sprintf("for f in /pfs/%s/* ; do", repo),
+		"dd if=/dev/zero of=/pfs/out/$(basename $f) bs=1M count=$(cat $f)",
+		"done",
+	}
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, "", commitInfo.Error)
+
+	// update the pipeline to take new input, but produce identical output
+	// the filesets in the output of the resulting job should look roughly like
+	// [old output] [new output] [deletion of old output]
+	// If a path is included in multiple shards, it would appear twice for both
+	// the old and new datums, while only one copy would be deleted,
+	// leading to either a validation error or a repeated path/datum pair
+	req.Update = true
+	req.Input = client.NewCrossInput(
+		client.NewPFSInput(repo, "/*"),
+		client.NewPFSInput(other, "/*"))
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, "", commitInfo.Error)
 }
