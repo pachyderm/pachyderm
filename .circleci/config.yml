@@ -10,7 +10,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-minikube.sh
+      - run: etc/testing/circle/start-kind.sh
       - run: etc/testing/circle/deploy-pachyderm.sh
       - run: pachctl port-forward & npm run test
   publish:

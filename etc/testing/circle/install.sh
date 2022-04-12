@@ -21,21 +21,21 @@ fi
 # Install kubectl
 # To get the latest kubectl version:
 # curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
+# Install kubectl
+# To get the latest kubectl version:
+# curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
 if [ ! -f cached-deps/kubectl ] ; then
-    KUBECTL_VERSION="v$(jq -r .kubernetes version.json)"
-    curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
-        chmod +x ./kubectl
-        mv ./kubectl cached-deps/kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+      chmod +x ./kubectl
+      mv ./kubectl cached-deps/kubectl
 fi
 
-# Install minikube
-# To get the latest minikube version:
-# curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort -V | tail -n1
-if [ ! -f cached-deps/minikube ] ; then
-    MINIKUBE_VERSION="v$(jq -r .minikube version.json)"
-    curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
-        chmod +x ./minikube
-        mv ./minikube cached-deps/minikube
+
+if [ ! -f cached-deps/kind ] ; then
+    KIND_VERSION="v$(jq -r .kind version.json)"
+    curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64" \
+        && chmod +x ./kind-linux-amd64 \
+        && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
 fi
 
 export PACHYDERM_VERSION="$(jq -r .pachyderm version.json)"
