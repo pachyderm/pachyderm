@@ -1,4 +1,4 @@
-import {SkeletonBodyText} from '@pachyderm/components';
+import {SkeletonBodyText, CaptionTextSmall} from '@pachyderm/components';
 import React, {HTMLAttributes} from 'react';
 
 import styles from './Description.module.css';
@@ -18,7 +18,9 @@ const Description: React.FC<DescriptionProps> = ({
 }) => {
   return (
     <>
-      <dt className={styles.term}>{term}</dt>
+      <dt className={styles.term}>
+        <CaptionTextSmall>{term}</CaptionTextSmall>
+      </dt>
       <dd className={styles.description} {...rest}>
         {loading ? (
           <div className={lines === 1 ? styles.singleLineLoading : undefined}>

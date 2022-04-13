@@ -24,9 +24,9 @@ const pages = [
         </p>
         <div className={styles.infoCard}>
           <div className={styles.header}>
-            <div className={styles.headerText}>
+            <h5 className={styles.headerText}>
               Image Processing at Scale with Pachyderm
-            </div>
+            </h5>
             <p>
               Easily handle the largest structured and unstructured datasets.
             </p>
@@ -36,7 +36,9 @@ const pages = [
               <Icon className={styles.icon}>
                 <EducationSVG />
               </Icon>
-              This tutorial is an introduction to Pachyderm that explores:
+              <h6>
+                This tutorial is an introduction to Pachyderm that explores:
+              </h6>
             </div>
             <ul>
               <li>Pipelines</li>
@@ -60,7 +62,7 @@ const pages = [
           <Icon className={styles.icon}>
             <InfoSVG />
           </Icon>
-          This tutorial uses real resources
+          <h6>This tutorial uses real resources</h6>
         </div>
         <p>
           We will provde the files needed to run this tutorial, but you will be

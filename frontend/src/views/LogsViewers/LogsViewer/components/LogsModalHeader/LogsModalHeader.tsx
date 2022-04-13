@@ -64,7 +64,7 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
   const {download} = useDownloadText(formatText(), `${headerText}_logs`);
   return (
     <Header appearance="light">
-      <h4 className={styles.title}>{headerText}</h4>
+      <h5 className={styles.title}>{headerText}</h5>
       <div className={styles.controls}>
         <div className={styles.switchGroup}>
           <div className={styles.switchItem}>
@@ -73,7 +73,7 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
               onChange={setHighlightUserLogs}
               aria-label="Highlight User Logs"
             />
-            <span>Highlight User Logs</span>
+            Highlight User Logs
           </div>
           <div className={styles.switchItem}>
             <Switch
@@ -82,7 +82,7 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
               onChange={setRawLogs}
               aria-label="Raw Logs"
             />
-            <span>Raw Logs</span>
+            Raw Logs
           </div>
         </div>
         <div className={styles.exportGroup}>

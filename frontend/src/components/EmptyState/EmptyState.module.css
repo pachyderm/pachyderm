@@ -11,12 +11,10 @@
 
 .message {
   margin-top: 1rem;
-  font-size: var(--font-size-body-medium);
   text-align: center;
   max-width: 15rem;
 }
 
 .title {
   margin-top: 1rem;
-  font-size: var(--font-size-body-large);
 }

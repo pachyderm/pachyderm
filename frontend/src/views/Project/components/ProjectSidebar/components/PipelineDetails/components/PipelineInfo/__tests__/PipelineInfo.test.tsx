@@ -35,36 +35,41 @@ describe('PipelineInfo', () => {
       queryByTestId('Description__Pipeline StatusSkeleton'),
     );
 
-    expect(getByText('Pipeline Status').nextElementSibling).toHaveTextContent(
-      'Failure',
-    );
-    expect(getByText('Pipeline Type').nextElementSibling).toHaveTextContent(
-      'Standard',
-    );
-    expect(getByText('Description').nextElementSibling).toHaveTextContent(
-      'Not my favorite pipeline',
-    );
+    expect(
+      getByText('Pipeline Status').parentElement?.nextElementSibling,
+    ).toHaveTextContent('Failure');
+    expect(
+      getByText('Pipeline Type').parentElement?.nextElementSibling,
+    ).toHaveTextContent('Standard');
+    expect(
+      getByText('Description').parentElement?.nextElementSibling,
+    ).toHaveTextContent('Not my favorite pipeline');
 
-    const outputRepo = getByText('Output Repo').nextElementSibling;
+    const outputRepo =
+      getByText('Output Repo').parentElement?.nextElementSibling;
     expect(outputRepo).toHaveTextContent(pipelineId);
     expect(within(outputRepo as HTMLElement).getByRole('link')).toHaveAttribute(
       'href',
       `/project/${projectId}/repos/${pipelineId}/branch/master`,
     );
 
-    expect(getByText('Datum Timeout').nextElementSibling).toHaveTextContent(
-      'N/A',
-    );
-    expect(getByText('Datum Tries').nextElementSibling).toHaveTextContent('0');
-    expect(getByText('Job Timeout').nextElementSibling).toHaveTextContent(
-      'N/A',
-    );
-    expect(getByText('Output Branch').nextElementSibling).toHaveTextContent(
-      'master',
-    );
-    expect(getByText('Egress').nextElementSibling).toHaveTextContent('Yes');
-    expect(getByText('S3 Output Repo').nextElementSibling).toHaveTextContent(
-      `s3//${pipelineId}`,
-    );
+    expect(
+      getByText('Datum Timeout').parentElement?.nextElementSibling,
+    ).toHaveTextContent('N/A');
+    expect(
+      getByText('Datum Tries').parentElement?.nextElementSibling,
+    ).toHaveTextContent('0');
+    expect(
+      getByText('Job Timeout').parentElement?.nextElementSibling,
+    ).toHaveTextContent('N/A');
+    expect(
+      getByText('Output Branch').parentElement?.nextElementSibling,
+    ).toHaveTextContent('master');
+    expect(
+      getByText('Egress').parentElement?.nextElementSibling,
+    ).toHaveTextContent('Yes');
+    expect(
+      getByText('S3 Output Repo').parentElement?.nextElementSibling,
+    ).toHaveTextContent(`s3//${pipelineId}`);
   });
 });

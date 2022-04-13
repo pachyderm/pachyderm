@@ -8,7 +8,6 @@
 }
 
 .diffUpdates {
-  font-size: var(--font-size-body-medium);
   width: 13rem;
   margin-bottom: 2rem;
 }
@@ -20,7 +19,6 @@
   flex-wrap: nowrap;
   padding: 0.25rem 0.5rem;
   border-radius: 1rem;
-  font-weight: 500;
   width: 13rem;
   white-space: nowrap;
   margin-top: 0.5rem;

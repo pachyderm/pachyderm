@@ -24,7 +24,7 @@ const ReadLogsButton: React.FC = () => {
       });
 
   return (
-    <Link small to={logsLink} className={styles.base}>
+    <Link to={logsLink} className={styles.base}>
       <Icon color="plum" className={styles.iconSvg}>
         <DocumentSVG />
       </Icon>

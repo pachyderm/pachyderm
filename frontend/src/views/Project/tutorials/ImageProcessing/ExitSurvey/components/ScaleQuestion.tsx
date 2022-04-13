@@ -1,4 +1,4 @@
-import {RadioButton} from '@pachyderm/components';
+import {CaptionTextSmall, RadioButton} from '@pachyderm/components';
 import React from 'react';
 import {FieldPath, FieldValues} from 'react-hook-form';
 
@@ -20,22 +20,22 @@ const ScaleQuestion: React.FC<ScaleQuestionProps> = ({name, question}) => {
           className={styles.radio}
         >
           <RadioButton.Label className={styles.radioLabel}>
-            Strongly disagree
+            <CaptionTextSmall>Strongly disagree</CaptionTextSmall>
           </RadioButton.Label>
         </RadioButton>
         <RadioButton name={name} value="Disagree" className={styles.radio}>
           <RadioButton.Label className={styles.radioLabel}>
-            Disagree
+            <CaptionTextSmall>Disagree</CaptionTextSmall>
           </RadioButton.Label>
         </RadioButton>
         <RadioButton name={name} value="Neutral" className={styles.radio}>
           <RadioButton.Label className={styles.radioLabel}>
-            Neutral
+            <CaptionTextSmall>Neutral</CaptionTextSmall>
           </RadioButton.Label>
         </RadioButton>
         <RadioButton name={name} value="Agree" className={styles.radio}>
           <RadioButton.Label className={styles.radioLabel}>
-            Agree
+            <CaptionTextSmall>Agree</CaptionTextSmall>
           </RadioButton.Label>
         </RadioButton>
         <RadioButton
@@ -44,7 +44,7 @@ const ScaleQuestion: React.FC<ScaleQuestionProps> = ({name, question}) => {
           className={styles.radio}
         >
           <RadioButton.Label className={styles.radioLabel}>
-            Strongly agree
+            <CaptionTextSmall>Strongly agree</CaptionTextSmall>
           </RadioButton.Label>
         </RadioButton>
       </div>

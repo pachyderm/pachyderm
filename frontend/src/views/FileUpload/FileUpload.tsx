@@ -11,6 +11,8 @@ import {
   Icon,
   ExternalLinkSVG,
   Link,
+  ErrorText,
+  HelpText,
 } from '@pachyderm/components';
 import React from 'react';
 import {Helmet} from 'react-helmet';
@@ -67,7 +69,7 @@ const FileUpload: React.FC = () => {
                     <ExternalLinkSVG />
                   </Icon>
                 </Link>
-                <h4 className={styles.header}>Upload Files</h4>
+                <h2>Upload Files</h2>
               </Group>
               <Group spacing={16} vertical>
                 <div>
@@ -166,15 +168,15 @@ const FileUpload: React.FC = () => {
             <Group spacing={8} vertical className={styles.uploadInfo}>
               <div className={styles.uploadInfoText}>
                 {(fileNameError || error) && (
-                  <span className={styles.error} id="file-error">
+                  <ErrorText className={styles.error} id="file-error">
                     {fileNameError?.message || error}
-                  </span>
+                  </ErrorText>
                 )}
                 {uploadsFinished && (
-                  <em className={styles.uploadSucessText}>
+                  <HelpText>
                     All files have been successfully uploaded, click Done to
                     commit the files.
-                  </em>
+                  </HelpText>
                 )}
               </div>
               <div>

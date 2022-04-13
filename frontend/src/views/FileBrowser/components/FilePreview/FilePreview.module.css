@@ -15,7 +15,6 @@
 .fileText {
   flex: 1;
   margin: 0;
-  font-size: var(--font-size-body-medium);
 }
 
 .download, .download:hover {

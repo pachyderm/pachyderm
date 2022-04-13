@@ -71,7 +71,7 @@ const FileCard: React.FC<FileCardProps> = ({
         <Group spacing={8} align="start" className={styles.infoWrapper}>
           <FileIcon fileType={fileMajorType} />
           <div className={styles.info}>
-            <span className={styles.name}>{file.name}</span>
+            <h6 className={styles.name}>{file.name}</h6>
             <Group
               align="center"
               justify="between"

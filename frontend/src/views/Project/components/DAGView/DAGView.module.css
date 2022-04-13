@@ -16,10 +16,8 @@
 .controlLabel {
   color: var(--pachyderm-black);
   cursor: pointer;
-  font-weight: 600;
   margin-bottom: 0;
   margin-left: 0.5rem;
-  font-size: var(--font-size-body-medium);
 }
 
 .controlButton {
@@ -50,9 +48,6 @@
 }
 
 .dagError {
-  color: var(--error-red);
-  font-size: var(--font-size-body-medium);
-  font-weight: 600;
   margin-left: 1rem;
 }
 

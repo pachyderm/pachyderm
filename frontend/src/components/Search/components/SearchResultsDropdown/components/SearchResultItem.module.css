@@ -11,10 +11,6 @@
 
 .base > span {
   color: var(--pachyderm-black);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 0.938rem;
 }
 
 .underline {

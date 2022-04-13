@@ -21,9 +21,7 @@ const DeletePipelineButton: React.FC = () => {
           onHide={() => {
             setModalOpen(false);
           }}
-          headerContent={
-            <span>Are you sure you want to delete this Pipeline?</span>
-          }
+          headerContent="Are you sure you want to delete this Pipeline?"
           actionable
           small
           confirmText="Delete"

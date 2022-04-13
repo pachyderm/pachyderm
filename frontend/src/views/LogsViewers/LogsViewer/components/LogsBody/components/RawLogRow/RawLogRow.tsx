@@ -1,4 +1,5 @@
 import {GetLogsQuery} from '@graphqlTypes';
+import {CodeText} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {CSSProperties, memo, useEffect, useRef} from 'react';
 import {areEqual} from 'react-window';
@@ -44,11 +45,11 @@ const RawLogRow: React.FC<LogRowProps> = ({
     >
       <div ref={heightRef} className={styles.messageCol}>
         {highlightUserLogs && user ? (
-          <mark data-testid="RawLogRow__user_log" className={styles.mark}>
+          <CodeText data-testid="RawLogRow__user_log" className={styles.mark}>
             {message}
-          </mark>
+          </CodeText>
         ) : (
-          message
+          <CodeText>{message}</CodeText>
         )}
       </div>
     </div>

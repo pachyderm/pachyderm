@@ -6,14 +6,8 @@
 }
 
 .row {
-  font-family: Menlo;
-  color: var(--pachyderm-black);
-  font-size: 0.75rem;;
-  letter-spacing: 0;
-  line-height: 1rem;
-
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .row label {
@@ -22,17 +16,10 @@
 
 .timestampCol {
   padding-left: 2rem;
-  width: 17.438rem;
-  line-height: 1rem;
   text-align: top;
-  padding-bottom: 0.75rem;
 }
 
 .timestampCheckbox span {
-  font-family: Menlo;
-  color: var(--pachyderm-black);
-  font-size: 12px;
-  letter-spacing: 0;
   padding-left: 1rem;
 }
 
@@ -40,7 +27,7 @@
   width: 100%;
   white-space: pre-wrap;
   line-break: anywhere;
-  padding-bottom: 0.5rem;
+  padding: 0.25rem 0;
 }
 
 .mark {

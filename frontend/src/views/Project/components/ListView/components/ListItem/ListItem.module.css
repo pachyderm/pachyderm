@@ -7,8 +7,6 @@
   overflow-y: hidden;
   height: 3rem;
   color: var(--pachyderm-black);
-  font-weight: 400;
-  font-size: var(--font-size-body-large);
   padding-right: 1rem;
   transition: background-color 0.1s;
 }
@@ -37,8 +35,6 @@
   flex: 1;
   margin: 0;
   margin-top: 2px;
-  font-size: var(--font-size-body-large);
-  font-weight: 400;
   display: inline-block;
 }
 
@@ -50,8 +46,6 @@
 }
 
 .status {
-  font-size: var(--font-size-body-medium);
-  font-weight: 400;
   color: var(--pachyderm-black);
 }
 

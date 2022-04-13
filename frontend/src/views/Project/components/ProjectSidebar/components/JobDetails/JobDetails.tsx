@@ -80,8 +80,9 @@ const JobDetails = () => {
         <Route path={LINEAGE_PIPELINE_JOB_PATH}>
           <nav>
             <Link to={jobsRoute({projectId})} className={styles.seeMoreJobs}>
-              All jobs{pipelineId ? ' >' : ''}
+              All jobs
             </Link>
+            {pipelineId ? '/ ' : ''}
             {pipelineId && (
               <Link
                 className={styles.seeMoreJobs}
@@ -98,7 +99,7 @@ const JobDetails = () => {
         </Route>
 
         <Group spacing={8} className={styles.heading}>
-          Job
+          <h5>Job</h5>
           <CommitIdCopy commit={jobId} longId />
         </Group>
       </section>

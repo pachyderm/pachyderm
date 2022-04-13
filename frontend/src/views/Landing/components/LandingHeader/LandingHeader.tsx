@@ -20,7 +20,7 @@ const LandingHeader = () => {
         <Group align="center" justify="center" spacing={24}>
           <a className={styles.logo} href="/">
             <LogoElephant />
-            <span className={styles.dashboard}>Console</span>
+            <h5 className={styles.dashboard}>Console</h5>
           </a>
           {workspaceName && (
             <>
@@ -31,23 +31,21 @@ const LandingHeader = () => {
                   className={styles.support}
                   onClick={() => showConnectModal(true)}
                 >
-                  Connect to Workspace {workspaceName}
+                  <h6 className={styles.support}>
+                    Connect to Workspace {workspaceName}
+                  </h6>
                 </ButtonLink>
               ) : (
-                <span className={styles.workspaceName}>
+                <h6 className={styles.workspaceName}>
                   Workspace {workspaceName}
-                </span>
+                </h6>
               )}
             </>
           )}
         </Group>
 
         <Group spacing={24} align="center">
-          <Link
-            className={styles.support}
-            small
-            href="mailto:support@pachyderm.com"
-          >
+          <Link className={styles.support} href="mailto:support@pachyderm.com">
             Support
           </Link>
           <div className={styles.divider} />

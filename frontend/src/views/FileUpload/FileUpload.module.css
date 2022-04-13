@@ -8,13 +8,7 @@
   height: 94%;
 }
 
-.header {
-  font-size: 1.875rem;
-  font-weight: 800;
-}
-
 .terminal {
-  font-size: var(--font-size-body-large);
   display: flex;
   align-items: flex-start;
 }
@@ -38,29 +32,8 @@
   text-align: center;
   border: 2px dashed var(--border-grey);
   border-radius: 3px;
-  font-size: 1.25rem;
   position: relative;
   padding: 2rem;
-}
-
-.fileUploadLabel {
-  box-sizing: border-box;
-  border-radius: 3px;
-  text-decoration: none;
-  transition: color 300ms ease-in-out, background-color 300ms ease-in-out, border 300ms ease-in-out;
-  font-weight: 600;
-  font-size: 0.875rem;
-  padding: 0.5rem 1.25rem;
-  border: 1px solid var(--pachyderm-plum);
-  background-color: var(--white);
-  color: var(--pachyderm-plum);
-  height: auto;
-  width: auto;
-  cursor: pointer;
-}
-
-.fileUploadText {
-  font-size: 0.875rem;
 }
 
 .fileUploadTextDisabled {
@@ -91,14 +64,7 @@
 }
 
 .error {
-  color: var(--pachyderm-red);
-  font-weight: 500;
   white-space: nowrap;
-  font-size: 0.75rem;
-}
-
-.uploadSucessText {
-  font-size: 0.75rem;
 }
 
 .uploadInfo {
@@ -113,7 +79,6 @@
 }
 
 .uploadHelp {
-  font-size: 0.875rem;
   margin-left: 1rem;
   margin-top: 0.5rem;
 }

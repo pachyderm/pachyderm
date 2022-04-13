@@ -37,7 +37,9 @@ const ExitSurvey: React.FC<ExitSurveyProps> = ({onTutorialClose}) => {
           <InfoSVG />
         </div>
         <div className={styles.infoContent}>
-          <div className={styles.infoHeader}>How to delete this tutorial</div>
+          <div className={styles.infoHeader}>
+            <h6>How to delete this tutorial</h6>
+          </div>
           <div className={styles.infoLine}>
             <Description
               id="delete-these"
@@ -51,7 +53,9 @@ const ExitSurvey: React.FC<ExitSurveyProps> = ({onTutorialClose}) => {
         </div>
       </div>
       <div className={styles.card}>
-        <div className={styles.headerText}>How was your experience?</div>
+        <div className={styles.headerText}>
+          <h6>How was your experience?</h6>
+        </div>
         <div className={styles.subheaderText}>
           Help us improve by completing this two question survey.
         </div>

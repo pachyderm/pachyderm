@@ -13,22 +13,12 @@
 
 .topContent {
   padding: 1rem;
-  padding-top: 4rem;
+  padding-top: 2rem;
   padding-bottom: 0rem;
-}
-
-.title {
-  color: var(--pachyderm-black);
-  font-weight: 600;
-  font-size: var(--font-size-header);
-  line-height: 19px;
 }
 
 .subTitle {
   color: var(--pachyderm-black);
-  font-weight: 600;
-  line-height: 22px;
-  font-size: 0.875rem;
   padding: 1rem;
   background-color: var(--white);
   position: sticky;

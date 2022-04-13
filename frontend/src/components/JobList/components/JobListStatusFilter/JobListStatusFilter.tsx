@@ -35,7 +35,9 @@ const JobListStatusFilter: React.FC<JobListStatusFilterProps> = ({
 
   return (
     <div className={styles.base}>
-      <p className={styles.label}>{getListTitle('Job', jobs.length)}</p>
+      <p className={styles.label}>
+        <strong>{getListTitle('Job', jobs.length)}</strong>
+      </p>
 
       <ChipGroup>
         {jobStates.map((state) => {

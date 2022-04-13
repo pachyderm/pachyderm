@@ -1,14 +1,3 @@
-.term {
-  font-size: 0.75rem;
-  color: var(--placeholder-grey);
-  font-weight: 500;
-}
-
-.description {
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
 .singleLineLoading {
   max-width: 8rem;
 }
@@ -18,7 +7,7 @@
 }
 
 .term + .description {
-  margin-top: 0.3125rem;
+  margin-top: 0rem;
 }
 
 .description + .term {

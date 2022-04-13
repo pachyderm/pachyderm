@@ -18,7 +18,6 @@
   align-items: center;
   padding: 0.25rem 0.75rem;
   border-radius: 1rem;
-  font-weight: 500;
 }
 
 .commitStatus.ADDED {
@@ -49,20 +48,17 @@
 
 .fileInfo {
   flex: 1;
-  font-size: var(--font-size-body-medium);
-  line-height: var(--font-size-body-medium);
   overflow: hidden;
 }
 
 .fileName {
-  font-size: var(--font-size-body-large);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .fileText {
   margin: 0;
-  margin-top: var(--font-size-body-large);
+  margin-top: 0.25rem;
 }
 
 .actions {
@@ -70,7 +66,6 @@
   border-top: solid 1px var(--line-grey);
   width: 100%;
   justify-content: flex-end;
-  font-size: var(--font-size-body-medium);;
 }
 
 .actionButtons {

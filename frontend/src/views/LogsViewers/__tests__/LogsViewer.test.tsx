@@ -86,13 +86,13 @@ describe('Logs Viewer', () => {
       `${format(
         fromUnixTime(pipelineAndJobLogs['1'][0].getTs()?.getSeconds() || 0),
         LOGS_DATE_FORMAT,
-      )}started datum task`,
+      )} started datum task`,
     );
     expect(rows[1].textContent).toEqual(
       `${format(
         fromUnixTime(pipelineAndJobLogs['1'][1].getTs()?.getSeconds() || 0),
         LOGS_DATE_FORMAT,
-      )}finished datum task`,
+      )} finished datum task`,
     );
   });
 
@@ -160,7 +160,7 @@ describe('Logs Viewer', () => {
     );
 
     await waitFor(() =>
-      expect(queryByText('last message')).toBeInTheDocument(),
+      expect(queryByText(/last message/)).toBeInTheDocument(),
     );
   });
 

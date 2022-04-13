@@ -6,6 +6,7 @@ import {
   StatusBlockedSVG,
   StatusPausedSVG,
   GlobalIdSVG,
+  CaptionTextSmall,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -53,14 +54,14 @@ const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
       })}
     >
       <img className={styles.nodeImage} src={getIcon(node)} alt={node.type} />
-      <h3 className={styles.nodeName}>{nodeName}</h3>
+      <span className={styles.nodeName}>{nodeName}</span>
       {NodeType.INPUT_REPO === node.type && (
-        <span className={styles.status}>
+        <CaptionTextSmall className={styles.status}>
           Input{' '}
           <Icon small>
             <DocumentAddSVG />
           </Icon>
-        </span>
+        </CaptionTextSmall>
       )}
       {NodeType.PIPELINE === node.type && node.state === NodeState.ERROR && (
         <Icon small>

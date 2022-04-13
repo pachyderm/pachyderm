@@ -1,5 +1,4 @@
 .buttonLink {
-  font-size: var(--font-size-body-medium);
   margin-left: 1rem;
   width: calc(100% - 2rem);
   display: inline-flex;

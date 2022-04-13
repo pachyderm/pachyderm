@@ -2,7 +2,8 @@
   position: sticky;
   z-index: 1;
   top: -1px;
-  padding: 0rem 1rem 0rem 1.5625rem;
+  padding: 1.5625rem 1rem 0rem 1.5625rem;
+  margin-bottom: 0.5rem;
   background-color: var(--white);
 }
 

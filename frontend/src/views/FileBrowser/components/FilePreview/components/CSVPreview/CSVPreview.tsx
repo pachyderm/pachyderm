@@ -41,9 +41,9 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
       <div className={styles.content}>
         <header className={styles.header}>
           {headers.map((key) => (
-            <div className={styles.cell} key={key}>
+            <strong className={styles.cell} key={key}>
               {key}
-            </div>
+            </strong>
           ))}
         </header>
         <div

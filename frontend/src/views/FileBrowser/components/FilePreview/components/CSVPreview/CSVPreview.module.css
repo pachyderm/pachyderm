@@ -1,12 +1,14 @@
 .base {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: var(--font-size-body-large);
   background-color: var(--white);
   margin-top: 2rem;
   border-top: solid 2px var(--line-grey);
   overflow: auto;
   white-space: nowrap;
   margin-left: -2rem;
+}
+
+.base * {
+  font-family: 'Menlo';
 }
 
 .cell {
@@ -32,7 +34,6 @@
 .header .cell {
   width: 10rem;
   display: inline-block;
-  font-weight: 600;
   background-color: var(--background-blue);
 }
 

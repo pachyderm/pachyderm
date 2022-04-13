@@ -1,6 +1,5 @@
 .base :global .repoLink {
   color: var(--pachyderm-plum);
-  font-weight: 600;
 }
 
 .base :global .repoLink:not([href]) {

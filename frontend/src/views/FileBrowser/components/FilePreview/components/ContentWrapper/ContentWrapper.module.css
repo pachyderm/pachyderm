@@ -1,8 +1,5 @@
 .base {
   text-align: left;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: var(--font-size-body-large);
-  line-height: 1.5rem;
   background-color: var(--white);
   margin: 2rem;
   border: solid 2px var(--line-grey);
@@ -13,4 +10,9 @@
   width: 100%;
   max-width: 1000px;
   overflow: hidden;
+}
+
+.base * {
+  font-family: 'Menlo';
+  line-height: 1.5rem;
 }

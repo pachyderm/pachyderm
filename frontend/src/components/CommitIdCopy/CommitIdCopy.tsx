@@ -14,7 +14,7 @@ interface CommitIdCopyProps {
   repo?: string;
   branch?: string;
   commit: string;
-  smallIcon?: boolean;
+  small?: boolean;
   longId?: boolean;
 }
 
@@ -22,7 +22,7 @@ const CommitIdCopy: React.FC<CommitIdCopyProps> = ({
   repo,
   branch,
   commit,
-  smallIcon,
+  small,
   longId,
 }) => {
   const shortCommit = longId ? commit : commit.slice(0, 8);
@@ -38,20 +38,20 @@ const CommitIdCopy: React.FC<CommitIdCopyProps> = ({
 
   return (
     <span className={styles.base} data-testid={`CommitIdCopy__id`}>
-      {copyString}
+      {small ? copyString : <h5>{copyString}</h5>}
       <ButtonLink
         className={classnames(styles.copy, {[styles.copied]: copied})}
         onClick={handleCopy}
         data-testid={`CommitIdCopy_copy`}
       >
-        <Icon color="plum" small={smallIcon}>
+        <Icon color="plum" small={small}>
           <CopySVG />
         </Icon>
       </ButtonLink>
       <Icon
-        small={smallIcon}
+        small={small}
         className={classnames(styles.copyCheckmark, {
-          [styles.small]: smallIcon,
+          [styles.small]: small,
           [styles.copied]: copied,
         })}
       >

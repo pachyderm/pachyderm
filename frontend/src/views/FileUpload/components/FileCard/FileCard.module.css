@@ -15,7 +15,6 @@
 }
 
 .name {
-  font-size: 1rem;
   color: var(--pachyderm-black);
 }
 
@@ -24,7 +23,6 @@
 }
 
 .size {
-  font-size: 0.875rem;
   color: var(--pachyderm-black);
 }
 
@@ -39,6 +37,5 @@
 }
 
 .loading {
-  font-style: italic;
   color: #0F1012;
 }

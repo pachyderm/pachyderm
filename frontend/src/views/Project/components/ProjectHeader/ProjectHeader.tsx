@@ -48,9 +48,9 @@ const ProjectHeader = () => {
             disabled={!showTooltip}
             className={styles.projectNameTooltip}
           >
-            <h1 ref={setProjectNameRef} className={styles.projectName}>
+            <h6 ref={setProjectNameRef} className={styles.projectName}>
               {projectName}
-            </h1>
+            </h6>
           </Tooltip>
         )}
       </div>

@@ -4,9 +4,6 @@
   padding-right: 2rem;
   height: 2.438rem;
   width: 31.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0;
   border: none;
   color: var(--white);
   background-color: transparent;
@@ -14,7 +11,6 @@
 
 .input::placeholder {
   color: var(--white);
-  font-weight: 400;
 }
 
 .input:focus,

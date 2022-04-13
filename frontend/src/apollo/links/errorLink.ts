@@ -1,11 +1,13 @@
 import {onError} from '@apollo/client/link/error';
 import {captureException} from '@sentry/react';
-import {History as BrowserHistory} from 'history';
+import {useHistory} from 'react-router';
 
 import logout from '@dash-frontend/lib/logout';
 
-export const errorLink = (browserHistory: BrowserHistory) =>
-  onError(({graphQLErrors, networkError, operation}) => {
+export const useErrorLink = () => {
+  const browserHistory = useHistory();
+
+  return onError(({graphQLErrors, networkError, operation}) => {
     if (graphQLErrors) {
       graphQLErrors.forEach(({message, locations, path}) => {
         if (message || locations || path) {
@@ -43,3 +45,4 @@ export const errorLink = (browserHistory: BrowserHistory) =>
       captureException(`[Network error]: ${networkError}`);
     }
   });
+};

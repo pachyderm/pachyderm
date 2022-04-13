@@ -18,12 +18,10 @@
 }
 
 .projectName {
-  font-size: 0.875rem;
   color: var(--white);
   margin-bottom: 0;
   padding-top: 0.875rem;
   padding-bottom: 0.875rem;
-  font-weight: 600;
   user-select: none;
   max-width: 13.125rem;
   white-space: nowrap;

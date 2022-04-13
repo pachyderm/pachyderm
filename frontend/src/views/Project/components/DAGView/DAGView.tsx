@@ -6,6 +6,7 @@ import {
   FullscreenSVG,
   FlipSVG,
   Icon,
+  ErrorText,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -152,9 +153,9 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           </button>
         </Tooltip>
         {error && (
-          <span className={styles.dagError}>
+          <ErrorText className={styles.dagError}>
             Connection error: data may not be up to date.
-          </span>
+          </ErrorText>
         )}
       </div>
       {noDags && (

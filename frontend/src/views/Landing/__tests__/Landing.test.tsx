@@ -20,7 +20,7 @@ describe('Landing', () => {
     const {findAllByRole, findByRole} = render(<Landing />);
 
     expect(
-      await findByRole('heading', {name: 'Data Cleaning Process', level: 3}),
+      await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
     ).toBeInTheDocument();
 
     expect(await findAllByRole('row', {})).toHaveLength(7);
@@ -30,12 +30,12 @@ describe('Landing', () => {
     const {queryByRole, findByRole} = render(<Landing />);
 
     expect(
-      await findByRole('heading', {name: 'Data Cleaning Process', level: 3}),
+      await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
     ).toBeInTheDocument();
     expect(
       await findByRole('heading', {
         name: 'Solar Power Data Logger Team Collab',
-        level: 3,
+        level: 5,
       }),
     ).toBeInTheDocument();
 
@@ -47,13 +47,13 @@ describe('Landing', () => {
       expect(
         queryByRole('heading', {
           name: 'Solar Power Data Logger Team Collab',
-          level: 3,
+          level: 5,
         }),
       ).not.toBeInTheDocument(),
     );
     await waitFor(() =>
       expect(
-        queryByRole('heading', {name: 'Data Cleaning Process', level: 3}),
+        queryByRole('heading', {name: 'Data Cleaning Process', level: 5}),
       ).toBeInTheDocument(),
     );
   });
@@ -63,7 +63,7 @@ describe('Landing', () => {
     expect(
       await findByRole('heading', {
         name: 'Solar Power Data Logger Team Collab',
-        level: 3,
+        level: 5,
       }),
     ).toBeInTheDocument();
   });
@@ -130,18 +130,23 @@ describe('Landing', () => {
   it('should allow the user to sort by name', async () => {
     const {findAllByRole, findByRole} = render(<Landing />);
 
-    const projectNames = await findAllByRole('heading', {level: 3});
+    expect(
+      await findByRole('heading', {name: 'Data Cleaning Process', level: 5}),
+    ).toBeInTheDocument();
+    const projectNames = await findAllByRole('heading', {
+      level: 5,
+    });
 
-    expect(projectNames[0].textContent).toEqual('Data Cleaning Process');
-    expect(projectNames[1].textContent).toEqual(
+    expect(projectNames[1].textContent).toEqual('Data Cleaning Process');
+    expect(projectNames[2].textContent).toEqual(
       'Solar Power Data Logger Team Collab',
     );
-    expect(projectNames[2].textContent).toEqual('Solar Price Prediction Modal');
-    expect(projectNames[3].textContent).toEqual('Solar Industry Analysis 2020');
-    expect(projectNames[4].textContent).toEqual('Empty Project');
-    expect(projectNames[5].textContent).toEqual('Trait Discovery');
+    expect(projectNames[3].textContent).toEqual('Solar Price Prediction Modal');
+    expect(projectNames[4].textContent).toEqual('Solar Industry Analysis 2020');
+    expect(projectNames[5].textContent).toEqual('Empty Project');
+    expect(projectNames[6].textContent).toEqual('Trait Discovery');
 
-    expect(projectNames[6].textContent).toEqual('Solar Panel Data Sorting');
+    expect(projectNames[7].textContent).toEqual('Solar Panel Data Sorting');
 
     const sortDropdown = await findByRole('button', {
       name: 'Sort by: Newest',
@@ -150,25 +155,25 @@ describe('Landing', () => {
     const nameSort = await findByRole('menuitem', {name: 'Name A-Z'});
     userEvent.click(nameSort);
 
-    const nameSortedProjectNames = await findAllByRole('heading', {level: 3});
+    const nameSortedProjectNames = await findAllByRole('heading', {level: 5});
 
-    expect(nameSortedProjectNames[0].textContent).toEqual(
+    expect(nameSortedProjectNames[1].textContent).toEqual(
       'Data Cleaning Process',
     );
-    expect(nameSortedProjectNames[1].textContent).toEqual('Empty Project');
-    expect(nameSortedProjectNames[2].textContent).toEqual(
+    expect(nameSortedProjectNames[2].textContent).toEqual('Empty Project');
+    expect(nameSortedProjectNames[3].textContent).toEqual(
       'Solar Industry Analysis 2020',
     );
-    expect(nameSortedProjectNames[3].textContent).toEqual(
+    expect(nameSortedProjectNames[4].textContent).toEqual(
       'Solar Panel Data Sorting',
     );
-    expect(nameSortedProjectNames[4].textContent).toEqual(
+    expect(nameSortedProjectNames[5].textContent).toEqual(
       'Solar Power Data Logger Team Collab',
     );
-    expect(nameSortedProjectNames[5].textContent).toEqual(
+    expect(nameSortedProjectNames[6].textContent).toEqual(
       'Solar Price Prediction Modal',
     );
-    expect(nameSortedProjectNames[6].textContent).toEqual('Trait Discovery');
+    expect(nameSortedProjectNames[7].textContent).toEqual('Trait Discovery');
   });
 
   it('should allow the user to filter projects by status', async () => {

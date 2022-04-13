@@ -3,18 +3,16 @@
   box-sizing: border-box;
   margin-bottom: 1rem;
   margin-top: 2rem;
-  font-size: 0.875rem;
 }
 
 .header {
   margin-top: 0.5rem;
   padding: 1rem 2rem;
+  padding-bottom: 0.5rem;
 }
 
 .headerText {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.25rem;
 }
 
 
@@ -24,13 +22,16 @@
 }
 
 .detailsHeader {
-  font-size: 0.75rem;
-  font-weight: 700;
   margin-bottom: 1rem;
+}
+
+.detailsHeader > h6 {
+  display: inline-block;
 }
 
 .details ul {
   margin-left: 1rem;
+  margin-bottom: 0;
   list-style: none;
 }
 

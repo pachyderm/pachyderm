@@ -39,7 +39,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
     <div className={styles.base} ref={sidebarRef}>
       <div className={styles.topContent}>
         <Group spacing={24} vertical>
-          <h4 className={styles.title}>Project Preview</h4>
+          <h5>Project Preview</h5>
           {shouldShowEmptyState ? (
             <EmptyState
               title={LETS_START_TITLE}
@@ -77,14 +77,14 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
       {!shouldShowEmptyState && (
         <>
           {!loading && (
-            <h4
+            <h6
               ref={subtitleRef}
               className={classNames(styles.subTitle, {
                 [styles.stuck]: isStuck,
               })}
             >
               {getListTitle('Job', projectDetails?.jobSets?.length || 0)}
-            </h4>
+            </h6>
           )}
           <JobListStatic
             projectId={project.id}

@@ -3,9 +3,7 @@
   height: 1.25rem;
   width: 5.875rem;
   color: var(--white);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0;
+  display: inline-block;
 }
 
 .divider {
@@ -20,10 +18,8 @@ a.logo {
 }
 
 .support {
-  font-size: var(--font-size-body-small);
   text-decoration: underline;
   color: var(--white);
-  font-weight: 600;
   max-width: 11.5rem;
   text-overflow: ellipsis;
   overflow-x: hidden;
@@ -38,6 +34,4 @@ a.logo {
 
 .workspaceName {
   color: var(--white);
-  font-size: 0.75rem;
-  font-weight: 600;
 }

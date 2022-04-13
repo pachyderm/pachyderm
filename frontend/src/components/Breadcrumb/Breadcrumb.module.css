@@ -1,6 +1,5 @@
 .base {
     width: 100%;
-    font-size: var(--font-size-body-medium);
     background-color: var(--background-grey);
     flex: 1;
     padding-right: 5rem;
@@ -10,7 +9,7 @@
 }
 
 .link {
-    margin-right: 0.25rem;
+    margin: 0 0.25rem;
     display: flex;
     align-items: center;
 }

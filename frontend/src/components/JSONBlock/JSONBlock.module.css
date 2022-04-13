@@ -1,6 +1,4 @@
 .base {
-  font-size: 0.75rem;
-  font-weight: 600;
   overflow: auto;
   white-space: pre-wrap;
 }

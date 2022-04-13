@@ -3,10 +3,8 @@
 }
 
 .filter, .filter:not(:disabled):hover {
-  font-size: var(--font-size-body-small);
   text-decoration: underline;
   color: var(--white);
-  font-weight: 600;
   max-width: 11.5rem;
   text-overflow: ellipsis;
   overflow-x: hidden;
@@ -25,7 +23,7 @@
 .dropdownBase {
   position: absolute;
   width: 24rem;
-  left: -17.75rem;
+  left: -16.5rem;
   top: 2rem;
   z-index: var(--z-index-dropdown-menu);
   border: 1px solid var(--border-grey);
@@ -35,8 +33,9 @@
 }
 
 .infoText {
+  display: block;
+  color: var(--pachyderm-black);
   padding: 1rem;
-  font-size: var(--font-size-body-medium);
   border-bottom: solid 1px var(--line-grey);
   margin-bottom: 1rem;
 }
@@ -49,7 +48,6 @@
 
 .form {
   margin: 1rem;
-  text-align: right;
   position: relative;
 }
 

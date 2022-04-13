@@ -1,5 +1,5 @@
 import {GetLogsQuery} from '@graphqlTypes';
-import {PureCheckbox} from '@pachyderm/components';
+import {CodeText, PureCheckbox} from '@pachyderm/components';
 import classnames from 'classnames';
 import {format, fromUnixTime} from 'date-fns';
 import React, {
@@ -75,16 +75,17 @@ const LogRow: React.FC<LogRowProps> = ({
           className={styles.timestampCheckbox}
           selected={selectedLogsMap[index] || false}
           onChange={onTimestampSelect}
-          label={formattedTimestamp}
         />
       </div>
       <div ref={heightRef} className={styles.messageCol}>
         {highlightUserLogs && user ? (
-          <mark data-testid="LogRow__user_log" className={styles.mark}>
-            {message}
-          </mark>
+          <CodeText data-testid="LogRow__user_log" className={styles.mark}>
+            {formattedTimestamp} {message}
+          </CodeText>
         ) : (
-          message
+          <CodeText>
+            {formattedTimestamp} {message}
+          </CodeText>
         )}
       </div>
     </div>

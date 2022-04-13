@@ -13,11 +13,6 @@
 .switchGroup {
   display: flex;
   align-items: center;
-
-  color: var(--pachyderm-black);
-  font-family: Montserrat;
-  font-size: 12px;
-  font-weight: bold;
 }
 
 .switchItem {
@@ -32,7 +27,7 @@
 
 .exportGroup {
   display: flex;
-  margin-right: 6rem;
+  margin-right: 2rem;
 }
 
 .copy {

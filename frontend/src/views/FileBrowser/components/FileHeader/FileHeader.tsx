@@ -114,9 +114,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
   return (
     <Header appearance="light" hasSubheader>
       <Group spacing={8} align="center" className={styles.header}>
-        <h4 className={styles.commit}>
-          <CommitIdCopy repo={repoId} branch={branchId} commit={commitId} />
-        </h4>
+        <CommitIdCopy repo={repoId} branch={branchId} commit={commitId} />
         {!loading && !fileToPreview && (
           <Search
             value={fileFilter}
@@ -181,7 +179,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
                 files &&
                 files.diff && (
                   <>
-                    <span className={styles.datelabel}>{diffString}</span>
+                    <b>{diffString}</b>
                     {files.diff.size !== 0 &&
                       ` (${files.diff.size > 0 ? '+' : ''}${
                         files.diff.sizeDisplay
@@ -197,7 +195,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
             ) : (
               currentCommit?.started && (
                 <>
-                  <span className={styles.datelabel}>Started:</span>
+                  <b>Started:</b>
                   {` `}
                   {format(
                     fromUnixTime(currentCommit.started),
@@ -213,7 +211,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
             ) : (
               currentCommit?.finished && (
                 <span>
-                  <span className={styles.datelabel}>Ended: </span>
+                  <b>Ended:</b>
                   {` `}
                   {format(
                     fromUnixTime(currentCommit.finished),
@@ -230,7 +228,7 @@ const FileHeader: React.FC<FileHeaderProps> = ({
             tooltipKey="See Next Commit"
           >
             <span className={styles.datelabel}>
-              More Info
+              <b>More Info</b>
               <Icon small className={styles.infoIcon}>
                 <InfoSVG />
               </Icon>

@@ -1,8 +1,5 @@
 .base { 
   color: var(--white);
-  font-family: Montserrat;
-  font-size: 0.75rem;
-  font-weight: 600;
 }
 
 .loaderContainer {

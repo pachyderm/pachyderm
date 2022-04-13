@@ -26,7 +26,6 @@
   flex: 1;
   margin: 0;
   margin-top: 0.125rem;
-  font-size: var(--font-size-body-medium);
   color: var(--pachyderm-black);
   display: inline-block;
 }

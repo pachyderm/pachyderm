@@ -51,7 +51,7 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
       <div className={styles.content}>
         <FileIcon fileType={fileMajorType} className={styles.fileIcon} />
         <div className={styles.fileInfo}>
-          <h4 className={styles.fileName}>{fileName}</h4>
+          <h6 className={styles.fileName}>{fileName}</h6>
           <p className={styles.fileText}>Size: {file.sizeDisplay} </p>
         </div>
       </div>

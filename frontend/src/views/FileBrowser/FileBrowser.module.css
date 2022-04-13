@@ -25,15 +25,13 @@
   text-align: center;
   padding-top: 8rem;
 }
+
 .emptyHeading {
   margin-top: 2rem;
-  font-size: var(--font-size-header);
-  line-height: 2rem;
+  margin-bottom: 1rem;
 }
 
 .emptySubheading {
-  font-size: var(--font-size-body-medium);
-  line-height: 1.5rem;
   max-width: 22rem;
   margin-left: 50%;
   transform: translateX(-50%);

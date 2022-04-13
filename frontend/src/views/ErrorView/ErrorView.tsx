@@ -21,20 +21,20 @@ const ErrorView = () => {
         <title>Error - Pachyderm Console</title>
       </Helmet>
       <GenericError>
-        <h1 className={styles.heading}>
+        <div className={styles.heading}>
           {errorType === ErrorViewType.NOT_FOUND ? (
-            <>Elephants never forget, so this page must not exist.</>
+            <h2>Elephants never forget, so this page must not exist.</h2>
           ) : (
             <Group spacing={8} align="center">
               <StatusWarningSVG className={styles.error} />{' '}
-              <span>
+              <h2>
                 {errorType === ErrorViewType.UNAUTHENTICATED
                   ? 'Unable to authenticate. Try again later.'
                   : 'Something went wrong. Try again Later.'}
-              </span>
+              </h2>
             </Group>
           )}
-        </h1>
+        </div>
 
         <Button href="/" autoWidth className={styles.homeButton}>
           Go Back Home

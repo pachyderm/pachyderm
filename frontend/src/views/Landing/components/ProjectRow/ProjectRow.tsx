@@ -54,7 +54,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       <td>
         <Group vertical spacing={16}>
           <Group justify="between" align="baseline" spacing={16}>
-            <h3 className={styles.title}>{project.name}</h3>
+            <h5>{project.name}</h5>
             <Button
               autoSize
               buttonType="secondary"

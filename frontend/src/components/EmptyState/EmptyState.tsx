@@ -30,7 +30,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         className={styles.elephantImage}
         alt=""
       />
-      <span className={styles.title}>{title}</span>
+      <h6 className={styles.title}>{title}</h6>
       <span className={styles.message}>
         {message}
         {children}

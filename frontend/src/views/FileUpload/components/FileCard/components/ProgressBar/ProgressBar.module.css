@@ -29,7 +29,6 @@
 }
 
 .percentage {
-  font-size: 0.875rem;
   color: var(--pachyderm-black);
   width: 2rem;
   text-align: end;

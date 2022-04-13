@@ -5,6 +5,7 @@ import {
   Tooltip,
   PureCheckbox,
   Group,
+  CaptionTextSmall,
 } from '@pachyderm/components';
 import React from 'react';
 import {CSSTransition, TransitionGroup} from 'react-transition-group';
@@ -120,13 +121,13 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                         >
                           <Group spacing={8} className={styles.commitData}>
                             ID
-                            <CommitIdCopy smallIcon longId commit={commit.id} />
+                            <CommitIdCopy small longId commit={commit.id} />
                           </Group>
                         </Tooltip>
                       ) : (
                         <Group spacing={8} className={styles.commitData}>
                           ID
-                          <CommitIdCopy smallIcon longId commit={commit.id} />
+                          <CommitIdCopy small longId commit={commit.id} />
                         </Group>
                       )}
                       <dt className={styles.commitData}>
