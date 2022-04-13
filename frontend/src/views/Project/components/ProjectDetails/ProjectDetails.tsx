@@ -1,15 +1,16 @@
+import {ApolloError} from '@apollo/client';
 import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {Route, Redirect} from 'react-router';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {Dag, DagNodes} from '@dash-frontend/lib/types';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import DAGView from '../../components/DAGView';
 import ListView from '../../components/ListView';
 import ProjectSidebar from '../../components/ProjectSidebar';
-import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 import {
   LINEAGE_PATH,
   LINEAGE_REPOS_PATH,
@@ -20,23 +21,30 @@ import {
 } from '../../constants/projectPaths';
 import ProjectTutorial from '../../tutorials/ProjectTutorial';
 
-import {useProjectView} from './hooks/useProjectView';
+import {useProjectDetails} from './hooks/useProjectDetails';
 import styles from './ProjectDetails.module.css';
 
-const ProjectDetails: React.FC = () => {
-  const {repoId, pipelineId, projectId} = useUrlState();
+type ProjectDetailsProps = {
+  dags: Dag[] | undefined;
+  nodes: {
+    repos: DagNodes[];
+    pipelines: DagNodes[];
+  };
+  error: ApolloError | undefined;
+  loading: boolean;
+  inputRepoLinks: Record<string, string[]>;
+};
 
-  const {
-    dags,
-    nodes,
-    inputRepoLinks,
-    error,
-    loading,
-    isSidebarOpen,
-    sidebarSize,
-    repoRedirect,
-    pipelineRedirect,
-  } = useProjectView(NODE_WIDTH, NODE_HEIGHT);
+const ProjectDetails: React.FC<ProjectDetailsProps> = ({
+  dags,
+  nodes,
+  error,
+  loading,
+  inputRepoLinks,
+}) => {
+  const {repoId, pipelineId, projectId} = useUrlState();
+  const {isSidebarOpen, sidebarSize, repoRedirect, pipelineRedirect} =
+    useProjectDetails();
 
   return (
     <>

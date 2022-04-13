@@ -41,7 +41,7 @@ const JobListItem: React.FC<JobListItemProps> = ({
   const {viewState} = useUrlQueryState();
 
   return (
-    <li>
+    <li data-testid="JobListItem__job">
       <Link
         to={jobRoute({
           projectId,

@@ -29,10 +29,13 @@ import {
   PROJECT_FILE_UPLOAD_PATH,
   LINEAGE_FILE_UPLOAD_PATH,
 } from './constants/projectPaths';
+import {useProjectView} from './hooks/useProjectView';
 import styles from './Project.module.css';
 
 const Project: React.FC = () => {
   const {projectId} = useUrlState();
+
+  const projectProps = useProjectView();
 
   return (
     <>
@@ -52,7 +55,7 @@ const Project: React.FC = () => {
         <Route
           path={[PROJECT_REPOS_PATH, PROJECT_PIPELINES_PATH, LINEAGE_PATH]}
         >
-          <ProjectDetails />
+          <ProjectDetails {...projectProps} />
         </Route>
         <Route path={PROJECT_JOBS_PATH}>
           <ProjectJobList />

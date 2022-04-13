@@ -1,20 +1,15 @@
 import {NodeType} from '@graphqlTypes';
-import {useCallback, useMemo} from 'react';
+import {useMemo} from 'react';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useProjectDagsData} from '@dash-frontend/hooks/useProjectDAGsData';
-import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
-import {DagDirection, Node, DagNodes} from '@dash-frontend/lib/types';
-import {
-  pipelineRoute,
-  repoRoute,
-} from '@dash-frontend/views/Project/utils/routes';
+import {DagDirection, DagNodes} from '@dash-frontend/lib/types';
 
-export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
-  const {isOpen, sidebarSize} = useSidebarInfo();
+import {NODE_HEIGHT, NODE_WIDTH} from './../constants/nodeSizes';
+
+export const useProjectView = () => {
   const {viewState} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [dagDirectionSetting] = useLocalProjectSettings({
@@ -28,8 +23,8 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
   const {dags, loading, error} = useProjectDagsData({
     jobSetId: viewState.globalIdFilter || undefined,
     projectId,
-    nodeHeight,
-    nodeWidth,
+    nodeHeight: NODE_HEIGHT,
+    nodeWidth: NODE_WIDTH,
     direction: dagDirection,
   });
 
@@ -91,34 +86,11 @@ export const useProjectView = (nodeWidth: number, nodeHeight: number) => {
     [dags],
   );
 
-  const repoRedirect = useCallback(
-    (node: Node) =>
-      repoRoute({
-        branchId: 'master',
-        projectId,
-        repoId: deriveRepoNameFromNode(node),
-      }),
-    [projectId],
-  );
-
-  const pipelineRedirect = useCallback(
-    (node: Node) =>
-      pipelineRoute({
-        projectId,
-        pipelineId: node.id,
-      }),
-    [projectId],
-  );
-
   return {
     dags,
     nodes,
     inputRepoLinks,
     error,
     loading,
-    isSidebarOpen: isOpen,
-    sidebarSize,
-    repoRedirect,
-    pipelineRedirect,
   };
 };

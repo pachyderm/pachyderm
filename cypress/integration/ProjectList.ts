@@ -43,15 +43,15 @@ describe('Project List', () => {
   });
 
   it('should apply a global ID filter to jobs and redirect', () => {
-    const jobs = cy.findByTestId("ProjectSideNav__seeJobs");
-    jobs.click();
+    const jobsButton = cy.findByTestId("ProjectSideNav__seeJobs");
+    jobsButton.click();
 
-    const job = cy.findByTestId('JobList__projectdefault', {timeout: 16000}).findAllByText("Failure");
-    job.should('have.length', 2);
-    job.last().click();
+    const jobs = cy.findAllByTestId('JobListItem__job', {timeout: 8000});
+    jobs.should('have.length', 2);
+    jobs.last().click();
 
     cy.findByTestId('CommitIdCopy__id').invoke('text').then((jobId) => {
-      cy.findByTestId('JobList__projectdefault').findAllByText("Failure").eq(0).click();
+      cy.findAllByTestId('JobListItem__job').eq(0).click();
       cy.findByTestId('CommitIdCopy__id').should('not.equal', jobId);
       cy.findByText('Filter by Global ID').click();
       cy.findByTestId('GlobalFilter__name').type(jobId);
@@ -59,13 +59,14 @@ describe('Project List', () => {
       cy.findByTestId('CommitIdCopy__id').should('include.text', jobId);
     });
 
-    cy.findAllByText("Failure").should('have.length', 2);
+    cy.findAllByTestId('JobListItem__job').should('have.length', 1);
   });
 
   it('should apply a global ID filter to repos and redirect', () => {
     cy.findAllByTestId('ListItem__row').should('have.length', 3);
     cy.findByText('edges').click();
     cy.findByTestId('Title__name').should('have.text', 'edges');
+    cy.findByText('Commits').click();
   
     cy.findAllByTestId('CommitIdCopy__id').last().invoke('text').then((jobId) => {
       cy.findAllByText('montage').eq(0).click();
@@ -75,16 +76,17 @@ describe('Project List', () => {
       cy.findByText('Apply').click();
     });
 
-    cy.findAllByTestId('ListItem__row').should('have.length', 2);
+    cy.findAllByTestId('ListItem__row', {timeout: 8000}).should('have.length', 2);
     cy.findByTestId('Title__name').should('have.text', 'images');
   });
 
   it('should apply a global ID filter to pipelines and redirect', () => {
-    const jobs = cy.findByTestId("ProjectSideNav__seeJobs");
-    jobs.click();
+    const jobsButton = cy.findByTestId("ProjectSideNav__seeJobs");
+    jobsButton.click();
 
-    const job = cy.findAllByText("Failure", {timeout: 8000});
-    job.last().click();
+    const jobs = cy.findAllByTestId('JobListItem__job', {timeout: 8000});
+    jobs.should('have.length', 2);
+    jobs.last().click();
 
     cy.findByTestId('CommitIdCopy__id').invoke('text').then((jobId) => {
       cy.findByRole('link', {name: 'Pipelines'}).click();
@@ -95,7 +97,7 @@ describe('Project List', () => {
       cy.findByText('Apply').click();
     });
 
-    cy.findAllByTestId('ListItem__row').should('have.length', 1);
+    cy.findAllByTestId('ListItem__row', {timeout: 8000}).should('have.length', 1);
     cy.findByTestId('Title__name').should('have.text', 'edges');
   });
 });
