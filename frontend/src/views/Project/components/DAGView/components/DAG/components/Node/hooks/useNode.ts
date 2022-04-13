@@ -35,7 +35,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
       nodeName = host.replace('.com', '');
     }
 
-    return `${nodeName}GROUP`;
+    return `GROUP_${nodeName}`;
   }, [node]);
 
   const onClick = useCallback(() => {

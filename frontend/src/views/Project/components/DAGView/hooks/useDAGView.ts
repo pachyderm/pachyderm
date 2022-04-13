@@ -256,7 +256,7 @@ export const useDAGView = (
   useEffect(() => {
     if (!skipCenterOnSelect) {
       const centerNodeSelection = select<SVGGElement, Node>(
-        `#${selectedNode}GROUP`,
+        `#GROUP_${selectedNode}`,
       );
 
       if (
