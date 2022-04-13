@@ -78,6 +78,37 @@ describe('Repos', () => {
     cy.findByText('puppy.png');
   })
 
+
+  it('should not append files on file uploads', () => {
+    cy.findByText('NewRepo', {timeout: 12000}).click();
+
+    cy.findAllByText('Commits').click();
+    cy.findAllByText('View Files').first().click();
+
+    cy.findByText('451.54 kB')
+    cy.findByText('80.59 kB');
+    cy.findByTestId('FullPageModal__close').click();
+
+    cy.findByText('Upload Files').click();
+    cy.findByText('Upload Files');
+  
+    cy.fixture('AT-AT.png', null).as('file1')
+
+    cy.waitUntil(() => cy.findByLabelText('Attach Files').should('not.be.disabled'));
+    cy.findByLabelText('Attach Files').selectFile([{
+      contents: '@file1',
+      fileName: 'puppy.png',
+    }])
+    
+    cy.findByRole('button', {name: 'Upload'}).click();
+    cy.findByRole('button', {name: 'Done'}).click();
+
+    cy.findAllByText('Commits').click();
+    cy.findAllByText('View Files', {timeout: 30000}).should('have.length', 2).first().click();
+
+    cy.findAllByText('80.59 kB').should('have.length', 2);
+  })
+
   it('should allow a user to delete a repo', () => {
     cy.findByText('NewRepo', {timeout: 12000}).click();
     cy.findByTestId('DeleteRepoButton__link').click();

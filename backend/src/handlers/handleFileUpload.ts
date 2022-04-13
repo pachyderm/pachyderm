@@ -238,6 +238,7 @@ const uploadChunk = async (
       }
     });
   }).on('file', async (_name, file, _info) => {
+    let dataWritten = false;
     await handleError(async () => {
       if (!currentChunk || !chunkTotal) {
         res.status(400);
@@ -265,7 +266,12 @@ const uploadChunk = async (
       file.on('end', async () => {
         if (fileClient) {
           if (chunks.length) {
-            fileClient.putFileFromBytes(fullPath, Buffer.concat(chunks));
+            fileClient.putFileFromBytes(
+              fullPath,
+              Buffer.concat(chunks),
+              currentChunk !== 1 || dataWritten,
+            );
+            dataWritten = true;
             chunks = [];
           }
         }
@@ -274,7 +280,12 @@ const uploadChunk = async (
       file.on('data', (chunk) => {
         chunks.push(chunk); // buffer chunks until we hit the limit for a GRPC stream so that we don't send a bunch of small writes that overflow the GRPC streams buffer
         if (chunks.length === chunkLimit && fileClient) {
-          fileClient.putFileFromBytes(fullPath, Buffer.concat(chunks));
+          fileClient.putFileFromBytes(
+            fullPath,
+            Buffer.concat(chunks),
+            currentChunk !== 1 || dataWritten,
+          );
+          dataWritten = true;
           chunks = [];
         }
       });

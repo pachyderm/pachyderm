@@ -566,12 +566,14 @@ const pfs = () => {
               const dirPath = path.dirname(pathToDelete);
               const projectFiles = MockState.state.files[projectId.toString()];
 
-              MockState.state.files[projectId.toString()] = {
-                ...projectFiles,
-                [dirPath]: projectFiles[dirPath].filter((file) => {
-                  return pathToDelete !== file.getFile()?.getPath();
-                }),
-              };
+              if (projectFiles && projectFiles[dirPath]) {
+                MockState.state.files[projectId.toString()] = {
+                  ...projectFiles,
+                  [dirPath]: projectFiles[dirPath].filter((file) => {
+                    return pathToDelete !== file.getFile()?.getPath();
+                  }),
+                };
+              }
             }
           });
         },
