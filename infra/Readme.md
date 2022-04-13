@@ -40,5 +40,5 @@ pulumi up
 You can also destroy your stack manually by running
 
 ```
-pulumi destory
+pulumi destroy
 ```
