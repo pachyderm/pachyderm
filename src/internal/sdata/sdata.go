@@ -108,8 +108,28 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 	return n, nil
 }
 
+func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
+	tuple := make(Tuple, len(info.Columns))
+	for i, ci := range info.Columns {
+		var err error
+		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tuple, nil
+}
+
 func NewTupleFromTable(ctx context.Context, db *pachsql.DB, tableName string) (Tuple, error) {
 	info, err := pachsql.GetTableInfo(ctx, db, tableName)
+	if err != nil {
+		return nil, err
+	}
+	return NewTupleFromTableInfo(info)
+}
+
+func NewTupleFromTableTx(ctx context.Context, tx *pachsql.Tx, tableName string) (Tuple, error) {
+	info, err := pachsql.GetTableInfoTx(tx, tableName)
 	if err != nil {
 		return nil, err
 	}
@@ -138,31 +158,33 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		} else {
 			return new(int16), nil
 		}
-	case "INT", "INT4":
+	case "INTEGER", "INT", "INT4":
 		if nullable {
 			return new(sql.NullInt32), nil
 		} else {
 			return new(int32), nil
 		}
-	case "BIGINT", "INT8", "FIXED":
+	// TODO "NUMBER" type from Snowflake can vary in precision, but default to int64 for now.
+	// https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#number
+	case "BIGINT", "INT8", "FIXED", "NUMBER":
 		if nullable {
 			return new(sql.NullInt64), nil
 		} else {
 			return new(int64), nil
 		}
-	case "FLOAT", "FLOAT8", "REAL":
+	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION":
 		if nullable {
 			return new(sql.NullFloat64), nil
 		} else {
 			return new(float64), nil
 		}
-	case "VARCHAR", "TEXT":
+	case "VARCHAR", "TEXT", "CHARACTER VARYING":
 		if nullable {
 			return new(sql.NullString), nil
 		} else {
 			return new(string), nil
 		}
-	case "TIMESTAMP", "TIMESTAMP_NTZ":
+	case "DATE", "TIMESTAMP", "TIMESTAMP_NTZ", "TIMESTAMP WITHOUT TIME ZONE":
 		if nullable {
 			return new(sql.NullTime), nil
 		} else {
