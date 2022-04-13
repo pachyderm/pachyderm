@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -173,47 +172,14 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 	return nil
 }
 
-func getFirstFile(ctx context.Context, fs FileSet) (firstFile File, more bool, retErr error) {
-	retErr = errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
-		if firstFile == nil {
-			firstFile = f
-		} else {
-			more = true
-			return errutil.ErrBreak
-		}
-		return nil
-	}))
-	return
-}
-
 func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
 
-	firstFile, more, err := getFirstFile(ctx, fs)
-	if err != nil {
-		return err
-	}
-	if firstFile == nil {
-		return nil // nothing to do
-	}
-	if !more {
-		// just one file in the file set, special case
-		return uw.copySingle(firstFile, datum, appendFile)
-	}
-	// multiple files, serialize and do the copy in a new fileset
-	if err := uw.serialize(); err != nil {
-		return err
-	}
 	return uw.withWriter(func(w *Writer) error {
 		return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
-			if !appendFile {
-				if err := w.Delete(f.Index().Path, datum); err != nil {
-					return err
-				}
-			}
-			return w.Copy(f, datum)
+			return uw.copySingle(f, datum, appendFile)
 		}))
 	})
 }

@@ -8,8 +8,9 @@ import (
 )
 
 type Buffer struct {
-	additive map[string]map[string]*file
-	deletive map[string]map[string]*file
+	additive  map[string]map[string]*file
+	deletive  map[string]map[string]*file
+	fileCount int // the number of files stored in the additive and deletive maps
 }
 
 type file struct {
@@ -39,6 +40,7 @@ func (b *Buffer) addInternal(path, datum string) *file {
 	}
 	datumFiles := b.additive[path]
 	if _, ok := datumFiles[datum]; !ok {
+		b.fileCount++
 		datumFiles[datum] = &file{
 			path:  path,
 			datum: datum,
@@ -62,20 +64,23 @@ func (b *Buffer) Delete(path, datum string) {
 	if IsDir(path) {
 		// TODO: Linear scan for directory delete is less than ideal.
 		// Fine for now since this should be rare and is an in-memory operation.
-		for file := range b.additive {
+		for file, datumFiles := range b.additive {
 			if strings.HasPrefix(file, path) {
+				b.fileCount -= len(datumFiles)
 				delete(b.additive, file)
 			}
 		}
 		return
 	}
 	if datumFiles, ok := b.additive[path]; ok {
+		b.fileCount -= len(datumFiles)
 		delete(datumFiles, datum)
 	}
 	if _, ok := b.deletive[path]; !ok {
 		b.deletive[path] = make(map[string]*file)
 	}
 	datumFiles := b.deletive[path]
+	b.fileCount++
 	datumFiles[datum] = &file{
 		path:  path,
 		datum: datum,
@@ -133,5 +138,5 @@ func (b *Buffer) Empty() bool {
 
 // Count gives the number of paths tracked in the buffer, meant as a proxy for metadata memory usage
 func (b *Buffer) Count() int {
-	return len(b.additive) + len(b.deletive)
+	return b.fileCount
 }
