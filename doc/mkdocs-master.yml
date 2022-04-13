@@ -126,6 +126,7 @@ nav:
         - Beginner Tutorial: getting_started/beginner_tutorial.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
+        - Local Installation On WSL: getting_started/wsl-deploy.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
