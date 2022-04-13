@@ -44,7 +44,7 @@ NODE_SIZE="Standard_DS4_v2"
 CLUSTER_NAME="${NAME}-aks"
 # Azure storage account names must be digits and lower-case letters, and must be
 # globally unique.
-STORAGE_ACCOUNT_NAME=$(echo $NAME | tr -d "-" | sed -r 's/(.*)/\L\1/')storage
+STORAGE_ACCOUNT_NAME=$(echo $NAME | tr -d "-" | tr '[:upper:]' '[:lower:]')storage
 CONTAINER_NAME="${NAME}-container"
 SQL_INSTANCE_NAME="${NAME}-sql"
 STATIC_IP_NAME="${NAME}-ip"
