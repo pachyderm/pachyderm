@@ -177,23 +177,16 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 		datum = DefaultFileDatum
 	}
 
-	return uw.withWriter(func(w *Writer) error {
-		return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
-			return uw.copySingle(f, datum, appendFile)
-		}))
-	})
-}
-
-func (uw *UnorderedWriter) copySingle(file File, datum string, appendFile bool) error {
-	singlePath := file.Index().Path
-	if !appendFile {
-		uw.buffer.Delete(singlePath, datum)
-	}
-	uw.buffer.Copy(file, datum)
-	if int64(uw.buffer.Count()) >= uw.fileThreshold {
-		return uw.serialize()
-	}
-	return nil
+	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
+		if !appendFile {
+			uw.buffer.Delete(f.Index().Path, datum)
+		}
+		uw.buffer.Copy(f, datum)
+		if int64(uw.buffer.Count()) >= uw.fileThreshold {
+			return uw.serialize()
+		}
+		return nil
+	}))
 }
 
 // Close closes the writer.
