@@ -103,7 +103,7 @@ jobs:
             command: |
                 make circle-docker-build
         - save_cache:
-            key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}}-{{ checksum "Makefile" }}
+            key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
             paths:
                 - /tmp/docker-cache
     docker-manifest:
