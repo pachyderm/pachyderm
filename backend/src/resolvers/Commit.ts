@@ -1,9 +1,10 @@
 import {CommitState} from '@pachyderm/node-pachyderm';
+import {ApolloError} from 'apollo-server-express';
 
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';
 import {PachClient} from '@dash-backend/lib/types';
-import {MutationResolvers, QueryResolvers} from '@graphqlTypes';
+import {MutationResolvers, OriginKind, QueryResolvers} from '@graphqlTypes';
 
 import {commitInfoToGQLCommit, commitToGQLCommit} from './builders/pfs';
 
@@ -40,15 +41,6 @@ const commitResolver: CommitResolver = {
       let diff = undefined;
       const jobSetIds = await getJobSetIds(pachClient);
 
-      if (withDiff) {
-        const diffResponse = await pachClient.pfs().diffFile({
-          commitId: id || 'master',
-          path: '/',
-          branch: {name: branchName || 'master', repo: {name: repoName}},
-        });
-        diff = formatDiff(diffResponse).diff;
-      }
-
       const commit = commitInfoToGQLCommit(
         await pachClient.pfs().inspectCommit({
           wait: CommitState.COMMIT_STATE_UNKNOWN,
@@ -58,6 +50,19 @@ const commitResolver: CommitResolver = {
           },
         }),
       );
+
+      if (
+        withDiff &&
+        commit.originKind !== OriginKind.ALIAS &&
+        commit.finished !== -1
+      ) {
+        const diffResponse = await pachClient.pfs().diffFile({
+          commitId: id || 'master',
+          path: '/',
+          branch: {name: branchName || 'master', repo: {name: repoName}},
+        });
+        diff = formatDiff(diffResponse).diff;
+      }
 
       return {
         ...commit,

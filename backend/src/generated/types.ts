@@ -233,7 +233,7 @@ export type FileQueryArgs = {
 
 export type FileQueryResponse = {
   __typename?: 'FileQueryResponse';
-  diff: Diff;
+  diff?: Maybe<Diff>;
   files: Array<File>;
 };
 
@@ -1191,7 +1191,7 @@ export type FileQueryResponseResolvers<
   ContextType = Context,
   ParentType extends ResolversParentTypes['FileQueryResponse'] = ResolversParentTypes['FileQueryResponse'],
 > = ResolversObject<{
-  diff?: Resolver<ResolversTypes['Diff'], ParentType, ContextType>;
+  diff?: Resolver<Maybe<ResolversTypes['Diff']>, ParentType, ContextType>;
   files?: Resolver<Array<ResolversTypes['File']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -2156,14 +2156,14 @@ export type GetFilesQuery = {
   __typename?: 'Query';
   files: {
     __typename?: 'FileQueryResponse';
-    diff: {
+    diff?: {
       __typename?: 'Diff';
       size: number;
       sizeDisplay: string;
       filesUpdated: number;
       filesAdded: number;
       filesDeleted: number;
-    };
+    } | null;
     files: Array<{
       __typename?: 'File';
       commitId: string;

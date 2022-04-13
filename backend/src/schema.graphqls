@@ -298,7 +298,7 @@ input FileQueryArgs {
 }
 
 type FileQueryResponse {
-  diff: Diff!,
+  diff: Diff,
   files: [File!]!,
 }
 

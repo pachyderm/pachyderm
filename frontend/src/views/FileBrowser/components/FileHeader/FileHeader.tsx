@@ -68,11 +68,11 @@ const FileHeader: React.FC<FileHeaderProps> = ({
     const updates = [];
     let updatesString = '';
 
-    if (files?.diff.filesAdded && files?.diff.filesAdded > 0)
+    if (files?.diff?.filesAdded && files?.diff.filesAdded > 0)
       updates.push({count: files.diff.filesAdded, status: 'added'});
-    if (files?.diff.filesUpdated && files?.diff.filesUpdated > 0)
+    if (files?.diff?.filesUpdated && files?.diff.filesUpdated > 0)
       updates.push({count: files.diff.filesUpdated, status: 'updated'});
-    if (files?.diff.filesDeleted && files?.diff.filesDeleted > 0)
+    if (files?.diff?.filesDeleted && files?.diff.filesDeleted > 0)
       updates.push({count: files.diff.filesDeleted, status: 'deleted'});
 
     if (updates[0])
@@ -178,7 +178,8 @@ const FileHeader: React.FC<FileHeaderProps> = ({
               {loading ? (
                 <SkeletonDisplayText />
               ) : (
-                files && (
+                files &&
+                files.diff && (
                   <>
                     <span className={styles.datelabel}>{diffString}</span>
                     {files.diff.size !== 0 &&

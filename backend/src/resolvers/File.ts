@@ -1,10 +1,19 @@
-import {FileInfo} from '@pachyderm/node-pachyderm';
+import {FileInfo, CommitState} from '@pachyderm/node-pachyderm';
+import {ApolloError} from 'apollo-server-express';
 
-import {MutationResolvers, QueryResolvers} from '@dash-backend/generated/types';
+import {
+  MutationResolvers,
+  QueryResolvers,
+  FileCommitState,
+  OriginKind,
+  Diff,
+} from '@dash-backend/generated/types';
 import {FILE_DOWNLOAD_LIMIT} from '@dash-backend/lib/constants';
 import formatBytes from '@dash-backend/lib/formatBytes';
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toGQLFileType} from '@dash-backend/lib/gqlEnumMappers';
+
+import {commitInfoToGQLCommit} from './builders/pfs';
 
 interface FileResolver {
   Query: {
@@ -38,22 +47,37 @@ const fileResolver: FileResolver = {
       {args: {commitId, path, branchName, repoName}},
       {pachClient, host},
     ) => {
+      let diff:
+        | undefined
+        | {diffTotals: Record<string, FileCommitState>; diff: Diff};
+
       const files = await pachClient.pfs().listFile({
         commitId: commitId || 'master',
         path: path || '/',
         branch: {name: branchName, repo: {name: repoName}},
       });
 
-      const diff = await pachClient.pfs().diffFile({
-        commitId: commitId || 'master',
-        path: path || '/',
-        branch: {name: branchName, repo: {name: repoName}},
-      });
+      const commit = commitInfoToGQLCommit(
+        await pachClient.pfs().inspectCommit({
+          wait: CommitState.COMMIT_STATE_UNKNOWN,
+          commit: {
+            id: commitId || '',
+            branch: {name: branchName || 'master', repo: {name: repoName}},
+          },
+        }),
+      );
 
-      const formattedDiff = formatDiff(diff);
+      if (commit.originKind !== OriginKind.ALIAS && commit.finished !== -1) {
+        const diffResponse = await pachClient.pfs().diffFile({
+          commitId: commitId || 'master',
+          path: path || '/',
+          branch: {name: branchName, repo: {name: repoName}},
+        });
+        diff = formatDiff(diffResponse);
+      }
 
       return {
-        diff: formattedDiff.diff,
+        diff: diff?.diff,
         files: files.map((file) => ({
           commitId: file.file?.commit?.id || '',
           committed: file.committed,
@@ -66,7 +90,9 @@ const fileResolver: FileResolver = {
           sizeBytes: file.sizeBytes || 0,
           sizeDisplay: formatBytes(file.sizeBytes || 0),
           type: toGQLFileType(file.fileType),
-          commitAction: formattedDiff.diffTotals[file.file?.path || ''],
+          commitAction: diff
+            ? diff.diffTotals[file.file?.path || '']
+            : undefined,
         })),
       };
     },
