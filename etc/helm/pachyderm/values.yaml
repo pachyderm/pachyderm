@@ -443,6 +443,9 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
+    # The shard size corresponds to the total size of the files in a shard.
+    # The shard count corresponds to the total number of files in a shard. 
+    # If either criteria is met, a shard will be created.
     compactionShardSizeThreshold: 0
     compactionShardCountThreshold: 0
   ppsWorkerGRPCPort: 1080
