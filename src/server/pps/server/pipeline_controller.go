@@ -54,13 +54,38 @@ func newPcManager() *pcManager {
 	}
 }
 
+type sideEffectName int32
+
+const (
+	sideEffectName_RESOURCES        sideEffectName = 0
+	sideEffectName_FINISH_COMMITS   sideEffectName = 1
+	sideEffectName_RESTART          sideEffectName = 2
+	sideEffectName_SCALE_WORKERS    sideEffectName = 3
+	sideEffectName_PIPELINE_MONITOR sideEffectName = 4
+	sideEffectName_CRASH_MONITOR    sideEffectName = 5
+)
+
+type sideEffectToggle int32
+
+const (
+	sideEffectToggle_NONE sideEffectToggle = 0
+	sideEffectToggle_UP   sideEffectToggle = 1
+	sideEffectToggle_DOWN sideEffectToggle = 2
+)
+
 // sideEffect returns a tuple first with the error representing the result of the side effect,
 // followed by the sideEffect's name and potentially set toggle value for assertions in testing
-type sideEffect func(context.Context, *pipelineController, *pps.PipelineInfo, *v1.ReplicationController) (error, string, sideEffectToggle)
+type sideEffect struct {
+	apply  func(context.Context, *pipelineController, *pps.PipelineInfo, *v1.ReplicationController) error
+	name   sideEffectName
+	toggle sideEffectToggle
+}
 
 func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
-	return func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) (error, string, sideEffectToggle) {
-		return func() error {
+	return sideEffect{
+		name:   sideEffectName_RESOURCES,
+		toggle: toggle,
+		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
 				return pc.kd.CreatePipelineResources(ctx, pi)
 			}
@@ -72,60 +97,72 @@ func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
 				}
 			}
 			return nil
-		}(), "ResourcesSideEffect", toggle
+		},
 	}
 }
 
 func FinishCommitsSideEffect() sideEffect {
-	return func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) (error, string, sideEffectToggle) {
-		return pc.finishPipelineOutputCommits(ctx, pi), "FinishCommitsSideEffect", sideEffectToggle_NONE
+	return sideEffect{
+		name:   sideEffectName_FINISH_COMMITS,
+		toggle: sideEffectToggle_NONE,
+		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) error {
+			return pc.finishPipelineOutputCommits(ctx, pi)
+		},
 	}
 }
 
 func RestartSideEffect() sideEffect {
-	return func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) (error, string, sideEffectToggle) {
-		return pc.restartPipeline(ctx, pi, rc, "missing RC"), "RestartSideEffect", sideEffectToggle_NONE
+	return sideEffect{
+		name:   sideEffectName_RESTART,
+		toggle: sideEffectToggle_NONE,
+		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
+			return pc.restartPipeline(ctx, pi, rc, "missing RC")
+		},
 	}
 }
 
 func ScaleWorkersSideEffect(toggle sideEffectToggle) sideEffect {
-	return func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) (error, string, sideEffectToggle) {
-		if toggle == sideEffectToggle_UP {
-			return pc.scaleUpPipeline(ctx, pi, rc), "ScaleWorkersSideEffect", toggle
-		}
-		return pc.scaleDownPipeline(ctx, pi, rc), "ScaleWorkersSideEffect", toggle
+	return sideEffect{
+		name:   sideEffectName_SCALE_WORKERS,
+		toggle: toggle,
+		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
+			if toggle == sideEffectToggle_UP {
+				return pc.scaleUpPipeline(ctx, pi, rc)
+			}
+			return pc.scaleDownPipeline(ctx, pi, rc)
+		},
 	}
 }
 
 func PipelineMonitorSideEffect(toggle sideEffectToggle) sideEffect {
-	return func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) (error, string, sideEffectToggle) {
-		if toggle == sideEffectToggle_UP {
-			pc.startPipelineMonitor(pi)
-		} else {
-			pc.stopPipelineMonitor()
-		}
-		return nil, "PipelineMonitorSideEffect", toggle
+	return sideEffect{
+		name:   sideEffectName_PIPELINE_MONITOR,
+		toggle: toggle,
+		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
+			if toggle == sideEffectToggle_UP {
+				pc.startPipelineMonitor(pi)
+			} else {
+				pc.stopPipelineMonitor()
+			}
+			return nil
+		},
 	}
 }
 
 func CrashingMonitorSideEffect(toggle sideEffectToggle) sideEffect {
-	return func(_ context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) (error, string, sideEffectToggle) {
-		if toggle == sideEffectToggle_UP {
-			pc.startCrashingPipelineMonitor(pi)
-		} else {
-			pc.stopCrashingPipelineMonitor()
-		}
-		return nil, "CrashingMonitorSideEffect", toggle
+	return sideEffect{
+		name:   sideEffectName_CRASH_MONITOR,
+		toggle: toggle,
+		apply: func(_ context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) error {
+			if toggle == sideEffectToggle_UP {
+				pc.startCrashingPipelineMonitor(pi)
+			} else {
+				pc.stopCrashingPipelineMonitor()
+			}
+			return nil
+		},
 	}
 }
-
-type sideEffectToggle int32
-
-const (
-	sideEffectToggle_NONE sideEffectToggle = 0
-	sideEffectToggle_UP   sideEffectToggle = 1
-	sideEffectToggle_DOWN sideEffectToggle = 2
-)
 
 // pipelineController contains all of the relevent current state for a pipeline. It's
 // used by step() to take any necessary actions
@@ -404,8 +441,8 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 }
 
 func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, target pps.PipelineState, sideEffects []sideEffect) error {
-	for _, f := range sideEffects {
-		if err, _, _ := f(ctx, pc, pi, rc); err != nil {
+	for _, s := range sideEffects {
+		if err := s.apply(ctx, pc, pi, rc); err != nil {
 			return err
 		}
 	}
