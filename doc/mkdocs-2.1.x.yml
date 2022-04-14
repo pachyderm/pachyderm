@@ -207,6 +207,7 @@ nav:
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Console: deploy-manage/deploy/console.md
+            - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/#install-the-mount-extension
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
                 - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md

@@ -147,8 +147,7 @@ with a Pachyderm cluster in your terminal.
   
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
-## Deploy Pachyderm Latest Community Edition (Option: Deploy Pachyderm Enterprise With Console)  
-  
+## Deploy Pachyderm Community Edition or Enterprise with Console  
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
   
 !!! Tip  

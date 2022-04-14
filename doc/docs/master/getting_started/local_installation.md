@@ -154,7 +154,7 @@ with a Pachyderm cluster in your terminal.
   
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
-## Deploy Pachyderm Latest Community Edition (Option: Deploy Pachyderm With Console and/or JupyterLab Mount Extension)  
+## Deploy Pachyderm Community Edition, Enterprise with Console, JupyterLab Extension  
   
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
   

@@ -19,7 +19,7 @@ It details the additional steps required to install and access your Console.
 
 We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is your enterprise token and [a Kubernetes cluster running on your local environment](../../../getting_started/local_installation/#prerequisites).
 
-Follow the deployment instructions in our [Local Installation](../../../getting_started/local_installation/#deploy-pachyderm-latest-community-edition-option-deploy-pachyderm-with-console-andor-jupyterlab-mount-extension) page.
+Follow the deployment instructions in our [Local Installation](../../../getting_started/local_installation/#deploy-pachyderm-community-edition-enterprise-with-console-jupyterlab-extension) page.
 You are all set!
 
 !!! Note
