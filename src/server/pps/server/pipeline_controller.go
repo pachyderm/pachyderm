@@ -295,7 +295,10 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	// the pipeline indefinitely)
 	rc, restart, err := pc.getRC(ctx, pi)
 	if restart {
-		return false, pc.restartPipeline(ctx, pi, rc, "could not get RC.")
+		if err := pc.restartPipeline(ctx, pi, rc, "could not get RC."); err != nil {
+			return false, err
+		}
+		return false, pc.setPipelineState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, "could not get RC.")
 	}
 	if err != nil && !errors.Is(err, errRCNotFound) {
 		return false, err
