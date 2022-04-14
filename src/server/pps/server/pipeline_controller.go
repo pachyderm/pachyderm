@@ -57,12 +57,12 @@ func newPcManager() *pcManager {
 type sideEffectName int32
 
 const (
-	sideEffectName_RESOURCES        sideEffectName = 0
-	sideEffectName_FINISH_COMMITS   sideEffectName = 1
-	sideEffectName_RESTART          sideEffectName = 2
-	sideEffectName_SCALE_WORKERS    sideEffectName = 3
-	sideEffectName_PIPELINE_MONITOR sideEffectName = 4
-	sideEffectName_CRASH_MONITOR    sideEffectName = 5
+	sideEffectName_KUBERNETES_RESOURCES sideEffectName = 0
+	sideEffectName_FINISH_COMMITS       sideEffectName = 1
+	sideEffectName_RESTART              sideEffectName = 2
+	sideEffectName_SCALE_WORKERS        sideEffectName = 3
+	sideEffectName_PIPELINE_MONITOR     sideEffectName = 4
+	sideEffectName_CRASH_MONITOR        sideEffectName = 5
 )
 
 type sideEffectToggle int32
@@ -73,8 +73,8 @@ const (
 	sideEffectToggle_DOWN sideEffectToggle = 2
 )
 
-// sideEffect returns a tuple first with the error representing the result of the side effect,
-// followed by the sideEffect's name and potentially set toggle value for assertions in testing
+// sideEffect intends to capture a state changing operation that the pipeline controller may apply
+// NOTE: the PipelineInfo & ReplicationController arguments supplied to apply should be treated as read only copies
 type sideEffect struct {
 	apply  func(context.Context, *pipelineController, *pps.PipelineInfo, *v1.ReplicationController) error
 	name   sideEffectName
@@ -83,7 +83,7 @@ type sideEffect struct {
 
 func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
 	return sideEffect{
-		name:   sideEffectName_RESOURCES,
+		name:   sideEffectName_KUBERNETES_RESOURCES,
 		toggle: toggle,
 		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
@@ -380,7 +380,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 	}
 	if rc == nil {
 		// may happen if an external system deletes the RC
-		return pi.State, []sideEffect{RestartSideEffect()}, nil
+		return pps.PipelineState_PIPELINE_RESTARTING, []sideEffect{RestartSideEffect()}, nil
 	}
 	if pi.State == pps.PipelineState_PIPELINE_PAUSED {
 		if !pi.Stopped {
@@ -724,9 +724,6 @@ func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.Pipel
 	// create up-to-date RC
 	if err := pc.kd.CreatePipelineResources(ctx, pi); err != nil {
 		return errors.Wrap(err, "error creating resources for restart")
-	}
-	if err := pc.setPipelineState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, ""); err != nil {
-		return errors.Wrap(err, "error restarting pipeline")
 	}
 	return errors.Errorf("restarting pipeline %q: %s", pi.Pipeline.Name, reason)
 }
