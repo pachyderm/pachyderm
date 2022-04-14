@@ -30,7 +30,7 @@ you have the following prerequisites installed and configured:
 * [AWS CLI](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html){target=_blank}
 * [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html){target=_blank}
 * [aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html){target=_blank}.
-* [pachctl](../../../getting_started/local_installation#install-pachctl)
+* [pachctl](../../../getting_started/local_installation#install-pachctl){target=_blank}
 
 ## 2. Deploy Kubernetes by using `eksctl`
 
