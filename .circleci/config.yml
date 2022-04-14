@@ -139,7 +139,7 @@ jobs:
     parameters:
       bucket:
         type: string
-        default: ""
+        default: "LOAD7"
     resource_class: large
     machine:
       image: ubuntu-2004:202101-01
