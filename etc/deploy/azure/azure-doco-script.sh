@@ -65,10 +65,10 @@ az aks create --name ${CLUSTER_NAME} \
 
 az aks get-credentials --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME}
 
-az storage account create --name ${STORAGE_ACCOUNT_NAME} \
+az storage account create --name "${STORAGE_ACCOUNT_NAME}" \
    --sku Premium_LRS \
    --kind BlockBlobStorage \
-   --resource-group ${RESOURCE_GROUP}
+   --resource-group "${RESOURCE_GROUP}"
 
 STORAGE_KEY="$(az storage account keys list \
    		             --account-name="${STORAGE_ACCOUNT_NAME}" \
@@ -77,31 +77,31 @@ STORAGE_KEY="$(az storage account keys list \
               | jq '.[0].value' -r
             )"
 
-az storage container create --name ${CONTAINER_NAME} \
-   --account-name ${STORAGE_ACCOUNT_NAME} \
+az storage container create --name "${CONTAINER_NAME}" \
+   --account-name "${STORAGE_ACCOUNT_NAME}" \
    --account-key "${STORAGE_KEY}"
 
 
 az postgres server create \
-   --resource-group ${RESOURCE_GROUP} \
-   --name ${SQL_INSTANCE_NAME} \
+   --resource-group "${RESOURCE_GROUP}" \
+   --name "${SQL_INSTANCE_NAME}" \
    --sku-name GP_Gen5_2 \
    --ssl-enforcement Disabled \
-   --admin-password ${SQL_ADMIN_PASSWORD} \
+   --admin-password "${SQL_ADMIN_PASSWORD}" \
    --version 11 \
    --admin-user pachyderm
 
 az postgres server firewall-rule create \
-   --server-name ${SQL_INSTANCE_NAME} \
-   --resource-group ${RESOURCE_GROUP} \
+   --server-name "${SQL_INSTANCE_NAME}" \
+   --resource-group "${RESOURCE_GROUP}" \
    --name AllowAllAzureIps \
    --start-ip-address 0.0.0.0 \
    --end-ip-address 0.0.0.0
 
 
 az network public-ip create \
-   --resource-group ${RESOURCE_GROUP} \
-   --name ${STATIC_IP_NAME} \
+   --resource-group "${RESOURCE_GROUP}" \
+   --name "${STATIC_IP_NAME}" \
    --sku Standard \
    --allocation-method static
 
@@ -122,8 +122,8 @@ az postgres db create \
    --name pachyderm
 
 az postgres db create \
-   --resource-group ${RESOURCE_GROUP} \
-   --server-name ${SQL_INSTANCE_NAME} \
+   --resource-group "${RESOURCE_GROUP}" \
+   --server-name "${SQL_INSTANCE_NAME}" \
    --name dex
 
 if [ "$EMPTY_CLUSTER" == "true" ]; then
@@ -131,11 +131,11 @@ if [ "$EMPTY_CLUSTER" == "true" ]; then
 fi
 
 SQL_HOSTNAME=$(az postgres server show \
-		  --resource-group ${RESOURCE_GROUP} \
-		  --name ${SQL_INSTANCE_NAME} | jq .fullyQualifiedDomainName -r)
+		  --resource-group "${RESOURCE_GROUP}" \
+		  --name "${SQL_INSTANCE_NAME}" | jq .fullyQualifiedDomainName -r)
 SQL_ADMIN=$(az postgres server show \
-		  --resource-group ${RESOURCE_GROUP} \
-		  --name ${SQL_INSTANCE_NAME} | jq .administratorLogin -r)@${SQL_INSTANCE_NAME}
+		  --resource-group "${RESOURCE_GROUP}" \
+		  --name "${SQL_INSTANCE_NAME}" | jq .administratorLogin -r)@"${SQL_INSTANCE_NAME}"
 
 cat <<EOF > ${NAME}.values.yaml
 deployTarget: "MICROSOFT"
@@ -173,7 +173,7 @@ EOF
 
 helm repo add pach https://helm.pachyderm.com
 helm repo update
-helm install pachyderm -f ./${NAME}.values.yaml pach/pachyderm
+helm install pachyderm -f "./${NAME}.values.yaml" pach/pachyderm
 
 echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite
-pachctl config set active-context ${CLUSTER_NAME}
+pachctl config set active-context "${CLUSTER_NAME}"
