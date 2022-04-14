@@ -4,7 +4,7 @@
 This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®. To install Pachyderm on Windows, first look at [Deploy Pachyderm on Windows](../wsl-deploy){target=_blank}.
 
 Pachyderm is an application written in go that runs on top of a Kubernetes cluster. 
-A common way to interact with Pachyderm is by using Pachyderm command-line tool `pachctl`, from a terminal window. To check the state of your deployment, you will also need to install `kubectl`, a Kubernetes command-line tool. 
+A common way to interact with Pachyderm is by using Pachyderm command-line tool `pachctl`, from a terminal window. To check the state of your deployment, you will also need to install `kubectl`, Kubernetes command-line tool. 
 
 Additionally, we will show you how to deploy Pachyderm Web UI **[Console](../../deploy-manage/deploy/console){target=_blank}** on your local cluster. **Console** will help you visualize your DAGs (Directed Acyclic Graphs), monitor your pipeline executions, access your logs, and troubleshoot while your pipelines are running.
 
