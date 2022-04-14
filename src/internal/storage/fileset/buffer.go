@@ -72,9 +72,9 @@ func (b *Buffer) Delete(path, datum string) {
 		}
 		return
 	}
-	if datumFiles, ok := b.additive[path]; ok {
-		b.fileCount -= len(datumFiles)
-		delete(datumFiles, datum)
+	if _, ok := b.additive[path][datum]; ok {
+		delete(b.additive[path], datum)
+		b.fileCount--
 	}
 	if _, ok := b.deletive[path]; !ok {
 		b.deletive[path] = make(map[string]*file)
