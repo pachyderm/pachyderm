@@ -76,7 +76,6 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 			w = uw.buffer.Add(p, datum)
 		}
 	}
-
 	if int64(uw.buffer.Count()) >= uw.fileThreshold {
 		return uw.serialize()
 	}
@@ -176,7 +175,6 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
-
 	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
 		if !appendFile {
 			uw.buffer.Delete(f.Index().Path, datum)

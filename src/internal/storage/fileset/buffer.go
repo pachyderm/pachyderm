@@ -19,7 +19,7 @@ type file struct {
 	contents []fileContent
 }
 
-// contents are either raw bytes to be appended or an existing file to be copies
+// contents are either raw bytes to be appended or an existing file to be copied
 // Exactly one will be non-nil
 type fileContent struct {
 	buf  *bytes.Buffer
@@ -33,24 +33,24 @@ func NewBuffer() *Buffer {
 	}
 }
 
-func (b *Buffer) addInternal(path, datum string) *file {
+func (b *Buffer) add(path, datum string) *file {
 	path = Clean(path, false)
 	if _, ok := b.additive[path]; !ok {
 		b.additive[path] = make(map[string]*file)
 	}
 	datumFiles := b.additive[path]
 	if _, ok := datumFiles[datum]; !ok {
-		b.fileCount++
 		datumFiles[datum] = &file{
 			path:  path,
 			datum: datum,
 		}
+		b.fileCount++
 	}
 	return datumFiles[datum]
 }
 
 func (b *Buffer) Add(path, datum string) io.Writer {
-	f := b.addInternal(path, datum)
+	f := b.add(path, datum)
 	if len(f.contents) > 0 && f.contents[len(f.contents)-1].copy == nil {
 		return f.contents[len(f.contents)-1].buf
 	}
@@ -66,8 +66,8 @@ func (b *Buffer) Delete(path, datum string) {
 		// Fine for now since this should be rare and is an in-memory operation.
 		for file, datumFiles := range b.additive {
 			if strings.HasPrefix(file, path) {
-				b.fileCount -= len(datumFiles)
 				delete(b.additive, file)
+				b.fileCount -= len(datumFiles)
 			}
 		}
 		return
@@ -80,15 +80,15 @@ func (b *Buffer) Delete(path, datum string) {
 		b.deletive[path] = make(map[string]*file)
 	}
 	datumFiles := b.deletive[path]
-	b.fileCount++
 	datumFiles[datum] = &file{
 		path:  path,
 		datum: datum,
 	}
+	b.fileCount++
 }
 
 func (b *Buffer) Copy(file File, datum string) {
-	f := b.addInternal(file.Index().Path, datum)
+	f := b.add(file.Index().Path, datum)
 	f.contents = append(f.contents, fileContent{copy: file})
 }
 
