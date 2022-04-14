@@ -1,8 +1,8 @@
 # Overview
 
 Pachyderm runs on [Kubernetes](https://kubernetes.io/){target=_blank},
-is backed by an object store of your choice, and runs with a bundled version of [PostgreSQL](https://www.postgresql.org/){target=_blank} (metadata storage) by default. 
-We recommended that you disable the bundled version for production environments and use a **managed database instance** (such as RDS, CloudSQL, or PostgreSQL Server) instead.
+is backed by an object store of your choice, and comes with a bundled version of [PostgreSQL](https://www.postgresql.org/){target=_blank} (metadata storage) by default. 
+For production environments, we recommended to disable the bundled PostgreSQL and use a **managed database instance** (such as RDS, CloudSQL, or PostgreSQL Server) instead.
 
 This section covers common
 deployment options and related topics:
@@ -14,16 +14,16 @@ deployment options and related topics:
         <h4 class="mdl-card__title-text">Quick Start &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Use Pachyderm Hub or deploy locally.
+        To get started, install Pachyderm locally, or use our quickstart deployment instructions on the Cloud.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../hub/hub_getting_started/" class="md-typeset md-link">
-          Getting Started with Hub
-          </a>
-          </li>
           <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
           Deploy Locally
+          </a>
+          </li>
+          <li><a href="./quickstart/" class="md-typeset md-link">
+          Quick Cloud Deployment
           </a>
           </li>
           <li><a href="../../getting_started/install-pachctl-completion/" class="md-typeset md-link">

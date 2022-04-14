@@ -32,8 +32,11 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
-// defensively lock around helm calls
-var mu sync.Mutex
+var (
+	mu sync.Mutex // defensively lock around helm calls
+
+	computedPachAddress *grpcutil.PachdAddress
+)
 
 type DeployOpts struct {
 	Version            string
@@ -74,17 +77,20 @@ func helmChartLocalPath(t testing.TB) string {
 }
 
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
-	cfg, err := config.Read(true, true)
-	require.NoError(t, err)
-	_, context, err := cfg.ActiveContext(true)
-	require.NoError(t, err)
-	address, err := client.GetUserMachineAddr(context)
-	require.NoError(t, err)
-	if address == nil {
-		copy := grpcutil.DefaultPachdAddress
-		address = &copy
+	if computedPachAddress == nil {
+		cfg, err := config.Read(true, true)
+		require.NoError(t, err)
+		_, context, err := cfg.ActiveContext(false)
+		require.NoError(t, err)
+		computedPachAddress, err = client.GetUserMachineAddr(context)
+		require.NoError(t, err)
+		if computedPachAddress == nil {
+			copy := grpcutil.DefaultPachdAddress
+			computedPachAddress = &copy
+		}
 	}
-	return address
+	copy := *computedPachAddress
+	return &copy
 }
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
