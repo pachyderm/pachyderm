@@ -56,12 +56,17 @@ pachctl version
 
 # Run load tests.
 set +e
-pachctl run pfs-load-test "${@}"
+PFS_RESPONSE_SPEC=$(pachctl run pfs-load-test "${@}")
+echo "${PFS_RESPONSE_SPEC}"
+
 if [ "${?}" -ne 0 ]; then
 	pachctl debug dump /tmp/debug-dump
 	exit 1
 fi
-pachctl run pps-load-test "${@}"
+
+PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
+echo "${PPS_RESPONSE_SPEC}"
+
 if [ "${?}" -ne 0 ]; then
 	pachctl debug dump /tmp/debug-dump
 	exit 1

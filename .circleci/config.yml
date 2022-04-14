@@ -30,10 +30,6 @@ jobs:
       PPS_BUCKETS: "6"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
-      BIGQUERY_PROJECT: alysha-dev-006
-      BIGQUERY_DATASET: pach_test
-      BIGQUERY_TABLE: test_runs
-      TEST_RESULTS_BUCKET: pach-test-data
     steps:
       - checkout
       - restore_cache:
