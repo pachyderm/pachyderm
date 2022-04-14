@@ -223,7 +223,7 @@ Kubernetes restarted those pods. Re-run `kubectl get pods`
 
 ## Connect 'pachctl' To your Cluster
 
-Assuming your `pachd` is running as shown above, the easiest way to have `pachctl` connect to your local cluster is to use the `port-forward` command.
+Assuming your `pachd` is running as shown above, the easiest way to connect `pachctl` to your local cluster is to use the `port-forward` command.
 
 - To connect to your new Pachyderm instance, run:
 

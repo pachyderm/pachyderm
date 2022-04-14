@@ -27,7 +27,7 @@
     - **You do not know the `pachd_address` of your cluster**:
 
         - Install `pachctl` (Pachyderm command line tool) on your machine (see [`pachctl` installation instructions](../../getting_started/local_installation/#install-pachctl){target=_blank} ).
-        - Then, [connect that CLI to your cluster](../../getting_started/local_installation/#have-pachctl-and-your-cluster-communicate){target=_blank}.
+        - Then, [connect that CLI to your cluster](../../getting_started/local_installation/#connect-pachctl-to-your-cluster){target=_blank}.
         - And run:
         ```shell
         docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:{{ config.jupyterlab_extension_image_tag }} lab --allow-root
