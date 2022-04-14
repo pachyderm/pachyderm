@@ -333,6 +333,10 @@ func (c *unsupportedPfsBuilderClient) DropCommitSet(_ context.Context, _ *pfs_v2
 	return nil, unsupportedError("DropCommitSet")
 }
 
+func (c *unsupportedPfsBuilderClient) Egress(_ context.Context, _ *pfs_v2.EgressRequest, opts ...grpc.CallOption) (*pfs_v2.EgressResponse, error) {
+	return nil, unsupportedError("Egress")
+}
+
 func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("FinishCommit")
 }
@@ -469,10 +473,6 @@ func (c *unsupportedPpsBuilderClient) DeletePipeline(_ context.Context, _ *pps_v
 
 func (c *unsupportedPpsBuilderClient) DeleteSecret(_ context.Context, _ *pps_v2.DeleteSecretRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteSecret")
-}
-
-func (c *unsupportedPpsBuilderClient) Egress(_ context.Context, _ *pps_v2.EgressRequest, opts ...grpc.CallOption) (*pps_v2.EgressResponse, error) {
-	return nil, unsupportedError("Egress")
 }
 
 func (c *unsupportedPpsBuilderClient) GetLogs(_ context.Context, _ *pps_v2.GetLogsRequest, opts ...grpc.CallOption) (pps_v2.API_GetLogsClient, error) {

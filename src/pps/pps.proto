@@ -45,21 +45,11 @@ message TFJob {
   string tf_job = 1 [(gogoproto.customname) = "TFJob"];
 }
 
+// TODO migrate this to pfs.proto in the next major release
 message Egress {
   string URL = 1;
-  string secret_name = 2;
-  oneof write_type {
-    bool append = 3; 
-    bool overwite = 4; 
-  }
+  pfs_v2.SQLEgressOptions sql = 2;
 }
-
-message EgressRequest {
-  pfs_v2.Commit source = 1;
-  Egress target = 2;
-}
-
-message EgressResponse {}
 
 message Job {
   option (gogoproto.goproto_stringer) = false;
@@ -789,8 +779,4 @@ service API {
 
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
-
-  // Egress writes data from a commit to an external system
-  rpc Egress(EgressRequest) returns (EgressResponse) {}
 }
-

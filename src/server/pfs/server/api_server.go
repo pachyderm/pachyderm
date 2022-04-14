@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -21,7 +22,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/sdata"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
@@ -892,4 +895,94 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	default:
 		return nil, errors.Errorf("first message must be a commit")
 	}
+}
+
+func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error {
+	// try db
+	url, err := pachsql.ParseURL(req.TargetUrl)
+	if err != nil {
+		return err
+	}
+
+	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
+	password, ok := os.LookupEnv(passwordEnvar)
+	if !ok {
+		return errors.Errorf("must set %v", passwordEnvar)
+	}
+	// do we need to wrap password in a secret?
+	db, err := pachsql.OpenURL(*url, password)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer db.Close()
+
+	// all table are written through a single transaction
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer tx.Rollback()
+
+	tableInfos := make(map[string]*pachsql.TableInfo)
+	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
+		if fi.FileType != pfs.FileType_FILE {
+			return nil
+		}
+
+		tableName := strings.Split(fi.File.Path, "/")[1]
+		tableInfo, prs := tableInfos[tableName]
+		if !prs {
+			tableInfo, err := pachsql.GetTableInfoTx(tx, tableName)
+			if err != nil {
+				return err
+			}
+			tableInfos[tableName] = tableInfo
+		}
+
+		if err := miscutil.WithPipe(
+			func(w io.Writer) error {
+				return errors.EnsureStack(file.Content(ctx, w))
+			},
+			func(r io.Reader) error {
+				var tr sdata.TupleReader
+				switch req.Sql.FileFormat {
+				case pfs.SQLEgressOptions_CSV:
+					tr = sdata.NewCSVParser(r)
+				case pfs.SQLEgressOptions_JSON:
+					tr = sdata.NewJSONParser(r, nil)
+				}
+				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
+				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)
+				if err != nil {
+					return err
+				}
+				_, err = sdata.Copy(tr, tw, tuple)
+				return err
+			}); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	return tx.Commit()
+}
+
+func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	// try object storage
+	src, err := a.driver.getFile(ctx, req.Source.NewFile("/"))
+	if err == nil {
+		return nil, err
+	}
+	_, objErr := getFileURL(ctx, req.TargetUrl, src)
+	if objErr == nil {
+		return nil, nil
+	}
+	// try db
+	dbErr := copyToSQLDB(ctx, req, src)
+	if dbErr != nil {
+		return nil, errors.Errorf("egress tried to write to object storage: %w, then tried to write to database: %w", objErr, dbErr)
+	}
+	return nil, nil
 }

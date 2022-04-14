@@ -461,6 +461,7 @@ type clearCacheFunc func(context.Context, *pfs.ClearCacheRequest) (*types.Empty,
 type runLoadTestFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
 type runLoadTestDefaultFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
+type egressFunc func(context.Context, *pfs.EgressRequest) (*pfs.EgressResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -503,6 +504,7 @@ type mockClearCache struct{ handler clearCacheFunc }
 type mockRunLoadTest struct{ handler runLoadTestFunc }
 type mockRunLoadTestDefault struct{ handler runLoadTestDefaultFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
+type mockEgress struct{ handler egressFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)       { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                 { mock.handler = cb }
@@ -593,6 +595,7 @@ type mockPFSServer struct {
 	RunLoadTest        mockRunLoadTest
 	RunLoadTestDefault mockRunLoadTestDefault
 	ListTask           mockListTaskPFS
+	Egress             mockEgress
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -840,6 +843,12 @@ func (api *pfsServerAPI) ListTask(req *task.ListTaskRequest, server pfs.API_List
 		return api.mock.ListTask.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListTask")
+}
+func (api *pfsServerAPI) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	if api.mock.Egress.handler != nil {
+		return api.mock.Egress.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.Egress")
 }
 
 /* PPS Server Mocks */
@@ -1143,18 +1152,17 @@ func (api *ppsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empt
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunLoadTestDefault")
 }
-func (api *ppsServerAPI) ListTask(req *task.ListTaskRequest, server pps.API_ListTaskServer) error {
-	if api.mock.ListTask.handler != nil {
-		return api.mock.ListTask.handler(req, server)
-	}
-	return errors.Errorf("unhandled pachd mock pps.ListTask")
-}
-
 func (api *ppsServerAPI) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
 	if api.mock.RenderTemplate.handler != nil {
 		return api.mock.RenderTemplate.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RenderTemplate")
+}
+func (api *ppsServerAPI) ListTask(req *task.ListTaskRequest, server pps.API_ListTaskServer) error {
+	if api.mock.ListTask.handler != nil {
+		return api.mock.ListTask.handler(req, server)
+	}
+	return errors.Errorf("unhandled pachd mock pps.ListTask")
 }
 
 /* Transaction Server Mocks */

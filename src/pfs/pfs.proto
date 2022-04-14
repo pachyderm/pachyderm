@@ -462,6 +462,22 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
+message SQLEgressOptions {
+  enum FileFormat {
+      UNKNOWN = 0;
+      CSV = 1;
+      PARQUET = 2;
+      JSON = 3;
+  }
+  FileFormat file_format = 1;
+}
+message EgressRequest {
+  pfs_v2.Commit source = 1;
+  string target_url = 2;
+  SQLEgressOptions sql = 3;
+}
+message EgressResponse {}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -552,4 +568,7 @@ service API {
 
   // ListTask lists PFS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
+
+  // Egress writes data from a commit to an external system
+  rpc Egress(EgressRequest) returns (EgressResponse) {}
 }
