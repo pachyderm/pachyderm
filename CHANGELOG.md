@@ -1,5 +1,31 @@
 
 # Changelog
+## 2.1.6
+- Added comment on shard size/number thresholds params + dex database name override param - #7509
+- Ensure shard ranges are disjoint. - #7502
+- Expose configuration for compaction sharding - #7504
+- re-enable rootless ci tests - #7481
+- temporary circleci release definition - #7487
+- add missing --global to git config for build bot - #7491
+- fix broken helm chart icon path - #7496
+- Add buffering to debug dump stream - #7498
+- Decouple content defined chunking from file batching - #7494
+- [2.1.x Backport] Add dex secret file support - #7480
+- [2.1.x Backport] Expose pachd.identityDatabaseFullNameOverride to configure dex DB name - #7469
+- Wordcount example now finds license 13 times - #7468
+- add the --wait all for minikube start - #7429
+- [2.1.x Backport] Expose PG Bouncer default pool size - #7456
+- Block task service setup on etcd client creation. - #7452
+- Remove deleted load tests from circle - #7440
+- [2.1.x Backport] Make mockIDP user clusterAdmin - #7432
+- Distribute load testing - #7430
+- [2.1.x Backport] Fix Secure (HTTPS) setting for Minio - #7399
+- Helm Publish include --version - #7424
+- Fix typo and improve verbiage in pachctl pps cmds	- #7410
+- Strip build directory from pachd stack traces	- #7412
+- [2.1.x] storage/chunk: Fix TaskChain - #7419
+- [2.1.x Backport] Propagating Custom certs referenced in pachd's SSL_CERT_DIR to side-cars - #7417
+
 ## 2.1.5
 - Expose PG Bouncer default pool size - #7456
 - Block task service setup on etcd client creation. - #7452
