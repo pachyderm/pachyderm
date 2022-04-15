@@ -146,13 +146,13 @@ jobs:
       image: ubuntu-2004:202101-01
     environment:
       BUCKET: << parameters.bucket >>
+      GOOGLE_PROJECT_ID: build-release-001
+      GOOGLE_COMPUTE_ZONE: us-central1-a
+      GOOGLE_COMPUTE_REGION: us-central1
+      GCLOUD_SERVICE_KEY: $GOOGLE_GCP_BQ_SA
     steps:
       - checkout
-      - gcp-cli/initialize:
-          gcloud-service-key: $GOOGLE_GCP_BQ_SA
-          google-compute-region: us-central1
-          google-compute-zone: us-central1-a
-          google-project-id: build-release-001
+      - gcp-cli/initialize
       - gcp-cli/install
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
