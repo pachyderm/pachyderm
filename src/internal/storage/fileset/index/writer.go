@@ -1,24 +1,25 @@
 package index
 
 import (
+	"bytes"
 	"context"
 	"sync"
 
+	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 )
 
-var (
-	averageBits = 20
+const (
+	DefaultBatchThreshold = units.MB
 )
 
 type levelWriter struct {
-	cw                *chunk.Writer
-	pbw               pbutil.Writer
+	buf               *bytes.Buffer
+	batcher           *chunk.Batcher
 	firstIdx, lastIdx *Index
-	lastCbIdx         *Index
 }
 
 // Writer is used for creating a multilevel index into a serialized file set.
@@ -54,77 +55,56 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	l := w.getLevel(level)
 	l.lastIdx = idx
 	// pull the data refs from the index
-	var refDataRefs []*chunk.DataRef
+	var pointsTo []*chunk.DataRef
 	if idx.Range != nil && idx.File != nil {
 		return errors.New("either Index.Range or Index.File must be set, but not both.")
 	} else if idx.Range != nil {
-		refDataRefs = []*chunk.DataRef{idx.Range.ChunkRef}
+		pointsTo = []*chunk.DataRef{idx.Range.ChunkRef}
 	} else if idx.File != nil {
-		refDataRefs = append(refDataRefs, idx.File.DataRefs...)
+		pointsTo = append(pointsTo, idx.File.DataRefs...)
 	} else {
 		return errors.New("either Index.Range or Index.File must be set, but not both.")
 	}
-	// Create an annotation for each index.
-	if err := l.cw.Annotate(&chunk.Annotation{
-		RefDataRefs: refDataRefs,
-		Data:        idx,
-	}); err != nil {
-		return err
+	l.buf.Reset()
+	pbw := pbutil.NewWriter(l.buf)
+	_, err := pbw.Write(idx)
+	if err != nil {
+		return errors.EnsureStack(err)
 	}
-	_, err := l.pbw.Write(idx)
-	return errors.EnsureStack(err)
+	return l.batcher.Add(idx, l.buf.Bytes(), pointsTo)
 }
 
 func (w *Writer) setupLevel(idx *Index, level int) {
 	if level == w.numLevels() {
-		cw := w.chunks.NewWriter(w.ctx, w.tmpID, w.callback(level), chunk.WithRollingHashConfig(averageBits, int64(level)))
+		batcher := w.chunks.NewBatcher(w.ctx, w.tmpID, DefaultBatchThreshold, chunk.WithChunkCallback(w.callback(level)))
 		w.createLevel(&levelWriter{
-			cw:       cw,
-			pbw:      pbutil.NewWriter(cw),
+			buf:      &bytes.Buffer{},
+			batcher:  batcher,
 			firstIdx: idx,
 		})
 	}
 }
 
-func (w *Writer) callback(level int) chunk.WriterCallback {
-	return func(annotations []*chunk.Annotation) error {
-		// TODO: What's going on here? Why would a callback be called with 0 annotations.
-		//       Nothing immediately breaks when this is left out.
-		if len(annotations) == 0 {
-			return nil
-		}
-		lw := w.getLevel(level)
-		// Extract first and last index and setup file range.
-		idx := annotations[0].Data.(*Index)
-		dataRef := annotations[0].NextDataRef
-		// Edge case handling.
-		if len(annotations) > 1 {
-			// Skip the first index if it started in the previous chunk.
-			if proto.Equal(lw.lastCbIdx, idx) {
-				idx = annotations[1].Data.(*Index)
-				dataRef = annotations[1].NextDataRef
-			}
-		}
-		idx = proto.Clone(idx).(*Index)
-		dataRef = proto.Clone(dataRef).(*chunk.DataRef)
-		idx.File = nil
-		lw.lastCbIdx = proto.Clone(annotations[len(annotations)-1].Data.(*Index)).(*Index)
-		lastPath := lw.lastCbIdx.Path
-		if lw.lastCbIdx.Range != nil {
-			lastPath = lw.lastCbIdx.Range.LastPath
+func (w *Writer) callback(level int) chunk.ChunkFunc {
+	return func(metas []interface{}, chunkRef *chunk.DataRef) error {
+		idx := proto.Clone(metas[0].(*Index)).(*Index)
+		lastIdx := metas[len(metas)-1].(*Index)
+		lastPath := lastIdx.Path
+		if lastIdx.Range != nil {
+			lastPath = lastIdx.Range.LastPath
 		}
 		idx.Range = &Range{
-			Offset:   dataRef.OffsetBytes,
 			LastPath: lastPath,
-			ChunkRef: chunk.Reference(dataRef),
+			ChunkRef: chunkRef,
 		}
+		idx.File = nil
 		// Write index entry in next index level.
 		return w.writeIndex(idx, level+1)
 	}
 }
 
 // Close finishes the index, and returns the serialized top index level.
-func (w *Writer) Close() (ret *Index, retErr error) {
+func (w *Writer) Close() (*Index, error) {
 	// Close levels until a level with only one index entry (first index == last index)
 	// exists and return the index.
 	// Note: new levels can be created while closing, so the number of iterations
@@ -139,7 +119,7 @@ func (w *Writer) Close() (ret *Index, retErr error) {
 		if proto.Equal(l.firstIdx, l.lastIdx) {
 			return l.firstIdx, nil
 		}
-		if err := l.cw.Close(); err != nil {
+		if err := l.batcher.Close(); err != nil {
 			return nil, err
 		}
 	}

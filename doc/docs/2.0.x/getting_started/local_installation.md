@@ -1,3 +1,4 @@
+
 # Local Installation  
   
 This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®.   
@@ -27,7 +28,12 @@ For a successful local deployment of Pachyderm, you will need:
       - Oracle® VirtualBox™   
 - [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) 
 - [Helm](#install-helm) 
+- [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank}.
+
+
 ### Setup A Local Kubernetes Cluster
+
+Pick the virtual machine of your choice.
 
 #### Using Minikube  
   
@@ -39,8 +45,7 @@ the Beginner Tutorial.
 To configure Minikube, follow these steps:  
   
 1. Install minikube and VirtualBox in your operating system as described in  
-the [Kubernetes documentation](https://kubernetes.io/docs/setup/){target=_blank}.  
-1. [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank}.  
+the [Kubernetes documentation](https://kubernetes.io/docs/setup/){target=_blank}.    
 1. Start `minikube`:  
   
       ```shell  
@@ -50,7 +55,7 @@ the [Kubernetes documentation](https://kubernetes.io/docs/setup/){target=_blank}
       ```shell
       minikube start --driver=kvm2
       ```
-!!! Note  
+!!! Note
     Any time you want to stop and restart Pachyderm, run `minikube delete`  
     and `minikube start`. Minikube is not meant to be a production environment  
     and does not handle being restarted well without a full wipe.  
@@ -168,11 +173,18 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
       
      ```shell  
       helm install pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
-     ```  
+     ``` 
 
 !!! Note  "When deploying locally with Console"
      * You will need an Enterprise Key. To request a FREE trial enterprise license key, [click here](../../enterprise). 
      * We create a default mock user (username:`admin`, password: `password`) to authenticate to Console without having to connect your Identity Provider. 
+
+!!! Tip "Tip to uninstall Pachyderm fully"
+      Running `helm uninstall pachd` leaves persistent volume claims behind. To wipe your instance clean, run:
+      ```shell
+      helm uninstall pachyderm 
+      kubectl delete pvc -l suite=pachyderm 
+      ```
 
 !!! Info "See Also"
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).

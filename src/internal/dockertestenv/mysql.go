@@ -53,7 +53,7 @@ func NewMySQLURL(t testing.TB) pachsql.URL {
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
 	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
-	dbName := testutil.CreateEphemeralDB(t, db)
+	dbName := testutil.CreateEphemeralDB(t, db, "public")
 	u2 := u
 	u2.Database = dbName
 	return u2

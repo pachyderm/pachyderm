@@ -2986,17 +2986,11 @@ func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *
 
 var defaultLoadSpecs = []string{`
 count: 5
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100 
-validator: {}
+    putFile:
+      count: 5
+      source: "random"
 fileSources:
   - name: "random"
     random:
@@ -3005,7 +2999,7 @@ fileSources:
           min: 0
           max: 3
         run: 3
-      size:
+      sizes:
         - min: 1000
           max: 10000
           prob: 30 
@@ -3018,6 +3012,7 @@ fileSources:
         - min: 10000000
           max: 100000000
           prob: 10 
+validator: {}
 `}
 
 // RepoNameToEnvString is a helper which uppercases a repo name for

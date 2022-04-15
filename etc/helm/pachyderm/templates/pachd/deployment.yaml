@@ -149,9 +149,21 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        {{- if .Values.pachd.storage.compactionShardSizeThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardSizeThreshold | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.compactionShardCountThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardCountThreshold | quote }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
+        {{- end }}
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
+        - name: TLS_CERT_SECRET_NAME
+          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
         {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
@@ -173,6 +185,10 @@ spec:
           value: {{ .Values.pachd.securityContext.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        - name: IDENTITY_SERVER_DATABASE
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        {{ end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
@@ -223,6 +239,11 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+        {{- if .Values.oidc.dexCredentialSecretName }}
+        - mountPath: /dexcreds
+          name: dex-creds
+          readOnly: true
+        {{- end }}
       {{-  if .Values.pachd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
       {{- end }}
@@ -246,5 +267,11 @@ spec:
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
+      {{- if .Values.oidc.dexCredentialSecretName }}
+      - name: dex-creds
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.oidc.dexCredentialSecretName }}
       {{- end }}
 {{- end }}
