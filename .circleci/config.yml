@@ -147,8 +147,8 @@ jobs:
     environment:
       BUCKET: << parameters.bucket >>
       GOOGLE_PROJECT_ID: build-release-001
-      GOOGLE_COMPUTE_ZONE: us-central1-a
-      GOOGLE_COMPUTE_REGION: us-central1
+      GOOGLE_COMPUTE_ZONE: us-east1-b
+      GOOGLE_COMPUTE_REGION: us-east1
       #GCLOUD_SERVICE_KEY: $GOOGLE_GCP_BQ_SA
     steps:
       - checkout
