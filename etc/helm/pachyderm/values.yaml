@@ -27,7 +27,7 @@ global:
     postgresqlPort: "5432"
     # postgresqlSSL is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
     postgresqlSSL: "disable"
-    # Indicates the DB name that dex connects to
+    # Indicates the DB name that dex connects to. Defaults to "Dex" if not set.
     identityDatabaseFullNameOverride: ""
   # imagePullSecrets allow you to pull images from private repositories, these will also be added to pipeline workers
   # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -443,6 +443,9 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
+    # The shard size corresponds to the total size of the files in a shard.
+    # The shard count corresponds to the total number of files in a shard. 
+    # If either criteria is met, a shard will be created.
     compactionShardSizeThreshold: 0
     compactionShardCountThreshold: 0
   ppsWorkerGRPCPort: 1080
