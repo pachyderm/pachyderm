@@ -149,7 +149,6 @@ jobs:
       GOOGLE_PROJECT_ID: build-release-001
       GOOGLE_COMPUTE_ZONE: us-east1-b
       GOOGLE_COMPUTE_REGION: us-east1
-      #GCLOUD_SERVICE_KEY: $GOOGLE_GCP_BQ_SA
     steps:
       - checkout
       - gcp-cli/initialize
@@ -162,13 +161,16 @@ jobs:
       - run:
           name: upload results to bigquery
           command: |
-            DURATION=$(echo $PPS_RESPONSE_SPEC | jq '.DURATION')
+            DURATION=$(echo $PPS_RESPONSE_SPEC | jq '.duration')
+            echo $DURATION
             DURATION=${DURATION: 1:-2}
+            echo $DURATION
+            echo $BUCKET
             bq insert --ignore_unknown_values insights.load-tests \<< EOF
              {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS"} 
             EOF
 
-            DURATION=$(echo $PFS_RESPONSE_SPEC | jq '.DURATION')
+            DURATION=$(echo $PFS_RESPONSE_SPEC | jq '.duration')
             DURATION=${DURATION: 1:-2}
             bq insert --ignore_unknown_values insights.load-tests \<< EOF
              {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS"}
