@@ -76,10 +76,10 @@ func TestBasicServerSameNames(t *testing.T) {
 		require.NoError(t, err)
 
 		defer resp.Body.Close()
-		mountResp := &MountResponse{}
-		json.NewDecoder(resp.Body).Decode(mountResp)
-		require.Equal(t, "repo", mountResp.Repo)
-		require.Equal(t, "master", mountResp.Branch)
+		repoResp := &ListRepoResponse{}
+		json.NewDecoder(resp.Body).Decode(repoResp)
+		require.Equal(t, "repo", (*repoResp)["repo"].Name)
+		require.Equal(t, "master", (*repoResp)["repo"].Branches["master"].Name)
 
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestUnmountAll(t *testing.T) {
 		require.NoError(t, err)
 
 		defer resp.Body.Close()
-		unmountResp := &[]UnmountResponse{}
+		unmountResp := &ListRepoResponse{}
 		json.NewDecoder(resp.Body).Decode(unmountResp)
 		require.Equal(t, 2, len(*unmountResp))
 

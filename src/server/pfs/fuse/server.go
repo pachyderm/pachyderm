@@ -672,7 +672,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		_, err = mm.UnmountAll()
+		err = mm.UnmountAll()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -772,7 +772,7 @@ func (mm *MountManager) updateClientEndpoint(reqPachdAddress string) (map[string
 				return nil, err
 			}
 			if clusterStatus["cluster_address"] != "INVALID" {
-				_, err := mm.UnmountAll()
+				err := mm.UnmountAll()
 				if err != nil {
 					return nil, err
 				}
@@ -841,13 +841,6 @@ type ListMountResponse struct {
 }
 
 type GetResponse RepoResponse
-
-type MountResponse struct {
-	Repo   string `json:"repo"`
-	Branch string `json:"branch"`
-}
-
-type UnmountResponse MountResponse
 
 type MountKey struct {
 	Repo   string `json:"repo"`
