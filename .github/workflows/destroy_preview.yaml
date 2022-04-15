@@ -20,6 +20,7 @@ jobs:
           wget https://get.pulumi.com/releases/sdk/pulumi-v3.22.1-linux-x64.tar.gz
           tar xvf pulumi-v3.22.1-linux-x64.tar.gz
           echo "${PWD}/pulumi" >> $GITHUB_PATH
+          npm i
           pulumi stack select $CURRENT_BRANCH --non-interactive 
           pulumi config set gcp:zone us-east1-b
           pulumi config set gcp:project pulumi-ci-334619
