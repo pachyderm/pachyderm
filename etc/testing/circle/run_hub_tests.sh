@@ -56,14 +56,26 @@ pachctl version
 
 # Run load tests.
 set +e
-export PFS_RESPONSE_SPEC=$(pachctl run pfs-load-test "${@}")
+PFS_RESPONSE_SPEC=$(pachctl run pfs-load-test "${@}")
 
 if [ "${?}" -ne 0 ]; then
 	pachctl debug dump /tmp/debug-dump
 	exit 1
 fi
 
-export PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
+DURATION=$(echo $PFS_RESPONSE_SPEC | jq '.duration')
+DURATION=${DURATION: 1:-2}
+bq insert --ignore_unknown_values insights.load-tests << EOF
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS"}
+EOF
+
+PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
+
+DURATION=$(echo $PPS_RESPONSE_SPEC | jq '.duration')
+DURATION=${DURATION: 1:-2}
+bq insert --ignore_unknown_values insights.load-tests << EOF
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS"} 
+EOF
 
 if [ "${?}" -ne 0 ]; then
 	pachctl debug dump /tmp/debug-dump

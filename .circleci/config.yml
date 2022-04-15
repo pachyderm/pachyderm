@@ -158,23 +158,6 @@ jobs:
       - run:
           command: etc/testing/circle/run_hub_load_tests.sh
           no_output_timeout: 1h
-      - run:
-          name: upload results to bigquery
-          command: |
-            DURATION=$(echo $PPS_RESPONSE_SPEC | jq '.duration')
-            echo $DURATION
-            DURATION=${DURATION: 1:-2}
-            echo $DURATION
-            echo $BUCKET
-            bq insert --ignore_unknown_values insights.load-tests \<< EOF
-             {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS"} 
-            EOF
-
-            DURATION=$(echo $PFS_RESPONSE_SPEC | jq '.duration')
-            DURATION=${DURATION: 1:-2}
-            bq insert --ignore_unknown_values insights.load-tests \<< EOF
-             {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS"}
-            EOF
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
