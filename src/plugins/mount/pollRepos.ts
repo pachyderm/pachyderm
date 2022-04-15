@@ -150,7 +150,7 @@ export class PollRepos {
 export function findMountedBranch(repo: Repo): Branch | undefined {
   //NOTE: Using find will cause issues if we allow multiple branches to be mounted at the same time.
   return repo.branches.find(
-    (branch) => branch.mount.state && isMounted(branch.mount.state),
+    (branch) => branch.mount[0].state && isMounted(branch.mount[0].state),
   );
 }
 

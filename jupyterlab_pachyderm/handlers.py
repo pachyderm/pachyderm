@@ -22,7 +22,7 @@ from .mount_server_client import MountServerClient
 
 # Frontend hard codes this in src/handler.ts
 NAMESPACE = "pachyderm"
-VERSION = "v1"
+VERSION = "v2"
 
 
 def _normalize_mode(mode):

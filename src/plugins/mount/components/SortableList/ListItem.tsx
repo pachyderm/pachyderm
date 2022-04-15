@@ -26,7 +26,7 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
     const found = findMountedBranch(repo);
     if (found) {
       setMountedBranch(found);
-      setDisabled(DISABLED_STATES.includes(found.mount.state));
+      setDisabled(DISABLED_STATES.includes(found.mount[0].state));
     }
   }, [repo]);
 
@@ -141,7 +141,10 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
             className="pachyderm-mount-list-item-status"
             data-testid="ListItem__status"
           >
-            {renderStatus(mountedBanch.mount.state, mountedBanch.mount.status)}
+            {renderStatus(
+              mountedBanch.mount[0].state,
+              mountedBanch.mount[0].status,
+            )}
           </span>
         )}
       </span>

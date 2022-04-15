@@ -14,7 +14,7 @@ export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
 
 export type Branch = {
   branch: string;
-  mount: Mount;
+  mount: Mount[];
 };
 
 export type Mount = {

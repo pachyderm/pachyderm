@@ -31,26 +31,30 @@ async def test_list_repos(mock_client, jp_fetch):
         "images": {
             "branches": {
                 "master": {
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "status": None,
-                        "mode": None,
-                        "mountpoint": None,
-                    }
+                    "mount": [
+                        {
+                            "name": None,
+                            "state": "unmounted",
+                            "status": None,
+                            "mode": None,
+                            "mountpoint": None,
+                        }
+                    ]
                 }
             }
         },
         "edges": {
             "branches": {
                 "master": {
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "status": None,
-                        "mode": None,
-                        "mountpoint": None,
-                    }
+                    "mount": [
+                        {
+                            "name": None,
+                            "state": "unmounted",
+                            "status": None,
+                            "mode": None,
+                            "mountpoint": None,
+                        }
+                    ]
                 }
             }
         },
@@ -63,13 +67,15 @@ async def test_list_repos(mock_client, jp_fetch):
             "branches": [
                 {
                     "branch": "master",
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "mode": None,
-                        "status": None,
-                        "mountpoint": None,
-                    },
+                    "mount": [
+                        {
+                            "name": None,
+                            "state": "unmounted",
+                            "status": None,
+                            "mode": None,
+                            "mountpoint": None,
+                        }
+                    ],
                 },
             ],
         },
@@ -78,13 +84,15 @@ async def test_list_repos(mock_client, jp_fetch):
             "branches": [
                 {
                     "branch": "master",
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "mode": None,
-                        "status": None,
-                        "mountpoint": None,
-                    },
+                    "mount": [
+                        {
+                            "name": None,
+                            "state": "unmounted",
+                            "status": None,
+                            "mode": None,
+                            "mountpoint": None,
+                        }
+                    ],
                 },
             ],
         },
@@ -111,26 +119,30 @@ async def test_get_repo(mock_client, jp_fetch):
         "images": {
             "branches": {
                 "master": {
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "status": None,
-                        "mode": None,
-                        "mountpoint": None,
-                    }
+                    "mount": [
+                        {
+                            "name": None,
+                            "state": "unmounted",
+                            "status": None,
+                            "mode": None,
+                            "mountpoint": None,
+                        }
+                    ]
                 }
             }
         },
         "edges": {
             "branches": {
                 "master": {
-                    "mount": {
-                        "name": None,
-                        "state": "unmounted",
-                        "status": None,
-                        "mode": None,
-                        "mountpoint": None,
-                    }
+                    "mount": [
+                        {
+                            "name": None,
+                            "state": "unmounted",
+                            "status": None,
+                            "mode": None,
+                            "mountpoint": None,
+                        }
+                    ]
                 }
             }
         },
@@ -144,13 +156,15 @@ async def test_get_repo(mock_client, jp_fetch):
         "branches": [
             {
                 "branch": "master",
-                "mount": {
-                    "name": None,
-                    "state": "unmounted",
-                    "mode": None,
-                    "status": None,
-                    "mountpoint": None,
-                },
+                "mount": [
+                    {
+                        "name": None,
+                        "state": "unmounted",
+                        "status": None,
+                        "mode": None,
+                        "mountpoint": None,
+                    }
+                ],
             }
         ],
     }
@@ -202,7 +216,7 @@ async def test_mount(mock_client, jp_fetch):
     }
 
     r = await jp_fetch(
-        f"/pachyderm/v1/repos/{repo}/_mount",
+        f"/{NAMESPACE}/{VERSION}/repos/{repo}/_mount",
         method="PUT",
         params={"name": name, "mode": mode},
         body="{}",

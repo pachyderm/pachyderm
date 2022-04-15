@@ -6,7 +6,7 @@ export async function requestAPI<T>(
   endPoint = '',
   method = 'GET',
   body: ReadonlyJSONObject | null = null,
-  namespace = 'pachyderm/v1',
+  namespace = 'pachyderm/v2',
 ): Promise<T> {
   // Make request to Jupyter API
   const settings = ServerConnection.makeSettings();

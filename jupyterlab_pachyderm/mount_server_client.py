@@ -162,8 +162,9 @@ class MountServerClient(MountInterface):
         accum = []
         for _, repo_info in all.items():
             for _, branch_info in repo_info["branches"].items():
-                if branch_info["mount"]["state"] == "mounted":
-                    accum.append([branch_info["mount"]["mount_key"]["Repo"], branch_info["mount"]["mount_key"]["Branch"]])
+                for mount in branch_info["mount"]:
+                    if mount["state"] == "mounted":
+                        accum.append([mount["mount_key"]["repo"], mount["mount_key"]["branch"]])
 
         return accum
 

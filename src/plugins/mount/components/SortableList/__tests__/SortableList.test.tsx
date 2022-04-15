@@ -61,13 +61,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'unmounted',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'unmounted',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -97,13 +99,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'mounted',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'mounted',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -134,13 +138,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'mounted',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'mounted',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -160,23 +166,27 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'unmounted',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'unmounted',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
           {
             branch: 'develop',
-            mount: {
-              name: '',
-              state: 'unmounted',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'unmounted',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -206,13 +216,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'error',
-              status: 'error mounting branch',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'error',
+                status: 'error mounting branch',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -235,13 +247,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'error',
-              status: 'error mounting branch',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'error',
+                status: 'error mounting branch',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -250,13 +264,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'unmounting',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'unmounting',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },
@@ -265,13 +281,15 @@ describe('mount components', () => {
         branches: [
           {
             branch: 'master',
-            mount: {
-              name: '',
-              state: 'mounting',
-              status: '',
-              mode: null,
-              mountpoint: null,
-            },
+            mount: [
+              {
+                name: '',
+                state: 'mounting',
+                status: '',
+                mode: null,
+                mountpoint: null,
+              },
+            ],
           },
         ],
       },

@@ -122,7 +122,7 @@ def test_list_repos(pachyderm_resources, dev_server):
         assert _repo["repo"] in repos
         for _branch in _repo["branches"]:
             assert _branch.keys() == {"branch", "mount"}
-            assert _branch["mount"].keys() == {
+            assert _branch["mount"][0].keys() == {
                 "name",
                 "state",
                 "status",

@@ -87,9 +87,11 @@ describe('mount plugin', () => {
             branches: [
               {
                 branch: 'master',
-                mount: {
-                  state: 'mounted',
-                },
+                mount: [
+                  {
+                    state: 'mounted',
+                  },
+                ],
               },
             ],
           },
