@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '^1.17.2'
-      - uses: google-github-actions/setup-gcloud@master
+      - uses: google-github-actions/setup-gcloud@main
         with:
           service_account_key: ${{ secrets.GCP_KEY }}
           project_id: ${{ env.PROJECT_ID }}
