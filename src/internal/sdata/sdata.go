@@ -1,7 +1,6 @@
 package sdata
 
 import (
-	"context"
 	"database/sql"
 	"io"
 	"time"
@@ -109,30 +108,6 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 }
 
 func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
-	tuple := make(Tuple, len(info.Columns))
-	for i, ci := range info.Columns {
-		var err error
-		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return tuple, nil
-}
-
-func NewTupleFromTable(ctx context.Context, db *pachsql.DB, tableName string) (Tuple, error) {
-	info, err := pachsql.GetTableInfo(ctx, db, tableName)
-	if err != nil {
-		return nil, err
-	}
-	return NewTupleFromTableInfo(info)
-}
-
-func NewTupleFromTableTx(ctx context.Context, tx *pachsql.Tx, tableName string) (Tuple, error) {
-	info, err := pachsql.GetTableInfoTx(tx, tableName)
-	if err != nil {
-		return nil, err
-	}
 	tuple := make(Tuple, len(info.Columns))
 	for i, ci := range info.Columns {
 		var err error
