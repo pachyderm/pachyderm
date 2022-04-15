@@ -158,7 +158,7 @@ Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_
   
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps.
 
-JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
+JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
 Note that you can run both Console and JupyterLab on your local installation.
 
@@ -280,7 +280,7 @@ pachd               {{ config.pach_latest_version }}
 ```  
 You are all set!  
 
-## NOTEBOOKS USERS: Install JupyterLab Mount Extension
+## NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
 
 !!! Note
       Prerequisites: You have a local Pachyderm CE or Enterprise instance running already.

@@ -1,3 +1,10 @@
+---
+# YAML header
+ignore_macros: true
+---
+
+<!-- git-snippet: enable -->
+
 # Pachyderm JupyterLab Mount Extension
 
 ![Mount extension in action](../images/mount-extension.gif)
@@ -159,37 +166,8 @@ Replace the image name with your own image otherwise.
         Update `singleuser.image.name` and `singleuser.image.tag` to match your user image.
 
     ```yaml
-    singleuser:
-        defaultUrl: "/lab"
-        cmd:   "start-singleuser.sh"
-        image:
-            name: pachyderm/notebooks-user
-            tag: {{ config.jupyterlab_extension_image_tag }}
-        uid:   0
-        fsGid: 0
-        extraEnv:
-            "GRANT_SUDO": "yes"
-            "NOTEBOOK_ARGS": "--allow-root"
-            "JUPYTER_ENABLE_LAB": "yes"
-            "CHOWN_HOME": "yes"
-            "CHOWN_HOME_OPTS": "-R"
-    hub:
-        extraConfig:
-            enableRoot: |
-                from kubernetes import client
-                def modify_pod_hook(spawner, pod):
-                    pod.spec.containers[0].security_context = client.V1SecurityContext(
-                        allow_privilege_escalation=True,
-                        run_as_user=0,
-                        privileged=True,
-                        capabilities=client.V1Capabilities(
-                            add=['SYS_ADMIN']
-                        )
-                    )
-                    return pod
-                c.KubeSpawner.modify_pod_hook = modify_pod_hook
+    {{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/jupyterhub-ext-values.yaml', 'master') }}
     ```
-
 
 - Run the following commands to install JupyterHub:
 
