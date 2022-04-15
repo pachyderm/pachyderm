@@ -28,9 +28,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -10082,4 +10084,51 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	require.Equal(t, "", commitInfo.Error)
+}
+
+func TestRepoEgress(t *testing.T) {
+	t.Parallel()
+	// setup
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// create a repo
+	repoName := tu.UniqueString("TestEgressRepo")
+	require.NoError(t, c.CreateRepo(repoName))
+	// add a file under /table_name/test_data.csv
+	commit := client.NewCommit(repoName, "master", "")
+	require.NoError(t, c.PutFile(
+		commit,
+		"/test_table/data.csv",
+		strings.NewReader("1,Foo\n2,Bar\n")))
+	// also try json
+	// create a postgres server with an empheral database
+	db := dockertestenv.NewPostgres(t)
+	// create a test_table that matches the schema of test_data.csv
+
+	schema := struct {
+		Id int    `sql:"ID,INT"`
+		A  string `sql:"A,VARCHAR(100)"`
+	}{}
+	require.NoError(t, pachsql.CreateTestTable(db, "test_table", schema))
+
+	dsn := fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, tu.DefaultPostgresHost, tu.DefaultPostgresPort, tu.DefaultPostgresDatabase)
+	_, err := pachsql.ParseURL(dsn)
+	require.NoError(t, err)
+
+	_, err = c.Egress(
+		c.Ctx(),
+		&pfs.EgressRequest{
+			Source:    commit,
+			TargetUrl: dsn,
+			Sql:       &pfs.SQLEgressOptions{FileFormat: pfs.SQLEgressOptions_CSV},
+		})
+	require.NoError(t, err)
+
+	var (
+		v1 int
+		v2 string
+	)
+	require.NoError(t, db.QueryRow("Select * from test_table").Scan(&v1, &v2))
+	fmt.Println(">>> select -> ", v1, v2)
+
+	// call client.Egress()
 }

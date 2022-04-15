@@ -901,7 +901,7 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 	// try db
 	url, err := pachsql.ParseURL(req.TargetUrl)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
@@ -934,7 +934,7 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 		if !prs {
 			tableInfo, err := pachsql.GetTableInfoTx(tx, tableName)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			tableInfos[tableName] = tableInfo
 		}
@@ -954,12 +954,12 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
 				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				_, err = sdata.Copy(tr, tw, tuple)
-				return err
+				return errors.EnsureStack(err)
 			}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	})
@@ -982,7 +982,7 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 	// try db
 	dbErr := copyToSQLDB(ctx, req, src)
 	if dbErr != nil {
-		return nil, errors.Errorf("egress tried to write to object storage: %w, then tried to write to database: %w", objErr, dbErr)
+		return nil, errors.Errorf("egress tried to write to object storage: %w, then tried to write to database: %w", errors.EnsureStack(objErr), errors.EnsureStack(dbErr))
 	}
 	return nil, nil
 }
