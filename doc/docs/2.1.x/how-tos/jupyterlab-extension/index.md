@@ -1,8 +1,3 @@
----
-# YAML header
----
-
-<!-- git-snippet: enable -->
 
 # Pachyderm JupyterLab Mount Extension
 
@@ -158,14 +153,41 @@ Replace the image name with your own image otherwise.
 !!! Info
     Find the complete installation instructions of JupyterHub on Kubernetes in [Jupyterhub for Kubernetes documentation](https://zero-to-jupyterhub.readthedocs.io/en/latest/#setup-jupyterhub){target=_blank}.
 
-
-- As a FUSE requirement, add the following to your **Jupyterhub helm chart values.YAML** file to enable root in the `singleuser` containers:
+- As a FUSE requirement, add the following to your **Jupyterhub helm chart values.YAML** file to enable root in the `singleuser` containers or use our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
 
     !!! Note
-        Update `singleuser.image.name` and `singleuser.image.tag` to match your user image.
+        Update the fields `singleuser.image.name` and `singleuser.image.tag` to match your user image or leave Pachyderm's default image `pachyderm/notebooks-user:{{ config.jupyterlab_extension_image_tag }}`.
 
     ```yaml
-    {{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/jupyterhub-ext-values.yaml') }}
+    singleuser:
+        defaultUrl: "/lab"
+        cmd:   "start-singleuser.sh"
+        image:
+            name: pachyderm/notebooks-user
+            tag: {{ config.jupyterlab_extension_image_tag }}
+        uid:   0
+        fsGid: 0
+        extraEnv:
+            "GRANT_SUDO": "yes"
+            "NOTEBOOK_ARGS": "--allow-root"
+            "JUPYTER_ENABLE_LAB": "yes"
+            "CHOWN_HOME": "yes"
+            "CHOWN_HOME_OPTS": "-R"
+    hub:
+        extraConfig:
+            enableRoot: |
+                from kubernetes import client
+                def modify_pod_hook(spawner, pod):
+                    pod.spec.containers[0].security_context = client.V1SecurityContext(
+                        allow_privilege_escalation=True,
+                        run_as_user=0,
+                        privileged=True,
+                        capabilities=client.V1Capabilities(
+                            add=['SYS_ADMIN']
+                        )
+                    )
+                    return pod
+                c.KubeSpawner.modify_pod_hook = modify_pod_hook
     ```
 
 - Run the following commands to install JupyterHub:
@@ -176,7 +198,7 @@ Replace the image name with your own image otherwise.
 
     helm upgrade --cleanup-on-fail \
     --install jupyter jupyterhub/jupyterhub \
-    --values https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/jupyterhub-ext-values.yaml
+    --values <your-jupyterhub-values.yaml>
     ```
 
     !!! Note 
