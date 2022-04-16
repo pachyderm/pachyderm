@@ -1,6 +1,5 @@
 ---
 # YAML header
-ignore_macros: true
 ---
 
 <!-- git-snippet: enable -->

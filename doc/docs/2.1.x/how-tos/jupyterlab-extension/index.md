@@ -1,6 +1,5 @@
 ---
 # YAML header
-ignore_macros: true
 ---
 
 <!-- git-snippet: enable -->
@@ -166,7 +165,7 @@ Replace the image name with your own image otherwise.
         Update `singleuser.image.name` and `singleuser.image.tag` to match your user image.
 
     ```yaml
-    {{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/jupyterhub-ext-values.yaml', 'master') }}
+    {{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/jupyterhub-ext-values.yaml') }}
     ```
 
 - Run the following commands to install JupyterHub:
