@@ -1,10 +1,13 @@
 
 # Local Installation  
   
-This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®.   
-  
-To install Pachyderm on Windows, take a look at [Deploy Pachyderm on Windows](wsl-deploy.md) first.  
-  
+This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®. To install Pachyderm on Windows, first look at [Deploy Pachyderm on Windows](../wsl-deploy){target=_blank}.
+
+Pachyderm is an application written in go that runs on top of a Kubernetes cluster. 
+A common way to interact with Pachyderm is by using Pachyderm command-line tool `pachctl`, from a terminal window. To check the state of your deployment, you will also need to install `kubectl`, Kubernetes command-line tool. 
+
+Additionally, we will show you how to deploy Pachyderm Web UI **[Console](../../deploy-manage/deploy/console){target=_blank}** on your local cluster. **Console** will help you visualize your DAGs (Directed Acyclic Graphs), monitor your pipeline executions, access your logs, and troubleshoot while your pipelines are running.
+
 !!! Warning  
       - A local installation is **not designed to be a production  
       environment**. It is meant to help you learn and experiment quickly with Pachyderm.   
@@ -26,10 +29,9 @@ For a successful local deployment of Pachyderm, you will need:
       - [Minikube](#using-minikube)  
       - [Kind](#using-kind)  
       - Oracle® VirtualBox™   
-- [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) 
-- [Helm](#install-helm) 
-- [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank}.
-
+- [Helm](#install-helm) to deploy Pachyderm on your Kubernetes cluster.  
+- [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) to interact with your Pachyderm cluster.
+- [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank} to interact with your underlying Kubernetes cluster.
 
 ### Setup A Local Kubernetes Cluster
 
@@ -145,8 +147,7 @@ with a Pachyderm cluster in your terminal.
   
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
-## Deploy Pachyderm Latest Community Edition (Option: Deploy Pachyderm With Console)  
-  
+## Deploy Pachyderm Community Edition or Enterprise with Console  
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
   
 !!! Tip  
@@ -155,39 +156,37 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
 * Get the Repo Info:  
    ```shell  
    helm repo add pach https://helm.pachyderm.com  
-   ```  
-   ```shell  
-   helm repo update  
+   helm repo update 
    ```  
  * Install Pachyderm:  
 
-=== "Install Pachyderm latest Community Edition version"
+=== "Latest CE"
       This command will install Pachyderm's latest available GA version.
 
-      ```shell  
-      helm install pachd pach/pachyderm --set deployTarget=LOCAL  
-      ```    
-=== "Install Pachyderm **with Console**"
-     Console is Pachyderm's UI. Run the following helm command to install Pachyderm's latest version with Console: 
+       ```shell  
+       helm install pachd pach/pachyderm --set deployTarget=LOCAL  
+       ```    
+=== "Enterprise (Console)"
+       - Create a `license.txt` file in which you paste your [Enterprise Key](../../enterprise){target=_blank}.
+       - Then, run the following helm command to **install Pachyderm's latest version with Console**: 
+       
+       ```shell  
+       helm install pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
+       ``` 
 
-      
-     ```shell  
-      helm install pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
-     ``` 
+!!! Warning  "Deploying locally with Console requires an **Enterprise Key**"
+     * To request a FREE trial enterprise license key, [click here](../../enterprise){target=_blank}. 
+     * We create a default mock user (username:`admin`, password: `password`) to [authenticate to Console](../../deploy-manage/deploy/console/#connect-to-console){target=_blank} without having to connect your Identity Provider. 
 
-!!! Note  "When deploying locally with Console"
-     * You will need an Enterprise Key. To request a FREE trial enterprise license key, [click here](../../enterprise). 
-     * We create a default mock user (username:`admin`, password: `password`) to authenticate to Console without having to connect your Identity Provider. 
-
-!!! Tip "Tip to uninstall Pachyderm fully"
+!!! Tip "To uninstall Pachyderm fully"
       Running `helm uninstall pachd` leaves persistent volume claims behind. To wipe your instance clean, run:
       ```shell
-      helm uninstall pachyderm 
+      helm uninstall pachd 
       kubectl delete pvc -l suite=pachyderm 
       ```
 
 !!! Info "See Also"
-      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
+      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/){target=_blank}.
 
 
 ## Check Your Install
@@ -221,30 +220,25 @@ Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
 Kubernetes restarted those pods. Re-run `kubectl get pods`
  
 
-## Have 'pachctl' and your Cluster Communicate
+## Connect 'pachctl' To your Cluster
 
-Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
-The easiest way to have `pachctl` connect to your local cluster is to use the `port-forward` command.
+Assuming your `pachd` is running as shown above, the easiest way to connect `pachctl` to your local cluster is to use the `port-forward` command.
 
+- To connect to your new Pachyderm instance, run:
 
-=== "You have deployed Pachyderm with or without Console"
-    - To connect to your new Pachyderm instance, run:
+      ```shell
+      pachctl config import-kube local --overwrite
+      pachctl config set active-context local
+      ```
 
-        ```shell
-        pachctl config import-kube local --overwrite
-        ```
-        ```shell
-        pachctl config set active-context local
-        ```
+- Then:
 
-    - Then run:
+      ```shell
+      pachctl port-forward
+      ``` 
+      **Background this process in a new tab of your terminal.**
 
-        ```shell
-        pachctl port-forward
-        ``` 
-        Background this process in a new tab of your terminal.
-
-    - If you have deployed with Console:
+=== "You have deployed Enterprise/Console"
 
         - To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`** 
         and authenticate using the mock User (username: `admin`, password: `password`).
@@ -275,7 +269,7 @@ The easiest way to have `pachctl` connect to your local cluster is to use the `p
   
 ## Next Steps  
   
-Complete the [Beginner Tutorial](./beginner_tutorial.md) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
+Complete the [Beginner Tutorial](../beginner_tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
   
   
 !!! note "See Also:"  
