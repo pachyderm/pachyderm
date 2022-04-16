@@ -177,7 +177,7 @@ Replace the image name with your own image otherwise.
 
     helm upgrade --cleanup-on-fail \
     --install jupyter jupyterhub/jupyterhub \
-    --values values.yaml
+    --values https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/jupyterhub-ext-values.yaml
     ```
 
     !!! Note 
