@@ -51,6 +51,7 @@ export const JobOverviewFragmentDoc = gql`
     dataFailed
     dataTotal
     dataRecovered
+    outputCommit
   }
 `;
 export const JobSetFieldsFragmentDoc = gql`
@@ -1126,11 +1127,13 @@ export const JobDocument = gql`
       inputString
       inputBranch
       outputBranch
+      outputCommit
       reason
       jsonDetails
       transform {
         cmdList
         image
+        debug
       }
     }
   }
@@ -1244,6 +1247,7 @@ export const JobsDocument = gql`
       transform {
         cmdList
         image
+        debug
       }
     }
   }

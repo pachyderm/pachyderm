@@ -1,0 +1,64 @@
+.pipelineList {
+  position: relative;
+  margin-top: 0.75rem;
+  list-style: none;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0;
+  max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
+  overflow-y: auto;
+}
+
+.nav {
+  min-width: 2rem;
+  max-width: 12rem;
+  flex: 2;
+}
+
+.collapsed {
+  max-width: 3rem;
+}
+
+.pipelineLinkText {
+  overflow-x: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pipelineLink {
+  color: var(--pachyderm-black);
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  border-left: 2px solid transparent;
+  box-sizing: border-box;
+}
+
+.pipelineLink:hover,
+.pipelineLink:active {
+  color: var(--pachyderm-black);
+  text-decoration: none;
+}
+
+.pipelineLink:hover {
+  background-color: var(--background-grey);
+}
+
+.pipelineLink.active.error {
+  border-left: 2px solid var(--error-red);
+}
+
+.pipelineLink.active.success {
+  border-left: 2px solid var(--success-green);
+}
+
+.pipelineLink.active.busy {
+  border-left: 2px solid var(--border-grey);
+}
+
+.pipelineIcon {
+  height: 0.875rem;
+  width: 0.875rem;
+  margin-right: 0.4375rem;
+}

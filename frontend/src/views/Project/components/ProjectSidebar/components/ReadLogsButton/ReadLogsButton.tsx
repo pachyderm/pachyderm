@@ -1,4 +1,4 @@
-import {Link, DocumentSVG, Icon} from '@pachyderm/components';
+import {Link, DocumentSVG, Icon, Button} from '@pachyderm/components';
 import React from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -9,7 +9,11 @@ import {
 
 import styles from './ReadLogsButton.module.css';
 
-const ReadLogsButton: React.FC = () => {
+interface ReadLogsButtonProps {
+  isButton?: boolean;
+}
+
+const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({isButton = false}) => {
   const {projectId, pipelineId, jobId} = useUrlState();
 
   const logsLink = jobId
@@ -22,6 +26,19 @@ const ReadLogsButton: React.FC = () => {
         projectId,
         pipelineId: pipelineId,
       });
+
+  if (isButton) {
+    return (
+      <Button
+        autoWidth
+        className={styles.button}
+        buttonType={'secondary'}
+        to={logsLink}
+      >
+        Read Log
+      </Button>
+    );
+  }
 
   return (
     <Link to={logsLink} className={styles.base}>

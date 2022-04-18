@@ -112,11 +112,7 @@ describe('ProjectSidebar', () => {
 
       const {getByTestId} = render(<Project />);
 
-      await waitFor(() =>
-        expect(getByTestId('InfoPanel__id')).toHaveTextContent(
-          '23b9af7d5d4343219bc8e02ff4acd33a',
-        ),
-      );
+      await waitFor(() => expect(getByTestId('InfoPanel__pipeline')));
       expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent(
         'likelihoods',
       );

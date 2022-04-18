@@ -11,6 +11,7 @@ export const JOBS_QUERY = gql`
       transform {
         cmdList
         image
+        debug
       }
     }
   }

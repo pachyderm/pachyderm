@@ -14,5 +14,6 @@ export const JobOverviewFragment = gql`
     dataFailed
     dataTotal
     dataRecovered
+    outputCommit
   }
 `;

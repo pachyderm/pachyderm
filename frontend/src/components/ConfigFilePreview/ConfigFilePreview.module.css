@@ -1,0 +1,25 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  height: 4rem;
+  align-items: center;
+  padding: 1rem;
+}
+
+.title {
+  font-size: var(--font-size-header);
+  font-weight: bold;
+}
+
+.codeBody {
+  background-color: var(--grey-1);
+  padding: 0.5rem;
+  padding-left: 1rem;
+  overflow-y: auto;
+}
+
+.settings {
+  display: flex;
+  align-items: center;
+  cursor: default;
+}

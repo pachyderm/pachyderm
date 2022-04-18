@@ -87,3 +87,14 @@ export interface LinkInputData
     Pick<Link, 'state' | 'targetState' | 'sourceState' | 'transferring'> {}
 
 export interface NodeInputData extends ElkNode, Omit<Node, 'x' | 'y'> {}
+
+export type PfsInput = {
+  repo: string;
+};
+export type Input = {
+  pfs?: PfsInput;
+  joinList: [Input];
+  groupList: [Input];
+  crossList: [Input];
+  unionList: [Input];
+};

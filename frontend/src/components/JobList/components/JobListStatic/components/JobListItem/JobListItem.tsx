@@ -17,7 +17,7 @@ import {Link} from 'react-router-dom';
 
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import readableJobState from '@dash-frontend/lib/readableJobState';
+import {readableJobState} from '@dash-frontend/lib/jobs';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import isPipelineJob from '../../utils/isPipelineJob';

@@ -1,5 +1,5 @@
 import {render, waitFor, within} from '@testing-library/react';
-import {formatDistanceToNow, fromUnixTime} from 'date-fns';
+import {fromUnixTime, formatDistanceToNowStrict} from 'date-fns';
 import React from 'react';
 import {Route} from 'react-router';
 
@@ -115,14 +115,14 @@ describe('Job Details', () => {
     expect(window.location.pathname).toBe(
       jobRoute({projectId, jobId, pipelineId: 'likelihoods'}, false),
     );
+    await waitFor(() =>
+      expect(queryByTestId('InfoPanel__loading')).not.toBeInTheDocument(),
+    );
 
-    expect(getByTestId('InfoPanel__id')).toHaveTextContent(jobId);
     expect(getByTestId('InfoPanel__pipeline')).toHaveTextContent('likelihoods');
     expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
     expect(getByTestId('InfoPanel__started')).toHaveTextContent(
-      formatDistanceToNow(fromUnixTime(1614136190), {
-        addSuffix: true,
-      }),
+      formatDistanceToNowStrict(fromUnixTime(1614136190), {addSuffix: true}),
     );
     expect(getByTestId('InfoPanel__processed')).toHaveTextContent(/^0$/);
     expect(getByTestId('InfoPanel__failed')).toHaveTextContent(/^100$/);

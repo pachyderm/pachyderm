@@ -103,6 +103,7 @@ enum PipelineType {
 type Transform {
   cmdList: [String!]!
   image: String!
+  debug: Boolean!
 }
 
 input TransformInput {
@@ -211,6 +212,7 @@ type Job {
   inputString: String
   inputBranch: String
   outputBranch: String
+  outputCommit: String
   reason: String
   jsonDetails: String!
   dataProcessed: Int!

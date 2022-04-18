@@ -1,10 +1,19 @@
 .base {
-  display: flex;
+  display: inline-flex;
+  overflow: hidden;
+  white-space: pre-wrap;
+  line-break: anywhere;
   align-items: center;
 }
 
+.base.large {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 .copy {
-  display: flex;
+  display: inline-flex;
   margin-top: -2px;
   margin-left: 0.5rem;
   margin-right: 1.75rem;

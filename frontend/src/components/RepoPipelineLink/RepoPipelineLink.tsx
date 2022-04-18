@@ -1,6 +1,7 @@
 import {Link, RepoSVG, PipelineSVG, Icon} from '@pachyderm/components';
 import React, {useMemo} from 'react';
 
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   pipelineRoute,
@@ -11,7 +12,9 @@ import styles from './RepoPipelineLink.module.css';
 
 type RepoPipelineLinkProps = {
   name: string;
-  type: 'repo' | 'pipeline';
+  branch?: string;
+  repo?: string;
+  type: 'repo' | 'pipeline' | 'commit';
 };
 
 const getIcon = (type: RepoPipelineLinkProps['type']) => {
@@ -25,21 +28,43 @@ const getIcon = (type: RepoPipelineLinkProps['type']) => {
   }
 };
 
-const RepoPipelineLink: React.FC<RepoPipelineLinkProps> = ({name, type}) => {
+const RepoPipelineLink: React.FC<RepoPipelineLinkProps> = ({
+  name,
+  type,
+  branch = 'master',
+  repo = '',
+  ...rest
+}) => {
   const {projectId} = useUrlState();
+  const {getPathToFileBrowser} = useFileBrowserNavigation();
   const nodeName = type !== 'pipeline' ? name.replace('_repo', '') : name;
   const path = useMemo(() => {
-    return type === 'repo'
-      ? repoRoute({
+    switch (type) {
+      case 'repo':
+        return repoRoute({
           branchId: 'master',
           projectId,
           repoId: nodeName,
-        })
-      : pipelineRoute({
+        });
+      case 'pipeline':
+        return pipelineRoute({
           projectId,
           pipelineId: nodeName,
         });
-  }, [nodeName, projectId, type]);
+      case 'commit':
+        return getPathToFileBrowser({
+          projectId,
+          commitId: nodeName,
+          branchId: branch,
+          repoId: repo,
+        });
+
+      default:
+        return '/not-found';
+    }
+  }, [nodeName, projectId, type, getPathToFileBrowser, branch, repo]);
+
+  const icon = useMemo(() => getIcon(type), [type]);
 
   return (
     <Link
@@ -48,10 +73,14 @@ const RepoPipelineLink: React.FC<RepoPipelineLinkProps> = ({name, type}) => {
       aria-label={nodeName}
       className={styles.base}
     >
-      <Icon small className={styles.nodeImage}>
-        {getIcon(type)}
-      </Icon>
-      <span className={styles.nodeName}>{nodeName}</span>
+      {icon ? (
+        <Icon small className={styles.nodeImage}>
+          {icon}
+        </Icon>
+      ) : null}
+      <span {...rest} className={styles.nodeName}>
+        {nodeName}
+      </span>
     </Link>
   );
 };

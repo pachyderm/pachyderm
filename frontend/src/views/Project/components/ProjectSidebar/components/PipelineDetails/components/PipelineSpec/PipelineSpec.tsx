@@ -1,14 +1,12 @@
 import {SkeletonBodyText} from '@pachyderm/components';
 import React from 'react';
 
-import JsonSpec from '@dash-frontend/components/JsonSpec';
+import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import styles from './PipelineSpec.module.css';
 
 const PipelineSpec = () => {
-  const {projectId} = useUrlState();
   const {pipeline, loading} = useCurrentPipeline();
 
   return (
@@ -16,9 +14,9 @@ const PipelineSpec = () => {
       {loading ? (
         <SkeletonBodyText lines={10} data-testid="PipelineSpec__loader" />
       ) : (
-        <JsonSpec
-          jsonString={pipeline?.jsonSpec || '{}'}
-          projectId={projectId}
+        <ConfigFilePreview
+          title="Job Definition"
+          config={JSON.parse(pipeline?.jsonSpec || '{}')}
         />
       )}
     </div>

@@ -1,0 +1,15 @@
+.header {
+  display: flex;
+  cursor: pointer;
+  position: relative;
+}
+
+.minimized {
+  height: 0;
+  overflow: hidden;
+}
+
+.chevron {
+  position: absolute;
+  left: -1.25rem;
+}

@@ -1,0 +1,10 @@
+.code {
+  white-space: pre;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: var(--font-size-body-large);
+  background-color: inherit;
+}
+
+.codeSection {
+  padding-left: var(--font-size-body-large);
+}

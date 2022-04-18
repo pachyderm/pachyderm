@@ -127,6 +127,7 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
       : undefined,
     inputBranch: jobInfo.details?.input?.pfs?.branch,
     outputBranch: jobInfo.outputCommit?.branch?.name,
+    outputCommit: jobInfo.outputCommit?.id,
     jsonDetails: deriveJSONJobDetails(jobInfo),
     dataFailed: jobInfo.dataFailed,
     dataProcessed: jobInfo.dataProcessed,

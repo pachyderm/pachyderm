@@ -1,14 +1,12 @@
-import {JobState} from '@graphqlTypes';
-import {Link, Tooltip, LoadingDots, Group} from '@pachyderm/components';
-import classnames from 'classnames';
-import React from 'react';
+import {JobSet} from '@graphqlTypes';
+import {Link, LoadingDots} from '@pachyderm/components';
+import React, {useState} from 'react';
 import {Helmet} from 'react-helmet';
-import {NavLink, Redirect, Route} from 'react-router-dom';
+import {Redirect, Route} from 'react-router-dom';
 
 import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import readableJobState from '@dash-frontend/lib/readableJobState';
 import {
   LINEAGE_PIPELINE_JOB_PATH,
   PROJECT_PIPELINE_JOB_PATH,
@@ -20,40 +18,14 @@ import {
 } from '@dash-frontend/views/Project/utils/routes';
 
 import InfoPanel from './components/InfoPanel';
+import PipelineList from './components/PipelineList';
 import styles from './JobDetails.module.css';
-
-type JobVisualState = 'BUSY' | 'ERROR' | 'SUCCESS';
-
-const getVisualJobState = (state: JobState): JobVisualState => {
-  switch (state) {
-    case JobState.JOB_CREATED:
-    case JobState.JOB_EGRESSING:
-    case JobState.JOB_RUNNING:
-    case JobState.JOB_STARTING:
-    case JobState.JOB_FINISHING:
-      return 'BUSY';
-    case JobState.JOB_FAILURE:
-    case JobState.JOB_KILLED:
-      return 'ERROR';
-    default:
-      return 'SUCCESS';
-  }
-};
-
-const getJobStateHref = (state: JobVisualState) => {
-  switch (state) {
-    case 'BUSY':
-      return '/dag_busy.svg';
-    case 'ERROR':
-      return '/dag_error.svg';
-    default:
-      return '/dag_success.svg';
-  }
-};
 
 const JobDetails = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
   const {jobSet, loading} = useJobSet({id: jobId, projectId});
+
+  const [containerRef, setContainerRef] = useState<HTMLDivElement | null>(null);
 
   if (
     jobSet &&
@@ -72,7 +44,7 @@ const JobDetails = () => {
   }
 
   return (
-    <div className={styles.base}>
+    <div className={styles.base} ref={setContainerRef}>
       <Helmet>
         <title>Job - Pachyderm Console</title>
       </Helmet>
@@ -98,10 +70,10 @@ const JobDetails = () => {
           </nav>
         </Route>
 
-        <Group spacing={8} className={styles.heading}>
-          <h5>Job</h5>
+        <div className={styles.heading}>
+          <span className={styles.jobLabel}>Job</span>
           <CommitIdCopy commit={jobId} longId />
-        </Group>
+        </div>
       </section>
 
       <section className={styles.pipelineSection}>
@@ -115,51 +87,12 @@ const JobDetails = () => {
         )}
 
         {!loading && (
-          <nav>
-            <ol className={styles.pipelineList}>
-              {jobSet?.jobs.map((job) => {
-                const jobVisualState = getVisualJobState(job.state);
-
-                return (
-                  <li key={job.pipelineName}>
-                    <Tooltip
-                      tooltipText={job.pipelineName}
-                      tooltipKey={job.pipelineName}
-                      size="large"
-                      placement="right"
-                    >
-                      <NavLink
-                        aria-current="true"
-                        activeClassName={styles.active}
-                        exact={true}
-                        to={jobRoute({
-                          projectId,
-                          jobId,
-                          pipelineId: job.pipelineName,
-                        })}
-                        className={classnames(styles.pipelineLink, {
-                          [styles.error]: jobVisualState === 'ERROR',
-                          [styles.success]: jobVisualState === 'SUCCESS',
-                          [styles.busy]: jobVisualState === 'BUSY',
-                        })}
-                      >
-                        <img
-                          alt={`Pipeline job ${job.id} ${readableJobState(
-                            job.state,
-                          )}:`}
-                          className={styles.pipelineIcon}
-                          src={getJobStateHref(jobVisualState)}
-                        />
-                        <div className={styles.pipelineLinkText}>
-                          {job.pipelineName}
-                        </div>
-                      </NavLink>
-                    </Tooltip>
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
+          <PipelineList
+            containerRef={containerRef}
+            jobSet={jobSet as JobSet}
+            projectId={projectId}
+            jobId={jobId}
+          />
         )}
 
         <div className={styles.pipelineSpec}>

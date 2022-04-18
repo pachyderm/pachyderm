@@ -9,11 +9,13 @@ export const JOB_QUERY = gql`
       inputString
       inputBranch
       outputBranch
+      outputCommit
       reason
       jsonDetails
       transform {
         cmdList
         image
+        debug
       }
     }
   }

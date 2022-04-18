@@ -292,6 +292,7 @@ export type Job = {
   inputString?: Maybe<Scalars['String']>;
   jsonDetails: Scalars['String'];
   outputBranch?: Maybe<Scalars['String']>;
+  outputCommit?: Maybe<Scalars['String']>;
   pipelineName: Scalars['String'];
   reason?: Maybe<Scalars['String']>;
   startedAt?: Maybe<Scalars['Int']>;
@@ -752,6 +753,7 @@ export type Tokens = {
 export type Transform = {
   __typename?: 'Transform';
   cmdList: Array<Scalars['String']>;
+  debug: Scalars['Boolean'];
   image: Scalars['String'];
 };
 
@@ -1285,6 +1287,11 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
+  outputCommit?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   pipelineName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   startedAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
@@ -1735,6 +1742,7 @@ export type TransformResolvers<
   ParentType extends ResolversParentTypes['Transform'] = ResolversParentTypes['Transform'],
 > = ResolversObject<{
   cmdList?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
+  debug?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   image?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -1841,6 +1849,7 @@ export type JobOverviewFragment = {
   dataFailed: number;
   dataTotal: number;
   dataRecovered: number;
+  outputCommit?: string | null;
 };
 
 export type JobSetFieldsFragment = {
@@ -1864,6 +1873,7 @@ export type JobSetFieldsFragment = {
     dataFailed: number;
     dataTotal: number;
     dataRecovered: number;
+    outputCommit?: string | null;
     transform?: {
       __typename?: 'Transform';
       cmdList: Array<string>;
@@ -2196,6 +2206,7 @@ export type JobQuery = {
     inputString?: string | null;
     inputBranch?: string | null;
     outputBranch?: string | null;
+    outputCommit?: string | null;
     reason?: string | null;
     jsonDetails: string;
     id: string;
@@ -2213,6 +2224,7 @@ export type JobQuery = {
       __typename?: 'Transform';
       cmdList: Array<string>;
       image: string;
+      debug: boolean;
     } | null;
   };
 };
@@ -2244,6 +2256,7 @@ export type JobSetsQuery = {
       dataFailed: number;
       dataTotal: number;
       dataRecovered: number;
+      outputCommit?: string | null;
       transform?: {
         __typename?: 'Transform';
         cmdList: Array<string>;
@@ -2275,10 +2288,12 @@ export type JobsQuery = {
     dataFailed: number;
     dataTotal: number;
     dataRecovered: number;
+    outputCommit?: string | null;
     transform?: {
       __typename?: 'Transform';
       cmdList: Array<string>;
       image: string;
+      debug: boolean;
     } | null;
   }>;
 };
@@ -2310,6 +2325,7 @@ export type JobSetQuery = {
       dataFailed: number;
       dataTotal: number;
       dataRecovered: number;
+      outputCommit?: string | null;
       transform?: {
         __typename?: 'Transform';
         cmdList: Array<string>;
@@ -2471,6 +2487,7 @@ export type ProjectDetailsQuery = {
         dataFailed: number;
         dataTotal: number;
         dataRecovered: number;
+        outputCommit?: string | null;
         transform?: {
           __typename?: 'Transform';
           cmdList: Array<string>;

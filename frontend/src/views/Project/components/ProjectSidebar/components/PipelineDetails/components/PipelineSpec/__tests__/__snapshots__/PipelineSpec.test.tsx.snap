@@ -4,59 +4,610 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
 <div
   class="base"
 >
-  <pre
-    class="base base"
-  >
-    {
-  "transform": {
-    "image": "v4tech/imagemagick",
-    "cmdList": [
-      "sh"
-    ],
-    "stdinList": [
-      "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png"
-    ]
-  },
-  "input": {
-    "crossList": [
-      {
-        "pfs": {
-          "repo": "
-    <a
-      class="repoLink"
-      href="/project/1/repos/edges/branch/master"
-      id="__repoedges"
+  <div>
+    <div
+      class="header"
     >
-      edges
-    </a>
-    "
-        }
-      },
-      {
-        "pfs": {
-          "repo": "
-    <a
-      class="repoLink"
-      href="/project/1/repos/images/branch/master"
-      id="__repoimages"
+      <div
+        class="title"
+      >
+        Job Definition
+      </div>
+      <div
+        class="settings _base_1p360_1 _horizontal_1p360_45 _spacing16_1p360_21"
+      >
+        <div
+          class="_base_11ori_1"
+        >
+          <button
+            aria-expanded="false"
+            aria-haspopup="true"
+            class="_base_1o7uy_1 _hideChevron_1o7uy_33 _purple_1o7uy_42"
+            data-testid="DropdownButton__button"
+            type="button"
+          >
+            <span
+              class="_children_1o7uy_26"
+            >
+              <div
+                class="_base_19s37_1 _plum_19s37_22"
+              >
+                <svg
+                  height="20"
+                  width="20"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <g
+                    fill="none"
+                    fill-rule="evenodd"
+                  >
+                    <path
+                      d="M0 0h20v20H0z"
+                    />
+                    <path
+                      d="M10.794 1a.75.75 0 0 1 .744.658l.164 1.3a.19.19 0 0 0 .138.158 7.045 7.045 0 0 1 1.725.718.188.188 0 0 0 .21-.014l1.034-.808a.75.75 0 0 1 .99.062L16.926 4.2a.75.75 0 0 1 .061.991l-.806 1.037a.188.188 0 0 0-.014.21c.315.54.557 1.12.719 1.724.02.074.082.128.157.138l1.301.162a.75.75 0 0 1 .657.744v1.588a.75.75 0 0 1-.657.746l-1.3.163a.186.186 0 0 0-.158.137 7.048 7.048 0 0 1-.72 1.725.188.188 0 0 0 .015.209l.808 1.038a.75.75 0 0 1-.061.99l-1.125 1.125a.75.75 0 0 1-.99.061l-1.037-.806a.186.186 0 0 0-.21-.014 7.03 7.03 0 0 1-1.725.718.189.189 0 0 0-.138.158l-.162 1.3a.75.75 0 0 1-.744.657h-1.59a.75.75 0 0 1-.744-.657l-.163-1.3a.189.189 0 0 0-.138-.158 7.03 7.03 0 0 1-1.725-.718.188.188 0 0 0-.209.014l-1.037.806a.75.75 0 0 1-.99-.062L3.074 15.8a.75.75 0 0 1-.061-.99l.806-1.04a.188.188 0 0 0 .014-.209 7.048 7.048 0 0 1-.719-1.724.186.186 0 0 0-.158-.137l-1.3-.163A.75.75 0 0 1 1 10.793V9.205a.75.75 0 0 1 .658-.744l1.3-.164a.187.187 0 0 0 .157-.137 7.048 7.048 0 0 1 .72-1.725.188.188 0 0 0-.015-.21l-.809-1.034a.75.75 0 0 1 .062-.991l1.125-1.125a.75.75 0 0 1 .99-.062l1.039.807c.06.047.143.053.209.014a7.045 7.045 0 0 1 1.725-.718.189.189 0 0 0 .138-.158l.163-1.301A.75.75 0 0 1 9.206 1ZM10 5.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"
+                      fill="currentcolor"
+                      fill-rule="nonzero"
+                    />
+                  </g>
+                </svg>
+              </div>
+            </span>
+          </button>
+          <div
+            aria-hidden="true"
+            class="_base_1kfrl_57 _right_1kfrl_77"
+            role="menu"
+          >
+            <button
+              class="_base_bt078_1"
+              data-testid="DropdownMenuItem__button"
+              role="menuitem"
+              tabindex="-1"
+              type="button"
+            >
+              Copy
+            </button>
+            <button
+              class="_base_bt078_1"
+              data-testid="DropdownMenuItem__button"
+              role="menuitem"
+              tabindex="-1"
+              type="button"
+            >
+              Download JSON
+            </button>
+            <button
+              class="_base_bt078_1"
+              data-testid="DropdownMenuItem__button"
+              role="menuitem"
+              tabindex="-1"
+              type="button"
+            >
+              Download YAML
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="codeBody"
     >
-      images
-    </a>
-    "
-        }
-      }
-    ]
-  },
-  "schedulingSpec": {
-    "nodeSelectorMap": [
-      [
-        "disktype",
-        "ssd"
-      ]
-    ],
-    "priorityClassName": "high-priority"
-  }
-}
-  </pre>
+      <div
+        class="codeSection"
+      >
+        <div>
+          <div
+            class="code language-yaml hljs"
+          />
+          <div
+            class="header"
+          >
+            <div
+              class="_base_19s37_1 chevron undefined _small_19s37_54"
+            >
+              <svg
+                height="20"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g
+                  fill="none"
+                  fill-rule="evenodd"
+                >
+                  <path
+                    d="M0 0h20v20H0z"
+                  />
+                  <path
+                    d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                    fill="currentcolor"
+                    fill-rule="nonzero"
+                  />
+                </g>
+              </svg>
+            </div>
+            <div
+              class="code language-yaml hljs"
+            >
+              <span
+                class="hljs-attr"
+              >
+                transform:
+              </span>
+            </div>
+          </div>
+          <div
+            class=""
+          >
+            <div
+              class="codeSection"
+            >
+              <div>
+                <div
+                  class="code language-yaml hljs"
+                >
+                  <span
+                    class="hljs-attr"
+                  >
+                    image:
+                  </span>
+                   
+                  <span
+                    class="hljs-string"
+                  >
+                    v4tech/imagemagick
+                  </span>
+                  
+
+                </div>
+                <div
+                  class="header"
+                >
+                  <div
+                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                  >
+                    <svg
+                      height="20"
+                      width="20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <g
+                        fill="none"
+                        fill-rule="evenodd"
+                      >
+                        <path
+                          d="M0 0h20v20H0z"
+                        />
+                        <path
+                          d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                          fill="currentcolor"
+                          fill-rule="nonzero"
+                        />
+                      </g>
+                    </svg>
+                  </div>
+                  <div
+                    class="code language-yaml hljs"
+                  >
+                    <span
+                      class="hljs-attr"
+                    >
+                      cmdList:
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class=""
+                >
+                  <div
+                    class="codeSection"
+                  >
+                    <div
+                      class="code language-yaml hljs"
+                    >
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        sh
+                      </span>
+                      
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div
+                  class="code language-yaml hljs"
+                />
+                <div
+                  class="header"
+                >
+                  <div
+                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                  >
+                    <svg
+                      height="20"
+                      width="20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <g
+                        fill="none"
+                        fill-rule="evenodd"
+                      >
+                        <path
+                          d="M0 0h20v20H0z"
+                        />
+                        <path
+                          d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                          fill="currentcolor"
+                          fill-rule="nonzero"
+                        />
+                      </g>
+                    </svg>
+                  </div>
+                  <div
+                    class="code language-yaml hljs"
+                  >
+                    <span
+                      class="hljs-attr"
+                    >
+                      stdinList:
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class=""
+                >
+                  <div
+                    class="codeSection"
+                  >
+                    <div
+                      class="code language-yaml hljs"
+                    >
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        &gt;-
+  montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f
+  | sort) /pfs/out/montage.png
+
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="code language-yaml hljs"
+              />
+            </div>
+          </div>
+        </div>
+        <div>
+          <div
+            class="code language-yaml hljs"
+          />
+          <div
+            class="header"
+          >
+            <div
+              class="_base_19s37_1 chevron undefined _small_19s37_54"
+            >
+              <svg
+                height="20"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g
+                  fill="none"
+                  fill-rule="evenodd"
+                >
+                  <path
+                    d="M0 0h20v20H0z"
+                  />
+                  <path
+                    d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                    fill="currentcolor"
+                    fill-rule="nonzero"
+                  />
+                </g>
+              </svg>
+            </div>
+            <div
+              class="code language-yaml hljs"
+            >
+              <span
+                class="hljs-attr"
+              >
+                input:
+              </span>
+            </div>
+          </div>
+          <div
+            class=""
+          >
+            <div
+              class="codeSection"
+            >
+              <div>
+                <div
+                  class="code language-yaml hljs"
+                />
+                <div
+                  class="header"
+                >
+                  <div
+                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                  >
+                    <svg
+                      height="20"
+                      width="20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <g
+                        fill="none"
+                        fill-rule="evenodd"
+                      >
+                        <path
+                          d="M0 0h20v20H0z"
+                        />
+                        <path
+                          d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                          fill="currentcolor"
+                          fill-rule="nonzero"
+                        />
+                      </g>
+                    </svg>
+                  </div>
+                  <div
+                    class="code language-yaml hljs"
+                  >
+                    <span
+                      class="hljs-attr"
+                    >
+                      crossList:
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class=""
+                >
+                  <div
+                    class="codeSection"
+                  >
+                    <div
+                      class="code language-yaml hljs"
+                    >
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-attr"
+                      >
+                        pfs:
+                      </span>
+                      
+    
+                      <span
+                        class="hljs-attr"
+                      >
+                        repo:
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        edges
+                      </span>
+                      
+
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-attr"
+                      >
+                        pfs:
+                      </span>
+                      
+    
+                      <span
+                        class="hljs-attr"
+                      >
+                        repo:
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        images
+                      </span>
+                      
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="code language-yaml hljs"
+              />
+            </div>
+          </div>
+        </div>
+        <div>
+          <div
+            class="code language-yaml hljs"
+          />
+          <div
+            class="header"
+          >
+            <div
+              class="_base_19s37_1 chevron undefined _small_19s37_54"
+            >
+              <svg
+                height="20"
+                width="20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <g
+                  fill="none"
+                  fill-rule="evenodd"
+                >
+                  <path
+                    d="M0 0h20v20H0z"
+                  />
+                  <path
+                    d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                    fill="currentcolor"
+                    fill-rule="nonzero"
+                  />
+                </g>
+              </svg>
+            </div>
+            <div
+              class="code language-yaml hljs"
+            >
+              <span
+                class="hljs-attr"
+              >
+                schedulingSpec:
+              </span>
+            </div>
+          </div>
+          <div
+            class=""
+          >
+            <div
+              class="codeSection"
+            >
+              <div>
+                <div
+                  class="code language-yaml hljs"
+                />
+                <div
+                  class="header"
+                >
+                  <div
+                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                  >
+                    <svg
+                      height="20"
+                      width="20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <g
+                        fill="none"
+                        fill-rule="evenodd"
+                      >
+                        <path
+                          d="M0 0h20v20H0z"
+                        />
+                        <path
+                          d="M8.94 13.841a1.5 1.5 0 0 0 2.007.103l.114-.103 6-6-2.122-2.121L10 10.66 5.06 5.72 2.94 7.84l6 6Z"
+                          fill="currentcolor"
+                          fill-rule="nonzero"
+                        />
+                      </g>
+                    </svg>
+                  </div>
+                  <div
+                    class="code language-yaml hljs"
+                  >
+                    <span
+                      class="hljs-attr"
+                    >
+                      nodeSelectorMap:
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class=""
+                >
+                  <div
+                    class="codeSection"
+                  >
+                    <div
+                      class="code language-yaml hljs"
+                    >
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        disktype
+                      </span>
+                      
+  
+                      <span
+                        class="hljs-bullet"
+                      >
+                        -
+                      </span>
+                       
+                      <span
+                        class="hljs-string"
+                      >
+                        ssd
+                      </span>
+                      
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="code language-yaml hljs"
+              >
+                <span
+                  class="hljs-attr"
+                >
+                  priorityClassName:
+                </span>
+                 
+                <span
+                  class="hljs-string"
+                >
+                  high-priority
+                </span>
+                
+
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="code language-yaml hljs"
+        />
+      </div>
+    </div>
+  </div>
 </div>
 `;

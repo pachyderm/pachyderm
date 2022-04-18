@@ -1,22 +1,25 @@
-import {Link} from '@pachyderm/components';
+import formatBytes from '@dash-backend/lib/formatBytes';
 import {
-  fromUnixTime,
-  formatDistanceToNow,
-  formatDistanceStrict,
-} from 'date-fns';
-import React, {useMemo} from 'react';
+  ChevronDownSVG,
+  ChevronUpSVG,
+  Icon,
+  LoadingDots,
+  Tooltip,
+} from '@pachyderm/components';
+import classnames from 'classnames';
+import React from 'react';
 
+import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import Description from '@dash-frontend/components/Description';
-import JSONBlock from '@dash-frontend/components/JSONBlock';
-import JsonSpec from '@dash-frontend/components/JsonSpec';
-import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
-import {useJob} from '@dash-frontend/hooks/useJob';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
-import readableJobState from '@dash-frontend/lib/readableJobState';
+import RepoPipelineLink from '@dash-frontend/components/RepoPipelineLink';
+import {
+  readableJobState,
+  getJobStateHref,
+  getVisualJobState,
+} from '@dash-frontend/lib/jobs';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
 
+import useInfoPanel from './hooks/useInfoPanel';
 import styles from './InfoPanel.module.css';
 
 type InfoPanelProps = {
@@ -24,189 +27,194 @@ type InfoPanelProps = {
 };
 
 const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
-  const {jobId, projectId, pipelineId} = useUrlState();
-  const {viewState} = useUrlQueryState();
-  const {getPathToFileBrowser} = useFileBrowserNavigation();
-
-  const {job, loading} = useJob({
-    id: viewState.globalIdFilter || jobId,
-    pipelineName: pipelineId,
-    projectId,
-  });
-
-  const transformString = useMemo(() => {
-    if (job?.transform) {
-      return (
-        <JSONBlock>
-          {JSON.stringify(
-            {
-              image: job.transform.image,
-              cmd: job.transform.cmdList,
-            },
-            null,
-            2,
-          )}
-        </JSONBlock>
-      );
-    }
-    return 'N/A';
-  }, [job?.transform]);
-
-  const started = useMemo(() => {
-    return job?.startedAt
-      ? formatDistanceToNow(fromUnixTime(job.startedAt), {
-          addSuffix: true,
-        })
-      : 'N/A';
-  }, [job?.startedAt]);
-
-  const duration = useMemo(() => {
-    return job?.finishedAt && job?.startedAt
-      ? formatDistanceStrict(
-          fromUnixTime(job.finishedAt),
-          fromUnixTime(job.startedAt),
-        )
-      : 'N/A';
-  }, [job?.startedAt, job?.finishedAt]);
+  const {
+    job,
+    duration,
+    jobDetails,
+    loading,
+    started,
+    runtimeDetailsOpen,
+    runtimeDetailsClosing,
+    toggleRunTimeDetailsOpen,
+    datumMetrics,
+    runtimeMetrics,
+    inputs,
+    jobConfig,
+  } = useInfoPanel();
 
   return (
-    <dl className={styles.base}>
-      {showReadLogs && (
-        <div className={styles.logsButtonWrapper}>
-          <ReadLogsButton />
+    <div className={styles.base}>
+      <div className={styles.section}>
+        <div className={styles.stateHeader}>
+          <div className={styles.state}>
+            {job ? (
+              <img
+                alt={`Pipeline job ${job.id} ${readableJobState(job.state)}:`}
+                className={styles.stateIcon}
+                src={getJobStateHref(getVisualJobState(job.state))}
+              />
+            ) : null}
+            <span data-testid="InfoPanel__state">
+              {job?.state ? readableJobState(job?.state) : ''}
+            </span>
+          </div>
+          {showReadLogs ? <ReadLogsButton isButton={true} /> : null}
         </div>
-      )}
-      <Description
-        term="Output Commit"
-        loading={loading}
-        data-testid="InfoPanel__id"
-      >
-        {job?.outputBranch ? (
-          <Link
-            to={getPathToFileBrowser({
-              projectId,
-              commitId: job.id,
-              branchId: job.outputBranch,
-              repoId: job.pipelineName,
-            })}
-            data-testid="InfoPanel__commitLink"
+        {loading ? (
+          <div data-testid="InfoPanel__loading" className={styles.datumCard}>
+            <LoadingDots />
+          </div>
+        ) : (
+          <div className={styles.datumCard}>
+            <div className={styles.datumCardHeader}>
+              <div>
+                <div data-testid="InfoPanel__total" className={styles.number}>
+                  {job?.dataTotal}
+                </div>
+                Total Datums
+              </div>
+              <Tooltip
+                tooltipText="Pipeline Version"
+                tooltipKey="Pipeline Version"
+              >
+                <div>v: {jobDetails.pipelineVersion}</div>
+              </Tooltip>
+            </div>
+            <div className={styles.datumCardBody}>
+              {datumMetrics.map(({label, value}) => (
+                <div className={styles.datumCardMetric} key={label}>
+                  <div
+                    data-testid={`InfoPanel__${label.toLowerCase()}`}
+                    className={styles.number}
+                  >
+                    {value}
+                  </div>
+                  <div className={styles.metricLabel}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className={styles.section}>
+        <div className={styles.metricSection}>
+          <Description
+            term="Start"
+            loading={loading}
+            className={styles.duration}
+            data-testid="InfoPanel__started"
           >
-            {job?.id}
-          </Link>
-        ) : (
-          <>{job?.id}</>
-        )}
-      </Description>
-      <Description
-        term="Pipeline"
-        loading={loading}
-        data-testid="InfoPanel__pipeline"
-      >
-        {job?.pipelineName}
-      </Description>
-      <Description
-        term="State"
-        loading={loading}
-        data-testid="InfoPanel__state"
-      >
-        {job?.state ? readableJobState(job.state) : 'N/A'}
-      </Description>
-      {job?.reason && (
-        <Description
-          term="Reason"
-          loading={loading}
-          data-testid="InfoPanel__reason"
-        >
-          {extractAndShortenIds(job.reason)}
-        </Description>
+            {started ? started : 'N/A'}
+          </Description>
+        </div>
+        <div className={styles.metricSection}>
+          <Description
+            term="Runtime"
+            loading={loading}
+            data-testid="InfoPanel__duration"
+            className={classnames(styles.duration, {
+              [styles.runtime]: !loading,
+            })}
+            onClick={toggleRunTimeDetailsOpen}
+          >
+            {duration ? duration : 'N/A'}
+            <Icon>
+              {runtimeDetailsOpen ? <ChevronUpSVG /> : <ChevronDownSVG />}
+            </Icon>
+          </Description>
+        </div>
+        {runtimeDetailsOpen ? (
+          <div
+            className={classnames(
+              {[styles.closing]: runtimeDetailsClosing},
+              styles.runtimeDetails,
+            )}
+          >
+            {runtimeMetrics.map(({duration, bytes, label}) => (
+              <div className={styles.runtimeDetail} key={label}>
+                <div>
+                  <div className={styles.duration}>{duration}</div>
+                  {bytes ? (
+                    <div className={styles.bytes}>{formatBytes(bytes)}</div>
+                  ) : null}
+                </div>
+                <div>
+                  <div className={styles.metricLabel}>{label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className={styles.section}>
+        <div className={styles.inputSection}>
+          {inputs.length ? (
+            <Description
+              term="Input Repos"
+              loading={loading}
+              data-testid="InfoPanel__repos"
+              className={styles.inputs}
+            >
+              {inputs.map((input) => (
+                <RepoPipelineLink key={input} name={input} type="repo" />
+              ))}
+            </Description>
+          ) : null}
+        </div>
+        <div className={styles.inputSection}>
+          <Description
+            term="Pipeline"
+            loading={loading}
+            className={styles.inputs}
+          >
+            {job?.pipelineName ? (
+              <RepoPipelineLink
+                data-testid="InfoPanel__pipeline"
+                name={job.pipelineName}
+                type="pipeline"
+              />
+            ) : null}
+          </Description>
+        </div>
+        <div className={styles.inputSection}>
+          {job?.outputCommit && job?.outputBranch ? (
+            <Description
+              term="Output Commit"
+              loading={loading}
+              data-testid="InfoPanel__output"
+              className={styles.inputs}
+            >
+              <RepoPipelineLink
+                data-testid="InfoPanel__commitLink"
+                name={job.outputCommit}
+                branch={job.outputBranch}
+                repo={job.pipelineName}
+                type="commit"
+              />
+            </Description>
+          ) : null}
+        </div>
+      </div>
+      {!loading && jobConfig ? (
+        <ConfigFilePreview
+          title="Job Definition"
+          data-testid="InfoPanel__details"
+          header={
+            jobConfig?.transform?.debug ? (
+              <Tooltip
+                tooltipText="Debug logs return more detailed information and can be enabled by setting debug: true before the next run of this pipeline."
+                tooltipKey="debugLogs"
+              >
+                <span className={styles.detailedTooltip}>Detailed</span>
+              </Tooltip>
+            ) : undefined
+          }
+          config={jobConfig}
+        />
+      ) : (
+        <LoadingDots />
       )}
-      <Description
-        term="Started"
-        loading={loading}
-        data-testid="InfoPanel__started"
-      >
-        {started}
-      </Description>
-      <Description
-        term="Duration"
-        loading={loading}
-        data-testid="InfoPanel__duration"
-      >
-        {duration}
-      </Description>
-      <Description
-        term="Datums Processed"
-        loading={loading}
-        data-testid="InfoPanel__processed"
-      >
-        {job?.dataProcessed}
-      </Description>
-      <Description
-        term="Datums Skipped"
-        loading={loading}
-        data-testid="InfoPanel__skipped"
-      >
-        {job?.dataSkipped}
-      </Description>
-      <Description
-        term="Datums Failed"
-        loading={loading}
-        data-testid="InfoPanel__failed"
-      >
-        {job?.dataFailed}
-      </Description>
-      <Description
-        term="Datums Recovered"
-        loading={loading}
-        data-testid="InfoPanel__recovered"
-      >
-        {job?.dataRecovered}
-      </Description>
-      <Description
-        term="Datums Total"
-        loading={loading}
-        data-testid="InfoPanel__total"
-      >
-        {job?.dataTotal}
-      </Description>
-      <hr className={styles.divider} />
-      <Description
-        term="Inputs"
-        lines={9}
-        loading={loading}
-        data-testid="InfoPanel__inputs"
-      >
-        {job?.inputString ? (
-          <JsonSpec
-            jsonString={job.inputString}
-            branchId={job.inputBranch || 'master'}
-            projectId={projectId}
-          />
-        ) : (
-          'N/A'
-        )}
-      </Description>
-      <Description
-        term="Transform"
-        loading={loading}
-        lines={3}
-        data-testid="InfoPanel__transform"
-      >
-        {transformString}
-      </Description>
-      <Description
-        term="Details"
-        lines={9}
-        loading={loading}
-        data-testid="InfoPanel__details"
-      >
-        {job?.jsonDetails ? (
-          <JsonSpec jsonString={job.jsonDetails} projectId={projectId} />
-        ) : (
-          'N/A'
-        )}
-      </Description>
-    </dl>
+    </div>
   );
 };
 

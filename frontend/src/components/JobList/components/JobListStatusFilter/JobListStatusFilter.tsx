@@ -6,7 +6,7 @@ import {
 import {Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
-import readableJobState from '@dash-frontend/lib/readableJobState';
+import {readableJobState} from '@dash-frontend/lib/jobs';
 import getListTitle from 'lib/getListTitle';
 
 import {JobFilters} from '../../hooks/useJobFilters';

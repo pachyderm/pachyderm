@@ -9,8 +9,3 @@
 .input {
   max-height: 21.875rem;
 }
-
-.repoGroup {
-  border: solid 1px var(--line-grey);
-  border-radius: 4px;
-}
