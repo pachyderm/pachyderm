@@ -13,6 +13,27 @@ AWS_REGION="us-east-2"
 AWS_PROFILE="default"
 
 
+EMPTY_CLUSTER=false
+print-help ()
+{
+    echo "$0: Create an AWS cluster" >&2
+    echo
+    echo "Options:"
+    echo
+    echo "-h  display this help text"
+    echo "-e  create the cluster without installing Pachyderm"
+    echo
+    exit
+}
+while getopts he- OPT; do
+    case "$OPT" in
+	h )   set +x; print-help ;;
+	e )   EMPTY_CLUSTER=true ;;
+	??* ) close "Invalid option --$OPT" ;;
+	? )   exit 2 ;;
+    esac
+done
+
 GLOBAL_TAG="${CLUSTER_NAME}"
 BUCKET_NAME="${CLUSTER_NAME}-bucket"
 S3_BUCKET_IAM_POLICY_NAME="${CLUSTER_NAME}-bucket-iam-policy"
@@ -33,7 +54,7 @@ eksctl create cluster --name "${CLUSTER_NAME}" --region "${AWS_REGION}" --profil
 kubectl get all
 
 # Create an S3 object store bucket for data
-LOCATION=$(aws s3api create-bucket --bucket "${BUCKET_NAME}" --region "${AWS_REGION}" --create-bucket-configuration "LocationConstraint=${AWS_REGION}")
+aws s3api create-bucket --bucket "${BUCKET_NAME}" --region "${AWS_REGION}" --create-bucket-configuration "LocationConstraint=${AWS_REGION}"
 
 # Verify that the S3 bucket was created
 aws s3 ls
@@ -94,7 +115,7 @@ eksctl create iamserviceaccount \
     
 
 # Create an IAM role as a Web Identity using the cluster OIDC procider as the identity provider.
-OPENID_CONNECT_PROVIDER_ARN=$(aws iam list-open-id-connect-providers --output json | grep ${OIDC_PROVIDER_URL##*/} | awk '{print $2}')
+OPENID_CONNECT_PROVIDER_ARN=$(aws iam list-open-id-connect-providers --output json | grep "${OIDC_PROVIDER_URL##*/}" | awk '{print $2}')
 
 cat <<EOF > Test-Role-Trust-Policy.json
 {
@@ -130,17 +151,17 @@ ACCOUNTID=$(aws sts get-caller-identity --query Account --output text)
 
 curl -o example-iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-ebs-csi-driver/master/docs/example-iam-policy.json
 
-CREATED_POLICY=$(aws iam create-policy \
+aws iam create-policy \
     --policy-name ${EBS_CSI_DRIVER_POLICY_NAME} \
     --policy-document file://example-iam-policy.json \
-    --tags Key=Name,Value=${GLOBAL_TAG})
+    --tags Key=Name,Value=${GLOBAL_TAG}
     
 
 eksctl create iamserviceaccount \
     --name ebs-csi-controller-sa \
     --namespace kube-system \
     --cluster ${CLUSTER_NAME} \
-    --attach-policy-arn arn:aws:iam::${ACCOUNTID}:policy/${EBS_CSI_DRIVER_POLICY_NAME} \
+    --attach-policy-arn "arn:aws:iam::${ACCOUNTID}:policy/${EBS_CSI_DRIVER_POLICY_NAME}" \
     --approve \
     --role-only \
     --region "${AWS_REGION}" \
@@ -149,45 +170,71 @@ eksctl create iamserviceaccount \
 # aws cloudformation get created stack name
 STACK_NAME=$(aws cloudformation describe-stacks --output json --region "${AWS_REGION}" | jq -r '.Stacks[].StackName' | grep "${CLUSTER_NAME}" | grep 'ebs-csi')
 
-CREATED_ROLE_NAME=$(aws cloudformation describe-stack-resources --query 'StackResources[0].PhysicalResourceId' --output text --stack-name ${STACK_NAME} --region "${AWS_REGION}")
+CREATED_ROLE_NAME=$(aws cloudformation describe-stack-resources --query 'StackResources[0].PhysicalResourceId' --output text --stack-name "${STACK_NAME}" --region "${AWS_REGION}")
 
 eksctl create addon --name aws-ebs-csi-driver --cluster "${CLUSTER_NAME}" --service-account-role-arn "arn:aws:iam::${ACCOUNTID}:role/${CREATED_ROLE_NAME}" --force --region "${AWS_REGION}"
 
 # Get the cluster VPC ids
-CLUSTER_VPC_IDS=$(aws eks describe-cluster --name ${CLUSTER_NAME} --output json --region "${AWS_REGION}" \
+CLUSTER_VPC_IDS=$(aws eks describe-cluster --name "${CLUSTER_NAME}" --output json --region "${AWS_REGION}" \
     | jq -r '.cluster.resourcesVpcConfig.securityGroupIds[]')
 
 # AWS describe cluster get vpc id
-CLUSTER_VPC_ID=$(aws eks describe-cluster --name ${CLUSTER_NAME} --output json --region "${AWS_REGION}" | jq -r '.cluster.resourcesVpcConfig.vpcId')
+CLUSTER_VPC_ID=$(aws eks describe-cluster --name "${CLUSTER_NAME}" --output json --region "${AWS_REGION}" | jq -r '.cluster.resourcesVpcConfig.vpcId')
 
 # Get the cluster public subnet ids as an array
-CLUSTER_SUBNET_IDS=$(aws ec2 describe-subnets --filter Name=vpc-id,Values=${CLUSTER_VPC_ID} --query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId' --output json --region "${AWS_REGION}" | jq -r '.[]')
+# shellcheck disable=SC2016
+CLUSTER_SUBNET_IDS=$(aws ec2 describe-subnets --filter "Name=vpc-id,Values=${CLUSTER_VPC_ID}" --query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId' --output json --region "${AWS_REGION}" | jq -r '.[]')
 # aws cli Create a DB subnet group
-CREATED_SUBNET_GROUP=$(aws rds create-db-subnet-group --db-subnet-group-name ${DB_SUBNET_GROUP_NAME} --db-subnet-group-description "DB subnet group - public subnets" --subnet-ids $CLUSTER_SUBNET_IDS --tags Key=Name,Value=${GLOBAL_TAG} --region "${AWS_REGION}")
+aws rds create-db-subnet-group --db-subnet-group-name "${DB_SUBNET_GROUP_NAME}" --db-subnet-group-description "DB subnet group - public subnets" --subnet-ids "$CLUSTER_SUBNET_IDS" --tags "Key=Name,Value=${GLOBAL_TAG}" --region "${AWS_REGION}"
+
+# Amazon aws cli expose postgresql port 5432 on VPC security group
+aws ec2 authorize-security-group-ingress --group-id "${CLUSTER_VPC_IDS}" --protocol tcp --port 5432 --cidr 0.0.0.0/0 --region "${AWS_REGION}"
+
+cat <<EOF > gp3-def-sc.yaml
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+allowVolumeExpansion: true
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: gp3
+EOF
+
+kubectl apply -f gp3-def-sc.yaml
+
+if [ "$EMPTY_CLUSTER" == "true" ]; then
+    echo "created empty cluster"
+    echo "create database ${POSTGRES_SQL_ID}"
+    echo "cluster VPC: ${CLUSTER_VPC_IDS}"
+    echo "DB subnet group: ${DB_SUBNET_GROUP_NAME}"
+    echo "Address: aws rds describe-db-instances --db-instance-identifier ${POSTGRES_SQL_ID} --output json --region \"${AWS_REGION}\" | jq -r '.DBInstances[0].Endpoint.Address'"
+    exit
+fi
 
 # AWS CLI Create postgresql rds instance
-CREATED_DB_INSTANCE=$(aws rds create-db-instance \
-    --db-instance-identifier ${POSTGRES_SQL_ID} \
-    --db-name ${POSTGRES_SQL_DB_NAME_1} \
+aws rds create-db-instance \
+    --db-instance-identifier "${POSTGRES_SQL_ID}" \
+    --db-name "${POSTGRES_SQL_DB_NAME_1}" \
     --db-instance-class db.m6g.large \
     --engine postgres \
-    --master-username ${POSTGRES_SQL_DB_USER_NAME} \
-    --master-user-password ${POSTGRES_SQL_DB_USER_PASSWORD} \
+    --master-username "${POSTGRES_SQL_DB_USER_NAME}" \
+    --master-user-password "${POSTGRES_SQL_DB_USER_PASSWORD}" \
     --storage-type io1 \
     --iops 1500 \
     --allocated-storage 100 \
-    --vpc-security-group-ids ${CLUSTER_VPC_IDS} \
-    --db-subnet-group-name ${DB_SUBNET_GROUP_NAME}  \
+    --vpc-security-group-ids "${CLUSTER_VPC_IDS}" \
+    --db-subnet-group-name "${DB_SUBNET_GROUP_NAME}"  \
     --publicly-accessible \
-    --tags Key=Name,Value=${GLOBAL_TAG} \
+    --tags "Key=Name,Value=${GLOBAL_TAG}" \
     --region "${AWS_REGION}" \
-    --no-multi-az)
+    --no-multi-az
 
 # Check if the postgresql rds instance is available
 aws rds wait db-instance-available --db-instance-identifier ${POSTGRES_SQL_ID} --region "${AWS_REGION}"
-
-# Amazon aws cli expose postgresql port 5432 on VPC security group
-AUTHORIZED_RESPONSE=$(aws ec2 authorize-security-group-ingress --group-id ${CLUSTER_VPC_IDS} --protocol tcp --port 5432 --cidr 0.0.0.0/0 --region "${AWS_REGION}")
 
 # Get the postgresql rds instance endpoint
 POSTGRES_SQL_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier ${POSTGRES_SQL_ID} --output json --region "${AWS_REGION}" | jq -r '.DBInstances[0].Endpoint.Address')
@@ -195,7 +242,7 @@ POSTGRES_SQL_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier $
 # create a second database named "dex" in your RDS instance for Pachyderm's authentication service. 
 # database must be named dex
 # create a new user account and grant it full CRUD permissions to both pachyderm and dex databases.
-PGPASSWORD=$POSTGRES_SQL_DB_USER_PASSWORD psql -h ${POSTGRES_SQL_ENDPOINT} -U $POSTGRES_SQL_DB_USER_NAME $POSTGRES_SQL_DB_NAME_1 << EOF
+PGPASSWORD="$POSTGRES_SQL_DB_USER_PASSWORD" psql -h "${POSTGRES_SQL_ENDPOINT}" -U "$POSTGRES_SQL_DB_USER_NAME" "$POSTGRES_SQL_DB_NAME_1" << EOF
 SELECT datname FROM pg_database;
 CREATE DATABASE dex;
 CREATE USER $POSTGRES_SQL_DB_APP_USER_NAME WITH PASSWORD '${POSTGRES_SQL_DB_USER_PASSWORD}';
@@ -248,22 +295,6 @@ postgresql:
   enabled: false
 EOF
 
-cat <<EOF > gp3-def-sc.yaml
-kind: StorageClass
-apiVersion: storage.k8s.io/v1
-metadata:
-  name: gp3
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
-allowVolumeExpansion: true
-provisioner: ebs.csi.aws.com
-volumeBindingMode: WaitForFirstConsumer
-parameters:
-  type: gp3
-EOF
-
-kubectl apply -f gp3-def-sc.yaml
-
 helm repo add pach https://helm.pachyderm.com
 helm repo update
 helm install pachyderm -f ./values.yaml pach/pachyderm
@@ -271,6 +302,7 @@ helm install pachyderm -f ./values.yaml pach/pachyderm
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
 STATIC_IP_ADDR=$(kubectl get svc pachd-lb -o json | jq -r .status.loadBalancer.ingress[0].hostname)
+echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite
 pachctl config set active-context ${CLUSTER_NAME}
 pachctl config get active-context
 
