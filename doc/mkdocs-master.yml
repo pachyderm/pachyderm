@@ -54,7 +54,8 @@ plugins:
   - minify:
       minify_html: true
   - git-revision-date-localized
-  - macros
+  - macros:
+      on_error_fail: true
   - git-snippet:
       all_pages: false
 
