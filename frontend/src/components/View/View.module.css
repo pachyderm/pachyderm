@@ -14,16 +14,6 @@
   padding: 0;
 }
 
-::-webkit-scrollbar {
-  width: 1rem;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--line-grey);
-  border-radius: 0.5rem;
-  border: solid 0.25rem var(--background-grey);
-}
-
 .base.sidenav {
   padding-left: 2rem;
 }
