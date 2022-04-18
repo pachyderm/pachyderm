@@ -283,9 +283,9 @@ You are all set!
 ## NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
 
 !!! Note
-      Prerequisites: You have a local Pachyderm CE or Enterprise instance running already.
+      You do not need to have a local Pachyderm CE or Enterprise instance running to install Pachyderm JupyterLab Mount Extension. However, you will need a running cluster to connect your Mount Extension to.
 
-- To install [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster, you will use our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}. Run the following commands:
+- To install [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
 
       ```shell
       helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
@@ -306,23 +306,23 @@ See the example below:
       pod/proxy-57db95fd89-l5pd5                     1/1     Running     0             22h
       ```
 
-- Once your pods are up, run :
+- Once your pods are up, in your terminal, run :
 
       ```shell
       kubectl port-forward svc/proxy-public 8888:80
       ```
 
-- Point your browser to **`http://localhost:8888`** 
-and authenticate using any mock User: (username: `admin`, password: `password`) will do.
+      Then 
+      ```shell
+      kubectl get services | grep -w "pachd " | awk '{print $3}'
+      ```
+      Note the returned ip address. You will need this cluster IP in a next step.
+    
+- Point your browser to **`http://localhost:8888`**, and authenticate using any mock User (username: `admin`, password: `password` will do).
 
-- In your terminal, run:
-```shell
-kubectl get services | grep -w "pachd " | awk '{print $3}'
-```
-and note the returned ip address. You will need this cluster IP in the next step.
+- Now that you are in, [click on Pachyderm's Mount Extension icon on the left of your JupyterLab](../../how-tos/jupyterlab-extension/#connect-the-extension-to-your-pachyderm-cluster){target=_blank} to connect your JupyterLab to your Pachyderm cluster.
 
-- Now that you are in, [connect your JupyterLab to your Pachyderm cluster](../../how-tos/jupyterlab-extension/#connect-the-extension-to-your-pachyderm-cluster){target=_blank}.
-Use `grpc://<your-pachd-cluster-ip-from-the-previous-step>:30650` to login. 
+      Enter `grpc://<your-pachd-cluster-ip-from-the-previous-step>:30650` to login. 
 
 - If Pachyderm was deployed with Enterprise, you will be prompted to login again. Use the same mock User (username: `admin`, password: `password`).
 
