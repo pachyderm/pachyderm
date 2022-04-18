@@ -108,6 +108,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
 
 If you are exposing your cluster publicly:
+
   1. Retrieve the external IP address of your TCP load balancer or your domain name:
     ```shell
     kubectl get services | grep pachd-lb | awk '{print $4}'
