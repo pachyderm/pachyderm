@@ -20,9 +20,15 @@ const authResolver: AuthResolver = {
       return account;
     },
     authConfig: async (_field, _args, {log}) => {
+      let issuer;
       try {
-        const issuer = await getTokenIssuer();
+        issuer = await getTokenIssuer();
+      } catch (e) {
+        log.error({eventSource: 'auth issuer'}, String(e));
+        throw new ApolloError('Failed to connect to issuer');
+      }
 
+      try {
         const authUrl = new URL(issuer.metadata.authorization_endpoint || '');
 
         const config: AuthConfig = {
@@ -59,14 +65,36 @@ const authResolver: AuthResolver = {
           'retreiving token from issuer',
         );
 
-        const {id_token: idToken = ''} = await oidcClient.callback(
-          redirectUri,
-          {
-            code,
-          },
-        );
+        let idToken = '';
+        try {
+          idToken =
+            (
+              await oidcClient.callback(redirectUri, {
+                code,
+              })
+            ).id_token || '';
+        } catch (e) {
+          log.error(
+            {
+              eventSource: 'oidc client',
+            },
+            String(e),
+          );
+          throw e;
+        }
 
-        const pachToken = await pachClient.auth().authenticate(idToken);
+        let pachToken;
+        try {
+          pachToken = await pachClient.auth().authenticate(idToken);
+        } catch (e) {
+          log.error(
+            {
+              eventSource: 'pachd',
+            },
+            String(e),
+          );
+          throw e;
+        }
 
         return {pachToken, idToken};
       } catch (e) {
