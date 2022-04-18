@@ -23,7 +23,7 @@ func (m *SQLTupleWriter) Flush() error {
 	return nil
 }
 
-func NewSQLTupleWriter(tx *pachsql.Tx, tableInfo *pachsql.TableInfo) *SQLTupleWriter {
+func NewSQLTupleWriter(tx *pachsql.Tx, tableInfo pachsql.TableInfo) *SQLTupleWriter {
 	placeholders := make([]string, len(tableInfo.Columns))
 	for i := range tableInfo.Columns {
 		placeholders[i] = pachsql.Placeholder(tx.DriverName(), i)

@@ -547,6 +547,7 @@ func (mock *mockClearCache) Use(cb clearCacheFunc)                 { mock.handle
 func (mock *mockRunLoadTest) Use(cb runLoadTestFunc)               { mock.handler = cb }
 func (mock *mockRunLoadTestDefault) Use(cb runLoadTestDefaultFunc) { mock.handler = cb }
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)               { mock.handler = cb }
+func (mock *mockEgress) Use(cb egressFunc)                         { mock.handler = cb }
 
 type pfsServerAPI struct {
 	mock *mockPFSServer

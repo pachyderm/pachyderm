@@ -923,20 +923,16 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 	}
 	defer tx.Rollback()
 
-	tableInfos := make(map[string]*pachsql.TableInfo)
+	// TODO cache tableInfos tableInfos := make(map[string]pachsql.TableInfo)
 	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 		if fi.FileType != pfs.FileType_FILE {
 			return nil
 		}
 
 		tableName := strings.Split(fi.File.Path, "/")[1]
-		tableInfo, prs := tableInfos[tableName]
-		if !prs {
-			tableInfo, err := pachsql.GetTableInfoTx(tx, tableName)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			tableInfos[tableName] = tableInfo
+		tableInfo, err := pachsql.GetTableInfoTx(tx, tableName)
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
 
 		if err := miscutil.WithPipe(
@@ -951,8 +947,8 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 				case pfs.SQLEgressOptions_JSON:
 					tr = sdata.NewJSONParser(r, nil)
 				}
-				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
-				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)
+				tw := sdata.NewSQLTupleWriter(tx, *tableInfo)
+				tuple, err := sdata.NewTupleFromTableInfo(*tableInfo)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -972,17 +968,17 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
 	// try object storage
 	src, err := a.driver.getFile(ctx, req.Source.NewFile("/"))
-	if err == nil {
+	if err != nil {
 		return nil, err
 	}
 	_, objErr := getFileURL(ctx, req.TargetUrl, src)
 	if objErr == nil {
-		return nil, nil
+		return &pfs.EgressResponse{}, nil
 	}
 	// try db
 	dbErr := copyToSQLDB(ctx, req, src)
 	if dbErr != nil {
 		return nil, errors.Errorf("egress tried to write to object storage: %w, then tried to write to database: %w", errors.EnsureStack(objErr), errors.EnsureStack(dbErr))
 	}
-	return nil, nil
+	return &pfs.EgressResponse{}, nil
 }

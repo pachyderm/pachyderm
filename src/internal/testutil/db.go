@@ -22,7 +22,7 @@ const (
 )
 
 // set this to false if you want to keep the database around
-var cleanup = true
+var cleanup = false
 
 const postgresMaxConnections = 100
 
@@ -48,7 +48,7 @@ func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 // with a unique name then returns a pachsql.DB configured to use the newly created database.
 // After t finishes, the database is dropped.
 func NewTestDB(t testing.TB, opts []dbutil.Option) *pachsql.DB {
-	return OpenDB(t, NewTestDBOptions(t, opts)...)
+	return OpenDB(t, opts...)
 }
 
 // OpenDB connects to a database using opts and returns it.
@@ -73,6 +73,7 @@ func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
 // CreateEphemeralDB creates a new database using db with a lifetime scoped to the test t
 // and returns its name
 func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) string {
+	fmt.Println(">>> creating dbName = ", dbName)
 	_, err := db.Exec(`CREATE DATABASE ` + dbName)
 	require.NoError(t, err)
 	if cleanup {

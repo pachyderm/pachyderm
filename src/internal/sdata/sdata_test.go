@@ -191,7 +191,7 @@ func TestSQLTupleWriter(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
-			require.NoError(t, pachsql.CreateTestTable(db, "test_table"))
+			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
 
 			ctx := context.Background()
 			tableInfo, err := pachsql.GetTableInfo(ctx, db, "test_table")
@@ -209,9 +209,9 @@ func TestSQLTupleWriter(t *testing.T) {
 				*ti = time.Now()
 			})
 
-			tuple, err := NewTupleFromTableInfo(tableInfo)
+			tuple, err := NewTupleFromTableInfo(*tableInfo)
 			require.NoError(t, err)
-			w := NewSQLTupleWriter(tx, tableInfo)
+			w := NewSQLTupleWriter(tx, *tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
 				for j := range tuple {
@@ -232,6 +232,6 @@ func TestSQLTupleWriter(t *testing.T) {
 
 func setupTable(t testing.TB, db *pachsql.DB) {
 	const N = 10
-	require.NoError(t, pachsql.CreateTestTable(db, "test_data"))
+	require.NoError(t, pachsql.CreateTestTable(db, "test_data", pachsql.TestRow{}))
 	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
 }

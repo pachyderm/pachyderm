@@ -21,19 +21,23 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -6136,6 +6140,48 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+	})
+	suite.Run("Egress", func(t *testing.T) {
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+		err := env.PachClient.CreateRepo("test")
+		require.NoError(t, err)
+
+		commit := client.NewCommit("test", "master", "")
+		require.NoError(t, env.PachClient.PutFile(
+			commit,
+			"/test_table/data.csv",
+			strings.NewReader("1,Foo\n2,Bar\n")))
+
+		// create new database for egress target
+		// connect to the new database
+		db := sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres")
+		dbName := testutil.GenerateEphermeralDBName(t)
+		testutil.CreateEphemeralDB(t, db, dbName)
+		schema := struct {
+			Id int    `sql:"ID,INT"`
+			A  string `sql:"A,VARCHAR(100)"`
+		}{}
+		// connect to new database to create new table
+		db = testutil.OpenDB(t,
+			dbutil.WithMaxOpenConns(1),
+			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+			dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
+			dbutil.WithDBName(dbName),
+		)
+		require.NoError(t, pachsql.CreateTestTable(db, "test_table", schema))
+
+		dsn := fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, tu.DefaultPostgresHost, tu.DefaultPostgresPort, dbName)
+		fmt.Println(">>>", dsn)
+		_, err = pachsql.ParseURL(dsn)
+		require.NoError(t, err)
+		_, err = env.PachClient.Egress(
+			env.PachClient.Ctx(),
+			&pfs.EgressRequest{
+				Source:    commit,
+				TargetUrl: dsn,
+				Sql:       &pfs.SQLEgressOptions{FileFormat: pfs.SQLEgressOptions_CSV},
+			})
+		require.NoError(t, err)
 	})
 }
 
