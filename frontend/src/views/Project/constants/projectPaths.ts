@@ -12,8 +12,6 @@ export const PROJECT_PIPELINE_JOB_PATH = '/project/:projectId/jobs/:jobId/:pipel
 export const PROJECT_FILE_UPLOAD_PATH = '/project/:projectId/repos/:repoId/upload';
 
 export const PROJECT_FILE_BROWSER_PATH = '/project/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath?';
-export const PROJECT_FILE_BROWSER_DIR_PATH = `/project/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath([^.]*)?`;
-export const PROJECT_FILE_BROWSER_FILE_PATH = `/project/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath(.+\.)`;
 
 export const PROJECT_LOGS_VIEWER_PIPELINE_PATH = `/project/:projectId/pipelines/:pipelineId/logs`;
 export const PROJECT_LOGS_VIEWER_JOB_PATH = `/project/:projectId/jobs/:jobId/:pipelineId/logs`;
@@ -31,8 +29,6 @@ export const LINEAGE_PIPELINE_JOB_PATH = '/lineage/:projectId/jobs/:jobId/:pipel
 export const LINEAGE_FILE_UPLOAD_PATH = '/lineage/:projectId/repos/:repoId/upload';
 
 export const LINEAGE_FILE_BROWSER_PATH = '/lineage/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath?';
-export const LINEAGE_FILE_BROWSER_DIR_PATH = `/lineage/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath([^.]*)?`;
-export const LINEAGE_FILE_BROWSER_FILE_PATH = `/lineage/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath(.+\.)`;
 
 export const LINEAGE_LOGS_VIEWER_PIPELINE_PATH = `/lineage/:projectId/pipelines/:pipelineId/logs`;
 export const LINEAGE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/jobs/:jobId/:pipelineId/logs`;
@@ -50,8 +46,6 @@ export const PROJECT_PATHS = [
   LINEAGE_PIPELINE_PATH,
   LINEAGE_FILE_UPLOAD_PATH,
   LINEAGE_FILE_BROWSER_PATH,
-  LINEAGE_FILE_BROWSER_DIR_PATH,
-  LINEAGE_FILE_BROWSER_FILE_PATH,
   LINEAGE_LOGS_VIEWER_PIPELINE_PATH,
   LINEAGE_LOGS_VIEWER_JOB_PATH,
   PROJECT_PATH,
@@ -64,8 +58,6 @@ export const PROJECT_PATHS = [
   PROJECT_PIPELINE_PATH,
   PROJECT_FILE_UPLOAD_PATH,
   PROJECT_FILE_BROWSER_PATH,
-  PROJECT_FILE_BROWSER_DIR_PATH,
-  PROJECT_FILE_BROWSER_FILE_PATH,
   PROJECT_LOGS_VIEWER_PIPELINE_PATH,
   PROJECT_LOGS_VIEWER_JOB_PATH,
 ];

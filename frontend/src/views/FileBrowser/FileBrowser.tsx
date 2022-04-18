@@ -10,18 +10,11 @@ import {
 import classnames from 'classnames';
 import React from 'react';
 import {Helmet} from 'react-helmet';
-import {Route, Switch, useHistory} from 'react-router';
+import {Switch, useHistory} from 'react-router';
 
 import Breadcrumb from '@dash-frontend/components/Breadcrumb';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
-
-import {
-  PROJECT_FILE_BROWSER_DIR_PATH,
-  PROJECT_FILE_BROWSER_FILE_PATH,
-  LINEAGE_FILE_BROWSER_DIR_PATH,
-  LINEAGE_FILE_BROWSER_FILE_PATH,
-} from '../Project/constants/projectPaths';
 
 import FileHeader from './components/FileHeader';
 import FilePreview from './components/FilePreview';
@@ -80,14 +73,8 @@ const FileBrowser: React.FC = () => {
           />
           <div className={styles.subHeader}>
             <Breadcrumb />
-            <Switch>
-              <Route
-                path={[
-                  PROJECT_FILE_BROWSER_DIR_PATH,
-                  LINEAGE_FILE_BROWSER_DIR_PATH,
-                ]}
-                exact
-              >
+            {isDirectory && (
+              <>
                 <Tooltip
                   tooltipText="List View"
                   placement="left"
@@ -118,40 +105,29 @@ const FileBrowser: React.FC = () => {
                     <ViewIconSVG />
                   </ButtonLink>
                 </Tooltip>
-              </Route>
-            </Switch>
+              </>
+            )}
           </div>
           <Switch>
-            <Route
-              path={[
-                PROJECT_FILE_BROWSER_DIR_PATH,
-                LINEAGE_FILE_BROWSER_DIR_PATH,
-              ]}
-              exact
-            >
-              {fileView === 'icon' && filteredFiles.length > 0 && (
-                <div
-                  className={styles.fileIcons}
-                  data-testid="FileBrowser__iconView"
-                >
-                  {filteredFiles.map((file) => (
-                    <IconView key={file.path} file={file} />
-                  ))}
-                </div>
-              )}
-              {fileView === 'list' && filteredFiles.length > 0 && (
-                <ListViewTable files={filteredFiles} />
-              )}
-            </Route>
-            <Route
-              path={[
-                PROJECT_FILE_BROWSER_FILE_PATH,
-                LINEAGE_FILE_BROWSER_FILE_PATH,
-              ]}
-              exact
-            >
-              {fileToPreview && <FilePreview file={fileToPreview} />}
-            </Route>
+            {isDirectory ? (
+              <>
+                {fileView === 'icon' && filteredFiles.length > 0 && (
+                  <div
+                    className={styles.fileIcons}
+                    data-testid="FileBrowser__iconView"
+                  >
+                    {filteredFiles.map((file) => (
+                      <IconView key={file.path} file={file} />
+                    ))}
+                  </div>
+                )}
+                {fileView === 'list' && filteredFiles.length > 0 && (
+                  <ListViewTable files={filteredFiles} />
+                )}
+              </>
+            ) : (
+              <>{fileToPreview && <FilePreview file={fileToPreview} />}</>
+            )}
           </Switch>
           {loading && <LoadingDots />}
           {!loading && filteredFiles?.length === 0 && !fileToPreview && (
