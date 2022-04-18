@@ -1,9 +1,17 @@
 
 # Local Installation  
   
-This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®.   
-  
-To install Pachyderm on Windows, take a look at [Deploy Pachyderm on Windows](wsl-deploy.md) first.  
+This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®. To install Pachyderm on Windows, first look at [Deploy Pachyderm on Windows](../wsl-deploy){target=_blank}.
+
+Pachyderm is an application written in go that runs on top of a Kubernetes cluster. 
+A common way to interact with Pachyderm is by using Pachyderm command-line tool `pachctl`, from a terminal window. To check the state of your deployment, you will also need to install `kubectl`, Kubernetes command-line tool. 
+
+Additionally, we will show you how to deploy Pachyderm UIs **[JupyterLab Mount Extension](../../how-tos/jupyterlab-extension/){target=_blank}** and **[Console](../../deploy-manage/deploy/console){target=_blank}** on your local cluster. 
+
+Note that each web UI addresses different use cases:
+
+- **JupyterLab Mount Extension** will allow you to experiment, explore your data, and build your pipelines' code from your familiar Notebooks
+- **Console** will help you visualize your DAGs (Directed Acyclic Graphs), monitor your pipeline executions, access your logs, and troubleshoot while your pipelines are running.
   
 !!! Warning  
       - A local installation is **not designed to be a production  
@@ -18,17 +26,18 @@ To install Pachyderm on Windows, take a look at [Deploy Pachyderm on Windows](ws
   
 Pachyderm uses `Helm` for all deployments.  
 ## Prerequisites  
-  
+
+
 For a successful local deployment of Pachyderm, you will need:  
   
-- A [Kubernetes cluster](#setup-a-local-kubernetes-cluster) running on your local environment:   
+- A [Kubernetes cluster](#setup-a-local-kubernetes-cluster) running on your local environment (pick the virtual machine of your choice):   
       - [Docker Desktop](#using-kubernetes-on-docker-desktop),  
       - [Minikube](#using-minikube)  
       - [Kind](#using-kind)  
-      - Oracle® VirtualBox™   
-- [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) 
-- [Helm](#install-helm) 
-- [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank}.
+      - Oracle® VirtualBox™ 
+- [Helm](#install-helm) to deploy Pachyderm on your Kubernetes cluster.  
+- [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) to interact with your Pachyderm cluster.
+- [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank} to interact with your underlying Kubernetes cluster.
 
 
 ### Setup A Local Kubernetes Cluster
@@ -145,49 +154,53 @@ with a Pachyderm cluster in your terminal.
   
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
-## Deploy Pachyderm Latest Community Edition (Option: Deploy Pachyderm With Console)  
+## Deploy Pachyderm Community Edition Or Enterprise with Console  
   
-When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
-  
+When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps.
+
+JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
+
+Note that you can run both Console and JupyterLab on your local installation.
+
 !!! Tip  
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/). This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/){target=_blank}. This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
   
 * Get the Repo Info:  
-   ```shell  
-   helm repo add pach https://helm.pachyderm.com  
-   ```  
-   ```shell  
-   helm repo update  
-   ```  
- * Install Pachyderm:  
 
-=== "Install Pachyderm latest Community Edition version"
+    ```shell  
+    helm repo add pach https://helm.pachyderm.com  
+    helm repo update 
+    ```  
+
+* Install Pachyderm:  
+
+=== "Latest CE"
       This command will install Pachyderm's latest available GA version.
 
-      ```shell  
-      helm install pachd pach/pachyderm --set deployTarget=LOCAL  
-      ```    
-=== "Install Pachyderm **with Console**"
-     Console is Pachyderm's UI. Run the following helm command to install Pachyderm's latest version with Console: 
-
+       ```shell  
+       helm install pachd pach/pachyderm --set deployTarget=LOCAL  
+       ```    
+=== "Enterprise (Console)"
+       - Create a `license.txt` file in which you paste your [Enterprise Key](../../enterprise){target=_blank}.
+       - Then, run the following helm command to **install Pachyderm's latest version with Console**: 
       
-     ```shell  
-      helm install pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
-     ``` 
+        ```shell  
+        helm install pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
+        ``` 
 
-!!! Note  "When deploying locally with Console"
-     * You will need an Enterprise Key. To request a FREE trial enterprise license key, [click here](../../enterprise). 
-     * We create a default mock user (username:`admin`, password: `password`) to authenticate to Console without having to connect your Identity Provider. 
+!!! Warning  "Deploying locally with Console requires an **Enterprise Key**"
+     * To request a FREE trial enterprise license key, [click here](../../enterprise){target=_blank}. 
+     * We create a default mock user (username:`admin`, password: `password`) to [authenticate to Console](../../deploy-manage/deploy/console/#connect-to-console){target=_blank} without having to connect your Identity Provider. 
 
-!!! Tip "Tip to uninstall Pachyderm fully"
+!!! Tip "To uninstall Pachyderm fully"
       Running `helm uninstall pachd` leaves persistent volume claims behind. To wipe your instance clean, run:
       ```shell
-      helm uninstall pachyderm 
+      helm uninstall pachd 
       kubectl delete pvc -l suite=pachyderm 
       ```
 
 !!! Info "See Also"
-      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/).
+      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/){target=_blank}.
 
 
 ## Check Your Install
@@ -221,61 +234,114 @@ Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
 Kubernetes restarted those pods. Re-run `kubectl get pods`
  
 
-## Have 'pachctl' and your Cluster Communicate
+## Connect 'pachctl' To Your Cluster
 
-Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
-The easiest way to have `pachctl` connect to your local cluster is to use the `port-forward` command.
+Assuming your `pachd` is running as shown above,
+the easiest way to connect `pachctl` to your local cluster is to use the `port-forward` command.
 
+- To connect to your new Pachyderm instance, run:
 
-=== "You have deployed Pachyderm with or without Console"
-    - To connect to your new Pachyderm instance, run:
+      ```shell
+      pachctl config import-kube local --overwrite
+      pachctl config set active-context local
+      ```
 
-        ```shell
-        pachctl config import-kube local --overwrite
-        ```
-        ```shell
-        pachctl config set active-context local
-        ```
+- Then:
 
-    - Then run:
+      ```shell
+      pachctl port-forward
+      ``` 
+      **Background this process in a new tab of your terminal.**
 
-        ```shell
-        pachctl port-forward
-        ``` 
-        Background this process in a new tab of your terminal.
+### You Have Deployed Enterprise/Console
 
-    - If you have deployed with Console:
+- To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`** 
+and authenticate using the mock User (username: `admin`, password: `password`).
 
-        - To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`** 
-        and authenticate using the mock User (username: `admin`, password: `password`).
+- Alternatively, you can connect to your Console (Pachyderm UI) directly by
+pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP **`http://<dockerDesktopIdaddress-or-minikube>:4000/`** 
+then authenticate using the mock User (username: `admin`, password: `password`).
 
-        - Alternatively, you can connect to your Console (Pachyderm UI) directly by
-        pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP **`http://<dockerDesktopIdaddress-or-minikube>:4000/`** 
-        then authenticate using the mock User (username: `admin`, password: `password`).
+- To use `pachctl`, you need to run `pachctl auth login` then
+authenticate again (to Pachyderm this time) with the mock User (username: `admin`, password: `password`).
 
-        - To use `pachctl`, you will need to run `pachctl auth login` then
-        authenticate again (to Pachyderm this time) with the mock User (username: `admin`, password: `password`).
-
-
-* Verify that `pachctl` and your cluster are connected. 
+### Verify that `pachctl` and your cluster are connected. 
   
-    ```shell  
-    pachctl version  
-    ```  
-  
-    **System Response:**  
-  
+```shell  
+pachctl version  
+```  
+
+**System Response:**  
+
+```  
+COMPONENT           VERSION  
+pachctl             {{ config.pach_latest_version }}  
+pachd               {{ config.pach_latest_version }}  
+```  
+You are all set!  
+
+## NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
+
+!!! Note
+      You do not need to have a local Pachyderm CE or Enterprise instance running to install Pachyderm JupyterLab Mount Extension. However, you will need a running cluster to connect your Mount Extension to.
+
+- To install [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
+
+      ```shell
+      helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+      helm repo update
+      ```
+      ```shell
+      helm upgrade --cleanup-on-fail \
+      --install jupyter jupyterhub/jupyterhub \
+      --values https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/helm/examples/jupyterhub-ext-values.yaml
+      ```
+
+- Check the state of your pods `kubectl get all`. Look for the pods `hub-xx` and `proxy-xx`; their state should be `Running`. 
+Run the command a couple times if necessary. 
+See the example below:
+
+      ```
+      pod/hub-6fb9bb5847-ndfwc                       1/1     Running     0             22h
+      pod/proxy-57db95fd89-l5pd5                     1/1     Running     0             22h
+      ```
+
+- Once your pods are up, in your terminal, run :
+
+      ```shell
+      kubectl port-forward svc/proxy-public 8888:80
+      ```
+
+      Then 
+      ```shell
+      kubectl get services | grep -w "pachd " | awk '{print $3}'
+      ```
+      Note the returned ip address. You will need this cluster IP in a next step.
+    
+- Point your browser to **`http://localhost:8888`**, and authenticate using any mock User (username: `admin`, password: `password` will do).
+
+- Now that you are in, [click on Pachyderm's Mount Extension icon on the left of your JupyterLab](../../how-tos/jupyterlab-extension/#connect-the-extension-to-your-pachyderm-cluster){target=_blank} to connect your JupyterLab to your Pachyderm cluster.
+
+      Enter `grpc://<your-pachd-cluster-ip-from-the-previous-step>:30650` to login. 
+
+- If Pachyderm was deployed with Enterprise, you will be prompted to login again. Use the same mock User (username: `admin`, password: `password`).
+
+- Verify that your JupyterLab Extension is connected to your cluster. 
+From the cell of a notebook, run:
+
+    ```shell
+    !pachctl version
+    ``` 
+
     ```  
     COMPONENT           VERSION  
     pachctl             {{ config.pach_latest_version }}  
     pachd               {{ config.pach_latest_version }}  
-    ```  
-    You are all set!  
+    ```    
 
-  
 ## Next Steps  
   
-Complete the [Beginner Tutorial](./beginner_tutorial.md) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
+Complete the [Beginner Tutorial](../beginner_tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
   
   
 !!! note "See Also:"  
