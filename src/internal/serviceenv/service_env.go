@@ -406,7 +406,7 @@ func (env *NonblockingServiceEnv) GetEtcdClient() *etcd.Client {
 }
 
 func (env *NonblockingServiceEnv) GetTaskService(prefix string) task.Service {
-	return task.NewEtcdService(env.etcdClient, prefix)
+	return task.NewEtcdService(env.GetEtcdClient(), prefix)
 }
 
 // GetKubeClient returns the already connected Kubernetes API client without

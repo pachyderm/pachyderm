@@ -60,7 +60,7 @@ In Pachyderm 2, **if two datums from the same repo write to the same output file
 
 Check our illustration of this new [`Single Datum Provenance Rule`](../../concepts/pipeline-concepts/datum/relationship-between-datums/#example-two-steps-mapreduce-pattern-and-single-datum-provenance-rule) in our documentation. 
  
-Alternatively, you can take a look at an implementation of the addition of a new "Reduce/Merge" pipeline in our [examples](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+Alternatively, you can take a look at an implementation of the addition of a new "Reduce/Merge" pipeline in our [examples](https://github.com/pachyderm/pachyderm/tree/2.0.x/examples/joins){target=_blank}.
  
 ### Default Overwrite Behavior
 
@@ -85,7 +85,7 @@ In Pachyderm 2, directories are implied from the paths of the files. Directories
 Global ID can be seen as **a shared TAG or identifier for all provenance-dependent commits and jobs**.
 In other words, an initial change to your data (For example, a `put file` in a repository, an `update pipeline`...) triggers a set of related commits and jobs in your data-driven DAG. The set of those commits and jobs will share the same identifier.
 
-Visit the [Global ID](../../concepts/advanced-concepts/globalID/) page to learn more about Global ID or check this didactical example to understand how [one single ID lets you track all provenance-dependent commits and jobs](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID){target=_blank} at once.  
+Visit the [Global ID](../../concepts/advanced-concepts/globalID/) page to learn more about Global ID or check this didactical example to understand how [one single ID lets you track all provenance-dependent commits and jobs](https://github.com/pachyderm/pachyderm/tree/2.0.x/examples/globalID){target=_blank} at once.  
 
 !!! Note
     Pachyderm [transactions](../../how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands/#use-transactions) also use Global ID. 
@@ -109,22 +109,16 @@ User Access Management is an Enterprise feature.
     Pachyderm now includes a new [Enterprise Management](../../enterprise/auth/enterprise-server/setup/) capability which allows for site-wide configuration of licensing, authentication, and access control.
 
 
-### New Console and Notebooks
+### New Console 
 
-We have entirely re-worked our Web UI (`Console`) and are launching a beta version of our new integrated development environment (`Notebooks`) - namely, JupyterLab on Pachyderm. Both are readily accessible on [Hub](https://hub.pachyderm.com/){target=_blank}. 
+We have entirely re-worked our Web UI (`Console`): Console replaces our Dashboard in Pachyderm 1.x.
 
-- Introducing Pachyderm `Console`: Console replaces our Dashboard in Pachyderm 1. 
+This is the first iteration of the product in which we have focused on pipeline visualization and data exploration, allowing for easy access to commits, files display, jobs, and logs information.
 
-     This is the first iteration of the product in which we have focused on pipeline visualization and data exploration, allowing for easy access to commits, files display, jobs, and logs information.
-
-     Along with being accessible on Hub's workspaces, Console is also an Enterprise feature. By adding the relevant fields in your Helm values, you can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/). The deployment of Console in production requires the setup of an [Ingress Controller and a DNS](../../deploy-manage/deploy/ingress/).
+Console is an Enterprise feature. By adding the relevant fields in your Helm values, you can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/). The deployment of Console in production requires the setup of an [Ingress Controller and a DNS](../../deploy-manage/deploy/ingress/).
 
 !!! Note
-    [Deploy Console Locally](../../deploy-manage/deploy/console/#deploy-locally) on your Minikube or Docker Desktop and browse through your DAGs' pipelines, check the content of your commits in a repo, look at the files they contain, check your DAG's jobs, or zoom in on their logs.
-
-- Additionally, we are releasing the first iteration of our `Notebooks` product (In its beta version), accessible on [Hub](https://hub.pachyderm.com/){target=_blank}. The coming GA release of Notebooks will be an Enterprise Feature. 
-
-     You can now run and test your pipelines and data experiments from your favorite Jupiter notebooks.
+    [Deploy Console Locally](../../deploy-manage/deploy/console/#deploy-locally) and browse through your DAGs' pipelines, check the content of your commits in a repo, look at the files they contain, check your DAG's jobs, or zoom in on their logs.
 
 
 !!! Info "See Also"

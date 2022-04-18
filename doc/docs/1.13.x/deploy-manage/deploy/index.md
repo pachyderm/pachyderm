@@ -11,14 +11,10 @@ deployment options and related topics:
         <h4 class="mdl-card__title-text">Quick Start &nbsp;&nbsp;&nbsp;<i class="fa fa-rocket"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Use Pachyderm Hub or deploy locally.
+        Deploy Pachyderm locally.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../hub/hub_getting_started/" class="md-typeset md-link">
-          Getting Started with Hub
-          </a>
-          </li>
           <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
           Deploy Locally
           </a>
