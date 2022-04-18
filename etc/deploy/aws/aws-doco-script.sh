@@ -270,8 +270,7 @@ helm install pachyderm -f ./values.yaml pach/pachyderm
 
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
-STATIC_IP_ADDR_NO_QUOTES=$(echo "" | tr -d '"')
-echo "{\"pachd_address\": \"grpc://${STATIC_IP_ADDR_NO_QUOTES}:30650\"}" | pachctl config set context "${CLUSTER_NAME}" --overwrite
+STATIC_IP_ADDR=$(kubectl get svc pachd-lb -o json | jq -r .status.loadBalancer.ingress[0].hostname)
 pachctl config set active-context ${CLUSTER_NAME}
 pachctl config get active-context
 
