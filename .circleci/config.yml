@@ -282,7 +282,7 @@ workflows:
               - EXAMPLES
               - INTERNAL
               resource_class:
-              - large
+              - xlarge
               - arm.large 
   helm:
     when:
