@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -37,7 +38,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -6142,7 +6142,8 @@ func TestPFS(suite *testing.T) {
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
 	})
 
-	suite.Run("EgressToSQL", func(_suite *testing.T) {
+	suite.Run("EgressToPostgres", func(_suite *testing.T) {
+		os.Setenv("PACHYDERM_SQL_PASSWORD", tu.DefaultPostgresPassword)
 		type Schema struct {
 			Id int    `sql:"ID,INT"`
 			A  string `sql:"A,VARCHAR(100)"`
@@ -6196,11 +6197,11 @@ func TestPFS(suite *testing.T) {
 			_suite.Run(test.name, func(t *testing.T) {
 				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 				// setup target database
-				dbName := testutil.GenerateEphermeralDBName(t)
-				testutil.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
-				db := testutil.OpenDB(t,
+				dbName := tu.GenerateEphermeralDBName(t)
+				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
+				db := tu.OpenDB(t,
 					dbutil.WithMaxOpenConns(1),
-					dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+					dbutil.WithUserPassword(tu.DefaultPostgresUser, tu.DefaultPostgresPassword),
 					dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
 					dbutil.WithDBName(dbName),
 				)

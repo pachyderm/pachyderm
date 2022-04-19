@@ -897,18 +897,26 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	}
 }
 
+func getEgressPassword() (string, error) {
+	const passwordEnvar = "PACHYDERM_SQL_PASSWORD" // TODO move this to a package for sharing
+	password, ok := os.LookupEnv(passwordEnvar)
+	if !ok {
+		return "", errors.Errorf("must set %v", passwordEnvar)
+	}
+	return password, nil
+}
+
 func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error {
 	url, err := pachsql.ParseURL(req.TargetUrl)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 
-	const passwordEnvar = "PACHYDERM_SQL_PASSWORD" // TODO move this to a package for sharing
-	password, ok := os.LookupEnv(passwordEnvar)
-	if !ok {
-		return errors.Errorf("must set %v", passwordEnvar)
-	}
 	// do we need to wrap password in a secret?
+	password, err := getEgressPassword()
+	if err != nil {
+		return err
+	}
 	db, err := pachsql.OpenURL(*url, password)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -966,7 +974,7 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return tx.Commit()
+	return errors.EnsureStack(tx.Commit())
 }
 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
