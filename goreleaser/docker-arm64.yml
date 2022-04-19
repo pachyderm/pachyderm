@@ -84,6 +84,7 @@ dockers:
     image_templates:
       - pachyderm/pachd:latest
       - pachyderm/pachd:local
+      - "pachyderm/pachd:{{.Version}}"
     use: buildx
     ids:
       - pachd

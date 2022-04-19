@@ -95,8 +95,8 @@ dockers:
     image_templates:
       - pachyderm/pachd:latest
       - pachyderm/pachd:local
-    use: buildx
       - "pachyderm/pachd:{{.Version}}"
+    use: buildx
     ids:
       - pachd
     goarch: amd64
