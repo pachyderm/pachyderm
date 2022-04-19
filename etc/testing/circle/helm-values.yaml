@@ -1,33 +1,46 @@
 deployTarget: custom
 
 global:
-  postgresql:
-    postgresqlPassword: pachyderm
-    postgresqlPostgresPassword: pachyderm
+    postgresql:
+        postgresqlPassword: pachyderm
+        postgresqlPostgresPassword: pachyderm
 
 pachd:
-  service:
-    type: NodePort
-  image:
-    tag: local
-  storage:
-    backend: MINIO
-    minio:
-      bucket: "pachyderm-test"
-      endpoint: "minio.default.svc.cluster.local:9000"
-      id: "minioadmin"
-      secret: "minioadmin"
-      secure: "false"
-      signature: ""
-  metrics:
-    enabled: false
-  resources:
-    requests:
-      cpu: 250m
-      memory: 512M
+    service:
+        type: NodePort
+    image:
+        tag: local
+    storage:
+        backend: MINIO
+        minio:
+            bucket: "pachyderm-test"
+            endpoint: "minio.default.svc.cluster.local:9000"
+            id: "minioadmin"
+            secret: "minioadmin"
+            secure: "false"
+            signature: ""
+    lokiDeploy: true
+    metrics:
+        enabled: false
+    resources:
+        requests:
+            cpu: 250m
+            memory: 512M
 
 etcd:
-  resources:
-    requests:
-      cpu: 250m
-      memory: 512M
+    resources:
+        requests:
+            cpu: 250m
+            memory: 512M
+
+proxy:
+    enabled: true
+    service:
+        type: NodePort
+        httpNodePort: 30650
+        legacyPorts:
+            console: 30400
+            s3Gateway: 30600
+            oidc: 30657
+            identity: 30658
+            metrics: 30656

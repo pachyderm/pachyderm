@@ -1,0 +1,105 @@
+{{- if .Values.proxy.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pachyderm-proxy
+    suite: pachyderm
+  name: pachyderm-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.proxy.replicas }}
+  selector:
+    matchLabels:
+      app: pachyderm-proxy
+      suite: pachyderm
+      {{- if .Values.proxy.labels }}
+      {{- toYaml .Values.proxy.labels | nindent 6 }}
+      {{- end }}
+  template:
+    metadata:
+      {{- if .Values.proxy.annotations }}
+      annotations:
+        {{- toYaml .Values.proxy.annotations | nindent 8 }}
+      {{- end }}
+      labels:
+        app: pachyderm-proxy
+        suite: pachyderm
+        {{- if .Values.proxy.labels }}
+        {{- toYaml .Values.proxy.labels | nindent 8 }}
+        {{- end }}
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - pachd
+      {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      containers:
+        - name: envoy
+          command:
+            - envoy
+          args:
+            - -c
+            - /etc/envoy/envoy.json
+            - --service-node
+            - $(MY_POD_NAME)
+            - --service-zone
+            - $(MY_NODE_NAME)
+            - --service-cluster
+            - pachyderm-envoy
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          image: {{ .Values.proxy.envoyImage }}
+          ports:
+            - name: admin-port
+              containerPort: 9901
+            - name: http-port
+              containerPort: 80
+            # - name: https
+            #   containerPort: 443
+            - name: console-direct
+              containerPort: 4000
+            - name: s3-direct
+              containerPort: 1600
+            - name: grpc-direct
+              containerPort: 1650
+            - name: oidc-direct
+              containerPort: 1657
+            - name: identity-direct
+              containerPort: 1658
+            - name: metrics-direct
+              containerPort: 1656
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9901
+          livenessProbe:
+            httpGet:
+              path: /server_info
+              port: 9901
+          {{- if .Values.proxy.resources }}
+          resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: envoy-config
+              mountPath: /etc/envoy
+      volumes:
+        - name: envoy-config
+          configMap:
+            name: pachyderm-proxy-config
+{{- end }}
