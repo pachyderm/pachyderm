@@ -23,6 +23,13 @@ export type Mount = {
   status: string;
   mode: string | null;
   mountpoint: string | null;
+  mount_key: MountKey | null;
+};
+
+export type MountKey = {
+  repo: string;
+  branch: string;
+  commit: string;
 };
 
 export type Repo = {

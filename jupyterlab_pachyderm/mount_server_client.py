@@ -119,54 +119,35 @@ class MountServerClient(MountInterface):
     async def list(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/repos")
-        # TODO: in the future we could unify the response formats from the go
-        # mount-server and python and then this could just be:
-        # return json.loads(response.body)?
-        return {
-            repo_name: {
-                "branches": {
-                    branch_name: {"mount": branch_info["mount"]}
-                    for branch_name, branch_info in repo_info["branches"].items()
-                }
-            }
-            for repo_name, repo_info in json.loads(response.body).items()
-        }
+        return response.body
+        
 
     async def mount(self, repo, branch, mode, name):
         await self._ensure_mount_server()
-        await self.client.fetch(
+        response = await self.client.fetch(
             f"{self.address}/repos/{repo}/{branch}/_mount?name={name}&mode={mode}",
             method="PUT",
             body="{}",
         )
-        return {"repo": repo, "branch": branch}
+        return response.body
 
     async def unmount(self, repo, branch, name):
         await self._ensure_mount_server()
-        await self.client.fetch(
+        response = await self.client.fetch(
             f"{self.address}/repos/{repo}/{branch}/_unmount?name={name}",
             method="PUT",
             body="{}",
         )
-        return {"repo": repo, "branch": branch}
+        return response.body
 
     async def unmount_all(self):
         await self._ensure_mount_server()
-        all = await self.list()
-        await self.client.fetch(
+        response = await self.client.fetch(
             f"{self.address}/repos/_unmount",
             method="PUT",
             body="{}"
         )
-
-        accum = []
-        for _, repo_info in all.items():
-            for _, branch_info in repo_info["branches"].items():
-                for mount in branch_info["mount"]:
-                    if mount["state"] == "mounted":
-                        accum.append([mount["mount_key"]["repo"], mount["mount_key"]["branch"]])
-
-        return accum
+        return response.body
 
     async def commit(self, repo, branch, name, message):
         await self._ensure_mount_server()

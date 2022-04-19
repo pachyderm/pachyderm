@@ -51,6 +51,19 @@ def _parse_pfs_path(path):
         return parts[0], "master", None
 
 
+def _transform_response(resp):
+    return [
+        {
+            "repo": repo_name,
+            "branches": [
+                {"branch": branch_name, "mount": branch_info["mount"]}
+                for branch_name, branch_info in repo_info["branches"].items()
+            ],
+        }
+        for repo_name, repo_info in json.loads(resp).items()
+    ]
+
+
 class BaseHandler(APIHandler):
     @property
     def mount_client(self) -> MountInterface:
@@ -72,18 +85,7 @@ class ReposHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            repos = await self.mount_client.list()
-            # convert nested structure to list
-            response = [
-                {
-                    "repo": repo_name,
-                    "branches": [
-                        {"branch": branch_name, "mount": branch_info["mount"]}
-                        for branch_name, branch_info in repo_info["branches"].items()
-                    ],
-                }
-                for repo_name, repo_info in repos.items()
-            ]
+            response = _transform_response(await self.mount_client.list())
             get_logger().debug(f"Repos: {response}")
             self.finish(json.dumps(response))
         except Exception as e:
@@ -99,9 +101,9 @@ class ReposUnmountHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            response = json.dumps({"unmounted": await self.mount_client.unmount_all()})
+            response = _transform_response(await self.mount_client.unmount_all())
             get_logger().debug(f"RepoUnmount: {response}")
-            self.finish(response)
+            self.finish(json.dumps(response))
         except Exception as e:
             get_logger().error("Error unmounting all repos.", exc_info=True)
             raise tornado.web.HTTPError(
@@ -113,7 +115,7 @@ class RepoHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self, repo):
         try:
-            repos = await self.mount_client.list()
+            repos = json.loads(await self.mount_client.list())
         except Exception as e:
             get_logger().error(f"Error listing repos.", exc_info=True)
             raise tornado.web.HTTPError(
@@ -157,7 +159,7 @@ class RepoMountHandler(BaseHandler):
 
         try:
             repo, branch, _ = _parse_pfs_path(path)
-            response = await self.mount_client.mount(repo, branch, mode, name)
+            response = _transform_response(await self.mount_client.mount(repo, branch, mode, name))
             get_logger().debug(f"RepoMount: {response}")
             self.finish(json.dumps(response))
         except Exception as e:
@@ -173,10 +175,9 @@ class RepoUnmountHandler(BaseHandler):
         name = self.get_required_query_param_name()
         repo, branch, _ = _parse_pfs_path(path)
         try:
-            result = await self.mount_client.unmount(repo, branch, name)
-            response = json.dumps({"repo": repo, "branch": branch, "mount": result})
+            response = _transform_response(await self.mount_client.unmount(repo, branch, name))
             get_logger().debug(f"RepoUnmount: {response}")
-            self.finish(response)
+            self.finish(json.dumps(response))
         except Exception as e:
             get_logger().error(f"Error unmounting repo {repo}.", exc_info=True)
             raise tornado.web.HTTPError(

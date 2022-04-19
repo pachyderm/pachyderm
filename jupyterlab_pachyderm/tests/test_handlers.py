@@ -27,38 +27,53 @@ def jp_server_config():
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
 async def test_list_repos(mock_client, jp_fetch):
-    mock_client.list.return_value = {
+    mock_client.list.return_value = json.dumps({
         "images": {
             "branches": {
                 "master": {
                     "mount": [
                         {
-                            "name": None,
+                            "name": "",
                             "state": "unmounted",
-                            "status": None,
-                            "mode": None,
-                            "mountpoint": None,
+                            "status": "",
+                            "mode": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "images",
+                                "branch": "master",
+                                "commit": ""
+                            }
                         }
-                    ]
+                    ],
+                    "name": "master"
                 }
-            }
+            },
+            "name": "images"
         },
         "edges": {
             "branches": {
                 "master": {
                     "mount": [
                         {
-                            "name": None,
+                            "name": "",
                             "state": "unmounted",
-                            "status": None,
-                            "mode": None,
-                            "mountpoint": None,
+                            "status": "",
+                            "mode": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "edges",
+                                "branch": "master",
+                                "commit": ""
+                            }
                         }
-                    ]
+                    ],
+                    "name": "master"
                 }
-            }
-        },
-    }
+            },
+            "name": "edges"
+        }
+    })
+
     r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos")
     assert r.code == 200
     assert json.loads(r.body) == [
@@ -69,11 +84,16 @@ async def test_list_repos(mock_client, jp_fetch):
                     "branch": "master",
                     "mount": [
                         {
-                            "name": None,
+                            "name": "",
                             "state": "unmounted",
-                            "status": None,
-                            "mode": None,
-                            "mountpoint": None,
+                            "status": "",
+                            "mode": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "images",
+                                "branch": "master",
+                                "commit": ""
+                            }
                         }
                     ],
                 },
@@ -86,11 +106,16 @@ async def test_list_repos(mock_client, jp_fetch):
                     "branch": "master",
                     "mount": [
                         {
-                            "name": None,
+                            "name": "",
                             "state": "unmounted",
-                            "status": None,
-                            "mode": None,
-                            "mountpoint": None,
+                            "status": "",
+                            "mode": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "edges",
+                                "branch": "master",
+                                "commit": ""
+                            }
                         }
                     ],
                 },
@@ -115,38 +140,52 @@ async def test_list_repos_error(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch("jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=MountInterface)
 async def test_get_repo(mock_client, jp_fetch):
-    mock_client.list.return_value = {
+    mock_client.list.return_value = json.dumps({
         "images": {
             "branches": {
                 "master": {
                     "mount": [
                         {
-                            "name": None,
+                            "name": "",
                             "state": "unmounted",
-                            "status": None,
-                            "mode": None,
-                            "mountpoint": None,
+                            "status": "",
+                            "mode": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "images",
+                                "branch": "master",
+                                "commit": ""
+                            }
                         }
-                    ]
+                    ],
+                    "name": "master"
                 }
-            }
+            },
+            "name": "images"
         },
         "edges": {
             "branches": {
                 "master": {
                     "mount": [
                         {
-                            "name": None,
+                            "name": "",
                             "state": "unmounted",
-                            "status": None,
-                            "mode": None,
-                            "mountpoint": None,
+                            "status": "",
+                            "mode": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "edges",
+                                "branch": "master",
+                                "commit": ""
+                            }
                         }
-                    ]
+                    ],
+                    "name": "master"
                 }
-            }
-        },
-    }
+            },
+            "name": "edges"
+        }
+    })
 
     r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/repos/images")
 
@@ -158,11 +197,16 @@ async def test_get_repo(mock_client, jp_fetch):
                 "branch": "master",
                 "mount": [
                     {
-                        "name": None,
+                        "name": "",
                         "state": "unmounted",
-                        "status": None,
-                        "mode": None,
-                        "mountpoint": None,
+                        "status": "",
+                        "mode": "",
+                        "mountpoint": "",
+                        "mount_key": {
+                            "repo": "images",
+                            "branch": "master",
+                            "commit": ""
+                        }
                     }
                 ],
             }
@@ -173,7 +217,7 @@ async def test_get_repo(mock_client, jp_fetch):
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch("jupyterlab_pachyderm.handlers.RepoHandler.mount_client", spec=MountInterface)
 async def test_get_repo_not_exist_error(mock_client, jp_fetch):
-    mock_client.list.return_value = {}
+    mock_client.list.return_value = json.dumps({})
 
     repo = "somerepo"
     with pytest.raises(tornado.httpclient.HTTPClientError) as e:
@@ -203,17 +247,30 @@ async def test_mount_without_name(jp_fetch):
 )
 async def test_mount(mock_client, jp_fetch):
     repo, name, mode = "myrepo", "myrepo_mount_name", "ro"
-    mock_client.mount.return_value = {
-        "repo": repo,
-        "branch": "master",
-        "mount": {
-            "name": name,
-            "mode": mode,
-            "state": "mounted",
-            "status": None,
-            "mountpoint": f"/pfs/{name}",
-        },
-    }
+    mock_client.mount.return_value = json.dumps({
+        repo: {
+            "branches": {
+                "master": {
+                    "mount": [
+                        {
+                            "name": name,
+                            "mode": mode,
+                            "state": "mounted",
+                            "status": "",
+                            "mountpoint": f"/pfs/{name}",
+                            "mount_key": {
+                                "repo": repo,
+                                "branch": "master",
+                                "commit": ""
+                            }
+                        }
+                    ],
+                    "name": "master"
+                }
+            },
+            "name": repo            
+        }
+    })
 
     r = await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/repos/{repo}/_mount",
@@ -225,17 +282,30 @@ async def test_mount(mock_client, jp_fetch):
     mock_client.mount.assert_called_with(repo, "master", mode, name)
 
     assert r.code == 200
-    assert json.loads(r.body) == {
-        "repo": repo,
-        "branch": "master",
-        "mount": {
-            "name": name,
-            "mode": "ro",
-            "state": "mounted",
-            "status": None,
-            "mountpoint": f"/pfs/{name}",
-        },
-    }
+    assert json.loads(r.body) == [
+        {
+            "repo": repo,
+            "branches": [
+                {
+                    "branch": "master",
+                    "mount": [
+                        {
+                            "name": name,
+                            "mode": mode,
+                            "state": "mounted",
+                            "status": "",
+                            "mountpoint": f"/pfs/{name}",
+                            "mount_key": {
+                                "repo": repo,
+                                "branch": "master",
+                                "commit": ""
+                            }
+                        }
+                    ]
+                },
+            ]
+        }
+    ]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
@@ -245,17 +315,30 @@ async def test_mount(mock_client, jp_fetch):
 )
 async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     repo, branch, mode, name = "myrepo", "mybranch", "rw", "myrepo_mount_name"
-    mock_client.mount.return_value = {
-        "repo": repo,
-        "branch": branch,
-        "mount": {
-            "name": name,
-            "mode": mode,
-            "state": "mounted",
-            "status": None,
-            "mountpoint": f"/pfs/{name}",
-        },
-    }
+    mock_client.mount.return_value = json.dumps({
+        repo: {
+            "branches": {
+                branch: {
+                    "mount": [
+                        {
+                            "name": name,
+                            "mode": mode,
+                            "state": "mounted",
+                            "status": "",
+                            "mountpoint": f"/pfs/{name}",
+                            "mount_key": {
+                                "repo": repo,
+                                "branch": branch,
+                                "commit": ""
+                            }
+                        }
+                    ],
+                    "name": branch
+                }
+            },
+            "name": repo
+        }
+    })
 
     r = await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_mount",
@@ -267,17 +350,30 @@ async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     mock_client.mount.assert_called_with(repo, branch, mode, name)
 
     assert r.code == 200
-    assert json.loads(r.body) == {
-        "repo": repo,
-        "branch": branch,
-        "mount": {
-            "name": name,
-            "mode": mode,
-            "state": "mounted",
-            "status": None,
-            "mountpoint": f"/pfs/{name}",
-        },
-    }
+    assert json.loads(r.body) == [
+        {
+            "repo": repo,
+            "branches": [
+                {
+                    "branch": branch,
+                    "mount": [
+                        {
+                            "name": name,
+                            "mode": mode,
+                            "state": "mounted",
+                            "status": "",
+                            "mountpoint": f"/pfs/{name}",
+                            "mount_key": {
+                                "repo": repo,
+                                "branch": branch,
+                                "commit": ""
+                            }
+                        }
+                    ]
+                },
+            ]
+        }
+    ]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
@@ -309,15 +405,30 @@ async def test_mount_with_error(mock_client, jp_fetch):
 )
 async def test_unmount_with_branch(mock_client, jp_fetch):
     repo, branch, name = "myrepo", "mybranch", "mount_name"
-    mock_client.unmount.return_value = {
-        "mount": {
-            "name": None,
-            "mode": None,
-            "state": "unmounted",
-            "status": None,
-            "mountpoint": None,
-        },
-    }
+    mock_client.unmount.return_value = json.dumps({
+        repo: {
+            "branches": {
+                branch: {
+                    "mount": [
+                        {
+                            "name": "",
+                            "mode": "",
+                            "state": "unmounted",
+                            "status": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": repo,
+                                "branch": branch,
+                                "commit": ""
+                            }
+                        }
+                    ],
+                    "name": branch
+                }
+            },
+            "name": repo
+        }
+    })
 
     r = await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/repos/{repo}/{branch}/_unmount",
@@ -329,19 +440,30 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
     mock_client.unmount.assert_called_with(repo, branch, name)
 
     assert r.code == 200
-    assert json.loads(r.body) == {
-        "repo": repo,
-        "branch": branch,
-        "mount": {
-            "mount": {
-                "name": None,
-                "mode": None,
-                "state": "unmounted",
-                "status": None,
-                "mountpoint": None,
-            }
-        },
-    }
+    assert json.loads(r.body) == [
+        {
+            "repo": repo,
+            "branches": [
+                {
+                    "branch": branch,
+                    "mount": [
+                        {
+                            "name": "",
+                            "mode": "",
+                            "state": "unmounted",
+                            "status": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": repo,
+                                "branch": branch,
+                                "commit": ""
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
@@ -372,14 +494,60 @@ async def test_unmount_with_error(mock_client, jp_fetch):
     spec=MountInterface,
 )
 async def test_unmount_all(mock_client, jp_fetch):
-    mock_client.unmount_all.return_value = [("images", "master")]
+    mock_client.unmount_all.return_value = json.dumps({
+        "repo": {
+            "branches": {
+                "branch": {
+                    "mount": [
+                        {
+                            "name": "",
+                            "mode": "",
+                            "state": "unmounted",
+                            "status": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "repo",
+                                "branch": "branch",
+                                "commit": ""
+                            }
+                        }
+                    ],
+                    "name": "branch"
+                }
+            },
+            "name": "repo"
+        }
+    })
 
     r = await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/repos/_unmount", method="PUT", body="{}"
     )
 
     assert r.code == 200
-    assert json.loads(r.body) == {"unmounted": [["images", "master"]]}
+    assert json.loads(r.body) == [
+        {
+            "repo": "repo",
+            "branches": [
+                {
+                    "branch": "branch",
+                    "mount": [
+                        {
+                            "name": "",
+                            "mode": "",
+                            "state": "unmounted",
+                            "status": "",
+                            "mountpoint": "",
+                            "mount_key": {
+                                "repo": "repo",
+                                "branch": "branch",
+                                "commit": ""
+                            }
+                        }
+                    ],
+                }
+            ]
+        }
+    ]
 
 
 # @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")

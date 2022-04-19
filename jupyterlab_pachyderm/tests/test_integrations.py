@@ -145,6 +145,12 @@ def test_mount(pachyderm_resources, dev_server):
             params={"name": repo},
         )
         assert r.status_code == 200
+        assert len(r.json()) == 3
+
+        for repo_info in r.json():
+            if repo_info["repo"] == repo:
+                assert repo_info["branches"][0]["mount"][0]["state"] == "mounted"
+
         assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repo)))[0][2]) == sorted(
             files
         )
@@ -153,6 +159,8 @@ def test_mount(pachyderm_resources, dev_server):
         f"{BASE_URL}/repos/_unmount",
     )
     assert r.status_code == 200
+    assert len(r.json()) == 3
+    assert r.json()[0]["branches"][0]["mount"][0]["state"] == "unmounted"
 
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
@@ -179,6 +187,11 @@ def test_unmount(pachyderm_resources, dev_server):
         params={"name": "images"},
     )
     assert r.status_code == 200
+
+    for repo_info in r.json():
+        if repo_info["repo"] == "images":
+            assert repo_info["branches"][0]["mount"][0]["state"] == "unmounted"
+            
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
