@@ -65,7 +65,7 @@ EOF
 
 #helm install pachyderm etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
 
-helm install pachyderm ../pachyderm-envoy/etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
+helm install pachyderm ./etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
 
 kubectl rollout status deployment pachd --timeout=10s
 
