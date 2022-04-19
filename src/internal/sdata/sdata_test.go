@@ -93,7 +93,6 @@ func TestFormatParse(t *testing.T) {
 				expected = append(expected, x)
 			}
 			require.NoError(t, w.Flush())
-			t.Log(buf.String())
 
 			var actual []Tuple
 			r := tc.NewR(buf, fieldNames)
@@ -209,9 +208,9 @@ func TestSQLTupleWriter(t *testing.T) {
 				*ti = time.Now()
 			})
 
-			tuple, err := NewTupleFromTableInfo(*tableInfo)
+			tuple, err := NewTupleFromTableInfo(tableInfo)
 			require.NoError(t, err)
-			w := NewSQLTupleWriter(tx, *tableInfo)
+			w := NewSQLTupleWriter(tx, tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
 				for j := range tuple {

@@ -6141,47 +6141,100 @@ func TestPFS(suite *testing.T) {
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
 	})
-	suite.Run("Egress", func(t *testing.T) {
-		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-		err := env.PachClient.CreateRepo("test")
-		require.NoError(t, err)
 
-		commit := client.NewCommit("test", "master", "")
-		require.NoError(t, env.PachClient.PutFile(
-			commit,
-			"/test_table/data.csv",
-			strings.NewReader("1,Foo\n2,Bar\n")))
-
-		// create new database for egress target
-		// connect to the new database
-		db := sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres")
-		dbName := testutil.GenerateEphermeralDBName(t)
-		testutil.CreateEphemeralDB(t, db, dbName)
-		schema := struct {
+	suite.Run("EgressToSQL", func(_suite *testing.T) {
+		type Schema struct {
 			Id int    `sql:"ID,INT"`
 			A  string `sql:"A,VARCHAR(100)"`
-		}{}
-		// connect to new database to create new table
-		db = testutil.OpenDB(t,
-			dbutil.WithMaxOpenConns(1),
-			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-			dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
-			dbutil.WithDBName(dbName),
-		)
-		require.NoError(t, pachsql.CreateTestTable(db, "test_table", schema))
+		}
 
-		dsn := fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, tu.DefaultPostgresHost, tu.DefaultPostgresPort, dbName)
-		fmt.Println(">>>", dsn)
-		_, err = pachsql.ParseURL(dsn)
-		require.NoError(t, err)
-		_, err = env.PachClient.Egress(
-			env.PachClient.Ctx(),
-			&pfs.EgressRequest{
-				Source:    commit,
-				TargetUrl: dsn,
-				Sql:       &pfs.SQLEgressOptions{FileFormat: pfs.SQLEgressOptions_CSV},
+		type File struct {
+			data string
+			path string
+		}
+
+		tests := []struct {
+			name              string
+			targetTableNames  []string
+			expectedRowCounts []int
+			inputFiles        []File
+			egressOptions     *pfs.SQLEgressOptions
+		}{
+			{
+				name:              "CSV",
+				targetTableNames:  []string{"test_table", "test_table2", "empty_table"},
+				expectedRowCounts: []int{4, 1, 0},
+				inputFiles: []File{
+					{"1,Foo\n2,Bar", "/test_table/0000"},
+					{"3,Hello\n4,World", "/test_table/0001"},
+					{"1,this is in test_table2", "/test_table2/0000"},
+					{"", "/empty_table/0000"},
+				},
+				egressOptions: &pfs.SQLEgressOptions{FileFormat: &pfs.SQLEgressOptions_FileFormat{Type: pfs.SQLEgressOptions_FileFormat_CSV}},
+			},
+			{
+				name:              "JSON",
+				targetTableNames:  []string{"test_table", "test_table2", "empty_table"},
+				expectedRowCounts: []int{4, 1, 0},
+				inputFiles: []File{
+					{`{"ID":1,"A":"Foo"}
+					  {"ID":2,"A":"Bar"}`, "/test_table/0000"},
+					{`{"ID":3,"A":"Hello"}
+					  {"ID":4,"A":"World"}`, "/test_table/0001"},
+					{`{"ID":1,"A":"Foo"}`, "/test_table2/0000"},
+					{"", "/empty_table/0000"},
+				},
+				egressOptions: &pfs.SQLEgressOptions{
+					FileFormat: &pfs.SQLEgressOptions_FileFormat{
+						Type: pfs.SQLEgressOptions_FileFormat_JSON,
+						Options: &pfs.SQLEgressOptions_FileFormat_Options{
+							JsonFieldNames: []string{"ID", "A"}}}},
+			},
+		}
+
+		for _, test := range tests {
+			_suite.Run(test.name, func(t *testing.T) {
+				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+				// setup target database
+				dbName := testutil.GenerateEphermeralDBName(t)
+				testutil.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
+				db := testutil.OpenDB(t,
+					dbutil.WithMaxOpenConns(1),
+					dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+					dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
+					dbutil.WithDBName(dbName),
+				)
+				for _, tableName := range test.targetTableNames {
+					require.NoError(t, pachsql.CreateTestTable(db, tableName, Schema{}))
+				}
+
+				// setup source repo based on target database, and generate fake data
+				require.NoError(t, env.PachClient.CreateRepo(dbName))
+				commit := client.NewCommit(dbName, "master", "")
+				for _, f := range test.inputFiles {
+					require.NoError(t, env.PachClient.PutFile(
+						commit,
+						f.path,
+						strings.NewReader(f.data)))
+				}
+
+				// run Egress to copy data from source commit to target database
+				_, err := env.PachClient.Egress(env.PachClient.Ctx(),
+					&pfs.EgressRequest{
+						Source:    commit,
+						TargetUrl: fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, tu.DefaultPostgresHost, tu.DefaultPostgresPort, dbName),
+						Sql:       test.egressOptions,
+					})
+				require.NoError(t, err)
+
+				// verify that actual rows got written to db
+				for i, expected := range test.expectedRowCounts {
+					count := 0
+					require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", test.targetTableNames[i])).Scan(&count))
+					require.Equal(t, count, expected)
+				}
 			})
-		require.NoError(t, err)
+		}
 	})
 }
 

@@ -898,13 +898,12 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 }
 
 func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error {
-	// try db
 	url, err := pachsql.ParseURL(req.TargetUrl)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 
-	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
+	const passwordEnvar = "PACHYDERM_SQL_PASSWORD" // TODO move this to a package for sharing
 	password, ok := os.LookupEnv(passwordEnvar)
 	if !ok {
 		return errors.Errorf("must set %v", passwordEnvar)
@@ -923,16 +922,21 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 	}
 	defer tx.Rollback()
 
-	// TODO cache tableInfos tableInfos := make(map[string]pachsql.TableInfo)
+	// cache tableInfos because multiple files can belong to the same table
+	tableInfos := make(map[string]*pachsql.TableInfo)
 	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 		if fi.FileType != pfs.FileType_FILE {
 			return nil
 		}
 
 		tableName := strings.Split(fi.File.Path, "/")[1]
-		tableInfo, err := pachsql.GetTableInfoTx(tx, tableName)
-		if err != nil {
-			return errors.EnsureStack(err)
+		tableInfo, prs := tableInfos[tableName]
+		if !prs {
+			tableInfo, err = pachsql.GetTableInfoTx(tx, tableName)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			tableInfos[tableName] = tableInfo
 		}
 
 		if err := miscutil.WithPipe(
@@ -941,14 +945,14 @@ func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error 
 			},
 			func(r io.Reader) error {
 				var tr sdata.TupleReader
-				switch req.Sql.FileFormat {
-				case pfs.SQLEgressOptions_CSV:
+				switch req.Sql.FileFormat.Type {
+				case pfs.SQLEgressOptions_FileFormat_CSV:
 					tr = sdata.NewCSVParser(r)
-				case pfs.SQLEgressOptions_JSON:
-					tr = sdata.NewJSONParser(r, nil)
+				case pfs.SQLEgressOptions_FileFormat_JSON:
+					tr = sdata.NewJSONParser(r, req.Sql.FileFormat.Options.JsonFieldNames)
 				}
-				tw := sdata.NewSQLTupleWriter(tx, *tableInfo)
-				tuple, err := sdata.NewTupleFromTableInfo(*tableInfo)
+				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
+				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -978,7 +982,7 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 	// try db
 	dbErr := copyToSQLDB(ctx, req, src)
 	if dbErr != nil {
-		return nil, errors.Errorf("egress tried to write to object storage: %w, then tried to write to database: %w", errors.EnsureStack(objErr), errors.EnsureStack(dbErr))
+		return nil, errors.Errorf("egress tried to write to object storage: %v, then tried to write to database: %v", errors.EnsureStack(objErr), errors.EnsureStack(dbErr))
 	}
 	return &pfs.EgressResponse{}, nil
 }

@@ -463,11 +463,18 @@ message RunLoadTestResponse {
 }
 
 message SQLEgressOptions {
-  enum FileFormat {
-      UNKNOWN = 0;
-      CSV = 1;
-      PARQUET = 2;
-      JSON = 3;
+  message FileFormat {
+    enum Type {
+        UNKNOWN = 0;
+        CSV = 1;
+        PARQUET = 2;
+        JSON = 3;
+    }
+    message Options {
+      repeated string json_field_names = 1;
+    }
+    Type type = 1;
+    Options options = 2;
   }
   FileFormat file_format = 1;
 }

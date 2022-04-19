@@ -107,7 +107,7 @@ func Copy(r TupleReader, w TupleWriter, row Tuple) (n int, _ error) {
 	return n, nil
 }
 
-func NewTupleFromTableInfo(info pachsql.TableInfo) (Tuple, error) {
+func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 	tuple := make(Tuple, len(info.Columns))
 	for i, ci := range info.Columns {
 		var err error
