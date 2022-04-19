@@ -118,9 +118,9 @@ release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
-	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
-	docker buildx build --platform linux/$(TARGET_ARCH) -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f $(GOREL_FILE)
+	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
+	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
 docker-build-proto:
 	docker buildx build --platform linux/$(TARGET_ARCH) $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto

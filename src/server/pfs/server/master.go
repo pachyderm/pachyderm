@@ -126,16 +126,16 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
+				// Skip compaction / validation for errored commits.
+				if commitInfo.Error != "" {
+					return d.finalizeCommit(ctx, commit, "", nil, nil)
+				}
 				id, err := d.getFileSet(ctx, commit)
 				if err != nil {
 					if pfsserver.IsCommitNotFoundErr(err) {
 						return nil
 					}
 					return err
-				}
-				// Skip compaction / validation for errored commits.
-				if commitInfo.Error != "" {
-					return d.finalizeCommit(ctx, commit, "", nil, id)
 				}
 				details := &pfs.CommitInfo_Details{}
 				// Compact the commit.
@@ -224,7 +224,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 			if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
 				txnCtx.FinishJob(commitInfo)
 			}
-			if err := d.finishAliasDescendents(txnCtx, commitInfo, *totalId); err != nil {
+			if err := d.finishAliasDescendents(txnCtx, commitInfo, totalId); err != nil {
 				return err
 			}
 			// TODO(2.0 optional): This is a hack to ensure that commits created by triggers have the same ID as the finished commit.
@@ -238,7 +238,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validat
 
 // finishAliasDescendents will traverse the given commit's descendents, finding all
 // contiguous aliases and finishing them.
-func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, id fileset.ID) error {
+func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, parentCommitInfo *pfs.CommitInfo, id *fileset.ID) error {
 	// Build the starting set of commits to consider
 	descendents := append([]*pfs.Commit{}, parentCommitInfo.ChildCommits...)
 
@@ -261,8 +261,10 @@ func (d *driver) finishAliasDescendents(txnCtx *txncontext.TransactionContext, p
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Put(pfsdb.CommitKey(commit), commitInfo); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, id); err != nil {
-				return errors.EnsureStack(err)
+			if id != nil {
+				if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commitInfo.Commit, *id); err != nil {
+					return errors.EnsureStack(err)
+				}
 			}
 
 			descendents = append(descendents, commitInfo.ChildCommits...)

@@ -42,7 +42,7 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		dbutil.WithHostPort(pgBouncerHost(), pgBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
-	dbName := testutil.CreateEphemeralDB(t, db)
+	dbName := testutil.CreateEphemeralDB(t, db, testutil.GenerateEphermeralDBName(t))
 	return func(c *serviceenv.Configuration) {
 		// common
 		c.PostgresDBName = dbName
@@ -65,6 +65,13 @@ func NewTestDB(t testing.TB) *pachsql.DB {
 
 func NewTestDirectDB(t testing.TB) *pachsql.DB {
 	opts := NewTestDirectDBOptions(t)
+	return testutil.NewTestDB(t, opts)
+}
+
+// NewPostgres will always return a direct connection to an ephemeral Postgres
+// backed by the stock Postgres image.
+func NewPostgres(t testing.TB) *pachsql.DB {
+	opts := NewTestDBOptions(t)
 	return testutil.NewTestDB(t, opts)
 }
 

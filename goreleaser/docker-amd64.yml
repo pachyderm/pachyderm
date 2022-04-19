@@ -14,6 +14,8 @@ builds:
       - linux
     goarch:
       - amd64
+    gcflags:
+      - "all=-trimpath={{.Env.PWD}}"
   -
     id: worker
     dir: src/server/cmd/worker
@@ -27,6 +29,8 @@ builds:
       - linux
     goarch:
       - amd64
+    gcflags:
+      - "all=-trimpath={{.Env.PWD}}"
   -
     id: worker_init
     dir: etc/worker
@@ -40,6 +44,8 @@ builds:
       - linux
     goarch:
       - amd64
+    gcflags:
+      - "all=-trimpath={{.Env.PWD}}"
   -
     id: pachctl
     dir: src/server/cmd/pachctl
@@ -52,6 +58,8 @@ builds:
       - darwin
     goarch:
       - amd64
+    gcflags:
+      - "all=-trimpath={{.Env.PWD}}"
   -
     id: pachtf
     dir: src/server/cmd/pachtf
@@ -65,6 +73,8 @@ builds:
       - linux
     goarch:
       - amd64
+    gcflags:
+      - "all=-trimpath={{.Env.PWD}}"
 
 archives:
   - format: binary
@@ -86,6 +96,7 @@ dockers:
       - pachyderm/pachd:latest
       - pachyderm/pachd:local
     use: buildx
+      - "pachyderm/pachd:{{.Version}}"
     ids:
       - pachd
     goarch: amd64
@@ -109,6 +120,7 @@ dockers:
     skip_push: false
     dockerfile: Dockerfile.pachctl
     build_flag_templates:
+      - "--network=host"
       - "--progress=plain"
       - "--label=version={{.Version}}-amd64"
       - "--label=release={{.Version}}-amd64"

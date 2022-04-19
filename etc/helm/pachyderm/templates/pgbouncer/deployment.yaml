@@ -47,6 +47,8 @@ spec:
           value: "*"
         - name: PGBOUNCER_MAX_CLIENT_CONN
           value: "{{ .Values.pgbouncer.maxConnections }}"
+        - name: PGBOUNCER_DEFAULT_POOL_SIZE
+          value: "{{ .Values.pgbouncer.defaultPoolSize }}"
         - name: PGBOUNCER_POOL_MODE
           value: "transaction"
         - name: PGBOUNCER_IDLE_TRANSACTION_TIMEOUT

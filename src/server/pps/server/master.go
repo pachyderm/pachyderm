@@ -36,15 +36,7 @@ var (
 	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
 
-type eventType int
-
-const (
-	writeEv eventType = iota
-	deleteEv
-)
-
 type pipelineEvent struct {
-	eventType
 	pipeline  string
 	timestamp time.Time
 }
@@ -82,6 +74,7 @@ type ppsMaster struct {
 	watchCancel     func() // protected by pollPipelinesMu
 
 	pcMgr *pcManager
+	kd    *kubeDriver
 
 	// channel through which pipeline events are passed
 	eventCh chan *pipelineEvent
@@ -90,11 +83,6 @@ type ppsMaster struct {
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
-	m := &ppsMaster{
-		a:     a,
-		pcMgr: newPcManager(a.env.Config.PPSMaxConcurrentK8sRequests),
-	}
-
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -106,9 +94,13 @@ func (a *apiServer) master() {
 			return errors.EnsureStack(err)
 		}
 		defer masterLock.Unlock(ctx)
-
 		log.Infof("PPS master: launching master process")
-		m.masterCtx = ctx
+		m := &ppsMaster{
+			a:         a,
+			pcMgr:     newPcManager(),
+			masterCtx: ctx,
+			kd:        newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger),
+		}
 		m.run()
 		return errors.Wrapf(ctx.Err(), "ppsMaster.Run() exited unexpectedly")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {

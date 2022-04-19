@@ -3,9 +3,9 @@
 For a quick test installation of Pachyderm on AWS (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](../helm_install/) page for more information on  how to install and get started with `Helm`.
-      - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
+      - Refer to our generic ["Helm Install"](../helm_install/){target=_blank} page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/){target=_blank}. You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/){target=_blank} instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
 
 The following section walks you through deploying a Pachyderm cluster on [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/){target=_blank} (EKS). 
 
@@ -30,7 +30,7 @@ you have the following prerequisites installed and configured:
 * [AWS CLI](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html){target=_blank}
 * [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html){target=_blank}
 * [aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html){target=_blank}.
-* [pachctl](../../../getting_started/local_installation#install-pachctl)
+* [pachctl](../../../getting_started/local_installation#install-pachctl){target=_blank}
 
 ## 2. Deploy Kubernetes by using `eksctl`
 
@@ -207,7 +207,6 @@ If you plan on using **gp2** EBS volumes:
 - For deployments in **production**, [go to the AWS-managed PostgreSQL deployment and setup section](#5-create-an-aws-managed-postgresql-database)
 - Otherwise, you will be using the default bundled version of PostgreSQL: [Go to the deployment of Pachyderm](#6-deploy-pachyderm) 
 
-
 For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
 
 For your EKS cluster to successfully create two **Elastic Block Storage (EBS) persistent volumes (PV)**, follow the steps detailled in **[deploy Amazon EBS CSI driver to your cluster](https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html){target=_blank}**.
@@ -228,6 +227,9 @@ volume later.
 
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
 For production environments, it is **strongly recommended that you disable the bundled version and use an RDS PostgreSQL instance**. 
+
+!!! Attention
+      Note that [Aurora Serverless PostgreSQL](https://aws.amazon.com/rds/aurora/serverless/){target=_blank} is not supported and will not work.
 
 This section will provide guidance on the configuration settings you will need to: 
 
@@ -266,7 +268,7 @@ Configure your DB instance as follows.
 !!! Warning "One last step"
       Once your instance is created:
 
-      - You will need to create a second database named "dex"  in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+      - You will need to create a second database named "dex" in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
       - Additionally, create a new user account and **grant it full CRUD permissions to both `pachyderm` and `dex` databases**. Read about managing PostgreSQL users and roles in this [blog](https://aws.amazon.com/blogs/database/managing-postgresql-users-and-roles/). Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
 
 ### Update your values.yaml 
@@ -304,7 +306,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
      If you have not created a Managed PostgreSQL RDS instance, **replace the Postgresql section below** with `postgresql:enabled: true` in your values.yaml. This setup is **not recommended in production environments**.
 #### For gp3 EBS Volumes
 
-[Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/examples/aws-gp3-values.yaml){target=_blank} or use our minimal example below.
+[Check out our example of values.yaml for gp3](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp3-values.yaml){target=_blank} or use our minimal example below.
 
 
 === "Gp3 + Service account annotations"   
@@ -383,7 +385,7 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
 
 #### For gp2 EBS Volumes
 
-[Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/examples/aws-gp2-values.yaml){target=_blank} or use our minimal example below.   
+[Check out our example of values.yaml for gp2](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/aws-gp2-values.yaml){target=_blank} or use our minimal example below.   
     
 === "For Gp2 + Service account annotations"
       ```yaml
@@ -456,9 +458,10 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
       ```
 
 
-Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/2.0.x/etc/helm/pachyderm/values.yaml){target=_blank}.
+Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
-
+!!! Important
+      Retain (ideally in version control) a copy of the Helm values used to deploy your cluster. It might be useful if you need to [restore a cluster from a backup](../../manage/backup_restore).
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 

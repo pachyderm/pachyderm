@@ -2,26 +2,6 @@
 
 set -Eex
 
-function retry {
-  local retries=$1
-  shift
-
-  local count=0
-  until "$@"; do
-    exit=$?
-    wait=$((2 ** $count))
-    count=$(($count + 1))
-    if [ $count -lt "$retries" ]; then
-      echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
-      sleep $wait
-    else
-      echo "Retry $count/$retries exited $exit, no more retries left."
-      return $exit
-    fi
-  done
-  return 0
-}
-
 export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
 
 # Parse flags
@@ -31,6 +11,7 @@ minikube_args=(
   "--kubernetes-version=${VERSION}"
   "--cpus=7"
   "--memory=12Gi"
+  "--wait=all"
 )
 while getopts ":v" opt; do
   case "${opt}" in
@@ -44,7 +25,18 @@ while getopts ":v" opt; do
   esac
 done
 
-retry 2 minikube start "${minikube_args[@]}"
+# wait for docker or timeout
+timeout=120
+while ! docker version >/dev/null 2>&1; do
+  timeout=$((timeout - 1))
+  if [ $timeout -eq 0 ]; then
+    echo "Timed out waiting for docker daemon"
+    exit 1
+  fi
+  sleep 1
+done
+
+minikube start "${minikube_args[@]}"
 
 # Try to connect for three minutes
 for _ in $(seq 36); do
