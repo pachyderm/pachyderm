@@ -82,7 +82,7 @@ func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
 		toggle: toggle,
 		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
-				return pc.kd.CreatePipelineResources(ctx, pi)
+				return errors.EnsureStack(pc.iDriver.CreatePipelineResources(ctx, pi))
 			}
 			if err := pc.deletePipelineResources(); err != nil {
 				// retry, but the pipeline has already failed
@@ -168,13 +168,13 @@ type pipelineController struct {
 	cancel                context.CancelFunc
 	pipeline              string
 	env                   Env
-	stateMgr              PipelineStateManager
 	etcdPrefix            string
 	monitorCancel         func()
 	crashingMonitorCancel func()
 	bumpChan              chan time.Time
 	pcMgr                 *pcManager
-	kd                    InfraDriver
+	psDriver              PipelineStateDriver
+	iDriver               InfraDriver
 }
 
 var (
@@ -192,8 +192,8 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		pipeline:   pipeline,
 		env:        m.env,
 		etcdPrefix: m.etcdPrefix,
-		kd:         m.kd,
-		stateMgr:   m.sm,
+		iDriver:    m.kd,
+		psDriver:   m.sd,
 		bumpChan:   make(chan time.Time, 1),
 		pcMgr:      m.pcMgr,
 	}
@@ -270,11 +270,11 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	}
 	defer tracing.FinishAnySpan(span, "err", retErr)
 	// derive the latest pipelineInfo with a corresponding auth'd context
-	pi, ctx, err := pc.stateMgr.FetchState(pc.ctx, pc.pipeline)
+	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
 		log.Errorf("PPS master: failed to set up step data to handle event for pipeline '%s': %v", pc.pipeline, errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
-		return false, err
+		return false, errors.EnsureStack(err)
 	} else if pi == nil {
 		// interpret the event as a delete operation
 		if err := pc.deletePipelineResources(); err != nil {
@@ -291,7 +291,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		if err := pc.restartPipeline(ctx, pi, rc, "could not get RC."); err != nil {
 			return false, err
 		}
-		return false, pc.stateMgr.SetState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, "could not get RC.")
+		return false, errors.EnsureStack(pc.psDriver.SetState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, "could not get RC."))
 	}
 	if err != nil && !errors.Is(err, errRCNotFound) {
 		return false, err
@@ -316,7 +316,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
 	})
 	if errors.As(err, &stepErr) && stepErr.failPipeline {
-		failError := pc.stateMgr.SetState(ctx,
+		failError := pc.psDriver.SetState(ctx,
 			pi.SpecCommit,
 			pps.PipelineState_PIPELINE_FAILURE,
 			fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err),
@@ -420,7 +420,7 @@ func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, r
 		}
 	}
 	if target != pi.State {
-		return pc.stateMgr.SetState(ctx, pi.SpecCommit, target, "")
+		return errors.EnsureStack(pc.psDriver.SetState(ctx, pi.SpecCommit, target, ""))
 	}
 	return nil
 }
@@ -548,7 +548,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 		maxScale = int32(pi.Details.ParallelismSpec.Constant)
 	}
 	// update pipeline RC
-	return pc.kd.UpdateReplicationController(ctx, oldRC, func(rc *v1.ReplicationController) bool {
+	return errors.EnsureStack(pc.iDriver.UpdateReplicationController(ctx, oldRC, func(rc *v1.ReplicationController) bool {
 		var curScale int32
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas > 0 {
 			curScale = *rc.Spec.Replicas
@@ -601,7 +601,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 		// Update the # of replicas
 		rc.Spec.Replicas = &targetScale
 		return true
-	})
+	}))
 }
 
 // scaleDownPipeline edits the RC associated with pc's pipeline & spins down the
@@ -617,13 +617,13 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
-	return pc.kd.UpdateReplicationController(ctx, rc, func(rc *v1.ReplicationController) bool {
+	return errors.EnsureStack(pc.iDriver.UpdateReplicationController(ctx, rc, func(rc *v1.ReplicationController) bool {
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas == 0 {
 			return false // prior attempt succeeded
 		}
 		rc.Spec.Replicas = &zero
 		return true
-	})
+	}))
 }
 
 // restartPipeline updates the RC/service associated with pc's pipeline, and
@@ -648,7 +648,7 @@ func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.Pipel
 		}
 	}
 	// create up-to-date RC
-	if err := pc.kd.CreatePipelineResources(ctx, pi); err != nil {
+	if err := pc.iDriver.CreatePipelineResources(ctx, pi); err != nil {
 		return errors.Wrap(err, "error creating resources for restart")
 	}
 	return errors.Errorf("restarting pipeline %q: %s", pi.Pipeline.Name, reason)
@@ -661,7 +661,7 @@ func (pc *pipelineController) deletePipelineResources() (retErr error) {
 	pc.stopPipelineMonitor()
 	// Same for cancelCrashingMonitor
 	pc.stopCrashingPipelineMonitor()
-	return pc.kd.DeletePipelineResources(pc.ctx, pc.pipeline)
+	return errors.EnsureStack(pc.iDriver.DeletePipelineResources(pc.ctx, pc.pipeline))
 }
 
 // Unlike other functions in this file, getRC takes responsibility for restarting
@@ -681,7 +681,7 @@ func (pc *pipelineController) getRC(ctx context.Context, pi *pps.PipelineInfo) (
 		otherErrCount int
 	err := backoff.RetryNotify(func() error {
 		var err error
-		rcs, err := pc.kd.ReadReplicationController(pc.ctx, pi)
+		rcs, err := pc.iDriver.ReadReplicationController(pc.ctx, pi)
 		if err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		}

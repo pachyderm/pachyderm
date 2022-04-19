@@ -132,13 +132,12 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 					pc.env.EtcdClient, pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
-				if err := pc.stateMgr.TransitionState(ctx,
+				if err := pc.psDriver.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
 						pps.PipelineState_PIPELINE_CRASHING,
 					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
-
 					pte := &ppsutil.PipelineTransitionError{}
 					if errors.As(err, &pte) {
 						if pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -150,10 +149,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return nil
 						} else if pte.Current != pps.PipelineState_PIPELINE_STANDBY {
 							// it's fine if we were already in standby
-							return err
+							return errors.EnsureStack(err)
 						}
 					} else {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				for {
@@ -176,7 +175,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
-						if err := pc.stateMgr.TransitionState(ctx,
+						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -223,7 +222,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							}
 						}
 
-						if err := pc.stateMgr.TransitionState(ctx,
+						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -268,7 +267,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
 		if int(parallelism) == len(workerStatus) {
-			if err := pc.stateMgr.TransitionState(ctx,
+			if err := pc.psDriver.TransitionState(ctx,
 				pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {

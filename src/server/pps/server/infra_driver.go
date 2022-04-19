@@ -1,9 +1,11 @@
 package server
 
 import (
-	"errors"
 	"strconv"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -35,17 +37,14 @@ type mockInfraDriver struct {
 	rcs map[string]v1.ReplicationController
 }
 
-func newMockInfraDriver() InfraDriver {
+func newMockInfraDriver() *mockInfraDriver {
 	return &mockInfraDriver{
 		rcs: make(map[string]v1.ReplicationController),
 	}
 }
 
 func (mid *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	if _, ok := mid.rcs[pi.Pipeline.Name]; ok {
-		return errors.New("pipeline already created")
-	}
-	mid.rcs[pi.Pipeline.Name] = *mid.makeRC(pi)
+	mid.rcs[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)] = *mid.makeRC(pi)
 	return nil
 }
 
@@ -94,7 +93,7 @@ func (mid *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1
 
 // TODO(acohen4): complete
 func (mid *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
-	return nil, nil, nil
+	return nil, func() {}, nil
 }
 
 ////////////////////////////////////
@@ -106,13 +105,18 @@ func (mid *mockInfraDriver) reset() {
 }
 
 func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController {
+	name := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
 	return &v1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version),
+			Name: name,
 			Annotations: map[string]string{
 				pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 				pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
 				hashedAuthTokenAnnotation:    hashAuthToken(pi.AuthToken),
+				pachVersionAnnotation:        version.PrettyVersion(),
+			},
+			Labels: map[string]string{
+				pipelineNameLabel: name,
 			},
 		},
 	}
@@ -120,8 +124,4 @@ func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationControll
 
 func (mid *mockInfraDriver) writeRC(rc *v1.ReplicationController) {
 	mid.rcs[rc.ObjectMeta.Name] = *rc
-}
-
-func rcName(pi *pps.PipelineInfo) string {
-	return ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
 }
