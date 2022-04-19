@@ -107,6 +107,8 @@ static_resources:
                       enable_upstream_stats: true
 
                   - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   clusters:
     - name: pachd-grpc
       type: logical_dns
@@ -134,7 +136,7 @@ static_resources:
                   address:
                     socket_address:
                       address: pachd
-                      port_value: 1650
+                      port_value: 30650
     - name: pachd-identity
       type: logical_dns
       lb_policy: round_robin
@@ -150,7 +152,7 @@ static_resources:
                   address:
                     socket_address:
                       address: pachd
-                      port_value: 1658
+                      port_value: 30658
       health_checks:
         - timeout: 10s
           interval: 30s
@@ -174,7 +176,7 @@ static_resources:
                   address:
                     socket_address:
                       address: pachd
-                      port_value: 1657
+                      port_value: 30657
     - name: pachd-s3gateway
       type: logical_dns
       lb_policy: round_robin
@@ -190,7 +192,7 @@ static_resources:
                   address:
                     socket_address:
                       address: pachd
-                      port_value: 1600
+                      port_value: 30600
     - name: console
       type: logical_dns
       lb_policy: round_robin

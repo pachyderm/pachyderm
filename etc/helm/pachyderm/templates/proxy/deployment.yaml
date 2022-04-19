@@ -64,9 +64,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          image: envoyproxy/envoy:v1.22.0
+          image: {{ .Values.proxy.envoyImage }}
           ports:
-            - name: envoy-admin-port
+            - name: admin-port
               containerPort: 9901
             - name: http-port
               containerPort: 80

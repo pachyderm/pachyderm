@@ -652,6 +652,8 @@ proxy:
   # pachd, so a number here that matches the number of pachd replicas is a fine configuration.
   # (Note that we don't guarantee to keep the proxy<->pachd traffic on-node or even in-region.)
   replicas: 1
+  # The envoy image to pull.
+  envoyImage: envoyproxy/envoy:v1.22.0
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
   resources:

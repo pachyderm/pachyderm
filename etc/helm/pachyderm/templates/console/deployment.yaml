@@ -40,7 +40,7 @@ spec:
         - containerPort: {{ .Values.console.config.graphqlPort }}
           name: console-http
         env:
-        {{- if not .Values.ingress.enabled }}
+        {{- if and (not .Values.ingress.enabled) (not .Values.proxy.enabled) }}
         - name: REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX
           value: ":{{ .Values.console.config.graphqlPort }}/graphql"
         {{- end }}
