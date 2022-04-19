@@ -2,6 +2,20 @@
 
 set -Eex
 
+case $(uname -m) in
+
+arm64 | aarch64)
+  CPUS=4
+  ;;
+
+x86_64 | amd64)
+  CPUS=7
+  ;;
+*)
+  CPUS=4
+  ;;
+esac
+
 export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
 
 # Parse flags
@@ -9,19 +23,19 @@ VERSION=v1.19.0
 minikube_args=(
   "--vm-driver=docker"
   "--kubernetes-version=${VERSION}"
-  "--cpus=7"
+  "--cpus=${CPUS}"
   "--memory=12Gi"
   "--wait=all"
 )
 while getopts ":v" opt; do
   case "${opt}" in
-    v)
-      VERSION="v${OPTARG}"
-      ;;
-    \?)
-      echo "Invalid argument: ${opt}"
-      exit 1
-      ;;
+  v)
+    VERSION="v${OPTARG}"
+    ;;
+  \?)
+    echo "Invalid argument: ${opt}"
+    exit 1
+    ;;
   esac
 done
 
