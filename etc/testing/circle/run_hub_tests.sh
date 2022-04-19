@@ -66,7 +66,7 @@ fi
 DURATION=$(echo $PFS_RESPONSE_SPEC | jq '.duration')
 DURATION=${DURATION: 1:-2}
 bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS"}
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S%z)"}
 EOF
 
 PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
@@ -74,7 +74,7 @@ PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
 DURATION=$(echo $PPS_RESPONSE_SPEC | jq '.duration')
 DURATION=${DURATION: 1:-2}
 bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS"} 
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S%z)"} 
 EOF
 
 if [ "${?}" -ne 0 ]; then
