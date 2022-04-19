@@ -647,10 +647,10 @@ proxy:
   # to pachd or Console.
   enabled: true
   # The number of proxy replicas to run.  1 should be fine, but if you want more for higher
-  # availability, that's perfectly reasonable.  There is an affinity rule to prefer scheduling the
-  # proxy pods on the same node as pachd, so a number here that matches the number of pachd replicas
-  # is a fine configuration.  (Note that we don't guarantee to keep the proxy<->pachd traffic
-  # on-node or even in-region.)
+  # availability, that's perfectly reasonable.  Each replica can handle 50,000 concurrent
+  # connections.  There is an affinity rule to prefer scheduling the proxy pods on the same node as
+  # pachd, so a number here that matches the number of pachd replicas is a fine configuration.
+  # (Note that we don't guarantee to keep the proxy<->pachd traffic on-node or even in-region.)
   replicas: 1
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
