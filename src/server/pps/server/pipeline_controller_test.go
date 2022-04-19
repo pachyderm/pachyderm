@@ -3,47 +3,56 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	logrus "github.com/sirupsen/logrus"
 )
 
-func TestPPSMaster(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	realEnv := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
-
-	txnEnv := transactionenv.New()
-	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
-	infraDriver := newMockInfraDriver()
-	master := newMaster(ctx,
-		EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv, nil, WithoutKubeClient),
-		txnEnv,
-		ppsdb.Pipelines(env.ServiceEnv.GetDBClient(), listener),
-		realEnv.ServiceEnv.Config().EtcdPrefix,
-		infraDriver)
+func withPPSMaster(t *testing.T, iDriver InfraDriver, stateMgr PipelineStateManager, test func()) {
+	etcdEnv := testetcd.NewEnv(t)
+	env := Env{
+		BackgroundContext: context.Background(),
+		Logger:            logrus.StandardLogger(),
+		DB:                nil,
+		EtcdClient:        etcdEnv.EtcdClient,
+		KubeClient:        nil,
+		AuthServer:        nil,
+		PFSServer:         nil,
+		TxnEnv:            nil,
+		GetPachClient:     nil, // will need to fix this bit
+		Config:            newConfig(t),
+	}
+	ctx, cf := context.WithCancel(context.Background())
+	t.Cleanup(func() { cf() })
+	master := newMaster(ctx, env, env.EtcdPrefix, iDriver, stateMgr)
 	go master.run()
+	test()
+}
 
-	pipelines := ppsdb.Pipelines(env.ServiceEnv.GetDBClient(), listener)
-
-	require.NoError(t, txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
-		pi := &pps.PipelineInfo{
-			Pipeline:   client.NewPipeline("my-pipeline"),
-			Version:    1,
-			SpecCommit: client.NewCommit("my-pipeline", "master", txCtx.CommitSetID),
-			State:      pps.PipelineState_PIPELINE_STARTING,
-			Type:       pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM,
-		}
-		require.NoError(t, pipelines.ReadWrite(txCtx.SqlTx).Create(pi.SpecCommit, pi))
-		return nil
-	}))
+func TestPipelineController(t *testing.T) {
+	stateMgr := newMockStateManager()
+	infraDriver := newMockInfraDriver()
+	name := tu.UniqueString("TestPipelineController_")
+	withPPSMaster(t, infraDriver, stateMgr, func() {
+		stateMgr.upsertPipeline(&pps.PipelineInfo{
+			Pipeline: client.NewPipeline(name),
+			State:    pps.PipelineState_PIPELINE_STARTING,
+			Details:  &pps.PipelineInfo_Details{},
+		})
+		require.NoErrorWithinT(t, 30*time.Second, func() error {
+			return backoff.Retry(func() error {
+				if stateMgr.pipelines[name].State == pps.PipelineState_PIPELINE_RUNNING {
+					return nil
+				}
+				return errors.New("change hasn't reflected")
+			}, backoff.NewTestingBackOff())
+		})
+	})
 }

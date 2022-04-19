@@ -12,8 +12,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -102,7 +102,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// database; it determines both which RCs (from above) are stale and also
 			// which pipelines need to be bumped. Note that there may be zero
 			// pipelines in the database, and dbPipelines may be empty.
-			if err := ppsutil.ListPipelineInfo(ctx, m.pipelines, nil, 0,
+			if err := m.sm.ListPipelineInfo(ctx,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
@@ -182,7 +182,7 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				return nil
+				return errutil.ErrBreak
 			case event, ok := <-watch:
 				if !ok {
 					log.Warn("kubernetes pod watch unexpectedly ended - restarting watch")
@@ -205,12 +205,9 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 					if versionErr != nil {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
 					}
-					var pipelineInfo pps.PipelineInfo
-					if err := m.pipelines.ReadOnly(ctx).GetUniqueByIndex(
-						ppsdb.PipelinesVersionIndex,
-						ppsdb.VersionKey(pipelineName, uint64(pipelineVersion)),
-						&pipelineInfo); err != nil {
-						return errors.Wrapf(err, "couldn't retrieve pipeline information")
+					var pipelineInfo *pps.PipelineInfo
+					if pipelineInfo, err = m.sm.GetPipelineInfo(ctx, pipelineName, pipelineVersion); err != nil {
+						return err
 					}
 					return m.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
 				}
@@ -258,13 +255,12 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
-		pipelineWatcher, err := m.pipelines.ReadOnly(ctx).Watch()
+		watcher, close, err := m.sm.Watch(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "error creating watch")
 		}
-		defer pipelineWatcher.Close()
-
-		for event := range pipelineWatcher.Watch() {
+		defer close()
+		for event := range watcher {
 			if event.Err != nil {
 				return errors.Wrapf(event.Err, "event err")
 			}

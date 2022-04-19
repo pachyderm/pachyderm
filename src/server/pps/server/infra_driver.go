@@ -58,13 +58,15 @@ func (mid *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipelin
 			return nil
 		}
 	}
-	return errors.New("pipeline doesn't exist")
+	return errors.New("rc for pipeline not found")
 }
 
 func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
 	name := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
 	if rc, ok := mid.rcs[name]; !ok {
-		return nil, errors.New("rc for pipeline doesn't exist")
+		return &v1.ReplicationControllerList{
+			Items: []v1.ReplicationController{},
+		}, errors.New("rc for pipeline not found")
 	} else {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{rc},

@@ -7,21 +7,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	middleware_auth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
@@ -173,8 +168,7 @@ type pipelineController struct {
 	cancel                context.CancelFunc
 	pipeline              string
 	env                   Env
-	txEnv                 *transactionenv.TransactionEnv
-	pipelines             collection.PostgresCollection
+	stateMgr              PipelineStateManager
 	etcdPrefix            string
 	monitorCancel         func()
 	crashingMonitorCancel func()
@@ -197,10 +191,9 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
 		pipeline:   pipeline,
 		env:        m.env,
-		txEnv:      m.txEnv,
-		pipelines:  m.pipelines,
 		etcdPrefix: m.etcdPrefix,
 		kd:         m.kd,
+		stateMgr:   m.sm,
 		bumpChan:   make(chan time.Time, 1),
 		pcMgr:      m.pcMgr,
 	}
@@ -277,7 +270,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	}
 	defer tracing.FinishAnySpan(span, "err", retErr)
 	// derive the latest pipelineInfo with a corresponding auth'd context
-	pi, ctx, err := pc.fetchState()
+	pi, ctx, err := pc.stateMgr.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
 		log.Errorf("PPS master: failed to set up step data to handle event for pipeline '%s': %v", pc.pipeline, errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
@@ -298,7 +291,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		if err := pc.restartPipeline(ctx, pi, rc, "could not get RC."); err != nil {
 			return false, err
 		}
-		return false, pc.setPipelineState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, "could not get RC.")
+		return false, pc.stateMgr.SetState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, "could not get RC.")
 	}
 	if err != nil && !errors.Is(err, errRCNotFound) {
 		return false, err
@@ -323,7 +316,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		return errors.Wrapf(err, "could not update resource for pipeline %q", pc.pipeline)
 	})
 	if errors.As(err, &stepErr) && stepErr.failPipeline {
-		failError := pc.setPipelineState(ctx,
+		failError := pc.stateMgr.SetState(ctx,
 			pi.SpecCommit,
 			pps.PipelineState_PIPELINE_FAILURE,
 			fmt.Sprintf("could not update resources after %d attempts: %v", errCount, err),
@@ -334,29 +327,6 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		}
 	}
 	return false, err
-}
-
-// returns PipelineInfo corresponding to the latest pipeline state, a context loaded with the pipeline's auth info, and error
-// NOTE: returns nil, nil, nil if the step is found to be a delete operation
-func (pc *pipelineController) fetchState() (*pps.PipelineInfo, context.Context, error) {
-	// query pipelineInfo
-	var pi *pps.PipelineInfo
-	var err error
-	if pi, err = pc.tryLoadLatestPipelineInfo(); err != nil && collection.IsErrNotFound(err) {
-		// if the pipeline info is not found, interpret the operation as a delete
-		return nil, nil, nil
-	} else if err != nil {
-		return nil, nil, err
-	}
-	tracing.TagAnySpan(pc.ctx,
-		"current-state", pi.State.String(),
-		"spec-commit", pretty.CompactPrintCommitSafe(pi.SpecCommit))
-	// add pipeline auth
-	// the pipelineController's context is authorized as pps master, but we want to switch to the pipeline itself
-	// first clear the cached WhoAmI result from the context
-	pachClient := pc.env.GetPachClient(middleware_auth.ClearWhoAmI(pc.ctx))
-	pachClient.SetAuthToken(pi.AuthToken)
-	return pi, pachClient.Ctx(), nil
 }
 
 func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineState, []sideEffect, error) {
@@ -450,40 +420,7 @@ func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, r
 		}
 	}
 	if target != pi.State {
-		return pc.setPipelineState(ctx, pi.SpecCommit, target, "")
-	}
-	return nil
-}
-
-func (pc *pipelineController) tryLoadLatestPipelineInfo() (*pps.PipelineInfo, error) {
-	pi := &pps.PipelineInfo{}
-	errCnt := 0
-	err := backoff.RetryNotify(func() error {
-		return pc.loadLatestPipelineInfo(pi)
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		errCnt++
-		// Don't put the pipeline in a failing state if we're in the middle
-		// of activating auth, retry in a bit
-		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
-				pc.pipeline, err, d)
-			return nil
-		}
-		return stepError{
-			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", pc.pipeline),
-			retry: false,
-		}
-	})
-	return pi, err
-}
-
-func (pc *pipelineController) loadLatestPipelineInfo(message *pps.PipelineInfo) error {
-	specCommit, err := ppsutil.FindPipelineSpecCommit(pc.ctx, pc.env.PFSServer, *pc.txEnv, pc.pipeline)
-	if err != nil {
-		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pc.pipeline)
-	}
-	if err := pc.pipelines.ReadOnly(pc.ctx).Get(specCommit, message); err != nil {
-		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pc.pipeline)
+		return pc.stateMgr.SetState(ctx, pi.SpecCommit, target, "")
 	}
 	return nil
 }
@@ -525,20 +462,6 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 		return false
 	}
 	return true
-}
-
-// setPipelineState set's pc's state in the collection to 'state'. This will trigger a
-// collection watch event and cause step() to eventually run again.
-func (pc *pipelineController) setPipelineState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error {
-	if err := setPipelineState(ctx, pc.env.DB, pc.pipelines, specCommit, state, reason); err != nil {
-		// don't bother failing if we can't set the state
-		return stepError{
-			error: errors.Wrapf(err, "could not set pipeline state to %v"+
-				"(you may need to restart pachd to un-stick the pipeline)", state),
-			retry: true,
-		}
-	}
-	return nil
 }
 
 // startPipelineMonitor spawns a monitorPipeline() goro for this pipeline (if

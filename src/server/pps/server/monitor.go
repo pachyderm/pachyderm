@@ -132,7 +132,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 					pc.env.EtcdClient, pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
-				if err := pc.transitionPipelineState(ctx,
+				if err := pc.stateMgr.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
@@ -176,7 +176,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
-						if err := pc.transitionPipelineState(ctx,
+						if err := pc.stateMgr.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -223,7 +223,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							}
 						}
 
-						if err := pc.transitionPipelineState(ctx,
+						if err := pc.stateMgr.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -268,7 +268,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
 		if int(parallelism) == len(workerStatus) {
-			if err := pc.transitionPipelineState(ctx,
+			if err := pc.stateMgr.TransitionState(ctx,
 				pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
