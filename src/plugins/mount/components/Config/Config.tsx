@@ -166,7 +166,7 @@ const Config: React.FC<ConfigProps> = ({
                   }
                   setAddressField(e.target.value);
                 }}
-                placeholder="grpcs://example.pachyderm.com:30600"
+                placeholder="grpcs://example.pachyderm.com:30650"
               ></input>
               <span className="pachyderm-mount-config-address-error">
                 {errorMessage}
