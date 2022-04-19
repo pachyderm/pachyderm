@@ -26,7 +26,6 @@ jobs:
           pulumi config set gcp:project pulumi-ci-334619
           pulumi config set branch $CURRENT_BRANCH
           pulumi config set sha $GITHUB_SHA
-          pulumi preview
           pulumi destroy --yes
         working-directory: infra
         env:
