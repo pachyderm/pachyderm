@@ -1,0 +1,26 @@
+deployTarget: LOCAL
+pachd:
+    metrics:
+        enabled: false
+    clusterDeploymentID: dev
+    activateEnterprise: true
+    enterpriseSecret: "50PO0HynZjt7oWqWbKnQlLN6j2dl97rq"
+    rootToken: "V4Ptmxchcj04TY5vmngJAD0RiuJ3JYc6"
+    oauthClientSecret: "p2BDmthvG91dKS22n1YnbvmZW0ZRYW91"
+    storage:
+        backend: LOCAL
+    localhostIssuer: "true"
+postgresql:
+    postgresqlPassword: "abc123321cba"
+    postgresqlPostgresPassword: "npLvsvhGcF"
+console:
+    enabled: true
+    config:
+        oauthClientSecret: "Hz1iySrX5Gm8owpRrYMM8vY7NXfgxhUs"
+ingress:
+    enabled: false
+    host: 192.168.1.70
+proxy:
+    enabled: true
+    service:
+        type: NodePort
