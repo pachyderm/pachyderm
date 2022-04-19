@@ -37,33 +37,33 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-         keys:
-         - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-         - pach-build-dependencies-v2-
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - save_cache:
-         key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-         paths:
-         - cached-deps/
+          key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+          paths:
+            - cached-deps/
       - run: etc/testing/circle/start-minikube.sh
 
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
-         keys:
-         - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-         - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+          keys:
+            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
 
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
-         keys:
-         - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
+          keys:
+            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh
       - when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
           condition:
-            equal: [MISC, <<parameters.bucket>> ]
+            equal: [MISC, <<parameters.bucket>>]
           steps:
             - save_cache:
                 key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
@@ -150,9 +150,9 @@ jobs:
       - checkout
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: 
+      - run:
           command: etc/testing/circle/run_hub_load_tests.sh
-          no_output_timeout: 1h 
+          no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
@@ -204,11 +204,11 @@ jobs:
           name: setup pachydermbuildbot git
           command: |
             git config --global user.email "buildbot@pachyderm.io"
-            git config --global user.name "pachydermbuildbot"      
+            git config --global user.name "pachydermbuildbot"
       - when:
           condition:
             and:
-              - equal: [ custom, << pipeline.parameters.RELEASE_TYPE >> ]
+              - equal: [custom, << pipeline.parameters.RELEASE_TYPE >>]
           steps:
             - run:
                 name: make custom-release
@@ -217,37 +217,44 @@ jobs:
       - when:
           condition:
             and:
-              - equal: [ point, << pipeline.parameters.RELEASE_TYPE >> ]
+              - equal: [point, << pipeline.parameters.RELEASE_TYPE >>]
           steps:
             - run:
                 name: make point-release
                 command: |
                   make point-release
-
+  check-prettier:
+    docker:
+      - image: cimg/node:16.11.0
+    steps:
+      - checkout
+      - run: sudo npm install -g prettier
+      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
 workflows:
   circleci:
     when:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
+      - check-prettier
       - circleci:
           matrix:
             parameters:
               bucket:
-              - MISC
-              # If you want to update the number of PPS buckets, you'll neet to
-              # update the value of PPS_BUCKETS above
-              - AUTH
-              - ENTERPRISE
-              - PFS
-              - PPS1
-              - PPS2
-              - PPS3
-              - PPS4
-              - PPS5
-              - PPS6
-              - EXAMPLES
-              - INTERNAL
+                - MISC
+                # If you want to update the number of PPS buckets, you'll neet to
+                # update the value of PPS_BUCKETS above
+                - AUTH
+                - ENTERPRISE
+                - PFS
+                - PPS1
+                - PPS2
+                - PPS3
+                - PPS4
+                - PPS5
+                - PPS6
+                - EXAMPLES
+                - INTERNAL
   helm:
     when:
       and:
@@ -304,7 +311,7 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-    - deploy
+      - deploy
   pach_core_release:
     when: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
