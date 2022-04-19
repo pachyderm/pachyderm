@@ -6144,6 +6144,7 @@ func TestPFS(suite *testing.T) {
 
 	suite.Run("EgressToPostgres", func(_suite *testing.T) {
 		os.Setenv("PACHYDERM_SQL_PASSWORD", tu.DefaultPostgresPassword)
+
 		type Schema struct {
 			Id int    `sql:"ID,INT"`
 			A  string `sql:"A,VARCHAR(100)"`
@@ -6192,7 +6193,6 @@ func TestPFS(suite *testing.T) {
 							JsonFieldNames: []string{"ID", "A"}}}},
 			},
 		}
-
 		for _, test := range tests {
 			_suite.Run(test.name, func(t *testing.T) {
 				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
@@ -6223,7 +6223,7 @@ func TestPFS(suite *testing.T) {
 				_, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{
 						Source:    commit,
-						TargetUrl: fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, tu.DefaultPostgresHost, tu.DefaultPostgresPort, dbName),
+						TargetUrl: fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort, dbName),
 						Sql:       test.egressOptions,
 					})
 				require.NoError(t, err)
