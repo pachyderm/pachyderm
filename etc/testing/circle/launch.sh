@@ -16,4 +16,7 @@ kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 kubectl wait --for=condition=ready pod -l app=loki --timeout=5m
 kubectl wait --for=condition=ready pod -l app=promtail --timeout=5m
 
+# Waith for the proxy
+kubectl wait --for=condition=ready pod -l app=pachyderm-proxy --timeout=5m
+
 pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"

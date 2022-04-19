@@ -7,7 +7,7 @@ global:
 
 pachd:
   service:
-    type: NodePort
+    type: ClusterIP
   image:
     tag: local
   storage:
@@ -32,3 +32,9 @@ etcd:
     requests:
       cpu: 250m
       memory: 512M
+
+proxy:
+  enabled: true
+  service:
+    type: NodePort
+    httpNodePort: 30650
