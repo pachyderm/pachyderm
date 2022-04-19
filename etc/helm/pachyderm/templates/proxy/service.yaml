@@ -1,0 +1,35 @@
+{{- if .Values.proxy.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.service.labels -}}
+    {{- toYaml .Values.proxy.service.labels | nindent 4 }}
+    {{- end }}
+  {{- if .Values.proxy.service.annotations }}
+  annotations:
+    {{- toYaml .Values.proxy.service.annotations | nindent 4 }}
+  {{- end }}
+  name: pachyderm-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: {{ .Values.proxy.service.type }}
+  ports:
+    - name: http-port
+      targetPort: http-port
+      port: {{ .Values.proxy.service.httpPort }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.httpNodePort }}
+      {{- end }}
+  selector:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.labels -}} {{/* Note that these are the pod labels. */}}
+    {{- toYaml .Values.proxy.labels | nindent 4 }}
+    {{- end }}
+  {{- if ne .Values.proxy.service.loadBalancerIP "" }}
+  loadBalancerIP: {{ .Values.proxy.service.loadBalancerIP }}
+  {{- end }}
+{{- end }}

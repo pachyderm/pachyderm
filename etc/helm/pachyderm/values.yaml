@@ -37,7 +37,8 @@ global:
   imagePullSecrets: []
   # when set, the certificate file in pachd-tls-cert will be loaded as the root certificate for pachd, console, and enterprise-server pods
   customCaCerts: false
-  # Sets the HTTP/S proxy server address for console, pachd, and enteprise server
+  # Sets the HTTP/S proxy server address for console, pachd, and enterprise server.  (This is for
+  # traffic leaving the cluster, not traffic coming into the cluster.)
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
@@ -637,3 +638,48 @@ oidc:
   dexCredentialSecretName: ""
   mockIDP: true
   #TODO scopes:
+
+# The proxy is a service to handle all Pachyderm traffic (S3, Console, OIDC, Dex, GRPC) on a single
+# port; good for exposing directly to the Internet.
+proxy:
+  # If enabled, create a proxy deployment (based on the Envoy proxy) and a service to expose it.  If
+  # ingress is also enabled, any Ingress traffic will be routed through the proxy before being sent
+  # to pachd or Console.
+  enabled: true
+  # The number of proxy replicas to run.  1 should be fine, but if you want more for higher
+  # availability, that's perfectly reasonable.  There is an affinity rule to prefer scheduling the
+  # proxy pods on the same node as pachd, so a number here that matches the number of pachd replicas
+  # is a fine configuration.  (Note that we don't guarantee to keep the proxy<->pachd traffic
+  # on-node or even in-region.)
+  replicas: 1
+  # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
+  # a resonable memory limit.  It doesn't need much CPU.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 512Mi
+  # Any additional labels to add to the pods.  These are also added to the deployment and service
+  # selectors.
+  labels: {}
+  # Any additional annotations to add to the pods.
+  annotations: {}
+  # Configure the service that routes traffic to the proxy.
+  service:
+    # The type of service can be ClusterIP, NodePort, or LoadBalancer.
+    type: ClusterIP
+    # If the service is a LoadBalancer, you can specify the IP address to use.
+    loadBalancerIP: ""
+    # The port to serve plain HTTP traffic on.
+    httpPort: 80
+    # The port to serve HTTPS traffic on, if enabled below.
+    httpsPort: 443 # Not implemented yet.
+    # If the service is a NodePort, you can specify the port to receive HTTP traffic on.
+    httpNodePort: 30080
+    httpsNodePort: 30443 # Not implemented yet.
+    # Any additional annotations to add.
+    annotations: {}
+    # Any additional labels to add to the service itself (not the selector!).
+    labels: {}
+  tls: {} # Not implemented yet.
