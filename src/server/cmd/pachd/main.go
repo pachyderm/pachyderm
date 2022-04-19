@@ -31,6 +31,7 @@ import (
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -61,6 +62,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -636,13 +639,13 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
+	idAPIServer := identity_server.NewIdentityServer(
+		identity_server.EnvFromServiceEnv(env),
+		true,
+	)
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				identity_server.EnvFromServiceEnv(env),
-				true,
-			)
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
 			return nil
 		}); err != nil {
@@ -972,6 +975,29 @@ func doFullMode(config interface{}) (retErr error) {
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		http.Handle("/metrics", promhttp.Handler())
 		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
+	})
+	go waitForError("Proxy", errChan, true, func() error {
+		s3router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
+			return env.GetPachClient(ctx), nil
+		})
+
+		p := &proxy.Aggregated{
+			GRPCServer: externalServer.Server,
+			S3Handler:  s3router,
+			DexHandler: idAPIServer.(http.Handler),
+		}
+		s := &http.Server{
+			Addr:    ":8080",
+			Handler: h2c.NewHandler(p, &http2.Server{}),
+		}
+		certFile, keyFile, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("proxy TLS disabled: %v", err)
+			return errors.EnsureStack(s.ListenAndServe())
+		}
+		l := tls.NewCertLoader(certFile, keyFile, tls.CertCheckFrequency)
+		s.TLSConfig = &gotls.Config{GetCertificate: l.GetCertificate}
+		return errors.EnsureStack(s.ListenAndServeTLS(certFile, keyFile))
 	})
 	go func(c chan os.Signal) {
 		<-c

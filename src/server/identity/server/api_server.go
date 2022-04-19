@@ -19,6 +19,7 @@ const (
 type apiServer struct {
 	env Env
 	api *dexAPI
+	web http.Handler
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
@@ -30,6 +31,7 @@ func NewIdentityServer(env Env, public bool) identity.APIServer {
 
 	if public {
 		web := newDexWeb(env, server)
+		server.web = web
 		go func() {
 			if err := http.ListenAndServe(dexHTTPPort, web); err != nil {
 				logrus.WithError(err).Fatalf("error setting up and/or running the identity server")
@@ -38,6 +40,10 @@ func NewIdentityServer(env Env, public bool) identity.APIServer {
 	}
 
 	return server
+}
+
+func (a *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.web.ServeHTTP(w, r)
 }
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
