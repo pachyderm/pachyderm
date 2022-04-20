@@ -141,7 +141,7 @@ jobs:
       bucket:
         type: string
         default: "LOAD7"
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
     environment:
@@ -155,6 +155,10 @@ jobs:
       - gcp-cli/install
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-minikube.sh
+      - run: etc/testing/circle/build.sh
+      - run: etc/testing/circle/launch.sh
       - run:
           command: etc/testing/circle/run_hub_load_tests.sh
           no_output_timeout: 1h
