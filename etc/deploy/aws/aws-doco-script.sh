@@ -183,9 +183,10 @@ CLUSTER_VPC_ID=$(aws eks describe-cluster --name "${CLUSTER_NAME}" --output json
 
 # Get the cluster public subnet ids as an array
 # shellcheck disable=SC2016
-CLUSTER_SUBNET_IDS=$(aws ec2 describe-subnets --filter "Name=vpc-id,Values=${CLUSTER_VPC_ID}" --query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId' --output json --region "${AWS_REGION}" | jq -r '.[]')
+CLUSTER_SUBNET_IDS=$(aws ec2 describe-subnets --filter "Name=vpc-id,Values=${CLUSTER_VPC_ID}" --query 'Subnets[?MapPublicIpOnLaunch==`true`].SubnetId' --output json --region "${AWS_REGION}" jq -r '[.[]]|join(" ")')
 # aws cli Create a DB subnet group
-aws rds create-db-subnet-group --db-subnet-group-name "${DB_SUBNET_GROUP_NAME}" --db-subnet-group-description "DB subnet group - public subnets" --subnet-ids "$CLUSTER_SUBNET_IDS" --tags "Key=Name,Value=${GLOBAL_TAG}" --region "${AWS_REGION}"
+# shellcheck disable=SC2086
+aws rds create-db-subnet-group --db-subnet-group-name "${DB_SUBNET_GROUP_NAME}" --db-subnet-group-description "DB subnet group - public subnets" --subnet-ids $CLUSTER_SUBNET_IDS --tags "Key=Name,Value=${GLOBAL_TAG}" --region "${AWS_REGION}"
 
 # Amazon aws cli expose postgresql port 5432 on VPC security group
 aws ec2 authorize-security-group-ingress --group-id "${CLUSTER_VPC_IDS}" --protocol tcp --port 5432 --cidr 0.0.0.0/0 --region "${AWS_REGION}"
