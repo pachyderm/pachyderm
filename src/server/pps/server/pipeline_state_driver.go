@@ -47,6 +47,7 @@ func (msd *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit
 		if pi, ok := msd.pipelines[pipeline]; ok {
 			pi.State = state
 			msd.states[pipeline] = append(msd.states[pipeline], state)
+			msd.pushWatchEvent(pi, watch.EventPut)
 			return nil
 		}
 		return errors.New("Ah no pipeline state!!")
@@ -62,11 +63,7 @@ func (msd *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*p
 	if pi, ok := msd.pipelines[pipeline]; ok {
 		return pi, ctx, nil
 	}
-	// TODO: make error realistic
-	return nil, nil, stepError{
-		error: errors.Wrapf(errors.New("pipeline not found"), "could not load pipelineInfo for pipeline %q", pipeline),
-		retry: false,
-	}
+	return nil, nil, nil
 }
 
 func (msd *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
@@ -92,24 +89,25 @@ func (msd *mockStateDriver) GetPipelineInfo(ctx context.Context, name string, ve
 }
 
 func (msd *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
-	msd.pipelines[pi.Pipeline.Name] = pi
+	pipelineKey := pi.Pipeline.Name
+	msd.pipelines[pipelineKey] = pi
 	mockSpecCommit := client.NewCommit(pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
-	msd.specCommits[mockSpecCommit.ID] = pi.Pipeline.Name
-	if ss, ok := msd.states[pi.Pipeline.Name]; ok {
-		msd.states[pi.Pipeline.Name] = append(ss, pi.State)
+	msd.specCommits[mockSpecCommit.ID] = pipelineKey
+	if ss, ok := msd.states[pipelineKey]; ok {
+		msd.states[pipelineKey] = append(ss, pi.State)
 	} else {
-		msd.states[pi.Pipeline.Name] = []pps.PipelineState{pi.State}
+		msd.states[pipelineKey] = []pps.PipelineState{pi.State}
 	}
-	msd.pushWatchEvent(&watch.Event{
-		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline.Name, mockSpecCommit.ID)),
-		Type: watch.EventPut,
-	})
+	msd.pushWatchEvent(pi, watch.EventPut)
 	return mockSpecCommit
 }
 
-func (msd *mockStateDriver) pushWatchEvent(ev *watch.Event) {
-	msd.eChan <- ev
+func (msd *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
+	msd.eChan <- &watch.Event{
+		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline.Name, pi.SpecCommit.ID)),
+		Type: et,
+	}
 }
 
 func (msd *mockStateDriver) reset() {

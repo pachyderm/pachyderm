@@ -85,14 +85,14 @@ type ppsMaster struct {
 	eventCh chan *pipelineEvent
 }
 
-func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, sm PipelineStateDriver) *ppsMaster {
+func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, sd PipelineStateDriver) *ppsMaster {
 	return &ppsMaster{
 		masterCtx:  ctx,
 		env:        env,
 		etcdPrefix: etcdPrefix,
 		pcMgr:      newPcManager(),
 		kd:         kd,
-		sd:         sm,
+		sd:         sd,
 	}
 }
 

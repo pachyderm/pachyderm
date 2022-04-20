@@ -12,12 +12,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
+	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -561,8 +561,12 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 				return 1 // make one pod to be the worker master & calculate tasks
 			}
 			// Master is scheduled; see if tasks have been calculated
-			nTasks64, _, err := task.Count(ctx, pc.env.TaskService, driver.TaskNamespace(pi), "")
-			nTasks := int32(nTasks64) // for cmp. with curScale, if err != nil
+			var nTasks int32
+			// TODO: should this run through internal PPS service?
+			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(*task.TaskInfo) error {
+				nTasks++
+				return nil
+			})
 			// Set parallelism
 			log.Debugf("Beginning scale-up check for %q, which has %d tasks",
 				pi.Pipeline.Name, nTasks)

@@ -5,10 +5,9 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/version"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,8 +60,7 @@ func (mid *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipelin
 }
 
 func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
-	name := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
-	if rc, ok := mid.rcs[name]; !ok {
+	if rc, ok := mid.rcs[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)]; !ok {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{},
 		}, errors.New("rc for pipeline not found")
@@ -93,7 +91,8 @@ func (mid *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1
 
 // TODO(acohen4): complete
 func (mid *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
-	return nil, func() {}, nil
+	ch := make(chan watch.Event)
+	return ch, func() {}, nil
 }
 
 ////////////////////////////////////
@@ -105,10 +104,9 @@ func (mid *mockInfraDriver) reset() {
 }
 
 func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController {
-	name := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
 	return &v1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version),
 			Annotations: map[string]string{
 				pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 				pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
@@ -116,7 +114,7 @@ func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationControll
 				pachVersionAnnotation:        version.PrettyVersion(),
 			},
 			Labels: map[string]string{
-				pipelineNameLabel: name,
+				pipelineNameLabel: pi.Pipeline.Name,
 			},
 		},
 	}
