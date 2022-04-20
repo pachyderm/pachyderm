@@ -10083,3 +10083,43 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "", commitInfo.Error)
 }
+
+func TestValidationFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name())
+	pipeline := tu.UniqueString("pipeline-" + t.Name())
+
+	require.NoError(t, c.CreateRepo(repo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "foo", strings.NewReader("baz")))
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "bar", strings.NewReader("baz")))
+
+	req := basicPipelineReq(pipeline, repo)
+	req.Transform.Stdin = []string{
+		fmt.Sprintf("cat /pfs/%s/* > /pfs/out/overlap", repo), // write datums to the same path
+	}
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	require.NotEqual(t, "", commitInfo.Error)
+
+	// update the pipeline to fix things
+	req.Update = true
+	req.Transform.Stdin = []string{
+		fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo),
+	}
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, "", commitInfo.Error)
+}
