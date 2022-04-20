@@ -90,7 +90,7 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 	return row, nil
 }
 
-// Copy copies a tuple from r to w.  Row is used to indicate the correct shape of read data.
+// Copy copies a tuple from r to w. Row is used to indicate the correct shape of read data.
 func Copy(r TupleReader, w TupleWriter, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)

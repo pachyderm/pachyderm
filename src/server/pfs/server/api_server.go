@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -22,9 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-	"github.com/pachyderm/pachyderm/v2/src/internal/sdata"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
@@ -897,100 +894,26 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	}
 }
 
-func getEgressPassword() (string, error) {
-	const passwordEnvar = "PACHYDERM_SQL_PASSWORD" // TODO move this to a package for sharing
-	password, ok := os.LookupEnv(passwordEnvar)
-	if !ok {
-		return "", errors.Errorf("must set %v", passwordEnvar)
-	}
-	return password, nil
-}
-
-func copyToSQLDB(ctx context.Context, req *pfs.EgressRequest, src Source) error {
-	url, err := pachsql.ParseURL(req.TargetUrl)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-
-	// do we need to wrap password in a secret?
-	password, err := getEgressPassword()
-	if err != nil {
-		return err
-	}
-	db, err := pachsql.OpenURL(*url, password)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer db.Close()
-
-	// all table are written through a single transaction
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer tx.Rollback()
-
-	// cache tableInfos because multiple files can belong to the same table
-	tableInfos := make(map[string]*pachsql.TableInfo)
-	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
-		if fi.FileType != pfs.FileType_FILE {
-			return nil
-		}
-
-		tableName := strings.Split(fi.File.Path, "/")[1]
-		tableInfo, prs := tableInfos[tableName]
-		if !prs {
-			tableInfo, err = pachsql.GetTableInfoTx(tx, tableName)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			tableInfos[tableName] = tableInfo
-		}
-
-		if err := miscutil.WithPipe(
-			func(w io.Writer) error {
-				return errors.EnsureStack(file.Content(ctx, w))
-			},
-			func(r io.Reader) error {
-				var tr sdata.TupleReader
-				switch req.Sql.FileFormat.Type {
-				case pfs.SQLEgressOptions_FileFormat_CSV:
-					tr = sdata.NewCSVParser(r)
-				case pfs.SQLEgressOptions_FileFormat_JSON:
-					tr = sdata.NewJSONParser(r, req.Sql.FileFormat.Options.JsonFieldNames)
-				}
-				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
-				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
-				_, err = sdata.Copy(tr, tw, tuple)
-				return errors.EnsureStack(err)
-			}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	return errors.EnsureStack(tx.Commit())
-}
-
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
-	// try object storage
 	src, err := a.driver.getFile(ctx, req.Source.NewFile("/"))
 	if err != nil {
 		return nil, err
 	}
-	_, objErr := getFileURL(ctx, req.TargetUrl, src)
+	// try object storage
+	// TODO add result to response
+	bytesWritten, objErr := getFileURL(ctx, req.TargetUrl, src)
 	if objErr == nil {
-		return &pfs.EgressResponse{}, nil
+		return &pfs.EgressResponse{BytesWritten: bytesWritten}, nil
 	}
+
+	if !(errors.As(objErr, &url.Error{}) || errors.As(objErr, &obj.URLFormatError{})) {
+		return nil, errors.EnsureStack(objErr)
+	}
+
 	// try db
-	dbErr := copyToSQLDB(ctx, req, src)
+	rowsWritten, dbErr := copyToSQLDB(ctx, src, req.TargetUrl, req.Sql.FileFormat)
 	if dbErr != nil {
-		return nil, errors.Errorf("egress tried to write to object storage: %v, then tried to write to database: %v", errors.EnsureStack(objErr), errors.EnsureStack(dbErr))
+		return nil, errors.Errorf("egress failed: [error1] %v [error2] %v", objErr, dbErr)
 	}
-	return &pfs.EgressResponse{}, nil
+	return &pfs.EgressResponse{SqlRowsWritten: rowsWritten}, nil
 }

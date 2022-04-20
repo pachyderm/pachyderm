@@ -483,7 +483,10 @@ message EgressRequest {
   string target_url = 2;
   SQLEgressOptions sql = 3;
 }
-message EgressResponse {}
+message EgressResponse {
+  int64 bytes_written = 1;
+  map<string, int64> sql_rows_written = 2;
+}
 
 service API {
   // CreateRepo creates a new repo.

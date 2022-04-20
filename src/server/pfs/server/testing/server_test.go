@@ -6156,29 +6156,27 @@ func TestPFS(suite *testing.T) {
 		}
 
 		tests := []struct {
-			name              string
-			targetTableNames  []string
-			expectedRowCounts []int
-			inputFiles        []File
-			egressOptions     *pfs.SQLEgressOptions
+			name           string
+			files          []File
+			options        *pfs.SQLEgressOptions
+			tables         []string
+			expectedCounts map[string]int64
 		}{
 			{
-				name:              "CSV",
-				targetTableNames:  []string{"test_table", "test_table2", "empty_table"},
-				expectedRowCounts: []int{4, 1, 0},
-				inputFiles: []File{
+				name: "CSV",
+				files: []File{
 					{"1,Foo\n2,Bar", "/test_table/0000"},
 					{"3,Hello\n4,World", "/test_table/0001"},
 					{"1,this is in test_table2", "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
-				egressOptions: &pfs.SQLEgressOptions{FileFormat: &pfs.SQLEgressOptions_FileFormat{Type: pfs.SQLEgressOptions_FileFormat_CSV}},
+				options:        &pfs.SQLEgressOptions{FileFormat: &pfs.SQLEgressOptions_FileFormat{Type: pfs.SQLEgressOptions_FileFormat_CSV}},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
 			{
-				name:              "JSON",
-				targetTableNames:  []string{"test_table", "test_table2", "empty_table"},
-				expectedRowCounts: []int{4, 1, 0},
-				inputFiles: []File{
+				name: "JSON",
+				files: []File{
 					{`{"ID":1,"A":"Foo"}
 					  {"ID":2,"A":"Bar"}`, "/test_table/0000"},
 					{`{"ID":3,"A":"Hello"}
@@ -6186,11 +6184,13 @@ func TestPFS(suite *testing.T) {
 					{`{"ID":1,"A":"Foo"}`, "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
-				egressOptions: &pfs.SQLEgressOptions{
+				options: &pfs.SQLEgressOptions{
 					FileFormat: &pfs.SQLEgressOptions_FileFormat{
 						Type: pfs.SQLEgressOptions_FileFormat_JSON,
 						Options: &pfs.SQLEgressOptions_FileFormat_Options{
 							JsonFieldNames: []string{"ID", "A"}}}},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
 		}
 		for _, test := range tests {
@@ -6205,14 +6205,14 @@ func TestPFS(suite *testing.T) {
 					dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
 					dbutil.WithDBName(dbName),
 				)
-				for _, tableName := range test.targetTableNames {
+				for _, tableName := range test.tables {
 					require.NoError(t, pachsql.CreateTestTable(db, tableName, Schema{}))
 				}
 
 				// setup source repo based on target database, and generate fake data
 				require.NoError(t, env.PachClient.CreateRepo(dbName))
 				commit := client.NewCommit(dbName, "master", "")
-				for _, f := range test.inputFiles {
+				for _, f := range test.files {
 					require.NoError(t, env.PachClient.PutFile(
 						commit,
 						f.path,
@@ -6220,19 +6220,20 @@ func TestPFS(suite *testing.T) {
 				}
 
 				// run Egress to copy data from source commit to target database
-				_, err := env.PachClient.Egress(env.PachClient.Ctx(),
+				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{
 						Source:    commit,
 						TargetUrl: fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort, dbName),
-						Sql:       test.egressOptions,
+						Sql:       test.options,
 					})
 				require.NoError(t, err)
+				require.Equal(t, test.expectedCounts, resp.SqlRowsWritten)
 
 				// verify that actual rows got written to db
-				for i, expected := range test.expectedRowCounts {
-					count := 0
-					require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", test.targetTableNames[i])).Scan(&count))
-					require.Equal(t, count, expected)
+				var count int64
+				for table, expected := range test.expectedCounts {
+					require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", table)).Scan(&count))
+					require.Equal(t, expected, count)
 				}
 			})
 		}

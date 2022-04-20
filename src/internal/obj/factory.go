@@ -472,43 +472,52 @@ func (s ObjectStoreURL) String() string {
 	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
 }
 
+type URLFormatError struct {
+	Msg string
+	URL string
+}
+
+func (e *URLFormatError) Error() string { return fmt.Sprintf("%s: %s", e.Msg, e.URL) }
+
 // ParseURL parses an URL into ObjectStoreURL.
 func ParseURL(urlStr string) (*ObjectStoreURL, error) {
-	url, err := url.Parse(urlStr)
+	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
-	switch url.Scheme {
+	switch u.Scheme {
 	case "s3", "gcs", "gs", "local":
 		return &ObjectStoreURL{
-			Scheme: url.Scheme,
-			Bucket: url.Host,
-			Object: strings.Trim(url.Path, "/"),
+			Scheme: u.Scheme,
+			Bucket: u.Host,
+			Object: strings.Trim(u.Path, "/"),
 		}, nil
 	case "as", "wasb":
 		// In Azure, the first part of the path is the container name.
-		parts := strings.Split(strings.Trim(url.Path, "/"), "/")
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if len(parts) < 1 {
-			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
+			// return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
+			return nil, &URLFormatError{Msg: "malformed Azure URI", URL: urlStr}
 		}
 		return &ObjectStoreURL{
-			Scheme: url.Scheme,
+			Scheme: u.Scheme,
 			Bucket: parts[0],
 			Object: strings.Trim(path.Join(parts[1:]...), "/"),
 		}, nil
 	case "minio", "test-minio":
-		parts := strings.SplitN(strings.Trim(url.Path, "/"), "/", 2)
+		parts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
 		var key string
 		if len(parts) == 2 {
 			key = parts[1]
 		}
 		return &ObjectStoreURL{
-			Scheme: url.Scheme,
-			Bucket: url.Host + "/" + parts[0],
+			Scheme: u.Scheme,
+			Bucket: u.Host + "/" + parts[0],
 			Object: key,
 		}, nil
 	}
-	return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
+	// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
+	return nil, &URLFormatError{Msg: fmt.Sprintf(`object storage protocol "%s" not supported`, u.Scheme), URL: urlStr}
 }
 
 // NewClientFromEnv creates a client based on environment variables.
