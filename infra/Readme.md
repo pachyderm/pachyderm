@@ -25,10 +25,10 @@ Pulumi.yaml - Defines this folder as a pulumi program
 
 The pulumi commands can be run on your workstation. You'll need to download the pulumi CLI app and run `pulumi login` to login
 
-Once that's complete, you can select your stack by running
+Once that's complete, you can select your stack by running (from `infra` folder)
 
 ```
-pulumi stack select <stack name>
+pulumi stack select -c <stack name>
 ```
 
 You can then update your stack manually by running
@@ -41,4 +41,33 @@ You can also destroy your stack manually by running
 
 ```
 pulumi destroy
+```
+
+## Renewing the certificate
+
+
+```
+certbot certonly --config-dir ~/letsencrypt/config --work-dir ~/letsencrypt/work --logs-dir ~/letsencrypt/logs -d *.clusters-ci.pachyderm.io --agree-tos --manual --preferred-challenges=dns --email buildbot@pachyderm.io --server https://acme-v02.api.letsencrypt.org/directory 
+```
+
+```
+cd ~/letsencrypt/config/live/clusters-ci.pachyderm.io/
+```
+
+```
+kubectl delete secret wildcard-tls
+```
+
+```
+kubectl create secret tls wildcard-tls --key=privkey.pem --cert=fullchain.pem
+````
+
+```
+kubectl edit secret wildcard-tls
+```
+
+Add annotation
+
+```
+replicator.v1.mittwald.de/replicate-to-matching: needs-ci-tls=true
 ```
