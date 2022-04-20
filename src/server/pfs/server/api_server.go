@@ -900,17 +900,14 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 		return nil, err
 	}
 	// try object storage
-	// TODO add result to response
 	bytesWritten, objErr := getFileURL(ctx, req.TargetUrl, src)
 	if objErr == nil {
 		return &pfs.EgressResponse{BytesWritten: bytesWritten}, nil
 	}
-
 	if !(errors.As(objErr, &url.Error{}) || errors.As(objErr, &obj.URLFormatError{})) {
 		return nil, errors.EnsureStack(objErr)
 	}
-
-	// try db
+	// url didn't match object storage format, so try SQL db instead
 	rowsWritten, dbErr := copyToSQLDB(ctx, src, req.TargetUrl, req.Sql.FileFormat)
 	if dbErr != nil {
 		return nil, errors.Errorf("egress failed: [error1] %v [error2] %v", objErr, dbErr)
