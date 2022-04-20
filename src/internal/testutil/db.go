@@ -48,7 +48,7 @@ func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 // with a unique name then returns a pachsql.DB configured to use the newly created database.
 // After t finishes, the database is dropped.
 func NewTestDB(t testing.TB, opts []dbutil.Option) *pachsql.DB {
-	return OpenDB(t, opts...)
+	return OpenDB(t, NewTestDBOptions(t, opts)...)
 }
 
 // OpenDB connects to a database using opts and returns it.

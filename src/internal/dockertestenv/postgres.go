@@ -59,20 +59,17 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 }
 
 func NewTestDB(t testing.TB) *pachsql.DB {
-	opts := NewTestDBOptions(t)
-	return testutil.NewTestDB(t, opts)
+	return testutil.OpenDB(t, NewTestDBOptions(t)...)
 }
 
 func NewTestDirectDB(t testing.TB) *pachsql.DB {
-	opts := NewTestDirectDBOptions(t)
-	return testutil.NewTestDB(t, opts)
+	return testutil.OpenDB(t, NewTestDirectDBOptions(t)...)
 }
 
 // NewPostgres will always return a direct connection to an ephemeral Postgres
 // backed by the stock Postgres image.
 func NewPostgres(t testing.TB) *pachsql.DB {
-	opts := NewTestDBOptions(t)
-	return testutil.NewTestDB(t, opts)
+	return testutil.OpenDB(t, NewTestDBOptions(t)...)
 }
 
 func NewTestDBOptions(t testing.TB) []dbutil.Option {
