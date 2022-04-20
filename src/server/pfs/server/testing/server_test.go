@@ -6166,7 +6166,7 @@ func TestPFS(suite *testing.T) {
 				name: "CSV",
 				files: []File{
 					{"1,Foo\n2,Bar", "/test_table/0000"},
-					{"3,Hello\n4,World", "/test_table/0001"},
+					{"3,Hello\n4,World", "/test_table/subdir/0001"},
 					{"1,this is in test_table2", "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
@@ -6180,7 +6180,7 @@ func TestPFS(suite *testing.T) {
 					{`{"ID":1,"A":"Foo"}
 					  {"ID":2,"A":"Bar"}`, "/test_table/0000"},
 					{`{"ID":3,"A":"Hello"}
-					  {"ID":4,"A":"World"}`, "/test_table/0001"},
+					  {"ID":4,"A":"World"}`, "/test_table/subdir/0001"},
 					{`{"ID":1,"A":"Foo"}`, "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
