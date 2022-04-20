@@ -185,7 +185,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								// pipeline is stopped, exit monitorPipeline (see above)
 								return nil
 							}
-							return err
+							return errors.EnsureStack(err)
 						}
 
 						// Stay running while commits are available and there's still job-related compaction to do
@@ -237,7 +237,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								// controller
 								return nil
 							}
-							return err
+							return errors.EnsureStack(err)
 						}
 					case <-ctx.Done():
 						return errors.EnsureStack(ctx.Err())
