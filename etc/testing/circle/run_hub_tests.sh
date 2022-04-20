@@ -27,7 +27,7 @@ fi
 DURATION=$(echo $PFS_RESPONSE_SPEC | jq '.duration')
 DURATION=${DURATION: 1:-2}
 bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S%z)"}
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"}
 EOF
 
 PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
@@ -35,7 +35,7 @@ PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
 DURATION=$(echo $PPS_RESPONSE_SPEC | jq '.duration')
 DURATION=${DURATION: 1:-2}
 bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S%z)"} 
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"} 
 EOF
 
 if [ "${?}" -ne 0 ]; then
