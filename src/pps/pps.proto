@@ -45,10 +45,9 @@ message TFJob {
   string tf_job = 1 [(gogoproto.customname) = "TFJob"];
 }
 
-// TODO migrate this to pfs.proto in the next major release
 message Egress {
   string URL = 1;
-  pfs_v2.SQLEgressOptions sql = 2;
+  pfs_v2.SQLEgressOptions sql_options = 2;
 }
 
 message Job {
