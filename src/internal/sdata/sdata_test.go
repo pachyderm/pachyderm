@@ -2,6 +2,7 @@ package sdata
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -166,6 +167,66 @@ func TestMaterializeSQL(t *testing.T) {
 				t.Log(buf.String())
 			})
 		}
+	}
+}
+
+func TestSQLTupleWriter(t *testing.T) {
+	testcases := []struct {
+		Name  string
+		NewDB func(t testing.TB) *sqlx.DB
+	}{
+		{
+			"Postgres",
+			dockertestenv.NewPostgres,
+		},
+		{
+			"MySQL",
+			dockertestenv.NewMySQL,
+		},
+		{
+			"Snowflake",
+			testsnowflake.NewSnowSQL,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			db := tc.NewDB(t)
+			require.NoError(t, pachsql.CreateTestTable(db, "test_table"))
+
+			ctx := context.Background()
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			require.NoError(t, err)
+
+			tx, err := db.Beginx()
+			require.NoError(t, err)
+			defer tx.Rollback()
+
+			// Generate fake data
+			fz := fuzz.New()
+			fz.RandSource(rand.NewSource(0))
+			fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
+				// for mysql compatibility
+				*ti = time.Now()
+			})
+
+			tuple, err := NewTupleFromTableInfo(tableInfo)
+			require.NoError(t, err)
+			w := NewSQLTupleWriter(tx, tableInfo)
+			nRows := 3
+			for i := 0; i < nRows; i++ {
+				for j := range tuple {
+					fz.Fuzz(tuple[j])
+				}
+				// key part we are testing
+				require.NoError(t, w.WriteTuple(tuple))
+			}
+			require.NoError(t, tx.Commit())
+
+			// assertions
+			var count int
+			require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+			require.Equal(t, nRows, count)
+		})
 	}
 }
 

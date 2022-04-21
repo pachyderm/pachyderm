@@ -94,3 +94,11 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	}
 	return &TableInfo{Name: tableName, Schema: schemaName, Columns: cinfos}, nil
 }
+
+func (t *TableInfo) ColumnNames() []string {
+	columns := make([]string, len(t.Columns))
+	for i := range t.Columns {
+		columns[i] = t.Columns[i].Name
+	}
+	return columns
+}
