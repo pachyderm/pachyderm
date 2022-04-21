@@ -24,23 +24,27 @@ if [ "${?}" -ne 0 ]; then
 	exit 1
 fi
 
-set +u
+if [ "$CIRCLE_JOB" == "nightly_load" ]; then
+
 DURATION=$(echo "$PFS_RESPONSE_SPEC" | jq '.duration')
 DURATION=${DURATION: 1:-2}
 bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": ${DURATION:='default_load'},"type": "PFS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"}
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PFS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"}
 EOF
-set -u
+
+fi
 
 PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
 
-set +u
+if [ "$CIRCLE_JOB" == "nightly_load" ]; then
+
 DURATION=$(echo "$PPS_RESPONSE_SPEC" | jq '.duration')
 DURATION=${DURATION: 1:-2}
 bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": ${DURATION:='default_load'},"type": "PPS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"} 
+  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"} 
 EOF
-set -u
+
+fi
 
 if [ "${?}" -ne 0 ]; then
 	pachctl debug dump /tmp/debug-dump
