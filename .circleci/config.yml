@@ -150,7 +150,6 @@ jobs:
     parameters:
       bucket:
         type: string
-        default: "LOAD7"
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
