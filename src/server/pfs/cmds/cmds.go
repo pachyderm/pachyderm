@@ -1612,7 +1612,6 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
@@ -1646,7 +1645,6 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				//fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
