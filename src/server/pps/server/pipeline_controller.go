@@ -76,6 +76,10 @@ type sideEffect struct {
 	toggle sideEffectToggle
 }
 
+func (se sideEffect) equals(o sideEffect) bool {
+	return se.name == o.name && se.toggle == o.toggle
+}
+
 func ResourcesSideEffect(toggle sideEffectToggle) sideEffect {
 	return sideEffect{
 		name:   sideEffectName_KUBERNETES_RESOURCES,
@@ -374,7 +378,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 		}, nil
 	}
 	if pi.Stopped {
-		return pps.PipelineState_PIPELINE_PAUSED, nil, nil
+		return pps.PipelineState_PIPELINE_PAUSED, []sideEffect{}, nil
 	}
 	switch pi.State {
 	case pps.PipelineState_PIPELINE_RUNNING:
