@@ -3820,12 +3820,13 @@ func TestStopJob(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
+
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline-stop-job")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"sleep", "20"},
+		[]string{"sleep", "10"},
 		nil,
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -3835,9 +3836,9 @@ func TestStopJob(t *testing.T) {
 		false,
 	))
 
-	// Create two input commits to trigger two jobs.
-	// We will stop the first job midway through, and assert that the
-	// second job finishes.
+	// Create three input commits to trigger jobs.
+	// We will stop the second job midway through, and assert that the
+	// last job finishes.
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
@@ -3848,30 +3849,36 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
+	commit3, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit3, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit3.Branch.Name, commit3.ID))
+
 	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jobInfos))
-	require.Equal(t, commit2.ID, jobInfos[0].Job.ID)
-	require.Equal(t, commit1.ID, jobInfos[1].Job.ID)
+	require.Equal(t, 4, len(jobInfos))
+	require.Equal(t, commit3.ID, jobInfos[0].Job.ID)
+	require.Equal(t, commit2.ID, jobInfos[1].Job.ID)
+	require.Equal(t, commit1.ID, jobInfos[2].Job.ID)
 
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfo, err := c.InspectJob(pipelineName, commit1.ID, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
-			return errors.Errorf("jobInfos[0] has the wrong state")
+			return errors.Errorf("first job has the wrong state")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	// Now stop the first job
-	err = c.StopJob(pipelineName, commit1.ID)
+	// Now stop the second job
+	err = c.StopJob(pipelineName, commit2.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.WaitJob(pipelineName, commit1.ID, false)
+	jobInfo, err := c.WaitJob(pipelineName, commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
-	// Check that the second job completes
-	jobInfo, err = c.WaitJob(pipelineName, commit2.ID, false)
+	// Check that the third job completes
+	jobInfo, err = c.WaitJob(pipelineName, commit3.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
