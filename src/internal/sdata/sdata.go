@@ -121,7 +121,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 
 func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	switch dbType {
-	case "BOOL":
+	case "BOOL", "BOOLEAN":
 		if nullable {
 			return new(sql.NullBool), nil
 		} else {

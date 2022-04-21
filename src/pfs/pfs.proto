@@ -476,7 +476,14 @@ message SQLEgressOptions {
     Type type = 1;
     Options options = 2;
   }
+  message Secret {
+    string k8s_secret = 1;
+    string key = 2;
+    string mount_path = 3;
+    string env_var = 4;
+  }
   FileFormat file_format = 1;
+  Secret secret = 2;
 }
 message EgressRequest {
   pfs_v2.Commit source = 1;

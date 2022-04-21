@@ -465,7 +465,7 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 	if _, err := client.Egress(client.Ctx(), &pfs.EgressRequest{
 		Source:    pj.commitInfo.Commit,
 		TargetUrl: pj.ji.Details.Egress.URL,
-		Sql:       pj.ji.Details.Egress.Sql}); err != nil {
+		Sql:       pj.ji.Details.Egress.SqlOptions}); err != nil {
 		return err
 	}
 	return reg.succeedJob(pj)
