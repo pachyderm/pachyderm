@@ -114,5 +114,5 @@ func (msd *mockStateDriver) reset() {
 	msd.specCommits = make(map[string]string)
 	msd.pipelines = make(map[string]*pps.PipelineInfo)
 	msd.states = make(map[string][]pps.PipelineState)
-	msd.eChan = make(chan *watch.Event)
+	msd.eChan = make(chan *watch.Event, 1)
 }

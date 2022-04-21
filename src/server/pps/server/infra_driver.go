@@ -32,18 +32,29 @@ type InfraDriver interface {
 	WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error)
 }
 
+type mockInfraOp int32
+
+const (
+	mockInfraOp_CREATE = 0
+	mockInfraOp_DELETE = 1
+	mockInfraOp_READ   = 2
+)
+
 type mockInfraDriver struct {
-	rcs map[string]v1.ReplicationController
+	rcs   map[string]v1.ReplicationController
+	calls map[string]map[mockInfraOp]int
 }
 
 func newMockInfraDriver() *mockInfraDriver {
 	return &mockInfraDriver{
-		rcs: make(map[string]v1.ReplicationController),
+		rcs:   make(map[string]v1.ReplicationController),
+		calls: make(map[string]map[mockInfraOp]int),
 	}
 }
 
 func (mid *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
 	mid.rcs[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)] = *mid.makeRC(pi)
+	mid.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
 	return nil
 }
 
@@ -51,15 +62,18 @@ func (mid *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipelin
 	// HACK: since the DeletePipelineResources signature requires the pipeline's name instead of its PipelineInfo,
 	// we run this hackery to approximate deletes
 	for k := range mid.rcs {
-		if strings.HasPrefix(k, strings.Replace(pipeline, "_", "-", -1)) {
+		almostName := ppsutil.PipelineRcName(pipeline, 0)
+		if strings.HasPrefix(k, almostName[:len(almostName)-1]) {
 			delete(mid.rcs, k)
+			mid.incCall(pipeline, mockInfraOp_DELETE)
 			return nil
 		}
 	}
-	return errors.New("rc for pipeline not found")
+	return nil
 }
 
 func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
+	mid.incCall(pi.Pipeline.Name, mockInfraOp_READ)
 	if rc, ok := mid.rcs[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)]; !ok {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{},
@@ -122,4 +136,12 @@ func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationControll
 
 func (mid *mockInfraDriver) writeRC(rc *v1.ReplicationController) {
 	mid.rcs[rc.ObjectMeta.Name] = *rc
+}
+
+func (mid *mockInfraDriver) incCall(name string, op mockInfraOp) {
+	if ops, ok := mid.calls[name]; ok {
+		ops[op] += 1
+	} else {
+		mid.calls[name] = map[mockInfraOp]int{op: 1}
+	}
 }

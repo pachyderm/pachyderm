@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/task"
@@ -69,7 +70,6 @@ func waitForPipelineStates(t testing.TB, stateDriver *mockStateDriver, pipeline 
 			return errors.New("change hasn't reflected")
 		}, backoff.NewTestingBackOff())
 	})
-	time.Sleep(2 * time.Second)
 }
 
 func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int) {
@@ -124,6 +124,42 @@ func TestBasic(t *testing.T) {
 			},
 		},
 	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+}
+
+func TestDeletePipeline(t *testing.T) {
+	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	pi := &pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details:  &pps.PipelineInfo_Details{},
+		Version:  1,
+	}
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline:   pipeline,
+			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+		},
+	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+
+	stateDriver.reset()
+	stateDriver.pushWatchEvent(pi, watch.EventDelete)
+	require.NoErrorWithinT(t, 5*time.Second, func() error {
+		return backoff.Retry(func() error {
+			if infraDriver.calls[pipeline][mockInfraOp_DELETE] == 1 {
+				return nil
+			}
+			return errors.New("change hasn't reflected")
+		}, backoff.NewTestingBackOff())
+	})
+
 }
 
 func TestAutoscalingBasic(t *testing.T) {
@@ -156,6 +192,7 @@ func TestAutoscalingBasic(t *testing.T) {
 			},
 		},
 	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
@@ -187,4 +224,5 @@ func TestAutoscalingNoCommits(t *testing.T) {
 			},
 		},
 	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 }
