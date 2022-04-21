@@ -463,3 +463,53 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 
 	return curr, nil
 }
+
+// ListPipelineInfo enumerates all PPS pipelines in the database, filters them
+// based on 'request', and then calls 'f' on each value
+func ListPipelineInfo(ctx context.Context,
+	pipelines collection.PostgresCollection,
+	pipeline *pps.Pipeline,
+	history int64,
+	f func(*pps.PipelineInfo) error) error {
+	p := &pps.PipelineInfo{}
+	versionMap := make(map[string]uint64)
+	checkPipelineVersion := func(_ string) error {
+		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+		// won't use this function to get their auth token)
+		p.AuthToken = ""
+		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
+		if last, ok := versionMap[p.Pipeline.Name]; ok {
+			if p.Version < last {
+				// don't send, exit early
+				return nil
+			}
+		} else {
+			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
+			var lastVersionToSend uint64
+			if history < 0 || uint64(history) >= p.Version {
+				lastVersionToSend = 1
+			} else {
+				lastVersionToSend = p.Version - uint64(history)
+			}
+			versionMap[p.Pipeline.Name] = lastVersionToSend
+		}
+
+		return f(p)
+	}
+	if pipeline != nil {
+		if err := pipelines.ReadOnly(ctx).GetByIndex(
+			ppsdb.PipelinesNameIndex,
+			pipeline.Name,
+			p,
+			col.DefaultOptions(),
+			checkPipelineVersion); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if len(versionMap) == 0 {
+			// pipeline didn't exist after all
+			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
+		}
+		return nil
+	}
+	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+}
