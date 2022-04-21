@@ -125,7 +125,7 @@ jobs:
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
   load_test:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202101-01
     environment:
