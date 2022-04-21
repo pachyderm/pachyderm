@@ -90,7 +90,7 @@ func (pj *pendingJob) load() error {
 	// TODO: This should be an operation supported and exposed by PFS.
 	pj.baseMetaCommit = pj.metaCommitInfo.ParentCommit
 	for pj.baseMetaCommit != nil {
-		ci, err := pachClient.PfsAPIClient.InspectCommit(
+		metaCI, err := pachClient.PfsAPIClient.InspectCommit(
 			pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit: pj.baseMetaCommit,
@@ -99,10 +99,16 @@ func (pj *pendingJob) load() error {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		if ci.Error == "" {
+		outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Branch.Repo.Name,
+			pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		// both commits must have succeeded - a validation error will only show up in the output
+		if metaCI.Error == "" && outputCI.Error == "" {
 			break
 		}
-		pj.baseMetaCommit = ci.ParentCommit
+		pj.baseMetaCommit = metaCI.ParentCommit
 	}
 	// Load the job info.
 	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
