@@ -24,7 +24,7 @@ if [ "${?}" -ne 0 ]; then
 	exit 1
 fi
 
-if [ "$CIRCLE_JOB" == "nightly_load" ]; then
+if [ "$CIRCLE_JOB" = "nightly_load" ]; then
 
 DURATION=$(echo "$PFS_RESPONSE_SPEC" | jq '.duration')
 DURATION=${DURATION: 1:-2}
@@ -36,7 +36,7 @@ fi
 
 PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
 
-if [ "$CIRCLE_JOB" == "nightly_load" ]; then
+if [ "$CIRCLE_JOB" = "nightly_load" ]; then
 
 DURATION=$(echo "$PPS_RESPONSE_SPEC" | jq '.duration')
 DURATION=${DURATION: 1:-2}
