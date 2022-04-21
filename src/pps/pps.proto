@@ -47,6 +47,7 @@ message TFJob {
 
 message Egress {
   string URL = 1;
+  pfs_v2.SQLEgressOptions sql_options = 2;
 }
 
 message Job {
@@ -778,4 +779,3 @@ service API {
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
-

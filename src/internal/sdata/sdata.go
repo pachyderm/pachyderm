@@ -90,8 +90,8 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 	return row, nil
 }
 
-// Copy copies a tuple from w to r.  Row is used to indicate the correct shape of read data.
-func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
+// Copy copies a tuple from r to w. Row is used to indicate the correct shape of read data.
+func Copy(r TupleReader, w TupleWriter, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)
 		if errors.Is(err, io.EOF) {
@@ -121,7 +121,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 
 func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	switch dbType {
-	case "BOOL":
+	case "BOOL", "BOOLEAN":
 		if nullable {
 			return new(sql.NullBool), nil
 		} else {

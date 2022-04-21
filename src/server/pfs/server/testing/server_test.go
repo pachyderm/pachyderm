@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -21,14 +22,17 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -6136,6 +6140,103 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+	})
+
+	suite.Run("EgressToPostgres", func(_suite *testing.T) {
+		os.Setenv("PACHYDERM_SQL_PASSWORD", tu.DefaultPostgresPassword)
+
+		type Schema struct {
+			Id int    `sql:"ID,INT"`
+			A  string `sql:"A,VARCHAR(100)"`
+		}
+
+		type File struct {
+			data string
+			path string
+		}
+
+		tests := []struct {
+			name           string
+			files          []File
+			options        *pfs.SQLEgressOptions
+			tables         []string
+			expectedCounts map[string]int64
+		}{
+			{
+				name: "CSV",
+				files: []File{
+					{"1,Foo\n2,Bar", "/test_table/0000"},
+					{"3,Hello\n4,World", "/test_table/subdir/0001"},
+					{"1,this is in test_table2", "/test_table2/0000"},
+					{"", "/empty_table/0000"},
+				},
+				options:        &pfs.SQLEgressOptions{FileFormat: &pfs.SQLEgressOptions_FileFormat{Type: pfs.SQLEgressOptions_FileFormat_CSV}},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+			{
+				name: "JSON",
+				files: []File{
+					{`{"ID":1,"A":"Foo"}
+					  {"ID":2,"A":"Bar"}`, "/test_table/0000"},
+					{`{"ID":3,"A":"Hello"}
+					  {"ID":4,"A":"World"}`, "/test_table/subdir/0001"},
+					{`{"ID":1,"A":"Foo"}`, "/test_table2/0000"},
+					{"", "/empty_table/0000"},
+				},
+				options: &pfs.SQLEgressOptions{
+					FileFormat: &pfs.SQLEgressOptions_FileFormat{
+						Type: pfs.SQLEgressOptions_FileFormat_JSON,
+						Options: &pfs.SQLEgressOptions_FileFormat_Options{
+							JsonFieldNames: []string{"ID", "A"}}}},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+		}
+		for _, test := range tests {
+			_suite.Run(test.name, func(t *testing.T) {
+				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+				// setup target database
+				dbName := tu.GenerateEphermeralDBName(t)
+				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
+				db := tu.OpenDB(t,
+					dbutil.WithMaxOpenConns(1),
+					dbutil.WithUserPassword(tu.DefaultPostgresUser, tu.DefaultPostgresPassword),
+					dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
+					dbutil.WithDBName(dbName),
+				)
+				for _, tableName := range test.tables {
+					require.NoError(t, pachsql.CreateTestTable(db, tableName, Schema{}))
+				}
+
+				// setup source repo based on target database, and generate fake data
+				require.NoError(t, env.PachClient.CreateRepo(dbName))
+				commit := client.NewCommit(dbName, "master", "")
+				for _, f := range test.files {
+					require.NoError(t, env.PachClient.PutFile(
+						commit,
+						f.path,
+						strings.NewReader(f.data)))
+				}
+
+				// run Egress to copy data from source commit to target database
+				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
+					&pfs.EgressRequest{
+						Source:    commit,
+						TargetUrl: fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort, dbName),
+						Sql:       test.options,
+					})
+				require.NoError(t, err)
+				require.Equal(t, test.expectedCounts, resp.SqlRowsWritten)
+
+				// verify that actual rows got written to db
+				var count int64
+				for table, expected := range test.expectedCounts {
+					require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", table)).Scan(&count))
+					require.Equal(t, expected, count)
+				}
+			})
+		}
 	})
 }
 
