@@ -163,6 +163,38 @@ func TestDeletePipeline(t *testing.T) {
 }
 
 func TestDeleteRC(t *testing.T) {
+	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	pi := &pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details:  &pps.PipelineInfo_Details{},
+		Version:  1,
+	}
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline:   pipeline,
+			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+		},
+	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	// remove RCs, and nudge with an event
+	infraDriver.resetRCs()
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
+	// verify restart side effects were requested
+	require.NoErrorWithinT(t, 5*time.Second, func() error {
+		return backoff.Retry(func() error {
+			if infraDriver.calls[pipeline][mockInfraOp_CREATE] == 2 {
+				return nil
+			}
+			return errors.New("change hasn't reflected")
+		}, backoff.NewTestingBackOff())
+	})
 
 }
 
@@ -197,6 +229,46 @@ func TestAutoscalingBasic(t *testing.T) {
 		},
 	})
 	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+}
+
+func TestAutoscalingManyCommits(t *testing.T) {
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	mockAutoscaling(mockPachd, 1, 100)
+	inspectCount := 0
+	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+		inspectCount++
+		return &pfs.CommitInfo{}, nil
+	})
+	stateDriver.upsertPipeline(&pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details: &pps.PipelineInfo_Details{
+			Autoscaling: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+		},
+		Version: 1,
+	})
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline: pipeline,
+			assertWhen: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_STANDBY,
+			},
+		},
+	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	// 2 * number of commits, to capture the user + meta repos
+	require.Equal(t, 200, inspectCount)
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {

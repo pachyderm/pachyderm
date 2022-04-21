@@ -46,8 +46,10 @@ type mockInfraDriver struct {
 }
 
 func newMockInfraDriver() *mockInfraDriver {
-	mid := &mockInfraDriver{}
-	mid.reset()
+	mid := &mockInfraDriver{
+		rcs:   make(map[string]v1.ReplicationController),
+		calls: make(map[string]map[mockInfraOp]int),
+	}
 	return mid
 }
 
@@ -112,9 +114,8 @@ func (mid *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch
 // -------- Mock Helpers -------- //
 ////////////////////////////////////
 
-func (mid *mockInfraDriver) reset() {
+func (mid *mockInfraDriver) resetRCs() {
 	mid.rcs = make(map[string]v1.ReplicationController)
-	mid.calls = make(map[string]map[mockInfraOp]int)
 }
 
 func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController {
