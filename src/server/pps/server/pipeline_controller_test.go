@@ -146,7 +146,6 @@ func TestAutoscalingBasic(t *testing.T) {
 			pipeline: pipeline,
 			assertWhen: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_RUNNING,
-				// pps.PipelineState_PIPELINE_STANDBY,
 			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
