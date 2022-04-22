@@ -40,7 +40,7 @@ Start a bash session in the `pachyderm/notebooks-user` container
 docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged \
   -v $(pwd):/home/jovyan/extension-wd \
   -w /home/jovyan/extension-wd \
-  pachyderm/notebooks-user:624337360beaff8514be329386f3ca554fc7a34d \
+  pachyderm/notebooks-user:2e846a91e44f246ced0935e1034199fdb502b940 \
   bash
 ```
 
