@@ -221,6 +221,9 @@ func TestAutoscalingBasic(t *testing.T) {
 			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
+				// STANDBY is set consecutively because ppsutil.SetPipelineState
+				// will still update the PipelineInfo even if the desired state
+				// is already set
 				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -304,19 +307,112 @@ func TestAutoscalingNoCommits(t *testing.T) {
 }
 
 func TestPause(t *testing.T) {
-
+	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	pi := &pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details:  &pps.PipelineInfo_Details{},
+		Version:  1,
+	}
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline:   pipeline,
+			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+		},
+	})
+	// pause pipeline
+	pi.Stopped = true
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
+	waitForPipelineStates(t, stateDriver, pi.Pipeline.Name, []pps.PipelineState{pps.PipelineState_PIPELINE_PAUSED})
+	// unpause pipeline
+	pi.Stopped = false
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline: pipeline,
+			assertWhen: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_PAUSED,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_PAUSED,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+		},
+	})
 }
 
 func TestPauseAutoscaling(t *testing.T) {
-
-}
-
-func TestRepause(t *testing.T) {
-
-}
-
-func TestUnpause(t *testing.T) {
-
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	mockAutoscaling(mockPachd, 1, 1)
+	pi := &pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details: &pps.PipelineInfo_Details{
+			Autoscaling: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+		},
+		Version: 1,
+	}
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline: pipeline,
+			assertWhen: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_STANDBY,
+			},
+		},
+	})
+	// simulate no more commits
+	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
+		// keep the subscribe open
+		time.Sleep(3 * time.Second)
+		return nil
+	})
+	// pause pipeline
+	pi.Stopped = true
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
+	waitForPipelineStates(t, stateDriver, pi.Pipeline.Name, []pps.PipelineState{pps.PipelineState_PIPELINE_PAUSED})
+	// unpause pipeline
+	pi.Stopped = false
+	stateDriver.pushWatchEvent(pi, watch.EventPut)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline: pipeline,
+			assertWhen: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_PAUSED,
+				pps.PipelineState_PIPELINE_STANDBY,
+			},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_PAUSED,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_STANDBY,
+			},
+		},
+	})
 }
 
 func TestCrashing(t *testing.T) {
@@ -328,6 +424,10 @@ func TestFailure(t *testing.T) {
 }
 
 func TestRestarts(t *testing.T) {
+
+}
+
+func TestUpdateAutoscalingSpec(t *testing.T) {
 
 }
 
