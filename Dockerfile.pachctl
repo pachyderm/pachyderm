@@ -1,6 +1,17 @@
-FROM debian:buster-slim
-RUN apt update && apt install -y ca-certificates
+FROM golang:1.18-buster
+RUN apt update && apt install -y ca-certificates fuse
+
+WORKDIR /app
+
+# Download necessary Go modules
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+
+COPY . ./
+
+RUN go build -o /usr/local/bin/pachctl src/server/cmd/pachctl/main.go 
 
 COPY LICENSE /LICENSE
 COPY licenses /licenses
-COPY pachctl /usr/local/bin/pachctl
+
