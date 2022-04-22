@@ -123,6 +123,62 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`).Run())
 }
 
+func TestFailedPipelineInfo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+	pipeline1 := tu.UniqueString("p-")
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["exit 1"]
+		    }
+		  }
+		EOF
+		`,
+		"pipeline", pipeline1).Run())
+	pipeline2 := tu.UniqueString("p-")
+	require.NoError(t, tu.BashCmd(`
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "{{.inputPipeline}}"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["exit 0"]
+		    }
+		  }
+		EOF
+		`,
+		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl wait commit data@master
+		sleep 10
+		# make sure the results have the full pipeline info, including version
+		pachctl list pipeline \
+			| match "cancelled"
+		`, "pipeline", pipeline2).Run())
+}
+
 // TestJSONMultiplePipelines tests that pipeline specs with multiple pipelines
 // are accepted, as long as they're separated by a YAML document separator
 func TestJSONMultiplePipelines(t *testing.T) {

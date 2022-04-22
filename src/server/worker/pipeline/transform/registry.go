@@ -78,6 +78,16 @@ func (reg *registry) failJob(pj *pendingJob, reason string) error {
 	return nil
 }
 
+func (reg *registry) cancelJob(pj *pendingJob, reason string) error {
+	pj.logger.Logf("cancelling job with reason: %s", reason)
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	if err := ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_CANCELLED, reason); err != nil {
+		return err
+	}
+	pj.clearCache()
+	return nil
+}
+
 func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
@@ -256,8 +266,8 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 		return err
 	}
 	if len(failed) > 0 {
-		reason := fmt.Sprintf("inputs failed: %s", strings.Join(failed, ", "))
-		return reg.failJob(pj, reason)
+		reason := fmt.Sprintf("Cancelled because the following upstream pipelines failed: %s", strings.Join(failed, ", "))
+		return reg.cancelJob(pj, reason)
 	}
 	pj.ji.State = pps.JobState_JOB_RUNNING
 	return pj.writeJobInfo()
