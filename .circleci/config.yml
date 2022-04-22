@@ -246,6 +246,19 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
+  push_redhat:
+    docker:
+      - image: cimg/go:1.17.3
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: "20.10.12"
+      - run:
+          name: Install Goreleaser
+          command: |
+            curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
+      - run: etc/redhat/push_images.sh
 workflows:
   circleci:
     when:
@@ -332,6 +345,11 @@ workflows:
     when: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
       - release_job:
+          filters:
+            branches:
+              only:
+                - 2.1.x
+      - push_redhat:
           filters:
             branches:
               only:
