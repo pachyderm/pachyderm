@@ -1,0 +1,45 @@
+FROM registry.access.redhat.com/ubi8/ubi-minimal@sha256:2e4bbb2be6e7aff711ddc93f0b07e49c93d41e4c2ffc8ea75f804ad6fe25564e
+
+LABEL name="console"
+LABEL vendor="Pachyderm, Inc."
+LABEL description="This is Pachyderm's official dashboard for enterprise Pachyderm users."
+LABEL summary="This is Pachyderm's official dashboard for enterprise Pachyderm users."
+
+WORKDIR /usr/src/app
+
+# Install nodejs
+RUN microdnf install tar xz
+RUN curl -sLO https://nodejs.org/dist/v16.14.0/node-v16.14.0-linux-x64.tar.xz && \
+  tar xf node-v16.14.0-linux-x64.tar.xz -C /usr/local
+ENV PATH=/usr/local/node-v16.14.0-linux-x64/bin:${PATH}
+
+ADD . .
+
+RUN microdnf install pango giflib cmake cairo libjpeg-turbo libjpeg-turbo-devel
+
+# update with new canvas versions
+RUN npm install canvas@2.8.0
+
+RUN make ci
+
+RUN make build
+
+RUN make prune-deps
+
+RUN npm audit fix
+
+# Fix "important" and "critical" dep vulnerabilities
+RUN microdnf install yum \
+  && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
+  && yum clean all \
+  && microdnf clean all
+
+# Add dependency licenses
+RUN mkdir /licenses \
+  && echo "These licenses are distributed alongside the Pachyderm Console in accordance with our dependencies' terms. They were collected and copied here by the 'generate-license-file' NPM package." >/licenses/README.txt \
+  && npm install generate-license-file -g \
+  && generate-license-file --input package.json --output /licenses/third-party-licenses.txt --overwrite \
+  && npm uninstall generate-license-file
+
+CMD ["npm", "start", "--prefix", "./backend"]
+EXPOSE 4000
