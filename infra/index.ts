@@ -4,7 +4,7 @@ import * as k8s from "@pulumi/kubernetes";
 const cfg = new pulumi.Config();
 const slug = "pachyderm/ci-cluster/dev";
 const stackRef = new pulumi.StackReference(slug);
-const currBranch = cfg.require("branch");
+const currBranch = cfg.require("branch").toLowerCase();
 const sha = cfg.require("sha");
 
 const kubeConfig = stackRef.getOutput("kubeconfig");
