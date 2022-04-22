@@ -48,7 +48,7 @@ spec:
             - envoy
           args:
             - -c
-            - /etc/envoy/envoy.yaml
+            - /etc/envoy/envoy.json
             - --service-node
             - $(MY_POD_NAME)
             - --service-zone

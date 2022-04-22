@@ -14,6 +14,6 @@ metadata:
   {{- end }}
   name: pachyderm-proxy-config
 data:
-  envoy.yaml: |
-    {{- .Files.Get "envoy.yaml" | nindent 4 }}
+  envoy.json: |
+    {{- .Files.Get "envoy.json" | nindent 4 }}
 {{- end }}
