@@ -339,6 +339,7 @@ From the cell of a notebook, run:
     pachd               {{ config.pach_latest_version }}  
     ```    
 
+- Check our [beginner tutorial notebook](https://github.com/pachyderm/examples/blob/master/Intro%20to%20Pachyderm%20Tutorial.ipynb){target=_blank} running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. You will also find integration examples with open-source products, such as labeling or model serving applications.
 ## Next Steps  
   
 Complete the [Beginner Tutorial](../beginner_tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
