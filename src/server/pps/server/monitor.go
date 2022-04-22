@@ -24,9 +24,6 @@ import (
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
-const crashingBackoff = time.Second * 15
-const scaleUpInterval = time.Second * 30
-
 // startMonitor starts a new goroutine running monitorPipeline for
 // 'pipelineInfo.Pipeline'.
 //
@@ -276,7 +273,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			cancelInner() // done--pipeline is out of CRASHING
 		}
 		return nil // loop again to check for new workers
-	}), backoff.NewConstantBackOff(crashingBackoff),
+	}), backoff.NewConstantBackOff(pc.crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be

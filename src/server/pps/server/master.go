@@ -82,17 +82,21 @@ type ppsMaster struct {
 	kd              InfraDriver
 	sd              PipelineStateDriver
 	// channel through which pipeline events are passed
-	eventCh chan *pipelineEvent
+	eventCh         chan *pipelineEvent
+	scaleUpInterval time.Duration
+	crashingBackoff time.Duration
 }
 
 func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, sd PipelineStateDriver) *ppsMaster {
 	return &ppsMaster{
-		masterCtx:  ctx,
-		env:        env,
-		etcdPrefix: etcdPrefix,
-		pcMgr:      newPcManager(),
-		kd:         kd,
-		sd:         sd,
+		masterCtx:       ctx,
+		env:             env,
+		etcdPrefix:      etcdPrefix,
+		pcMgr:           newPcManager(),
+		kd:              kd,
+		sd:              sd,
+		scaleUpInterval: time.Second * 30,
+		crashingBackoff: time.Second * 15,
 	}
 }
 

@@ -41,21 +41,25 @@ const (
 )
 
 type mockInfraDriver struct {
-	rcs   map[string]v1.ReplicationController
-	calls map[string]map[mockInfraOp]int
+	rcs           map[string]v1.ReplicationController // indexed by RC Name
+	calls         map[string]map[mockInfraOp]int      // indexed by pipeline name
+	elapsedScales map[string][]int32                  // indexed by RC name
 }
 
 func newMockInfraDriver() *mockInfraDriver {
 	mid := &mockInfraDriver{
-		rcs:   make(map[string]v1.ReplicationController),
-		calls: make(map[string]map[mockInfraOp]int),
+		rcs:           make(map[string]v1.ReplicationController),
+		calls:         make(map[string]map[mockInfraOp]int),
+		elapsedScales: make(map[string][]int32),
 	}
 	return mid
 }
 
 func (mid *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	mid.rcs[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)] = *mid.makeRC(pi)
+	rcName := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
+	mid.rcs[rcName] = *mid.makeRC(pi)
 	mid.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
+	mid.elapsedScales[rcName] = make([]int32, 0)
 	return nil
 }
 
@@ -89,6 +93,7 @@ func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *p
 func (mid *mockInfraDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	rc := old.DeepCopy()
 	if update(rc) {
+		mid.elapsedScales[rc.Name] = append(mid.elapsedScales[rc.Name], *rc.Spec.Replicas)
 		mid.writeRC(rc)
 	}
 	return nil

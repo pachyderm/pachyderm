@@ -179,6 +179,8 @@ type pipelineController struct {
 	pcMgr                 *pcManager
 	psDriver              PipelineStateDriver
 	iDriver               InfraDriver
+	scaleUpInterval       time.Duration
+	crashingBackoff       time.Duration
 }
 
 var (
@@ -193,13 +195,15 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 		ctx:    ctx,
 		cancel: cancel,
 		// pipeline name is recorded separately in the case we are running a delete operation and pipelineInfo isn't available in the DB
-		pipeline:   pipeline,
-		env:        m.env,
-		etcdPrefix: m.etcdPrefix,
-		iDriver:    m.kd,
-		psDriver:   m.sd,
-		bumpChan:   make(chan time.Time, 1),
-		pcMgr:      m.pcMgr,
+		pipeline:        pipeline,
+		env:             m.env,
+		etcdPrefix:      m.etcdPrefix,
+		iDriver:         m.kd,
+		psDriver:        m.sd,
+		bumpChan:        make(chan time.Time, 1),
+		pcMgr:           m.pcMgr,
+		scaleUpInterval: m.scaleUpInterval,
+		crashingBackoff: m.crashingBackoff,
 	}
 	return pc
 }
@@ -590,7 +594,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 		if targetScale < maxScale {
 			// schedule another step in scaleUpInterval, to check the tasks again
 			go func() {
-				time.Sleep(scaleUpInterval)
+				time.Sleep(pc.scaleUpInterval)
 				// Normally, it's necessary to acquire the mutex in step.pc.pcMgr and
 				// then read the latest pipelineController from pcMgr before calling
 				// Bump(), in order to avoid Bumping a dead pipelineController and

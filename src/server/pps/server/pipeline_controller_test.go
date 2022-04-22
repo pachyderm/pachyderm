@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -48,6 +49,7 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 	ctx, cf := context.WithCancel(context.Background())
 	t.Cleanup(func() { cf() })
 	master := newMaster(ctx, env, env.EtcdPrefix, iDriver, sDriver)
+	master.scaleUpInterval = 2 * time.Second
 	go master.run()
 	return sDriver, iDriver, mockEnv.MockPachd
 }
@@ -74,7 +76,7 @@ func waitForPipelineStates(t testing.TB, stateDriver *mockStateDriver, pipeline 
 }
 
 func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int) {
-	mockPachd.PFS.ListTask.Use(func(req *task.ListTaskRequest, srv pfs.API_ListTaskServer) error {
+	mockPachd.PPS.ListTask.Use(func(req *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
 		for i := 0; i < taskCount; i++ {
 			srv.Send(&task.TaskInfo{})
 		}
@@ -90,7 +92,7 @@ func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int)
 			})
 		}
 		// keep the subscribe stream open longer
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Second)
 		return nil
 	})
 }
@@ -274,6 +276,47 @@ func TestAutoscalingManyCommits(t *testing.T) {
 	require.Equal(t, 200, inspectCount)
 }
 
+func TestAutoscalingManyTasks(t *testing.T) {
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	mockAutoscaling(mockPachd, 100, 1)
+	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
+		// add some delay so that Scaling Up will kick in before the commit is otherwise considered done
+		time.Sleep(time.Second)
+		return &pfs.CommitInfo{}, nil
+	})
+	pi := &pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details: &pps.PipelineInfo_Details{
+			Autoscaling: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 300,
+			},
+		},
+		Version: 1,
+	}
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline: pipeline,
+			assertWhen: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_STANDBY,
+			},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_STANDBY,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_STANDBY,
+			},
+		},
+	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.elapsedScales[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)])
+}
+
 func TestAutoscalingNoCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
@@ -419,14 +462,11 @@ func TestCrashing(t *testing.T) {
 
 }
 
-func TestFailure(t *testing.T) {
-
-}
-
 func TestRestarts(t *testing.T) {
 
 }
 
+// Tests that monitor goros update
 func TestUpdateAutoscalingSpec(t *testing.T) {
 
 }
