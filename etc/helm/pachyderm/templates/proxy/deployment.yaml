@@ -72,6 +72,18 @@ spec:
               containerPort: 80
             # - name: https
             #   containerPort: 443
+            - name: console-direct
+              containerPort: 4000
+            - name: s3-direct
+              containerPort: 1600
+            - name: grpc-direct
+              containerPort: 1650
+            - name: oidc-direct
+              containerPort: 1657
+            - name: identity-direct
+              containerPort: 1658
+            - name: metrics-direct
+              containerPort: 1656
           readinessProbe:
             httpGet:
               path: /ready
