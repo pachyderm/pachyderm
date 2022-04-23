@@ -1,0 +1,24 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Values.proxy.enabled .Values.console.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pachyderm-proxy-support
+    suite: pachyderm
+  name: console-proxy-backend
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: console-http
+    port: 4000
+    targetPort: console-http
+  selector:
+    app: console
+    suite: pachyderm
+  type: ClusterIP
+  clusterIP: None
+{{- end }}

@@ -4,7 +4,7 @@ local services = {
     internal_port: 1650,
     external_port: 30650,
     grpc: true,
-    service: 'pachd',
+    service: 'pachd-proxy-backend',
     router: {
       match: {
         grpc: {},
@@ -27,7 +27,7 @@ local services = {
   'pachd-s3': {
     internal_port: 1600,
     external_port: 30600,
-    service: 'pachd',
+    service: 'pachd-proxy-backend',
     router: {
       match: {
         headers: [
@@ -50,7 +50,7 @@ local services = {
   'pachd-identity': {
     internal_port: 1658,
     external_port: 30658,
-    service: 'pachd',
+    service: 'pachd-proxy-backend',
     router: {
       match: {
         prefix: '/dex',
@@ -90,7 +90,7 @@ local services = {
   console: {
     internal_port: 4000,
     external_port: 4000,
-    service: 'console',
+    service: 'console-proxy-backend',
     router: {
       match: {
         prefix: '/',
@@ -121,7 +121,7 @@ local services = {
   'pachd-metrics': {
     internal_port: 1656,
     external_port: 30656,
-    service: 'pachd',
+    service: 'pachd-proxy-backend',
     router: {
       match: {
         prefix: '/',
@@ -160,7 +160,7 @@ Envoy.bootstrap(
     local svc = services[name];
     (if 'grpc' in svc && svc.grpc then Envoy.GRPCCluster else Envoy.defaultCluster) + {
       name: name,
-      load_assignment: Envoy.loadAssignment(name=name, address=svc.service, port=svc.external_port),
+      load_assignment: Envoy.loadAssignment(name=name, address=svc.service, port=svc.internal_port),
       health_checks: if 'health_check' in svc then [svc.health_check] else [],
     }
     for name in std.objectFields(services)

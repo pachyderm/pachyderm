@@ -90,7 +90,7 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "console",
+                                    "address": "console-proxy-backend",
                                     "port_value": 4000
                                  }
                               }
@@ -128,8 +128,8 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd",
-                                    "port_value": 30650
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1650
                                  }
                               }
                            }
@@ -177,8 +177,8 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd",
-                                    "port_value": 30658
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1658
                                  }
                               }
                            }
@@ -207,8 +207,8 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd",
-                                    "port_value": 30656
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1656
                                  }
                               }
                            }
@@ -238,7 +238,7 @@
                               "address": {
                                  "socket_address": {
                                     "address": "pachd",
-                                    "port_value": 30657
+                                    "port_value": 1657
                                  }
                               }
                            }
@@ -267,8 +267,8 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd",
-                                    "port_value": 30600
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1600
                                  }
                               }
                            }
