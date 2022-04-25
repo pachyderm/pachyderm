@@ -161,7 +161,7 @@
                 ],
               },
               stat_prefix: name,
-              stream_idle_timeout: '60s',
+              stream_idle_timeout: '0s',  // disable stream idle timeouts, for waiting on jobs, tailing logs, etc.
               use_remote_address: true,
             },
           },

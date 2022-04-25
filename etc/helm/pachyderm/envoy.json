@@ -76,6 +76,8 @@
                      "path": "/"
                   },
                   "interval": "30s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
                   "timeout": "10s",
                   "unhealthy_threshold": 2
                }
@@ -114,6 +116,8 @@
                   "grpc_health_check": { },
                   "healthy_threshold": 1,
                   "interval": "10s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
                   "timeout": "10s",
                   "unhealthy_threshold": 2
                }
@@ -163,6 +167,8 @@
                      "path": "/dex/.well-known/openid-configuration"
                   },
                   "interval": "30s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
                   "timeout": "10s",
                   "unhealthy_threshold": 2
                }
@@ -237,7 +243,7 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd",
+                                    "address": "pachd-proxy-backend",
                                     "port_value": 1657
                                  }
                               }
@@ -352,7 +358,6 @@
                                           },
                                           "route": {
                                              "cluster": "pachd-grpc",
-                                             "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
                                        },
@@ -363,6 +368,24 @@
                                                    "name": "authorization",
                                                    "string_match": {
                                                       "prefix": "AWS4-HMAC-SHA256"
+                                                   }
+                                                }
+                                             ],
+                                             "prefix": "/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-s3",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "headers": [
+                                                {
+                                                   "name": "authorization",
+                                                   "string_match": {
+                                                      "prefix": "AWS "
                                                    }
                                                 }
                                              ],
@@ -415,7 +438,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-http",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -493,7 +516,6 @@
                                           },
                                           "route": {
                                              "cluster": "pachd-grpc",
-                                             "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
                                        }
@@ -502,7 +524,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-grpc",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -582,13 +604,31 @@
                                              "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
+                                       },
+                                       {
+                                          "match": {
+                                             "headers": [
+                                                {
+                                                   "name": "authorization",
+                                                   "string_match": {
+                                                      "prefix": "AWS "
+                                                   }
+                                                }
+                                             ],
+                                             "prefix": "/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-s3",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
                                        }
                                     ]
                                  }
                               ]
                            },
                            "stat_prefix": "direct-pachd-s3",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -666,7 +706,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-identity",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -744,7 +784,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-oidc",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -828,7 +868,7 @@
                               ]
                            },
                            "stat_prefix": "direct-console",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -906,7 +946,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-metrics",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }

@@ -102,7 +102,7 @@ jobs:
           path: /tmp/test-results
   helm-build:
     docker:
-      - image: circleci/golang:1.15
+      - image: cimg/go:1.17.6
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -314,7 +314,18 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
-  # TODO(jonathan): test envoy + jsonnet
+  test-envoy:
+    docker:
+      - image: envoyproxy/envoy:v1.22.0
+        entrypoint: /bin/sh
+    steps:
+      - run: apt update
+      - run: apt install -y make wget git ssh
+      - checkout
+      - run: wget https://github.com/google/jsonnet/releases/download/v0.17.0/jsonnet-bin-v0.17.0-linux.tar.gz
+      - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
+      - run: mv jsonnet jsonnetfmt /usr/local/bin
+      - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
       - image: cimg/go:1.17.3
@@ -336,6 +347,7 @@ workflows:
     jobs:
       - build
       - check-prettier
+      - test-envoy
       - circleci:
           matrix:
             parameters:
