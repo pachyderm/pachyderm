@@ -6,7 +6,7 @@ import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import baseLogger from '@dash-backend/lib/log';
 
 const memo = memoize(
-  (ssl: string, pachdAddress: string) => {
+  (ssl: string, pachdAddress: string, projectId: string, authToken: string) => {
     const grpcLogger = baseLogger.child({
       eventSource: 'grpc client',
       pachdAddress,
@@ -14,16 +14,25 @@ const memo = memoize(
 
     grpcLogger.info('Creating pach client');
 
-    return pachydermClient({
+    const pachClient = pachydermClient({
       pachdAddress: pachdAddress,
       plugins: [loggingPlugin(grpcLogger), errorPlugin],
       ssl: ssl === 'true',
     });
+
+    pachClient.attachCredentials({projectId, authToken});
+
+    return pachClient;
   },
-  (a, b) => a + b,
+  (a, b, c, d) => a + b + c + d,
 );
 
-const getPachClient = () =>
-  memo(process.env.GRPC_SSL || '', process.env.PACHD_ADDRESS || '');
+const getPachClient = (projectId: string, authToken: string) =>
+  memo(
+    process.env.GRPC_SSL || '',
+    process.env.PACHD_ADDRESS || '',
+    projectId,
+    authToken,
+  );
 
 export default getPachClient;

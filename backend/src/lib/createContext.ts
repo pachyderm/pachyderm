@@ -36,8 +36,7 @@ const createContext = async ({
     projectId,
   });
 
-  const pachClient = getPachClient();
-  pachClient.attachCredentials({projectId, authToken});
+  const pachClient = getPachClient(projectId, authToken);
 
   return {
     account,
