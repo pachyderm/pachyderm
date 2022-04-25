@@ -2,6 +2,7 @@ package sdata
 
 import (
 	"database/sql"
+	"fmt"
 	"io"
 	"time"
 
@@ -42,12 +43,15 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 		return nil, errors.EnsureStack(err)
 	}
 	cTypes, err := rows.ColumnTypes()
+	for i, name := range colNames {
+		fmt.Printf("%s: %s\n", name, cTypes[i])
+	}
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	row, err := NewTupleFromColumnTypes(cTypes)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	var count uint64
@@ -120,6 +124,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 }
 
 func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
+	fmt.Println(dbType)
 	switch dbType {
 	case "BOOL":
 		if nullable {
@@ -141,13 +146,13 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		}
 	// TODO "NUMBER" type from Snowflake can vary in precision, but default to int64 for now.
 	// https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#number
-	case "BIGINT", "INT8", "FIXED", "NUMBER":
+	case "BIGINT", "INT8", "NUMBER":
 		if nullable {
 			return new(sql.NullInt64), nil
 		} else {
 			return new(int64), nil
 		}
-	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION":
+	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION", "FIXED":
 		if nullable {
 			return new(sql.NullFloat64), nil
 		} else {
