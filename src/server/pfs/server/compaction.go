@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -192,6 +193,24 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 	return results, nil
 }
 
+func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (int64, string, error) {
+	input, err := serializeValidateTask(&ValidateTask{
+		Id: id.HexString(),
+	})
+	if err != nil {
+		return 0, "", err
+	}
+	output, err := task.DoOne(ctx, taskDoer, input)
+	if err != nil {
+		return 0, "", err
+	}
+	result, err := deserializeValidateTaskResult(output)
+	if err != nil {
+		return 0, "", err
+	}
+	return result.SizeBytes, result.Error, nil
+}
+
 func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
 	return backoff.RetryUntilCancel(ctx, func() error {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
@@ -214,6 +233,12 @@ func compactionWorker(ctx context.Context, taskSource task.Source, storage *file
 					return nil, err
 				}
 				return processConcatTask(ctx, storage, concatTask)
+			case types.Is(input, &ValidateTask{}):
+				validateTask, err := deserializeValidateTask(input)
+				if err != nil {
+					return nil, err
+				}
+				return processValidateTask(ctx, storage, validateTask)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in compaction worker", input.TypeUrl)
 			}
@@ -292,6 +317,46 @@ func processConcatTask(ctx context.Context, storage *fileset.Storage, task *Conc
 		return nil, err
 	}
 	return serializeConcatTaskResult(result)
+}
+
+// TODO(2.0 optional): Improve the performance of this by doing a logarithmic lookup per new file,
+// rather than a linear scan through all of the files.
+func processValidateTask(ctx context.Context, storage *fileset.Storage, task *ValidateTask) (*types.Any, error) {
+	result := &ValidateTaskResult{}
+	if err := miscutil.LogStep("processing validate task", func() error {
+		id, err := fileset.ParseID(task.Id)
+		if err != nil {
+			return err
+		}
+		fs, err := storage.Open(ctx, []fileset.ID{*id})
+		if err != nil {
+			return err
+		}
+		var prev *index.Index
+		var size int64
+		var validationError string
+		if err := fs.Iterate(ctx, func(f fileset.File) error {
+			idx := f.Index()
+			if prev != nil && validationError == "" {
+				if idx.Path == prev.Path {
+					validationError = fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, idx.Path, idx.File.Datum)
+				} else if strings.HasPrefix(idx.Path, prev.Path+"/") {
+					validationError = fmt.Sprintf("file / directory path collision (%v)", idx.Path)
+				}
+			}
+			prev = idx
+			size += index.SizeBytes(idx)
+			return nil
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		result.SizeBytes = size
+		result.Error = validationError
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return serializeValidateTaskResult(result)
 }
 
 func serializeShardTask(task *ShardTask) (*types.Any, error) {
@@ -402,6 +467,44 @@ func serializeConcatTaskResult(task *ConcatTaskResult) (*types.Any, error) {
 
 func deserializeConcatTaskResult(taskAny *types.Any) (*ConcatTaskResult, error) {
 	task := &ConcatTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeValidateTask(task *ValidateTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeValidateTask(taskAny *types.Any) (*ValidateTask, error) {
+	task := &ValidateTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeValidateTaskResult(task *ValidateTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeValidateTaskResult(taskAny *types.Any) (*ValidateTaskResult, error) {
+	task := &ValidateTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
