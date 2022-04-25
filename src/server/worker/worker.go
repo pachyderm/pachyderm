@@ -86,6 +86,7 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	imageID, err := kd.GetImageID(ctx, env.Config().WorkerSpecificConfiguration.PodName)
 	if err != nil {
 		// do something
+		logger.Logf("GOT IMAGE ID ERROR:, %s", err)
 	}
 	w.status.ImageID = imageID
 	logger.Logf("GOT IMAGE ID:, %s", imageID)
