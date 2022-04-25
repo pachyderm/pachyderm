@@ -19,8 +19,8 @@ local services = {
     health_check: {
       grpc_health_check: {},
       healthy_threshold: 1,
-      interval: '10s',
-      timeout: '10s',
+      interval: '1s',
+      timeout: '1s',
       unhealthy_threshold: 2,
     },
   },

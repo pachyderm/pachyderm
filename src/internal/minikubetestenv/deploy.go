@@ -158,7 +158,9 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			// Run gRPC traffic through the full router.
-			"proxy.service.httpNodePort":          fmt.Sprintf("%v", port),
+			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
+
+			// Let everything else use the legacy way.
 			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
 			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
 			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
@@ -226,6 +228,10 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
 		if err != nil {
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
+		}
+		// Ensure that pachd is really ready to receive requests.
+		if _, err := c.InspectCluster(); err != nil {
+			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
