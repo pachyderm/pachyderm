@@ -499,8 +499,6 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 				)
 				return
 			}
-			// TODO: use response (serialize it to the client, it's polite to hand
-			// back the object you just modified in the API response)
 			l, err := mm.ListByRepos()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -516,6 +514,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			l, err = mm.ListByRepos()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			marshalled, err := jsonMarshal(l)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write(marshalled)
 		})
 	router.Methods("PUT").
 		Queries("name", "{name}").
@@ -546,6 +555,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isAuthOnAndUserUnauthenticated(mm.Client) {
@@ -558,6 +578,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		r, err := getClusterStatus(mm.Client)

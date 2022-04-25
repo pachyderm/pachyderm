@@ -291,6 +291,7 @@ func TestRepoOpts(t *testing.T) {
 		require.YesError(t, ioutil.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
 	withMount(t, env.PachClient, &Options{
+		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -312,6 +313,7 @@ func TestRepoOpts(t *testing.T) {
 	err = env.PachClient.PutFile(stagingCommit, "buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
+		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
