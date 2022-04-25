@@ -2,8 +2,8 @@ FROM registry.access.redhat.com/ubi8/ubi-minimal@sha256:2e4bbb2be6e7aff711ddc93f
 
 LABEL name="console"
 LABEL vendor="Pachyderm, Inc."
-LABEL description="This is Pachyderm's official dashboard for enterprise Pachyderm users."
-LABEL summary="This is Pachyderm's official dashboard for enterprise Pachyderm users."
+LABEL description="Pachyderm's official dashboard for enterprise Pachyderm users."
+LABEL summary="Pachyderm's official dashboard for enterprise Pachyderm users."
 
 WORKDIR /usr/src/app
 
@@ -26,11 +26,16 @@ RUN make build
 
 RUN make prune-deps
 
-RUN npm audit fix
+# Fix npm vulnerabilities where possible, but don't introduce breaking changes
+# in the build. Ignore non-zero exit codes as not all vulnerabilities can be
+# addressed without introducing breaking changes (but any unaddressed
+# vulnerabilities cause 'npm audit fix' to exit with a non-zero code).
+RUN npm audit fix || true
 
-# Fix "important" and "critical" dep vulnerabilities
+# Update dependencies in the base images, in case any have vulnerability fixes
+# (checked by Red Hat's image validator)
 RUN microdnf install yum \
-  && yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical \
+  && yum -y update \
   && yum clean all \
   && microdnf clean all
 
