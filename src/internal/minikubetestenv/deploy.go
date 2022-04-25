@@ -107,7 +107,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 		SetValues: map[string]string{
 			"deployTarget": "custom",
 
-			"pachd.service.type":        serviceType,
+			"pachd.service.type":        "ClusterIP",
 			"pachd.image.tag":           image,
 			"pachd.clusterDeploymentID": "dev",
 			"pachd.lokiDeploy":          "true",
@@ -125,6 +125,9 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
+
+			"proxy.enabled":      "true",
+			"proxy.service.type": serviceType,
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
@@ -154,11 +157,12 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
-			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
-			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
+			// Run gRPC traffic through the full router.
+			"proxy.service.httpNodePort":          fmt.Sprintf("%v", port),
+			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
+			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
+			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
+			"proxy.service.legacyPorts.metrics":   fmt.Sprintf("%v", port+4),
 		},
 	}
 }
