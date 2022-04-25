@@ -325,6 +325,7 @@ workflows:
     jobs:
       - build
       - check-prettier
+      - test-envoy
       - circleci:
           matrix:
             parameters:
