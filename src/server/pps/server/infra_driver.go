@@ -2,8 +2,7 @@ package server
 
 import (
 	"strconv"
-	"strings"
-
+	
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -41,9 +40,9 @@ const (
 )
 
 type mockInfraDriver struct {
-	rcs           map[string]v1.ReplicationController // indexed by RC Name
+	rcs           map[string]v1.ReplicationController // indexed by pipeline name
 	calls         map[string]map[mockInfraOp]int      // indexed by pipeline name
-	elapsedScales map[string][]int32                  // indexed by RC name
+	elapsedScales map[string][]int32                  // indexed by pipeline name
 }
 
 func newMockInfraDriver() *mockInfraDriver {
@@ -56,30 +55,23 @@ func newMockInfraDriver() *mockInfraDriver {
 }
 
 func (mid *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	rcName := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
-	mid.rcs[rcName] = *mid.makeRC(pi)
+	mid.rcs[pi.Pipeline.Name] = *mid.makeRC(pi)
 	mid.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
-	mid.elapsedScales[rcName] = make([]int32, 0)
+	mid.elapsedScales[pi.Pipeline.Name] = make([]int32, 0)
 	return nil
 }
 
 func (mid *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipeline string) error {
-	// HACK: since the DeletePipelineResources signature requires the pipeline's name instead of its PipelineInfo,
-	// we run this hackery to approximate deletes
-	for k := range mid.rcs {
-		almostName := ppsutil.PipelineRcName(pipeline, 0)
-		if strings.HasPrefix(k, almostName[:len(almostName)-1]) {
-			delete(mid.rcs, k)
-			mid.incCall(pipeline, mockInfraOp_DELETE)
-			return nil
-		}
+	if _, ok := mid.rcs[pipeline]; ok {
+		delete(mid.rcs, pipeline)
+		mid.incCall(pipeline, mockInfraOp_DELETE)
 	}
 	return nil
 }
 
 func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
 	mid.incCall(pi.Pipeline.Name, mockInfraOp_READ)
-	if rc, ok := mid.rcs[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)]; !ok {
+	if rc, ok := mid.rcs[pi.Pipeline.Name]; !ok {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{},
 		}, errors.New("rc for pipeline not found")
@@ -93,7 +85,8 @@ func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *p
 func (mid *mockInfraDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	rc := old.DeepCopy()
 	if update(rc) {
-		mid.elapsedScales[rc.Name] = append(mid.elapsedScales[rc.Name], *rc.Spec.Replicas)
+		name := rc.ObjectMeta.Labels[pipelineNameLabel]
+		mid.elapsedScales[name] = append(mid.elapsedScales[rc.Name], *rc.Spec.Replicas)
 		mid.writeRC(rc)
 	}
 	return nil
@@ -141,7 +134,8 @@ func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationControll
 }
 
 func (mid *mockInfraDriver) writeRC(rc *v1.ReplicationController) {
-	mid.rcs[rc.ObjectMeta.Name] = *rc
+	name := rc.ObjectMeta.Labels[pipelineNameLabel]
+	mid.rcs[name] = *rc
 }
 
 func (mid *mockInfraDriver) incCall(name string, op mockInfraOp) {

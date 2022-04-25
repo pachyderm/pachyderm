@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -70,6 +70,8 @@ func waitForPipelineStates(t testing.TB, stateDriver *mockStateDriver, pipeline 
 					}
 				}
 			}
+			fmt.Println("Pipeline States")
+			fmt.Println(actualStates)
 			return errors.New("change hasn't reflected")
 		}, backoff.NewTestingBackOff())
 	})
@@ -314,7 +316,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 		},
 	})
 	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
-	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.elapsedScales[ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)])
+	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.elapsedScales[pi.Pipeline.Name])
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
@@ -462,7 +464,48 @@ func TestCrashing(t *testing.T) {
 
 }
 
-func TestRestarts(t *testing.T) {
+func TestStaleRestart(t *testing.T) {
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	pipeline := tu.UniqueString(t.Name())
+	mockAutoscaling(mockPachd, 1, 1)
+	pi := &pps.PipelineInfo{
+		Pipeline: client.NewPipeline(pipeline),
+		State:    pps.PipelineState_PIPELINE_STARTING,
+		Details:  &pps.PipelineInfo_Details{},
+		Version:  1,
+	}
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline:   pipeline,
+			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+		},
+	})
+	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	pi.Version = 2
+	pi.State = pps.PipelineState_PIPELINE_RUNNING
+	stateDriver.upsertPipeline(pi)
+	validate(t, stateDriver, infraDriver, []pipelineTest{
+		{
+			pipeline:   pipeline,
+			assertWhen: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_RESTARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+			expectedStates: []pps.PipelineState{
+				pps.PipelineState_PIPELINE_STARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_RESTARTING,
+				pps.PipelineState_PIPELINE_RUNNING,
+			},
+		},
+	})
+	require.Equal(t, 2, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 
 }
 
@@ -487,7 +530,7 @@ func TestEvaluate(t *testing.T) {
 	rc := &v1.ReplicationController{}
 	test := func(startState pps.PipelineState, expectedState pps.PipelineState, expectedSideEffects []sideEffect) {
 		pi.State = startState
-		actualState, actualSideEffects, err := evaluate(pi, rc)
+		actualState, actualSideEffects, _, err := evaluate(pi, rc)
 		require.NoError(t, err)
 		require.Equal(t, expectedState, actualState)
 		require.Equal(t, len(expectedSideEffects), len(actualSideEffects))

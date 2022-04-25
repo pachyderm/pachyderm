@@ -115,7 +115,7 @@ func RestartSideEffect() sideEffect {
 		name:   sideEffectName_RESTART,
 		toggle: sideEffectToggle_NONE,
 		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
-			return pc.restartPipeline(ctx, pi, rc, "missing RC")
+			return pc.restartPipeline(ctx, pi, rc)
 		},
 	}
 }
@@ -296,7 +296,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	// the pipeline indefinitely)
 	rc, restart, err := pc.getRC(ctx, pi)
 	if restart {
-		if err := pc.restartPipeline(ctx, pi, rc, "could not get RC."); err != nil {
+		if err := pc.restartPipeline(ctx, pi, rc); err != nil {
 			return false, err
 		}
 		return false, errors.EnsureStack(pc.psDriver.SetState(ctx, pi.SpecCommit, pps.PipelineState_PIPELINE_RESTARTING, "could not get RC."))
@@ -304,14 +304,14 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	if err != nil && !errors.Is(err, errRCNotFound) {
 		return false, err
 	}
-	targetState, sideEffects, err := evaluate(pi, rc)
+	targetState, sideEffects, reason, err := evaluate(pi, rc)
 	if err != nil {
 		return false, err
 	}
 	errCount := 0
 	err = backoff.RetryNotify(func() error {
 		// Create/Modify/Delete pipeline resources as needed per new state
-		return pc.apply(ctx, pi, rc, targetState, sideEffects)
+		return pc.apply(ctx, pi, rc, targetState, sideEffects, reason)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCount++
 		if errors.As(err, &stepErr) {
@@ -337,13 +337,13 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	return false, err
 }
 
-func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineState, []sideEffect, error) {
+func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineState, []sideEffect, string, error) {
 	if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 		return pps.PipelineState_PIPELINE_FAILURE,
 			[]sideEffect{
 				FinishCommitsSideEffect(),
 				ResourcesSideEffect(sideEffectToggle_DOWN),
-			}, nil
+			}, "", nil
 	}
 	if pi.State == pps.PipelineState_PIPELINE_STARTING || pi.State == pps.PipelineState_PIPELINE_RESTARTING {
 		sideEffects := make([]sideEffect, 0)
@@ -351,26 +351,26 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 			sideEffects = append(sideEffects, ResourcesSideEffect(sideEffectToggle_UP))
 		}
 		if pi.Stopped {
-			return pps.PipelineState_PIPELINE_PAUSED, sideEffects, nil
+			return pps.PipelineState_PIPELINE_PAUSED, sideEffects, "", nil
 		}
 		sideEffects = append(sideEffects, CrashingMonitorSideEffect(sideEffectToggle_DOWN))
 		if pi.Details.Autoscaling && pi.State == pps.PipelineState_PIPELINE_STARTING {
-			return pps.PipelineState_PIPELINE_STANDBY, sideEffects, nil
+			return pps.PipelineState_PIPELINE_STANDBY, sideEffects, "", nil
 		}
-		return pps.PipelineState_PIPELINE_RUNNING, sideEffects, nil
+		return pps.PipelineState_PIPELINE_RUNNING, sideEffects, "", nil
 	}
 	if rc == nil {
 		// may happen if an external system deletes the RC
-		return pps.PipelineState_PIPELINE_RESTARTING, []sideEffect{RestartSideEffect()}, nil
+		return pps.PipelineState_PIPELINE_RESTARTING, []sideEffect{RestartSideEffect()}, "missing RC", nil
 	}
 	if pi.State == pps.PipelineState_PIPELINE_PAUSED {
 		if !pi.Stopped {
 			// StartPipeline has been called (so spec commit is updated), but new spec
 			// commit hasn't been propagated to PipelineInfo or RC yet
 			if pi.Details.Autoscaling {
-				return pps.PipelineState_PIPELINE_STANDBY, nil, nil
+				return pps.PipelineState_PIPELINE_STANDBY, nil, "", nil
 			}
-			return pps.PipelineState_PIPELINE_RUNNING, nil, nil
+			return pps.PipelineState_PIPELINE_RUNNING, nil, "", nil
 		}
 		return pi.State, []sideEffect{
 			// don't want cron commits or STANDBY state changes while pipeline is
@@ -379,10 +379,10 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 			CrashingMonitorSideEffect(sideEffectToggle_DOWN),
 			// default: scale down if pause/standby hasn't propagated to collection yet
 			ScaleWorkersSideEffect(sideEffectToggle_DOWN),
-		}, nil
+		}, "", nil
 	}
 	if pi.Stopped {
-		return pps.PipelineState_PIPELINE_PAUSED, []sideEffect{}, nil
+		return pps.PipelineState_PIPELINE_PAUSED, []sideEffect{}, "", nil
 	}
 	switch pi.State {
 	case pps.PipelineState_PIPELINE_RUNNING:
@@ -392,7 +392,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 			// default: scale up if pipeline start hasn't propagated to the collection yet
 			// Note: mostly this should do nothing, as this runs several times per job
 			ScaleWorkersSideEffect(sideEffectToggle_UP),
-		}, nil
+		}, "", nil
 	case pps.PipelineState_PIPELINE_STANDBY:
 		return pi.State, []sideEffect{
 			CrashingMonitorSideEffect(sideEffectToggle_DOWN),
@@ -400,7 +400,7 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 			PipelineMonitorSideEffect(sideEffectToggle_UP),
 			// default: scale down if standby hasn't propagated to kube RC yet
 			ScaleWorkersSideEffect(sideEffectToggle_DOWN),
-		}, nil
+		}, "", nil
 	case pps.PipelineState_PIPELINE_CRASHING:
 		return pi.State, []sideEffect{
 			// start a monitor to poll k8s and update us when it goes into a running state
@@ -416,19 +416,19 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 			// In general, CRASHING is actually almost identical to RUNNING (except for
 			// the monitorCrashing goro)
 			ScaleWorkersSideEffect(sideEffectToggle_UP),
-		}, nil
+		}, "", nil
 	}
-	return 0, nil, errors.New("could not evaluate pipeline transition")
+	return 0, nil, "", errors.New("could not evaluate pipeline transition")
 }
 
-func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, target pps.PipelineState, sideEffects []sideEffect) error {
+func (pc *pipelineController) apply(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, target pps.PipelineState, sideEffects []sideEffect, reason string) error {
 	for _, s := range sideEffects {
 		if err := s.apply(ctx, pc, pi, rc); err != nil {
 			return err
 		}
 	}
 	if target != pi.State {
-		return errors.EnsureStack(pc.psDriver.SetState(ctx, pi.SpecCommit, target, ""))
+		return errors.EnsureStack(pc.psDriver.SetState(ctx, pi.SpecCommit, target, reason))
 	}
 	return nil
 }
@@ -652,7 +652,7 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 // if errorState {
 //   return pc.restartPipeline("entered error state")
 // }
-func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController, reason string) error {
+func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
 	if rc != nil && !rcIsFresh(pi, rc) {
 		// delete old RC, monitorPipeline goro, and worker service
 		if err := pc.deletePipelineResources(); err != nil {
@@ -663,7 +663,7 @@ func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.Pipel
 	if err := pc.iDriver.CreatePipelineResources(ctx, pi); err != nil {
 		return errors.Wrap(err, "error creating resources for restart")
 	}
-	return errors.Errorf("restarting pipeline %q: %s", pi.Pipeline.Name, reason)
+	return nil
 }
 
 // deletePipelineResources deletes the monitors, k8s RC and k8s services associated with pc's
