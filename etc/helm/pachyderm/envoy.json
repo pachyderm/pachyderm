@@ -352,7 +352,6 @@
                                           },
                                           "route": {
                                              "cluster": "pachd-grpc",
-                                             "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
                                        },
@@ -415,7 +414,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-http",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -493,7 +492,6 @@
                                           },
                                           "route": {
                                              "cluster": "pachd-grpc",
-                                             "idle_timeout": "600s",
                                              "timeout": "604800s"
                                           }
                                        }
@@ -502,7 +500,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-grpc",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -588,7 +586,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-s3",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -666,7 +664,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-identity",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -744,7 +742,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-oidc",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -828,7 +826,7 @@
                               ]
                            },
                            "stat_prefix": "direct-console",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }
@@ -906,7 +904,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-metrics",
-                           "stream_idle_timeout": "60s",
+                           "stream_idle_timeout": "0s",
                            "use_remote_address": true
                         }
                      }

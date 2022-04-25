@@ -12,7 +12,6 @@ local services = {
       },
       route: {
         cluster: 'pachd-grpc',
-        idle_timeout: '3600s',
         timeout: '604800s',
       },
     },
