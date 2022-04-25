@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -34,8 +35,8 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 
 // ConfigureOIDCProvider configures the identity service and the auth service to
 // use a mock connector.
-func ConfigureOIDCProvider(t *testing.T) error {
-	adminClient := GetAuthenticatedPachClient(t, auth.RootUser)
+func ConfigureOIDCProvider(t *testing.T, c *client.APIClient) error {
+	adminClient := AuthenticateClient(t, c, auth.RootUser)
 
 	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
 	require.NoError(t, err)
@@ -132,7 +133,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	require.NoError(t, err)
 }
 
-func GetOIDCTokenForTrustedApp(t testing.TB) string {
+func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient) string {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -141,7 +142,6 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	testClient := GetUnauthenticatedPachClient(t)
 
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
@@ -212,7 +212,10 @@ func DexHost(c *client.APIClient) string {
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31658"
 	}
-	return c.GetAddress().Host + ":30658"
+	// TODO(acohen4): revisit the way we are doing rewrites here
+	// NOTE: the identity port is dynamically allocated in
+	// src/internal/minikubetestenv/deploy.go
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+8)
 }
 
 func pachHost(c *client.APIClient) string {
@@ -222,5 +225,7 @@ func pachHost(c *client.APIClient) string {
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31657"
 	}
-	return c.GetAddress().Host + ":30657"
+	// NOTE: the identity port is dynamically allocated in
+	// src/internal/minikubetestenv/deploy.go
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+7)
 }
