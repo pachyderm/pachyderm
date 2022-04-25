@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/service"
@@ -73,13 +74,20 @@ func NewWorker(
 	worker.APIServer = server.NewAPIServer(driver, worker.status, env.Config().PodName)
 
 	go worker.master(env)
-	go worker.worker()
+	go worker.worker(env) // add env here
 	return worker, nil
 }
 
-func (w *Worker) worker() {
+func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
+
+	kd := ppsServer.NewKubeDriver(env.GetKubeClient(), *env.Config(), env.Logger())
+	imageID, err := kd.GetImageID(ctx, env.Config().WorkerSpecificConfiguration.PodName)
+	if err != nil {
+		// do something
+	}
+	w.status.ImageID = imageID
 
 	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
