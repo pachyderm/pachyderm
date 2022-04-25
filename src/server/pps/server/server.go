@@ -45,40 +45,15 @@ type Env struct {
 	Logger            *logrus.Logger
 	Config            serviceenv.Configuration
 }
-type envOpts struct {
-	kubeClient bool
-}
 
-func newEnvOpts() *envOpts {
-	return &envOpts{
-		kubeClient: true,
-	}
-}
-
-type EnvOption func(*envOpts)
-
-func WithoutKubeClient(opts *envOpts) {
-	opts.kubeClient = false
-}
-
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter, opts ...EnvOption) Env {
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
 	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
-
-	envOpts := newEnvOpts()
-	for _, o := range opts {
-		o(envOpts)
-	}
-
-	var kubeClient *kubernetes.Clientset
-	if envOpts.kubeClient {
-		kubeClient = senv.GetKubeClient()
-	}
 
 	return Env{
 		DB:            senv.GetDBClient(),
 		TxnEnv:        txnEnv,
 		Listener:      senv.GetPostgresListener(),
-		KubeClient:    kubeClient,
+		KubeClient:    senv.GetKubeClient(),
 		EtcdClient:    senv.GetEtcdClient(),
 		EtcdPrefix:    etcdPrefix,
 		TaskService:   senv.GetTaskService(etcdPrefix),
