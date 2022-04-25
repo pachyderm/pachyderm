@@ -1947,8 +1947,11 @@ func TestWaitJobSetFailures(t *testing.T) {
 			}
 		} else {
 			for _, ji := range jobInfos {
-				if ji.Job.Pipeline.Name != pipelineName(0) {
+				switch ji.Job.Pipeline.Name {
+				case pipelineName(1):
 					require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
+				case pipelineName(2):
+					require.Equal(t, pps.JobState_JOB_CANCELLED.String(), ji.State.String())
 				}
 			}
 		}
