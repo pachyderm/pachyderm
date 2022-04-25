@@ -1,7 +1,7 @@
-import {requestAPI} from '../../../../handler';
-import React, {useEffect, useState} from 'react';
-import {KubernetesElephantSVG, usePreviousValue} from '@pachyderm/components';
+import React from 'react';
+import {KubernetesElephantSVG} from '@pachyderm/components';
 import {AuthConfig} from 'plugins/mount/types';
+import {useConfig} from './hooks/useConfig';
 type ConfigProps = {
   showConfig: boolean;
   setShowConfig: (shouldShow: boolean) => void;
@@ -19,94 +19,27 @@ const Config: React.FC<ConfigProps> = ({
   authConfig,
   refresh,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [addressField, setAddressField] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [shouldShowLogin, setShouldShowLogin] = useState(false);
-  const [shouldShowAddressInput, setShouldShowAddressInput] = useState(false);
+  const {
+    addressField,
+    setAddressField,
+    errorMessage,
+    setErrorMessage,
+    shouldShowAddressInput,
+    setShouldShowAddressInput,
+    updatePachdAddress,
+    callLogin,
+    callLogout,
+    shouldShowLogin,
+    loading,
+  } = useConfig(
+    showConfig,
+    setShowConfig,
+    updateConfig,
+    authConfig,
+    refresh,
+    reposStatus,
+  );
 
-  useEffect(() => {
-    if (showConfig) {
-      setShouldShowLogin(authConfig.cluster_status === 'AUTH_ENABLED');
-      setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
-    }
-    setErrorMessage('');
-    setAddressField('');
-  }, [showConfig, authConfig]);
-
-  const previousStatus = usePreviousValue(reposStatus);
-
-  useEffect(() => {
-    if (
-      showConfig &&
-      previousStatus &&
-      previousStatus !== 200 &&
-      reposStatus === 200
-    ) {
-      setShowConfig(false);
-    }
-  }, [showConfig, reposStatus]);
-
-  const updatePachdAddress = async () => {
-    setLoading(true);
-    try {
-      const tmpAddress = addressField.trim();
-      const validAddressPattern = /^((grpc|grpcs|http|https|unix):\/\/)/;
-
-      if (validAddressPattern.test(tmpAddress)) {
-        const response = await requestAPI<AuthConfig>('config', 'PUT', {
-          pachd_address: tmpAddress,
-        });
-
-        if (response.cluster_status === 'INVALID') {
-          setErrorMessage('Invalid address.');
-        } else {
-          updateConfig(response);
-          setShouldShowLogin(response.cluster_status === 'AUTH_ENABLED');
-        }
-      } else {
-        setErrorMessage(
-          'address should start with grpc://, grpcs://, http://, https:// or unix://',
-        );
-      }
-    } catch (e) {
-      setErrorMessage('error setting pachd address.');
-      console.log(e);
-    }
-    setLoading(false);
-  };
-
-  const callLogin = async () => {
-    setLoading(true);
-    try {
-      const res = await requestAPI<any>('auth/_login', 'PUT');
-      if (res.auth_url) {
-        const x = window.screenX + (window.outerWidth - 500) / 2;
-        const y = window.screenY + (window.outerHeight - 500) / 2.5;
-        const features = `width=${500},height=${500},left=${x},top=${y}`;
-        window.open(res.auth_url, '', features);
-      }
-    } catch (e) {
-      console.log(e);
-    }
-
-    // There is no current way to get infromation from the auth_url window.
-    // Adding a timeout to prevent users from spamming the button.
-    setTimeout(() => {
-      setLoading(false);
-    }, 2000);
-  };
-
-  const callLogout = async () => {
-    setLoading(true);
-    try {
-      await requestAPI<any>('auth/_logout', 'PUT');
-      await refresh();
-    } catch (e) {
-      console.log(e);
-    }
-    setLoading(false);
-  };
   return (
     <>
       <div className="pachyderm-mount-config-form-base">

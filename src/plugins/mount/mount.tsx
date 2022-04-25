@@ -109,6 +109,7 @@ export class MountPlugin implements IMountPlugin {
             <SortableList
               open={this.open}
               repos={mounted ? mounted : this._poller.mounted}
+              updateData={this._poller.updateData}
             />
           </div>
         )}
@@ -126,6 +127,7 @@ export class MountPlugin implements IMountPlugin {
             <SortableList
               open={this.open}
               repos={unmounted ? unmounted : this._poller.unmounted}
+              updateData={this._poller.updateData}
             />
           </div>
         )}

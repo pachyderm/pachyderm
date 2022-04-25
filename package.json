@@ -118,7 +118,9 @@
         }
       }
     },
-    "disabledExtensions": ["jupyterlab-pachyderm:examples"],
+    "disabledExtensions": [
+      "jupyterlab-pachyderm:examples"
+    ],
     "extension": true,
     "outputDir": "jupyterlab_pachyderm/labextension",
     "schemaDir": "schema"

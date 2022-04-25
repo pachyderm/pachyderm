@@ -15,9 +15,10 @@ export const DISABLED_STATES: mountState[] = [
 type ListItemProps = {
   repo: Repo;
   open: (path: string) => void;
+  updateData: (data: Repo[]) => void;
 };
 
-const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
+const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
   const [mountedBanch, setMountedBranch] = useState<Branch>();
   const [selectedBranch, setSelectedBranch] = useState<string>();
   const [disabled, setDisabled] = useState<boolean>(false);
@@ -56,18 +57,26 @@ const ListItem: React.FC<ListItemProps> = ({repo, open}) => {
 
   const mount = async () => {
     setDisabled(true);
-    if (mountedBanch) {
-      await requestAPI<any>(
-        `repos/${repo.repo}/${mountedBanch.branch}/_unmount?name=${repo.repo}`,
-        'PUT',
-      );
-    } else {
-      await requestAPI<any>(
-        `repos/${repo.repo}/${selectedBranch}/_mount?name=${repo.repo}&mode=ro`,
-        'PUT',
-      );
+    try {
+      if (mountedBanch) {
+        const updatedRepos = await requestAPI<Repo[]>(
+          `repos/${repo.repo}/${mountedBanch.branch}/_unmount?name=${repo.repo}`,
+          'PUT',
+        );
+        updateData(updatedRepos);
+      } else {
+        if (selectedBranch) {
+          const updatedRepos = await requestAPI<Repo[]>(
+            `repos/${repo.repo}/${selectedBranch}/_mount?name=${repo.repo}&mode=ro`,
+            'PUT',
+          );
+          updateData(updatedRepos);
+        }
+      }
+      open('');
+    } catch {
+      console.log('error mounting or unmounting repo');
     }
-    open('');
   };
 
   if (!hasBranches) {

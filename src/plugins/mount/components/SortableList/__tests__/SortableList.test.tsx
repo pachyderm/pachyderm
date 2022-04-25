@@ -1,15 +1,25 @@
 import React from 'react';
-import {act, render, screen, fireEvent} from '@testing-library/react';
+import {act, render, screen, fireEvent, waitFor} from '@testing-library/react';
 
 import SortableList from '../SortableList';
-import {requestAPI} from '../../../../../handler';
 import userEvent from '@testing-library/user-event';
 import {Repo} from 'plugins/mount/types';
+import * as requestAPI from '../../../../../handler';
+import {mockedRequestAPI} from 'utils/testUtils';
 jest.mock('../../../../../handler');
 
 describe('mount components', () => {
+  let open = jest.fn();
+  let updateData = jest.fn();
+  const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
+
+  beforeEach(() => {
+    open = jest.fn();
+    updateData = jest.fn();
+    mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI([]));
+  });
+
   it('should disable mount for repo with no branches', async () => {
-    const open = jest.fn();
     const repos = [
       {
         repo: 'images',
@@ -17,15 +27,15 @@ describe('mount components', () => {
       },
     ];
 
-    const {getByTestId} = render(<SortableList open={open} repos={repos} />);
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
     const listItem = getByTestId('ListItem__noBranches');
     expect(listItem).toHaveTextContent('images');
     expect(listItem).toHaveTextContent('No Branches');
   });
 
   it('should sort repos by name', async () => {
-    const open = jest.fn();
-
     const repos = [
       {
         repo: 'images',
@@ -38,7 +48,7 @@ describe('mount components', () => {
     ];
 
     const {getByText, getAllByTestId} = render(
-      <SortableList open={open} repos={repos} />,
+      <SortableList open={open} repos={repos} updateData={updateData} />,
     );
     let listItems = getAllByTestId('ListItem__noBranches');
     expect(listItems.length).toEqual(2);
@@ -54,7 +64,6 @@ describe('mount components', () => {
   });
 
   it('should allow user to mount unmounted repo', async () => {
-    const open = jest.fn();
     const repos: Repo[] = [
       {
         repo: 'images',
@@ -76,7 +85,9 @@ describe('mount components', () => {
       },
     ];
 
-    const {getByTestId} = render(<SortableList open={open} repos={repos} />);
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
     const listItem = getByTestId('ListItem__branches');
     const mountButton = getByTestId('ListItem__mount');
 
@@ -84,16 +95,17 @@ describe('mount components', () => {
     expect(mountButton).not.toBeDisabled();
     mountButton.click();
 
+    await waitFor(() => {
+      expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
+        'repos/images/master/_mount?name=images&mode=ro',
+        'PUT',
+      );
+    });
     expect(mountButton).toBeDisabled();
-    expect(requestAPI).toHaveBeenCalledWith(
-      'repos/images/master/_mount?name=images&mode=ro',
-      'PUT',
-    );
+    expect(updateData).toBeCalledWith([]);
   });
 
   it('should allow user to unmount mounted repo', async () => {
-    const open = jest.fn();
-
     const repos: Repo[] = [
       {
         repo: 'images',
@@ -115,7 +127,9 @@ describe('mount components', () => {
       },
     ];
 
-    const {getByTestId} = render(<SortableList open={open} repos={repos} />);
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
     const listItem = getByTestId('ListItem__branches');
     const unmountButton = getByTestId('ListItem__unmount');
 
@@ -124,16 +138,17 @@ describe('mount components', () => {
 
     unmountButton.click();
 
+    await waitFor(() => {
+      expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
+        'repos/images/master/_unmount?name=images',
+        'PUT',
+      );
+    });
     expect(unmountButton).toBeDisabled();
-    expect(requestAPI).toHaveBeenCalledWith(
-      'repos/images/master/_unmount?name=images',
-      'PUT',
-    );
+    expect(updateData).toBeCalledWith([]);
   });
 
   it('should open mounted repo on click', async () => {
-    const open = jest.fn();
-
     const repos: Repo[] = [
       {
         repo: 'images',
@@ -155,14 +170,14 @@ describe('mount components', () => {
       },
     ];
 
-    const {getByText} = render(<SortableList open={open} repos={repos} />);
+    const {getByText} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
     getByText('images').click();
     expect(open).toHaveBeenCalledWith('images');
   });
 
   it('should allow user to select a branch to mount', async () => {
-    const open = jest.fn();
-
     const repos: Repo[] = [
       {
         repo: 'images',
@@ -198,7 +213,7 @@ describe('mount components', () => {
     ];
 
     const {getByText, getByTestId} = render(
-      <SortableList open={open} repos={repos} />,
+      <SortableList open={open} repos={repos} updateData={updateData} />,
     );
     const select = getByTestId('ListItem__select') as HTMLSelectElement;
 
@@ -206,15 +221,13 @@ describe('mount components', () => {
     fireEvent.change(select, {target: {value: 'develop'}});
 
     getByText('Mount').click();
-    expect(requestAPI).toHaveBeenCalledWith(
+    expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
       'repos/images/develop/_mount?name=images&mode=ro',
       'PUT',
     );
   });
 
   it('should display state and status of mounted brach', async () => {
-    const open = jest.fn();
-
     const repos: Repo[] = [
       {
         repo: 'edges',
@@ -236,7 +249,9 @@ describe('mount components', () => {
       },
     ];
     act(() => {
-      render(<SortableList open={open} repos={repos} />);
+      render(
+        <SortableList open={open} repos={repos} updateData={updateData} />,
+      );
     });
     const statusIcon = screen.getByTestId('ListItem__statusIcon');
 
@@ -303,7 +318,9 @@ describe('mount components', () => {
         ],
       },
     ];
-    const {getAllByTestId} = render(<SortableList open={open} repos={repos} />);
+    const {getAllByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
     const unmountButtons = getAllByTestId('ListItem__unmount');
     expect(unmountButtons[0]).toBeDisabled();
     expect(unmountButtons[1]).toBeDisabled();

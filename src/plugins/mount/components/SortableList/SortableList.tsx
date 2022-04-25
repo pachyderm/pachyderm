@@ -7,6 +7,7 @@ import {useSort, stringComparator} from '@pachyderm/components';
 type SortableListProps = {
   repos: Repo[];
   open: (path: string) => void;
+  updateData: (data: Repo[]) => void;
 };
 
 const nameComparator = {
@@ -15,7 +16,11 @@ const nameComparator = {
   accessor: (repo: Repo) => repo.repo,
 };
 
-const SortableList: React.FC<SortableListProps> = ({open, repos}) => {
+const SortableList: React.FC<SortableListProps> = ({
+  open,
+  repos,
+  updateData,
+}) => {
   const {sortedData, setComparator, reversed} = useSort<Repo>({
     data: repos,
     initialSort: nameComparator,
@@ -42,7 +47,12 @@ const SortableList: React.FC<SortableListProps> = ({open, repos}) => {
       <ul className="pachyderm-mount-sortableList-content">
         {sortedData &&
           sortedData.map((repo: Repo) => (
-            <ListItem repo={repo} key={repo.repo} open={open} />
+            <ListItem
+              repo={repo}
+              key={repo.repo}
+              open={open}
+              updateData={updateData}
+            />
           ))}
       </ul>
     </div>

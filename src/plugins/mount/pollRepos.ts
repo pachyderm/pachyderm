@@ -122,6 +122,18 @@ export class PollRepos {
     await this._dataPoll.tick;
   };
 
+  updateData = (data: Repo[]): void => {
+    if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
+      this._rawData = data;
+      const [mountedPartition, unmountedPartition] = partition(
+        data,
+        (rep: Repo) => findMountedBranch(rep),
+      );
+      this.mounted = mountedPartition;
+      this.unmounted = unmountedPartition;
+    }
+  };
+
   async getData(): Promise<void> {
     try {
       const config = await requestAPI<AuthConfig>('config', 'GET');
@@ -129,15 +141,7 @@ export class PollRepos {
       if (config.cluster_status !== 'INVALID') {
         const data = await requestAPI<Repo[]>('repos', 'GET');
         this.status = 200;
-        if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
-          this._rawData = data;
-          const [mountedPartition, unmountedPartition] = partition(
-            data,
-            (rep: Repo) => findMountedBranch(rep),
-          );
-          this.mounted = mountedPartition;
-          this.unmounted = unmountedPartition;
-        }
+        this.updateData(data);
       }
     } catch (error) {
       if (error instanceof ServerConnection.ResponseError) {
