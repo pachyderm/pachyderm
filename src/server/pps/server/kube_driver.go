@@ -173,3 +173,15 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 	}
 	return kubePipelineWatch.ResultChan(), kubePipelineWatch.Stop, nil
 }
+
+func (kd *kubeDriver) GetImageID(ctx context.Context, podName string) (string, error) {
+	pod, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Get(
+		ctx,
+		podName,
+		metav1.GetOptions{})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get kubernetes pod")
+	}
+
+	return pod.Status.ContainerStatuses[1].ImageID, nil // second container should be the pipeline image, first should be pachd
+}
