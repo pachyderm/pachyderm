@@ -88,6 +88,7 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 		// do something
 	}
 	w.status.ImageID = imageID
+	logger.Logf("GOT IMAGE ID:, %s", imageID)
 
 	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
