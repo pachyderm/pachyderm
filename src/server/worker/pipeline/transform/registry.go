@@ -462,10 +462,20 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {
 	client := pj.driver.PachClient()
-	if _, err := client.Egress(client.Ctx(), &pfs.EgressRequest{
-		Source:    pj.commitInfo.Commit,
-		TargetUrl: pj.ji.Details.Egress.URL,
-		Sql:       pj.ji.Details.Egress.SqlOptions}); err != nil && !pfsserver.IsFileNotFoundErr(err) {
+	egress := pj.ji.Details.Egress
+	var request pfs.EgressRequest
+	request.Commit = pj.commitInfo.Commit
+	if pj.ji.Details.Egress.URL != "" {
+		request.Target = &pfs.EgressRequest_Obj{Obj: egress.GetObj()}
+	} else {
+		switch egress.Target.(type) {
+		case *pps.Egress_Obj:
+			request.Target = &pfs.EgressRequest_Obj{Obj: egress.GetObj()}
+		case *pps.Egress_Sql:
+			request.Target = &pfs.EgressRequest_Sql{Sql: egress.GetSql()}
+		}
+	}
+	if _, err := client.Egress(client.Ctx(), &request); err != nil && !pfsserver.IsFileNotFoundErr(err) {
 		return err
 	}
 	return reg.succeedJob(pj)

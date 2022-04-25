@@ -6220,14 +6220,16 @@ func TestPFS(suite *testing.T) {
 				}
 
 				// run Egress to copy data from source commit to target database
+				test.options.Url = fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort, dbName)
 				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{
-						Source:    commit,
-						TargetUrl: fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort, dbName),
-						Sql:       test.options,
+						Commit: commit,
+						Target: &pfs.EgressRequest_Sql{
+							Sql: test.options,
+						},
 					})
 				require.NoError(t, err)
-				require.Equal(t, test.expectedCounts, resp.SqlRowsWritten)
+				require.Equal(t, test.expectedCounts, resp.GetSqlResult().GetSqlRowsWritten())
 
 				// verify that actual rows got written to db
 				var count int64

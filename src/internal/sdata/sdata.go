@@ -43,9 +43,6 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 		return nil, errors.EnsureStack(err)
 	}
 	cTypes, err := rows.ColumnTypes()
-	for i, name := range colNames {
-		fmt.Printf("%s: %s\n", name, cTypes[i])
-	}
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

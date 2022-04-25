@@ -47,7 +47,10 @@ message TFJob {
 
 message Egress {
   string URL = 1;
-  pfs_v2.SQLEgressOptions sql_options = 2;
+  oneof target {
+    pfs_v2.ObjectStorageEgressOptions obj = 2;
+    pfs_v2.SQLEgressOptions sql = 3;
+  }
 }
 
 message Job {

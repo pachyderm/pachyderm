@@ -496,8 +496,9 @@ func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.Env
 
 func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	result := []v1.EnvVar{}
-	if pipelineInfo.Details.Egress != nil && pipelineInfo.Details.Egress.SqlOptions != nil && pipelineInfo.Details.Egress.SqlOptions.Secret != nil {
-		secret := pipelineInfo.Details.Egress.SqlOptions.Secret
+	egress := pipelineInfo.Details.Egress
+	if egress != nil && egress.GetSql() != nil && egress.GetSql().GetSecret() != nil {
+		secret := egress.GetSql().GetSecret()
 		result = append(result, v1.EnvVar{
 			Name: secret.EnvVar,
 			ValueFrom: &v1.EnvVarSource{

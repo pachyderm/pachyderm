@@ -462,13 +462,17 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
+message ObjectStorageEgressOptions {
+  string url = 1;
+}
+
 message SQLEgressOptions {
   message FileFormat {
     enum Type {
         UNKNOWN = 0;
         CSV = 1;
-        PARQUET = 2;
-        JSON = 3;
+        JSON = 2;
+        PARQUET = 3;
     }
     message Options {
       repeated string json_field_names = 1;
@@ -482,17 +486,25 @@ message SQLEgressOptions {
     string mount_path = 3;
     string env_var = 4;
   }
-  FileFormat file_format = 1;
-  Secret secret = 2;
+  string url = 1;
+  FileFormat file_format = 2;
+  Secret secret = 3;
 }
 message EgressRequest {
-  pfs_v2.Commit source = 1;
-  string target_url = 2;
-  SQLEgressOptions sql = 3;
+  pfs_v2.Commit commit = 1;
+  oneof target {
+    ObjectStorageEgressOptions obj = 2;
+    SQLEgressOptions sql = 3;
+  }
 }
 message EgressResponse {
-  int64 bytes_written = 1;
-  map<string, int64> sql_rows_written = 2;
+  message SQLEgressResult {
+    map<string, int64> sql_rows_written = 1;
+  }
+  oneof ret {
+    int64 bytes_written = 1;
+    SQLEgressResult sql_result = 2;
+  }
 }
 
 service API {
