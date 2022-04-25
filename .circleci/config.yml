@@ -289,7 +289,8 @@ jobs:
     steps:
       - checkout
       - run: sudo npm install -g prettier
-      - run: prettier -c etc/helm/pachyderm/values.yaml etc/helm/pachyderm/envoy.yaml .circleci/config.yml
+      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
+  # TODO(jonathan): test envoy + jsonnet
   push_redhat:
     docker:
       - image: cimg/go:1.17.3
