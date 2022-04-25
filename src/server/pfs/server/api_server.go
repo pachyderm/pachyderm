@@ -907,10 +907,12 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 	if !(errors.As(objErr, &url.Error{}) || errors.As(objErr, &obj.URLFormatError{})) {
 		return nil, errors.EnsureStack(objErr)
 	}
-	// url didn't match object storage format, so try SQL db instead
+
+	a.driver.log.Info("Egress failed for Object Storage: %v, trying SQL DB protocol instead", objErr)
+	// try SQL DB instead
 	rowsWritten, dbErr := copyToSQLDB(ctx, src, req.TargetUrl, req.Sql.FileFormat)
 	if dbErr != nil {
-		return nil, errors.Errorf("egress failed: [error1] %v [error2] %v", objErr, dbErr)
+		return nil, errors.EnsureStack(errors.Errorf("egress failed: %v", dbErr))
 	}
 	return &pfs.EgressResponse{SqlRowsWritten: rowsWritten}, nil
 }
