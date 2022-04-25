@@ -1,0 +1,35 @@
+{
+  "pipeline": {
+      "name": "datawarehouse_egress_test"
+  },
+  "description": "A pipeline that test the insertion of data in a table of a datawarehouse - test",
+  "input": {
+      "pfs": {
+          "repo": "mysnowflakeingest",
+          "branch": "master",
+          "glob": "/"
+      }
+  },
+  "transform": {
+      "image": "ubuntu:22.04",
+      "cmd": [
+          "bash"
+      ],
+      "stdin": [
+          "mkdir -p /pfs/out/test_table && cp -r /pfs/mysnowflakeingest/* /pfs/out/test_table"
+      ]
+  },
+  "egress": {
+      "URL": "snowflake://albertpachyderm@CDKSVXM-PN23804/ALBERT_TEST/PUBLIC?warehouse=COMPUTE_WH",
+      "sql_options": {
+          "file_format": {
+              "type": "JSON"
+          },
+          "secret": {
+              "k8s_secret": "snowflakesecret2",
+              "key": "PACHYDERM_SQL_PASSWORD",
+              "env_var": "PACHYDERM_SQL_PASSWORD"
+          }
+      }
+  }
+}
