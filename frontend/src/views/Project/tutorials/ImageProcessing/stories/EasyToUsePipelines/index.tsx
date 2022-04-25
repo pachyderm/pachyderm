@@ -67,14 +67,13 @@ const EasyToUsePipelines: Story = {
             Note that there was no need to create the input queues, output
             queues, define exception handling, or even create the data
             repository if it already exists. There is just one command for
-            creating a data-driven pipeline using 11 lines of easily-understood
-            YAML.
+            creating a data-driven pipeline using 9 lines of easily-understood
+            JSON.
           </p>
           <ul>
             <li>2 lines identify the pipeline</li>
             <li>4 lines define the input</li>
-            <li>1 line specifies the input</li>
-            <li>4 lines specifies the command</li>
+            <li>3 lines specify the command</li>
           </ul>
           <p>
             Each pipeline automatically creates a versioned data repository to

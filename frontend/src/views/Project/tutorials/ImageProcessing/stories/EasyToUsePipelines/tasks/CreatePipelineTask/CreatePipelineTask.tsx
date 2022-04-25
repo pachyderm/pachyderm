@@ -10,20 +10,21 @@ import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
-const PIPELINE_YAML = `
----
-pipeline:
-  name: edges
-input:
-  pfs:
-    glob: /*
-    repo: images
-transform:
-  cmd:
-  - python3
-  - "/edges.py"
-  image: pachyderm/opencv@sha256:38e947bccc9c8e1034026033c6fb1e605e35929caf4f7fe11115cf5a1e84859a
-`;
+const PIPELINE_JSON = `{
+  "pipeline": {
+    "name": "edges"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "images"
+    }
+  },
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv:1.0"
+  }
+}`;
 
 const CreatePipelineTask: React.FC<TaskComponentProps> = ({
   onCompleted,
@@ -52,9 +53,9 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
   );
 
   const file = {
-    name: 'pipeline.yaml',
-    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.yaml',
-    contents: PIPELINE_YAML,
+    name: 'pipeline.json',
+    path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
+    contents: PIPELINE_JSON,
   };
 
   return (
@@ -73,7 +74,7 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
             More than one pipeline can use a repo as input, and a pipeline can
             have more than one repo as input.
           </p>
-          <p>The definition of this pipeline looks like this, in YAML</p>
+          <p>The definition of this pipeline looks like this, in JSON</p>
         </>
       }
       disabled={accountLoading}
