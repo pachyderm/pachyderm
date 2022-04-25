@@ -1,0 +1,24 @@
+{
+    "pipeline": {
+        "name": "train"
+    },
+    "description": "A pipeline that trains a basic model to predict churn.",
+    "transform": {
+        "image": "pachyderm/churn_train",
+        "cmd": ["python", "/train.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "churn_ingress",
+            "glob": "/*"
+        }
+    },
+    "resource_limits": {
+        "memory": "256MB",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "256MB",
+        "cpu": 1
+    }
+}
