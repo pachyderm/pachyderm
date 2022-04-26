@@ -900,19 +900,19 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 		return nil, err
 	}
 	switch target := req.Target.(type) {
-	case *pfs.EgressRequest_Obj:
-		bytesWritten, err := getFileURL(ctx, target.Obj.Url, src)
+	case *pfs.EgressRequest_ObjectStorage:
+		result, err := copyToObjectStorage(ctx, src, target.ObjectStorage.Url)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		return &pfs.EgressResponse{Ret: &pfs.EgressResponse_BytesWritten{BytesWritten: bytesWritten}}, nil
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_ObjectStorage{ObjectStorage: result}}, nil
 
-	case *pfs.EgressRequest_Sql:
-		rowsWritten, err := copyToSQLDB(ctx, src, target.Sql.Url, target.Sql.FileFormat)
+	case *pfs.EgressRequest_SqlDatabase:
+		result, err := copyToSQLDB(ctx, src, target.SqlDatabase.Url, target.SqlDatabase.FileFormat)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-		return &pfs.EgressResponse{Ret: &pfs.EgressResponse_SqlResult{SqlResult: &pfs.EgressResponse_SQLEgressResult{SqlRowsWritten: rowsWritten}}}, nil
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_SqlDatabase{SqlDatabase: result}}, nil
 	}
 	return nil, errors.Errorf("egress failed")
 }

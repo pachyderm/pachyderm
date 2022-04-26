@@ -6158,7 +6158,7 @@ func TestPFS(suite *testing.T) {
 		tests := []struct {
 			name           string
 			files          []File
-			options        *pfs.SQLEgressOptions
+			options        *pfs.SQLDatabaseEgress
 			tables         []string
 			expectedCounts map[string]int64
 		}{
@@ -6170,7 +6170,7 @@ func TestPFS(suite *testing.T) {
 					{"1,this is in test_table2", "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
-				options:        &pfs.SQLEgressOptions{FileFormat: &pfs.SQLEgressOptions_FileFormat{Type: pfs.SQLEgressOptions_FileFormat_CSV}},
+				options:        &pfs.SQLDatabaseEgress{FileFormat: &pfs.SQLDatabaseEgress_FileFormat{Type: pfs.SQLDatabaseEgress_FileFormat_CSV}},
 				tables:         []string{"test_table", "test_table2", "empty_table"},
 				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
@@ -6184,11 +6184,10 @@ func TestPFS(suite *testing.T) {
 					{`{"ID":1,"A":"Foo"}`, "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
-				options: &pfs.SQLEgressOptions{
-					FileFormat: &pfs.SQLEgressOptions_FileFormat{
-						Type: pfs.SQLEgressOptions_FileFormat_JSON,
-						Options: &pfs.SQLEgressOptions_FileFormat_Options{
-							JsonFieldNames: []string{"ID", "A"}}}},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type:           pfs.SQLDatabaseEgress_FileFormat_JSON,
+						JsonFieldNames: []string{"ID", "A"}}},
 				tables:         []string{"test_table", "test_table2", "empty_table"},
 				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
@@ -6202,7 +6201,7 @@ func TestPFS(suite *testing.T) {
 				db := tu.OpenDB(t,
 					dbutil.WithMaxOpenConns(1),
 					dbutil.WithUserPassword(tu.DefaultPostgresUser, tu.DefaultPostgresPassword),
-					dbutil.WithHostPort(dockertestenv.PostgresHost(), dockertestenv.PGBouncerPort),
+					dbutil.WithHostPort(dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort),
 					dbutil.WithDBName(dbName),
 				)
 				for _, tableName := range test.tables {
@@ -6224,12 +6223,12 @@ func TestPFS(suite *testing.T) {
 				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{
 						Commit: commit,
-						Target: &pfs.EgressRequest_Sql{
-							Sql: test.options,
+						Target: &pfs.EgressRequest_SqlDatabase{
+							SqlDatabase: test.options,
 						},
 					})
 				require.NoError(t, err)
-				require.Equal(t, test.expectedCounts, resp.GetSqlResult().GetSqlRowsWritten())
+				require.Equal(t, test.expectedCounts, resp.GetSqlDatabase().GetRowsWritten())
 
 				// verify that actual rows got written to db
 				var count int64

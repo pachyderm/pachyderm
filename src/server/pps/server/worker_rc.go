@@ -497,10 +497,10 @@ func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.Env
 func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	result := []v1.EnvVar{}
 	egress := pipelineInfo.Details.Egress
-	if egress != nil && egress.GetSql() != nil && egress.GetSql().GetSecret() != nil {
-		secret := egress.GetSql().GetSecret()
+	if egress != nil && egress.GetSqlDatabase() != nil && egress.GetSqlDatabase().GetSecret() != nil {
+		secret := egress.GetSqlDatabase().GetSecret()
 		result = append(result, v1.EnvVar{
-			Name: secret.EnvVar,
+			Name: "PACHYDERM_SQL_PASSWORD", // TODO avoid hardcoding this
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{Name: secret.K8SSecret},

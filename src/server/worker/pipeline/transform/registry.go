@@ -466,15 +466,16 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 	var request pfs.EgressRequest
 	request.Commit = pj.commitInfo.Commit
 	if pj.ji.Details.Egress.URL != "" {
-		request.Target = &pfs.EgressRequest_Obj{Obj: egress.GetObj()}
+		request.Target = &pfs.EgressRequest_ObjectStorage{ObjectStorage: egress.GetObjectStorage()}
 	} else {
 		switch egress.Target.(type) {
-		case *pps.Egress_Obj:
-			request.Target = &pfs.EgressRequest_Obj{Obj: egress.GetObj()}
-		case *pps.Egress_Sql:
-			request.Target = &pfs.EgressRequest_Sql{Sql: egress.GetSql()}
+		case *pps.Egress_ObjectStorage:
+			request.Target = &pfs.EgressRequest_ObjectStorage{ObjectStorage: egress.GetObjectStorage()}
+		case *pps.Egress_SqlDatabase:
+			request.Target = &pfs.EgressRequest_SqlDatabase{SqlDatabase: egress.GetSqlDatabase()}
 		}
 	}
+	// TODO explicitly handle/swallow more unrecoverable errors from SqlDatabase, to prevent job being stuck in egressing.
 	if _, err := client.Egress(client.Ctx(), &request); err != nil && !pfsserver.IsFileNotFoundErr(err) {
 		return err
 	}

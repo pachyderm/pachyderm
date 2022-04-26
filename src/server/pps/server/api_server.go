@@ -1493,6 +1493,10 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
+// func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
+
+// }
+
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
@@ -1517,6 +1521,9 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
 		return err
 	}
+	// if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
+	// 	return err
+	// }
 	if pipelineInfo.Details.ParallelismSpec != nil {
 		if pipelineInfo.Details.Service != nil && pipelineInfo.Details.ParallelismSpec.Constant != 1 {
 			return errors.New("services can only be run with a constant parallelism of 1")

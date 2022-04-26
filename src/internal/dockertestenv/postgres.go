@@ -20,17 +20,17 @@ import (
 )
 
 const (
-	PostgresPort  = 30228
+	postgresPort  = 30228
 	PGBouncerPort = 30229
 	maxOpenConns  = 10
 )
 
-func PostgresHost() string {
+func postgresHost() string {
 	return getDockerHost()
 }
 
 func PGBouncerHost() string {
-	return PostgresHost()
+	return postgresHost()
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
@@ -48,8 +48,8 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresDBName = dbName
 
 		// direct
-		c.PostgresHost = PostgresHost()
-		c.PostgresPort = PostgresPort
+		c.PostgresHost = postgresHost()
+		c.PostgresPort = postgresPort
 		// pg_bouncer
 		c.PGBouncerHost = PGBouncerHost()
 		c.PGBouncerPort = PGBouncerPort
@@ -109,7 +109,7 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	require.NoError(t, ensureDBEnv(t, ctx))
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(PostgresHost(), PostgresPort),
+		dbutil.WithHostPort(postgresHost(), postgresPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})

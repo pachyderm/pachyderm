@@ -462,11 +462,10 @@ message RunLoadTestResponse {
   google.protobuf.Duration duration = 5;
 }
 
-message ObjectStorageEgressOptions {
+message ObjectStorageEgress {
   string url = 1;
 }
-
-message SQLEgressOptions {
+message SQLDatabaseEgress {
   message FileFormat {
     enum Type {
         UNKNOWN = 0;
@@ -474,18 +473,14 @@ message SQLEgressOptions {
         JSON = 2;
         PARQUET = 3;
     }
-    message Options {
-      repeated string json_field_names = 1;
-    }
     Type type = 1;
-    Options options = 2;
+    repeated string json_field_names = 2;
   }
   message Secret {
     string k8s_secret = 1;
     string key = 2;
-    string mount_path = 3;
-    string env_var = 4;
   }
+
   string url = 1;
   FileFormat file_format = 2;
   Secret secret = 3;
@@ -493,17 +488,21 @@ message SQLEgressOptions {
 message EgressRequest {
   pfs_v2.Commit commit = 1;
   oneof target {
-    ObjectStorageEgressOptions obj = 2;
-    SQLEgressOptions sql = 3;
+    ObjectStorageEgress object_storage = 2;
+    SQLDatabaseEgress sql_database = 3;
   }
 }
 message EgressResponse {
-  message SQLEgressResult {
-    map<string, int64> sql_rows_written = 1;
-  }
-  oneof ret {
+  message ObjectStorageResult {
     int64 bytes_written = 1;
-    SQLEgressResult sql_result = 2;
+  }
+  message SQLDatabaseResult {
+    map<string, int64> rows_written = 1;
+  }
+
+  oneof result {
+    ObjectStorageResult object_storage = 1;
+    SQLDatabaseResult sql_database = 2;
   }
 }
 
