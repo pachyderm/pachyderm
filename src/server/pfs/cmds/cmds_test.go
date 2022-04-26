@@ -93,7 +93,7 @@ func TestPutFileNonexistentRepo(t *testing.T) {
 		"repo", repoName).Run())
 	// experimentally, the repo check should take less than three quarters
 	// of a second, while uploading 1GB of data takes well over two seconds
-	if time.Now().Sub(start) > 2*time.Second {
+	if time.Since(start) > 2*time.Second {
 		t.Error("pachctl put file appeared not to check if repo existed before uploading")
 	}
 }
