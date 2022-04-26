@@ -295,10 +295,11 @@ jobs:
       - image: envoyproxy/envoy:v1.22.0
         entrypoint: /bin/sh
     steps:
-      - checkout
       - run: apt update
-      - run: apt install -y make wget
+      - run: apt install -y make wget git ssh
+      - checkout
       - run: wget https://github.com/google/jsonnet/releases/download/v0.17.0/jsonnet-bin-v0.17.0-linux.tar.gz
+      - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
   push_redhat:
