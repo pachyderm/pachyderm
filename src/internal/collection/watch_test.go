@@ -207,6 +207,7 @@ func watchTests(
 		defer watcher.Close()
 
 		ev := nextEvent(watcher.Watch(), 5*time.Second)
+		require.NotNil(t, ev)
 		require.Equal(t, TestEvent{watch.EventError, "", nil}, newTestEvent(t, ev))
 		require.YesError(t, ev.Err)
 		require.True(t, errors.Is(ev.Err, context.Canceled))

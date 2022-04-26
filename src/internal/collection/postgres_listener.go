@@ -149,7 +149,7 @@ func (pw *postgresWatcher) sendInitial(ctx context.Context, event *watch.Event) 
 	case pw.c <- event:
 		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return errors.EnsureStack(ctx.Err())
 	case <-pw.done:
 		return errors.New("failed to send initial event, watcher has been closed")
 	}
