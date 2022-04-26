@@ -233,6 +233,21 @@ func watchTests(
 			tester.ExpectNoEvents()
 		})
 
+		suite.Run("InterruptionDuringBackfill", func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reader, writer := newCollection(context.Background(), t)
+			for i := 0; i < 10; i++ {
+				writer(context.Background(), putItem(makeProto(makeID(i))))
+			}
+
+			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader))
+			cancel()
+			tester.ExpectError(context.Canceled)
+			tester.ExpectNoEvents()
+		})
+
 		suite.Run("Delete", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
