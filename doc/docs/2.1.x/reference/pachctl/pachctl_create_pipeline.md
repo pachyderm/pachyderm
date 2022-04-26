@@ -13,7 +13,7 @@ pachctl create pipeline [flags]
 ### Options
 
 ```
-      --arg stringArray   Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arguments are passed). Value must be of the form 'param=value'. 
+      --arg stringArray   Top-level argument passed to the Jsonnet template in --jsonnet (which must be set if any --arg arguments are passed). Value must be of the form 'param=value'. For multiple args, --arg may be set more than once.
   -f, --file string       A JSON file (url or filepath) containing one or more pipelines. "-" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.
   -h, --help              help for pipeline
       --jsonnet string    BETA: A Jsonnet template file (url or filepath) for one or more pipelines. "-" reads from stdin. Exactly one of --file and --jsonnet must be set. Jsonnet templates must contain a top-level function; strings can be passed to this function with --arg (below)

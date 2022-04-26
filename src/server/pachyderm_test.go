@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
@@ -3807,12 +3808,13 @@ func TestStopJob(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
+
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline-stop-job")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"sleep", "20"},
+		[]string{"sleep", "10"},
 		nil,
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -3822,9 +3824,9 @@ func TestStopJob(t *testing.T) {
 		false,
 	))
 
-	// Create two input commits to trigger two jobs.
-	// We will stop the first job midway through, and assert that the
-	// second job finishes.
+	// Create three input commits to trigger jobs.
+	// We will stop the second job midway through, and assert that the
+	// last job finishes.
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
@@ -3835,30 +3837,36 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
+	commit3, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit3, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit3.Branch.Name, commit3.ID))
+
 	jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jobInfos))
-	require.Equal(t, commit2.ID, jobInfos[0].Job.ID)
-	require.Equal(t, commit1.ID, jobInfos[1].Job.ID)
+	require.Equal(t, 4, len(jobInfos))
+	require.Equal(t, commit3.ID, jobInfos[0].Job.ID)
+	require.Equal(t, commit2.ID, jobInfos[1].Job.ID)
+	require.Equal(t, commit1.ID, jobInfos[2].Job.ID)
 
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfo, err := c.InspectJob(pipelineName, commit1.ID, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
-			return errors.Errorf("jobInfos[0] has the wrong state")
+			return errors.Errorf("first job has the wrong state")
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	// Now stop the first job
-	err = c.StopJob(pipelineName, commit1.ID)
+	// Now stop the second job
+	err = c.StopJob(pipelineName, commit2.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.WaitJob(pipelineName, commit1.ID, false)
+	jobInfo, err := c.WaitJob(pipelineName, commit2.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
-	// Check that the second job completes
-	jobInfo, err = c.WaitJob(pipelineName, commit2.ID, false)
+	// Check that the third job completes
+	jobInfo, err = c.WaitJob(pipelineName, commit3.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -10011,4 +10019,67 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, strings.Contains(commitInfo.Error, "failed"))
 	require.NoError(t, c.PutFile(client.NewCommit("inB", "master", ""), "file", strings.NewReader("foo")))
+}
+
+func TestTemporaryDuplicatedPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name())
+	other := tu.UniqueString("other-" + t.Name())
+	pipeline := tu.UniqueString("pipeline-" + t.Name())
+
+	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateRepo(other))
+
+	require.NoError(t, c.PutFile(client.NewCommit(other, "master", ""), "empty",
+		strings.NewReader("")))
+
+	// add an output file bigger than the sharding threshold so that two in a row
+	// will fall on either side of a naive shard division
+	bigSize := fileset.DefaultShardSizeThreshold * 5 / 4
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "a",
+		strings.NewReader(strconv.Itoa(bigSize/units.MB))))
+
+	// add some more files to push the fileset that deletes the old datums out of the first fan-in
+	for i := 0; i < 10; i++ {
+		require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), fmt.Sprintf("b-%d", i),
+			strings.NewReader("1")))
+	}
+
+	req := basicPipelineReq(pipeline, repo)
+	req.DatumSetSpec = &pps.DatumSetSpec{
+		Number: 1,
+	}
+	req.Transform.Stdin = []string{
+		fmt.Sprintf("for f in /pfs/%s/* ; do", repo),
+		"dd if=/dev/zero of=/pfs/out/$(basename $f) bs=1M count=$(cat $f)",
+		"done",
+	}
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, "", commitInfo.Error)
+
+	// update the pipeline to take new input, but produce identical output
+	// the filesets in the output of the resulting job should look roughly like
+	// [old output] [new output] [deletion of old output]
+	// If a path is included in multiple shards, it would appear twice for both
+	// the old and new datums, while only one copy would be deleted,
+	// leading to either a validation error or a repeated path/datum pair
+	req.Update = true
+	req.Input = client.NewCrossInput(
+		client.NewPFSInput(repo, "/*"),
+		client.NewPFSInput(other, "/*"))
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, "", commitInfo.Error)
 }

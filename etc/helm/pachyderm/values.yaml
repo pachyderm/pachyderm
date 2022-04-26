@@ -27,6 +27,8 @@ global:
     postgresqlPort: "5432"
     # postgresqlSSL is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
     postgresqlSSL: "disable"
+    # Indicates the DB name that dex connects to. Defaults to "Dex" if not set.
+    identityDatabaseFullNameOverride: ""
   # imagePullSecrets allow you to pull images from private repositories, these will also be added to pipeline workers
   # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
   # Example:
@@ -441,6 +443,11 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
+    # The shard size corresponds to the total size of the files in a shard.
+    # The shard count corresponds to the total number of files in a shard. 
+    # If either criteria is met, a shard will be created.
+    compactionShardSizeThreshold: 0
+    compactionShardCountThreshold: 0
   ppsWorkerGRPCPort: 1080
   # the number of seconds between pfs's garbage collection cycles. 
   # if this value is set to 0, it will default to pachyderm's internal configuration.
@@ -492,7 +499,10 @@ pgbouncer:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+  # maxConnections specifies the maximum number of concurrent connections into pgbouncer.
   maxConnections: 1000
+  # defaultPoolSize specifies the maximum number of concurrent connections from pgbouncer to the postgresql database.
+  defaultPoolSize: 20
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
@@ -504,6 +514,7 @@ postgresql:
   enabled: true
   image:
     tag: "13.3.0"
+  # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
     dex.sh: |
       #!/bin/bash
@@ -617,5 +628,8 @@ oidc:
   # upstreamIDPsSecretName is used to pass the upstreamIDPs value via an existing k8s secret.
   # The value is pulled from the secret key, "upstream-idps".
   upstreamIDPsSecretName: ""
+  # Some dex configurations (like Google) require a credential file. Whatever secret is included in this
+  # below secret will be mounted to the pachd pod at /dexcreds/ so for example serviceAccountFilePath: /dexcreds/googleAuth.json
+  dexCredentialSecretName: ""
   mockIDP: true
   #TODO scopes:

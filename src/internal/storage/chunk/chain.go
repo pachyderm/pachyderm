@@ -2,8 +2,6 @@ package chunk
 
 import (
 	"context"
-	"math"
-	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
@@ -22,14 +20,10 @@ type TaskChain struct {
 }
 
 // NewTaskChain creates a new task chain.
-func NewTaskChain(ctx context.Context, parallelism int64) *TaskChain {
+func NewTaskChain(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
 	eg, errCtx := errgroup.WithContext(ctx)
 	prevChan := make(chan struct{})
 	close(prevChan)
-	sem := semaphore.NewWeighted(math.MaxInt64)
-	if parallelism > 0 {
-		sem = semaphore.NewWeighted(parallelism)
-	}
 	return &TaskChain{
 		eg:       eg,
 		ctx:      errCtx,
@@ -38,42 +32,44 @@ func NewTaskChain(ctx context.Context, parallelism int64) *TaskChain {
 	}
 }
 
+// TaskChainFunc is a function which is computed in parallel, and then returns
+// a closure to be computed serially, or an error.
+type TaskChainFunc = func(context.Context) (serCB func() error, err error)
+
 // CreateTask creates a new task in the task chain.
-func (c *TaskChain) CreateTask(cb func(context.Context, func(func() error) error) error) error {
+func (c *TaskChain) CreateTask(cb TaskChainFunc) error {
 	if err := c.sem.Acquire(c.ctx, 1); err != nil {
 		return errors.EnsureStack(err)
 	}
-	scb := c.serialCallback()
+	// get our place in line for the serial portion
+	prevChan := c.prevChan
+	nextChan := make(chan struct{})
+	c.prevChan = nextChan
+	// spawn a new goroutine for the parallel portion
 	c.eg.Go(func() error {
 		defer c.sem.Release(1)
-		defer scb(func() error { return nil })
-		return cb(c.ctx, scb)
+		serCB, err := cb(c.ctx)
+		if err != nil {
+			return err
+		}
+		// Either:
+		// - There has been an error returned to the errgroup, and the signal will come from the context
+		// - There hasn't been an error from anything yet, and we need to wait our turn to do the serial callback
+		select {
+		case <-c.ctx.Done():
+			return errors.EnsureStack(c.ctx.Err())
+		case <-prevChan:
+			if err := serCB(); err != nil {
+				return err
+			}
+			close(nextChan)
+			return nil
+		}
 	})
 	return nil
 }
 
 // Wait waits on the currently executing tasks to finish.
 func (c *TaskChain) Wait() error {
-	select {
-	case <-c.ctx.Done():
-		return errors.EnsureStack(c.eg.Wait())
-	case <-c.prevChan:
-		return nil
-	}
-}
-
-func (c *TaskChain) serialCallback() func(func() error) error {
-	prevChan := c.prevChan
-	nextChan := make(chan struct{})
-	c.prevChan = nextChan
-	var once sync.Once
-	return func(cb func() error) error {
-		defer once.Do(func() { close(nextChan) })
-		select {
-		case <-prevChan:
-			return cb()
-		case <-c.ctx.Done():
-			return errors.EnsureStack(c.ctx.Err())
-		}
-	}
+	return errors.EnsureStack(c.eg.Wait())
 }

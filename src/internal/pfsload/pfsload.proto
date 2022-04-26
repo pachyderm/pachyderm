@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package pfsload;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/pfsload";
+
+message CommitSpec {
+  int64 count = 1;
+  repeated ModificationSpec modifications = 2;
+  repeated FileSourceSpec file_sources = 3;
+  ValidatorSpec validator = 4;
+}
+
+message ModificationSpec {
+  int64 count = 1;
+  PutFileSpec put_file = 2;
+}
+
+message PutFileSpec {
+  int64 count = 1;
+  string source = 2;
+}
+
+message PutFileTask {
+  int64 count = 1;
+  FileSourceSpec file_source = 2;
+  int64 seed = 3;
+  string auth_token = 4;
+}
+
+message PutFileTaskResult {
+  string file_set_id = 1;
+  bytes hash = 2;
+}
+
+message FileSourceSpec {
+  string name = 1;
+  RandomFileSourceSpec random = 2;
+}
+
+message RandomFileSourceSpec {
+  RandomDirectorySpec directory = 1;
+  repeated SizeSpec sizes = 2;
+  bool increment_path = 3;
+}
+
+message RandomDirectorySpec {
+  SizeSpec depth = 1;
+  int64 run = 2;
+}
+
+message SizeSpec {
+  int64 min_size = 1 [json_name="min"];
+  int64 max_size = 2 [json_name="max"];
+  int64 prob = 3;
+}
+
+message ValidatorSpec {
+  FrequencySpec frequency = 1;
+}
+
+message FrequencySpec {
+  int64 count = 1;
+  int64 prob = 2; 
+}

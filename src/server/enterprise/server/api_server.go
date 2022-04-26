@@ -38,7 +38,8 @@ const (
 	heartbeatFrequency = time.Hour
 	heartbeatTimeout   = time.Minute
 
-	updatedAtFieldName = "pachyderm.com/updatedAt"
+	updatedAtFieldName   = "pachyderm.com/updatedAt"
+	restartedAtFieldName = "kubectl.kubernetes.io/restartedAt"
 )
 
 type apiServer struct {
@@ -390,6 +391,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		}
 		// Since pachd-config is not managed by Helm, it may not exist.
 		c = newPachdConfigMap(namespace, a.env.unpausedMode)
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		c.Data["MODE"] = "paused"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
 			return errors.Errorf("could not create configmap: %w", err)
@@ -426,7 +428,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		if c.Annotations == nil {
 			c.Annotations = make(map[string]string)
 		}
-		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339)
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		if _, err := cc.Update(ctx, c, metav1.UpdateOptions{}); err != nil {
 			return errors.Errorf("could not update configmap: %w", err)
 		}
@@ -440,7 +442,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		}
 		// Updating the spec rolls the deployment, killing each pod and causing
 		// a new one to start.
-		d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		d.Spec.Template.Annotations[restartedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
 			return err //nolint:wrapcheck
 		}
@@ -455,8 +457,9 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 func newPachdConfigMap(namespace, unpausedMode string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pachd-config",
-			Namespace: namespace,
+			Name:        "pachd-config",
+			Namespace:   namespace,
+			Annotations: make(map[string]string),
 		},
 		Data: map[string]string{"MODE": unpausedMode},
 	}
@@ -528,9 +531,9 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 			Status: ec.PauseStatusResponse_UNPAUSED,
 		}, nil
 	}
-	updatedAt, err := time.Parse(time.RFC3339, c.Annotations[updatedAtFieldName])
+	updatedAt, err := time.Parse(time.RFC3339Nano, c.Annotations[updatedAtFieldName])
 	if err != nil {
-		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations["pachyderm.com/updatedAt"], err)
+		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations[updatedAtFieldName], err)
 	}
 
 	pods := kc.CoreV1().Pods(a.env.namespace)
@@ -542,7 +545,22 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 	}
 	var sawAfter, sawBefore bool
 	for _, p := range pp.Items {
-		if p.CreationTimestamp.Time.Before(updatedAt) {
+		// We cannot rely on p.CreationTimestamp.Time, because it only
+		// has one-second resolution.  Instead, we store our own
+		// nanosecond-resolution timestamp.
+		//
+		// If the pod does not have the Kubernetes restartedAt
+		// annotation, then it must have existed before the configMap
+		// was updated.
+		if p.Annotations[restartedAtFieldName] == "" {
+			sawBefore = true
+			continue
+		}
+		restartedAt, err := time.Parse(time.RFC3339Nano, p.Annotations[restartedAtFieldName])
+		if err != nil {
+			return nil, errors.Errorf("could not parse restarted time %v: %v", p.Annotations[restartedAtFieldName], err)
+		}
+		if restartedAt.Before(updatedAt) {
 			sawBefore = true
 		} else {
 			sawAfter = true
