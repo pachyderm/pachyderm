@@ -186,6 +186,11 @@ func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.Transa
 	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
 }
 
+func (a *validatedAPIServer) Egress(ctx context.Context, request *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	// TODO validate request
+	return a.apiServer.Egress(ctx, request)
+}
+
 func validateFile(file *pfs.File) error {
 	if file == nil {
 		return errors.New("file cannot be nil")

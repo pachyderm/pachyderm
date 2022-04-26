@@ -62,8 +62,8 @@ func NewTestDB(t testing.TB) *pachsql.DB {
 	return testutil.OpenDB(t, NewTestDBOptions(t)...)
 }
 
-// NewTestDBFromName creates a new database with a user defined name in a Postgres server.
-// returns a database connection connected to the new database
+// NewTestDBFromName creates a new database with a user defined name,
+// and returns a database connection connected to the new database.
 func NewTestDBFromName(t testing.TB, dbName string) *pachsql.DB {
 	ctx := context.Background()
 	require.NoError(t, ensureDBEnv(t, ctx))
@@ -73,7 +73,6 @@ func NewTestDBFromName(t testing.TB, dbName string) *pachsql.DB {
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
-	defer db.Close()
 	dbName = testutil.CreateEphemeralDB(t, db, dbName)
 	return testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
