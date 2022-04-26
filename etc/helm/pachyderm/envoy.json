@@ -113,8 +113,8 @@
                {
                   "grpc_health_check": { },
                   "healthy_threshold": 1,
-                  "interval": "1s",
-                  "timeout": "1s",
+                  "interval": "10s",
+                  "timeout": "10s",
                   "unhealthy_threshold": 2
                }
             ],
