@@ -105,7 +105,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
