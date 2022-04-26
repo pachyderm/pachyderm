@@ -179,6 +179,7 @@ message DatumInfo {
   ProcessStats stats = 3;
   pfs_v2.File pfs_state = 4;
   repeated pfs_v2.FileInfo data = 5;
+  string image_id = 6;
 }
 
 message Aggregate {
