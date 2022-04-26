@@ -194,7 +194,7 @@ jobs:
       - run: etc/testing/circle/deploy_test.sh
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
-  build-pachctl:
+  build:
     resource_class: large
     docker:
       - image: cimg/go:1.17.6
@@ -212,10 +212,17 @@ jobs:
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - run:
-          name: Make release
-          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          name: Upload Release
+          name: Make release
+          command: make docker-build
+      #- run:
+      #    name: Push docker
+      #    command: make docker-push 
+      - run:
+          name: Upload Pachctl Release
           command: |
             echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
             cd /home/circleci/dist-pach/pachctl/
@@ -296,7 +303,7 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - build-pachctl
+      - build
       - check-prettier
       - circleci:
           matrix:
