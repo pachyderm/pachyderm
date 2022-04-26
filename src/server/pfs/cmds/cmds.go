@@ -1049,9 +1049,9 @@ $ {{alias}} repo@branch -i http://host/path`,
 			// check whether or not the repo exists before attempting to upload
 			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
-					return fmt.Errorf("repo %s not found", file.Commit.Branch.Repo.Name)
+					return errors.Errorf("repo %s not found", file.Commit.Branch.Repo.Name)
 				}
-				return fmt.Errorf("could not inspect repo %s: %w", file.Commit.Branch.Repo.Name, err)
+				return errors.Errorf("could not inspect repo %s: %w", file.Commit.Branch.Repo.Name, err)
 			}
 
 			// TODO: Rethink put file parallelism for 2.0.
