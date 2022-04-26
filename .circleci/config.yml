@@ -220,10 +220,7 @@ jobs:
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Make release
-          command: make docker-build
-      #- run:
-      #    name: Push docker
-      #    command: make docker-push 
+          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
       - run:
           name: Upload Pachctl Release
           command: |
