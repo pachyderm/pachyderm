@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "main": "dist/components.cjs.js",
   "module": "dist/components.es.js",
   "types": "dist/index.d.ts",
@@ -23,6 +23,7 @@
     "@pachyderm/config": "^0.7.0",
     "@sentry/react": "^6.8.0",
     "@storybook/addon-actions": "^6.1.1",
+    "@storybook/addon-controls": "^6.4.20",
     "@storybook/addon-essentials": "^6.1.21",
     "@storybook/addon-links": "^6.1.1",
     "@storybook/react": "^6.1.21",

@@ -38,7 +38,6 @@ const FullPageModal: React.FC<FullPageModalProps> = ({
       <BootstrapModal.Header className={styles.header}>
         {hideType === 'cancel' && (
           <Button
-            autoSize
             buttonType="secondary"
             className={styles.cancelButton}
             onClick={onHide}
@@ -47,14 +46,15 @@ const FullPageModal: React.FC<FullPageModalProps> = ({
           </Button>
         )}
         {hideType === 'exit' && (
-          <button
+          <Button
             aria-label="Close"
             data-testid="FullPageModal__close"
             onClick={onHide}
             className={styles.close}
-          >
-            <CloseSVG className={styles.icon} />
-          </button>
+            IconSVG={CloseSVG}
+            buttonType="ghost"
+            color="black"
+          />
         )}
       </BootstrapModal.Header>
       <BootstrapModal.Body className={styles.body}>

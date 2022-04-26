@@ -23,7 +23,6 @@ export const TableViewHeaderButton: React.FC<ButtonProps> = ({
   ...rest
 }) => (
   <Button
-    autoWidth
     className={classnames(styles.button, className)}
     data-testid="TableViewHeader__button"
     {...rest}
@@ -49,7 +48,6 @@ const TableViewHeader: React.FC<TableViewHeaderProps> = ({
           <Page.Heading>{heading}</Page.Heading>
           {!headerButtonHidden && (
             <TableViewHeaderButton
-              autoWidth
               onClick={headerButtonAction}
               className={styles.button}
               disabled={headerButtonDisabled}

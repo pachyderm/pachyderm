@@ -5,6 +5,8 @@ import BootstrapModal, {
   ModalProps as BootstrapModalProps,
 } from 'react-bootstrap/Modal';
 
+import {Button} from '../../../Button';
+
 import usePopUp from './../../../hooks/usePopUp';
 import {CloseSVG} from './../../../Svg';
 import styles from './Modal.module.css';
@@ -43,16 +45,17 @@ const Modal: React.FC<ModalProps> = ({
       backdrop={actionable ? 'static' : true}
       onHide={onHide}
     >
-      <button
+      <Button
         aria-label="Close"
         data-testid="Modal__close"
         onClick={onHide}
         className={classNames(styles.close, {
           [styles.notActionable]: !actionable,
         })}
-      >
-        <CloseSVG className={styles.icon} />
-      </button>
+        IconSVG={CloseSVG}
+        buttonType="ghost"
+        color="black"
+      />
 
       {children}
     </BootstrapModal>

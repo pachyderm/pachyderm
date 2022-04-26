@@ -2,9 +2,7 @@ import classnames from 'classnames';
 import React, {ButtonHTMLAttributes} from 'react';
 import BootstrapModalFooter from 'react-bootstrap/ModalFooter';
 
-import {Button} from './../../../Button';
-import {ButtonLink} from './../../../ButtonLink';
-import {Group} from './../../../Group';
+import {Button, ButtonGroup} from './../../../Button';
 import styles from './ModalFooter.module.css';
 
 export interface ModalProps {
@@ -32,14 +30,15 @@ const ModalFooter: React.FC<ModalProps> = ({
 }) => {
   return (
     <BootstrapModalFooter className={classnames(styles.base, className)}>
-      <Group spacing={32}>
-        <ButtonLink
+      <ButtonGroup>
+        <Button
           data-testid={cancelTestId || 'ModalFooter__cancel'}
           onClick={onHide}
           type="button"
+          buttonType="ghost"
         >
           {cancelText}
-        </ButtonLink>
+        </Button>
         <Button
           data-testid={confirmTestId || 'ModalFooter__confirm'}
           onClick={onConfirm}
@@ -48,7 +47,7 @@ const ModalFooter: React.FC<ModalProps> = ({
         >
           {confirmText}
         </Button>
-      </Group>
+      </ButtonGroup>
     </BootstrapModalFooter>
   );
 };

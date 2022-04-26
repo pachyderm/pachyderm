@@ -1,11 +1,10 @@
 .base {
-  margin: 0.25rem 1rem;
+  margin: 0 1rem;
   white-space: nowrap;
 }
 
 .base.minimized {
-  margin: 0.25rem 1.75rem;
-  padding: 0.25rem;
+  margin: 0 1rem;
   width: auto;
 }
 

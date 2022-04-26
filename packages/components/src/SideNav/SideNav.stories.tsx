@@ -89,7 +89,6 @@ export const LightMode = () => (
           IconSVG={DirectionsSVG}
           to="/"
           tooltipContent="Switch View"
-          autoWidth
         >
           View Lineage
         </SideNav.SideNavButton>

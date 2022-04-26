@@ -3,10 +3,10 @@
 }
 
 .base[class$='modal-footer'] {
-  height: 5.625rem;
+  height: 4rem;
   display: flex;
   align-items: center;
-  padding: 1rem;
+  padding: 0;
 }
 
 .base[class$='modal-footer']>* {

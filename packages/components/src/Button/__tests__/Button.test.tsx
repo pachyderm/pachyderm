@@ -31,19 +31,19 @@ describe('Button', () => {
   });
 
   it('should render an anchor given href', () => {
-    const {getByText} = render(<Button href="/cool">Test</Button>);
-    const link = getByText('Test');
+    const {getByRole} = render(<Button href="/cool">Test</Button>);
+    const link = getByRole('link');
 
     expect(link).toHaveAttribute('href', '/cool');
   });
 
   it('should render a router link given to', () => {
-    const {getByText} = render(
+    const {getByRole} = render(
       <BrowserRouter>
         <Button to="/cool">Test</Button>
       </BrowserRouter>,
     );
-    const link = getByText('Test');
+    const link = getByRole('link');
 
     expect(link).toHaveAttribute('href', '/cool');
   });

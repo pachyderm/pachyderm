@@ -45,13 +45,9 @@ const SideNavButton: React.FC<SideNavButtonProps> = ({
         })}
         data-testid={dataTestId}
         {...rest}
+        IconSVG={IconSVG}
       >
-        <Group spacing={8} align="center">
-          <Icon className={styles.icon}>
-            <IconSVG />
-          </Icon>
-          {!minimized && children}
-        </Group>
+        {!minimized ? children : null}
       </Button>
     </Tooltip>
   );

@@ -19,9 +19,7 @@ export const Default = () => {
 
   return (
     <>
-      <Button autoWidth autoHeight onClick={openModal}>
-        Open Modal
-      </Button>
+      <Button onClick={openModal}>Open Modal</Button>
       <BasicModal
         show={isOpen}
         onHide={closeModal}
@@ -42,9 +40,7 @@ export const LongContentWithControls: React.FC = (modalArgs) => {
 
   return (
     <>
-      <Button autoWidth autoHeight onClick={openModal}>
-        Open Modal
-      </Button>
+      <Button onClick={openModal}>Open Modal</Button>
       <BasicModal
         {...modalArgs}
         show={isOpen}
@@ -81,9 +77,7 @@ export const Actionable = () => {
 
   return (
     <>
-      <Button autoWidth autoHeight onClick={openModal}>
-        Open Modal
-      </Button>
+      <Button onClick={openModal}>Open Modal</Button>
       <BasicModal
         successMessage={success ? "You're all set!" : undefined}
         show={isOpen}
@@ -109,9 +103,7 @@ export const ErrorState = () => {
 
   return (
     <>
-      <Button autoWidth autoHeight onClick={openModal}>
-        Open Modal
-      </Button>
+      <Button onClick={openModal}>Open Modal</Button>
       <BasicModal
         show={isOpen}
         onHide={closeModal}
@@ -132,9 +124,7 @@ export const Wizard = () => {
 
   return (
     <>
-      <Button autoWidth autoHeight onClick={openModal}>
-        Open Modal
-      </Button>
+      <Button onClick={openModal}>Open Modal</Button>
       <WizardModal
         show={isOpen}
         onHide={closeModal}
@@ -154,9 +144,7 @@ export const FullPage = () => {
 
   return (
     <>
-      <Button autoWidth autoHeight onClick={openModal}>
-        Open Modal
-      </Button>
+      <Button onClick={openModal}>Open Modal</Button>
       <FullPageModal show={isOpen} onHide={closeModal} hideType="exit">
         This is a full page modal
       </FullPageModal>

@@ -91,5 +91,6 @@
 }
 
 .button {
+  width: 100%;
   box-shadow: 0 1 4  1 var(--dropshadow);
 }

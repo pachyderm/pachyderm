@@ -41,6 +41,7 @@ module.exports = {
   addons: [
     '@storybook/addon-actions',
     "@storybook/addon-essentials",
-    '@storybook/addon-links'
+    '@storybook/addon-links',
+    '@storybook/addon-controls'
   ],
 };

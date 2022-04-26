@@ -37,8 +37,9 @@
 
   --pachyderm-plum: #582F6B;
   --disabled-plum: #6D5577;
-  --hover-plum: #672373;
+  --hover-plum:  #781696;
   --highlight-plum: #B620E0;
+  --disabled-button-plum: #886A95;
 
   --chart-blue: #0187C2;
   --chart-dark-green: #083D49;
@@ -77,6 +78,12 @@
   --green: #118873;
 
   --black: #000000;
+
+  --focus-state: #007BFF;
+  --default-purple: #62028F;
+  --hover-purple: #A114CC;
+  --disabled-purple: #A187AD;
+  --disabled-tertiary: #8C9198;
   
   /* sizes */
   --border-radius-bottom-level: 5px;
