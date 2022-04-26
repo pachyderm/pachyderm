@@ -354,7 +354,8 @@ jobs:
             -includes '<!-- Created by one-comment -->' \
             -message "PR Preview available at [https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io](https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io)
             Enter any username to login (Each user will be assigned a new workspace)
-            You may need to shutdown and relaunch your Jupyterlab instance if new code has been pushed since you last launched it."
+            You may need to shutdown and relaunch your Jupyterlab instance if new code has been pushed since you last launched it.
+            You can connect to pach by entering grpc://pachd-peer:30653 into the extension connection screen."
 
 workflows:
   build-workflow:

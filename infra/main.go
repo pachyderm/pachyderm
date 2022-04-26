@@ -113,6 +113,21 @@ func main() {
 			return err
 		}
 
+		_, err = helm.NewRelease(ctx, "pach-release", &helm.ReleaseArgs{
+			Namespace: namespace.Metadata.Elem().Name(),
+			RepositoryOpts: helm.RepositoryOptsArgs{
+				Repo: pulumi.String("https://helm.pachyderm.com"), //TODO Use Chart files in Repo
+			},
+			Chart: pulumi.String("pachyderm"),
+			Values: pulumi.Map{
+				"deployTarget": pulumi.String("LOCAL"),
+			},
+		}, pulumi.Provider(k8sProvider))
+
+		if err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
