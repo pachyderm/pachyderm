@@ -1035,6 +1035,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
+
 			opts := []client.Option{client.WithMaxConcurrentStreams(parallelism)}
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
@@ -1045,6 +1046,13 @@ $ {{alias}} repo@branch -i http://host/path`,
 			}
 			defer c.Close()
 			defer progress.Wait()
+			// check whether or not the repo exists before attempting to upload
+			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+				if errutil.IsNotFoundError(err) {
+					return fmt.Errorf("repo %s not found", file.Commit.Branch.Repo.Name)
+				}
+				return fmt.Errorf("could not inspect repo %s: %w", file.Commit.Branch.Repo.Name, err)
+			}
 
 			// TODO: Rethink put file parallelism for 2.0.
 			// Doing parallel uploads at the file level for small files will be bad, but we still want a clear way to parallelize large file uploads.
