@@ -8,13 +8,17 @@
     align-items: center;
 }
 
+.dir {
+    display: inline-flex;
+}
+
 .link {
     margin: 0 0.25rem;
     display: flex;
     align-items: center;
 }
 
-.link:last-child {
+.dir:last-child > .link {
     pointer-events: none;
     color: var(--pachyderm-black);
 }

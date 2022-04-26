@@ -32,10 +32,9 @@ const BreadCrumb: React.FC = () => {
         </Icon>
       </Link>
       {directories.map((dir, index) => (
-        <>
+        <span key={dir} className={styles.dir}>
           /{' '}
           <Link
-            key={dir}
             className={styles.link}
             to={fileBrowserRoute({
               repoId,
@@ -48,7 +47,7 @@ const BreadCrumb: React.FC = () => {
           >
             {dir}
           </Link>
-        </>
+        </span>
       ))}
     </div>
   );

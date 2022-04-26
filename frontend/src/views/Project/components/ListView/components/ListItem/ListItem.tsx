@@ -45,7 +45,7 @@ const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
     <Link
       data-testid="ListItem__row"
       aria-label={node.id}
-      to={nodePath}
+      to={node.access ? nodePath : undefined}
       className={classnames(styles.base, {
         [styles[node.type]]: true,
         [styles.selected]: selectedItem === nodeName,

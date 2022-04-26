@@ -10,15 +10,37 @@ describe('Access', () => {
     cy.deleteReposAndPipelines().logout();
   })
 
-  it('should let non-admins see the DAG', () => {
-    cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
-    const edgeNodes = cy.findAllByText('edges', {timeout: 16000});
-    edgeNodes.should('have.length', 2);
-    edgeNodes.first().click();
-    cy.url().should('not.include', 'edges');
-    const imagesNode = cy.findByText('images');
-    imagesNode.should('exist');
-    imagesNode.click();
-    cy.url().should('include', 'images');
+  afterEach(() => {
+    cy.visit('/')
+  })
+
+  describe('Lineage View', () => {
+    it('should let non-admins see the DAG', () => {
+      cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
+      const edgeNodes = cy.findAllByText('edges', {timeout: 16000});
+      edgeNodes.should('have.length', 2);
+      edgeNodes.first().click();
+      cy.url().should('not.include', 'edges');
+      const imagesNode = cy.findByText('images');
+      imagesNode.should('exist');
+      imagesNode.click();
+      cy.url().should('include', 'images');
+    });
+  })
+
+  describe('List View', () => {
+    beforeEach(() => {
+      cy.findAllByText(/^View(\sProject)*$/, {timeout: 8000}).eq(0).click();
+      cy.findByText('View List').click();
+    })
+    it('should select the first repo the user has access to', () => {
+      cy.url().should('include', 'images');
+    })
+
+    it('should not allow users to view repos they do not have access for', () => {
+      const edges = cy.findByText('edges', {timeout: 16000});
+      edges.click();
+      cy.url().should('not.include', 'edges');
+    })
   })
 });
