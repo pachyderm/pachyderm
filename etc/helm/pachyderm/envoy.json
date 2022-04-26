@@ -375,6 +375,24 @@
                                        },
                                        {
                                           "match": {
+                                             "headers": [
+                                                {
+                                                   "name": "authorization",
+                                                   "string_match": {
+                                                      "prefix": "AWS "
+                                                   }
+                                                }
+                                             ],
+                                             "prefix": "/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-s3",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
                                              "prefix": "/dex"
                                           },
                                           "route": {
@@ -570,6 +588,24 @@
                                                    "name": "authorization",
                                                    "string_match": {
                                                       "prefix": "AWS4-HMAC-SHA256"
+                                                   }
+                                                }
+                                             ],
+                                             "prefix": "/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-s3",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "headers": [
+                                                {
+                                                   "name": "authorization",
+                                                   "string_match": {
+                                                      "prefix": "AWS "
                                                    }
                                                 }
                                              ],

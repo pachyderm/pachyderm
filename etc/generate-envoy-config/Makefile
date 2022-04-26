@@ -18,7 +18,7 @@ check-formatting:
 # So that CI can fail if you modify envoy.jsonnet but don't regenerate envoy.json.
 check-generated:
 	jsonnet envoy.jsonnet > /tmp/test-formatting.envoy.json
-	diff -u ../helm/pachyderm/envoy.json /tmp/test-formatting.envoy.json  --label generated-json --label current-jsonnet
+	diff -u ../helm/pachyderm/envoy.json /tmp/test-formatting.envoy.json  --label in-repo --label would-generate
 	echo "codegen ok"
 
 test: check-formatting check-generated check-envoy-config

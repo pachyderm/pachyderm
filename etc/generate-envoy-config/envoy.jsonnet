@@ -29,9 +29,16 @@ local services = {
     internal_port: 1600,
     external_port: 30600,
     service: 'pachd-proxy-backend',
-    routes: [
-      {
+    routes: local base = {
+      route: {
+        cluster: 'pachd-s3',
+        idle_timeout: '600s',
+        timeout: '604800s',
+      },
+    }; [
+      base {  // S3v4
         match: {
+          prefix: '/',
           headers: [
             {
               name: 'authorization',
@@ -40,12 +47,19 @@ local services = {
               },
             },
           ],
-          prefix: '/',
         },
-        route: {
-          cluster: 'pachd-s3',
-          idle_timeout: '600s',
-          timeout: '604800s',
+      },
+      base {  // S3v2
+        match: {
+          prefix: '/',
+          headers: [
+            {
+              name: 'authorization',
+              string_match: {
+                prefix: 'AWS ',
+              },
+            },
+          ],
         },
       },
     ],
