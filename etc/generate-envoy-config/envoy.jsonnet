@@ -98,7 +98,7 @@ local services = {
   'pachd-oidc': {
     internal_port: 1657,
     external_port: 30657,
-    service: 'pachd',
+    service: 'pachd-proxy-backend',
     routes: [
       {
         match: {

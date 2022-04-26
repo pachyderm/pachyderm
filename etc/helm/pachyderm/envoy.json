@@ -243,7 +243,7 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd",
+                                    "address": "pachd-proxy-backend",
                                     "port_value": 1657
                                  }
                               }
