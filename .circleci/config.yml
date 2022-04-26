@@ -85,7 +85,7 @@ jobs:
           path: /tmp/test-results
   helm-build:
     docker:
-      - image: circleci/golang:1.15
+      - image: cimg/go:1.17.6
     working_directory: ~/project/etc/helm
     steps:
       - checkout:

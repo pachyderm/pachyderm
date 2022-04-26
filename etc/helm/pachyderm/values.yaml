@@ -645,7 +645,7 @@ proxy:
   # If enabled, create a proxy deployment (based on the Envoy proxy) and a service to expose it.  If
   # ingress is also enabled, any Ingress traffic will be routed through the proxy before being sent
   # to pachd or Console.
-  enabled: true
+  enabled: false
   # The number of proxy replicas to run.  1 should be fine, but if you want more for higher
   # availability, that's perfectly reasonable.  Each replica can handle 50,000 concurrent
   # connections.  There is an affinity rule to prefer scheduling the proxy pods on the same node as

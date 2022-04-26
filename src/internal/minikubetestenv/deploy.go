@@ -290,8 +290,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	pachAddress := getPachAddress(t)
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
-		helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
 	}
+	helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
+
 	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		helmOpts = union(helmOpts, withEnterprise(t, namespace, pachAddress))
