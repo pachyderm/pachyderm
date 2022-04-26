@@ -383,6 +383,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 								return errors.EnsureStack(driver.RunUserErrorHandlingCode(runCtx, logger, env))
 							}))
 						}
+						// maybe proto/clone meta here
+						meta.ImageId = status.ImageID
 						return s.WithDatum(meta, func(d *datum.Datum) error {
 							cancelCtx, cancel := context.WithCancel(ctx)
 							defer cancel()
