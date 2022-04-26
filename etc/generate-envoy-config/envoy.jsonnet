@@ -23,6 +23,8 @@ local services = {
       interval: '10s',
       timeout: '10s',
       unhealthy_threshold: 2,
+      no_traffic_interval: '10s',
+      no_traffic_healthy_interval: '10s',
     },
   },
   'pachd-s3': {
@@ -89,6 +91,8 @@ local services = {
       interval: '30s',
       timeout: '10s',
       unhealthy_threshold: 2,
+      no_traffic_interval: '10s',
+      no_traffic_healthy_interval: '10s',
     },
   },
   'pachd-oidc': {
@@ -139,6 +143,8 @@ local services = {
       interval: '30s',
       timeout: '10s',
       unhealthy_threshold: 2,
+      no_traffic_interval: '10s',
+      no_traffic_healthy_interval: '10s',
     },
   },
   'pachd-metrics': {
