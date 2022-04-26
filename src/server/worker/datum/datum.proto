@@ -22,6 +22,7 @@ message Meta {
   string reason = 5;
   pps_v2.ProcessStats stats = 6;
   int64 index = 7;
+  string image_id =8;
 }
 
 message Stats {
