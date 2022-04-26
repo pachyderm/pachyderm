@@ -1493,9 +1493,23 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
-// func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
-
-// }
+// validateEgress validates the egress field. We only validate secret for now,
+// because the egress field will be taken out of PPS spec eventually.
+func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
+	if egress == nil {
+		return nil
+	}
+	if target, ok := egress.Target.(*pps.Egress_SqlDatabase); ok {
+		secret := target.SqlDatabase.GetSecret()
+		if secret == nil {
+			return errors.New("egress.sql_database.secret is required")
+		}
+		if secret.K8SSecret == "" || secret.Key == "" {
+			return errors.New("egress.sql_database.secret.k8s_secret and egress.sql_database.secret.key are required")
+		}
+	}
+	return nil
+}
 
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
@@ -1521,9 +1535,9 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
 		return err
 	}
-	// if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
-	// 	return err
-	// }
+	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
+		return err
+	}
 	if pipelineInfo.Details.ParallelismSpec != nil {
 		if pipelineInfo.Details.Service != nil && pipelineInfo.Details.ParallelismSpec.Constant != 1 {
 			return errors.New("services can only be run with a constant parallelism of 1")
