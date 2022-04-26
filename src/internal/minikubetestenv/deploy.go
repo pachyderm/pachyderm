@@ -126,8 +126,13 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
 
-			"proxy.enabled":      "true",
-			"proxy.service.type": serviceType,
+			"proxy.enabled":                       "true",
+			"proxy.service.type":                  serviceType,
+			"proxy.service.httpNodePort":          "30650",
+			"proxy.service.legacyPorts.oidc":      "30657",
+			"proxy.service.legacyPorts.identity":  "30658",
+			"proxy.service.legacyPorts.s3Gateway": "30600",
+			"proxy.service.legacyPorts.metrics":   "30656",
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
@@ -290,9 +295,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	pachAddress := getPachAddress(t)
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
+		helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
 	}
-	helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
-
 	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		helmOpts = union(helmOpts, withEnterprise(t, namespace, pachAddress))
