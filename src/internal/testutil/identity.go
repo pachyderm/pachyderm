@@ -148,8 +148,8 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient) strin
 		ClientSecret: "test",
 		RedirectURL:  "http://test.example.com:1657/authorization-code/callback",
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  RewriteURL(t, "http://pachd:30658/auth", DexHost(testClient)),
-			TokenURL: RewriteURL(t, "http://pachd:30658/token", DexHost(testClient)),
+			AuthURL:  RewriteURL(t, "http://pachd:30658/dex/auth", DexHost(testClient)),
+			TokenURL: RewriteURL(t, "http://pachd:30658/dex/token", DexHost(testClient)),
 		},
 		Scopes: []string{
 			"openid",
