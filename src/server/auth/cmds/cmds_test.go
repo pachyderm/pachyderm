@@ -92,7 +92,7 @@ func TestActivateFailureRollback(t *testing.T) {
 	).Run())
 
 	// activation succeeds when passed happy-path values
-	require.YesError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --client-id {{.id}} --supply-root-token
 		pachctl auth whoami | match {{.user}}`,
 		"token", tu.RootToken,
