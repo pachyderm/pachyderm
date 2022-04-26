@@ -2,7 +2,7 @@ package server
 
 import (
 	"strconv"
-	
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -57,7 +57,9 @@ func newMockInfraDriver() *mockInfraDriver {
 func (mid *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
 	mid.rcs[pi.Pipeline.Name] = *mid.makeRC(pi)
 	mid.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
-	mid.elapsedScales[pi.Pipeline.Name] = make([]int32, 0)
+	if _, ok := mid.elapsedScales[pi.Pipeline.Name]; !ok {
+		mid.elapsedScales[pi.Pipeline.Name] = make([]int32, 0)
+	}
 	return nil
 }
 
@@ -86,7 +88,7 @@ func (mid *mockInfraDriver) UpdateReplicationController(ctx context.Context, old
 	rc := old.DeepCopy()
 	if update(rc) {
 		name := rc.ObjectMeta.Labels[pipelineNameLabel]
-		mid.elapsedScales[name] = append(mid.elapsedScales[rc.Name], *rc.Spec.Replicas)
+		mid.elapsedScales[name] = append(mid.elapsedScales[name], *rc.Spec.Replicas)
 		mid.writeRC(rc)
 	}
 	return nil

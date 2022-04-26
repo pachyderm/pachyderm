@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -70,8 +69,6 @@ func waitForPipelineStates(t testing.TB, stateDriver *mockStateDriver, pipeline 
 					}
 				}
 			}
-			fmt.Println("Pipeline States")
-			fmt.Println(actualStates)
 			return errors.New("change hasn't reflected")
 		}, backoff.NewTestingBackOff())
 	})
@@ -491,7 +488,7 @@ func TestStaleRestart(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline:   pipeline,
+			pipeline: pipeline,
 			assertWhen: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_RESTARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
