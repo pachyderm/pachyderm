@@ -50,10 +50,15 @@ func (m *SQLTupleWriter) Flush() error {
 	return nil
 }
 
+// GeneratePreparedStatement generates a prepared statement based the amount of data in the buffer.
 func (m *SQLTupleWriter) GeneratePreparedStatement() (*pachsql.Stmt, error) {
+	if len(m.buf) == 0 {
+		return nil, nil
+	}
 	driverName := m.tx.DriverName()
-	placeholders := []string{} // ["(?, ?, ...)", "(?, ?, ...)", ...]
+	placeholders := []string{} // a list of (?, ?, ...)
 
+	// construct list of placeholders by accumulating elements into a row first
 	row := []string{}
 	for i := 0; i < len(m.buf); i++ {
 		row = append(row, pachsql.Placeholder(driverName, i))
@@ -63,8 +68,11 @@ func (m *SQLTupleWriter) GeneratePreparedStatement() (*pachsql.Stmt, error) {
 		}
 	}
 	sqlStr := m.insertStatement + strings.Join(placeholders, ", ")
-	// fmt.Println(">>>", sqlStr)
-	return m.tx.Preparex(sqlStr)
+	stmt, err := m.tx.Preparex(sqlStr)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return stmt, nil
 }
 
 func NewSQLTupleWriter(tx *pachsql.Tx, tableInfo *pachsql.TableInfo) *SQLTupleWriter {
