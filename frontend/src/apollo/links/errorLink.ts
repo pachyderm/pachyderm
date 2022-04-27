@@ -1,12 +1,14 @@
 import {onError} from '@apollo/client/link/error';
 import {captureException} from '@sentry/react';
-import {useHistory} from 'react-router';
+import {GraphQLError} from 'graphql';
 
 import logout from '@dash-frontend/lib/logout';
 
-export const useErrorLink = () => {
-  const browserHistory = useHistory();
-
+export const useErrorLink = (
+  setApolloError: React.Dispatch<
+    React.SetStateAction<GraphQLError | undefined>
+  >,
+) => {
   return onError(({graphQLErrors, networkError, operation}) => {
     if (graphQLErrors) {
       graphQLErrors.forEach(({message, locations, path}) => {
@@ -21,25 +23,20 @@ export const useErrorLink = () => {
         graphQLErrors.some(
           (error) => error.extensions?.code === 'UNAUTHENTICATED',
         ) &&
-        operation.operationName !== 'exchangeCode'
+        !['exchangeCode', 'authConfig'].includes(operation.operationName)
       ) {
         logout();
       }
 
       if (
-        graphQLErrors.some((error) => error.extensions?.code === 'NOT_FOUND') &&
-        operation.operationName !== 'job'
-      ) {
-        browserHistory.push('/not-found');
-      }
-
-      // How do we want to handle other error codes?
-      if (
         graphQLErrors.some(
-          (error) => error.extensions?.code === 'INTERNAL_SERVER_ERROR',
+          (error) =>
+            error.extensions?.code === 'INTERNAL_SERVER_ERROR' ||
+            (error.extensions?.code === 'NOT_FOUND' &&
+              operation.operationName !== 'job'),
         )
       ) {
-        browserHistory.push('/error');
+        setApolloError(graphQLErrors[0]);
       }
     } else if (networkError) {
       captureException(`[Network error]: ${networkError}`);

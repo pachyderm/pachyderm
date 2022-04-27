@@ -1,3 +1,4 @@
+import {ApolloError} from '@apollo/client';
 import {useLoginWindow} from '@pachyderm/components';
 import {useEffect, useMemo} from 'react';
 import {useLocation, useHistory} from 'react-router';
@@ -20,7 +21,13 @@ const useAuthenticatedRoute = () => {
   const {search} = useLocation();
   const routerHistory = useHistory();
   const params = useMemo(() => new URLSearchParams(search), [search]);
-  const error = exchangeCodeError || loginWindowError || authConfigError;
+  const error = useMemo(
+    () =>
+      exchangeCodeError ||
+      (loginWindowError && new ApolloError({errorMessage: loginWindowError})) ||
+      authConfigError,
+    [authConfigError, exchangeCodeError, loginWindowError],
+  );
 
   const workspaceParam = params.get('workspaceName');
   const pachVersion = params.get('pachVersion');

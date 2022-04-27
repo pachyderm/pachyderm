@@ -1,7 +1,6 @@
 import {createServiceError, status} from '@dash-backend/testHelpers';
 import {render, waitFor} from '@testing-library/react';
 import React from 'react';
-import {Route} from 'react-router';
 
 import AuthenticatedRoute from '@dash-frontend/components/AuthenticatedRoute';
 import {mockServer, withContextProviders} from '@dash-frontend/testHelpers';
@@ -9,20 +8,9 @@ import {mockServer, withContextProviders} from '@dash-frontend/testHelpers';
 const windowLocation = window.location;
 
 describe('AuthenticatedRoute', () => {
-  const TestBed = withContextProviders(() => {
-    return (
-      <>
-        <Route
-          path="/authenticated"
-          component={AuthenticatedRoute(() => (
-            <>Authenticated!</>
-          ))}
-        />
-
-        <Route path="/error" component={() => <>Error</>} />
-      </>
-    );
-  });
+  const TestBed = withContextProviders(
+    AuthenticatedRoute(() => <>Authenticated!</>),
+  );
 
   beforeEach(() => {
     window.history.pushState('', '', '/authenticated');
@@ -36,26 +24,26 @@ describe('AuthenticatedRoute', () => {
     expect(await findByText('Authenticated!')).toBeVisible();
   });
 
-  it('should redirect the user to the error page if there is an issue in the oauth flow', async () => {
+  it('should show an error page if there is an issue in the oauth flow', async () => {
     window.localStorage.setItem('oauthError', 'error');
 
-    render(<TestBed />);
+    const {findByText} = render(<TestBed />);
 
-    await waitFor(() =>
-      expect(window.location.pathname).toBe('/unauthenticated'),
-    );
+    expect(
+      await findByText(`Looks like this API call can't be completed.`),
+    ).toBeInTheDocument();
   });
 
-  it('should redirect the user to the error page if there is an issue with redeeming the auth code', async () => {
+  it('should show an error page if there is an issue with redeeming the auth code', async () => {
     const error = createServiceError({code: status.UNAUTHENTICATED});
     mockServer.setError(error);
     window.localStorage.setItem('oauthCode', 'code');
 
-    render(<TestBed />);
+    const {findByText} = render(<TestBed />);
 
-    await waitFor(() =>
-      expect(window.location.pathname).toBe('/unauthenticated'),
-    );
+    expect(
+      await findByText('Unable to authenticate. Try again later.'),
+    ).toBeInTheDocument();
   });
 
   it('should exchange the oauth code for users returning from the oauth flow', async () => {
@@ -66,35 +54,16 @@ describe('AuthenticatedRoute', () => {
     expect(await findByText('Authenticated!')).toBeVisible();
   });
 
-  it('should redirect the user to the error page if the OIDC provider is misconfigured', async () => {
+  it('should show an error page if the OIDC provider is misconfigured', async () => {
     window.localStorage.removeItem('auth-token');
     window.localStorage.removeItem('id-token');
     mockServer.setAuthConfigurationError(true);
 
-    render(<TestBed />);
+    const {findByText} = render(<TestBed />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/error'));
-  });
-
-  it('should redirect users to landing and save workspace data from url', async () => {
-    window.history.replaceState(
-      '',
-      '',
-      '/authenticated?workspaceName=Elegant%20Elephant&pachVersion=2.0.0&pachdAddress=pachdaddress.pachyderm',
-    );
-
-    render(<TestBed />);
-
-    await waitFor(() =>
-      expect(window.localStorage.getItem('workspaceName')).toEqual(
-        'Elegant Elephant',
-      ),
-    );
-    expect(window.localStorage.getItem('pachVersion')).toEqual('2.0.0');
-    expect(window.localStorage.getItem('pachdAddress')).toEqual(
-      'pachdaddress.pachyderm',
-    );
-    expect(window.location.pathname).toEqual('/');
+    expect(
+      await findByText('Unable to authenticate. Try again later.'),
+    ).toBeInTheDocument();
   });
 
   describe('external navigation', () => {

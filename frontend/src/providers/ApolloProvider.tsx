@@ -1,14 +1,17 @@
 import {ApolloProvider} from '@apollo/client';
-import React, {useEffect, useRef} from 'react';
+import {GraphQLError} from 'graphql';
+import React, {useEffect, useRef, useState} from 'react';
 
 import {useErrorLink} from '@dash-frontend/apollo/links/errorLink';
 import useLoggedIn from '@dash-frontend/hooks/useLoggedIn';
+import ErrorView from '@dash-frontend/views/ErrorView';
 import createApolloClient from 'apollo';
 
 const DashApolloProvider: React.FC = ({children}) => {
   const {loggedIn} = useLoggedIn();
   const prevLoggedInRef = useRef(loggedIn);
-  const errorLink = useErrorLink();
+  const [apolloError, setApolloError] = useState<GraphQLError>();
+  const errorLink = useErrorLink(setApolloError);
   const {client, restartWebsocket} = createApolloClient(errorLink);
 
   useEffect(() => {
@@ -17,6 +20,14 @@ const DashApolloProvider: React.FC = ({children}) => {
       restartWebsocket();
     }
   }, [loggedIn, restartWebsocket]);
+
+  if (apolloError) {
+    return (
+      <ApolloProvider client={client}>
+        <ErrorView graphQLError={apolloError} />
+      </ApolloProvider>
+    );
+  }
 
   return <ApolloProvider client={client}>{children}</ApolloProvider>;
 };

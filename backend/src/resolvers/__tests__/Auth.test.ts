@@ -93,7 +93,7 @@ describe('Auth resolver', () => {
       );
 
       expect(data).toBe(null);
-      expect(errors[0].extensions.code).toBe('INTERNAL_SERVER_ERROR');
+      expect(errors[0].extensions.code).toBe('UNAUTHENTICATED');
     });
   });
 });

@@ -1,22 +1,49 @@
+import {GraphQLError} from 'graphql';
+import {useMemo} from 'react';
 import {useLocation} from 'react-router';
 
 export enum ErrorViewType {
   NOT_FOUND = 'NOT_FOUND',
+  RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
   UNAUTHENTICATED = 'UNAUTHENTICATED',
   GENERIC = 'GENERIC',
 }
 
-const pathToErrorViewType: {[key: string]: ErrorViewType} = {
-  '/not-found': ErrorViewType.NOT_FOUND,
-  '/unauthenticated': ErrorViewType.UNAUTHENTICATED,
-};
-
-const useErrorView = () => {
+const useErrorView = (graphQLError?: GraphQLError) => {
   const {pathname} = useLocation();
 
-  const errorType = pathToErrorViewType[pathname] || ErrorViewType.GENERIC;
+  const errorType = useMemo(() => {
+    if (pathname === '/not-found') {
+      return ErrorViewType.NOT_FOUND;
+    }
 
-  return {errorType};
+    if (graphQLError?.extensions.code === ErrorViewType.UNAUTHENTICATED) {
+      return ErrorViewType.UNAUTHENTICATED;
+    }
+
+    if (graphQLError?.extensions.code === ErrorViewType.NOT_FOUND) {
+      return ErrorViewType.RESOURCE_NOT_FOUND;
+    }
+
+    const errorType = ErrorViewType.GENERIC;
+
+    return errorType;
+  }, [graphQLError?.extensions.code, pathname]);
+
+  const errorMessage = useMemo(() => {
+    switch (errorType) {
+      case ErrorViewType.UNAUTHENTICATED:
+        return 'Unable to authenticate. Try again later.';
+      case ErrorViewType.NOT_FOUND:
+        return 'Elephants never forget, so this page must not exist.';
+      case ErrorViewType.RESOURCE_NOT_FOUND:
+        return 'Unable to locate this resource, are you sure it exists?';
+      default:
+        return `Looks like this API call can't be completed.`;
+    }
+  }, [errorType]);
+
+  return {errorType, errorMessage};
 };
 
 export default useErrorView;

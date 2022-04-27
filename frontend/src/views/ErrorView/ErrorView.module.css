@@ -1,8 +1,19 @@
-.heading {
-  margin-top: 8.75rem;
+.base {
+  padding: 2rem;
 }
 
-.homeButton {
-  margin-top: 3.75rem;
-  margin-bottom: 5.75rem;
+.content {
+  width: 100%;
+  max-width: 60rem;
+  background-color: var(--white);
+  border: 1px solid var(--border-grey);
+  padding: 2rem;
+}
+
+.fullError {
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  border-radius: 0.4rem;
+  overflow-y: scroll;
+  max-width: 60rem;
 }

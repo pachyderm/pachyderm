@@ -1,5 +1,6 @@
 import React from 'react';
-import {Redirect} from 'react-router';
+
+import ErrorView from '@dash-frontend/views/ErrorView';
 
 import useAuthenticatedRoute from './hooks/useAuthenticatedRoute';
 
@@ -7,17 +8,10 @@ const AuthenticatedRoute = <T,>(
   Component: React.ComponentType<T>,
 ): React.ComponentType<T> => {
   const WrappedComponent: React.FC<T> = (props) => {
-    const {error, loggedIn, redirectSearchString} = useAuthenticatedRoute();
+    const {error, loggedIn} = useAuthenticatedRoute();
 
     if (error) {
-      return (
-        <Redirect
-          to={{
-            pathname: '/unauthenticated',
-            search: redirectSearchString,
-          }}
-        />
-      );
+      return <ErrorView graphQLError={error.graphQLErrors[0]} />;
     }
 
     if (loggedIn) {

@@ -1,4 +1,4 @@
-import {ApolloError, AuthenticationError} from 'apollo-server-express';
+import {AuthenticationError} from 'apollo-server-express';
 
 import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';
 import {UnauthenticatedContext} from '@dash-backend/lib/types';
@@ -25,7 +25,7 @@ const authResolver: AuthResolver = {
         issuer = await getTokenIssuer();
       } catch (e) {
         log.error({eventSource: 'auth issuer'}, String(e));
-        throw new ApolloError('Failed to connect to issuer');
+        throw new AuthenticationError('Failed to connect to issuer');
       }
 
       try {
@@ -42,12 +42,12 @@ const authResolver: AuthResolver = {
             {eventSource: 'authUrl resolver', meta: {config}},
             'Issuer is missing authorization_endpoint configuration',
           );
-          throw new ApolloError('Issuer is misconfigured');
+          throw new AuthenticationError('Issuer is misconfigured');
         }
 
         return config;
       } catch (e) {
-        throw new ApolloError(String(e));
+        throw new AuthenticationError(String(e));
       }
     },
   },

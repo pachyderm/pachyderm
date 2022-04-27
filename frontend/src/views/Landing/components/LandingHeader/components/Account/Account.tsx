@@ -9,10 +9,14 @@ const Account: React.FC = () => {
   const {loggedIn} = useLoggedIn();
   const {displayName, loading} = useAccount({skip: !loggedIn});
 
-  if (loading || !loggedIn) {
+  if (loading) {
     return (
       <div className={styles.loaderContainer} data-testid="Account__loader" />
     );
+  }
+
+  if (!loggedIn) {
+    return null;
   }
 
   return <span className={styles.base}>Hello, {displayName}!</span>;

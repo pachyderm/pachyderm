@@ -43,13 +43,6 @@ const DashUI: React.FC = () => {
                     />
 
                     <Route path="/not-found" exact component={ErrorView} />
-                    <Route
-                      path="/unauthenticated"
-                      exact
-                      component={ErrorView}
-                    />
-                    <Route path="/error" exact component={ErrorView} />
-
                     <Redirect to={'/not-found'} />
                   </Switch>
                 </Suspense>

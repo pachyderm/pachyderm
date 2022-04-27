@@ -71,9 +71,13 @@ describe('errorLink', () => {
     });
 
     it('should redirect the user to /not-found if a resource does not exist', async () => {
-      render(<TestBed />);
+      const {findByText} = render(<TestBed />);
 
-      await waitFor(() => expect(window.location.pathname).toBe('/not-found'));
+      expect(
+        await findByText(
+          `Unable to locate this resource, are you sure it exists?`,
+        ),
+      ).toBeInTheDocument();
     });
   });
 
@@ -87,11 +91,13 @@ describe('errorLink', () => {
       window.history.replaceState('', '', '/');
     });
 
-    it('should redirect the user to /error if there is a service error', async () => {
+    it('should show an error page if there is a service error', async () => {
       mockServer.setError(createServiceError({code: 13}));
-      render(<TestBed />);
+      const {findByText} = render(<TestBed />);
 
-      await waitFor(() => expect(window.location.pathname).toBe('/error'));
+      expect(
+        await findByText(`Looks like this API call can't be completed.`),
+      ).toBeInTheDocument();
     });
   });
 });
