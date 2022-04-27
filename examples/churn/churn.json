@@ -1,15 +1,15 @@
 {
     "pipeline": {
-        "name": "train"
+        "name": "churn"
     },
-    "description": "A pipeline that trains a basic model to predict churn.",
+    "description": "A pipeline to predict user churn.",
     "transform": {
-        "image": "pachyderm/churn_train",
-        "cmd": ["python", "/train.py"]
+        "image": "pachyderm/churn",
+        "cmd": ["python", "/churn.py"]
     },
     "input": {
         "pfs": {
-            "repo": "churn_ingress",
+            "repo": "customer",
             "glob": "/*"
         }
     },

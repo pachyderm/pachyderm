@@ -5,7 +5,7 @@ from sklearn.linear_model import LogisticRegression
 import os
 
 #Loading the dataset with pandas
-datainput = pd.read_csv(os.environ['churn_ingress'],
+datainput = pd.read_csv(os.environ['customer'],
     names=['customerID', 'gender', 'SeniorCitizen', 'Partner', 'Dependents', 'Tenure', 'PhoneService', 'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'Contract', 'PaperlessBilling', 'PaymentMethod', 'MonthlyCharges', 'TotalCharges', 'Churn'])
 
 ids = datainput.pop('customerID')
