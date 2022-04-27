@@ -8,7 +8,14 @@ pachd:
     rootToken: "V4Ptmxchcj04TY5vmngJAD0RiuJ3JYc6"
     oauthClientSecret: "p2BDmthvG91dKS22n1YnbvmZW0ZRYW91"
     storage:
-        backend: LOCAL
+        backend: MINIO
+        minio:
+            bucket: "pachyderm-test"
+            endpoint: "minio.default.svc.cluster.local:9000"
+            id: "minioadmin"
+            secret: "minioadmin"
+            secure: "false"
+            signature: ""
     localhostIssuer: "true"
 postgresql:
     postgresqlPassword: "abc123321cba"
@@ -23,3 +30,10 @@ proxy:
     enabled: true
     service:
         type: NodePort
+        legacyPorts:
+            console: 30400
+            grpc: 30650
+            s3Gateway: 30600
+            oidc: 30657
+            identity: 30658
+            metrics: 30656
