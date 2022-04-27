@@ -219,6 +219,7 @@ func TestSQLTupleWriter(t *testing.T) {
 				// key part we are testing
 				require.NoError(t, w.WriteTuple(tuple))
 			}
+			require.NoError(t, w.Flush())
 			require.NoError(t, tx.Commit())
 
 			// assertions

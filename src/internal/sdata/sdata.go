@@ -95,6 +95,7 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)
 		if errors.Is(err, io.EOF) {
+			w.Flush()
 			break
 		} else if err != nil {
 			return n, errors.EnsureStack(err)
