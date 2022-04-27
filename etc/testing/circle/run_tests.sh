@@ -99,6 +99,7 @@ case "${BUCKET}" in
   AUTH)
     make test-identity
     make test-auth
+    make test-admin
     ;;
   ENTERPRISE)
     make test-license

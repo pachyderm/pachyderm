@@ -47,6 +47,12 @@ func ActivateAuth(tb testing.TB) {
 	activateAuthHelper(tb, client)
 }
 
+// ActivateAuthClient activates the auth service in the test cluster, if it isn't already enabled
+func ActivateAuthClient(tb testing.TB, c *client.APIClient) {
+	tb.Helper()
+	activateAuthHelper(tb, c)
+}
+
 // creates a new authenticated pach client, without re-activating
 func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
 	tb.Helper()
