@@ -10120,6 +10120,8 @@ func TestValidationFailure(t *testing.T) {
 	require.Equal(t, "", commitInfo.Error)
 }
 
+// TestPPSEgressToSnowflake tests basic Egress functionality via PPS mechanism,
+// and how it handles inserting the same primary key twice.
 func TestPPSEgressToSnowflake(t *testing.T) {
 	// setup
 	if testing.Short() {
@@ -10131,14 +10133,12 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	// create input repo with CSV
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
-	commit := client.NewCommit(repo, "master", "")
-	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
 
 	// create output database, and destination table
 	dbName := tu.GenerateEphermeralDBName(t)
 	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
-		Id int    `sql:"ID,INT"`
+		Id int    `sql:"ID,INT,PRIMARY KEY"`
 		A  string `sql:"A,VARCHAR(100)"`
 	}{}))
 
@@ -10188,15 +10188,30 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 			},
 		},
 	)
+
+	// Initial load
+	master := client.NewCommit(repo, "master", "")
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
 	require.NoError(t, err)
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
 	require.NoError(t, err)
-
 	// query db for results
 	var count, expected int
 	expected = 2
+	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+	require.Equal(t, expected, count)
+
+	// Add a new row, and test whether primary key conflicts
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
+	require.NoError(t, err)
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	// query db for results
+	expected = 3
 	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
 	require.Equal(t, expected, count)
 }

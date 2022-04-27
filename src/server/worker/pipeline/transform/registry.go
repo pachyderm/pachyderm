@@ -475,6 +475,7 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 			request.Target = &pfs.EgressRequest_SqlDatabase{SqlDatabase: egress.GetSqlDatabase()}
 		}
 	}
+	// file not found means the commit is empty, nothing to egress
 	// TODO explicitly handle/swallow more unrecoverable errors from SqlDatabase, to prevent job being stuck in egressing.
 	if _, err := client.Egress(client.Ctx(), &request); err != nil && !pfsserver.IsFileNotFoundErr(err) {
 		return err
