@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -69,11 +70,21 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 		tableName := strings.Split(fi.File.Path, "/")[1]
 		tableInfo, ok := tableInfos[tableName]
 		if !ok {
+			// first time interacting with table, so do a full drop first
+			// TODO figure out how to full sync better
 			tableInfo, err = pachsql.GetTableInfoTx(tx, tableName)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
 			tableInfos[tableName] = tableInfo
+			result, err := tx.Exec(fmt.Sprintf("DELETE FROM %s.%s", tableInfo.Schema, tableInfo.Name))
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			_, err = result.RowsAffected()
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 
 		if err := miscutil.WithPipe(
@@ -86,7 +97,7 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 				case pfs.SQLDatabaseEgress_FileFormat_CSV:
 					tr = sdata.NewCSVParser(r)
 				case pfs.SQLDatabaseEgress_FileFormat_JSON:
-					tr = sdata.NewJSONParser(r, fileFormat.JsonFieldNames)
+					tr = sdata.NewJSONParser(r, fileFormat.Columns)
 				}
 				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
 				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)

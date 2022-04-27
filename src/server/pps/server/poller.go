@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -101,7 +102,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// database; it determines both which RCs (from above) are stale and also
 			// which pipelines need to be bumped. Note that there may be zero
 			// pipelines in the database, and dbPipelines may be empty.
-			if err := m.a.listPipelineInfo(ctx, nil, 0,
+			if err := ppsutil.ListPipelineInfo(ctx, m.a.pipelines, nil, 0,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
