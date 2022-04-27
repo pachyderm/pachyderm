@@ -112,7 +112,7 @@ func (sd *stateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), 
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
-	return pipelineWatcher.Watch(), func() { pipelineWatcher.Close() }, nil
+	return pipelineWatcher.Watch(), pipelineWatcher.Close, nil
 }
 
 func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error {
