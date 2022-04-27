@@ -340,6 +340,12 @@
                         "postgresqlSSL": {
                             "type": "string"
                         },
+                        "postgresqlSSLCACert": {
+                            "type": "string"
+                        },
+                        "postgresqlSSLSecret": {
+                            "type": "string"
+                        },
                         "postgresqlUsername": {
                             "type": "string"
                         }
