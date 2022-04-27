@@ -6186,8 +6186,8 @@ func TestPFS(suite *testing.T) {
 				},
 				options: &pfs.SQLDatabaseEgress{
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
-						Type:           pfs.SQLDatabaseEgress_FileFormat_JSON,
-						JsonFieldNames: []string{"ID", "A"}}},
+						Type:    pfs.SQLDatabaseEgress_FileFormat_JSON,
+						Columns: []string{"ID", "A"}}},
 				tables:         []string{"test_table", "test_table2", "empty_table"},
 				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
