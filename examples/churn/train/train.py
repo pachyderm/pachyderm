@@ -52,9 +52,5 @@ churnProb = classifier.predict_proba(X)
 from pathlib import Path
 Path("/pfs/out/churn").mkdir(parents=True, exist_ok=True)
 with open('/pfs/out/churn/0000', 'w') as out:
-    count = 0
     for row in zip(ids, churnProb):
         out.write("%s,%f\n" % (row[0], row[1][1]))
-        count += 1
-        if count > 100:
-            break

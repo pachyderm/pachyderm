@@ -22,15 +22,14 @@
         "cpu": 1
     },
     "egress": {
-        "URL": "snowflake://albertpachyderm@CDKSVXM-PN23804/CHURN_DEMO/PUBLIC?warehouse=COMPUTE_WH",
-        "sql_options": {
+        "sql_database": {
+            "url": "snowflake://albertpachyderm@CDKSVXM-PN23804/CHURN_DEMO/PUBLIC?warehouse=COMPUTE_WH",
             "file_format": {
                 "type": "CSV"
             },
             "secret": {
                 "k8s_secret": "snowflakesecret",
-                "key": "PACHYDERM_SQL_PASSWORD",
-                "env_var": "PACHYDERM_SQL_PASSWORD"
+                "key": "PACHYDERM_SQL_PASSWORD"
             }
         }
     }
