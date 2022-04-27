@@ -33,7 +33,6 @@ func (m *SQLTupleWriter) WriteTuple(t Tuple) error {
 }
 
 func (m *SQLTupleWriter) Flush() error {
-	fmt.Println(">>> Flush()")
 	if len(m.buf) == 0 {
 		return nil
 	}
