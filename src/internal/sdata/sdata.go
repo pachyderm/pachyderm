@@ -2,7 +2,6 @@ package sdata
 
 import (
 	"database/sql"
-	"fmt"
 	"io"
 	"time"
 
@@ -43,9 +42,6 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 		return nil, errors.EnsureStack(err)
 	}
 	cTypes, err := rows.ColumnTypes()
-	for i, name := range colNames {
-		fmt.Printf("%s: %s\n", name, cTypes[i])
-	}
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -95,10 +91,11 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 }
 
 // Copy copies a tuple from r to w. Row is used to indicate the correct shape of read data.
-func Copy(r TupleReader, w TupleWriter, row Tuple) (n int, _ error) {
+func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)
 		if errors.Is(err, io.EOF) {
+			w.Flush()
 			break
 		} else if err != nil {
 			return n, errors.EnsureStack(err)
@@ -124,7 +121,6 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 }
 
 func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
-	fmt.Println(dbType)
 	switch dbType {
 	case "BOOL", "BOOLEAN":
 		if nullable {
@@ -152,6 +148,7 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		} else {
 			return new(int64), nil
 		}
+	// TODO account for precision and scale as well
 	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION", "FIXED":
 		if nullable {
 			return new(sql.NullFloat64), nil

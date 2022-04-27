@@ -20,17 +20,17 @@ import (
 )
 
 const (
-	PostgresPort  = 30228
+	postgresPort  = 30228
 	PGBouncerPort = 30229
 	maxOpenConns  = 10
 )
 
-func PostgresHost() string {
+func postgresHost() string {
 	return getDockerHost()
 }
 
 func PGBouncerHost() string {
-	return PostgresHost()
+	return postgresHost()
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
@@ -48,8 +48,8 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		c.PostgresDBName = dbName
 
 		// direct
-		c.PostgresHost = PostgresHost()
-		c.PostgresPort = PostgresPort
+		c.PostgresHost = postgresHost()
+		c.PostgresPort = postgresPort
 		// pg_bouncer
 		c.PGBouncerHost = PGBouncerHost()
 		c.PGBouncerPort = PGBouncerPort
@@ -60,6 +60,26 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 
 func NewTestDB(t testing.TB) *pachsql.DB {
 	return testutil.OpenDB(t, NewTestDBOptions(t)...)
+}
+
+// NewTestDBFromName creates a new database with a user defined name,
+// and returns a database connection connected to the new database.
+func NewTestDBFromName(t testing.TB, dbName string) *pachsql.DB {
+	ctx := context.Background()
+	require.NoError(t, ensureDBEnv(t, ctx))
+	db := testutil.OpenDB(t,
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+	)
+	dbName = testutil.CreateEphemeralDB(t, db, dbName)
+	return testutil.OpenDB(t,
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithDBName(dbName),
+	)
 }
 
 func NewTestDirectDB(t testing.TB) *pachsql.DB {
@@ -88,7 +108,7 @@ func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	require.NoError(t, ensureDBEnv(t, ctx))
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(PostgresHost(), PostgresPort),
+		dbutil.WithHostPort(postgresHost(), postgresPort),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithMaxOpenConns(maxOpenConns),
 	})

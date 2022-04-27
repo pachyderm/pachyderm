@@ -895,24 +895,24 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 }
 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
-	src, err := a.driver.getFile(ctx, req.Source.NewFile("/"))
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
 	if err != nil {
 		return nil, err
 	}
-	// try object storage
-	bytesWritten, objErr := getFileURL(ctx, req.TargetUrl, src)
-	if objErr == nil {
-		return &pfs.EgressResponse{BytesWritten: bytesWritten}, nil
-	}
-	if !(errors.As(objErr, &url.Error{}) || errors.As(objErr, &obj.URLFormatError{})) {
-		return nil, errors.EnsureStack(objErr)
-	}
+	switch target := req.Target.(type) {
+	case *pfs.EgressRequest_ObjectStorage:
+		result, err := copyToObjectStorage(ctx, src, target.ObjectStorage.Url)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_ObjectStorage{ObjectStorage: result}}, nil
 
-	a.driver.log.Info("Egress failed for Object Storage: %v, trying SQL DB protocol instead", objErr)
-	// try SQL DB instead
-	rowsWritten, dbErr := copyToSQLDB(ctx, src, req.TargetUrl, req.Sql.FileFormat)
-	if dbErr != nil {
-		return nil, errors.EnsureStack(errors.Errorf("egress failed: %v", dbErr))
+	case *pfs.EgressRequest_SqlDatabase:
+		result, err := copyToSQLDB(ctx, src, target.SqlDatabase.Url, target.SqlDatabase.FileFormat)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_SqlDatabase{SqlDatabase: result}}, nil
 	}
-	return &pfs.EgressResponse{SqlRowsWritten: rowsWritten}, nil
+	return nil, errors.Errorf("egress failed")
 }

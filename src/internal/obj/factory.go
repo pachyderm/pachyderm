@@ -472,13 +472,6 @@ func (s ObjectStoreURL) String() string {
 	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
 }
 
-type URLFormatError struct {
-	Msg string
-	URL string
-}
-
-func (e *URLFormatError) Error() string { return fmt.Sprintf("%s: %s", e.Msg, e.URL) }
-
 // ParseURL parses an URL into ObjectStoreURL.
 func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	u, err := url.Parse(urlStr)
@@ -497,7 +490,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if len(parts) < 1 {
 			// return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
-			return nil, &URLFormatError{Msg: "malformed Azure URI", URL: urlStr}
+			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
 		}
 		return &ObjectStoreURL{
 			Scheme: u.Scheme,
@@ -517,7 +510,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		}, nil
 	}
 	// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
-	return nil, &URLFormatError{Msg: fmt.Sprintf(`object storage protocol "%s" not supported`, u.Scheme), URL: urlStr}
+	return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 }
 
 // NewClientFromEnv creates a client based on environment variables.

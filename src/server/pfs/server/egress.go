@@ -14,8 +14,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-type egressResult map[string]int64
-
 func getEgressPassword() (string, error) {
 	const passwordEnvar = "PACHYDERM_SQL_PASSWORD" // TODO move this to a package for sharing
 	password, ok := os.LookupEnv(passwordEnvar)
@@ -25,7 +23,17 @@ func getEgressPassword() (string, error) {
 	return password, nil
 }
 
-func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pfs.SQLEgressOptions_FileFormat) (egressResult, error) {
+func copyToObjectStorage(ctx context.Context, src Source, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
+	bytesWritten, err := getFileURL(ctx, destURL, src)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	result := new(pfs.EgressResponse_ObjectStorageResult)
+	result.BytesWritten = bytesWritten
+	return result, nil
+}
+
+func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pfs.SQLDatabaseEgress_FileFormat) (*pfs.EgressResponse_SQLDatabaseResult, error) {
 	url, err := pachsql.ParseURL(destURL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -51,15 +59,16 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 
 	// cache tableInfos because multiple files can belong to the same table
 	tableInfos := make(map[string]*pachsql.TableInfo)
-	rowsWritten := make(egressResult)
+	result := new(pfs.EgressResponse_SQLDatabaseResult)
+	result.RowsWritten = make(map[string]int64)
 	err = src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
 		if fi.FileType != pfs.FileType_FILE {
 			return nil
 		}
 
 		tableName := strings.Split(fi.File.Path, "/")[1]
-		tableInfo, prs := tableInfos[tableName]
-		if !prs {
+		tableInfo, ok := tableInfos[tableName]
+		if !ok {
 			tableInfo, err = pachsql.GetTableInfoTx(tx, tableName)
 			if err != nil {
 				return errors.EnsureStack(err)
@@ -74,18 +83,18 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 			func(r io.Reader) error {
 				var tr sdata.TupleReader
 				switch fileFormat.Type {
-				case pfs.SQLEgressOptions_FileFormat_CSV:
+				case pfs.SQLDatabaseEgress_FileFormat_CSV:
 					tr = sdata.NewCSVParser(r)
-				case pfs.SQLEgressOptions_FileFormat_JSON:
-					tr = sdata.NewJSONParser(r, fileFormat.Options.JsonFieldNames)
+				case pfs.SQLDatabaseEgress_FileFormat_JSON:
+					tr = sdata.NewJSONParser(r, fileFormat.JsonFieldNames)
 				}
 				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
 				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				n, err := sdata.Copy(tr, tw, tuple)
-				rowsWritten[tableName] += int64(n)
+				n, err := sdata.Copy(tw, tr, tuple)
+				result.RowsWritten[tableName] += int64(n)
 				return errors.EnsureStack(err)
 			}); err != nil {
 			return errors.EnsureStack(err)
@@ -95,5 +104,5 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return rowsWritten, errors.EnsureStack(tx.Commit())
+	return result, errors.EnsureStack(tx.Commit())
 }
