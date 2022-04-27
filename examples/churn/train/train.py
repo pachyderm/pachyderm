@@ -8,7 +8,7 @@ import os
 datainput = pd.read_csv(os.environ['churn_ingress'],
     names=['customerID', 'gender', 'SeniorCitizen', 'Partner', 'Dependents', 'Tenure', 'PhoneService', 'MultipleLines', 'InternetService', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'Contract', 'PaperlessBilling', 'PaymentMethod', 'MonthlyCharges', 'TotalCharges', 'Churn'])
 
-datainput.drop(['customerID'], axis=1, inplace=True)
+ids = datainput.pop('customerID')
 datainput.pop('TotalCharges')
 datainput['OnlineBackup'].unique()
 
@@ -47,7 +47,14 @@ classifier=LogisticRegression()
 classifier.fit(X_train,Y_train)
 Y_pred=classifier.predict(X_test)
 
-#weights of all the variables
-wt = pd.Series(classifier.coef_[0], index=X.columns.values)
-print("\nweight of all the variables :")
-print(wt.sort_values(ascending=False))
+churnProb = classifier.predict_proba(X)
+
+from pathlib import Path
+Path("/pfs/out/churn").mkdir(parents=True, exist_ok=True)
+with open('/pfs/out/churn/0000', 'w') as out:
+    count = 0
+    for row in zip(ids, churnProb):
+        out.write("%s,%f\n" % (row[0], row[1][1]))
+        count += 1
+        if count > 100:
+            break
