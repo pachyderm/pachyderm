@@ -207,6 +207,7 @@ func watchTests(
 		defer watcher.Close()
 
 		ev := nextEvent(watcher.Watch(), 5*time.Second)
+		require.NotNil(t, ev)
 		require.Equal(t, TestEvent{watch.EventError, "", nil}, newTestEvent(t, ev))
 		require.YesError(t, ev.Err)
 		require.True(t, errors.Is(ev.Err, context.Canceled))
@@ -228,6 +229,21 @@ func watchTests(
 			tester.Delete(row.ID)
 			tester.ExpectEvent(TestEvent{watch.EventDelete, row.ID, nil})
 			tester.ExpectNoEvents()
+			cancel()
+			tester.ExpectError(context.Canceled)
+			tester.ExpectNoEvents()
+		})
+
+		suite.Run("InterruptionDuringBackfill", func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reader, writer := newCollection(context.Background(), t)
+			for i := 0; i < 10; i++ {
+				writer(context.Background(), putItem(makeProto(makeID(i))))
+			}
+
+			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader))
 			cancel()
 			tester.ExpectError(context.Canceled)
 			tester.ExpectNoEvents()
