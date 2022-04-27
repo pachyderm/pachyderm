@@ -144,10 +144,12 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 	}
 }
 
-func (pw *postgresWatcher) sendInitial(event *watch.Event) error {
+func (pw *postgresWatcher) sendInitial(ctx context.Context, event *watch.Event) error {
 	select {
 	case pw.c <- event:
 		return nil
+	case <-ctx.Done():
+		return errors.EnsureStack(ctx.Err())
 	case <-pw.done:
 		return errors.New("failed to send initial event, watcher has been closed")
 	}
