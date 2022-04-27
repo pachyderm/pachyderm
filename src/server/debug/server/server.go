@@ -70,7 +70,6 @@ func (s *debugServer) handleRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 	collect collectFunc,
-	extraApps ...string,
 ) error {
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
@@ -124,15 +123,13 @@ func (s *debugServer) handleRedirect(
 					return err
 				}
 			}
-			if len(extraApps) > 0 {
-				return s.appLogs(tw, extraApps)
-			}
-			return nil
+			// All pachyderm apps including pachd.
+			return s.appLogs(tw)
 		})
 	})
 }
 
-func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
+func (s *debugServer) appLogs(tw *tar.Writer) error {
 	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(s.env.Context(), metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
@@ -142,11 +139,13 @@ func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
 			MatchLabels: map[string]string{
 				"suite": "pachyderm",
 			},
-			MatchExpressions: []metav1.LabelSelectorRequirement{{
-				Key:      "app",
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   apps,
-			}},
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "component",
+					Operator: metav1.LabelSelectorOpNotIn,
+					Values:   []string{"worker"},
+				},
+			},
 		}),
 	})
 	if err != nil {
@@ -387,7 +386,6 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		s.collectWorkerDump,
 		redirectDumpFunc(pachClient.Ctx()),
 		collectDump,
-		"pg-bouncer", "etcd",
 	)
 }
 
@@ -399,18 +397,6 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 		}
 		// Collect the pachd version.
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
-			return err
-		}
-		// Collect the pachd describe output.
-		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
-			return err
-		}
-		// Collect the pachd container logs.
-		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
-			return err
-		}
-		// Collect the pachd container logs from loki.
-		if err := s.collectLogsLoki(tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.
