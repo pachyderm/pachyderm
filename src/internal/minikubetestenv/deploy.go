@@ -225,6 +225,7 @@ func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Client
 }
 
 func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string) *client.APIClient {
+	start := time.Now()
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
 	require.NoError(t, backoff.Retry(func() error {
@@ -240,7 +241,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
-	t.Logf("Success connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
+	t.Logf("Success connecting to pachd on port: %v, in namespace: %s, after %s", pachAddress.Port, namespace, time.Since(start).String())
 	if authUser != "" {
 		c = testutil.AuthenticateClient(t, c, authUser)
 	}
