@@ -48,7 +48,6 @@ type Env struct {
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
 	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
-
 	return Env{
 		DB:            senv.GetDBClient(),
 		TxnEnv:        txnEnv,

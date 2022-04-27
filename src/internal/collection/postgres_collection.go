@@ -557,7 +557,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			return errutil.ErrBreak
 		}
 
-		return watcher.sendInitial(c.ctx, &watch.Event{
+		return watcher.sendInitial(&watch.Event{
 			Key:      []byte(m.Key),
 			Value:    m.Proto,
 			Type:     watch.EventPut,
@@ -566,14 +566,14 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		})
 	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		// Ignore any additional error here - we're already attempting to send an error to the user
-		watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err})
+		watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 		watcher.listener.Unregister(watcher)
 		return
 	}
 
 	if bufEvent != nil {
-		if err := watcher.sendInitial(c.ctx, bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-			watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err})
+		if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
 			watcher.listener.Unregister(watcher)
 			return
 		}
