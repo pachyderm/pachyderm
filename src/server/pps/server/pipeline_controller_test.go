@@ -34,8 +34,8 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 		BackgroundContext: context.Background(),
 		Logger:            logrus.StandardLogger(),
 		EtcdClient:        mockEnv.EtcdClient,
-		GetPachClient: func(context.Context) *client.APIClient {
-			return mockEnv.PachClient
+		GetPachClient: func(ctx context.Context) *client.APIClient {
+			return mockEnv.PachClient.WithCtx(ctx)
 		},
 		Config:      newConfig(t),
 		TaskService: nil,
@@ -152,6 +152,7 @@ func TestDeletePipeline(t *testing.T) {
 	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
 	// clear state and trigger the delete event
 	stateDriver.reset()
+	defer stateDriver.cancelWatch()
 	stateDriver.pushWatchEvent(pi, watch.EventDelete)
 	require.NoErrorWithinT(t, 5*time.Second, func() error {
 		return backoff.Retry(func() error {
@@ -457,10 +458,6 @@ func TestPauseAutoscaling(t *testing.T) {
 	})
 }
 
-func TestCrashing(t *testing.T) {
-
-}
-
 func TestStaleRestart(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
@@ -503,11 +500,6 @@ func TestStaleRestart(t *testing.T) {
 		},
 	})
 	require.Equal(t, 2, infraDriver.calls[pipeline][mockInfraOp_CREATE])
-
-}
-
-// Tests that monitor goros update
-func TestUpdateAutoscalingSpec(t *testing.T) {
 
 }
 

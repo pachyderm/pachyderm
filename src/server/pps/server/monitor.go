@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -106,6 +107,11 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 		eg.Go(func() error {
 			defer close(ciChan)
 			return backoff.RetryNotify(func() error {
+				select {
+				case <-ctx.Done():
+					return errutil.ErrBreak
+				default:
+				}
 				pachClient := pc.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci

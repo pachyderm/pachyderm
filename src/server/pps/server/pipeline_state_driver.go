@@ -169,11 +169,14 @@ type mockStateDriver struct {
 	pipelines   map[string]*pps.PipelineInfo   // maps pipeline names to PipelineInfos
 	states      map[string][]pps.PipelineState // tracks all of the
 	eChan       chan *watch.Event
+	doneEChan   chan struct{} // supports closing eChan
 }
 
 func newMockStateDriver() *mockStateDriver {
 	msd := &mockStateDriver{}
 	msd.reset()
+	msd.eChan = make(chan *watch.Event, 1)
+	msd.done = make(chan struct{}, 5)
 	return msd
 }
 
@@ -202,8 +205,21 @@ func (msd *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*p
 }
 
 func (msd *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
+	go func() {
+		select {
+		case <-ctx.Done():
+			close(msd.eChan)
+			return
+		case <-msd.doneEChan:
+			close(msd.eChan)
+			return
+		}
+	}()
 	return msd.eChan, func() {
-		close(msd.eChan)
+		select {
+		case msd.doneEChan <- struct{}{}:
+		default:
+		}
 	}, nil
 }
 
@@ -245,9 +261,12 @@ func (msd *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventT
 	}
 }
 
+func (msd *mockStateDriver) cancelWatch() {
+	msd.doneEChan <- struct{}{}
+}
+
 func (msd *mockStateDriver) reset() {
 	msd.specCommits = make(map[string]string)
 	msd.pipelines = make(map[string]*pps.PipelineInfo)
 	msd.states = make(map[string][]pps.PipelineState)
-	msd.eChan = make(chan *watch.Event, 1)
 }
