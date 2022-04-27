@@ -81,19 +81,16 @@ func NewWorker(
 func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
-
 	kd := ppsServer.NewKubeDriver(env.GetKubeClient(), *env.Config(), env.Logger())
-	imageID, err := kd.GetImageID(ctx, env.Config().WorkerSpecificConfiguration.PodName)
-	if err != nil {
-		// do something
-		logger.Logf("GOT IMAGE ID ERROR:, %s", err)
-	}
-	w.status.ImageID = imageID
-	logger.Logf("GOT IMAGE ID:, %s", imageID)
 
 	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
+		imageID, err := kd.GetImageID(ctx, env.Config().WorkerSpecificConfiguration.PodName)
+		if err != nil {
+			return err
+		}
+		w.status.ImageID = imageID
 
 		// Process any tasks that the master creates.
 		eg.Go(func() error {
