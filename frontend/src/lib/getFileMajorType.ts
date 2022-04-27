@@ -15,6 +15,7 @@ const getFileMajorType = (fileType: string) => {
     case 'json':
     case 'jsonl':
     case 'yml':
+    case 'yaml':
     case 'txt':
       fileMajorType = 'document';
       break;

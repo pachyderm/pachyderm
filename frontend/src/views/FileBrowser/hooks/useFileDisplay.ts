@@ -24,6 +24,7 @@ const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'htm',
   'txt',
   'yml',
+  'yaml',
 ];
 
 const useFileDisplay = (file: File) => {

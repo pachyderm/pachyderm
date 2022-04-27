@@ -5,27 +5,27 @@ import JSONDataPreview from '@dash-frontend/components/JSONDataPreview';
 
 import ContentWrapper from '../ContentWrapper';
 
-import useJSONPreview from './hooks/useJSONPreview';
+import useYAMLPreview from './hooks/useYAMLPreview';
 
 type FilePreviewProps = {
   downloadLink: string;
 };
 
-const JSONPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
-  const {data, loading} = useJSONPreview(downloadLink);
+const YAMLPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
+  const {data, loading} = useYAMLPreview(downloadLink);
 
   if (loading)
     return (
-      <span data-testid="JSONPreview__loading">
+      <span data-testid="YAMLPreview__loading">
         <LoadingDots />
       </span>
     );
 
   return (
     <ContentWrapper>
-      <JSONDataPreview inputData={data} formattingStyle="json" />
+      <JSONDataPreview inputData={data} formattingStyle="yaml" />
     </ContentWrapper>
   );
 };
 
-export default JSONPreview;
+export default YAMLPreview;

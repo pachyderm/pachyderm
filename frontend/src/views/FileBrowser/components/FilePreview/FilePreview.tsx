@@ -10,6 +10,7 @@ import IFramePreview from './components/IFramePreview';
 import JSONPreview from './components/JSONPreview';
 import TextPreview from './components/TextPreview';
 import WebPreview from './components/WebPreview';
+import YAMLPreview from './components/YAMLPreview';
 import styles from './FilePreview.module.css';
 
 type FilePreviewProps = {
@@ -46,10 +47,12 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
         }
         switch (fileType) {
           case 'xml':
-          case 'yml':
             return (
               <IFramePreview downloadLink={fileLink} fileName={fileName} />
             );
+          case 'yml':
+          case 'yaml':
+            return <YAMLPreview downloadLink={fileLink} />;
           case 'txt':
           case 'jsonl':
             return <TextPreview downloadLink={fileLink} />;

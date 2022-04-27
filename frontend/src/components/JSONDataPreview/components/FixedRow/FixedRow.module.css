@@ -5,12 +5,18 @@
   white-space: nowrap;
 }
 
+.base *, .base {
+  font-family: 'Menlo';
+  line-height: 1.5rem;
+  background: transparent;
+}
+
 .base.clickable:hover {
   cursor: pointer;
 }
 
 .base:hover {
-  background-color: var(--background-grey);
+  background-color: var(--hover-grey);
 }
 
 .base.depth1 {
@@ -37,22 +43,17 @@
   color: var(--chart-hover-dark-blue);
 }
 
-.arrowDown, .arrowRight {
+.chevron {
   display: inline-block;
   user-select: none;
-  margin-right: 0.5rem;
-  margin-left: 1rem;
-  font-size: 0.6rem;
-}
-
-.arrowRight {
-  transform: rotate(-90deg);
+  margin-left: -1.25rem;
 }
 
 .value {
   color: var(--pachyderm-black);
+  display: inline-block;
 }
 
 .depthTab {
-  margin-left: 2rem;
+  margin-left: 1.25rem;
 }

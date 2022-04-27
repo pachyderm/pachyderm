@@ -1,5 +1,4 @@
 import {CommitState} from '@pachyderm/node-pachyderm';
-import {ApolloError} from 'apollo-server-express';
 
 import formatDiff from '@dash-backend/lib/formatDiff';
 import {toProtoCommitOrigin} from '@dash-backend/lib/gqlEnumMappers';

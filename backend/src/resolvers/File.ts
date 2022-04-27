@@ -1,5 +1,4 @@
 import {FileInfo, CommitState} from '@pachyderm/node-pachyderm';
-import {ApolloError} from 'apollo-server-express';
 
 import {
   MutationResolvers,
