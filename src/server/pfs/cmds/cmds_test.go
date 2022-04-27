@@ -3,7 +3,6 @@ package cmds
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -85,17 +84,15 @@ func TestPutFileNonexistentRepo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	repoName := tu.UniqueString("TestPutFileNonexistentRepo-repo")
-	start := time.Now()
+	// This assumes that the file-existence check is after the
+	// repo-existence check.  If you are seeing this test fail after
+	// restructuring `pachctl put file`, then that is probably why; either
+	// restore the order or adopt a different test.
 	require.NoError(t, tu.BashCmd(`
-                (dd if=/dev/urandom bs=1024 count=$((1024 * 1024)) 2>/dev/null | pachctl put file {{.repo}}@master:random 2>&1 || true)\
+                (pachctl put file {{.repo}}@master:random -f nonexistent-file 2>&1 || true) \
                   | match "repo {{.repo}} not found"
 `,
 		"repo", repoName).Run())
-	// experimentally, the repo check should take less than three quarters
-	// of a second, while uploading 1GB of data takes well over two seconds
-	if time.Since(start) > 2*time.Second {
-		t.Error("pachctl put file appeared not to check if repo existed before uploading")
-	}
 }
 
 func TestMountParsing(t *testing.T) {
