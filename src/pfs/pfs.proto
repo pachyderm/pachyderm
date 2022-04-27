@@ -474,7 +474,7 @@ message SQLDatabaseEgress {
         PARQUET = 3;
     }
     Type type = 1;
-    repeated string json_field_names = 2;
+    repeated string columns = 2;
   }
   message Secret {
     string k8s_secret = 1;
