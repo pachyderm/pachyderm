@@ -454,6 +454,9 @@
                 "RotationTokenExpiry": {
                     "type": "string"
                 },
+                "dexCredentialSecretName": {
+                    "type": "string"
+                },
                 "issuerURI": {
                     "type": "string"
                 },
@@ -746,6 +749,12 @@
                         },
                         "backend": {
                             "type": "string"
+                        },
+                        "compactionShardCountThreshold": {
+                            "type": "integer"
+                        },
+                        "compactionShardSizeThreshold": {
+                            "type": "integer"
                         },
                         "google": {
                             "type": "object",

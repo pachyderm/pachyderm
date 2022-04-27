@@ -3,9 +3,9 @@
 For a quick test installation of Pachyderm on AWS (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](../helm_install/) page for more information on  how to install and get started with `Helm`.
-      - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
+      - Refer to our generic ["Helm Install"](../helm_install/){target=_blank} page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/){target=_blank}. You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/){target=_blank} instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
 
 The following section walks you through deploying a Pachyderm cluster on [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/){target=_blank} (EKS). 
 
@@ -30,7 +30,7 @@ you have the following prerequisites installed and configured:
 * [AWS CLI](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html){target=_blank}
 * [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html){target=_blank}
 * [aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html){target=_blank}.
-* [pachctl](../../../getting_started/local_installation#install-pachctl)
+* [pachctl](../../../getting_started/local_installation#install-pachctl){target=_blank}
 
 ## 2. Deploy Kubernetes by using `eksctl`
 
@@ -460,7 +460,8 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
 
 Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
-
+!!! Important
+      Retain (ideally in version control) a copy of the Helm values used to deploy your cluster. It might be useful if you need to [restore a cluster from a backup](../../manage/backup_restore).
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 

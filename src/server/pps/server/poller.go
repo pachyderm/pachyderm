@@ -8,12 +8,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	kube_err "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -91,10 +91,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// querying k8s, then we might delete the RC for brand-new pipeline
 			// 'foo'). Though, even if we do delete a live pipeline's RC, it'll be
 			// fixed in the next cycle
-			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.env.Config.Namespace)
-			rcs, err := kc.List(ctx, metav1.ListOptions{
-				LabelSelector: "suite=pachyderm,pipelineName",
-			})
+			rcs, err := m.kd.ListReplicationControllers(ctx)
 			if err != nil {
 				// No sensible error recovery here (e.g .if we can't reach k8s). We'll
 				// keep going, and just won't delete any RCs this round.
@@ -105,7 +102,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// database; it determines both which RCs (from above) are stale and also
 			// which pipelines need to be bumped. Note that there may be zero
 			// pipelines in the database, and dbPipelines may be empty.
-			if err := m.a.listPipelineInfo(ctx, nil, 0,
+			if err := ppsutil.ListPipelineInfo(ctx, m.a.pipelines, nil, 0,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
@@ -176,33 +173,24 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 // to CRASHING
 func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
-		kubePipelineWatch, err := m.a.env.KubeClient.CoreV1().Pods(m.a.namespace).Watch(
-			ctx,
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{
-						"component": "worker",
-					})),
-				Watch: true,
-			})
+		watch, cancel, err := m.kd.WatchPipelinePods(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
 		}
-		defer kubePipelineWatch.Stop()
+		defer cancel()
 	WatchLoop:
 		for {
 			select {
 			case <-ctx.Done():
 				return nil
-			case event := <-kubePipelineWatch.ResultChan():
+			case event, ok := <-watch:
+				if !ok {
+					log.Warn("kubernetes pod watch unexpectedly ended - restarting watch")
+					return backoff.ErrContinue
+				}
 				// if we get an error we restart the watch
 				if event.Type == kube_watch.Error {
 					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
-				} else if event.Type == "" {
-					// k8s watches seem to sometimes get stuck in a loop returning events
-					// with Type = "". We treat these as errors as otherwise we get an
-					// endless stream of them and can't do anything.
-					return errors.New("error while watching kubernetes pods: empty event type")
 				}
 				pod, ok := event.Object.(*v1.Pod)
 				if !ok {

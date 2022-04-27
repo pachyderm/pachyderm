@@ -32,8 +32,11 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
-// defensively lock around helm calls
-var mu sync.Mutex
+var (
+	mu sync.Mutex // defensively lock around helm calls
+
+	computedPachAddress *grpcutil.PachdAddress
+)
 
 type DeployOpts struct {
 	Version            string
@@ -74,17 +77,20 @@ func helmChartLocalPath(t testing.TB) string {
 }
 
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
-	cfg, err := config.Read(true, true)
-	require.NoError(t, err)
-	_, context, err := cfg.ActiveContext(true)
-	require.NoError(t, err)
-	address, err := client.GetUserMachineAddr(context)
-	require.NoError(t, err)
-	if address == nil {
-		copy := grpcutil.DefaultPachdAddress
-		address = &copy
+	if computedPachAddress == nil {
+		cfg, err := config.Read(true, true)
+		require.NoError(t, err)
+		_, context, err := cfg.ActiveContext(false)
+		require.NoError(t, err)
+		computedPachAddress, err = client.GetUserMachineAddr(context)
+		require.NoError(t, err)
+		if computedPachAddress == nil {
+			copy := grpcutil.DefaultPachdAddress
+			computedPachAddress = &copy
+		}
 	}
-	return address
+	copy := *computedPachAddress
+	return &copy
 }
 
 func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
@@ -111,6 +117,11 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
+
+			"pachd.resources.requests.cpu":    "250m",
+			"pachd.resources.requests.memory": "512M",
+			"etcd.resources.requests.cpu":     "250m",
+			"etcd.resources.requests.memory":  "512M",
 
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
@@ -144,8 +155,8 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+1),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+2),
+			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
+			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
 			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
 			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
 		},
