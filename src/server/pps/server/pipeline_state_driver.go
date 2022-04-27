@@ -176,7 +176,7 @@ func newMockStateDriver() *mockStateDriver {
 	msd := &mockStateDriver{}
 	msd.reset()
 	msd.eChan = make(chan *watch.Event, 1)
-	msd.done = make(chan struct{}, 5)
+	msd.doneEChan = make(chan struct{}, 5)
 	return msd
 }
 
