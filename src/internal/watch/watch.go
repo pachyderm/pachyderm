@@ -117,15 +117,18 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			internalWatcher.Close()
 		}()
 		for _, etcdKv := range resp.Kvs {
-			select {
-			case eventCh <- &Event{
+			e := &Event{
 				Key:      bytes.TrimPrefix(etcdKv.Key, []byte(trimPrefix)),
 				Value:    etcdKv.Value,
 				Type:     EventPut,
 				Rev:      etcdKv.ModRevision,
 				Ver:      etcdKv.Version,
 				Template: template,
-			}:
+			}
+			select {
+			case eventCh <- e:
+			case <-done:
+				return nil
 			case <-ctx.Done():
 				return errors.EnsureStack(ctx.Err())
 			}
