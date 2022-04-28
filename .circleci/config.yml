@@ -18,6 +18,9 @@ parameters:
   RELEASE_TYPE:
     type: string
     default: ""
+  ADDITIONAL_VERSION:
+    type: string
+    default: ""
 
 jobs:
   circleci:
@@ -283,6 +286,15 @@ jobs:
                 name: make point-release
                 command: |
                   make point-release
+      - when:
+          condition:
+            and:
+              - equal: [candidate, << pipeline.parameters.RELEASE_TYPE >>]
+          steps:
+            - run:
+                name: make release-candidate
+                command: |
+                  make VERSION_ADDITIONAL=<< pipeline.parameters.ADDITIONAL_VERSION >> release-candidate
   check-prettier:
     docker:
       - image: cimg/node:16.11.0
