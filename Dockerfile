@@ -1,6 +1,7 @@
 FROM pachyderm/datascience-notebook:fde4beb9ff1afb404f0e34828adc1f311f4bf2d7 
 # https://github.com/pachyderm/docker-stacks/pull/1/commits/fde4beb9ff1afb404f0e34828adc1f311f4bf2d7
 ARG PACHCTL_VERSION
+ENV PFS_MOUNT_DIR=/pfs
 
 # TODO: use ARG TARGETPLATFORM to support arm builds, downloading pachctl arm64
 # binary below (instead of ..._linux_amd64.tar.gz below). See:
