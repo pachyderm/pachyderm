@@ -5,7 +5,8 @@
   "input": {
       "pfs": {
           "repo": "input_repo",
-          "glob": "/"
+          "glob": "/",
+          "name": "in"
       }
   },
   "transform": {
@@ -14,20 +15,17 @@
           "bash"
       ],
       "stdin": [
-          "cp -r /pfs/input_repo/* /pfs/out"
+          "cp -r /pfs/in/* /pfs/out"
       ]
   },
-  "egress": {
-      "URL": "snowflake://albertpachyderm@CDKSVXM-PN23804/ALBERT_TEST/PUBLIC?warehouse=COMPUTE_WH",
-      "sql_options": {
-          "file_format": {
-              "type": "CSV"
-          },
-          "secret": {
-              "k8s_secret": "snowflakesecret2",
-              "key": "PACHYDERM_SQL_PASSWORD",
-              "env_var": "PACHYDERM_SQL_PASSWORD"
-          }
-      }
+  "sql_database": {
+    "url": "snowflake://albertpachyderm@CDKSVXM-PN23804/ALBERT_TEST/PUBLIC?warehouse=COMPUTE_WH",
+    "file_format": {
+        "type": "CSV"
+    },
+    "secret": {
+        "k8s_secret": "snowflakesecret2",
+        "key": "PACHYDERM_SQL_PASSWORD"
+    }
   }
 }
