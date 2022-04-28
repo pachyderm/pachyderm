@@ -1046,6 +1046,14 @@ $ {{alias}} repo@branch -i http://host/path`,
 			defer c.Close()
 			defer progress.Wait()
 
+			// check whether or not the repo exists before attempting to upload
+			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+				if errutil.IsNotFoundError(err) {
+					return err
+				}
+				return errors.Wrapf(err, "could not inspect repo %s", err, file.Commit.Branch.Repo.Name)
+			}
+
 			// TODO: Rethink put file parallelism for 2.0.
 			// Doing parallel uploads at the file level for small files will be bad, but we still want a clear way to parallelize large file uploads.
 			//limiter := limit.New(int(parallelism))

@@ -79,6 +79,22 @@ func TestPutFileSplit(t *testing.T) {
 	).Run())
 }
 
+func TestPutFileNonexistentRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	repoName := tu.UniqueString("TestPutFileNonexistentRepo-repo")
+	// This assumes that the file-existence check is after the
+	// repo-existence check.  If you are seeing this test fail after
+	// restructuring `pachctl put file`, then that is probably why; either
+	// restore the order or adopt a different test.
+	require.NoError(t, tu.BashCmd(`
+                (pachctl put file {{.repo}}@master:random -f nonexistent-file 2>&1 || true) \
+                  | match "repo {{.repo}} not found"
+`,
+		"repo", repoName).Run())
+}
+
 func TestMountParsing(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
