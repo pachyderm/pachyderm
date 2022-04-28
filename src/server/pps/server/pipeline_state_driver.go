@@ -176,7 +176,7 @@ func newMockStateDriver() *mockStateDriver {
 	msd := &mockStateDriver{}
 	msd.reset()
 	msd.eChan = make(chan *watch.Event, 1)
-	msd.doneEChan = make(chan struct{}, 5)
+	msd.doneEChan = make(chan struct{}, 1)
 	return msd
 }
 
@@ -188,13 +188,35 @@ func (msd *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit
 			msd.pushWatchEvent(pi, watch.EventPut)
 			return nil
 		}
-		return errors.New("Ah no pipeline state!!")
+		return errors.New("pipeline does not exist")
 	}
-	return errors.New("Ah!!")
+	return errors.New("pipeline does not exist")
 }
 
 func (msd *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
-	return msd.SetState(ctx, specCommit, to, reason)
+	fromContains := func(ps pps.PipelineState) bool {
+		for _, v := range from {
+			if v == ps {
+				return true
+			}
+		}
+		return false
+	}
+	if pipeline, ok := msd.specCommits[specCommit.ID]; ok {
+		if pi, ok := msd.pipelines[pipeline]; ok {
+			if fromContains(pi.State) {
+				return msd.SetState(ctx, specCommit, to, reason)
+			}
+			return ppsutil.PipelineTransitionError{
+				Pipeline: pipeline,
+				Expected: from,
+				Target:   to,
+				Current:  pi.State,
+			}
+		}
+		return errors.New("pipeline does not exist")
+	}
+	return errors.New("pipeline does not exist")
 }
 
 func (msd *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error) {

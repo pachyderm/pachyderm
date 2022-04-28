@@ -20,6 +20,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+const simulateInactiveChannelDuration = 5 * time.Second
+
 type pipelineTest struct {
 	pipeline       string
 	assertWhen     []pps.PipelineState
@@ -91,7 +93,7 @@ func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int)
 			})
 		}
 		// keep the subscribe stream open longer
-		time.Sleep(5 * time.Second)
+		time.Sleep(simulateInactiveChannelDuration)
 		return nil
 	})
 }
@@ -223,10 +225,6 @@ func TestAutoscalingBasic(t *testing.T) {
 			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
-				// STANDBY is set consecutively because ppsutil.SetPipelineState
-				// will still update the PipelineInfo even if the desired state
-				// is already set
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_RUNNING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -264,7 +262,6 @@ func TestAutoscalingManyCommits(t *testing.T) {
 			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_RUNNING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -307,7 +304,6 @@ func TestAutoscalingManyTasks(t *testing.T) {
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_RUNNING,
 				pps.PipelineState_PIPELINE_STANDBY,
 			},
@@ -341,7 +337,6 @@ func TestAutoscalingNoCommits(t *testing.T) {
 			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_STANDBY,
 			},
 		},
@@ -427,7 +422,7 @@ func TestPauseAutoscaling(t *testing.T) {
 	// simulate no more commits
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		// keep the subscribe open
-		time.Sleep(3 * time.Second)
+		time.Sleep(simulateInactiveChannelDuration)
 		return nil
 	})
 	// pause pipeline
