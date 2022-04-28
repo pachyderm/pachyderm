@@ -77,11 +77,7 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 				return errors.EnsureStack(err)
 			}
 			tableInfos[tableName] = tableInfo
-			result, err := tx.Exec(fmt.Sprintf("DELETE FROM %s.%s", tableInfo.Schema, tableInfo.Name))
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			_, err = result.RowsAffected()
+			_, err := tx.Exec(fmt.Sprintf("DELETE FROM %s.%s", tableInfo.Schema, tableInfo.Name))
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
