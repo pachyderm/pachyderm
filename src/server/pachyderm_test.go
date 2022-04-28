@@ -1189,7 +1189,7 @@ func TestPipelineFailure(t *testing.T) {
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 }
 
-func TestInputFailureMessage(t *testing.T) {
+func TestInputFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1255,6 +1255,33 @@ func TestInputFailureMessage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_CANCELLED, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "Cancelled because"))
+
+	pipeline3 := tu.UniqueString("pipeline3")
+	require.NoError(t, c.CreatePipeline(
+		pipeline3,
+		"",
+		[]string{"exit 0"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pipeline2, "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err = c.ListJob(pipeline3, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	jobInfo, err = c.WaitJob(pipeline3, jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_CANCELLED, jobInfo.State)
+	// the fact that pipeline 2 failed should be noted in the message
+	require.True(t, strings.Contains(jobInfo.Reason, pipeline2))
 }
 
 func TestPipelineErrorHandling(t *testing.T) {
