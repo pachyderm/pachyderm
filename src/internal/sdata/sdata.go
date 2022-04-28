@@ -3,6 +3,7 @@ package sdata
 import (
 	"database/sql"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -47,7 +48,7 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	}
 	row, err := NewTupleFromColumnTypes(cTypes)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 
 	var count uint64
@@ -90,11 +91,12 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 	return row, nil
 }
 
-// Copy copies a tuple from w to r.  Row is used to indicate the correct shape of read data.
+// Copy copies a tuple from r to w. Row is used to indicate the correct shape of read data.
 func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)
 		if errors.Is(err, io.EOF) {
+			w.Flush()
 			break
 		} else if err != nil {
 			return n, errors.EnsureStack(err)
@@ -121,7 +123,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 
 func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	switch dbType {
-	case "BOOL":
+	case "BOOL", "BOOLEAN":
 		if nullable {
 			return new(sql.NullBool), nil
 		} else {
@@ -141,13 +143,14 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		}
 	// TODO "NUMBER" type from Snowflake can vary in precision, but default to int64 for now.
 	// https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#number
-	case "BIGINT", "INT8", "FIXED", "NUMBER":
+	case "BIGINT", "INT8", "NUMBER":
 		if nullable {
 			return new(sql.NullInt64), nil
 		} else {
 			return new(int64), nil
 		}
-	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION":
+	// TODO account for precision and scale as well
+	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION", "FIXED":
 		if nullable {
 			return new(sql.NullFloat64), nil
 		} else {
@@ -168,4 +171,15 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	default:
 		return nil, errors.Errorf("unrecognized type: %v", dbType)
 	}
+}
+
+// CloneTuple uses Go reflection to make a copy of a Tuple.
+func CloneTuple(t Tuple) Tuple {
+	newTuple := make(Tuple, len(t))
+	for i := range t {
+		v := reflect.New(reflect.TypeOf(t[i]).Elem())
+		v.Elem().Set(reflect.ValueOf(t[i]).Elem())
+		newTuple[i] = v.Interface()
+	}
+	return newTuple
 }

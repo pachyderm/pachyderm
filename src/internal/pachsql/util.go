@@ -69,8 +69,8 @@ type TestRow struct {
 }
 
 // CreateTestTable creates a test table at name in the database
-func CreateTestTable(db *DB, name string) error {
-	t := reflect.TypeOf(TestRow{})
+func CreateTestTable(db *DB, name string, schema interface{}) error {
+	t := reflect.TypeOf(schema)
 	cols := []string{}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
