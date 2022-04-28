@@ -156,11 +156,13 @@ func (s *debugServer) appLogs(tw *tar.Writer) error {
 		if err := s.collectDescribe(tw, pod.Name, prefix); err != nil {
 			return err
 		}
-		if err := s.collectLogs(tw, pod.Name, "", prefix); err != nil {
-			return err
-		}
-		if err := s.collectLogsLoki(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
-			return err
+		for _, container := range pod.Spec.Containers {
+			if err := s.collectLogs(tw, pod.Name, container.Name, prefix); err != nil {
+				return err
+			}
+			if err := s.collectLogsLoki(tw, pod.Name, container.Name, join(pod.Labels["app"], pod.Name)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
