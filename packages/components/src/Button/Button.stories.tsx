@@ -24,7 +24,7 @@ const defaultArgTypes = {
   iconPosition: {
     control: {
       type: 'radio',
-      options: ['both', 'left', 'right'],
+      options: ['both', 'start', 'end'],
     },
   },
 };

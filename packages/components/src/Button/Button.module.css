@@ -35,7 +35,7 @@
 }
 
 .iconOnly {
-  padding: 0.375rem;
+  padding: 0.3125rem;
 }
 
 .base:not(.iconOnly) {
@@ -121,12 +121,24 @@
   color: var(--disabled-purple);
 }
 
-.ghost:not(:disabled):hover,.secondary:not(:disabled):hover {
+.ghost.black:disabled {
+  color: var(--grey-7);
+}
+
+.ghost:not(:disabled):not(.black):hover,.secondary:not(:disabled):hover {
   color: var(--hover-purple)
 }
 
 .ghost:not(.black):not(:disabled):hover:not(:focus-visible) {
   border: 1px solid var(--hover-purple);
+}
+
+.ghost.black {
+  color: var(--pachyderm-black);
+}
+
+.ghost.black:not(:disabled):hover:not(:focus-visible) {
+  border: 1px solid var(--pachyderm-black);
 }
 
 .buttonGroup {
@@ -141,6 +153,10 @@
 
 .buttonGroup > .base:last-child:not(.ghost):not(.iconOnly) {
   margin-right: 1rem;
+}
+
+.buttonGroup > .base:not(.ghost) + .ghost {
+  margin-left: 1rem;
 }
 
 .tertiary {
