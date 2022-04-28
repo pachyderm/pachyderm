@@ -12,7 +12,8 @@ const stories: Story[] = [
   EasyToUseVersionedData,
   EasyToUseDAGs,
   EasyToUnderstandDataLineage,
-  DataLineageReproducibility,
+  // CORE-482
+  // DataLineageReproducibility,
   IncrementalScalability,
 ];
 
