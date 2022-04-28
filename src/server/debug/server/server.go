@@ -152,15 +152,16 @@ func (s *debugServer) appLogs(tw *tar.Writer) error {
 		return errors.EnsureStack(err)
 	}
 	for _, pod := range pods.Items {
-		prefix := join(pod.Labels["app"], pod.Name)
-		if err := s.collectDescribe(tw, pod.Name, prefix); err != nil {
+		podPrefix := join(pod.Labels["app"], pod.Name)
+		if err := s.collectDescribe(tw, pod.Name, podPrefix); err != nil {
 			return err
 		}
 		for _, container := range pod.Spec.Containers {
+			prefix := join(podPrefix, container.Name)
 			if err := s.collectLogs(tw, pod.Name, container.Name, prefix); err != nil {
 				return err
 			}
-			if err := s.collectLogsLoki(tw, pod.Name, container.Name, join(pod.Labels["app"], pod.Name)); err != nil {
+			if err := s.collectLogsLoki(tw, pod.Name, container.Name, prefix); err != nil {
 				return err
 			}
 		}
