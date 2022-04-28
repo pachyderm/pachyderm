@@ -374,6 +374,7 @@ workflows:
               only:
                 - master
                 - 2.1.x
+                - 2.2.x
     jobs:
       - nightly_load:
           matrix:
@@ -406,8 +407,10 @@ workflows:
             branches:
               only:
                 - 2.1.x
+                - 2.2.x
       - push_redhat:
           filters:
             branches:
               only:
                 - 2.1.x
+                - 2.2.x
