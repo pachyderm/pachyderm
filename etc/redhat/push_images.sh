@@ -5,6 +5,9 @@
 
 set -ex
 
+CIRCLE_TAG=v2.1.7
+git checkout ${CIRCLE_TAG}
+
 # Validate env vars
 if [[ -z "${CIRCLE_TAG}" ]]; then
   echo "Must set CIRCLE_TAG to release tag (e.g. '2.1.20')" >/dev/stderr
