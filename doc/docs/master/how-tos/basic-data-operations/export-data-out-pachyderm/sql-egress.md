@@ -5,8 +5,13 @@
     SQL Egress is an [experimental feature](../../../contributing/supported-releases/#experimental){target=_blank}.
 
 Pachyderm already implements [egress to object storage](../export-data-egress){target=_blank} as an optional egress field in the pipeline specification. 
-Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database. Specifically, we help you connect to a remote database and push the content of CSV files to the **exchange tables** of your choice, matching their column names and casting their content into their respective SQL datatype. The content of those tables matches the content of the latest commit of your pipeline. A new commit will trigger the delete of those data replaced with their new values.
+Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database. Specifically, we help you connect to a remote database and push the content of CSV files to the **exchange tables** of your choice, matching their column names and casting their content into their respective SQL datatype. The content of those tables matches the content of the latest output commit of your pipeline. A new output commit will trigger a delete of all exchange tables before the insertion of new values.
 
+As of today, we support the following drivers:
+
+- postgres and postgresql : connect to Postgresql (or compatible databases such as Redshift).
+- mysql : connect to MySQL (or compatible databases such as MariaDB).
+- snowflake : connect to Snowflake.
 ## Use SQL Egress
 
 To egress data from the output commit of a pipeline to an SQL database, you will need to:
