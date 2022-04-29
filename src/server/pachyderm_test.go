@@ -1978,7 +1978,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 				case pipelineName(1):
 					require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
 				case pipelineName(2):
-					require.Equal(t, pps.JobState_JOB_CANCELLED.String(), ji.State.String())
+					require.Equal(t, pps.JobState_JOB_NOT_RUN.String(), ji.State.String())
 				}
 			}
 		}
