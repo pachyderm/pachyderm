@@ -333,6 +333,10 @@ func (c *unsupportedPfsBuilderClient) DropCommitSet(_ context.Context, _ *pfs_v2
 	return nil, unsupportedError("DropCommitSet")
 }
 
+func (c *unsupportedPfsBuilderClient) Egress(_ context.Context, _ *pfs_v2.EgressRequest, opts ...grpc.CallOption) (*pfs_v2.EgressResponse, error) {
+	return nil, unsupportedError("Egress")
+}
+
 func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.FinishCommitRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("FinishCommit")
 }
