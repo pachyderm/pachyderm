@@ -171,7 +171,7 @@ local Envoy = import 'envoy.libsonnet';
 Envoy.bootstrap(
   listeners=[
     Envoy.httpListener(
-      port=80,
+      port=8080,  // Not port 80, because we run as user 101 and not root.
       name='proxy-http',
       routes=std.flatMap(function(name) services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'console'])
     ),

@@ -69,9 +69,9 @@ spec:
             - name: admin-port
               containerPort: 9901
             - name: http-port
-              containerPort: 80
+              containerPort: 8080
             # - name: https
-            #   containerPort: 443
+            #   containerPort: 8443
             - name: console-direct
               containerPort: 4000
             - name: s3-direct
@@ -95,6 +95,9 @@ spec:
           {{- if .Values.proxy.resources }}
           resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
           {{- end }}
+          securityContext:
+            runAsUser: 101
+            runAsGroup: 101
           volumeMounts:
             - name: envoy-config
               mountPath: /etc/envoy
