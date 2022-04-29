@@ -22,7 +22,6 @@ import (
 
 type pipelineTest struct {
 	pipeline       string
-	assertWhen     []pps.PipelineState
 	expectedStates []pps.PipelineState
 }
 
@@ -117,8 +116,7 @@ func TestBasic(t *testing.T) {
 	})
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline:   pipeline,
-			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			pipeline: pipeline,
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -140,8 +138,7 @@ func TestDeletePipeline(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline:   pipeline,
-			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			pipeline: pipeline,
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -175,8 +172,7 @@ func TestDeleteRC(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline:   pipeline,
-			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			pipeline: pipeline,
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -218,10 +214,6 @@ func TestAutoscalingBasic(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_RUNNING,
-				pps.PipelineState_PIPELINE_STANDBY,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -257,9 +249,6 @@ func TestAutoscalingManyCommits(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_RUNNING,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -298,10 +287,6 @@ func TestAutoscalingManyTasks(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_RUNNING,
-				pps.PipelineState_PIPELINE_STANDBY,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -333,10 +318,6 @@ func TestAutoscalingNoCommits(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_STANDBY,
-				pps.PipelineState_PIPELINE_STANDBY,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -358,8 +339,7 @@ func TestPause(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline:   pipeline,
-			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			pipeline: pipeline,
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -376,10 +356,6 @@ func TestPause(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_PAUSED,
-				pps.PipelineState_PIPELINE_RUNNING,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -410,9 +386,6 @@ func TestPauseAutoscaling(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_RUNNING,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -442,10 +415,6 @@ func TestPauseAutoscaling(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_PAUSED,
-				pps.PipelineState_PIPELINE_STANDBY,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -472,8 +441,7 @@ func TestStaleRestart(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline:   pipeline,
-			assertWhen: []pps.PipelineState{pps.PipelineState_PIPELINE_RUNNING},
+			pipeline: pipeline,
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -487,10 +455,6 @@ func TestStaleRestart(t *testing.T) {
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
-			assertWhen: []pps.PipelineState{
-				pps.PipelineState_PIPELINE_RESTARTING,
-				pps.PipelineState_PIPELINE_RUNNING,
-			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
