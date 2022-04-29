@@ -349,8 +349,12 @@ workflows:
             branches:
               only:
                 - 2.1.x
+                - 2.2.x
+  red_hat:
+    jobs:
       - push_redhat:
           filters:
             branches:
-              only:
-                - 2.1.x
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
