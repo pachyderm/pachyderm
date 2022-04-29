@@ -337,8 +337,10 @@ From the cell of a notebook, run:
     COMPONENT           VERSION  
     pachctl             {{ config.pach_latest_version }}  
     pachd               {{ config.pach_latest_version }}  
-    ```    
+    ```
 
+!!! Attention "Try our Notebook examples!"
+       Make sure to check our [data science notebook examples](https://github.com/pachyderm/examples){target=_blank} running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset. 
 ## Next Steps  
   
 Complete the [Beginner Tutorial](../beginner_tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
