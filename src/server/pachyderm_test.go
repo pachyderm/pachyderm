@@ -1253,7 +1253,7 @@ func TestInputFailure(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 	jobInfo, err = c.WaitJob(pipeline2, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_CANCELLED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_NOT_RUN, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "Cancelled because"))
 
 	pipeline3 := tu.UniqueString("pipeline3")
@@ -1279,7 +1279,7 @@ func TestInputFailure(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 	jobInfo, err = c.WaitJob(pipeline3, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_CANCELLED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_NOT_RUN, jobInfo.State)
 	// the fact that pipeline 2 failed should be noted in the message
 	require.True(t, strings.Contains(jobInfo.Reason, pipeline2))
 }

@@ -81,7 +81,7 @@ func (reg *registry) failJob(pj *pendingJob, reason string) error {
 func (reg *registry) cancelJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("cancelling job with reason: %s", reason)
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
-	if err := ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_CANCELLED, reason); err != nil {
+	if err := ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_NOT_RUN, reason); err != nil {
 		return err
 	}
 	pj.clearCache()

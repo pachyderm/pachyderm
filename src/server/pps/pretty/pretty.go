@@ -415,7 +415,7 @@ func JobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgYellow).SprintFunc()("egressing")
 	case ppsclient.JobState_JOB_FINISHING:
 		return color.New(color.FgYellow).SprintFunc()("finishing")
-	case ppsclient.JobState_JOB_CANCELLED:
+	case ppsclient.JobState_JOB_NOT_RUN:
 		return color.New(color.FgRed).SprintFunc()("cancelled")
 
 	}
