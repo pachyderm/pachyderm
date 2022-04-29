@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -181,7 +182,9 @@ func newMockStateDriver() *mockStateDriver {
 
 func (d *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error {
 	if pi, ok := d.specCommits[specCommit.ID]; ok {
+		pi = proto.Clone(pi).(*pps.PipelineInfo)
 		pi.State = state
+		d.specCommits[specCommit.ID] = pi
 		d.states[pi.Pipeline.Name] = append(d.states[pi.Pipeline.Name], state)
 		d.pushWatchEvent(pi, watch.EventPut)
 		return nil

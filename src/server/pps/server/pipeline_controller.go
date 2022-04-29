@@ -314,8 +314,6 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		return pc.apply(ctx, pi, rc, targetState, sideEffects, reason)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCount++
-		fmt.Println("APPLY ERROR")
-		fmt.Println(err)
 		if errors.As(err, &stepErr) {
 			if stepErr.retry && errCount < maxErrCount {
 				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
@@ -340,7 +338,6 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 }
 
 func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineState, []sideEffect, string, error) {
-	fmt.Printf("Evaluating input state:: %v\n", pi.State)
 	if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 		return pps.PipelineState_PIPELINE_FAILURE,
 			[]sideEffect{
