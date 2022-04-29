@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -94,8 +93,6 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 	for _, test := range tests {
 		require.NoErrorWithinT(t, 10*time.Second, func() error {
 			return backoff.Retry(func() error {
-				fmt.Println(sDriver.states[test.pipeline])
-				fmt.Println(test.expectedStates)
 				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.pipeline])
 			}, backoff.NewTestingBackOff())
 		})
@@ -337,7 +334,7 @@ func TestPause(t *testing.T) {
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
 	}
-	stateDriver.upsertPipeline(pi)
+	spec := stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -348,11 +345,11 @@ func TestPause(t *testing.T) {
 		},
 	})
 	// pause pipeline
-	pi.Stopped = true
+	stateDriver.specCommits[spec.ID].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	pi.Stopped = false
+	stateDriver.specCommits[spec.ID].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
@@ -383,7 +380,7 @@ func TestPauseAutoscaling(t *testing.T) {
 		},
 		Version: 1,
 	}
-	stateDriver.upsertPipeline(pi)
+	spec := stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
 			pipeline: pipeline,
@@ -404,11 +401,11 @@ func TestPauseAutoscaling(t *testing.T) {
 		return nil
 	})
 	// pause pipeline
-	pi.Stopped = true
+	stateDriver.specCommits[spec.ID].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	pi.Stopped = false
+	stateDriver.specCommits[spec.ID].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
