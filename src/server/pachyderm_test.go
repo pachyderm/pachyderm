@@ -23,7 +23,6 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -31,11 +30,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -4438,6 +4439,8 @@ func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
+	_, ns := minikubetestenv.AcquireCluster(t)
 	kubeClient := tu.GetKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
@@ -4461,7 +4464,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	var c v1.Container
 	for _, app := range []string{"pachd", "etcd"} {
 		err := backoff.Retry(func() error {
-			podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -8800,14 +8803,10 @@ func TestSecretsUnauthenticated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	// Enable auth on the cluster
-	tu.DeleteAll(t)
-	tu.GetAuthenticatedPachClient(t, auth.RootUser)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
 	// Get an unauthenticated client
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	c.SetAuthToken("")
 
 	b := []byte(
@@ -9493,10 +9492,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -9532,7 +9529,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 		if replicas > 4 {
 			replicas = 4
 		}
-		monitorReplicas(t, pipeline, replicas)
+		monitorReplicas(t, c, ns, pipeline, replicas)
 	}
 	commitNFiles(1)
 	commitNFiles(3)
@@ -9982,7 +9979,7 @@ func TestDatumSetCache(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 	dataRepo := tu.UniqueString("TestDatumSetCache_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -10018,7 +10015,7 @@ func TestDatumSetCache(t *testing.T) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				tu.DeletePod(t, "etcd")
+				tu.DeletePod(t, "etcd", ns)
 			}
 		}
 	}()
@@ -10032,15 +10029,14 @@ func TestDatumSetCache(t *testing.T) {
 	}
 }
 
-func monitorReplicas(t testing.TB, pipeline string, n int) {
-	c := tu.GetPachClient(t)
+func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
-			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(context.Background(), rcName, metav1.GetOptions{})
+			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -10080,8 +10076,8 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	require.NoError(t, c.CreateRepo("inA"))
 	require.NoError(t, c.CreateRepo("inB"))
@@ -10220,4 +10216,100 @@ func TestValidationFailure(t *testing.T) {
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	require.Equal(t, "", commitInfo.Error)
+}
+
+// TestPPSEgressToSnowflake tests basic Egress functionality via PPS mechanism,
+// and how it handles inserting the same primary key twice.
+func TestPPSEgressToSnowflake(t *testing.T) {
+	// setup
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	// create input repo with CSV
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+
+	// create output database, and destination table
+	dbName := tu.GenerateEphermeralDBName(t)
+	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
+	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
+		Id int    `sql:"ID,INT,PRIMARY KEY"`
+		A  string `sql:"A,VARCHAR(100)"`
+	}{}))
+
+	// create K8s secrets
+	b := []byte(fmt.Sprintf(`
+	{
+		"apiVersion": "v1",
+		"kind": "Secret",
+		"stringData": {
+			"PACHYDERM_SQL_PASSWORD": "%s"
+		},
+		"metadata": {
+			"name": "egress-secret",
+			"creationTimestamp": null
+		}
+	}`, os.Getenv("SNOWFLAKE_PASSWORD")))
+	require.NoError(t, c.CreateSecret(b))
+
+	// create a pipeline with egress
+	pipeline := tu.UniqueString("egress")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: tu.DefaultTransformImage,
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp -r /pfs/in/* /pfs/out/"},
+			},
+			Input: &pps.Input{Pfs: &pps.PFSInput{
+				Repo: repo,
+				Glob: "/",
+				Name: "in",
+			}},
+			Egress: &pps.Egress{
+				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
+					Url: fmt.Sprintf("%s/%s", testsnowflake.DSN(), dbName),
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
+					},
+					Secret: &pfs.SQLDatabaseEgress_Secret{
+						K8SSecret: "egress-secret",
+						Key:       "PACHYDERM_SQL_PASSWORD",
+					},
+				},
+				},
+			},
+		},
+	)
+
+	// Initial load
+	master := client.NewCommit(repo, "master", "")
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
+	require.NoError(t, err)
+	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	// query db for results
+	var count, expected int
+	expected = 2
+	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+	require.Equal(t, expected, count)
+
+	// Add a new row, and test whether primary key conflicts
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
+	require.NoError(t, err)
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	// query db for results
+	expected = 3
+	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+	require.Equal(t, expected, count)
 }

@@ -93,7 +93,6 @@ func TestFormatParse(t *testing.T) {
 				expected = append(expected, x)
 			}
 			require.NoError(t, w.Flush())
-			t.Log(buf.String())
 
 			var actual []Tuple
 			r := tc.NewR(buf, fieldNames)
@@ -191,7 +190,7 @@ func TestSQLTupleWriter(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
 			db := tc.NewDB(t)
-			require.NoError(t, pachsql.CreateTestTable(db, "test_table"))
+			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
 
 			ctx := context.Background()
 			tableInfo, err := pachsql.GetTableInfo(ctx, db, "test_table")
@@ -220,6 +219,7 @@ func TestSQLTupleWriter(t *testing.T) {
 				// key part we are testing
 				require.NoError(t, w.WriteTuple(tuple))
 			}
+			require.NoError(t, w.Flush())
 			require.NoError(t, tx.Commit())
 
 			// assertions
@@ -232,6 +232,6 @@ func TestSQLTupleWriter(t *testing.T) {
 
 func setupTable(t testing.TB, db *pachsql.DB) {
 	const N = 10
-	require.NoError(t, pachsql.CreateTestTable(db, "test_data"))
+	require.NoError(t, pachsql.CreateTestTable(db, "test_data", pachsql.TestRow{}))
 	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
 }

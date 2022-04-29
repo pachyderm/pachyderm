@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
@@ -423,4 +424,17 @@ func IsDropWithChildrenErr(err error) bool {
 		return false
 	}
 	return dropWithChildrenRe.MatchString(err.Error())
+}
+
+func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {
+	if sql != nil {
+		if secret := sql.GetSecret(); secret != nil {
+			if secret.K8SSecret != "" && secret.Key != "" {
+				return nil
+			}
+			return errors.Errorf("egress.sql_database.secret.k8s_secret and egress.sql_database.secret.key are required")
+		}
+		return errors.Errorf("egress.sql_database.secret is required")
+	}
+	return nil
 }

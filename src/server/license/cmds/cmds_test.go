@@ -3,6 +3,7 @@ package cmds
 import (
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -27,7 +28,8 @@ func TestClusterCRUD(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	tu.DeleteAll(t)
-	tu.ActivateEnterprise(t, tu.GetPachClient(t))
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateEnterprise(t, c)
 	defer tu.DeleteAll(t)
 	require.NoError(t, tu.BashCmd(`
 		pachctl license add-cluster --id {{.id}} --address grpc://localhost:1653

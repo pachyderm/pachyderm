@@ -31,6 +31,8 @@ GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 # Default upper bound for test timeouts
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
+CLUSTERS_REUSE ?= true
+PARALLELISM ?= 5
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
@@ -245,7 +247,7 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel 10 -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
@@ -288,20 +290,20 @@ test-local:
 	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-identity:
 	etc/testing/forward-postgres.sh
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-license:
-	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-enterprise-integration:
 	go install ./src/testing/match
