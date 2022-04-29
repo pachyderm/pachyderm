@@ -266,8 +266,14 @@ func TestAutoscalingManyTasks(t *testing.T) {
 	done := mockAutoscaling(mockPachd, 100, 1)
 	defer func() { done <- struct{}{} }()
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-		// add some delay so that Scaling Up will kick in before the commit is otherwise considered done
-		time.Sleep(time.Second)
+		// wait for pipeline replica scale to update before closing the commit
+		// the first two elements should always be [0, 1]
+		require.NoError(t, backoff.Retry(func() error {
+			if len(infraDriver.scaleHistory[pipeline]) > 2 {
+				return nil
+			}
+			return errors.New("waiting for scaleHistory to update")
+		}, backoff.NewTestingBackOff()))
 		return &pfs.CommitInfo{}, nil
 	})
 	pi := &pps.PipelineInfo{
