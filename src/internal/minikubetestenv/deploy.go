@@ -200,12 +200,15 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
+		var statuses []string
 		for _, p := range pachds.Items {
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
 				return nil
 			}
+			statuses = append(statuses, fmt.Sprintf("%s: %s (%s)", p.Status.Phase, p.Status.Message, p.Status.Reason))
 		}
-		return errors.Errorf("deployment in progress")
+		t.Logf("deployment in progress: %v", statuses)
+		return errors.Errorf("deployment in progress: %v", statuses)
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
