@@ -165,7 +165,7 @@ func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline stri
 }
 
 type mockStateDriver struct {
-	pipelines   map[string]string              // maps pipeline names to their spec commit IDs
+	pipelines   map[string]string              // maps pipeline names to their latest spec commit IDs
 	specCommits map[string]*pps.PipelineInfo   // maps spec commit IDs to their pipeline Infos
 	states      map[string][]pps.PipelineState // tracks all of the
 	eChan       chan *watch.Event
@@ -226,13 +226,12 @@ func (d *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*pps
 
 func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
 	go func() {
+		defer close(d.eChan)
 		select {
 		case <-ctx.Done():
 			d.eChan <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
-			close(d.eChan)
 			return
 		case <-d.closeEChan:
-			close(d.eChan)
 			return
 		}
 	}()

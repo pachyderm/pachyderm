@@ -66,7 +66,7 @@ func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline s
 	})
 }
 
-func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
+func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
 	mockPachd.PPS.ListTask.Use(func(req *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
 		for i := 0; i < taskCount; i++ {
 			srv.Send(&task.TaskInfo{})
@@ -196,8 +196,8 @@ func TestDeleteRC(t *testing.T) {
 func TestAutoscalingBasic(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	done := mockAutoscaling(mockPachd, 1, 1)
-	defer func() { done <- struct{}{} }()
+	done := mockJobRunning(mockPachd, 1, 1)
+	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -226,8 +226,8 @@ func TestAutoscalingBasic(t *testing.T) {
 func TestAutoscalingManyCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	done := mockAutoscaling(mockPachd, 1, 100)
-	defer func() { done <- struct{}{} }()
+	done := mockJobRunning(mockPachd, 1, 100)
+	defer close(done)
 	inspectCount := 0
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		inspectCount++
@@ -263,8 +263,8 @@ func TestAutoscalingManyCommits(t *testing.T) {
 func TestAutoscalingManyTasks(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	done := mockAutoscaling(mockPachd, 100, 1)
-	defer func() { done <- struct{}{} }()
+	done := mockJobRunning(mockPachd, 100, 1)
+	defer close(done)
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		// wait for pipeline replica scale to update before closing the commit
 		// the first two elements should always be [0, 1]
@@ -306,8 +306,8 @@ func TestAutoscalingManyTasks(t *testing.T) {
 func TestAutoscalingNoCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	done := mockAutoscaling(mockPachd, 0, 0)
-	defer func() { done <- struct{}{} }()
+	done := mockJobRunning(mockPachd, 0, 0)
+	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -373,8 +373,8 @@ func TestPause(t *testing.T) {
 func TestPauseAutoscaling(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	done := mockAutoscaling(mockPachd, 1, 1)
-	defer func() { done <- struct{}{} }()
+	done := mockJobRunning(mockPachd, 1, 1)
+	defer close(done)
 	pi := &pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -399,7 +399,7 @@ func TestPauseAutoscaling(t *testing.T) {
 		},
 	})
 	testDone := make(chan struct{})
-	defer func() { testDone <- struct{}{} }()
+	defer close(testDone)
 	// simulate no more commits
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		// keep the subscribe open for the duration of the test
