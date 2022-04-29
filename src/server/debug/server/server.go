@@ -123,7 +123,7 @@ func (s *debugServer) handleRedirect(
 					return err
 				}
 			}
-			// All pachyderm apps including pachd.
+			// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
 			return s.appLogs(tw)
 		})
 	})
@@ -143,7 +143,9 @@ func (s *debugServer) appLogs(tw *tar.Writer) error {
 				{
 					Key:      "component",
 					Operator: metav1.LabelSelectorOpNotIn,
-					Values:   []string{"worker"},
+					// Worker and pachd logs are collected by separate
+					// functions.
+					Values: []string{"worker", "pachd"},
 				},
 			},
 		}),
@@ -400,6 +402,18 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 		}
 		// Collect the pachd version.
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd describe output.
+		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd container logs.
+		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
+			return err
+		}
+		// Collect the pachd container logs from loki.
+		if err := s.collectLogsLoki(tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.

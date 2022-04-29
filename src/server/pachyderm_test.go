@@ -9279,6 +9279,13 @@ func TestDebug(t *testing.T) {
 			}
 		}
 	}
+	if len(expectedFiles) > 0 {
+		var names []string
+		for name, glob := range expectedFiles {
+			names = append(names, fmt.Sprintf("%v (matched by %v)", name, glob))
+		}
+		t.Logf("missing files: %v", names)
+	}
 	require.Equal(t, 0, len(expectedFiles))
 }
 
