@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -93,13 +94,15 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 	for _, test := range tests {
 		require.NoErrorWithinT(t, 10*time.Second, func() error {
 			return backoff.Retry(func() error {
+				fmt.Println(sDriver.states[test.pipeline])
+				fmt.Println(test.expectedStates)
 				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.pipeline])
 			}, backoff.NewTestingBackOff())
 		})
 		require.Equal(t, 1, len(iDriver.rcs))
-		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.pipelines[test.pipeline])
+		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.currentPipelineInfo(test.pipeline))
 		require.NoError(t, err)
-		require.True(t, rcIsFresh(sDriver.pipelines[test.pipeline], &rc.Items[0]))
+		require.True(t, rcIsFresh(sDriver.currentPipelineInfo(test.pipeline), &rc.Items[0]))
 	}
 }
 
@@ -387,7 +390,6 @@ func TestPauseAutoscaling(t *testing.T) {
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_RUNNING,
 				pps.PipelineState_PIPELINE_STANDBY,
 			},
@@ -414,11 +416,9 @@ func TestPauseAutoscaling(t *testing.T) {
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_RUNNING,
 				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_PAUSED,
-				pps.PipelineState_PIPELINE_STANDBY,
 				pps.PipelineState_PIPELINE_STANDBY,
 			},
 		},
