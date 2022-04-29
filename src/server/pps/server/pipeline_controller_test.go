@@ -83,9 +83,7 @@ func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int)
 				Commit: client.NewCommit(req.Repo.Name, "", uuid.NewWithoutDashes()),
 			})
 		}
-		select {
-		case <-testDone:
-		}
+		<-testDone
 		return nil
 	})
 	return testDone
@@ -400,9 +398,7 @@ func TestPauseAutoscaling(t *testing.T) {
 	// simulate no more commits
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		// keep the subscribe open for the duration of the test
-		select {
-		case <-testDone:
-		}
+		<-testDone
 		return nil
 	})
 	// pause pipeline
