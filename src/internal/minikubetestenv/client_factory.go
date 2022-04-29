@@ -22,7 +22,7 @@ const (
 var (
 	clusterFactory      *ClusterFactory
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
+	poolSize            *int  = flag.Int("clusters.pool", 1, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 )
 
