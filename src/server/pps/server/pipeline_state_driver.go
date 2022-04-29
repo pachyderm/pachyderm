@@ -32,8 +32,8 @@ type PipelineStateDriver interface {
 	// setPipelineState set's pc's state in the collection to 'state'. This will trigger a
 	// collection watch event and cause step() to eventually run again.
 	SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error
-	// TransitionState is similar to setPipelineState, except that it sets
-	// 'from' and logs a different trace
+	// TransitionState is similar to SetState, except that it checks whether pipelineInfo @ specCommit
+	// is in one of the 'from' states
 	TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) error
 	// wraps a Watcher on the pipelines collection
 	Watch(ctx context.Context) (<-chan *watch.Event, func(), error)
@@ -157,7 +157,6 @@ func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline stri
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
 	}
-	// TODO: which context should be passed here? master's ctx?
 	if err := sd.pipelines.ReadOnly(ctx).Get(specCommit, message); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
@@ -169,23 +168,23 @@ type mockStateDriver struct {
 	pipelines   map[string]*pps.PipelineInfo   // maps pipeline names to PipelineInfos
 	states      map[string][]pps.PipelineState // tracks all of the
 	eChan       chan *watch.Event
-	doneEChan   chan struct{} // supports closing eChan
+	closeEChan  chan struct{} // supports closing eChan
 }
 
 func newMockStateDriver() *mockStateDriver {
-	msd := &mockStateDriver{}
-	msd.reset()
-	msd.eChan = make(chan *watch.Event, 1)
-	msd.doneEChan = make(chan struct{}, 1)
-	return msd
+	d := &mockStateDriver{}
+	d.reset()
+	d.eChan = make(chan *watch.Event, 1)
+	d.closeEChan = make(chan struct{}, 1)
+	return d
 }
 
-func (msd *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error {
-	if pipeline, ok := msd.specCommits[specCommit.ID]; ok {
-		if pi, ok := msd.pipelines[pipeline]; ok {
+func (d *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error {
+	if pipeline, ok := d.specCommits[specCommit.ID]; ok {
+		if pi, ok := d.pipelines[pipeline]; ok {
 			pi.State = state
-			msd.states[pipeline] = append(msd.states[pipeline], state)
-			msd.pushWatchEvent(pi, watch.EventPut)
+			d.states[pipeline] = append(d.states[pipeline], state)
+			d.pushWatchEvent(pi, watch.EventPut)
 			return nil
 		}
 		return errors.New("pipeline does not exist")
@@ -193,7 +192,7 @@ func (msd *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit
 	return errors.New("pipeline does not exist")
 }
 
-func (msd *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
+func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	fromContains := func(ps pps.PipelineState) bool {
 		for _, v := range from {
 			if v == ps {
@@ -202,10 +201,10 @@ func (msd *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs
 		}
 		return false
 	}
-	if pipeline, ok := msd.specCommits[specCommit.ID]; ok {
-		if pi, ok := msd.pipelines[pipeline]; ok {
+	if pipeline, ok := d.specCommits[specCommit.ID]; ok {
+		if pi, ok := d.pipelines[pipeline]; ok {
 			if fromContains(pi.State) {
-				return msd.SetState(ctx, specCommit, to, reason)
+				return d.SetState(ctx, specCommit, to, reason)
 			}
 			return ppsutil.PipelineTransitionError{
 				Pipeline: pipeline,
@@ -219,34 +218,35 @@ func (msd *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs
 	return errors.New("pipeline does not exist")
 }
 
-func (msd *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error) {
-	if pi, ok := msd.pipelines[pipeline]; ok {
+func (d *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error) {
+	if pi, ok := d.pipelines[pipeline]; ok {
 		return pi, ctx, nil
 	}
 	return nil, nil, nil
 }
 
-func (msd *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
+func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
 	go func() {
 		select {
 		case <-ctx.Done():
-			close(msd.eChan)
+			d.eChan <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
+			close(d.eChan)
 			return
-		case <-msd.doneEChan:
-			close(msd.eChan)
+		case <-d.closeEChan:
+			close(d.eChan)
 			return
 		}
 	}()
-	return msd.eChan, func() {
+	return d.eChan, func() {
 		select {
-		case msd.doneEChan <- struct{}{}:
+		case d.closeEChan <- struct{}{}:
 		default:
 		}
 	}, nil
 }
 
-func (msd *mockStateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error {
-	for _, pi := range msd.pipelines {
+func (d *mockStateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error {
+	for _, pi := range d.pipelines {
 		if err := f(pi); err != nil {
 			return err
 		}
@@ -254,41 +254,41 @@ func (msd *mockStateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pi
 	return nil
 }
 
-func (msd *mockStateDriver) GetPipelineInfo(ctx context.Context, name string, version int) (*pps.PipelineInfo, error) {
-	if pi, ok := msd.pipelines[name]; ok {
+func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, name string, version int) (*pps.PipelineInfo, error) {
+	if pi, ok := d.pipelines[name]; ok {
 		return pi, nil
 	}
 	return nil, errors.New("not found")
 }
 
-func (msd *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
+func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 	pipelineKey := pi.Pipeline.Name
-	msd.pipelines[pipelineKey] = pi
+	d.pipelines[pipelineKey] = pi
 	mockSpecCommit := client.NewCommit(pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
-	msd.specCommits[mockSpecCommit.ID] = pipelineKey
-	if ss, ok := msd.states[pipelineKey]; ok {
-		msd.states[pipelineKey] = append(ss, pi.State)
+	d.specCommits[mockSpecCommit.ID] = pipelineKey
+	if ss, ok := d.states[pipelineKey]; ok {
+		d.states[pipelineKey] = append(ss, pi.State)
 	} else {
-		msd.states[pipelineKey] = []pps.PipelineState{pi.State}
+		d.states[pipelineKey] = []pps.PipelineState{pi.State}
 	}
-	msd.pushWatchEvent(pi, watch.EventPut)
+	d.pushWatchEvent(pi, watch.EventPut)
 	return mockSpecCommit
 }
 
-func (msd *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
-	msd.eChan <- &watch.Event{
+func (d *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
+	d.eChan <- &watch.Event{
 		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline.Name, pi.SpecCommit.ID)),
 		Type: et,
 	}
 }
 
-func (msd *mockStateDriver) cancelWatch() {
-	msd.doneEChan <- struct{}{}
+func (d *mockStateDriver) cancelWatch() {
+	d.closeEChan <- struct{}{}
 }
 
-func (msd *mockStateDriver) reset() {
-	msd.specCommits = make(map[string]string)
-	msd.pipelines = make(map[string]*pps.PipelineInfo)
-	msd.states = make(map[string][]pps.PipelineState)
+func (d *mockStateDriver) reset() {
+	d.specCommits = make(map[string]string)
+	d.pipelines = make(map[string]*pps.PipelineInfo)
+	d.states = make(map[string][]pps.PipelineState)
 }

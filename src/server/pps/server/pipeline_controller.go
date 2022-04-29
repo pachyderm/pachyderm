@@ -314,6 +314,8 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 		return pc.apply(ctx, pi, rc, targetState, sideEffects, reason)
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 		errCount++
+		fmt.Println("APPLY ERROR")
+		fmt.Println(err)
 		if errors.As(err, &stepErr) {
 			if stepErr.retry && errCount < maxErrCount {
 				log.Errorf("PPS master: error updating resources for pipeline %q: %v; retrying in %v",
@@ -338,6 +340,7 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 }
 
 func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineState, []sideEffect, string, error) {
+	fmt.Printf("Evaluating input state:: %v\n", pi.State)
 	if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 		return pps.PipelineState_PIPELINE_FAILURE,
 			[]sideEffect{
@@ -638,20 +641,11 @@ func (pc *pipelineController) scaleDownPipeline(ctx context.Context, pi *pps.Pip
 	}))
 }
 
-// restartPipeline updates the RC/service associated with pc's pipeline, and
-// then sets its state to RESTARTING. Note that restartPipeline only deletes
-// rc if it's stale--a prior bug was that it would delete all of pc's
-// resources, and then get stuck in a loop deleting and recreating pc's RC if
-// the cluster was busy and the RC was taking too long to start.
-//
-// restartPipeline is an error-handling
-// codepath, so it's guaranteed to return an error (typically wrapping 'reason',
-// though if the restart process fails that error will take precendence) so that
-// callers can use it like so:
-//
-// if errorState {
-//   return pc.restartPipeline("entered error state")
-// }
+// restartPipeline updates the RC/service associated with pc's pipeline.
+// Note that restartPipeline only deletes rc if it's stale--a prior bug
+// was that it would delete all of pc's resources, and then get stuck in a
+// loop deleting and recreating pc's RC if the cluster was busy and
+// the RC was taking too long to start.
 func (pc *pipelineController) restartPipeline(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
 	if rc != nil && !rcIsFresh(pi, rc) {
 		// delete old RC, monitorPipeline goro, and worker service

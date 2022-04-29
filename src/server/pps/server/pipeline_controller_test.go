@@ -20,8 +20,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-const simulateInactiveChannelDuration = 5 * time.Second
-
 type pipelineTest struct {
 	pipeline       string
 	assertWhen     []pps.PipelineState
@@ -55,20 +53,13 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 	return sDriver, iDriver, mockEnv.MockPachd
 }
 
-func waitForPipelineStates(t testing.TB, stateDriver *mockStateDriver, pipeline string, states []pps.PipelineState) {
+func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline string, state pps.PipelineState) {
 	require.NoErrorWithinT(t, 10*time.Second, func() error {
 		return backoff.Retry(func() error {
 			actualStates := stateDriver.states[pipeline]
-			for i := range actualStates {
-				k := i
-				for j, expected := range states {
-					if k >= len(actualStates) || actualStates[k] != expected {
-						break
-					}
-					k++
-					if j == len(states)-1 {
-						return nil
-					}
+			for _, s := range actualStates {
+				if s == state {
+					return nil
 				}
 			}
 			return errors.New("change hasn't reflected")
@@ -76,7 +67,7 @@ func waitForPipelineStates(t testing.TB, stateDriver *mockStateDriver, pipeline 
 	})
 }
 
-func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int) {
+func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
 	mockPachd.PPS.ListTask.Use(func(req *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
 		for i := 0; i < taskCount; i++ {
 			srv.Send(&task.TaskInfo{})
@@ -86,22 +77,28 @@ func mockAutoscaling(mockPachd *testpachd.MockPachd, taskCount, commitCount int)
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		return &pfs.CommitInfo{}, nil
 	})
+	testDone := make(chan struct{})
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		for i := 0; i < commitCount; i++ {
 			server.Send(&pfs.CommitInfo{
 				Commit: client.NewCommit(req.Repo.Name, "", uuid.NewWithoutDashes()),
 			})
 		}
-		// keep the subscribe stream open longer
-		time.Sleep(simulateInactiveChannelDuration)
+		select {
+		case <-testDone:
+		}
 		return nil
 	})
+	return testDone
 }
 
 func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, tests []pipelineTest) {
 	for _, test := range tests {
-		waitForPipelineStates(t, sDriver, test.pipeline, test.assertWhen)
-		require.ElementsEqual(t, test.expectedStates, sDriver.states[test.pipeline])
+		require.NoErrorWithinT(t, 10*time.Second, func() error {
+			return backoff.Retry(func() error {
+				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.pipeline])
+			}, backoff.NewTestingBackOff())
+		})
 		require.Equal(t, 1, len(iDriver.rcs))
 		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.pipelines[test.pipeline])
 		require.NoError(t, err)
@@ -205,7 +202,8 @@ func TestDeleteRC(t *testing.T) {
 func TestAutoscalingBasic(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	mockAutoscaling(mockPachd, 1, 1)
+	done := mockAutoscaling(mockPachd, 1, 1)
+	defer func() { done <- struct{}{} }()
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -222,6 +220,7 @@ func TestAutoscalingBasic(t *testing.T) {
 			pipeline: pipeline,
 			assertWhen: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_RUNNING,
+				pps.PipelineState_PIPELINE_STANDBY,
 			},
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
@@ -237,7 +236,8 @@ func TestAutoscalingBasic(t *testing.T) {
 func TestAutoscalingManyCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	mockAutoscaling(mockPachd, 1, 100)
+	done := mockAutoscaling(mockPachd, 1, 100)
+	defer func() { done <- struct{}{} }()
 	inspectCount := 0
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		inspectCount++
@@ -276,7 +276,8 @@ func TestAutoscalingManyCommits(t *testing.T) {
 func TestAutoscalingManyTasks(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	mockAutoscaling(mockPachd, 100, 1)
+	done := mockAutoscaling(mockPachd, 100, 1)
+	defer func() { done <- struct{}{} }()
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		// add some delay so that Scaling Up will kick in before the commit is otherwise considered done
 		time.Sleep(time.Second)
@@ -310,13 +311,14 @@ func TestAutoscalingManyTasks(t *testing.T) {
 		},
 	})
 	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
-	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.elapsedScales[pi.Pipeline.Name])
+	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.scaleHistory[pi.Pipeline.Name])
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	mockAutoscaling(mockPachd, 0, 0)
+	done := mockAutoscaling(mockPachd, 0, 0)
+	defer func() { done <- struct{}{} }()
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -367,7 +369,7 @@ func TestPause(t *testing.T) {
 	// pause pipeline
 	pi.Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
-	waitForPipelineStates(t, stateDriver, pi.Pipeline.Name, []pps.PipelineState{pps.PipelineState_PIPELINE_PAUSED})
+	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
 	pi.Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
@@ -391,7 +393,8 @@ func TestPause(t *testing.T) {
 func TestPauseAutoscaling(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	mockAutoscaling(mockPachd, 1, 1)
+	done := mockAutoscaling(mockPachd, 1, 1)
+	defer func() { done <- struct{}{} }()
 	pi := &pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -419,16 +422,20 @@ func TestPauseAutoscaling(t *testing.T) {
 			},
 		},
 	})
+	testDone := make(chan struct{})
+	defer func() { testDone <- struct{}{} }()
 	// simulate no more commits
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
-		// keep the subscribe open
-		time.Sleep(simulateInactiveChannelDuration)
+		// keep the subscribe open for the duration of the test
+		select {
+		case <-testDone:
+		}
 		return nil
 	})
 	// pause pipeline
 	pi.Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
-	waitForPipelineStates(t, stateDriver, pi.Pipeline.Name, []pps.PipelineState{pps.PipelineState_PIPELINE_PAUSED})
+	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
 	pi.Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
@@ -454,9 +461,8 @@ func TestPauseAutoscaling(t *testing.T) {
 }
 
 func TestStaleRestart(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t)
 	pipeline := tu.UniqueString(t.Name())
-	mockAutoscaling(mockPachd, 1, 1)
 	pi := &pps.PipelineInfo{
 		Pipeline: client.NewPipeline(pipeline),
 		State:    pps.PipelineState_PIPELINE_STARTING,

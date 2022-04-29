@@ -40,40 +40,40 @@ const (
 )
 
 type mockInfraDriver struct {
-	rcs           map[string]v1.ReplicationController // indexed by pipeline name
-	calls         map[string]map[mockInfraOp]int      // indexed by pipeline name
-	elapsedScales map[string][]int32                  // indexed by pipeline name
+	rcs          map[string]v1.ReplicationController // indexed by pipeline name
+	calls        map[string]map[mockInfraOp]int      // indexed by pipeline name
+	scaleHistory map[string][]int32                  // indexed by pipeline name
 }
 
 func newMockInfraDriver() *mockInfraDriver {
-	mid := &mockInfraDriver{
-		rcs:           make(map[string]v1.ReplicationController),
-		calls:         make(map[string]map[mockInfraOp]int),
-		elapsedScales: make(map[string][]int32),
+	d := &mockInfraDriver{
+		rcs:          make(map[string]v1.ReplicationController),
+		calls:        make(map[string]map[mockInfraOp]int),
+		scaleHistory: make(map[string][]int32),
 	}
-	return mid
+	return d
 }
 
-func (mid *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	mid.rcs[pi.Pipeline.Name] = *mid.makeRC(pi)
-	mid.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
-	if _, ok := mid.elapsedScales[pi.Pipeline.Name]; !ok {
-		mid.elapsedScales[pi.Pipeline.Name] = make([]int32, 0)
-	}
-	return nil
-}
-
-func (mid *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipeline string) error {
-	if _, ok := mid.rcs[pipeline]; ok {
-		delete(mid.rcs, pipeline)
-		mid.incCall(pipeline, mockInfraOp_DELETE)
+func (d *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
+	d.rcs[pi.Pipeline.Name] = *d.makeRC(pi)
+	d.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
+	if _, ok := d.scaleHistory[pi.Pipeline.Name]; !ok {
+		d.scaleHistory[pi.Pipeline.Name] = make([]int32, 0)
 	}
 	return nil
 }
 
-func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
-	mid.incCall(pi.Pipeline.Name, mockInfraOp_READ)
-	if rc, ok := mid.rcs[pi.Pipeline.Name]; !ok {
+func (d *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipeline string) error {
+	if _, ok := d.rcs[pipeline]; ok {
+		delete(d.rcs, pipeline)
+		d.incCall(pipeline, mockInfraOp_DELETE)
+	}
+	return nil
+}
+
+func (d *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
+	d.incCall(pi.Pipeline.Name, mockInfraOp_READ)
+	if rc, ok := d.rcs[pi.Pipeline.Name]; !ok {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{},
 		}, errors.New("rc for pipeline not found")
@@ -84,19 +84,19 @@ func (mid *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *p
 	}
 }
 
-func (mid *mockInfraDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
+func (d *mockInfraDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	rc := old.DeepCopy()
 	if update(rc) {
 		name := rc.ObjectMeta.Labels[pipelineNameLabel]
-		mid.elapsedScales[name] = append(mid.elapsedScales[name], *rc.Spec.Replicas)
-		mid.writeRC(rc)
+		d.scaleHistory[name] = append(d.scaleHistory[name], *rc.Spec.Replicas)
+		d.writeRC(rc)
 	}
 	return nil
 }
 
-func (mid *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error) {
+func (d *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error) {
 	items := make([]v1.ReplicationController, 0)
-	for _, rc := range mid.rcs {
+	for _, rc := range d.rcs {
 		items = append(items, rc)
 	}
 	return &v1.ReplicationControllerList{
@@ -105,7 +105,7 @@ func (mid *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1
 }
 
 // TODO(acohen4): complete
-func (mid *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
+func (d *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
 	ch := make(chan watch.Event)
 	return ch, func() {}, nil
 }
@@ -114,11 +114,11 @@ func (mid *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch
 // -------- Mock Helpers -------- //
 ////////////////////////////////////
 
-func (mid *mockInfraDriver) resetRCs() {
-	mid.rcs = make(map[string]v1.ReplicationController)
+func (d *mockInfraDriver) resetRCs() {
+	d.rcs = make(map[string]v1.ReplicationController)
 }
 
-func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController {
+func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController {
 	return &v1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version),
@@ -135,15 +135,15 @@ func (mid *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationControll
 	}
 }
 
-func (mid *mockInfraDriver) writeRC(rc *v1.ReplicationController) {
+func (d *mockInfraDriver) writeRC(rc *v1.ReplicationController) {
 	name := rc.ObjectMeta.Labels[pipelineNameLabel]
-	mid.rcs[name] = *rc
+	d.rcs[name] = *rc
 }
 
-func (mid *mockInfraDriver) incCall(name string, op mockInfraOp) {
-	if ops, ok := mid.calls[name]; ok {
+func (d *mockInfraDriver) incCall(name string, op mockInfraOp) {
+	if ops, ok := d.calls[name]; ok {
 		ops[op] += 1
 	} else {
-		mid.calls[name] = map[mockInfraOp]int{op: 1}
+		d.calls[name] = map[mockInfraOp]int{op: 1}
 	}
 }
