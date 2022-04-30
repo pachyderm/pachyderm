@@ -187,9 +187,9 @@ nav:
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
-                    - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md  
+                    - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md 
+                - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md 
                 - Deploy on GCP: deploy-manage/deploy/google_cloud_platform.md
-                - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Console: deploy-manage/deploy/console.md
