@@ -22,11 +22,11 @@ For a quick start, deploy Pachyderm on your [local machine](./local-installation
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="local_installation/" class="md-typeset md-link">
+          <li><a href="local-installation/" class="md-typeset md-link">
           Deploy Locally
           </a>
           </li>
-          <li><a href="beginner_tutorial/" class="md-typeset md-link">
+          <li><a href="beginner-tutorial/" class="md-typeset md-link">
           Beginner Tutorial
           </a>
           </li>

@@ -28,7 +28,7 @@ community Slack](https://www.pachyderm.com/slack/), submit an issue on
 
 This guide assumes that you already have Pachyderm running locally.
 If you haven't done so already, install Pachyderm on your local
-machine as described in [Local Installation](local_installation.md).
+machine as described in [Local Installation](local-installation.md).
 
 ### Create a Repo
 
