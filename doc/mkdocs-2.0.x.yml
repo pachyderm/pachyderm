@@ -111,13 +111,13 @@ nav:
             - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
-        - Overview: getting_started/index.md
-        - WHAT'S NEW?: getting_started/whats-new.md
-        - Quick Start - Local Installation: getting_started/local-installation.md
-        - Beginner Tutorial: getting_started/beginner-tutorial.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
+        - Overview: getting-started/index.md
+        - WHAT'S NEW?: getting-started/whats-new.md
+        - Quick Start - Local Installation: getting-started/local-installation.md
+        - Beginner Tutorial: getting-started/beginner-tutorial.md
+        - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
         - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Local Installation On WSL: getting_started/wsl-deploy.md
+        - Local Installation On WSL: getting-started/wsl-deploy.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -182,7 +182,7 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Helm Deployment Principles: deploy-manage/deploy/helm-install.md
-            - Local Deployment: getting_started/local-installation.md
+            - Local Deployment: getting-started/local-installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
