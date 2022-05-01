@@ -115,7 +115,7 @@ WSL `/.kube/` directory:
 ## Install `pachctl`
 
 Get the latest version of `pachctl` by directly downloading it to your computer
-as described in [Install pachctl](../local_installation/#install-pachctl).
+as described in [Install pachctl](../local-installation/#install-pachctl).
 
 **Example:**
 
@@ -135,4 +135,4 @@ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/down
 ## Deploy Pachyderm
 
 After you complete all the steps above, start your Minikube VM by running
-`minikube start` and follow the steps in our [Local Deployment](../local_installation/) page.
+`minikube start` and follow the steps in our [Local Deployment](../local-installation/) page.

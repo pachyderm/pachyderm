@@ -28,7 +28,7 @@ Finally, we provide some [Resources](README.md#resources) for you for further ex
 ## Getting Started
 
 - Clone this repo.
-- Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting-started/local_installation/).
+- Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting-started/local-installation/).
 
 ## 1. Make sure Pachyderm is running
 

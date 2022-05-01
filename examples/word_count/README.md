@@ -30,8 +30,8 @@ When you put a file into a Pachyderm repository and a file by the same name alre
 
 ## 1. Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting-started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
 
 ***Getting started***
 - Clone this repo.

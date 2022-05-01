@@ -25,7 +25,7 @@ clients on your machine. Use the
 latest available version of the components listed below.
 
 * [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}: the cli to interact with your cluster.
-* [pachctl](../../../getting-started/local_installation#install-pachctl): the cli to interact with Pachyderm.
+* [pachctl](../../../getting-started/local-installation#install-pachctl): the cli to interact with Pachyderm.
 * Install [`Helm`](https://helm.sh/docs/intro/install/){target=_blank} for your deployment. 
 
 

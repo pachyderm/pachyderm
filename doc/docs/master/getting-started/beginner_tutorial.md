@@ -8,7 +8,7 @@ to complete and introduce you to Pachyderm's original concepts.
 
 This guide assumes that you already have Pachyderm running.
 
-- For an easy and quick start, install Pachyderm on your local machine as described in our [Local Installation](../local_installation/) page and start experimenting.
+- For an easy and quick start, install Pachyderm on your local machine as described in our [Local Installation](../local-installation/) page and start experimenting.
 
 - Or check out our [Quick Install](../../deploy-manage/deploy/quickstart/) page to deploy on your favorite cloud.
 
@@ -501,7 +501,7 @@ visualize and explore your pipelines, your data, debug jobs, read logs, etc...
 
 !!! Note
      You will need an Enterprise Key when deploying with Console, locally or otherwise. 
-     To request a FREE trial enterprise license key, [click here](../../enterprise).
+     To request a FREE trial enterprise license key, [click here](../../enterprise). 
 
 If you deployed locally, the Pachyderm Enterprise Console
 is also deployed by default.  To access it, visit

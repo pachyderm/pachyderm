@@ -29,7 +29,7 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="getting_started/local_installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting_started/local-installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Install Pachyderm on Your Computer
           </a>
           </li>

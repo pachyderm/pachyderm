@@ -22,7 +22,7 @@ Before you can deploy Pachyderm, you will need to perform the following actions:
 Before you start, you will need the following clients installed: 
 
 1. [kubectl](https://kubernetes.io/docs/tasks/tools/){target=_blank}
-2. [pachctl](../../../getting-started/local_installation/#install-pachctl)
+2. [pachctl](../../../getting-started/local-installation/#install-pachctl)
 
 ## Setting Up To Deploy On-Premises
 

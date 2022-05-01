@@ -108,7 +108,7 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting_started/index.md
-        - Local Installation: getting_started/local_installation.md
+        - Local Installation: getting_started/local-installation.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
         - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md

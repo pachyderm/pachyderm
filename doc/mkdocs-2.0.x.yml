@@ -113,7 +113,7 @@ nav:
     - Getting Started:
         - Overview: getting_started/index.md
         - WHAT'S NEW?: getting_started/whats_new.md
-        - Quick Start - Local Installation: getting_started/local_installation.md
+        - Quick Start - Local Installation: getting_started/local-installation.md
         - Beginner Tutorial: getting_started/beginner_tutorial.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
@@ -182,7 +182,7 @@ nav:
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
             - Helm Deployment Principles: deploy-manage/deploy/helm-install.md
-            - Local Deployment: getting_started/local_installation.md
+            - Local Deployment: getting_started/local-installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
