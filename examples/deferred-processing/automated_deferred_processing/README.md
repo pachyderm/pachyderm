@@ -1,6 +1,6 @@
 # Automated Deferred Processing
 
-[Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred_processing/) 
+[Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred-processing/) 
 is a Pachyderm technique for controlling when data gets processed.
 Deferred processing uses branches to prevent pipelines from triggering on every input commit.
 This example shows how to automate the movement of those branches,
@@ -20,7 +20,7 @@ In this example, we will cover:
 
 Before you start working on this example, 
 you should understand deferred processing by reading the documentation
-and trying the [deferred processing example](../deferred_processing_plus_transactions).
+and trying the [deferred processing example](../deferred-processing_plus_transactions).
 That example is used extensively here.
 
 To create and update branch labels, 
@@ -57,7 +57,7 @@ with the addition of a cron pipeline
 for periodically moving the `dev` branch to `master`.
 
 For details on the deferred processing example DAG,
-see [the Deferred Processing example](../deferred_processing_plus_transactions).
+see [the Deferred Processing example](../deferred-processing_plus_transactions).
 
 ### Branch mover without access controls
 

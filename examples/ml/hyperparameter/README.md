@@ -10,7 +10,7 @@ The models trained and evaluated in the example will attempt to predict the spec
 
 The example assumes that you have:
 
-- A Pachyderm cluster running - see [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
+- A Pachyderm cluster running - see [Local Installation](https://docs.pachyderm.com/latest/getting-started/local-installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
 - The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [any of our deploy docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for instructions.
 
 ## The pipelines

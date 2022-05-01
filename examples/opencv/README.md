@@ -4,7 +4,7 @@
 > - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Distributed Image Processing with OpenCV and Pachyderm
 
-A detailed walkthrough of this example is included in our docs [here](http://docs.pachyderm.com/latest/getting_started/beginner_tutorial.html). Please follow that guide to deploy this pipeline.
+A detailed walkthrough of this example is included in our docs [here](http://docs.pachyderm.com/latest/getting-started/beginner-tutorial.html). Please follow that guide to deploy this pipeline.
 
 ## Building docker images
 
