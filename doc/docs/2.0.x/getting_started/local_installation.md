@@ -186,7 +186,7 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
       ```
 
 !!! Info "See Also"
-      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/){target=_blank}.
+      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm-install/){target=_blank}.
 
 
 ## Check Your Install

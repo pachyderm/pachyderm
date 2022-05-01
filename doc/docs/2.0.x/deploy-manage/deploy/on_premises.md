@@ -16,7 +16,7 @@ Before you can deploy Pachyderm, you will need to perform the following actions:
 1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
 1. [Deploy two Kubernetes persistent volumes](#storage-classes ) that Pachyderm will use to store its metadata.
 1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io){target=_blank}, [EMC's ECS](https://www.delltechnologies.com/en-us/storage/ecs/index.htm){target=_blank}, or [SwiftStack](https://www.swiftstack.com/){target=_blank} to provide S3-compatible access to your data storage.
-1. Finally, [Deploy Pachyderm using Helm](./helm_install.md) by running the `helm install` command with the appropriate values configured in your values.yaml. We recommend reading these generic deployment steps if you are unfamiliar with Helm.
+1. Finally, [Deploy Pachyderm using Helm](./helm-install.md) by running the `helm install` command with the appropriate values configured in your values.yaml. We recommend reading these generic deployment steps if you are unfamiliar with Helm.
 
 ## Prerequisites
 Before you start, you will need the following clients installed: 
@@ -93,4 +93,4 @@ pachd:
 ```
 
 ### Next Step: Proceed to your Helm installation
-Once you have Kubernetes deployed, your storage classes setup, and your object store configured, follow those steps [to Helm install Pachyderm on your cluster](./helm_install.md).
+Once you have Kubernetes deployed, your storage classes setup, and your object store configured, follow those steps [to Helm install Pachyderm on your cluster](./helm-install.md).

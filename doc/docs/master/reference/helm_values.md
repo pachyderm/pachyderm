@@ -9,7 +9,7 @@ ignore_macros: true
 
 
 This document discusses each of the fields present in the `values.yaml` that can be used to deploy with Helm.
-To see how to use a helm values files to customize your deployment, refer to our [Helm Deployment Documentation](../../deploy-manage/deploy/helm_install/) section.
+To see how to use a helm values files to customize your deployment, refer to our [Helm Deployment Documentation](../../deploy-manage/deploy/helm-install/) section.
 
 !!! Note
     You rarely need to specify all the fields. Most fields either come with sensible defaults or can be empty.

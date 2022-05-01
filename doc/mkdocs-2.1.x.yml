@@ -195,7 +195,7 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Helm Deployment Principles: deploy-manage/deploy/helm_install.md
+            - Helm Deployment Principles: deploy-manage/deploy/helm-install.md
             - Local Deployment: getting_started/local_installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
             - Production Deployment:       

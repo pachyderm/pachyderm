@@ -200,7 +200,7 @@ Note that you can run both Console and JupyterLab on your local installation.
       ```
 
 !!! Info "See Also"
-      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm_install/){target=_blank}.
+      More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm-install/){target=_blank}.
 
 
 ## Check Your Install

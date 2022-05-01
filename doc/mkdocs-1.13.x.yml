@@ -184,7 +184,7 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Deploy with Helm: deploy-manage/deploy/helm_install.md
+            - Deploy with Helm: deploy-manage/deploy/helm-install.md
             - Production Deployments:
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md
