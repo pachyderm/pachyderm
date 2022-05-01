@@ -9276,6 +9276,7 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, gr.Close())
 	}()
 	// Check that all of the expected files were returned.
+	var gotFiles []string
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()
@@ -9285,12 +9286,21 @@ func TestDebug(t *testing.T) {
 			}
 			require.NoError(t, err)
 		}
+		gotFiles = append(gotFiles, hdr.Name)
 		for pattern, g := range expectedFiles {
 			if g.Match(hdr.Name) {
 				delete(expectedFiles, pattern)
 				break
 			}
 		}
+	}
+	if len(expectedFiles) > 0 {
+		t.Logf("got files: %v", gotFiles)
+		var names []string
+		for n := range expectedFiles {
+			names = append(names, n)
+		}
+		t.Logf("no files match: %v", names)
 	}
 	require.Equal(t, 0, len(expectedFiles))
 }
