@@ -24,7 +24,7 @@ The cylinders represent data “repositories” in which Pachyderm will version 
 
 ## Getting up and running with Pachyderm
 
-You can experiment with this pipeline locally using a quick [local installation of Pachyderm](https://docs.pachyderm.com/latest/getting_started/local_installation/).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for more details on deployment.
+You can experiment with this pipeline locally using a quick [local installation of Pachyderm](https://docs.pachyderm.com/latest/getting-started/local-installation/).  Alternatively, you can quickly spin up a real Pachyderm cluster in any one of the popular cloud providers.  Check out the [Pachyderm docs](https://docs.pachyderm.com/latest/deploy-manage/deploy/) for more details on deployment.
 
 Once deployed, you will be able to use the Pachyderm’s `pachctl` CLI tool to create data repositories and start our deep learning pipeline.
 
