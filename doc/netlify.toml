@@ -95,8 +95,8 @@
   force = true
 
 [[redirects]]
-  from = "/getting_started/*"
-  to = "/latest/getting_started/:splat"
+  from = "/getting-started/*"
+  to = "/latest/getting-started/:splat"
   status = 301
   force = true
 

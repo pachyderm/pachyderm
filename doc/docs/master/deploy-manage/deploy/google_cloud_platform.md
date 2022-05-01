@@ -21,7 +21,7 @@ In particular, you will:
 1. [Enable The Creation of Persistent Volumes](#4-persistent-volumes-creation)
 1. [Create A GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
 1. [Deploy Pachyderm ](#6-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../getting_started/local_installation/#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+1. Finally, you will need to install [pachctl](../../../getting-started/local_installation/#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
 1. (Optional) Install [JupyterHub and Pachyderm Mount Extension](#9-notebooks-users-install-pachyderm-jupyterlab-mount-extension) to experiment with your data in Pachyderm from your Notebook cells. 
 
@@ -41,7 +41,7 @@ Install the following clients:
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank} >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/tasks/tools/){target=_blank}
-- [pachctl](../../../getting_started/local_installation/#install-pachctl)
+- [pachctl](../../../getting-started/local_installation/#install-pachctl)
 - [jq](https://stedolan.github.io/jq/download/){target=_blank}
 
 If this is the first time you use the SDK, follow

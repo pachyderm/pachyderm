@@ -3,7 +3,7 @@
 > - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
 > - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Pachyderm Word Count - Map/Reduce 101
->![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
+>![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting-started/beginner_tutorial/).
 
 In this guide, we will write a classic MapReduce word count application in Pachyderm.A MapReduce job typically splits your input data into independent chunks that are seamlessly processed by a `map` pipeline in a parallel manner. The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
 
@@ -30,8 +30,8 @@ When you put a file into a Pachyderm repository and a file by the same name alre
 
 ## 1. Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
+- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting-started/local_installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
 
 ***Getting started***
 - Clone this repo.
