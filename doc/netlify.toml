@@ -215,8 +215,8 @@
   force = true
 
 [[redirects]]
-  from = "/latest/how-tos/distributed_computing/"
-  to = "/latest/concepts/advanced-concepts/distributed_computing/"
+  from = "/latest/how-tos/distributed-computing/"
+  to = "/latest/concepts/advanced-concepts/distributed-computing/"
   status = 301
   force = true
 

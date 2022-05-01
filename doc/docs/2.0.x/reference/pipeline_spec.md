@@ -979,7 +979,7 @@ consists of.  [Datums](../../concepts/pipeline-concepts/datum/#datum) are the *u
 Per default,
 Pachyderm auto-scales its workers to process datums in parallel. 
 You can override this behaviour by setting your own parameter
-(see [Distributed Computing](../../concepts/advanced-concepts/distributed_computing/)).
+(see [Distributed Computing](../../concepts/advanced-concepts/distributed-computing/)).
 
 
 ## PPS Mounts and File Access

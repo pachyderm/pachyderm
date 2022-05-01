@@ -159,7 +159,7 @@ nav:
         - Advanced Concepts:
             - Global ID: concepts/advanced-concepts/globalID.md
             - Deferred Processing of Data: concepts/advanced-concepts/deferred-processing.md
-            - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
+            - Distributed Computing: concepts/advanced-concepts/distributed-computing.md
     - How-Tos:
         - Overview: how-tos/index.md
         - Workflow: 

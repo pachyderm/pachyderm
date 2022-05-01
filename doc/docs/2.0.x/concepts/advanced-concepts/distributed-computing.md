@@ -27,7 +27,7 @@ redistributed to other workers for maximum fault tolerance.
 
 The following animation shows how distributed computing works:
 
-![Distributed computing basics](../../assets/images/distributed_computing101.gif)
+![Distributed computing basics](../../assets/images/distributed-computing101.gif)
 
 In the diagram above, you have three Pachyderm worker pods that
 process your data. When a pod finishes processing a datum,
@@ -51,7 +51,7 @@ processing sequence.
 The following animation displays what happens inside a pod during
 the datum processing:
 
-![Distributed processing internals](../../assets/images/distributed_computing102.gif)
+![Distributed processing internals](../../assets/images/distributed-computing102.gif)
 
 <!--TBA: the chunk_size property explanation article. Probably in a separate
 How-to, but need to add a link to it here-->
