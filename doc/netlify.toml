@@ -95,8 +95,44 @@
   force = true
 
 [[redirects]]
-  from = "/getting-started/*"
-  to = "/latest/getting-started/:splat"
+  from = "/:version/getting_started/beginner_tutorial/"
+  to = "/:version/getting-started/beginner-tutorial/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/getting_started/local_installation/"
+  to = "/:version/getting-started/local-installation/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/getting_started/whats_new/"
+  to = "/:version/getting-started/whats-new/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/getting_started/*"
+  to = "/:version/getting-started/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/concepts/advanced-concepts/deferred_processing/"
+  to = "/:version/concepts/advanced-concepts/deferred-processing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/concepts/advanced-concepts/distributed_computing/"
+  to = "/:version/concepts/advanced-concepts/distributed-computing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/helm_install/"
+  to = "/:version/deploy-manage/deploy/helm-install/"
   status = 301
   force = true
 
