@@ -112,7 +112,7 @@ nav:
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
         - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
-        - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Beginner Tutorial: getting_started/beginner-tutorial.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:

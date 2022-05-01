@@ -266,7 +266,7 @@ To connect to your Console (Pachyderm UI):
 
 You are all set! 
 
-## 6. Try our [beginner tutorial](../../../getting-started/beginner_tutorial/).
+## 6. Try our [beginner tutorial](../../../getting-started/beginner-tutorial/).
 
 
     

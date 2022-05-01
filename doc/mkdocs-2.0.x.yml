@@ -114,7 +114,7 @@ nav:
         - Overview: getting_started/index.md
         - WHAT'S NEW?: getting_started/whats-new.md
         - Quick Start - Local Installation: getting_started/local-installation.md
-        - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Beginner Tutorial: getting_started/beginner-tutorial.md
         - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
         - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
         - Local Installation On WSL: getting_started/wsl-deploy.md

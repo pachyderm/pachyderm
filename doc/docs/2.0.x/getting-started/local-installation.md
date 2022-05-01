@@ -269,7 +269,7 @@ Assuming your `pachd` is running as shown above, the easiest way to connect `pac
   
 ## Next Steps  
   
-Complete the [Beginner Tutorial](../beginner_tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
+Complete the [Beginner Tutorial](../beginner-tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
   
   
 !!! note "See Also:"  

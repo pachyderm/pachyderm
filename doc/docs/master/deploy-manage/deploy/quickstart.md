@@ -264,7 +264,7 @@ To connect to your Console (Pachyderm UI):
 
 You are all set! 
 
-## 6. Try our [beginner tutorial](../../../getting-started/beginner_tutorial/).
+## 6. Try our [beginner tutorial](../../../getting-started/beginner-tutorial/).
 ## 7. NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
 
 Once your cluster is up and running, you can install JupyterHub on your Pachyderm cluster and experiment with your data in Pachyderm from your Notebook cells. 

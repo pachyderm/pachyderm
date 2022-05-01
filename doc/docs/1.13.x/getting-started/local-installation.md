@@ -287,7 +287,7 @@ Kubernetes restarted those pods. You can safely ignore that message.
 
 ## Next Steps
 
-* Complete the [Beginner Tutorial](./beginner_tutorial.md)
+* Complete the [Beginner Tutorial](./beginner-tutorial.md)
 to learn the basics of Pachyderm, such as adding data and building
 analysis pipelines.
 

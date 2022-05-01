@@ -3,7 +3,7 @@
 > - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
 > - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Pachyderm Word Count - Map/Reduce 101
->![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting-started/beginner_tutorial/).
+>![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting-started/beginner-tutorial/).
 
 In this guide, we will write a classic MapReduce word count application in Pachyderm.A MapReduce job typically splits your input data into independent chunks that are seamlessly processed by a `map` pipeline in a parallel manner. The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
 

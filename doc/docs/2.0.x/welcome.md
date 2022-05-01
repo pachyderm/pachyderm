@@ -33,7 +33,7 @@ email at support@pachyderm.io.
           Install Pachyderm on Your Computer
           </a>
           </li>
-          <li><a href="getting_started/beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting_started/beginner-tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Beginner Tutorial
           </a>
         </li>
