@@ -39,7 +39,7 @@ to analyze the polarity of its emails.
 
 ## Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- A running workspace. Install Pachyderm[locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
 - [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
