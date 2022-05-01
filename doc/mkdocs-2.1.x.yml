@@ -158,7 +158,7 @@ nav:
                 - Datum Metadata: concepts/pipeline-concepts/datum/metadata.md
         - Advanced Concepts:
             - Global ID: concepts/advanced-concepts/globalID.md
-            - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
+            - Deferred Processing of Data: concepts/advanced-concepts/deferred-processing.md
             - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
     - How-Tos:
         - Overview: how-tos/index.md

@@ -221,8 +221,8 @@
   force = true
 
 [[redirects]]
-  from = "/latest/how-tos/deferred_processing/"
-  to = "/latest/concepts/advanced-concepts/deferred_processing/"
+  from = "/latest/how-tos/deferred-processing/"
+  to = "/latest/concepts/advanced-concepts/deferred-processing/"
   status = 301
   force = true
 

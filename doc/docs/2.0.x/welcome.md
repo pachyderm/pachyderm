@@ -154,7 +154,7 @@ email at support@pachyderm.io.
            Process Time-Windowed Data
            </a>
            </li>
-           <li><a href="concepts/advanced-concepts/deferred_processing/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="concepts/advanced-concepts/deferred-processing/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Deferred Processing of Data
            </a>
            </li>

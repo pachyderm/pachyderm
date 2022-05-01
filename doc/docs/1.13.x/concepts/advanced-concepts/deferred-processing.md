@@ -129,7 +129,7 @@ To configure a staging branch, complete the following steps:
    because commits in Pachyderm are generally additive, so processing
    the HEAD commit also processes data from previous commits.
 
-![deferred processing](../../assets/images/deferred_processing.gif)
+![deferred processing](../../assets/images/deferred-processing.gif)
 
 ## Process Specific Commits
 
@@ -290,7 +290,7 @@ When more than one is specified, a branch repoint will be triggered when any of
 the conditions is met. To guarantee that they all must be met, add
 --trigger-all.
 
-To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/master/deferred_processing/triggers).
+To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/master/deferred-processing/triggers).
 
 ## Embed Triggers in Pipelines
 
