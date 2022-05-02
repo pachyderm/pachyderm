@@ -73,24 +73,19 @@ data operations in Pachyderm.
         <ul>
            <li><a href="../concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
            Test datums
-           </a>
+           </a></li>
            <li><a href="pipeline-operations/create-pipeline/" class="md-typeset md-link">
            Create a Pipeline
-           </a>
-           </li>
-           </li>
+           </a></li>
            <li><a href="pipeline-operations/updating_pipelines/" class="md-typeset md-link">
            Update a Pipeline
-           </a>
-           </li>
+           </a></li>
            <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">
            Delete a Pipeline
-           </a>
-           </li>
+           </a></li>
            <li><a href="pipeline-operations/jsonnet-pipeline-specs/" class="md-typeset md-link">
            Use Jsonnet Pipeline Specs
-           </a>
-           </li>
+           </a></li>
         </ul>
       </div>
     </div>
