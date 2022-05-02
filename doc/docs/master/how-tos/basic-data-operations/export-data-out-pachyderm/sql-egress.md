@@ -5,7 +5,10 @@
     SQL Egress is an [experimental feature](../../../contributing/supported-releases/#experimental){target=_blank}.
 
 Pachyderm already implements [egress to object storage](../export-data-egress){target=_blank} as an optional egress field in the pipeline specification. 
-Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database. Specifically, we help you connect to a remote database and push the content of CSV files to the **exchange tables** of your choice, matching their column names and casting their content into their respective SQL datatype. The content of those tables matches the content of the latest output commit of your pipeline. A new output commit will trigger a delete of all exchange tables before the insertion of new values.
+Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database.
+
+Specifically, we help you connect to a remote database and push the content of CSV files to **interface tables**, matching their column names and casting their content into their respective SQL datatype.
+Interface tables are intermediate tables between Pachyderm and your data warehouse. The content of those tables matches the content of the latest output commit of your pipeline. A new output commit will trigger a delete of all exchange tables before inserting more recent values.
 
 As of today, we support the following drivers:
 
@@ -16,17 +19,17 @@ As of today, we support the following drivers:
 
 To egress data from the output commit of a pipeline to an SQL database, you will need to:
 
- 1. *On your cluster*: 
+ 1. *On your cluster* 
 
     [Create a **secret**](#create-a-secret) containing your database password. 
 
- 1. *In the Specification file of your egress pipeline*:
+ 1. *In the Specification file of your egress pipeline*
 
     Reference your secret by providing its name, provide the [**connection string**](#update-your-pipeline-spec) to the database and choose the **format of the files (CVS for now - we are planning on adding JSON soon)** containing the data to insert.
 
- 1. *In your user code*: 
+ 1. *In your user code*
 
-    Write your (CSV) data files in [a root directory named after the table](#3-in-your-user-code-write-your-data-to-directories-named-after-each-table) you want to insert them into. 
+    Write your data into CSV files placed in [root directories named after the table](#3-in-your-user-code-write-your-data-to-directories-named-after-each-table) you want to insert them into. 
     You can have multiple directories.
 
 ### 1- Create a Secret 
@@ -80,12 +83,12 @@ Data (in the form of CVS files) that the pipeline writes to the output repo is i
 **Each top-level directory is named after the table you want to egress its content to**. All of the files reachable in the walk of each root directory are parsed in the given format indicated in the egress section of the pipeline specification file (CSV for now), then inserted in their corresponding table. 
 
 !!! Warning
-     - The tables you insert values into must pre-exist.
+     - All interface tables must pre-exist before an insertion.
      - Files in the root produce an error as they do not correspond to a table.
      - The directory structure below the top level does not matter.  The first directory in the path is the table; everything else is walked until a file is found.  All the data in those files is inserted into the table.
+     - The order of the values in each line of a CSV must match the order of the columns in the schema of your interface table.
 
-The order of the values in each line of the .csv MUST match the order of the columns in the schema of your table.
-    
+   
 !!! Example 
         ```
         "1","Tim","2017-03-12T21:51:45Z","true"
@@ -96,7 +99,7 @@ The order of the values in each line of the .csv MUST match the order of the col
 
 
 !!! Note 
-    - Pachyderm queries the schema of the database before the insertion so the data are parsed into their corresponding SQL data types.    
+    - Pachyderm queries the schema of the interface tables before insertion then parses the data into their SQL data types.    
     - Each insertion creates a new row in your table.
 
 ## Troubleshooting
