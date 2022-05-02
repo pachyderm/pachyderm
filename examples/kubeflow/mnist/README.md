@@ -11,7 +11,7 @@ Part of what makes [Pachyderm](https://pachyderm.com/) and [Kubeflow](https://ww
 ### Deploy:
 To make it simple, we created a [bash script](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/kubeflow/mnist/gcp-kubeflow-pachyderm-setup.sh) specifically for this post and you can use it to deploy Pachyderm and Kubeflow together on GKE in no time. However, if you prefer to do this all on your local machine, or any other infrastructure, please refer to the links below:
 
-- [Pachyderm Install Docs](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html)
+- [Pachyderm Install Docs](http://docs.pachyderm.com/en/latest/getting-started/local-installation.html)
 - [Kubeflow Install Docs](https://www.kubeflow.org/docs/started/getting-started/#installing-kubeflow)
 
 Once everything is deployed the easiest way to connect to kubeflow is via port-forward:
