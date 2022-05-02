@@ -34,3 +34,12 @@ message ConcatTask {
 message ConcatTaskResult {
   string id = 1;
 }
+
+message ValidateTask {
+  string id = 1;
+}
+
+message ValidateTaskResult {
+  int64 size_bytes = 1;
+  string error = 2;
+}

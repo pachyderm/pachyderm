@@ -9265,6 +9265,7 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, gr.Close())
 	}()
 	// Check that all of the expected files were returned.
+	var gotFiles []string
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()
@@ -9274,12 +9275,21 @@ func TestDebug(t *testing.T) {
 			}
 			require.NoError(t, err)
 		}
+		gotFiles = append(gotFiles, hdr.Name)
 		for pattern, g := range expectedFiles {
 			if g.Match(hdr.Name) {
 				delete(expectedFiles, pattern)
 				break
 			}
 		}
+	}
+	if len(expectedFiles) > 0 {
+		t.Logf("got files: %v", gotFiles)
+		var names []string
+		for n := range expectedFiles {
+			names = append(names, n)
+		}
+		t.Logf("no files match: %v", names)
 	}
 	require.Equal(t, 0, len(expectedFiles))
 }
@@ -9797,83 +9807,6 @@ func TestPipelineAncestry(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
-}
-
-func TestStandbyTransitions(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c, ns := minikubetestenv.AcquireCluster(t)
-
-	kc := tu.GetKubeClient(t)
-
-	data := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(data))
-	pipeline := tu.UniqueString(t.Name())
-	req := basicPipelineReq(pipeline, data)
-	req.Autoscaling = true
-	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
-	require.NoError(t, err)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
-
-	// create an unrelated pipeline to guarantee event processing
-	// the high level structure of this test is:
-	// 1. Perform some operation on "pipeline" (start or stop)
-	// 2. Put data in "auxData" and wait for the output commit to be finished
-	//		As auxPipeline is also autoscaling, this requires bringing it out of standby,
-	//		ensuring the event from "pipeline" we actually care about was also processed
-	// 3. Verify that the resource version of the main pipeline's RC is unchanged,
-	// 		meaning the operation did not scale up the pipeline, even temporarily
-	auxData := tu.UniqueString("aux_data")
-	require.NoError(t, c.CreateRepo(auxData))
-	auxPipeline := tu.UniqueString("aux")
-	req = basicPipelineReq(auxPipeline, auxData)
-	req.Autoscaling = true
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
-	require.NoError(t, err)
-
-	flushEventsAndCheckRC := func(initialVersion string) {
-		// push data to the other pipeline to make sure the stop was processed
-		require.NoError(t, c.PutFile(
-			client.NewCommit(auxData, "master", ""),
-			tu.UniqueString("foo"), strings.NewReader("bar")))
-		_, err = c.WaitCommit(auxPipeline, "master", "")
-		require.NoError(t, err)
-
-		// make sure main pipeline RC has not changed, which it would have if it passed through running
-		rc, err := kc.CoreV1().ReplicationControllers(ns).Get(context.Background(), rcName, metav1.GetOptions{})
-		require.NoError(t, err)
-		require.Equal(t, initialVersion, rc.ResourceVersion)
-	}
-
-	_, err = c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	// wait for pipeline to go into standby
-	require.NoErrorWithinTRetry(t, 10*time.Second, func() error {
-		info, err := c.InspectPipeline(pipeline, false)
-		if err != nil {
-			return err
-		}
-		if info.State != pps.PipelineState_PIPELINE_STANDBY {
-			return errors.Errorf("expected pipeline to be in standby, not %v", info.State)
-		}
-		return nil
-	})
-
-	// get the initial state of the pipeline's RC
-	initialRC, err := kc.CoreV1().ReplicationControllers(ns).Get(context.Background(), rcName, metav1.GetOptions{})
-	require.NoError(t, err)
-
-	// stop the pipeline, then verify the RC wasn't modified
-	require.NoError(t, c.StopPipeline(pipeline))
-	flushEventsAndCheckRC(initialRC.ResourceVersion)
-
-	// now do the same check with start
-	require.NoError(t, c.StartPipeline(pipeline))
-	flushEventsAndCheckRC(initialRC.ResourceVersion)
 }
 
 func TestDatumSetCache(t *testing.T) {
