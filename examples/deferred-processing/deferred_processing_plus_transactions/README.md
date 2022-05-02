@@ -8,7 +8,7 @@ This example,
 which uses a simple DAG based on our [OpenCV example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv), 
 illustrates two Pachyderm usage patterns for fine-grain control over when pipelines trigger jobs.
 
-[Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred_processing/) 
+[Deferred processing](https://docs.pachyderm.com/latest/how-tos/deferred-processing/) 
 is a Pachyderm technique for controlling when data gets processed.
 Deferred processing uses branches to prevent pipelines from triggering on every input commit.
 
