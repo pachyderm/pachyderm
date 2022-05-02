@@ -70,7 +70,7 @@ A pod (could be the `pachd` pod or a worker pod) fails to startup, and is stuck 
   30s        30s        1    {attachdetach }                Warning        FailedMount    Failed to attach volume "etcd-volume" on node "ip-172-20-44-17.us-west-2.compute.internal" with: Error attaching EBS volume "vol-0c1d403ac05096dfe" to instance "i-0a12e00c0f3fb047d": VolumeInUse: vol-0c1d403ac05096dfe is already attached to an instance
 ```
 
-This would indicate that the [peristent volume claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/){target=_blank} is failing to get attached to the node in your kubernetes cluster.  
+This would indicate that the [persistent volume claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/){target=_blank} is failing to get attached to the node in your kubernetes cluster.  
 
 #### Recourse
 
