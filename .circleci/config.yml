@@ -38,7 +38,7 @@ jobs:
       - checkout
       - run:
           name: Collect node stats
-          command: sar 10 -bdHwz -I SUM -m ALL -n TCP,UDP,IP,DEV -q ALL -r ALL -u ALL --human --pretty
+          command: sar 10 -bdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
       - restore_cache:
           keys:
