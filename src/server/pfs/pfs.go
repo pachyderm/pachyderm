@@ -429,7 +429,7 @@ func IsDropWithChildrenErr(err error) bool {
 func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {
 	if sql != nil {
 		if secret := sql.GetSecret(); secret != nil {
-			if secret.K8SSecret != "" && secret.Key != "" {
+			if secret.Name != "" {
 				return nil
 			}
 			return errors.Errorf("egress.sql_database.secret.k8s_secret and egress.sql_database.secret.key are required")
