@@ -25,7 +25,7 @@ To egress data from the output commit of a pipeline to an SQL database, you will
 
  1. *In the Specification file of your egress pipeline*
 
-    Reference your secret by providing its name, provide the [**connection string**](#update-your-pipeline-spec) to the database and choose the **format of the files (CVS for now - we are planning on adding JSON soon)** containing the data to insert.
+    Reference your secret by providing its name, provide the [**connection string**](#update-your-pipeline-spec) to the database and choose the **format of the files (CSV for now - we are planning on adding JSON soon)** containing the data to insert.
 
  1. *In your user code*
 
@@ -78,7 +78,7 @@ Append an egress section to your pipeline specification file, then fill in:
 ### 3- In your User Code, Write Your Data to Directories Named After Each Table
  
 The user code of your pipeline determines what data should be egressed and to which tables. 
-Data (in the form of CVS files) that the pipeline writes to the output repo is interpreted as tables corresponding to directories. 
+Data (in the form of CSV files) that the pipeline writes to the output repo is interpreted as tables corresponding to directories. 
 
 **Each top-level directory is named after the table you want to egress its content to**. All of the files reachable in the walk of each root directory are parsed in the given format indicated in the egress section of the pipeline specification file (CSV for now), then inserted in their corresponding table. 
 
