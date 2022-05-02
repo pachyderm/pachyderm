@@ -36,6 +36,10 @@ for d in $all_versions; do
 EOF
 done
     cat <<EOF >>overrides/partials/versions.html
+        <option style="color:white;background-color:#4b2a5c;" value="2.2.x-rc">2.2.x-rc</option>"
+EOF
+
+    cat <<EOF >>overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
     </select>
     <!-- set initial value of 'select' to the version of the docs being browsed -->
