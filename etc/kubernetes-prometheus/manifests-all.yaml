@@ -392,6 +392,7 @@ spec:
   ports:
   - name: alertmanager
     protocol: TCP
+    nodePort: 30200
     port: 9093
     targetPort: 9093
 ---
@@ -2420,6 +2421,7 @@ spec:
   type: NodePort
   ports:
     - port: 3000
+      nodePort: 32001
   selector:
     app: grafana
     component: core
@@ -2612,7 +2614,7 @@ kind: Deployment
 metadata:
   name: kube-state-metrics
   namespace: monitoring
-  labels: 
+  labels:
     app: kube-state-metrics
 spec:
   replicas: 1
@@ -2905,6 +2907,7 @@ spec:
   ports:
     - port: 9090
       protocol: TCP
+      nodePort: 32002
       name: webui
   selector:
     app: prometheus

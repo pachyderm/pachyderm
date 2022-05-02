@@ -1,5 +1,7 @@
 # Getting Started
 
+Pachyderm is a **data-centric pipelining and versioning tool** that allows ML and Data-Science teams to automate and collaborate on their organization's data while maintaining full reproducibility.
+
 For a quick start, deploy Pachyderm on your [local machine](./local_installation/) or on your [favorite cloud](../deploy-manage/deploy/quickstart/) provider. 
 
 !!! Note "Got questions?"
