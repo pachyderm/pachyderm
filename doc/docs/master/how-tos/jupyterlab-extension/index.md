@@ -27,8 +27,8 @@
 
     - **You do not know the `pachd_address` of your cluster**:
 
-        - Install `pachctl` (Pachyderm command line tool) on your machine (see [`pachctl` installation instructions](../../getting_started/local_installation/#install-pachctl){target=_blank} ).
-        - Then, [connect that CLI to your cluster](../../getting_started/local_installation/#connect-pachctl-to-your-cluster){target=_blank}.
+        - Install `pachctl` (Pachyderm command line tool) on your machine (see [`pachctl` installation instructions](../../getting-started/local-installation/#install-pachctl){target=_blank} ).
+        - Then, [connect that CLI to your cluster](../../getting-started/local-installation/#connect-pachctl-to-your-cluster){target=_blank}.
         - And run:
         ```shell
         docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:{{ config.jupyterlab_extension_image_tag }} lab --allow-root
@@ -220,10 +220,10 @@ Replace the image name with your own image otherwise.
 
 - Prerequisites
 
-    - [Install `pachctl`](../../../getting_started/local_installation/#install-pachctl){target=_blank} :
+    - [Install `pachctl`](../../../getting-started/local-installation/#install-pachctl){target=_blank} :
     Make sure that the version of `pachctl` matches the version of your cluster.
  
-    - [Have 'pachctl' and your Cluster Communicate](../../../getting_started/local_installation/#have-pachctl-and-your-cluster-communicate){target=_blank} .
+    - [Have 'pachctl' and your Cluster Communicate](../../../getting-started/local-installation/#have-pachctl-and-your-cluster-communicate){target=_blank} .
 
     - [Install FUSE](h../../../how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer/#prerequisites){target=_blank} . Choose the instructions that fit your environment.
     

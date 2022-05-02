@@ -179,7 +179,7 @@ Notable Bug Fixes:
 ## 2.0.0 
 Introducing Pachyderm 2.0 with several foundational improvements. Read more details [here](https://www.pachyderm.com/blog/getting-ready-for-pachyderm-2/)
 
-### [What’s new](https://docs.pachyderm.com/2.0.x/getting_started/whats_new/)
+### [What’s new](https://docs.pachyderm.com/2.0.x/getting-started/whats-new/)
 
 - New storage architecture and FileSets for better support for small files, content defined chunking for better de-duplication, automatic compression and encryption of chunks, automatic garbage collection, and more
 - Pachyderm Enterprise Management to allow site-wide configuration

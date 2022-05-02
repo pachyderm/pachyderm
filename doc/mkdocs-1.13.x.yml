@@ -107,12 +107,12 @@ nav:
             - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
-        - Overview: getting_started/index.md
-        - Local Installation: getting_started/local_installation.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
+        - Overview: getting-started/index.md
+        - Local Installation: getting-started/local-installation.md
+        - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
         - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
-        - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Deploy Pachyderm on Windows: getting-started/wsl-deploy.md
+        - Beginner Tutorial: getting-started/beginner-tutorial.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -140,8 +140,8 @@ nav:
                 - Group: concepts/pipeline-concepts/datum/group.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
-            - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
-            - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
+            - Deferred Processing of Data: concepts/advanced-concepts/deferred-processing.md
+            - Distributed Computing: concepts/advanced-concepts/distributed-computing.md
     - How-Tos:
         - Overview: how-tos/index.md
         - Workflow: 
@@ -184,7 +184,7 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Deploy with Helm: deploy-manage/deploy/helm_install.md
+            - Deploy with Helm: deploy-manage/deploy/helm-install.md
             - Production Deployments:
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md

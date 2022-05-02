@@ -59,7 +59,7 @@ write access to the mounted repositories, which means that you can
 open the files for editing and put them back to the Pachyderm
 repository. 
 
-For example, you have the [OpenCV example pipeline](../../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
+For example, you have the [OpenCV example pipeline](../../../../getting-started/beginner-tutorial/#image-processing-with-opencv)
 up and running. If you want to edit files in the `images`
 repository, experiment with brightness and contrast
 settings in `liberty.png`, and finally have your `edges`
