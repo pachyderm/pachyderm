@@ -11,13 +11,13 @@ include ../../../etc/govars.mk
 SHELL := /bin/bash
 DOCKER := docker
 
-DEFERRED_PROCESSING_PIPELINES = ../deferred_processing_plus_transactions/edges_dp.json \
-				../deferred_processing_plus_transactions/montage_dp.json 
+DEFERRED_PROCESSING_PIPELINES = ../deferred-processing_plus_transactions/edges_dp.json \
+				../deferred-processing_plus_transactions/montage_dp.json 
 
-DEFERRED_PROCESSING_1_FILES = ../deferred_processing_plus_transactions/images.txt \
-				../deferred_processing_plus_transactions/images2.txt
+DEFERRED_PROCESSING_1_FILES = ../deferred-processing_plus_transactions/images.txt \
+				../deferred-processing_plus_transactions/images2.txt
 
-DEFERRED_PROCESSING_2_FILES = ../deferred_processing_plus_transactions/images3.txt
+DEFERRED_PROCESSING_2_FILES = ../deferred-processing_plus_transactions/images3.txt
 
 
 # The pipeline uses a timed auth token for authentication.
