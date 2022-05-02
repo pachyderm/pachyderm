@@ -36,6 +36,10 @@ jobs:
       BUCKET: << parameters.bucket >>
     steps:
       - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -bdHwz -I SUM -m ALL -n TCP,UDP,IP,DEV -q ALL -r ALL -u ALL --human --pretty
+          background: true
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
