@@ -76,7 +76,7 @@ Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}{{if .Details}}
 Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
-Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
+Permissions: {{ .AuthInfo.Permissions | commafy }}{{end}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -306,6 +306,7 @@ var funcMap = template.FuncMap{
 	"prettySize":   pretty.Size,
 	"fileType":     fileType,
 	"printTrigger": printTrigger,
+	"commafy":      pretty.Commafy,
 }
 
 // CompactPrintCommit renders 'c' as a compact string, e.g.
