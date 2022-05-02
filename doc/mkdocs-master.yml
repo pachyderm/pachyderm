@@ -1,9 +1,9 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/2.1.x/
+site_url: https://docs.pachyderm.com/2.2.x-rc/
 docs_dir: docs/master/
-site_dir: site/master/
+site_dir: site/2.2.x-rc/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -13,7 +13,7 @@ repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
-pach_branch: '2.1.x'
+pach_branch: '2.2.x'
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
@@ -22,7 +22,7 @@ pach_featured_version: '2.1.7'
 # Latest version of Pachyderm
 pach_latest_version: '2.1.7'
 pach_major_minor_version: '2.1'
-search_index_version: 'master'
+search_index_version: '2.2.x'
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.4.0'
 
