@@ -32,7 +32,7 @@ jobs:
         type: string
     resource_class: xlarge
     machine:
-      image: << parameters.machine_image >>
+      image: << pipeline.parameters.machine_image >>
     environment:
       PPS_BUCKETS: "6"
       GOPROXY: https://proxy.golang.org
@@ -144,7 +144,7 @@ jobs:
   load_test:
     resource_class: xlarge
     machine:
-      image: << parameters.machine_image >>
+      image: << pipeline.parameters.machine_image >>
     environment:
       GOOGLE_PROJECT_ID: build-release-001
       GOOGLE_COMPUTE_ZONE: us-east1-b
@@ -169,7 +169,7 @@ jobs:
         type: string
     resource_class: xlarge
     machine:
-      image: << parameters.machine_image >>
+      image: << pipeline.parameters.machine_image >>
     environment:
       BUCKET: << parameters.bucket >>
       GOOGLE_PROJECT_ID: build-release-001
@@ -194,7 +194,7 @@ jobs:
   rootless:
     resource_class: large
     machine:
-      image: << parameters.machine_image >>
+      image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
       - run: etc/testing/circle/install.sh
@@ -202,7 +202,7 @@ jobs:
   deploy:
     resource_class: xlarge
     machine:
-      image: << parameters.machine_image >>
+      image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
       - run: etc/testing/circle/install.sh
