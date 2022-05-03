@@ -477,7 +477,7 @@ message SQLDatabaseEgress {
     repeated string columns = 2;
   }
   message Secret {
-    string k8s_secret = 1;
+    string name = 1;
     string key = 2;
   }
 
