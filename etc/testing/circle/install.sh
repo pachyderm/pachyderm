@@ -33,7 +33,7 @@ pip3 install --upgrade --user awscli s3transfer==0.3.4
 # To get the latest kubectl version:
 # curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
 if [ ! -f cached-deps/kubectl ] ; then
-    KUBECTL_VERSION=v1.19.2
+    KUBECTL_VERSION=v1.23.5
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
         chmod +x ./kubectl
         mv ./kubectl cached-deps/kubectl
@@ -61,7 +61,7 @@ fi
 
 # Install kubeval
 if [ ! -f cached-deps/kubeval ]; then
-  KUBEVAL_VERSION=0.15.0
+  KUBEVAL_VERSION=0.16.1
   curl -L https://github.com/instrumenta/kubeval/releases/download/${KUBEVAL_VERSION}/kubeval-linux-amd64.tar.gz \
       | tar xzf - kubeval
       mv ./kubeval cached-deps/kubeval
