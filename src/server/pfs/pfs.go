@@ -427,14 +427,15 @@ func IsDropWithChildrenErr(err error) bool {
 }
 
 func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {
-	if sql != nil {
-		if secret := sql.GetSecret(); secret != nil {
-			if secret.Name != "" {
-				return nil
-			}
-			return errors.Errorf("egress.sql_database.secret.k8s_secret and egress.sql_database.secret.key are required")
-		}
+	if sql == nil {
+		return nil
+	}
+	secret := sql.GetSecret()
+	if secret == nil {
 		return errors.Errorf("egress.sql_database.secret is required")
+	}
+	if secret.Name == "" || secret.Key == "" {
+		return errors.Errorf("egress.sql_database.secret.name and egress.sql_database.secret.key are required")
 	}
 	return nil
 }
