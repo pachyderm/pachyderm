@@ -46,12 +46,12 @@ Where the parameters passed to the jsonnet pipeline spec are:
         Note the references to the JSON dataset elements by their hierarchical paths in the query:
 
           ```shell
-          pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/templates/sql_ingest_cron.jsonnet  
-          --arg name=mysnowflakeingest 
-          --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" 
-          --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" 
-          --arg cronSpec="@every 30s" 
-          --arg secretName="snowflakesecret" 
+          pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet  \
+          --arg name=mysnowflakeingest \
+          --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" \
+          --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" \
+          --arg cronSpec="@every 30s" \
+          --arg secretName="snowflakesecret" \
           --arg format=json
           ```
 
