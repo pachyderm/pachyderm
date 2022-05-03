@@ -76,6 +76,7 @@ Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}{{if .Details}}
 Size of HEAD on master: {{prettySize .Details.SizeBytes}}{{end}}{{if .AuthInfo}}
+Roles: {{ .AuthInfo.Roles | commafy }}
 Permissions: {{ .AuthInfo.Permissions | commafy }}{{end}}
 `)
 	if err != nil {

@@ -2307,11 +2307,6 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	rc := tu.AuthenticateClient(t, c, auth.RootUser)
-	// _, err := rc.Deactivate(rc.Ctx(), &auth.DeactivateRequest{})
-	// require.NoError(t, err)
-	// resp, err := rc.AuthAPIClient.Activate(context.Background(), &auth.ActivateRequest{})
-	// require.NoError(t, err)
-	// rc.SetAuthToken(resp.PachToken)
 
 	// create repos
 	dataRepo := tu.UniqueString("TestPrettyPrinting_data")
