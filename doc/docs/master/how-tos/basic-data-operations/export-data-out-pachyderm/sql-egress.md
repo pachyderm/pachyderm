@@ -7,8 +7,10 @@
 Pachyderm already implements [egress to object storage](../export-data-egress){target=_blank} as an optional egress field in the pipeline specification. 
 Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database.
 
-Specifically, we help you connect to a remote database and push the content of CSV files to **interface tables**, matching their column names and casting their content into their respective SQL datatype.
-Interface tables are intermediate tables between Pachyderm and your data warehouse. The content of those tables matches the content of the latest output commit of your pipeline. A new output commit will trigger a delete of all exchange tables before inserting more recent values.
+Specifically, we help you connect to a remote database and push the content of CSV files to **interface tables**, matching their column names and casting their content into their respective SQL datatype. Interface tables are intermediate tables between Pachyderm and your data warehouse. They are the tables your SQL Egress pipeline inserts its data into and should be **dedicated tables**. The content of your interface tables matches the content of the latest output commit of your pipeline. 
+
+!!! Attention "IMPORTANT" 
+        A new output commit will trigger a **delete of all interface tables** before inserting more recent values. As a best practice, we strongly recommend to **create a separate database** for Pachyderm Egress. 
 
 As of today, we support the following drivers:
 
