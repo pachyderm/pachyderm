@@ -1,5 +1,7 @@
 import React, {useState} from 'react';
 
+import {HamburgerSVG} from '../Svg';
+
 import {SearchableDropdown} from './Dropdown';
 
 import {DefaultDropdown, DropdownItem} from './';
@@ -72,6 +74,19 @@ export const SideOpen = () => {
   return (
     <DefaultDropdown items={items} storeSelected sideOpen>
       Difficulty
+    </DefaultDropdown>
+  );
+};
+
+export const Icon = () => {
+  return (
+    <DefaultDropdown
+      items={items}
+      storeSelected
+      buttonOpts={{hideChevron: true}}
+      menuOpts={{pin: 'left'}}
+    >
+      <HamburgerSVG />
     </DefaultDropdown>
   );
 };
