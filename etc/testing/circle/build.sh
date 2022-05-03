@@ -23,7 +23,7 @@ for _ in $(seq 36); do
     sleep 5
 done
 
-if [[-z "${MINIKUBE_ACTIVE_DOCKERD}" ]]; then
+if [[ -z "${MINIKUBE_ACTIVE_DOCKERD}" ]]; then
     echo 'never setup docker, aborting' | ts
     exit 1
 fi
