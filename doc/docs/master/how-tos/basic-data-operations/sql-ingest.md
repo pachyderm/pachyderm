@@ -15,13 +15,13 @@ Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/j
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
-pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet 
-  --arg name=myingest
-  --arg url="mysql://root@mysql:3306/test_db"
-  --arg query="SELECT * FROM test_data"
-  --arg cronSpec="@every 30s"
-  --arg secretName="mysql-creds"
-  --arg format=json
+pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet \
+  --arg name=myingest \
+  --arg url="mysql://root@mysql:3306/test_db" \
+  --arg query="SELECT * FROM test_data" \
+  --arg cronSpec="@every 30s" \
+  --arg secretName="mysql-creds" \
+  --arg format=json \
 ```
 
 Where the parameters passed to the jsonnet pipeline spec are:
