@@ -2,6 +2,7 @@ package pretty
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -81,4 +82,25 @@ func ProgressBar(width, green, yellow, red int) string {
 		}
 	}
 	return sb.String()
+}
+
+func Commafy(items interface{}) string {
+	v := reflect.ValueOf(items)
+	switch v.Kind() {
+	case reflect.Array, reflect.Slice:
+		switch v.Len() {
+		case 0:
+			return ""
+		case 1:
+			return fmt.Sprintf("%v", v.Index(0).Interface())
+		default:
+			s := fmt.Sprintf("%v", v.Index(0).Interface())
+			for i := 1; i < v.Len()-1; i++ {
+				s = fmt.Sprintf("%s, %v", s, v.Index(i).Interface())
+			}
+			return fmt.Sprintf("%s and %v", s, v.Index(v.Len()-1))
+		}
+	default:
+		return fmt.Sprintf("%v", items)
+	}
 }

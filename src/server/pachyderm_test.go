@@ -23,6 +23,7 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -2256,6 +2257,65 @@ func TestPrettyPrinting(t *testing.T) {
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+
+	// Do a commit to repo
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+
+	commitInfos, err := c.WaitCommitSetAll(commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(commitInfos))
+
+	repoInfo, err := c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
+	for _, c := range commitInfos {
+		require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(c)))
+	}
+
+	fileInfo, err := c.InspectFile(commit, "file")
+	require.NoError(t, err)
+	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
+	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
+	require.NoError(t, err)
+	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
+	jobInfos, err := c.ListJob("", nil, -1, true)
+	require.NoError(t, err)
+	require.True(t, len(jobInfos) > 0)
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+}
+
+func TestAuthPrettyPrinting(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	rc := tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// create repos
+	dataRepo := tu.UniqueString("TestPrettyPrinting_data")
+	require.NoError(t, rc.CreateRepo(dataRepo))
+
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline")
+	_, err := rc.PpsAPIClient.CreatePipeline(
+		rc.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
