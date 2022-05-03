@@ -441,7 +441,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Spout: &pps.Spout{
 					Service: &pps.Service{
 						InternalPort: 8000,
-						ExternalPort: 31800,
+						ExternalPort: 31803,
 					},
 				},
 			})
@@ -449,7 +449,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		time.Sleep(20 * time.Second)
 
 		host := c.GetAddress().Host
-		serviceAddr := net.JoinHostPort(host, "31800")
+		serviceAddr := net.JoinHostPort(host, "31803")
 
 		// Write a tar stream with a single file to
 		// the tcp connection of the pipeline service's
