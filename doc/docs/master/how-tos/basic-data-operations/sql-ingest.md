@@ -21,7 +21,7 @@ pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pa
   --arg query="SELECT * FROM test_data" \
   --arg cronSpec="@every 30s" \
   --arg secretName="mysql-creds" \
-  --arg format=json \
+  --arg format=json 
 ```
 
 Where the parameters passed to the jsonnet pipeline spec are:
