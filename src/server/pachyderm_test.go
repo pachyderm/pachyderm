@@ -10240,8 +10240,8 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
 					},
 					Secret: &pfs.SQLDatabaseEgress_Secret{
-						K8SSecret: "egress-secret",
-						Key:       "PACHYDERM_SQL_PASSWORD",
+						Name: "egress-secret",
+						Key:  "PACHYDERM_SQL_PASSWORD",
 					},
 				},
 				},
