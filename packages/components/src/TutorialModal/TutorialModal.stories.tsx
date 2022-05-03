@@ -388,11 +388,13 @@ const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
     onCompleted();
   }, [onCompleted]);
 
-  const file = {
+  const fileMeta = {
     name: 'edges.json',
     path:
       'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
-    contents: `{
+  };
+
+  const fileContent = `{
   "pipeline": {
     "name": "edges"
   },
@@ -407,8 +409,7 @@ const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
       "glob": "/*"
     }
   }
-}`,
-  };
+}`;
 
   return (
     <TaskCard
@@ -420,7 +421,10 @@ const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
       taskInfoTitle="Quickly define pipelines"
       taskInfo="Pachyderm pipelines can be defined in just a few lines of JSON or YAML specification. Pachyderm defines pipelines using docker containers tags, a command to be executed, and an input repo."
     >
-      <ConfigurationUploadModule file={file} />
+      <ConfigurationUploadModule
+        fileMeta={fileMeta}
+        fileContents={fileContent}
+      />
     </TaskCard>
   );
 };

@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/components",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "main": "dist/components.cjs.js",
   "module": "dist/components.es.js",
   "types": "dist/index.d.ts",

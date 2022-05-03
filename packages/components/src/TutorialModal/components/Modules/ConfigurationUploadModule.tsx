@@ -7,25 +7,27 @@ import Terminal from '../Terminal';
 import Module from './components/Module';
 import styles from './ConfigurationUploadModule.module.css';
 
-type File = {
+type FileMeta = {
   path: string;
   name: string;
-  contents: string;
 };
 
 export type ConfigurationUploadConfig = {
-  file: File;
+  fileMeta: FileMeta;
+  fileContents?: string;
 };
 
 const ConfigurationUploadModule: React.FC<ConfigurationUploadConfig> = ({
-  file,
+  fileMeta,
+  fileContents,
+  children,
 }) => {
   return (
-    <Module title={file.name}>
+    <Module title={fileMeta.name}>
       <div className={styles.configFile}>
-        {file.contents ? <CodePreview>{file.contents}</CodePreview> : null}
+        {fileContents ? <CodePreview>{fileContents}</CodePreview> : children}
       </div>
-      <Terminal>{`pachctl create pipeline -f ${file.path}`}</Terminal>
+      <Terminal>{`pachctl create pipeline -f ${fileMeta.path}`}</Terminal>
     </Module>
   );
 };
