@@ -503,7 +503,7 @@ func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v
 			Name: "PACHYDERM_SQL_PASSWORD", // TODO avoid hardcoding this
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{Name: secret.K8SSecret},
+					LocalObjectReference: v1.LocalObjectReference{Name: secret.Name},
 					Key:                  secret.Key,
 				},
 			},

@@ -42,7 +42,7 @@ Append an egress section to your pipeline specification file, then fill in:
 
 - the `url`: the connection string to your database. Its format is identical to the [url in the SQL Ingest](../../sql-ingest/#database-connection-url){target=_blank}.
 - the `file_format` type: CSV for now.
-- the `k8s_secret` name.
+- the `name`: the Kubernetes secret name.
 
 !!! Example
         ```json
@@ -67,7 +67,7 @@ Append an egress section to your pipeline specification file, then fill in:
                     "type": "CSV"
                 },
                 "secret": {
-                    "k8s_secret": "snowflakesecret",
+                    "name": "snowflakesecret",
                     "key": "PACHYDERM_SQL_PASSWORD"
                 }
             }
