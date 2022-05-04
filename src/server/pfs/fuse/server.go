@@ -1179,6 +1179,12 @@ func committingState(m *MountStateMachine) StateFn {
 			}
 			return errorState
 		}
+		// cleanup mfc - a new one will be created on-demand
+		func() {
+			m.manager.mu.Lock()
+			defer m.manager.mu.Unlock()
+			delete(m.manager.mfcs, m.Name)
+		}()
 	}
 
 	// TODO: fill in more fields?
