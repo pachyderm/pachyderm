@@ -86,9 +86,9 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
-		imageID, err := kd.GetImageID(ctx, env.Config().WorkerSpecificConfiguration.PodName)
+		imageID, err := kd.GetWorkerImageID(ctx, env.Config().WorkerSpecificConfiguration.PodName)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to get worker image id")
 		}
 		w.status.ImageID = imageID
 
