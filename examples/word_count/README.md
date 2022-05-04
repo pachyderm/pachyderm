@@ -3,7 +3,7 @@
 > - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
 > - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
 # Pachyderm Word Count - Map/Reduce 101
->![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/).
+>![pach_logo](./img/pach_logo.svg) New to Pachyderm? Start with the [beginner tutorial](https://docs.pachyderm.com/latest/getting-started/beginner-tutorial/).
 
 In this guide, we will write a classic MapReduce word count application in Pachyderm.A MapReduce job typically splits your input data into independent chunks that are seamlessly processed by a `map` pipeline in a parallel manner. The outputs of the maps are then input to a `reduce` pipeline which creates an aggregated content. 
 
@@ -26,12 +26,12 @@ For this example, we recommend being familiar with the following concepts:
 - The original Map/Reduce word count example.
 - Pachyderm's [file appending strategy](https://docs.pachyderm.com/latest/concepts/data-concepts/file/#file-processing-strategies) - 
 When you put a file into a Pachyderm repository and a file by the same name already exists, Pachyderm appends the new data to the existing file by default, unless you add an `override` flag to your instruction.
-- [Parallelism](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/) and [Glob Pattern](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) to fine tune your performances.
+- [Parallelism](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed-computing/) and [Glob Pattern](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) to fine tune your performances.
 
 ## 1. Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
+- A running workspace. Install Pachyderm[locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
 
 ***Getting started***
 - Clone this repo.
@@ -167,7 +167,7 @@ We have successfully retrieved 2 .html pages corresponding to the 2 URLs provide
 
     By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.
     This can be changed. 
-    For more info on controlling the number of workers, check the [Distributed Computing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/distributed_computing/#controlling-the-number-of-workers) page.
+    For more info on controlling the number of workers, check the [Distributed Computing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/distributed-computing/#controlling-the-number-of-workers) page.
 
 - Reduce content
 
@@ -274,7 +274,7 @@ The scraper has added one additional .html page following the URL provided in th
 
 
 >![pach_logo](./img/pach_logo.svg) By default, pipelines spin up one worker for each node in your cluster,
-but you can choose to set a [different number of workers](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/) in your pipeline specification. 
+but you can choose to set a [different number of workers](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed-computing/) in your pipeline specification. 
 Further, 
 the pipelines are already configured to spread computation across the various workers with `"glob": "/*/*"`. Check out our [Glob Pattern](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/) to learn more.
 

@@ -18,7 +18,7 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
+          <li><a href="../../getting-started/local-installation/" class="md-typeset md-link">
           Deploy Locally
           </a>
           </li>
@@ -26,7 +26,7 @@ deployment options and related topics:
           Quick Cloud Deployment
           </a>
           </li>
-          <li><a href="../../getting_started/install-pachctl-completion/" class="md-typeset md-link">
+          <li><a href="../../getting-started/install-pachctl-completion/" class="md-typeset md-link">
           Install pachctl Autocompletion
           </a>
           </li>

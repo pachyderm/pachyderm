@@ -10,7 +10,7 @@ Before we dive into the delivery of external traffic to Pachyderm,
 read the following recommendations to set up your infrastructure in production.
 
 !!! Note
-    - Refer to our generic ["Helm Install"](../helm_install/) page for more information on how to install and get started with `Helm`.
+    - Refer to our generic ["Helm Install"](../helm-install/) page for more information on how to install and get started with `Helm`.
 ## Pachyderm Infrastructure Recommendations
 
 For production deployments,
@@ -72,7 +72,7 @@ To configure the Ingress, enable the `ingress` field in your values.yaml, and ch
 If your `ingress` is enabled: 
 
 - Cloud providers may provision a Load balancer automatically. For example, AWS will provision an Application Load Balancer (ALB) in front of Console.
-- The deployment of Pachyderm (Check our [Helm documentation](../helm_install/)) automatically creates the following set of rules:
+- The deployment of Pachyderm (Check our [Helm documentation](../helm-install/)) automatically creates the following set of rules:
 ```yaml
     - host: <your_domain_name>
     http:

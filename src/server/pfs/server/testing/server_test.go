@@ -6219,7 +6219,7 @@ func TestPFS(suite *testing.T) {
 				}
 
 				// run Egress to copy data from source commit to target database
-				test.options.Secret = &pfs.SQLDatabaseEgress_Secret{K8SSecret: "does not matter", Key: "does not matter"}
+				test.options.Secret = &pfs.SQLDatabaseEgress_Secret{Name: "does not matter", Key: "does not matter"}
 				test.options.Url = fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort, dbName)
 				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{

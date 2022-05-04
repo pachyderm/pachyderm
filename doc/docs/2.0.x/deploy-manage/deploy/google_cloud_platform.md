@@ -3,7 +3,7 @@
 For a quick test installation of Pachyderm on GCP (suitable for development), jump to our [Quickstart page](../quickstart/).
 
 !!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on how to install and get started with `Helm`.
+      - Refer to our generic ["Helm Install"](./helm-install.md) page for more information on how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
@@ -21,7 +21,7 @@ In particular, you will:
 1. [Enable The Creation of Persistent Volumes](#4-persistent-volumes-creation)
 1. [Create A GCP Managed PostgreSQL Instance](#5-create-a-gcp-managed-postgresql-database)
 1. [Deploy Pachyderm ](#6-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../getting_started/local_installation/#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+1. Finally, you will need to install [pachctl](../../../getting-started/local-installation/#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
 
 !!! Warning "TL;DR - Give me the script"
@@ -40,7 +40,7 @@ Install the following clients:
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank} >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/tasks/tools/){target=_blank}
-- [pachctl](../../../getting_started/local_installation/#install-pachctl)
+- [pachctl](../../../getting-started/local-installation/#install-pachctl)
 - [jq](https://stedolan.github.io/jq/download/){target=_blank}
 
 If this is the first time you use the SDK, follow

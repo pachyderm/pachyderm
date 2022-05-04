@@ -4,7 +4,7 @@ For a quick test installation of Pachyderm on Azure (suitable for development), 
 
 
 !!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](./helm_install.md) page for more information on  how to install and get started with `Helm`.
+      - Refer to our generic ["Helm Install"](./helm-install.md) page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
@@ -31,7 +31,7 @@ latest available version of the components listed below.
 * [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli){target=_blank}
 * [jq](https://stedolan.github.io/jq/download/){target=_blank}
 * [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}
-* [pachctl](../../../getting_started/local_installation#install-pachctl)
+* [pachctl](../../../getting-started/local-installation#install-pachctl)
  
 !!! Note
     This page assumes that you have an [Azure Subsciption](https://docs.microsoft.com/en-us/azure/guides/developer/azure-developer-guide#understanding-accounts-subscriptions-and-billing){target=_blank}.
@@ -406,7 +406,7 @@ make sure that you are using the right Kubernetes context first.
     STATUS: deployed
     REVISION: 1
     ```
-    Refer to our generic [Helm documentation](../helm_install/#install-pachyderms-helm-chart) for more information on how to select your chart version. 
+    Refer to our generic [Helm documentation](../helm-install/#install-pachyderms-helm-chart) for more information on how to select your chart version. 
 
     Pachyderm pulls containers from DockerHub. It might take some time
     before the `pachd` pods start. You can check the status of the

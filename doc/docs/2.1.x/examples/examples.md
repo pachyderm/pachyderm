@@ -7,7 +7,7 @@ A curated list of examples that use Pachyderm.
 
 This example does edge detection using OpenCV. This is our canonical starter demo. If you haven't used Pachyderm before, start here. We'll get you started running Pachyderm locally in just a few minutes and processing sample log lines.
 
-[Open CV](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/){target=_blank}
+[Open CV](https://docs.pachyderm.com/latest/getting-started/beginner-tutorial/){target=_blank}
 
 ## Word Count (Map/Reduce)
 
