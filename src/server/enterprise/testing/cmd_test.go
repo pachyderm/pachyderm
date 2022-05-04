@@ -4,12 +4,14 @@ package testing
 
 import (
 	"bufio"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -19,15 +21,8 @@ const enterpriseRootToken = "iamenterprise"
 func resetClusterState(t *testing.T) {
 	ec, err := client.NewEnterpriseClientForTest()
 	require.NoError(t, err)
-
-	c, err := client.NewForTest()
-	require.NoError(t, err)
-
 	// Set the root token, in case a previous test failed
-	c.SetAuthToken(tu.RootToken)
 	ec.SetAuthToken(enterpriseRootToken)
-
-	require.NoError(t, c.DeleteAll())
 	require.NoError(t, ec.DeleteAllEnterprise())
 }
 
@@ -36,9 +31,11 @@ func TestRegisterPachd(t *testing.T) {
 	resetClusterState(t)
 	defer resetClusterState(t)
 
-	require.NoError(t, tu.BashCmd(`
+	c, ns := minikubetestenv.AcquireCluster(t)
+	pachAddress := fmt.Sprintf("grpc://pachd-peer.%s:30653", ns)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		echo {{.license}} | pachctl license activate
-		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address grpc://pachd.default:30650
+		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{.pach_address}}
 		pachctl enterprise get-state | match ACTIVE
 		pachctl license list-clusters \
 		  | match 'id: {{.id}}' \
@@ -46,6 +43,7 @@ func TestRegisterPachd(t *testing.T) {
 		`,
 		"id", tu.UniqueString("cluster"),
 		"license", tu.GetTestEnterpriseCode(t),
+		"pach_address", pachAddress,
 	).Run())
 }
 
