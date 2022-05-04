@@ -144,10 +144,11 @@ type ServerOptions struct {
 }
 
 type Request struct {
-	Mount  bool // true for desired state == mounted, false for desired state == unmounted
+	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
+	Mount  bool   // true for desired state == mounted, false for desired state == unmounted
 	Repo   string
 	Branch string
-	Commit string // "" for no commit
+	Commit string // "" for no commit (commit as noun)
 	Name   string
 	Mode   string // "ro", "rw"
 }
@@ -296,6 +297,7 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
+		Action: "mount",
 		Mount:  true,
 		Repo:   key.Repo,
 		Branch: key.Branch,
@@ -310,7 +312,22 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
+		Action: "unmount",
 		Mount:  false,
+		Repo:   key.Repo,
+		Branch: key.Branch,
+		Commit: key.Commit,
+		Name:   name,
+		Mode:   "",
+	}
+	response := <-mm.States[name].responses
+	return response, response.Error
+}
+
+func (mm *MountManager) CommitBranch(key MountKey, name string) (Response, error) {
+	mm.MaybeStartFsm(name)
+	mm.States[name].requests <- Request{
+		Action: "commit",
 		Repo:   key.Repo,
 		Branch: key.Branch,
 		Commit: key.Commit,
@@ -567,6 +584,47 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		}
 		w.Write(marshalled)
 	})
+	router.Methods("PUT").
+		Queries("name", "{name}").
+		Path("/repos/{key:.+}/_commit").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		vs := mux.Vars(req)
+		k, ok := vs["key"]
+		if !ok {
+			http.Error(w, "no key", http.StatusBadRequest)
+			return
+		}
+		name, ok := vs["name"]
+		if !ok {
+			http.Error(w, "no name", http.StatusBadRequest)
+			return
+		}
+		key, err := mountKeyFromString(k)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_, err = mm.CommitBranch(key, name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isAuthOnAndUserUnauthenticated(mm.Client) {
 			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
@@ -682,7 +740,6 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		cfg.Write()
 		mm.Client.SetAuthToken("")
 	})
-	// TODO: implement _commit
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
 	// TCP port (just for convenient manual testing with curl for now...)
@@ -917,8 +974,8 @@ func unmountedState(m *MountStateMachine) StateFn {
 	// TODO: listen on our request chan, mount filesystems, and respond
 	for {
 		req := <-m.requests
-
-		if req.Mount {
+		switch req.Action {
+		case "mount":
 			// copy data from request into fields that are documented as being
 			// written by the client (see MountState struct)
 			m.MountState.Name = req.Name
@@ -929,7 +986,17 @@ func unmountedState(m *MountStateMachine) StateFn {
 			}
 			m.MountState.Mode = req.Mode
 			return mountingState
-		} else {
+		case "commit":
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("bad request: can't commit when unmounted"),
+			}
+			return unmountedState
+		case "unmount":
 			m.responses <- Response{
 				Repo:       m.MountKey.Repo,
 				Branch:     m.MountKey.Branch,
@@ -939,6 +1006,17 @@ func unmountedState(m *MountStateMachine) StateFn {
 				Error:      fmt.Errorf("can't unmount when we're already unmounted"),
 			}
 			// stay unmounted
+			return unmountedState
+		default:
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("bad request: unsupported/unknown action %s while unmounted", req.Action),
+			}
+			return unmountedState
 		}
 	}
 }
@@ -984,7 +1062,9 @@ func mountedState(m *MountStateMachine) StateFn {
 		// into unmounting. mount requests for already mounted repos should
 		// go back into mounting, as they can remount a fs as ro/rw.
 		req := <-m.requests
-		if req.Mount {
+		switch req.Action {
+		case "mount":
+			// XXX this should be keyed on mount name now, no?
 			if req.Repo != m.MountKey.Repo || req.Branch != m.MountKey.Branch {
 				m.responses <- Response{
 					Repo:       m.MountKey.Repo,
@@ -1000,8 +1080,18 @@ func mountedState(m *MountStateMachine) StateFn {
 			// TODO: handle remount case (switching mode):
 			// if mounted ro and switching to rw, just upgrade
 			// if mounted rw and switching to ro, upload changes, then switch the mount type
-		} else {
+		case "unmount":
 			return unmountingState
+		default:
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("bad request: unsupported/unknown action %s while mounted", req.Action),
+			}
+			return unmountedState
 		}
 	}
 }
