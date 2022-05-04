@@ -9286,6 +9286,7 @@ func TestDebug(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
