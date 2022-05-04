@@ -25,7 +25,7 @@ Pachyderm is the leader in data versioning and pipelines for MLOps.  We provide 
 
 
 ## Getting Started
-To start deploying your end-to-end version-controlled data pipelines, try us for free on [Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) with little to no setup or run Pachyderm [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/). You can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
+To start deploying your end-to-end version-controlled data pipelines, run Pachyderm [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/) or you can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
 
 You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 

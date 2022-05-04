@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -17,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -123,6 +121,12 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 			return nil
 		}
 		commit := commitInfo.Commit
+		cache := d.newCache(pfsdb.CommitKey(commit))
+		defer func() {
+			if err := cache.clear(ctx); err != nil {
+				log.Errorf("errored clearing compaction cache: %s", err)
+			}
+		}()
 		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
@@ -139,8 +143,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				}
 				details := &pfs.CommitInfo_Details{}
 				// Compact the commit.
-				// TODO: Implement task service cache for compaction.
-				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, nil)
+				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, cache)
 				var totalId *fileset.ID
 				start := time.Now()
 				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {
@@ -159,7 +162,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				var validationError string
 				if err := miscutil.LogStep(fmt.Sprintf("validating commit %v", commit), func() error {
 					var err error
-					details.SizeBytes, validationError, err = d.validate(ctx, totalId)
+					details.SizeBytes, validationError, err = compactor.Validate(ctx, taskDoer, *totalId)
 					return err
 				}); err != nil {
 					return err
@@ -174,34 +177,6 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 		})
 	}, watch.WithSort(col.SortByCreateRevision, col.SortAscend), watch.IgnoreDelete)
 	return errors.EnsureStack(err)
-}
-
-// TODO(2.0 optional): Improve the performance of this by doing a logarithmic lookup per new file,
-// rather than a linear scan through all of the files.
-func (d *driver) validate(ctx context.Context, id *fileset.ID) (int64, string, error) {
-	fs, err := d.storage.Open(ctx, []fileset.ID{*id})
-	if err != nil {
-		return 0, "", err
-	}
-	var prev *index.Index
-	var size int64
-	var validationError string
-	if err := fs.Iterate(ctx, func(f fileset.File) error {
-		idx := f.Index()
-		if prev != nil && validationError == "" {
-			if idx.Path == prev.Path {
-				validationError = fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, idx.Path, idx.File.Datum)
-			} else if strings.HasPrefix(idx.Path, prev.Path+"/") {
-				validationError = fmt.Sprintf("file / directory path collision (%v)", idx.Path)
-			}
-		}
-		prev = idx
-		size += index.SizeBytes(idx)
-		return nil
-	}); err != nil {
-		return 0, "", errors.EnsureStack(err)
-	}
-	return size, validationError, nil
 }
 
 func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {

@@ -1,5 +1,16 @@
 
 # Changelog
+## 2.1.7
+- Eagerly delete task service group entries - 7552
+- Implement compaction cache - 7551
+- fix overlooked text circleci matrix adds to job names - 7542
+- Initial script for pushing redhat marketplace images - 7535
+- migrate ci load test runs off of hub - 7534
+- Batch copy operations in unordered writer. - 7531
+- Exit finishing early for errored commits. - 7532
+- Check for validation errors when choosing a job's base commit. - 7533
+- Autoformat the circle CI config and helm values.yaml with Prettier - 7524
+- Turn off mockidp role binding when upstream idps - 7515
 
 ## 2.1.6
 - Added comment on shard size/number thresholds params + dex database name override param - #7509
@@ -168,7 +179,7 @@ Notable Bug Fixes:
 ## 2.0.0 
 Introducing Pachyderm 2.0 with several foundational improvements. Read more details [here](https://www.pachyderm.com/blog/getting-ready-for-pachyderm-2/)
 
-### [What’s new](https://docs.pachyderm.com/2.0.x/getting_started/whats_new/)
+### [What’s new](https://docs.pachyderm.com/2.0.x/getting-started/whats-new/)
 
 - New storage architecture and FileSets for better support for small files, content defined chunking for better de-duplication, automatic compression and encryption of chunks, automatic garbage collection, and more
 - Pachyderm Enterprise Management to allow site-wide configuration

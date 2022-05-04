@@ -31,11 +31,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -2296,6 +2298,65 @@ func TestPrettyPrinting(t *testing.T) {
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
 }
 
+func TestAuthPrettyPrinting(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	rc := tu.AuthenticateClient(t, c, auth.RootUser)
+
+	// create repos
+	dataRepo := tu.UniqueString("TestPrettyPrinting_data")
+	require.NoError(t, rc.CreateRepo(dataRepo))
+
+	// create pipeline
+	pipelineName := tu.UniqueString("pipeline")
+	_, err := rc.PpsAPIClient.CreatePipeline(
+		rc.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+
+	// Do a commit to repo
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+
+	commitInfos, err := c.WaitCommitSetAll(commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(commitInfos))
+
+	repoInfo, err := c.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
+	for _, c := range commitInfos {
+		require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(c)))
+	}
+
+	fileInfo, err := c.InspectFile(commit, "file")
+	require.NoError(t, err)
+	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
+	pipelineInfo, err := c.InspectPipeline(pipelineName, true)
+	require.NoError(t, err)
+	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(os.Stdout, ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
+	jobInfos, err := c.ListJob("", nil, -1, true)
+	require.NoError(t, err)
+	require.True(t, len(jobInfos) > 0)
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+}
+
 func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4340,6 +4401,8 @@ func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
+	_, ns := minikubetestenv.AcquireCluster(t)
 	kubeClient := tu.GetKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
@@ -4363,7 +4426,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	var c v1.Container
 	for _, app := range []string{"pachd", "etcd"} {
 		err := backoff.Retry(func() error {
-			podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -6745,7 +6808,7 @@ func TestServiceEnvVars(t *testing.T) {
 			Update: false,
 			Service: &pps.Service{
 				InternalPort: 8000,
-				ExternalPort: 31800,
+				ExternalPort: 31801,
 			},
 		})
 	require.NoError(t, err)
@@ -6756,7 +6819,7 @@ func TestServiceEnvVars(t *testing.T) {
 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
 			// Outside cluster: Re-use external IP and external port defined above
 			host := c.GetAddress().Host
-			return net.JoinHostPort(host, "31800")
+			return net.JoinHostPort(host, "31801")
 		}
 		// Get k8s service corresponding to pachyderm service above--must access
 		// via internal cluster IP, but we don't know what that is
@@ -8702,14 +8765,10 @@ func TestSecretsUnauthenticated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	// Enable auth on the cluster
-	tu.DeleteAll(t)
-	tu.GetAuthenticatedPachClient(t, auth.RootUser)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
 	// Get an unauthenticated client
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	c.SetAuthToken("")
 
 	b := []byte(
@@ -9266,6 +9325,7 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, gr.Close())
 	}()
 	// Check that all of the expected files were returned.
+	var gotFiles []string
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()
@@ -9275,12 +9335,21 @@ func TestDebug(t *testing.T) {
 			}
 			require.NoError(t, err)
 		}
+		gotFiles = append(gotFiles, hdr.Name)
 		for pattern, g := range expectedFiles {
 			if g.Match(hdr.Name) {
 				delete(expectedFiles, pattern)
 				break
 			}
 		}
+	}
+	if len(expectedFiles) > 0 {
+		t.Logf("got files: %v", gotFiles)
+		var names []string
+		for n := range expectedFiles {
+			names = append(names, n)
+		}
+		t.Logf("no files match: %v", names)
 	}
 	require.Equal(t, 0, len(expectedFiles))
 }
@@ -9395,10 +9464,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -9434,7 +9501,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 		if replicas > 4 {
 			replicas = 4
 		}
-		monitorReplicas(t, pipeline, replicas)
+		monitorReplicas(t, c, ns, pipeline, replicas)
 	}
 	commitNFiles(1)
 	commitNFiles(3)
@@ -9802,89 +9869,12 @@ func TestPipelineAncestry(t *testing.T) {
 	checkInfos(infos)
 }
 
-func TestStandbyTransitions(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c, ns := minikubetestenv.AcquireCluster(t)
-
-	kc := tu.GetKubeClient(t)
-
-	data := tu.UniqueString(t.Name() + "_data")
-	require.NoError(t, c.CreateRepo(data))
-	pipeline := tu.UniqueString(t.Name())
-	req := basicPipelineReq(pipeline, data)
-	req.Autoscaling = true
-	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
-	require.NoError(t, err)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
-
-	// create an unrelated pipeline to guarantee event processing
-	// the high level structure of this test is:
-	// 1. Perform some operation on "pipeline" (start or stop)
-	// 2. Put data in "auxData" and wait for the output commit to be finished
-	//		As auxPipeline is also autoscaling, this requires bringing it out of standby,
-	//		ensuring the event from "pipeline" we actually care about was also processed
-	// 3. Verify that the resource version of the main pipeline's RC is unchanged,
-	// 		meaning the operation did not scale up the pipeline, even temporarily
-	auxData := tu.UniqueString("aux_data")
-	require.NoError(t, c.CreateRepo(auxData))
-	auxPipeline := tu.UniqueString("aux")
-	req = basicPipelineReq(auxPipeline, auxData)
-	req.Autoscaling = true
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
-	require.NoError(t, err)
-
-	flushEventsAndCheckRC := func(initialVersion string) {
-		// push data to the other pipeline to make sure the stop was processed
-		require.NoError(t, c.PutFile(
-			client.NewCommit(auxData, "master", ""),
-			tu.UniqueString("foo"), strings.NewReader("bar")))
-		_, err = c.WaitCommit(auxPipeline, "master", "")
-		require.NoError(t, err)
-
-		// make sure main pipeline RC has not changed, which it would have if it passed through running
-		rc, err := kc.CoreV1().ReplicationControllers(ns).Get(context.Background(), rcName, metav1.GetOptions{})
-		require.NoError(t, err)
-		require.Equal(t, initialVersion, rc.ResourceVersion)
-	}
-
-	_, err = c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-
-	// wait for pipeline to go into standby
-	require.NoErrorWithinTRetry(t, 10*time.Second, func() error {
-		info, err := c.InspectPipeline(pipeline, false)
-		if err != nil {
-			return err
-		}
-		if info.State != pps.PipelineState_PIPELINE_STANDBY {
-			return errors.Errorf("expected pipeline to be in standby, not %v", info.State)
-		}
-		return nil
-	})
-
-	// get the initial state of the pipeline's RC
-	initialRC, err := kc.CoreV1().ReplicationControllers(ns).Get(context.Background(), rcName, metav1.GetOptions{})
-	require.NoError(t, err)
-
-	// stop the pipeline, then verify the RC wasn't modified
-	require.NoError(t, c.StopPipeline(pipeline))
-	flushEventsAndCheckRC(initialRC.ResourceVersion)
-
-	// now do the same check with start
-	require.NoError(t, c.StartPipeline(pipeline))
-	flushEventsAndCheckRC(initialRC.ResourceVersion)
-}
-
 func TestDatumSetCache(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 	dataRepo := tu.UniqueString("TestDatumSetCache_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9920,7 +9910,7 @@ func TestDatumSetCache(t *testing.T) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				tu.DeletePod(t, "etcd")
+				tu.DeletePod(t, "etcd", ns)
 			}
 		}
 	}()
@@ -9934,15 +9924,14 @@ func TestDatumSetCache(t *testing.T) {
 	}
 }
 
-func monitorReplicas(t testing.TB, pipeline string, n int) {
-	c := tu.GetPachClient(t)
+func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
-			scale, err := kc.CoreV1().ReplicationControllers("default").GetScale(context.Background(), rcName, metav1.GetOptions{})
+			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -9982,8 +9971,8 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	require.NoError(t, c.CreateRepo("inA"))
 	require.NoError(t, c.CreateRepo("inB"))
@@ -10122,4 +10111,100 @@ func TestValidationFailure(t *testing.T) {
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	require.Equal(t, "", commitInfo.Error)
+}
+
+// TestPPSEgressToSnowflake tests basic Egress functionality via PPS mechanism,
+// and how it handles inserting the same primary key twice.
+func TestPPSEgressToSnowflake(t *testing.T) {
+	// setup
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	// create input repo with CSV
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+
+	// create output database, and destination table
+	dbName := tu.GenerateEphermeralDBName(t)
+	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
+	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
+		Id int    `sql:"ID,INT,PRIMARY KEY"`
+		A  string `sql:"A,VARCHAR(100)"`
+	}{}))
+
+	// create K8s secrets
+	b := []byte(fmt.Sprintf(`
+	{
+		"apiVersion": "v1",
+		"kind": "Secret",
+		"stringData": {
+			"PACHYDERM_SQL_PASSWORD": "%s"
+		},
+		"metadata": {
+			"name": "egress-secret",
+			"creationTimestamp": null
+		}
+	}`, os.Getenv("SNOWFLAKE_PASSWORD")))
+	require.NoError(t, c.CreateSecret(b))
+
+	// create a pipeline with egress
+	pipeline := tu.UniqueString("egress")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: tu.DefaultTransformImage,
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp -r /pfs/in/* /pfs/out/"},
+			},
+			Input: &pps.Input{Pfs: &pps.PFSInput{
+				Repo: repo,
+				Glob: "/",
+				Name: "in",
+			}},
+			Egress: &pps.Egress{
+				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
+					Url: fmt.Sprintf("%s/%s", testsnowflake.DSN(), dbName),
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
+					},
+					Secret: &pfs.SQLDatabaseEgress_Secret{
+						Name: "egress-secret",
+						Key:  "PACHYDERM_SQL_PASSWORD",
+					},
+				},
+				},
+			},
+		},
+	)
+
+	// Initial load
+	master := client.NewCommit(repo, "master", "")
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
+	require.NoError(t, err)
+	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	// query db for results
+	var count, expected int
+	expected = 2
+	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+	require.Equal(t, expected, count)
+
+	// Add a new row, and test whether primary key conflicts
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
+	require.NoError(t, err)
+	commitInfo, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	// query db for results
+	expected = 3
+	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+	require.Equal(t, expected, count)
 }

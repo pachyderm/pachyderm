@@ -18,6 +18,9 @@ parameters:
   RELEASE_TYPE:
     type: string
     default: ""
+  ADDITIONAL_VERSION:
+    type: string
+    default: ""
 
 jobs:
   circleci:
@@ -194,12 +197,15 @@ jobs:
       - run: etc/testing/circle/deploy_test.sh
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
-  build-pachctl:
+  build:
     resource_class: large
     docker:
       - image: cimg/go:1.17.6
     steps:
       - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: "20.10.12"
       - run:
           name: Download utilities
           command: |
@@ -212,10 +218,20 @@ jobs:
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker
+          command: make docker-build VERSION=$CIRCLE_SHA1
+      - run:
+          name: Push docker
+          command: make docker-push VERSION=$CIRCLE_SHA1
+      - run:
           name: Make release
           command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
       - run:
-          name: Upload Release
+          name: Upload Pachctl Release
           command: |
             echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
             cd /home/circleci/dist-pach/pachctl/
@@ -270,6 +286,15 @@ jobs:
                 name: make point-release
                 command: |
                   make point-release
+      - when:
+          condition:
+            and:
+              - equal: [candidate, << pipeline.parameters.RELEASE_TYPE >>]
+          steps:
+            - run:
+                name: make release-candidate
+                command: |
+                  make VERSION_ADDITIONAL=<< pipeline.parameters.ADDITIONAL_VERSION >> release-candidate
   check-prettier:
     docker:
       - image: cimg/node:16.11.0
@@ -296,7 +321,7 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - build-pachctl
+      - build
       - check-prettier
       - circleci:
           matrix:
@@ -349,6 +374,7 @@ workflows:
               only:
                 - master
                 - 2.1.x
+                - 2.2.x
     jobs:
       - nightly_load:
           matrix:
@@ -381,8 +407,12 @@ workflows:
             branches:
               only:
                 - 2.1.x
+                - 2.2.x
+  red_hat:
+    jobs:
       - push_redhat:
           filters:
             branches:
-              only:
-                - 2.1.x
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/

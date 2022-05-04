@@ -227,5 +227,5 @@ To get started with Pachyderm IDE, try the
 [OpenCV example for JupyterHub](https://github.com/pachyderm/jupyterhub-pachyderm/blob/master/doc/opencv.md).
 
 This example walks you through the same steps as in the
-[Beginner Tutorial](../../../getting_started/beginner_tutorial/) but using the
+[Beginner Tutorial](../../../getting-started/beginner-tutorial/) but using the
 `python-pachyderm` client instead of `pachctl` or the Pachyderm UI.

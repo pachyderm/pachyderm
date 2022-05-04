@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -21,8 +22,7 @@ import (
 )
 
 func TestPrometheusStats(t *testing.T) {
-	c := tu.GetPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
@@ -231,8 +231,7 @@ func TestPrometheusStats(t *testing.T) {
 // Regression: stats commits would not close when there were no input datums.
 //For more info, see github.com/pachyderm/pachyderm/v2/issues/3337
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
-	c := tu.GetPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")

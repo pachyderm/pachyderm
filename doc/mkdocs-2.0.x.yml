@@ -13,7 +13,7 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.1.6'
+pach_featured_version: '2.1.7'
 pach_latest_version: '2.0.8'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
@@ -111,13 +111,13 @@ nav:
             - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
-        - Overview: getting_started/index.md
-        - WHAT'S NEW?: getting_started/whats_new.md
-        - Quick Start - Local Installation: getting_started/local_installation.md
-        - Beginner Tutorial: getting_started/beginner_tutorial.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
+        - Overview: getting-started/index.md
+        - WHAT'S NEW?: getting-started/whats-new.md
+        - Quick Start - Local Installation: getting-started/local-installation.md
+        - Beginner Tutorial: getting-started/beginner-tutorial.md
+        - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
         - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Local Installation On WSL: getting_started/wsl-deploy.md
+        - Local Installation On WSL: getting-started/wsl-deploy.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -148,8 +148,8 @@ nav:
                 - Datum Metadata: concepts/pipeline-concepts/datum/metadata.md
         - Advanced Concepts:
             - Global ID: concepts/advanced-concepts/globalID.md
-            - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
-            - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
+            - Deferred Processing of Data: concepts/advanced-concepts/deferred-processing.md
+            - Distributed Computing: concepts/advanced-concepts/distributed-computing.md
     - How-Tos:
         - Overview: how-tos/index.md
         - Workflow: 
@@ -181,15 +181,15 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Helm Deployment Principles: deploy-manage/deploy/helm_install.md
-            - Local Deployment: getting_started/local_installation.md
+            - Helm Deployment Principles: deploy-manage/deploy/helm-install.md
+            - Local Deployment: getting-started/local-installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
-                    - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md  
+                    - Set Up Traefik: deploy-manage/deploy/ingress/pach-ui-ingress.md 
+                - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md 
                 - Deploy on GCP: deploy-manage/deploy/google_cloud_platform.md
-                - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on_premises.md
             - Deploy Console: deploy-manage/deploy/console.md
@@ -205,8 +205,6 @@ nav:
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
                     - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
-                    - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
-                    - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
                 - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md

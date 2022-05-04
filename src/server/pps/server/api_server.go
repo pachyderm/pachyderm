@@ -1493,6 +1493,14 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
+// validateEgress validates the egress field.
+func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
+	if egress == nil {
+		return nil
+	}
+	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
+}
+
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
@@ -1515,6 +1523,9 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		return errors.Wrapf(err, "invalid transform")
 	}
 	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
+		return err
+	}
+	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
 		return err
 	}
 	if pipelineInfo.Details.ParallelismSpec != nil {

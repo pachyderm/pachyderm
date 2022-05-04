@@ -893,3 +893,26 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 		return nil, errors.Errorf("first message must be a commit")
 	}
 }
+
+func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
+	if err != nil {
+		return nil, err
+	}
+	switch target := req.Target.(type) {
+	case *pfs.EgressRequest_ObjectStorage:
+		result, err := copyToObjectStorage(ctx, src, target.ObjectStorage.Url)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_ObjectStorage{ObjectStorage: result}}, nil
+
+	case *pfs.EgressRequest_SqlDatabase:
+		result, err := copyToSQLDB(ctx, src, target.SqlDatabase.Url, target.SqlDatabase.FileFormat)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_SqlDatabase{SqlDatabase: result}}, nil
+	}
+	return nil, errors.Errorf("egress failed")
+}

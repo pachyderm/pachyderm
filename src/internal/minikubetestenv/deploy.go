@@ -118,6 +118,11 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
 
+			"pachd.resources.requests.cpu":    "250m",
+			"pachd.resources.requests.memory": "512M",
+			"etcd.resources.requests.cpu":     "250m",
+			"etcd.resources.requests.memory":  "512M",
+
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
 		},
@@ -150,8 +155,8 @@ func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+1),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+2),
+			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
+			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
 			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
 			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
 		},

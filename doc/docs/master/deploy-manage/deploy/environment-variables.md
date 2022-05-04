@@ -18,7 +18,7 @@ to know the current job ID, you can use the `PACH_JOB_ID`
 environment variable to refer to the current job ID.
 
 !!! note "See Also:"
-    [Local Deployment](../../../getting_started/local_installation/)
+    [Local Deployment](../../../getting-started/local-installation/)
 
 ## `pachd` Environment Variables
 

@@ -182,6 +182,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 
 	sidecarEnv = append(sidecarEnv, kd.getStorageEnvVars(pipelineInfo)...)
 	sidecarEnv = append(sidecarEnv, commonEnv...)
+	sidecarEnv = append(sidecarEnv, kd.getEgressSecretEnvVars(pipelineInfo)...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
@@ -491,6 +492,24 @@ func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.Env
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
+}
+
+func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+	result := []v1.EnvVar{}
+	egress := pipelineInfo.Details.Egress
+	if egress != nil && egress.GetSqlDatabase() != nil && egress.GetSqlDatabase().GetSecret() != nil {
+		secret := egress.GetSqlDatabase().GetSecret()
+		result = append(result, v1.EnvVar{
+			Name: "PACHYDERM_SQL_PASSWORD", // TODO avoid hardcoding this
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: secret.Name},
+					Key:                  secret.Key,
+				},
+			},
+		})
+	}
+	return result
 }
 
 // We don't want to expose pipeline auth tokens, so we hash it. This will be

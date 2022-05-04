@@ -652,7 +652,7 @@ gateway, see [S3 Output Repository](#s3-output-repository).
 `input.pfs.trigger`
 Specifies a trigger that must be met for the pipeline to trigger on this input.
 To learn more about triggers read the
-[deferred process docs](../concepts/advanced-concepts/deferred_processing.md).
+[deferred process docs](../concepts/advanced-concepts/deferred-processing.md).
 
 #### Union Input
 
@@ -1107,7 +1107,7 @@ consists of.  [Datums](https://docs.pachyderm.com/latest/concepts/pipeline-conce
 Per default,
 Pachyderm auto-scales its workers to process datums in parallel. 
 You can override this behaviour by setting your own parameter
-(see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/)).
+(see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed-computing/)).
 
 
 ## PPS Mounts and File Access

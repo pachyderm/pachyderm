@@ -23,7 +23,7 @@ func TestGetTableInfo(t *testing.T) {
 			Name:  "Postgres",
 			NewDB: dockertestenv.NewPostgres,
 			NewTable: func(db *pachsql.DB) error {
-				return pachsql.CreateTestTable(db, "test_table")
+				return pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{})
 			},
 			Expected: &pachsql.TableInfo{
 				"test_table",
@@ -49,7 +49,7 @@ func TestGetTableInfo(t *testing.T) {
 			Name:  "MySQL",
 			NewDB: dockertestenv.NewMySQL,
 			NewTable: func(db *pachsql.DB) error {
-				return pachsql.CreateTestTable(db, "public.test_table")
+				return pachsql.CreateTestTable(db, "public.test_table", pachsql.TestRow{})
 			},
 			Expected: &pachsql.TableInfo{
 				"test_table",
@@ -75,7 +75,7 @@ func TestGetTableInfo(t *testing.T) {
 			Name:  "Snowflake",
 			NewDB: testsnowflake.NewSnowSQL,
 			NewTable: func(db *pachsql.DB) error {
-				return pachsql.CreateTestTable(db, "test_table")
+				return pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{})
 			},
 			Expected: &pachsql.TableInfo{
 				"test_table",
