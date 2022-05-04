@@ -124,6 +124,14 @@ message CronInput {
   google.protobuf.Timestamp start = 6;
 }
 
+message SQLInput {
+  string name = 1;
+  string URL = 2;
+  string query = 3;
+  string format = 4;
+  string cron_spec = 5;
+  string secret_name = 6;
+}
 
 message Input {
   PFSInput pfs = 1;
@@ -132,6 +140,7 @@ message Input {
   repeated Input cross = 4;
   repeated Input union = 5;
   CronInput cron = 6;
+  SQLInput sql = 7;
 }
 
 message JobInput {
