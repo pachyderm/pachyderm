@@ -13,13 +13,17 @@ func TestActivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, c)
 	code := tu.GetTestEnterpriseCode(t)
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `echo {{.license}} | pachctl license activate`,
 		"license", code).Run())
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl enterprise get-state | match ACTIVE`).Run())
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `echo {{.license}} | pachctl license activate --no-register`,
+		"license", code).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl enterprise get-state | match ACTIVE`).Run())
+
 }
 
 func TestManuallyJoinLicenseServer(t *testing.T) {

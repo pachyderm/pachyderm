@@ -418,15 +418,15 @@ func TestYAMLSecret(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t)
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 
 		# kubectl get secrets >&2
-		kubectl delete secrets/test-yaml-secret || true
-		kubectl create secret generic test-yaml-secret --from-literal=my-key=my-value
+		kubectl delete secrets/test-yaml-secret -n {{ .namespace }} || true
+		kubectl create secret generic test-yaml-secret --from-literal=my-key=my-value -n {{ .namespace }}
 
 		pachctl create repo input
 		pachctl put file input@master:/foo <<<"foo"
@@ -448,7 +448,7 @@ func TestYAMLSecret(t *testing.T) {
 		EOF
 		pachctl wait commit pipeline@master
 		pachctl get file pipeline@master:/vars | match MY_SECRET=my-value
-		`,
+		`, "namespace", ns,
 	).Run())
 }
 
