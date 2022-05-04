@@ -51,7 +51,7 @@ func DebugFiles(t testing.TB, dataRepo string) (map[string]*globlib.Glob, []stri
 	}
 	for _, app := range []string{"etcd", "pg-bouncer"} {
 		for _, file := range []string{"describe.txt", "logs.txt", "logs-previous**", "logs-loki.txt"} {
-			pattern := path.Join(app, "*", file)
+			pattern := path.Join(app, "**", file)
 			g, err := globlib.Compile(pattern, '/')
 			require.NoError(t, err)
 			expectedFiles[pattern] = g

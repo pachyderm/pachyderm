@@ -8,7 +8,7 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 The example assumes that you have:
 
-- A Pachyderm cluster running - see [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
+- A Pachyderm cluster running - see [Local Installation](https://docs.pachyderm.com/latest/getting-started/local-installation/) to get up and running with a local Pachyderm cluster in just a few minutes.
 - The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [deploy docs](https://docs.pachyderm.com/latest/deploy-manage/) for instructions.
 
 ## Setup MongoDB
@@ -132,11 +132,11 @@ loaded via `pachctl create secret`.
    
    Creating the secret will require different steps,
    depending on whether you have Kubernetes access or not.
-   Pachyderm Hub users don't have access to Kubernetes.
+  
    If you have Kubernetes access and want to use `kubectl`, 
    you may follow the two steps prefixed with "(Kubernetes)".
    If you don't have access to Kubernetes or don't want to use `kubectl`,
-   follow the two steps labeled "(Pachyderm Hub)" 
+   follow the two steps labeled "(Pachyderm)" 
 
 1. (Kubernetes) If you have direct access to the Kubernetes cluster, you can create a secret using `kubectl`.
    
@@ -162,11 +162,10 @@ loaded via `pachctl create secret`.
    }
    ```
 
-   You will have to use pachctl if you're using Pachyderm Hub,
-   or don't have access to the Kubernetes cluster.
+   You will have to use pachctl if you don't have access to the Kubernetes cluster.
    The next three steps show how to do that.
 
-1. (Pachyderm Hub) Create a secrets file from the provided template.
+1. (Pachyderm) Create a secrets file from the provided template.
    
    ```shell
    $ jq -n --arg uri $(cat uri) --arg username $(cat username) \
@@ -175,7 +174,7 @@ loaded via `pachctl create secret`.
    $ chmod 600 mongodb-credentials-secret.json
    ```
 
-1. (Pachyderm Hub) Confirm the secrets file is correct by decoding the values.
+1. (Pachyderm) Confirm the secrets file is correct by decoding the values.
    
    ```shell
    $ jq '.data | map_values(@base64d)' mongodb-credentials-secret.json
@@ -188,7 +187,7 @@ loaded via `pachctl create secret`.
    }
    ```
 
-1. (Pachyderm Hub) Generate a secret using pachctl
+1. (Pachyderm) Generate a secret using pachctl
 
    ```shell
    $ pachctl create secret -f mongodb-credentials-secret.json
