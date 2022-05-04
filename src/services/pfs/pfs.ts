@@ -65,7 +65,6 @@ import {
   AddFileSetRequest,
   RenewFileSetRequest,
   DiffFileRequest,
-  CommitSet,
   ComposeFileSetRequest,
 } from '../../proto/pfs/pfs_pb';
 import streamToObjectArray from '../../utils/streamToObjectArray';

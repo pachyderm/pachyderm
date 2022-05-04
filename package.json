@@ -1,6 +1,6 @@
 {
   "name": "@pachyderm/node-pachyderm",
-  "version": "0.23.7",
+  "version": "0.23.8",
   "description": "node client for pachyderm",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
