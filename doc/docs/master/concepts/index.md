@@ -1,22 +1,13 @@
 # Concepts
 
-The Pachyderm platform brings
-together **version control for data** with the tools to **build scalable end-to-end ML/AI pipelines** while empowering users to develop their
-**code in any language**, framework, or tool of their choice. Pachyderm
-has been proven to be the ideal foundation for teams looking to
-use ML and AI to solve real-world problems in a reliable way.
+This section details the foundational concepts of Pachyderm's data versioning and pipeline semantics broken down into two main components:
 
-The Pachyderm platform includes the following main components:
+- **Pachyderm File System** (PFS) manages Pachyderm's data and versioning system.
+- **Pachyderm Pipeline System** (PPS) enables you to perform various transformations on your data. 
 
-- Pachyderm File System (PFS)
-- Pachyderm pipelines
+After you have a good grasp of the basics, move to advanced concepts and features.
 
-To start, you need to understand the foundational concepts of Pachyderm's
-data versioning and pipeline semantics. After you have a good grasp of
-the basics, you can use advanced concepts and features for more
-complicated challenges.
-
-This section describes the following Pachyderm concepts:
+In particular, you will learn:
 
 <div class="row">
   <div class="column-2">
@@ -32,8 +23,7 @@ This section describes the following Pachyderm concepts:
           <ul>
             <li><a href="data-concepts/" class="md-typeset md-link">
             Versioned Data Concepts Overview
-            </a>
-            </li>
+            </a></li>
           </ul>
       </div>
     </div>
@@ -50,9 +40,8 @@ This section describes the following Pachyderm concepts:
       <div class="mdl-card__actions mdl-card--border">
           <ul>
             <li><a href="pipeline-concepts/" class="md-typeset md-link">
-            Pipeline Concepts Overview
-           </a>
-          </li>
+            Pipeline Concepts Overview</a></li>
+          </ul>
        </div>
      </div>
   </div>
@@ -69,10 +58,7 @@ This section describes the following Pachyderm concepts:
       </div>
       <div class="mdl-card__actions mdl-card--border">
           <ul>
-            <li><a href="../concepts/advanced-concepts/globalID/" class="md-typeset md-link">
-            Advanced Concepts
-            </a>
-            </li>
+            <li><a href="../concepts/advanced-concepts/globalID/" class="md-typeset md-link">Advanced Concepts</a></li>
           </ul>
       </div>
     </div>

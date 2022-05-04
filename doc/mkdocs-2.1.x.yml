@@ -58,6 +58,8 @@ plugins:
   - macros
   - git-snippet:
       all_pages: false
+  - meta-descriptions:
+      export_csv: true
 
 # Customization
 extra:
@@ -78,6 +80,7 @@ extra_css:
 
 # Extensions
 markdown_extensions:
+  - meta
   - markdown.extensions.attr_list
   - markdown.extensions.admonition
   - markdown.extensions.codehilite:
