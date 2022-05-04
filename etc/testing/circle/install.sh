@@ -16,6 +16,7 @@ sudo apt-get install -y -qq \
   conntrack \
   pv \
   shellcheck \
+  moreutils \
   docker-ce-cli
 
 # Install fuse
@@ -74,7 +75,7 @@ if [ ! -f cached-deps/helm ]; then
       mv ./linux-amd64/helm cached-deps/helm
 fi
 
-# Install goreleaser 
+# Install goreleaser
 if [ ! -f cached-deps/goreleaser ]; then
   GORELEASER_VERSION=0.169.0
   curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \

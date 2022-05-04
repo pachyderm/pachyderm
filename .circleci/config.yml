@@ -39,6 +39,10 @@ jobs:
       BUCKET: << parameters.bucket >>
     steps:
       - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -51,6 +55,9 @@ jobs:
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
+      - run:
+          name: Collect kube events
+          command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
@@ -86,7 +93,7 @@ jobs:
       - run: etc/testing/circle/launch.sh
       - run:
           no_output_timeout: 20m
-          command: etc/testing/circle/run_tests.sh
+          command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
