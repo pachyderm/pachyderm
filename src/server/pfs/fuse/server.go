@@ -1082,6 +1082,8 @@ func mountedState(m *MountStateMachine) StateFn {
 			// if mounted rw and switching to ro, upload changes, then switch the mount type
 		case "unmount":
 			return unmountingState
+		case "commit":
+			return committingState
 		default:
 			m.responses <- Response{
 				Repo:       m.MountKey.Repo,
@@ -1117,6 +1119,72 @@ func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
 			delete(theMap, k)
 		}
 	}
+}
+
+func committingState(m *MountStateMachine) StateFn {
+	// TODO: refactor wrt unmountingState...
+
+	// NB: this function is responsible for placing a response on m.responses
+	// _in all cases_
+	m.transitionedTo("committing", "")
+
+	// TODO XXX VERY IMPORTANT: pause/block filesystem operations during the
+	// upload, otherwise we could get filesystem inconsistency! Need a sort of
+	// lock which multiple fs operations can hold but only one "pauser" can.
+
+	// Only upload files for writeable filesystems
+	if m.Mode == "rw" {
+		// upload any files whose paths start with where we're mounted
+		err := m.manager.uploadFiles(m.Name)
+		if err != nil {
+			logrus.Infof("Error while uploading! %s", err)
+			m.transitionedTo("error", err.Error())
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      err,
+			}
+			return errorState
+		}
+
+		// close the mfc, uploading files, then delete it
+		mfc, err := m.manager.mfc(m.Name)
+		if err != nil {
+			logrus.Infof("Error while getting mfc! %s", err)
+			m.transitionedTo("error", err.Error())
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      err,
+			}
+			return errorState
+		}
+		err = mfc.Close()
+		if err != nil {
+			logrus.Infof("Error while closing mfc! %s", err)
+			m.transitionedTo("error", err.Error())
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      err,
+			}
+			return errorState
+		}
+	}
+
+	// TODO: fill in more fields?
+	m.responses <- Response{}
+	// we always go back from committingState back into mountedState
+	return mountedState
 }
 
 func unmountingState(m *MountStateMachine) StateFn {
