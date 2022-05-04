@@ -44,6 +44,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
   disabled,
   to,
   iconPosition = 'start',
+  download,
   ...props
 }) => {
   const iconOnly = useMemo(() => IconSVG && Children.count(children) === 0, [
@@ -76,6 +77,14 @@ export const Button: FunctionComponent<ButtonProps> = ({
         iconColor = 'white';
     }
 
+    if (iconOnly && IconSVG) {
+      return (
+        <Icon small color={iconColor} disabled={disabled}>
+          <IconSVG />
+        </Icon>
+      );
+    }
+
     return (
       <Group spacing={8} align="center" justify="center">
         {IconSVG && (iconPosition === 'start' || iconPosition === 'both') && (
@@ -91,11 +100,18 @@ export const Button: FunctionComponent<ButtonProps> = ({
         )}
       </Group>
     );
-  }, [IconSVG, children, disabled, buttonType, color, iconPosition]);
+  }, [IconSVG, children, disabled, buttonType, color, iconPosition, iconOnly]);
 
   if (href) {
     return (
-      <a className={classes} href={href} {...props}>
+      <a
+        className={classes}
+        href={href}
+        target={download ? undefined : '_blank'}
+        rel="noopener noreferrer"
+        download={download}
+        {...props}
+      >
         {buttonChildren}
       </a>
     );

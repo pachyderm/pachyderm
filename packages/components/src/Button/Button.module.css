@@ -26,7 +26,7 @@
   outline: none;
   border: none;
   text-align: center;
-
+  height: 2rem;
 }
 
 .base > * {
@@ -35,11 +35,11 @@
 }
 
 .iconOnly {
-  padding: 0.3125rem;
+  padding: 0.1875rem 0.375rem;
 }
 
 .base:not(.iconOnly) {
-  padding: 0.28125rem 1rem;
+  padding: 0.28125rem 0.5rem;
   height: 2rem;
 }
 
@@ -146,17 +146,16 @@
   align-items: center;
 }
 
-
-.buttonGroup > .base:not(.ghost) {
-  margin-left: 1rem;
+.buttonGroup > .base:not(.ghost):not(:first-child) {
+  margin-left: 0.5rem;
 }
 
 .buttonGroup > .base:last-child:not(.ghost):not(.iconOnly) {
-  margin-right: 1rem;
+  margin-right: 0.5rem;
 }
 
 .buttonGroup > .base:not(.ghost) + .ghost {
-  margin-left: 1rem;
+  margin-left: 0.5rem;
 }
 
 .tertiary {

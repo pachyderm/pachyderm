@@ -2,8 +2,6 @@ import classnames from 'classnames';
 import React from 'react';
 
 import {Button, ButtonProps} from '../../../Button';
-import {Group} from '../../../Group';
-import {Icon} from '../../../Icon';
 import {Tooltip} from '../../../Tooltip';
 import useSideNav from '../../hooks/useSideNav';
 
