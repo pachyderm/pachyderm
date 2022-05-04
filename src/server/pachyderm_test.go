@@ -1198,7 +1198,7 @@ func TestInputFailure(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestPipelineFailure_data")
+	dataRepo := tu.UniqueString("TestInputFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit, err := c.StartCommit(dataRepo, "master")
