@@ -123,7 +123,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`).Run())
 }
 
-func TestFailedPipelineInfo(t *testing.T) {
+func TestNotRunJobInfo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -173,6 +173,9 @@ func TestFailedPipelineInfo(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		pachctl wait commit data@master
 		sleep 10
+		# make sure that there is a not-run job
+		pachctl list job --raw \
+			| match "JOB_NOT_RUN"
 		# make sure the results have the full pipeline info, including version
 		pachctl list pipeline \
 			| match "cancelled"
