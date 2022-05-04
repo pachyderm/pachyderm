@@ -2,7 +2,6 @@ package pachsql_test
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -51,7 +50,7 @@ func TestGetTableInfo(suite *testing.T) {
 			NewDB: dockertestenv.NewEphemeralMySQLDB,
 			Expected: &pachsql.TableInfo{
 				"test_table",
-				"override at runtime",
+				"MySQL doesn't have schema, use database name instead",
 				[]pachsql.ColumnInfo{
 					{"c_id", "INT", false, 10, 0},
 					{"c_smallint", "SMALLINT", false, 5, 0},
@@ -107,9 +106,8 @@ func TestGetTableInfo(suite *testing.T) {
 				tc.Expected.Schema = dbName
 			}
 			db := tc.NewDB(t, dbName)
-			// For mysql, we created a database named public via NewMySQL
 			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
-			info, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.test_table", tc.Expected.Schema))
+			info, err := pachsql.GetTableInfo(ctx, db, "test_table")
 			require.NoError(t, err)
 			require.Len(t, info.Columns, reflect.TypeOf(pachsql.TestRow{}).NumField())
 			require.Equal(t, tc.Expected, info)

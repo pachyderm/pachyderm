@@ -83,8 +83,7 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 			nullable = true
 		}
 		var err error
-		// What to do when !ok?
-		precision, scale, ok := cType.DecimalSize()
+		precision, scale, _ := cType.DecimalSize()
 		row[i], err = makeTupleElement(dbType, nullable, precision, scale)
 		if err != nil {
 			return nil, err

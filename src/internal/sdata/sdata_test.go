@@ -191,7 +191,7 @@ func TestSQLTupleWriter(suite *testing.T) {
 	for _, tc := range testcases {
 		suite.Run(tc.Name, func(t *testing.T) {
 			dbName := testutil.GenerateEphermeralDBName(t)
-			tableName := "test_table2"
+			tableName := "test_table"
 			db := tc.NewDB(t, dbName)
 			require.NoError(t, pachsql.CreateTestTable(db, tableName, pachsql.TestRow{}))
 
