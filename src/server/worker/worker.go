@@ -74,7 +74,7 @@ func NewWorker(
 	worker.APIServer = server.NewAPIServer(driver, worker.status, env.Config().PodName)
 
 	go worker.master(env)
-	go worker.worker(env) // add env here
+	go worker.worker(env)
 	return worker, nil
 }
 
