@@ -3,9 +3,12 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.6.0
-  gcp-cli: circleci/gcp-cli@2.4.0
+  gcp-cli: circleci/gcp-cli@2.4.1
 
 parameters:
+  machine_image:
+    type: string
+    default: "ubuntu-2004:202201-02"
   run_flaky_tests:
     type: string
     default: ""
@@ -29,7 +32,7 @@ jobs:
         type: string
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202101-01
+      image: << pipeline.parameters.machine_image >>
     environment:
       PPS_BUCKETS: "6"
       GOPROXY: https://proxy.golang.org
@@ -45,8 +48,10 @@ jobs:
           key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
-      - run: etc/testing/circle/start-minikube.sh
-
+      - run:
+          name: Start minikube
+          command: etc/testing/circle/start-minikube.sh
+          background: true
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -73,6 +78,11 @@ jobs:
                 key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
                 paths:
                   - /home/circleci/.gocache
+      - run: etc/testing/circle/wait-minikube.sh
+      - run:
+          name: Collect kube events
+          command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
+          background: true
       - run: etc/testing/circle/launch.sh
       - run:
           no_output_timeout: 20m
@@ -132,7 +142,7 @@ jobs:
   load_test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202101-01
+      image: << pipeline.parameters.machine_image >>
     environment:
       GOOGLE_PROJECT_ID: build-release-001
       GOOGLE_COMPUTE_ZONE: us-east1-b
@@ -140,7 +150,6 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
-      - gcp-cli/install
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/install.sh
@@ -157,7 +166,7 @@ jobs:
         type: string
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202101-01
+      image: << pipeline.parameters.machine_image >>
     environment:
       BUCKET: << parameters.bucket >>
       GOOGLE_PROJECT_ID: build-release-001
@@ -166,7 +175,6 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
-      - gcp-cli/install
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/install.sh
@@ -182,7 +190,7 @@ jobs:
   rootless:
     resource_class: large
     machine:
-      image: ubuntu-2004:202101-01
+      image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
       - run: etc/testing/circle/install.sh
@@ -190,7 +198,7 @@ jobs:
   deploy:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202101-01
+      image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
       - run: etc/testing/circle/install.sh

@@ -127,6 +127,7 @@ func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
 }
 
 func (tester *ChannelWatchTester) ExpectError(err error) {
+	tester.t.Helper()
 	ev := tester.nextEvent(5 * time.Second)
 	require.NotNil(tester.t, ev)
 	require.Equal(tester.t, TestEvent{watch.EventError, "", nil}, newTestEvent(tester.t, ev))

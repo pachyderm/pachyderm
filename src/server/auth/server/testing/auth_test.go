@@ -2861,9 +2861,11 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
 
 	// alice can view the pipeline logs
-	pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
-	pipelineLogsIter.Next()
-	require.NoError(t, pipelineLogsIter.Err())
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
+		pipelineLogsIter.Next()
+		return pipelineLogsIter.Err()
+	}, "alice can view the pipeline logs")
 
 	// PachdLogReaderRole grants authorized retrieval of pachd logs
 	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),

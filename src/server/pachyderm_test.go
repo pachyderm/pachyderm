@@ -7384,14 +7384,22 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the job to get scheduled / appear in listjob
-	// A sleep of 15s is insufficient
-	time.Sleep(25 * time.Second)
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	var job *pps.JobInfo
+	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+		jobs, err := c.ListJob(pipeline, nil, -1, true)
+		if err != nil {
+			return fmt.Errorf("list job: %w", err) //nolint:wrapcheck
+
+		}
+		if got, want := len(jobs), 1; got != want {
+			return fmt.Errorf("job count: got %v want %v (jobs: %v)", got, want, jobs) //nolint:wrapcheck
+		}
+		job = jobs[0]
+		return nil
+	}, "pipeline should appear in list jobs")
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(job.Job.Pipeline.Name, job.Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
 	started, err := types.TimestampFromProto(jobInfo.Started)
