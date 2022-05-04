@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestFormatParse is a round trip from a Tuple through formatting and parsing
@@ -169,31 +170,33 @@ func TestMaterializeSQL(t *testing.T) {
 	}
 }
 
-func TestSQLTupleWriter(t *testing.T) {
+func TestSQLTupleWriter(suite *testing.T) {
 	testcases := []struct {
 		Name  string
-		NewDB func(t testing.TB) *sqlx.DB
+		NewDB func(testing.TB, string) *sqlx.DB
 	}{
 		{
 			"Postgres",
-			dockertestenv.NewPostgres,
+			dockertestenv.NewEphemeralPostgresDB,
 		},
 		{
 			"MySQL",
-			dockertestenv.NewMySQL,
+			dockertestenv.NewEphemeralMySQLDB,
 		},
 		{
 			"Snowflake",
-			testsnowflake.NewSnowSQL,
+			testsnowflake.NewEphemeralSnowflakeDB,
 		},
 	}
 	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			db := tc.NewDB(t)
-			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
+		suite.Run(tc.Name, func(t *testing.T) {
+			dbName := testutil.GenerateEphermeralDBName(t)
+			tableName := "test_table2"
+			db := tc.NewDB(t, dbName)
+			require.NoError(t, pachsql.CreateTestTable(db, tableName, pachsql.TestRow{}))
 
 			ctx := context.Background()
-			tableInfo, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, tableName)
 			require.NoError(t, err)
 
 			tx, err := db.Beginx()
@@ -224,7 +227,7 @@ func TestSQLTupleWriter(t *testing.T) {
 
 			// assertions
 			var count int
-			require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+			require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", tableName)).Scan(&count))
 			require.Equal(t, nRows, count)
 		})
 	}

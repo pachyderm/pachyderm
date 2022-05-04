@@ -83,7 +83,9 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 			nullable = true
 		}
 		var err error
-		row[i], err = makeTupleElement(dbType, nullable)
+		// What to do when !ok?
+		precision, scale, ok := cType.DecimalSize()
+		row[i], err = makeTupleElement(dbType, nullable, precision, scale)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +115,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 	tuple := make(Tuple, len(info.Columns))
 	for i, ci := range info.Columns {
 		var err error
-		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable)
+		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable, ci.Precision, ci.Scale)
 		if err != nil {
 			return nil, err
 		}
@@ -121,53 +123,56 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 	return tuple, nil
 }
 
-func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
+func makeTupleElement(dbType string, nullable bool, precision int64, scale int64) (interface{}, error) {
 	switch dbType {
 	case "BOOL", "BOOLEAN":
 		if nullable {
 			return new(sql.NullBool), nil
-		} else {
-			return new(bool), nil
 		}
+		return new(bool), nil
 	case "SMALLINT", "INT2":
 		if nullable {
 			return new(sql.NullInt16), nil
-		} else {
-			return new(int16), nil
 		}
+		return new(int16), nil
 	case "INTEGER", "INT", "INT4":
 		if nullable {
 			return new(sql.NullInt32), nil
-		} else {
-			return new(int32), nil
 		}
-	// TODO "NUMBER" type from Snowflake can vary in precision, but default to int64 for now.
-	// https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#number
-	case "BIGINT", "INT8", "NUMBER":
+		return new(int32), nil
+	case "BIGINT", "INT8":
 		if nullable {
 			return new(sql.NullInt64), nil
-		} else {
+		}
+		return new(int64), nil
+	// FIXME: for now, use either int64 or float64 for arbitrary precision numbers,
+	// but this is not enough for numbers outside their range.
+	case "NUMERIC", "NUMBER", "DECIMAL", "FIXED":
+		if nullable {
+			if scale == 0 && precision > 0 {
+				return new(sql.NullInt64), nil
+			}
+			return new(sql.NullFloat64), nil
+		}
+		if scale == 0 && precision > 0 {
 			return new(int64), nil
 		}
-	// TODO account for precision and scale as well
-	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION", "FIXED":
+		return new(float64), nil
+	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION":
 		if nullable {
 			return new(sql.NullFloat64), nil
-		} else {
-			return new(float64), nil
 		}
+		return new(float64), nil
 	case "VARCHAR", "TEXT", "CHARACTER VARYING":
 		if nullable {
 			return new(sql.NullString), nil
-		} else {
-			return new(string), nil
 		}
-	case "DATE", "TIMESTAMP", "TIMESTAMP_NTZ", "TIMESTAMP WITHOUT TIME ZONE":
+		return new(string), nil
+	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
 		if nullable {
 			return new(sql.NullTime), nil
-		} else {
-			return new(time.Time), nil
 		}
+		return new(time.Time), nil
 	default:
 		return nil, errors.Errorf("unrecognized type: %v", dbType)
 	}
