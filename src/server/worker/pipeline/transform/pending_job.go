@@ -163,18 +163,17 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func(datum.De
 // its DataTotal field.
 func (pj *pendingJob) writeDatumCount(ctx context.Context, taskDoer task.Doer) error {
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+	var count int
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
-		_, count, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
-		if err != nil {
-			return err
-		}
-		pj.ji.DataTotal = int64(count)
-		if err := pj.writeJobInfo(); err != nil {
-			return err
-		}
-		return nil
-	})
+		var err error
+		_, count, err = pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
+		return err
+	}); err != nil {
+		return err
+	}
+	pj.ji.DataTotal = int64(count)
+	return pj.writeJobInfo()
 }
 
 // The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the base job.
