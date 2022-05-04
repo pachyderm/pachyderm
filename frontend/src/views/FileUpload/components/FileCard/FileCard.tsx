@@ -1,4 +1,5 @@
 import {
+  Button,
   CloseSVG,
   Group,
   Icon,
@@ -57,17 +58,17 @@ const FileCard: React.FC<FileCardProps> = ({
   return (
     <Group vertical>
       <div className={styles.base}>
-        <button
+        <Button
+          IconSVG={CloseSVG}
+          aria-label="remove file"
           type="button"
           className={styles.cancelButton}
           onClick={cancel}
           disabled={cancelLoading}
           data-testid="FileCard__cancel"
-        >
-          <Icon color="black" small disabled={cancelLoading}>
-            <CloseSVG aria-label="remove file" />
-          </Icon>
-        </button>
+          buttonType="ghost"
+          color="black"
+        />
         <Group spacing={8} align="start" className={styles.infoWrapper}>
           <FileIcon fileType={fileMajorType} />
           <div className={styles.info}>

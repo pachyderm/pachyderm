@@ -1,10 +1,4 @@
-import {
-  ButtonLink,
-  TrashSVG,
-  Icon,
-  Tooltip,
-  BasicModal,
-} from '@pachyderm/components';
+import {TrashSVG, Tooltip, BasicModal, Button} from '@pachyderm/components';
 import React from 'react';
 
 import useDeleteRepoButton from './hooks/useDeleteRepoButton';
@@ -40,15 +34,14 @@ const DeleteRepoButton: React.FC = () => {
             : "This repo can't be deleted while it has associated pipelines."
         }
       >
-        <ButtonLink
+        <Button
           disabled={!canDelete}
           onClick={() => setModalOpen(true)}
           data-testid="DeleteRepoButton__link"
-        >
-          <Icon color="plum">
-            <TrashSVG aria-label="Delete" />
-          </Icon>
-        </ButtonLink>
+          buttonType="ghost"
+          IconSVG={TrashSVG}
+          aria-label="Delete"
+        />
       </Tooltip>
     </>
   );

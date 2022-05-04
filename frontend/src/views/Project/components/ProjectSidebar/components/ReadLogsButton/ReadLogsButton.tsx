@@ -1,4 +1,4 @@
-import {Link, DocumentSVG, Icon, Button} from '@pachyderm/components';
+import {DocumentSVG, Button} from '@pachyderm/components';
 import React from 'react';
 
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -6,8 +6,6 @@ import {
   logsViewerJobRoute,
   logsViewerPipelneRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-
-import styles from './ReadLogsButton.module.css';
 
 interface ReadLogsButtonProps {
   isButton?: boolean;
@@ -27,26 +25,14 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({isButton = false}) => {
         pipelineId: pipelineId,
       });
 
-  if (isButton) {
-    return (
-      <Button
-        autoWidth
-        className={styles.button}
-        buttonType={'secondary'}
-        to={logsLink}
-      >
-        Read Log
-      </Button>
-    );
-  }
-
   return (
-    <Link to={logsLink} className={styles.base}>
-      <Icon color="plum" className={styles.iconSvg}>
-        <DocumentSVG />
-      </Icon>
+    <Button
+      buttonType={isButton ? 'secondary' : 'ghost'}
+      to={logsLink}
+      IconSVG={!isButton ? DocumentSVG : undefined}
+    >
       Read Logs
-    </Link>
+    </Button>
   );
 };
 

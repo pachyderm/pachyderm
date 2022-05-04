@@ -5,7 +5,7 @@ import {
   AddCircleSVG,
   CloseCircleSVG,
   Icon,
-  Group,
+  ButtonGroup,
 } from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import React from 'react';
@@ -129,9 +129,8 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId}) => {
             </Description>
           )}
       </dl>
-      <Group spacing={8}>
+      <ButtonGroup>
         <Button
-          autoWidth
           onClick={() =>
             browserHistory.push(
               getPathToFileBrowser({
@@ -147,7 +146,6 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId}) => {
         </Button>
         {commit.hasLinkedJob && (
           <Button
-            autoWidth
             buttonType="secondary"
             onClick={() =>
               browserHistory.push(
@@ -162,7 +160,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId}) => {
             Linked Job
           </Button>
         )}
-      </Group>
+      </ButtonGroup>
     </div>
   ) : (
     <div />

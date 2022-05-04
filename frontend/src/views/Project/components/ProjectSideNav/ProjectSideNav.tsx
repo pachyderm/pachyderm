@@ -42,7 +42,6 @@ const ProjectSideNav: React.FC = () => {
             to={swapPath}
             onClick={() => handleListDefaultView(false)}
             className={styles.buttonLink}
-            autoWidth
           >
             View Lineage
           </SideNav.SideNavButton>
@@ -54,7 +53,6 @@ const ProjectSideNav: React.FC = () => {
             to={swapPath}
             onClick={() => handleListDefaultView(true)}
             className={styles.buttonLink}
-            autoWidth
           >
             View List
           </SideNav.SideNavButton>
@@ -91,7 +89,6 @@ const ProjectSideNav: React.FC = () => {
             onClick={openModal}
             tooltipContent="Create New Repo"
             className={classnames(styles.buttonLink, styles.light)}
-            autoWidth
             buttonType="secondary"
             styleMode="light"
           >

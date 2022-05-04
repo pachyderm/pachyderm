@@ -118,7 +118,11 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                           placement="left"
                           tooltipKey="description"
                         >
-                          <Group spacing={8} className={styles.commitData}>
+                          <Group
+                            spacing={8}
+                            className={styles.commitData}
+                            align="center"
+                          >
                             ID
                             <CommitIdCopy small longId commit={commit.id} />
                           </Group>

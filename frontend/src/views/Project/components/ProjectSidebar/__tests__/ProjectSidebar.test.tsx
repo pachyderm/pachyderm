@@ -65,8 +65,8 @@ describe('ProjectSidebar', () => {
     it('should display pipeline logs button', async () => {
       window.history.replaceState('', '', '/project/1/pipelines/montage');
 
-      const {getByText} = render(<Project />);
-      const logsLink = getByText('Read Logs');
+      const {getByRole} = render(<Project />);
+      const logsLink = getByRole('link', {name: 'Read Logs'});
       expect(logsLink as HTMLElement).toHaveAttribute(
         'href',
         `/project/1/pipelines/montage/logs`,

@@ -31,7 +31,7 @@
 }
 
 .commitStatusIcon {
-  margin-right: 0.25rem;
+  margin-right: 0.5rem;
 }
 
 .content {
@@ -65,10 +65,5 @@
   padding: 0.75rem 1rem;
   border-top: solid 1px var(--line-grey);
   width: 100%;
-  justify-content: flex-end;
-}
-
-.actionButtons {
-  flex: 1;
   justify-content: flex-end;
 }

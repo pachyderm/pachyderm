@@ -59,10 +59,6 @@
   width: 34.375rem;
 }
 
-.fileButton:disabled {
-  opacity: 0.5;
-}
-
 .error {
   white-space: nowrap;
 }

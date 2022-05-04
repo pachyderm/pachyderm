@@ -41,6 +41,11 @@
   opacity: 0.5;
 }
 
+.inactiveIcon:hover {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 .fullModal {
   z-index: var(--z-index-modal-overlay);
 }

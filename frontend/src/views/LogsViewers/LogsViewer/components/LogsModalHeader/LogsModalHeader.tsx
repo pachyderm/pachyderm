@@ -1,7 +1,7 @@
 import {GetLogsQuery} from '@graphqlTypes';
 import {
   Button,
-  ButtonLink,
+  ButtonGroup,
   CopySVG,
   Switch,
   useClipboardCopy,
@@ -85,19 +85,20 @@ const LogsModalHeader: React.FC<LogsModalHeaderProps> = ({
             Raw Logs
           </div>
         </div>
-        <div className={styles.exportGroup}>
-          <ButtonLink
+        <ButtonGroup className={styles.exportGroup}>
+          <Button
+            buttonType="ghost"
+            IconSVG={CopySVG}
             className={styles.copy}
             onClick={copy}
             disabled={disableExport}
-            small
           >
-            <CopySVG /> Copy selected rows
-          </ButtonLink>
+            Copy selected rows
+          </Button>
           <Button onClick={download} disabled={disableExport}>
             Download
           </Button>
-        </div>
+        </ButtonGroup>
       </div>
     </Header>
   );

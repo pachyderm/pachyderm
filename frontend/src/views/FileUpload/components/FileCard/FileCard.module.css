@@ -27,13 +27,7 @@
 }
 
 .cancelButton {
-  border: none;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  background-color: transparent;
   align-self: flex-end;
-  opacity: 0.5;
 }
 
 .loading {

@@ -3,7 +3,6 @@ import {
   Icon,
   Link,
   Input,
-  ButtonLink,
   Form,
   Label,
   Button,
@@ -31,7 +30,8 @@ const GlobalFilter: React.FC = () => {
   return (
     <Form formContext={formCtx}>
       <div className={styles.base} ref={containerRef}>
-        <ButtonLink
+        <Button
+          buttonType="tertiary"
           onClick={() => setDropdownOpen(true)}
           className={styles.filter}
         >
@@ -39,7 +39,7 @@ const GlobalFilter: React.FC = () => {
           {!globalIdFilter
             ? 'Filter by Global ID'
             : `Global ID: ${globalIdFilter.slice(0, 8)}`}
-        </ButtonLink>
+        </Button>
         {dropdownOpen && (
           <div className={styles.dropdownBase}>
             <div className={styles.infoText}>
@@ -81,7 +81,6 @@ const GlobalFilter: React.FC = () => {
                 autoFocus={true}
               />
               <Button
-                autoWidth
                 disabled={loading}
                 className={styles.submitButton}
                 aria-label={

@@ -1,6 +1,7 @@
 .base {
   margin: 0.25rem;
   -webkit-appearance: none;
+  padding: 0 1rem;
 }
 
 .base:focus {

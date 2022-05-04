@@ -1,4 +1,4 @@
-import {ButtonLink} from '@pachyderm/components';
+import {Button} from '@pachyderm/components';
 import React, {useState} from 'react';
 
 import ConnectModal from '@dash-frontend/components/ConnectModal';
@@ -36,12 +36,13 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         {children}
       </span>
       {connect && (
-        <ButtonLink
+        <Button
+          buttonType="ghost"
           onClick={() => showConnectModal(true)}
           className={styles.message}
         >
           Connect to Pachctl
-        </ButtonLink>
+        </Button>
       )}
       <ConnectModal
         show={connectModalShow}

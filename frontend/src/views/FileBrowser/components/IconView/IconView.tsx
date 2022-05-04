@@ -1,7 +1,6 @@
 import {File, FileType, FileCommitState} from '@graphqlTypes';
 import {
   CopySVG,
-  ButtonLink,
   Link,
   DownloadSVG,
   Group,
@@ -10,6 +9,8 @@ import {
   Icon,
   AddCircleSVG,
   UpdatedCircleSVG,
+  Button,
+  ButtonGroup,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import capitalize from 'lodash/capitalize';
@@ -69,37 +70,36 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
             {capitalize(file.commitAction)}
           </Group>
         )}
-        <Group spacing={16} align="center" className={styles.actionButtons}>
+        <ButtonGroup>
           {copySupported && (
             <Tooltip tooltipKey={filePath} tooltipText="Copy Path">
-              <ButtonLink onClick={copy} aria-label="Copy">
-                <Icon color="plum">
-                  <CopySVG />
-                </Icon>
-              </ButtonLink>
+              <Button
+                buttonType="ghost"
+                onClick={copy}
+                aria-label="Copy"
+                IconSVG={CopySVG}
+              />
             </Tooltip>
           )}
           {file.type === FileType.FILE ? (
             !file.downloadDisabled && file.download ? (
               <>
-                <Link
+                <Button
                   to={file.download}
                   download
                   aria-label={`Download ${file.path}`}
-                >
-                  <Icon color="plum">
-                    <DownloadSVG />
-                  </Icon>
-                </Link>
+                  IconSVG={DownloadSVG}
+                  buttonType="ghost"
+                />
                 <DeleteFileButton
                   file={file}
                   aria-label={`Delete ${file.path}`}
-                >
-                  <Icon color="plum">
-                    <TrashSVG />
-                  </Icon>
-                </DeleteFileButton>
-                {previewSupported && <Link to={filePath}>Preview</Link>}
+                />
+                {previewSupported && (
+                  <Button buttonType="ghost" to={filePath}>
+                    Preview
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -107,24 +107,24 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
                   tooltipKey={`${filePath}download`}
                   tooltipText="This file is too large to download"
                 >
-                  <Link>
-                    <Icon color="plum" aria-label={`Download ${file.path}`}>
-                      <DownloadSVG />
-                    </Icon>
-                  </Link>
+                  <Button
+                    IconSVG={DownloadSVG}
+                    buttonType="ghost"
+                    aria-label={`Download ${file.path}`}
+                  />
                 </Tooltip>
                 <Tooltip
                   tooltipKey={`${filePath}preview`}
                   tooltipText="This file is too large to preview"
                 >
-                  <Link>Preview</Link>
+                  <Button buttonType="ghost">Preview</Button>
                 </Tooltip>
               </>
             )
           ) : (
             <Link to={filePath}>See Files</Link>
           )}
-        </Group>
+        </ButtonGroup>
       </Group>
     </div>
   );

@@ -5,8 +5,9 @@ import {
   CheckboxSVG,
   FullscreenSVG,
   FlipSVG,
-  Icon,
   ErrorText,
+  Button,
+  ButtonGroup,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -55,6 +56,17 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
   const {hasConnectInfo} = useWorkspace();
 
   const noDags = dags?.length === 0;
+
+  const RotateSVG = () => {
+    return (
+      <FlipSVG
+        className={classnames(styles.rotateSvg, {
+          [styles.flipped]: dagDirection === DagDirection.RIGHT,
+        })}
+      />
+    );
+  };
+
   return (
     <View className={styles.view}>
       <div className={styles.canvasControls}>
@@ -67,91 +79,60 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           value={sliderZoomValue * 100}
           disabled={noDags}
         />
-        <button
-          className={styles.controlButton}
-          onClick={rotateDag}
-          disabled={noDags}
-          data-testid="DAGView__flipCanvas"
-        >
-          <Icon data-testid="DAGView__flipCanvasIcon">
-            <FlipSVG
-              aria-label={'Flip Canvas'}
-              className={classnames(styles.rotateSvg, {
-                [styles.flipped]: dagDirection === DagDirection.RIGHT,
-              })}
-            />
-          </Icon>
-          <label
-            className={styles.controlLabel}
-            data-testid="DAGView__flipCanvasLabel"
+        <ButtonGroup>
+          <Button
+            className={styles.controlButton}
+            buttonType="ghost"
+            color="black"
+            IconSVG={RotateSVG}
+            disabled={noDags}
+            data-testid="DAGView__flipCanvas"
+            onClick={rotateDag}
           >
             Flip Canvas
-          </label>
-        </button>
-        <Tooltip
-          className={styles.tooltip}
-          tooltipKey="zoomOut"
-          size="large"
-          placement="bottom"
-          tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
-        >
-          <button
-            className={styles.controlButton}
-            onClick={zoomOut}
-            disabled={noDags}
-            data-testid="DAGView__resetCanvas"
+          </Button>
+          <Tooltip
+            className={styles.tooltip}
+            tooltipKey="zoomOut"
+            size="large"
+            placement="bottom"
+            tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
           >
-            <Icon data-testid="DAGView__resetCanvasIcon">
-              <FullscreenSVG aria-label="Reset Canvas" />
-            </Icon>
-            <label
-              className={styles.controlLabel}
-              data-testid="DAGView__resetCanvasLabel"
+            <Button
+              className={styles.controlButton}
+              onClick={zoomOut}
+              disabled={noDags}
+              data-testid="DAGView__resetCanvas"
+              buttonType="ghost"
+              color="black"
+              IconSVG={FullscreenSVG}
             >
               Reset Canvas
-            </label>
-          </button>
-        </Tooltip>
-        <Tooltip
-          className={styles.tooltip}
-          tooltipKey="skipCenter"
-          size="large"
-          placement="bottom"
-          tooltipText={`${
-            !skipCenterOnSelect ? 'Disable' : 'Enable'
-          } panning and zooming to a selection`}
-        >
-          <button
-            className={styles.controlButton}
-            onClick={() => {
-              handleChangeCenterOnSelect(!!skipCenterOnSelect);
-            }}
-            disabled={noDags}
-            data-testid="DAGView__centerSelections"
+            </Button>
+          </Tooltip>
+          <Tooltip
+            className={styles.tooltip}
+            tooltipKey="skipCenter"
+            size="large"
+            placement="bottom"
+            tooltipText={`${
+              !skipCenterOnSelect ? 'Disable' : 'Enable'
+            } panning and zooming to a selection`}
           >
-            <Icon>
-              {!skipCenterOnSelect ? (
-                <CheckboxCheckedSVG
-                  aria-label="Uncheck Skip Center"
-                  className={styles.svgControl}
-                  data-testid="DAGView__centerSelectionsChecked"
-                />
-              ) : (
-                <CheckboxSVG
-                  aria-label="Check Skip Center"
-                  className={styles.svgControl}
-                  data-testid="DAGView__centerSelectionsUnchecked"
-                />
-              )}
-            </Icon>
-            <label
-              className={styles.controlLabel}
-              data-testid="DAGView__centerSelectionsLabel"
+            <Button
+              onClick={() => {
+                handleChangeCenterOnSelect(!!skipCenterOnSelect);
+              }}
+              disabled={noDags}
+              data-testid="DAGView__centerSelections"
+              buttonType="ghost"
+              color="black"
+              IconSVG={!skipCenterOnSelect ? CheckboxCheckedSVG : CheckboxSVG}
             >
               Center Selections
-            </label>
-          </button>
-        </Tooltip>
+            </Button>
+          </Tooltip>
+        </ButtonGroup>
         {error && (
           <ErrorText className={styles.dagError}>
             Connection error: data may not be up to date.

@@ -1,6 +1,6 @@
 import {File} from '@graphqlTypes';
-import {ButtonLink, BasicModal} from '@pachyderm/components';
-import React from 'react';
+import {BasicModal, Button, TrashSVG} from '@pachyderm/components';
+import React, {Children} from 'react';
 
 import useDeleteFileButton from './hooks/useDeleteFileButton';
 
@@ -40,9 +40,14 @@ const DeleteRepoButton: React.FC<DeleteFileButtonProps> = ({
         {`${file.repoName}@${file.commitId}`}
       </BasicModal>
       {!deleteDisabled && (
-        <ButtonLink onClick={openModal} data-testid="DeleteFileButton__link">
+        <Button
+          buttonType="ghost"
+          onClick={openModal}
+          data-testid="DeleteFileButton__link"
+          IconSVG={Children.count(children) === 0 ? TrashSVG : undefined}
+        >
           {children}
-        </ButtonLink>
+        </Button>
       )}
     </>
   );

@@ -37,7 +37,7 @@ describe('Dag', () => {
 
     const failedJob = cy.findAllByText("Failure", {timeout: 60000});
     failedJob.should('exist');
-    failedJob.last().click();
+    failedJob.last().click({force: true});
 
     cy.findByTestId('CommitIdCopy__id').invoke('text').then((jobId) => {
       cy.findByText('Filter by Global ID').click();

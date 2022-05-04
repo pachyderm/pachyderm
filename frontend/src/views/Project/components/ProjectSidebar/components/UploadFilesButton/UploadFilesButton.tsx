@@ -1,23 +1,19 @@
-import {Icon, UploadSVG, Link} from '@pachyderm/components';
+import {Button, UploadSVG} from '@pachyderm/components';
 import React from 'react';
 
 import useUploadFilesButton from './hooks/useUploadFilesButton';
-import styles from './UploadFilesButton.module.css';
 
 const UploadFilesButton: React.FC = () => {
   const {fileUploadPath, loading} = useUploadFilesButton();
   return (
-    <Link to={fileUploadPath} className={styles.base}>
-      <Icon
-        color="plum"
-        className={styles.uploadSVG}
-        disabled={loading}
-        aria-hidden="true"
-      >
-        <UploadSVG />
-      </Icon>
+    <Button
+      buttonType="ghost"
+      to={fileUploadPath}
+      IconSVG={UploadSVG}
+      disabled={loading}
+    >
       Upload Files
-    </Link>
+    </Button>
   );
 };
 

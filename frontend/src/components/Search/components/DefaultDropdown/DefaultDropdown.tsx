@@ -1,4 +1,4 @@
-import {ButtonLink, Chip, ChipGroup} from '@pachyderm/components';
+import {Button, Chip, ChipGroup} from '@pachyderm/components';
 import React from 'react';
 
 import {jobStates} from '@dash-frontend/components/JobList/components/JobListStatusFilter/JobListStatusFilter';
@@ -21,9 +21,9 @@ const DefaultDropdown: React.FC = () => {
         <>
           <div className={styles.sectionHeader}>
             <SectionHeader>Recent Searches</SectionHeader>
-            <ButtonLink small onClick={clearSearchHistory}>
+            <Button onClick={clearSearchHistory} buttonType="ghost">
               Clear
-            </ButtonLink>
+            </Button>
           </div>
           <div className={styles.recentSearchGroup}>
             <ChipGroup>

@@ -1,10 +1,4 @@
-import {
-  ButtonLink,
-  TrashSVG,
-  Icon,
-  Tooltip,
-  BasicModal,
-} from '@pachyderm/components';
+import {TrashSVG, Tooltip, BasicModal, Button} from '@pachyderm/components';
 import React from 'react';
 
 import useDeletePipelineButton from './hooks/useDeletePipelineButton';
@@ -40,15 +34,14 @@ const DeletePipelineButton: React.FC = () => {
             : "This pipeline can't be deleted while it has downstream pipelines."
         }
       >
-        <ButtonLink
+        <Button
+          IconSVG={TrashSVG}
           disabled={!canDelete}
           onClick={() => setModalOpen(true)}
           data-testid="DeletePipelineButton__link"
-        >
-          <Icon color="plum">
-            <TrashSVG aria-label="Delete" />
-          </Icon>
-        </ButtonLink>
+          buttonType="ghost"
+          aria-label="Delete"
+        />
       </Tooltip>
     </>
   );

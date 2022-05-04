@@ -1,13 +1,13 @@
 import {File, FileType, FileCommitState} from '@graphqlTypes';
 import {
-  ButtonLink,
-  Link,
   Table,
   Group,
   AddCircleSVG,
   UpdatedCircleSVG,
   Icon,
   Tooltip,
+  ButtonGroup,
+  Button,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -65,24 +65,30 @@ const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
       <Table.DataCell>{file.sizeDisplay}</Table.DataCell>
       <Table.DataCell>{fileType}</Table.DataCell>
       <Table.DataCell>
-        <Group spacing={16}>
+        <ButtonGroup>
           {file.type === FileType.FILE ? (
             <>
-              {previewSupported && <Link to={filePath}>Preview</Link>}
-              <Link to={download} download>
+              {previewSupported && (
+                <Button buttonType="ghost" to={filePath}>
+                  Preview
+                </Button>
+              )}
+              <Button to={download} download buttonType="ghost">
                 Download
-              </Link>
+              </Button>
               <DeleteFileButton file={file}>Delete</DeleteFileButton>
             </>
           ) : (
-            <Link to={filePath}>See Files</Link>
+            <Button to={filePath} buttonType="ghost">
+              See Files
+            </Button>
           )}
           {copySupported && (
-            <ButtonLink onClick={copy} aria-label="Copy">
+            <Button buttonType="ghost" onClick={copy} aria-label="Copy">
               Copy Path
-            </ButtonLink>
+            </Button>
           )}
-        </Group>
+        </ButtonGroup>
       </Table.DataCell>
     </Table.Row>
   );

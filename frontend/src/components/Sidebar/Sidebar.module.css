@@ -63,18 +63,6 @@
   align-items: baseline;
 }
 
-.closeButton {
-  display: block;
-}
-
-.closeSvg {
-  color: var(--placeholder-grey);
-}
-
-.trashSvg {
-  color: var(--plum);
-}
-
 .dragBar {
   height: 100%;
   width: 0.35rem;

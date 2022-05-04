@@ -1,9 +1,9 @@
 import {
   CopySVG,
-  ButtonLink,
   useClipboardCopy,
   SuccessCheckmark,
   Icon,
+  Button,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {useCallback} from 'react';
@@ -42,15 +42,13 @@ const CommitIdCopy: React.FC<CommitIdCopyProps> = ({
       data-testid={`CommitIdCopy__id`}
     >
       {copyString}
-      <ButtonLink
+      <Button
+        buttonType="ghost"
         className={classnames(styles.copy, {[styles.copied]: copied})}
         onClick={handleCopy}
         data-testid={`CommitIdCopy_copy`}
-      >
-        <Icon color="plum" small={small}>
-          <CopySVG />
-        </Icon>
-      </ButtonLink>
+        IconSVG={CopySVG}
+      />
       <Icon
         small={small}
         className={classnames(styles.copyCheckmark, {

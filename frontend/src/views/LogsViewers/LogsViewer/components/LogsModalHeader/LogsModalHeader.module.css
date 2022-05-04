@@ -27,13 +27,11 @@
 
 .exportGroup {
   display: flex;
-  margin-right: 2rem;
+  margin-right: 1rem;
 }
 
 .copy {
   white-space: nowrap;
-  margin-right: 2rem;
-  color: var(--pachyderm-plum);
 }
 
 .copy:not(:disabled):hover,

@@ -5,10 +5,10 @@ import {
 } from '@graphqlTypes';
 import {
   ArrowRightSVG,
-  ButtonLink,
   Tooltip,
   GlobalIdSVG,
   Group,
+  ButtonLink,
 } from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';

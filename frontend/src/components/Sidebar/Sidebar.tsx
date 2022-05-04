@@ -1,4 +1,4 @@
-import {ButtonLink, CloseSVG} from '@pachyderm/components';
+import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
 import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 import {Route} from 'react-router';
@@ -86,22 +86,27 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
         <Route path={[PROJECT_PATH, LINEAGE_PATH]}>
           <div className={styles.sideBarToolbar}>
-            <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
-              <UploadFilesButton />
-              <DeleteRepoButton />
-            </Route>
-
-            <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
-              <ReadLogsButton />
-            </Route>
-            <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
-              <DeletePipelineButton />
-            </Route>
-            {onClose && (
-              <ButtonLink className={styles.closeButton} onClick={onClose}>
-                <CloseSVG aria-label="Close" className={styles.closeSvg} />
-              </ButtonLink>
-            )}
+            <ButtonGroup>
+              <Route path={[PROJECT_REPO_PATH, LINEAGE_REPO_PATH]}>
+                <UploadFilesButton />
+                <DeleteRepoButton />
+              </Route>
+              <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
+                <ReadLogsButton />
+              </Route>
+              <Route path={[PROJECT_PIPELINE_PATH, LINEAGE_PIPELINE_PATH]}>
+                <DeletePipelineButton />
+              </Route>
+              {onClose && (
+                <Button
+                  IconSVG={CloseSVG}
+                  onClick={onClose}
+                  aria-label="Close"
+                  color="black"
+                  buttonType="ghost"
+                />
+              )}
+            </ButtonGroup>
           </div>
         </Route>
 

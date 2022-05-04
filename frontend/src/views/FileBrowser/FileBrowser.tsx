@@ -1,11 +1,11 @@
 import {
   Tooltip,
   GenericErrorSVG,
-  ButtonLink,
   FullPageModal,
   ViewIconSVG,
   ViewListSVG,
   LoadingDots,
+  Button,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -80,30 +80,30 @@ const FileBrowser: React.FC = () => {
                   placement="left"
                   tooltipKey="List View"
                 >
-                  <ButtonLink
+                  <Button
+                    buttonType="ghost"
                     onClick={() => setFileView('list')}
                     className={classnames({
                       [styles.inactiveIcon]: fileView === 'list',
                     })}
                     aria-label="switch to list view"
-                  >
-                    <ViewListSVG />
-                  </ButtonLink>
+                    IconSVG={ViewListSVG}
+                  />
                 </Tooltip>
                 <Tooltip
                   tooltipText="Icon View"
                   placement="left"
                   tooltipKey="Icon View"
                 >
-                  <ButtonLink
+                  <Button
+                    buttonType="ghost"
                     onClick={() => setFileView('icon')}
                     className={classnames({
                       [styles.inactiveIcon]: fileView === 'icon',
                     })}
                     aria-label="switch to icon view"
-                  >
-                    <ViewIconSVG />
-                  </ButtonLink>
+                    IconSVG={ViewIconSVG}
+                  />
                 </Tooltip>
               </>
             )}

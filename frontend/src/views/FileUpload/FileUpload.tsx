@@ -5,7 +5,6 @@ import {
   Label,
   Input,
   Button,
-  ButtonLink,
   Select,
   UploadSVG,
   Icon,
@@ -13,6 +12,7 @@ import {
   Link,
   ErrorText,
   HelpText,
+  ButtonGroup,
 } from '@pachyderm/components';
 import React from 'react';
 import {Helmet} from 'react-helmet';
@@ -150,9 +150,7 @@ const FileUpload: React.FC = () => {
                     >
                       <Button
                         buttonType="secondary"
-                        autoSize
                         disabled={loading}
-                        className={styles.fileButton}
                         type="button"
                       >
                         Browse Files
@@ -211,10 +209,10 @@ const FileUpload: React.FC = () => {
             </Group>
           </Group>
           <div className={styles.footer}>
-            <Group spacing={32} align="center">
-              <ButtonLink type="button" onClick={onClose}>
+            <ButtonGroup>
+              <Button buttonType="ghost" type="button" onClick={onClose}>
                 Cancel
-              </ButtonLink>
+              </Button>
               {uploadsFinished ? (
                 <Button
                   type="button"
@@ -231,7 +229,7 @@ const FileUpload: React.FC = () => {
                   Upload
                 </Button>
               )}
-            </Group>
+            </ButtonGroup>
           </div>
         </Form>
       </FullPageModal>

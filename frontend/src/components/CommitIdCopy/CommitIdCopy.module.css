@@ -1,6 +1,5 @@
 .base {
   display: inline-flex;
-  overflow: hidden;
   white-space: pre-wrap;
   line-break: anywhere;
   align-items: center;
@@ -14,7 +13,6 @@
 
 .copy {
   display: inline-flex;
-  margin-top: -2px;
   margin-left: 0.5rem;
   margin-right: 1.75rem;
 }
