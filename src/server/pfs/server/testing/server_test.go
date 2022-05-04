@@ -6186,8 +6186,8 @@ func TestPFS(suite *testing.T) {
 				},
 				options: &pfs.SQLDatabaseEgress{
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
-						Type:           pfs.SQLDatabaseEgress_FileFormat_JSON,
-						JsonFieldNames: []string{"ID", "A"}}},
+						Type:    pfs.SQLDatabaseEgress_FileFormat_JSON,
+						Columns: []string{"ID", "A"}}},
 				tables:         []string{"test_table", "test_table2", "empty_table"},
 				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
@@ -6219,6 +6219,7 @@ func TestPFS(suite *testing.T) {
 				}
 
 				// run Egress to copy data from source commit to target database
+				test.options.Secret = &pfs.SQLDatabaseEgress_Secret{K8SSecret: "does not matter", Key: "does not matter"}
 				test.options.Url = fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort, dbName)
 				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
 					&pfs.EgressRequest{

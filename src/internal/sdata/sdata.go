@@ -3,6 +3,7 @@ package sdata
 import (
 	"database/sql"
 	"io"
+	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -170,4 +171,15 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	default:
 		return nil, errors.Errorf("unrecognized type: %v", dbType)
 	}
+}
+
+// CloneTuple uses Go reflection to make a copy of a Tuple.
+func CloneTuple(t Tuple) Tuple {
+	newTuple := make(Tuple, len(t))
+	for i := range t {
+		v := reflect.New(reflect.TypeOf(t[i]).Elem())
+		v.Elem().Set(reflect.ValueOf(t[i]).Elem())
+		newTuple[i] = v.Interface()
+	}
+	return newTuple
 }

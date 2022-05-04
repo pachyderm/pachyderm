@@ -1493,22 +1493,12 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
-// validateEgress validates the egress field. We only validate secret for now,
-// because the egress field will be taken out of PPS spec eventually.
+// validateEgress validates the egress field.
 func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
 	if egress == nil {
 		return nil
 	}
-	if target, ok := egress.Target.(*pps.Egress_SqlDatabase); ok {
-		secret := target.SqlDatabase.GetSecret()
-		if secret == nil {
-			return errors.New("egress.sql_database.secret is required")
-		}
-		if secret.K8SSecret == "" || secret.Key == "" {
-			return errors.New("egress.sql_database.secret.k8s_secret and egress.sql_database.secret.key are required")
-		}
-	}
-	return nil
+	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
 }
 
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
