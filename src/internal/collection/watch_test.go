@@ -252,7 +252,8 @@ func watchTests(
 			watcher := makeWatcher(ctx, t, reader)
 			tester := NewWatchTester(t, writer, watcher)
 			cancel()
-			for i := 0; i < 10; i++ {
+			var canceled bool
+			for i := 0; i < 11; i++ {
 				// Consume events until we receive the cancellation event.  (Some
 				// events may have arrived before cancellation.)
 				ev := nextEvent(watcher.Watch(), time.Second)
@@ -261,8 +262,10 @@ func watchTests(
 					continue
 				}
 				require.ErrorIs(t, ev.Err, context.Canceled)
+				canceled = true
 				break
 			}
+			require.True(t, canceled, "we should have gotten the cancellation event in the loop")
 			tester.ExpectNoEvents()
 		})
 
