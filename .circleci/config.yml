@@ -152,7 +152,6 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
-      - gcp-cli/install
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/install.sh
@@ -178,7 +177,6 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
-      - gcp-cli/install
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run: etc/testing/circle/install.sh
