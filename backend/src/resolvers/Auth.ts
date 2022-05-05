@@ -25,7 +25,9 @@ const authResolver: AuthResolver = {
         issuer = await getTokenIssuer();
       } catch (e) {
         log.error({eventSource: 'auth issuer'}, String(e));
-        throw new AuthenticationError('Failed to connect to issuer');
+        throw new AuthenticationError(
+          'Unable to connect to authorization issuer',
+        );
       }
 
       try {
@@ -47,7 +49,14 @@ const authResolver: AuthResolver = {
 
         return config;
       } catch (e) {
-        throw new AuthenticationError(String(e));
+        log.error(
+          {eventSource: 'authConfig'},
+          'Issuer is missing authorization_endpoint configuration',
+        );
+        throw new AuthenticationError(
+          'Invalid Auth Config. Your IDP may be misconfigured.',
+          {sourceError: e},
+        );
       }
     },
   },
