@@ -58,16 +58,18 @@ type TestRow struct {
 	Bigint       int64     `column:"c_bigint" dtype:"BIGINT" constraint:"NOT NULL"`
 	Float        float32   `column:"c_float" dtype:"FLOAT" constraint:"NOT NULL"`
 	NumericInt   int64     `column:"c_numeric_int" dtype:"NUMERIC(20,0)" constraint:"NOT NULL"`
-	NumericFloat float64   `column:"c_numeric_float" dtype:"NUMERIC(20,2)" constraint:"NOT NULL"`
+	NumericFloat float64   `column:"c_numeric_float" dtype:"NUMERIC(20,19)" constraint:"NOT NULL"`
 	Varchar      string    `column:"c_varchar" dtype:"VARCHAR(100)" constraint:"NOT NULL"`
 	Time         time.Time `column:"c_time" dtype:"TIMESTAMP" constraint:"NOT NULL"`
 
-	SmallintNull sql.NullInt16   `column:"c_smallint_null" dtype:"SMALLINT" constraint:"NULL"`
-	IntNull      sql.NullInt32   `column:"c_int_null" dtype:"INT" constraint:"NULL"`
-	BigintNull   sql.NullInt64   `column:"c_bigint_null" dtype:"BIGINT" constraint:"NULL"`
-	FloatNull    sql.NullFloat64 `column:"c_float_null" dtype:"FLOAT" constraint:"NULL"`
-	VarcharNull  sql.NullString  `column:"c_varchar_null" dtype:"VARCHAR(100)" constraint:"NULL"`
-	TimeNull     sql.NullTime    `column:"c_time_null" dtype:"TIMESTAMP" constraint:"NULL"`
+	SmallintNull     sql.NullInt16   `column:"c_smallint_null" dtype:"SMALLINT" constraint:"NULL"`
+	IntNull          sql.NullInt32   `column:"c_int_null" dtype:"INT" constraint:"NULL"`
+	BigintNull       sql.NullInt64   `column:"c_bigint_null" dtype:"BIGINT" constraint:"NULL"`
+	FloatNull        sql.NullFloat64 `column:"c_float_null" dtype:"FLOAT" constraint:"NULL"`
+	NumericIntNull   sql.NullInt64   `column:"c_numeric_int_null" dtype:"NUMERIC(20,0)" constraint:"NULL"`
+	NumericFloatNull sql.NullFloat64 `column:"c_numeric_float_null" dtype:"NUMERIC(20,19)" constraint:"NULL"`
+	VarcharNull      sql.NullString  `column:"c_varchar_null" dtype:"VARCHAR(100)" constraint:"NULL"`
+	TimeNull         sql.NullTime    `column:"c_time_null" dtype:"TIMESTAMP" constraint:"NULL"`
 }
 
 // CreateTestTable creates a test table at name in the database
@@ -91,7 +93,7 @@ func GenerateTestData(db *DB, tableName string, n int) error {
 	})
 	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
 	var row TestRow
-	insertStatement := fmt.Sprintf("INSERT INTO test_data %s VALUES %s", formatColumns(row), formatValues(row, db))
+	insertStatement := fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
 	for i := 0; i < n; i++ {
 		fz.Fuzz(&row)
 		row.Id = int16(i)

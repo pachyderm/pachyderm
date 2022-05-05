@@ -155,8 +155,10 @@ func TestMaterializeSQL(t *testing.T) {
 			testName := fmt.Sprintf("%s-%s", dbSpec.Name, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
 				db := dbSpec.New(t)
-				setupTable(t, db)
-				rows, err := db.Query(`SELECT * FROM test_data`)
+				tableName := "test_table"
+				nRows := 10
+				setupTable(t, db, tableName, nRows)
+				rows, err := db.Query(fmt.Sprintf(`SELECT * FROM %s`, tableName))
 				require.NoError(t, err)
 				defer rows.Close()
 				buf := &bytes.Buffer{}
@@ -197,7 +199,11 @@ func TestSQLTupleWriter(suite *testing.T) {
 			require.NoError(t, pachsql.CreateTestTable(db, tableName, pachsql.TestRow{}))
 
 			ctx := context.Background()
-			tableInfo, err := pachsql.GetTableInfo(ctx, db, tableName)
+			schema := "public"
+			if tc.Name == "MySQL" {
+				schema = dbName
+			}
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", schema, tableName))
 			require.NoError(t, err)
 
 			tx, err := db.Beginx()
@@ -233,10 +239,9 @@ func TestSQLTupleWriter(suite *testing.T) {
 	}
 }
 
-func setupTable(t testing.TB, db *pachsql.DB) {
-	const N = 10
-	require.NoError(t, pachsql.CreateTestTable(db, "test_data", pachsql.TestRow{}))
-	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
+func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {
+	require.NoError(t, pachsql.CreateTestTable(db, name, pachsql.TestRow{}))
+	require.NoError(t, pachsql.GenerateTestData(db, name, n))
 }
 
 func newTupleFromTestRow(row interface{}) Tuple {

@@ -2,6 +2,7 @@ package pachsql_test
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestGetTableInfo(suite *testing.T) {
 				"test_table",
 				"public",
 				[]pachsql.ColumnInfo{
-					{"c_id", "INTEGER", false},
+					{"c_id", "SMALLINT", false},
 					{"c_smallint", "SMALLINT", false},
 					{"c_int", "INTEGER", false},
 					{"c_bigint", "BIGINT", false},
@@ -39,6 +40,8 @@ func TestGetTableInfo(suite *testing.T) {
 					{"c_int_null", "INTEGER", true},
 					{"c_bigint_null", "BIGINT", true},
 					{"c_float_null", "DOUBLE PRECISION", true},
+					{"c_numeric_int_null", "NUMERIC", true},
+					{"c_numeric_float_null", "NUMERIC", true},
 					{"c_varchar_null", "CHARACTER VARYING", true},
 					{"c_time_null", "TIMESTAMP WITHOUT TIME ZONE", true},
 				},
@@ -51,7 +54,7 @@ func TestGetTableInfo(suite *testing.T) {
 				"test_table",
 				"MySQL doesn't have schema, use database name instead",
 				[]pachsql.ColumnInfo{
-					{"c_id", "INT", false},
+					{"c_id", "SMALLINT", false},
 					{"c_smallint", "SMALLINT", false},
 					{"c_int", "INT", false},
 					{"c_bigint", "BIGINT", false},
@@ -64,6 +67,8 @@ func TestGetTableInfo(suite *testing.T) {
 					{"c_int_null", "INT", true},
 					{"c_bigint_null", "BIGINT", true},
 					{"c_float_null", "FLOAT", true},
+					{"c_numeric_int_null", "DECIMAL", true},
+					{"c_numeric_float_null", "DECIMAL", true},
 					{"c_varchar_null", "VARCHAR", true},
 					{"c_time_null", "TIMESTAMP", true},
 				},
@@ -89,6 +94,8 @@ func TestGetTableInfo(suite *testing.T) {
 					{"C_INT_NULL", "NUMBER", true},
 					{"C_BIGINT_NULL", "NUMBER", true},
 					{"C_FLOAT_NULL", "FLOAT", true},
+					{"C_NUMERIC_INT_NULL", "NUMBER", true},
+					{"C_NUMERIC_FLOAT_NULL", "NUMBER", true},
 					{"C_VARCHAR_NULL", "TEXT", true},
 					{"C_TIME_NULL", "TIMESTAMP_NTZ", true},
 				},
@@ -104,7 +111,7 @@ func TestGetTableInfo(suite *testing.T) {
 			}
 			db := tc.NewDB(t, dbName)
 			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
-			info, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			info, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.test_table", tc.Expected.Schema))
 			require.NoError(t, err)
 			require.Len(t, info.Columns, reflect.TypeOf(pachsql.TestRow{}).NumField())
 			require.Equal(t, tc.Expected, info)
