@@ -8,6 +8,7 @@ ENV PFS_MOUNT_DIR=/pfs
 # https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope
 
 USER root
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
 RUN mkdir -p /pfs
 RUN chown jovyan /pfs
 RUN apt-get update && apt-get -y install curl fuse
