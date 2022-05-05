@@ -9324,41 +9324,48 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(commitInfos))
 
-	buf := &bytes.Buffer{}
-	require.NoError(t, c.Dump(nil, 0, buf))
-	gr, err := gzip.NewReader(buf)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, gr.Close())
-	}()
-	// Check that all of the expected files were returned.
-	var gotFiles []string
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		buf := &bytes.Buffer{}
+		require.NoError(t, c.Dump(nil, 0, buf))
+		gr, err := gzip.NewReader(buf)
 		if err != nil {
-			if err == io.EOF {
-				break
+			return err
+		}
+		defer func() {
+			require.NoError(t, gr.Close())
+		}()
+		// Check that all of the expected files were returned.
+		var gotFiles []string
+		tr := tar.NewReader(gr)
+		for {
+			hdr, err := tr.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
 			}
-			require.NoError(t, err)
-		}
-		gotFiles = append(gotFiles, hdr.Name)
-		for pattern, g := range expectedFiles {
-			if g.Match(hdr.Name) {
-				delete(expectedFiles, pattern)
-				break
+			gotFiles = append(gotFiles, hdr.Name)
+			for pattern, g := range expectedFiles {
+				if g.Match(hdr.Name) {
+					delete(expectedFiles, pattern)
+					break
+				}
 			}
 		}
-	}
-	if len(expectedFiles) > 0 {
-		t.Logf("got files: %v", gotFiles)
-		var names []string
-		for n := range expectedFiles {
-			names = append(names, n)
+		if len(expectedFiles) > 0 {
+			t.Logf("got files: %v", gotFiles)
+			var names []string
+			for n := range expectedFiles {
+				names = append(names, n)
+			}
+			t.Logf("no files match: %v", names)
 		}
-		t.Logf("no files match: %v", names)
-	}
-	require.Equal(t, 0, len(expectedFiles))
+		if len(expectedFiles) > 0 {
+			return errors.Errorf("Debug dump hasn't produced the exepcted files: %v", expectedFiles)
+		}
+		return nil
+	})
 }
 
 func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {

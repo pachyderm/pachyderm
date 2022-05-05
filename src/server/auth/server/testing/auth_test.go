@@ -2654,33 +2654,41 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobInfos))
 
-	// Only admins can collect a debug dump.
-	buf := &bytes.Buffer{}
-	require.YesError(t, aliceClient.Dump(nil, 0, buf))
-	require.NoError(t, adminClient.Dump(nil, 0, buf))
-	gr, err := gzip.NewReader(buf)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, gr.Close())
-	}()
-	// Check that all of the expected files were returned.
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
+	require.YesError(t, aliceClient.Dump(nil, 0, &bytes.Buffer{}))
+
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		// Only admins can collect a debug dump.
+		buf := &bytes.Buffer{}
+		require.NoError(t, adminClient.Dump(nil, 0, buf))
+		gr, err := gzip.NewReader(buf)
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
+			return err
 		}
-		for pattern, g := range expectedFiles {
-			if g.Match(hdr.Name) {
-				delete(expectedFiles, pattern)
-				break
+		defer func() {
+			require.NoError(t, gr.Close())
+		}()
+		// Check that all of the expected files were returned.
+		tr := tar.NewReader(gr)
+		for {
+			hdr, err := tr.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			for pattern, g := range expectedFiles {
+				if g.Match(hdr.Name) {
+					delete(expectedFiles, pattern)
+					break
+				}
 			}
 		}
-	}
-	require.Equal(t, 0, len(expectedFiles))
+		if len(expectedFiles) > 0 {
+			return errors.Errorf("Debug dump hasn't produced the exepcted files: %v", expectedFiles)
+		}
+		return nil
+	})
 }
 
 func TestDeleteExpiredAuthTokens(t *testing.T) {
