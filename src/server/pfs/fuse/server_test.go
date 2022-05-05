@@ -61,9 +61,6 @@ Tests to write:
 */
 
 func TestBasicServerSameNames(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -105,9 +102,6 @@ func TestBasicServerSameNames(t *testing.T) {
 }
 
 func TestBasicServerNonMasterBranch(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "dev", "")
@@ -143,9 +137,6 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 }
 
 func TestBasicServerDifferingNames(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -181,9 +172,6 @@ func TestBasicServerDifferingNames(t *testing.T) {
 }
 
 func TestUnmountAll(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
@@ -338,9 +326,6 @@ func TestUnauthenticatedCode(t *testing.T) {
 }
 
 func TestMultipleMount(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	commit := client.NewCommit("repo", "master", "")
@@ -388,8 +373,6 @@ func TestMultipleMount(t *testing.T) {
 }
 
 func TestMountNonexistentRepo(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
