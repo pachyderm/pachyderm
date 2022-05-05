@@ -842,6 +842,7 @@ pachctl list job -x | match ' / 1'
 	// with the new datum, should see the pipeline run another job with two datums
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		//nolint:wrapcheck
 		return tu.BashCmd(`
 pachctl list job -x | match ' / 2'
 `).Run()
