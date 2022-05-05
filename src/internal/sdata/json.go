@@ -85,6 +85,8 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 			} else {
 				y = nil
 			}
+		case *sql.RawBytes:
+			y = string(*x)
 		default:
 			y = row[i]
 		}

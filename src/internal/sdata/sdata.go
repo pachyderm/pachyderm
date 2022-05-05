@@ -83,8 +83,7 @@ func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
 			nullable = true
 		}
 		var err error
-		precision, scale, _ := cType.DecimalSize()
-		row[i], err = makeTupleElement(dbType, nullable, precision, scale)
+		row[i], err = makeTupleElement(dbType, nullable)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +113,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 	tuple := make(Tuple, len(info.Columns))
 	for i, ci := range info.Columns {
 		var err error
-		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable, ci.Precision, ci.Scale)
+		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +121,7 @@ func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
 	return tuple, nil
 }
 
-func makeTupleElement(dbType string, nullable bool, precision int64, scale int64) (interface{}, error) {
+func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	switch dbType {
 	case "BOOL", "BOOLEAN":
 		if nullable {
@@ -144,19 +143,12 @@ func makeTupleElement(dbType string, nullable bool, precision int64, scale int64
 			return new(sql.NullInt64), nil
 		}
 		return new(int64), nil
-	// FIXME: for now, use either int64 or float64 for arbitrary precision numbers,
-	// but this is not enough for numbers outside their range.
+	//
 	case "NUMERIC", "NUMBER", "DECIMAL", "FIXED":
 		if nullable {
-			if scale == 0 && precision > 0 {
-				return new(sql.NullInt64), nil
-			}
-			return new(sql.NullFloat64), nil
+			return new(sql.NullString), nil
 		}
-		if scale == 0 && precision > 0 {
-			return new(int64), nil
-		}
-		return new(float64), nil
+		return new(string), nil
 	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION":
 		if nullable {
 			return new(sql.NullFloat64), nil

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 
@@ -211,8 +212,7 @@ func TestSQLTupleWriter(suite *testing.T) {
 				*ti = time.Now()
 			})
 
-			tuple, err := NewTupleFromTableInfo(tableInfo)
-			require.NoError(t, err)
+			tuple := newTupleFromTestRow(pachsql.TestRow{})
 			w := NewSQLTupleWriter(tx, tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
@@ -237,4 +237,14 @@ func setupTable(t testing.TB, db *pachsql.DB) {
 	const N = 10
 	require.NoError(t, pachsql.CreateTestTable(db, "test_data", pachsql.TestRow{}))
 	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
+}
+
+func newTupleFromTestRow(row interface{}) Tuple {
+	result := Tuple{}
+	rval := reflect.TypeOf(row)
+	for i := 0; i < rval.NumField(); i++ {
+		v := reflect.New(rval.Field(i).Type).Interface()
+		result = append(result, v)
+	}
+	return result
 }

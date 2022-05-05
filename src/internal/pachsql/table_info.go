@@ -20,9 +20,6 @@ type ColumnInfo struct {
 	Name       string
 	DataType   string
 	IsNullable bool
-
-	// Handle numeric types with precision and scale
-	Precision, Scale int64
 }
 
 // GetTableInfo looks up information about the table using INFORMATION_SCHEMA
@@ -93,12 +90,6 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 		var ci ColumnInfo
 		if err := rows.Scan(&ci.Name, &ci.DataType, &ci.IsNullable, &precision, &scale); err != nil {
 			return nil, errors.EnsureStack(err)
-		}
-		if precision.Valid {
-			ci.Precision = precision.Int64
-		}
-		if scale.Valid {
-			ci.Scale = scale.Int64
 		}
 		cinfos = append(cinfos, ci)
 	}
