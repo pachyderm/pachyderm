@@ -74,8 +74,10 @@ To deploy an EKS cluster, complete the following steps:
       ```
 
 Once your Kubernetes cluster is up, and your infrastructure is configured, 
-you are ready to prepare for the installation of Pachyderm. 
-Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
+you are ready to prepare for the installation of Pachyderm.
+Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure. 
+!!! Note "Secrets Manager"
+      Pachyderm recommends securing and managing your secrets in a Secret Manager. Learn about the [set up and configuration of your EKS cluster to retrieve the relevant secrets from AWS Secrets Manager](../aws-secret-manager){target=_blank} then resume the following installation steps.
 
 ## 3. Create an S3 bucket
 ### Create an S3 object store bucket for data
