@@ -9295,7 +9295,7 @@ func TestDebug(t *testing.T) {
 	for i, p := range pipelines {
 		cmdStdin := []string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-			"sleep 3",
+			"sleep 45",
 		}
 		if i == 0 {
 			// We had a bug where generating a debug dump for failed pipelines/jobs would crash pachd.
