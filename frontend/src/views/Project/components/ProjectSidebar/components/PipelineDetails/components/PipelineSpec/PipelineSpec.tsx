@@ -14,10 +14,7 @@ const PipelineSpec = () => {
       {loading ? (
         <SkeletonBodyText lines={10} data-testid="PipelineSpec__loader" />
       ) : (
-        <ConfigFilePreview
-          title="Job Definition"
-          config={JSON.parse(pipeline?.jsonSpec || '{}')}
-        />
+        <ConfigFilePreview config={JSON.parse(pipeline?.jsonSpec || '{}')} />
       )}
     </div>
   );

@@ -18,8 +18,6 @@
 }
 
 .state {
-  font-weight: bold;
-  font-size: var(--font-size-header);
   display: flex;
   align-items: center;
 }
@@ -34,8 +32,6 @@
   filter: drop-shadow(2px 2px 8px var(--border-grey));
   overflow: hidden;
   margin: 1rem 0;
-  font-size: var(--font-size-body-medium);
-  color: var(--gray);
 }
 
 .datumCardHeader {
@@ -64,14 +60,11 @@
 }
 
 .number {
-  font-size: var(--font-size-header);
   display: inline-block;
   margin-right: 0.5rem;
-  color: var(--black);
 }
 
 .duration {
-  font-size: var(--font-size-body-large);
   margin: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -131,8 +124,7 @@
 
 .metricLabel,
 .bytes {
-  font-size: var(--font-size-body-medium);
-  color: var(--gray);
+  display: block;
   margin-bottom: 0.5rem;
 }
 
@@ -144,9 +136,7 @@
   border: 1px solid var(--border-grey);
   border-top: 0;
   display: flex;
-  font-size: var(--font-size-body-large);
   height: 2.5rem;
-  font-weight: 400;
   display: flex;
   align-items: center;
   padding: 0 1rem;
@@ -180,7 +170,6 @@
 .detailedTooltip {
   background-color: var(--grey-1);
   border-radius: 1rem;
-  font-size: var(--font-size-body-medium);
   padding: 0.5rem 0.5rem;
   box-sizing: border-box;
 }

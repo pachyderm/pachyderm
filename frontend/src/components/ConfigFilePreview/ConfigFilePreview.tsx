@@ -43,7 +43,7 @@ const ConfigPreview: React.FC<ConfigFilePreviewProps> = ({
   return (
     <div {...rest}>
       <div className={styles.header}>
-        <div className={styles.title}>{title}</div>
+        <h5>{title}</h5>
         <Group className={styles.settings} spacing={16}>
           {header}
           <DefaultDropdown

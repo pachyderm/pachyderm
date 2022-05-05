@@ -5,12 +5,6 @@
   align-items: center;
 }
 
-.base.large {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
 .copy {
   display: inline-flex;
   margin-left: 0.5rem;

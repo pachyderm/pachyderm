@@ -1,6 +1,6 @@
 import {Story} from '@pachyderm/components';
 
-import DataLineageReproducibility from './DataLineageReproducibility';
+// import DataLineageReproducibility from './DataLineageReproducibility';
 import EasyToUnderstandDataLineage from './EasyToUnderstandDataLineage';
 import EasyToUseDAGs from './EasyToUseDAGs';
 import EasyToUsePipelines from './EasyToUsePipelines';

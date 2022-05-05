@@ -14,10 +14,16 @@ interface CodeElementProps {
   depth?: number;
 }
 
-const CodeFragment: React.FC<{format: Format}> = ({children, format}) => {
+const CodeFragment: React.FC<{format: Format; depth: number}> = ({
+  children,
+  format,
+  depth,
+}) => {
   return (
     <CodePreview
-      className={classnames(styles.code, `language-${format.toLowerCase()}`)}
+      className={classnames(styles.code, `language-${format.toLowerCase()}`, {
+        [styles[`depth${depth === 0 ? '0' : depth % 6}`]]: true,
+      })}
     >
       {children}
     </CodePreview>
@@ -84,10 +90,14 @@ const CodeElement: React.FC<CodeElementProps> = ({
           fragment = fragment.slice(0, fragment.indexOf(headerFragment));
           return (
             <div key={`${depth}:${index}`}>
-              <CodeFragment format={format}>{fragment}</CodeFragment>
+              <CodeFragment format={format} depth={depth}>
+                {fragment}
+              </CodeFragment>
               <MinimizableSection
                 header={
-                  <CodeFragment format={format}>{headerFragment}</CodeFragment>
+                  <CodeFragment format={format} depth={depth}>
+                    {headerFragment}
+                  </CodeFragment>
                 }
               >
                 <CodeElement
@@ -100,7 +110,7 @@ const CodeElement: React.FC<CodeElementProps> = ({
           );
         }
         return (
-          <CodeFragment key={`${depth}:${index}`} format={format}>
+          <CodeFragment key={`${depth}:${index}`} format={format} depth={depth}>
             {fragment}
           </CodeFragment>
         );

@@ -8,11 +8,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
     <div
       class="header"
     >
-      <div
-        class="title"
-      >
-        Job Definition
-      </div>
+      <h5 />
       <div
         class="settings _base_1p360_1 _horizontal_1p360_45 _spacing16_1p360_21"
       >
@@ -98,7 +94,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
       >
         <div>
           <div
-            class="code language-yaml hljs"
+            class="code language-yaml depth0 hljs"
           />
           <div
             class="header"
@@ -127,7 +123,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
               </svg>
             </div>
             <div
-              class="code language-yaml hljs"
+              class="code language-yaml depth0 hljs"
             >
               <span
                 class="hljs-attr"
@@ -144,7 +140,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             >
               <div>
                 <div
-                  class="code language-yaml hljs"
+                  class="code language-yaml depth1 hljs"
                 >
                   <span
                     class="hljs-attr"
@@ -187,7 +183,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     </svg>
                   </div>
                   <div
-                    class="code language-yaml hljs"
+                    class="code language-yaml depth1 hljs"
                   >
                     <span
                       class="hljs-attr"
@@ -203,7 +199,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     class="codeSection"
                   >
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     >
                       <span
                         class="hljs-bullet"
@@ -224,7 +220,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
               </div>
               <div>
                 <div
-                  class="code language-yaml hljs"
+                  class="code language-yaml depth1 hljs"
                 />
                 <div
                   class="header"
@@ -253,7 +249,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     </svg>
                   </div>
                   <div
-                    class="code language-yaml hljs"
+                    class="code language-yaml depth1 hljs"
                   >
                     <span
                       class="hljs-attr"
@@ -269,7 +265,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     class="codeSection"
                   >
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     >
                       <span
                         class="hljs-bullet"
@@ -290,14 +286,14 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                 </div>
               </div>
               <div
-                class="code language-yaml hljs"
+                class="code language-yaml depth1 hljs"
               />
             </div>
           </div>
         </div>
         <div>
           <div
-            class="code language-yaml hljs"
+            class="code language-yaml depth0 hljs"
           />
           <div
             class="header"
@@ -326,7 +322,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
               </svg>
             </div>
             <div
-              class="code language-yaml hljs"
+              class="code language-yaml depth0 hljs"
             >
               <span
                 class="hljs-attr"
@@ -343,7 +339,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             >
               <div>
                 <div
-                  class="code language-yaml hljs"
+                  class="code language-yaml depth1 hljs"
                 />
                 <div
                   class="header"
@@ -372,7 +368,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     </svg>
                   </div>
                   <div
-                    class="code language-yaml hljs"
+                    class="code language-yaml depth1 hljs"
                   >
                     <span
                       class="hljs-attr"
@@ -388,7 +384,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     class="codeSection"
                   >
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     >
                       <span
                         class="hljs-bullet"
@@ -447,14 +443,14 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                 </div>
               </div>
               <div
-                class="code language-yaml hljs"
+                class="code language-yaml depth1 hljs"
               />
             </div>
           </div>
         </div>
         <div>
           <div
-            class="code language-yaml hljs"
+            class="code language-yaml depth0 hljs"
           />
           <div
             class="header"
@@ -483,7 +479,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
               </svg>
             </div>
             <div
-              class="code language-yaml hljs"
+              class="code language-yaml depth0 hljs"
             >
               <span
                 class="hljs-attr"
@@ -500,7 +496,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             >
               <div>
                 <div
-                  class="code language-yaml hljs"
+                  class="code language-yaml depth1 hljs"
                 />
                 <div
                   class="header"
@@ -529,7 +525,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     </svg>
                   </div>
                   <div
-                    class="code language-yaml hljs"
+                    class="code language-yaml depth1 hljs"
                   >
                     <span
                       class="hljs-attr"
@@ -545,7 +541,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     class="codeSection"
                   >
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     >
                       <span
                         class="hljs-bullet"
@@ -584,7 +580,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                 </div>
               </div>
               <div
-                class="code language-yaml hljs"
+                class="code language-yaml depth1 hljs"
               >
                 <span
                   class="hljs-attr"
@@ -604,7 +600,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
           </div>
         </div>
         <div
-          class="code language-yaml hljs"
+          class="code language-yaml depth0 hljs"
         />
       </div>
     </div>

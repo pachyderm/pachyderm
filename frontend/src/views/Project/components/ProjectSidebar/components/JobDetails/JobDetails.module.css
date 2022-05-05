@@ -6,7 +6,6 @@
 }
 
 .heading {
-  font-size: var(--font-size-body-medium);
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
@@ -27,8 +26,6 @@
 .seeMoreJobs {
   display: inline-block;
   align-items: center;
-  font-size: var(--font-size-body-medium);
-  font-weight: 400;
   padding-right: 0.25rem;
 }
 

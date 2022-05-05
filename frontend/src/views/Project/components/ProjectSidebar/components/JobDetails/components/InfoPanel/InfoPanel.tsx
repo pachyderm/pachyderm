@@ -5,6 +5,7 @@ import {
   Icon,
   LoadingDots,
   Tooltip,
+  CaptionTextSmall,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -55,7 +56,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
               />
             ) : null}
             <span data-testid="InfoPanel__state">
-              {job?.state ? readableJobState(job?.state) : ''}
+              <h6>{job?.state ? readableJobState(job?.state) : ''}</h6>
             </span>
           </div>
           {showReadLogs ? <ReadLogsButton isButton={true} /> : null}
@@ -68,10 +69,10 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
           <div className={styles.datumCard}>
             <div className={styles.datumCardHeader}>
               <div>
-                <div data-testid="InfoPanel__total" className={styles.number}>
+                <span data-testid="InfoPanel__total" className={styles.number}>
                   {job?.dataTotal}
-                </div>
-                Total Datums
+                </span>
+                <CaptionTextSmall>Total Datums</CaptionTextSmall>
               </div>
               <Tooltip
                 tooltipText="Pipeline Version"
@@ -89,7 +90,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
                   >
                     {value}
                   </div>
-                  <div className={styles.metricLabel}>{label}</div>
+                  <CaptionTextSmall className={styles.metricLabel}>
+                    {label}
+                  </CaptionTextSmall>
                 </div>
               ))}
             </div>
@@ -135,7 +138,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
                 <div>
                   <div className={styles.duration}>{duration}</div>
                   {bytes ? (
-                    <div className={styles.bytes}>{formatBytes(bytes)}</div>
+                    <CaptionTextSmall className={styles.bytes}>
+                      {formatBytes(bytes)}
+                    </CaptionTextSmall>
                   ) : null}
                 </div>
                 <div>

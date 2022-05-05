@@ -6,6 +6,8 @@ import {
 } from '@pachyderm/components';
 import React from 'react';
 
+import CodeElement from '@dash-frontend/components/ConfigFilePreview/components/CodeElement';
+import {Format} from '@dash-frontend/components/ConfigFilePreview/utils/stringifyToFormat';
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -55,7 +57,6 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
   const file = {
     name: 'pipeline.json',
     path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
-    contents: PIPELINE_JSON,
   };
 
   return (
@@ -80,7 +81,9 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
       disabled={accountLoading}
     >
       {status.loading ? <LoadingDots /> : null}
-      <ConfigurationUploadModule file={file} />
+      <ConfigurationUploadModule fileMeta={file}>
+        <CodeElement element={JSON.parse(PIPELINE_JSON)} format={Format.JSON} />
+      </ConfigurationUploadModule>
     </TaskCard>
   );
 };

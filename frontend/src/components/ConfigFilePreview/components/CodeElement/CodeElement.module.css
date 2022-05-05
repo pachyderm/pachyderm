@@ -1,10 +1,36 @@
 .code {
   white-space: pre;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: var(--font-size-body-large);
   background-color: inherit;
 }
 
+.code * {
+  font-family: 'Menlo';
+}
+
+.depth0 > :global(.hljs-attr) {
+  color: var(--chart-blue);
+}
+
+.depth1 > :global(.hljs-attr) {
+  color: var(--chart-dark-green);
+}
+
+.depth2 > :global(.hljs-attr) {
+  color: var(--pachyderm-coral);
+}
+
+.depth3 > :global(.hljs-attr) {
+  color: var(--pachyderm-plum);
+}
+
+.depth4 > :global(.hljs-attr) {
+  color: var(--pachyderm-green);
+}
+
+.depth5 > :global(.hljs-attr) {
+  color: var(--chart-hover-dark-blue);
+}
+
 .codeSection {
-  padding-left: var(--font-size-body-large);
+  padding-left: 1.25rem;
 }

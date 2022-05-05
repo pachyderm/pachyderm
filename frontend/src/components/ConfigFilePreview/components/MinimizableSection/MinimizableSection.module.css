@@ -4,6 +4,10 @@
   position: relative;
 }
 
+.header:hover {
+  background-color: var(--hover-grey);
+}
+
 .minimized {
   height: 0;
   overflow: hidden;

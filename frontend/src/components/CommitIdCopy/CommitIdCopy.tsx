@@ -37,11 +37,8 @@ const CommitIdCopy: React.FC<CommitIdCopyProps> = ({
   }, [copy, reset]);
 
   return (
-    <span
-      className={classnames(styles.base, {[styles.large]: !small})}
-      data-testid={`CommitIdCopy__id`}
-    >
-      {copyString}
+    <span className={styles.base} data-testid={`CommitIdCopy__id`}>
+      {!small ? <h5>{copyString}</h5> : copyString}
       <Button
         buttonType="ghost"
         className={classnames(styles.copy, {[styles.copied]: copied})}

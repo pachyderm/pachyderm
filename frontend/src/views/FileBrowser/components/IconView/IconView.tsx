@@ -5,7 +5,6 @@ import {
   DownloadSVG,
   Group,
   Tooltip,
-  TrashSVG,
   Icon,
   AddCircleSVG,
   UpdatedCircleSVG,

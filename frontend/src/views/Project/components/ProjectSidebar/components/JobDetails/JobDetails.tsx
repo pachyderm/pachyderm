@@ -71,7 +71,7 @@ const JobDetails = () => {
         </Route>
 
         <div className={styles.heading}>
-          <span className={styles.jobLabel}>Job</span>
+          <h5 className={styles.jobLabel}>Job</h5>
           <CommitIdCopy commit={jobId} longId />
         </div>
       </section>

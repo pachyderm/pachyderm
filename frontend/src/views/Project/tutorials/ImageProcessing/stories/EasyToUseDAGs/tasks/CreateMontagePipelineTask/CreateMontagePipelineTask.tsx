@@ -83,7 +83,6 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
   const file = {
     name: 'montage.json',
     path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json',
-    contents: PIPELINE_JSON,
   };
 
   return (
@@ -103,7 +102,7 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
       disabled={accountLoading}
     >
       {status.loading ? <LoadingDots /> : null}
-      <ConfigurationUploadModule file={file} />
+      <ConfigurationUploadModule fileMeta={file} fileContents={PIPELINE_JSON} />
     </TaskCard>
   );
 };

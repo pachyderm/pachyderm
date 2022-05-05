@@ -52,12 +52,13 @@ const JobList: React.FC<JobListProps> = ({
       selectJobByDefault &&
       ((!jobId && jobs.length > 0) || !jobs.find((job) => job.id === jobId))
     ) {
-      browserHistory.push(
-        jobRoute({
-          projectId,
-          jobId: jobs[0].id,
-        }),
-      );
+      jobs.length > 0 &&
+        browserHistory.push(
+          jobRoute({
+            projectId,
+            jobId: jobs[0].id,
+          }),
+        );
     }
   }, [browserHistory, jobId, jobs, projectId, selectJobByDefault]);
 

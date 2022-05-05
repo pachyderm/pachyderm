@@ -7,11 +7,9 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
   <div
     class="header"
   >
-    <div
-      class="title"
-    >
+    <h5>
       Job Definition
-    </div>
+    </h5>
     <div
       class="settings _base_1p360_1 _horizontal_1p360_45 _spacing16_1p360_21"
     >
@@ -97,7 +95,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
     >
       <div>
         <div
-          class="code language-yaml hljs"
+          class="code language-yaml depth0 hljs"
         />
         <div
           class="header"
@@ -126,7 +124,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
             </svg>
           </div>
           <div
-            class="code language-yaml hljs"
+            class="code language-yaml depth0 hljs"
           >
             <span
               class="hljs-attr"
@@ -143,7 +141,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
           >
             <div>
               <div
-                class="code language-yaml hljs"
+                class="code language-yaml depth1 hljs"
               >
                 <span
                   class="hljs-attr"
@@ -187,7 +185,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                   </svg>
                 </div>
                 <div
-                  class="code language-yaml hljs"
+                  class="code language-yaml depth1 hljs"
                 >
                   <span
                     class="hljs-attr"
@@ -203,7 +201,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                   class="codeSection"
                 >
                   <div
-                    class="code language-yaml hljs"
+                    class="code language-yaml depth2 hljs"
                   >
                     <span
                       class="hljs-bullet"
@@ -604,7 +602,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
               </div>
             </div>
             <div
-              class="code language-yaml hljs"
+              class="code language-yaml depth1 hljs"
             >
               <span
                 class="hljs-attr"
@@ -619,7 +617,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
       </div>
       <div>
         <div
-          class="code language-yaml hljs"
+          class="code language-yaml depth0 hljs"
         >
           <span
             class="hljs-attr"
@@ -656,7 +654,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
             </svg>
           </div>
           <div
-            class="code language-yaml hljs"
+            class="code language-yaml depth0 hljs"
           >
             <span
               class="hljs-attr"
@@ -673,7 +671,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
           >
             <div>
               <div
-                class="code language-yaml hljs"
+                class="code language-yaml depth1 hljs"
               >
                 <span
                   class="hljs-attr"
@@ -742,7 +740,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                   </svg>
                 </div>
                 <div
-                  class="code language-yaml hljs"
+                  class="code language-yaml depth1 hljs"
                 >
                   <span
                     class="hljs-attr"
@@ -759,7 +757,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                 >
                   <div>
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     />
                     <div
                       class="header"
@@ -788,7 +786,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                         </svg>
                       </div>
                       <div
-                        class="code language-yaml hljs"
+                        class="code language-yaml depth2 hljs"
                       >
                         <span
                           class="hljs-attr"
@@ -804,7 +802,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                         class="codeSection"
                       >
                         <div
-                          class="code language-yaml hljs"
+                          class="code language-yaml depth3 hljs"
                         >
                           <span
                             class="hljs-attr"
@@ -838,7 +836,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                   </div>
                   <div>
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     />
                     <div
                       class="header"
@@ -867,7 +865,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                         </svg>
                       </div>
                       <div
-                        class="code language-yaml hljs"
+                        class="code language-yaml depth2 hljs"
                       >
                         <span
                           class="hljs-attr"
@@ -883,7 +881,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                         class="codeSection"
                       >
                         <div
-                          class="code language-yaml hljs"
+                          class="code language-yaml depth3 hljs"
                         >
                           <span
                             class="hljs-attr"
@@ -917,7 +915,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                   </div>
                   <div>
                     <div
-                      class="code language-yaml hljs"
+                      class="code language-yaml depth2 hljs"
                     />
                     <div
                       class="header"
@@ -946,7 +944,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                         </svg>
                       </div>
                       <div
-                        class="code language-yaml hljs"
+                        class="code language-yaml depth2 hljs"
                       >
                         <span
                           class="hljs-attr"
@@ -962,7 +960,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                         class="codeSection"
                       >
                         <div
-                          class="code language-yaml hljs"
+                          class="code language-yaml depth3 hljs"
                         >
                           <span
                             class="hljs-attr"
@@ -995,7 +993,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                     </div>
                   </div>
                   <div
-                    class="code language-yaml hljs"
+                    class="code language-yaml depth2 hljs"
                   >
                     <span
                       class="hljs-attr"
@@ -1015,7 +1013,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
               </div>
             </div>
             <div
-              class="code language-yaml hljs"
+              class="code language-yaml depth1 hljs"
             >
               <span
                 class="hljs-attr"
@@ -1048,7 +1046,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
         </div>
       </div>
       <div
-        class="code language-yaml hljs"
+        class="code language-yaml depth0 hljs"
       />
     </div>
   </div>
