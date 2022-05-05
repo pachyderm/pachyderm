@@ -304,7 +304,7 @@ def setup_handlers(web_app):
     else:
         web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
             lambda: PythonPachydermClient(
-                python_pachyderm.Client(), python_pachyderm.ExperimentalClient()
+                python_pachyderm.Client(), python_pachyderm.experimental.Client()
             ),
             PFS_MOUNT_DIR,
         )

@@ -40,7 +40,7 @@ class PythonPachydermClient:
     def __init__(
         self,
         client: python_pachyderm.Client,
-        exp_client: python_pachyderm.ExperimentalClient,
+        exp_client: python_pachyderm.experimental.Client,
     ):
         self.client = client
         self.exp_client = exp_client
