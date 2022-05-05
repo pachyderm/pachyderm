@@ -14,7 +14,6 @@ export type ButtonProps = React.ButtonHTMLAttributes<
   color?: string;
   href?: string;
   to?: LinkProps['to'];
-  popIn?: boolean;
   'data-testid'?: string;
   download?: boolean;
   IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
@@ -37,7 +36,6 @@ export const Button: FunctionComponent<ButtonProps> = ({
   color = '',
   href,
   IconSVG,
-  popIn = false,
   className,
   buttonType = 'primary',
   children,
@@ -59,7 +57,6 @@ export const Button: FunctionComponent<ButtonProps> = ({
     [styles.tertiary]: buttonType === 'tertiary',
     [styles.iconOnly]: iconOnly,
     [styles.link]: Boolean(href || to),
-    [styles.popIn]: popIn,
     [styles.black]: color === 'black',
   });
 

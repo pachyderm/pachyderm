@@ -19,8 +19,6 @@
   box-sizing: border-box;
   border-radius: 3px;
   text-decoration: none;
-  transition: color 300ms ease-in-out, background-color 300ms ease-in-out,
-    border 300ms ease-in-out;
   width: auto;
   cursor: pointer;
   outline: none;
@@ -55,14 +53,6 @@
 .base:disabled {
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.popIn {
-  transform: scale(0) translateY(100px);
-  opacity: 0;
-  animation: pop-in 1s;
-  animation-delay: 0.5s;
-  animation-fill-mode: forwards;
 }
 
 .primary {
@@ -159,13 +149,18 @@
 }
 
 .tertiary {
+  border: 1px solid var(--border-grey);
   background-color: var(--background-black);
   color: var(--white);
 }
 
-.tertiary:not(:disabled):hover {
+.tertiary:not(:disabled):hover:not(:focus-visible) {
   background-color: var(--grey-9);
 }
+
+.tertiary:not(:disabled):focus-visible {
+  border-color: transparent;
+} 
 
 .tertiary:disabled {
   background-color: var(--disabled-tertiary);
