@@ -28,7 +28,7 @@
                 "type": "CSV"
             },
             "secret": {
-                "k8s_secret": "snowflakesecret",
+                "name": "snowflakesecret",
                 "key": "PACHYDERM_SQL_PASSWORD"
             }
         }
