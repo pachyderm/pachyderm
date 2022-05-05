@@ -1,7 +1,7 @@
 import os
-import json
 import subprocess
 import time
+import platform
 
 import python_pachyderm
 from python_pachyderm.service import health_proto
@@ -53,6 +53,13 @@ class MountServerClient(MountInterface):
         get_logger().debug(f"Able to hit server at {self.address}")
         return True
 
+    
+    def _unmount(self):
+        if platform.system() == "Linux":
+            subprocess.run(["bash", "-c", f"fusermount -uz {self.mount_dir}"])
+        else:
+            subprocess.run(["bash", "-c", f"umount {self.mount_dir}"])
+
 
     def _update_config_file(self, new_pachd_address):
         # Update config file with new pachd_address
@@ -89,7 +96,7 @@ class MountServerClient(MountInterface):
         get_logger().info("Starting mount server...")
         async with lock:
             if not await self._is_mount_server_running():                
-                subprocess.run(["bash", "-c", f"sudo umount {self.mount_dir}"])
+                self._unmount()
                 subprocess.Popen(
                     [
                         "bash", "-c",
@@ -160,7 +167,7 @@ class MountServerClient(MountInterface):
 
             self._update_config_file(body["pachd_address"])
             get_logger().info(f"Updated config cluster endpoint to {body['pachd_address']}")
-            subprocess.run(["bash", "-c", f"umount {self.mount_dir}"])
+            self._unmount()
         
         if await self._ensure_mount_server():
             response = await self.client.fetch(f"{self.address}/config")

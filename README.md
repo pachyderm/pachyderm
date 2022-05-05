@@ -65,13 +65,7 @@ jupyter labextension develop --overwrite .
 # Server extension must be manually installed in develop mode, for example
 jupyter server extension enable jupyterlab_pachyderm
 
-# Option 1: use python-pachyderm backend
 jupyter lab --allow-root
-
-# Option 2: assuming you have a version of pachctl that supports mount-server,
-# and it is available in your PATH.
-# This automatically spins up the mount-server at localhost:9002
-MOUNT_SERVER_ENABLED=1 jupyter lab --allow-root
 ```
 
 Open another bash inside the same container:
@@ -123,7 +117,7 @@ You can watch the source directory and run JupyterLab at the same time in differ
 # Watch the source directory in one terminal, automatically rebuilding when needed
 npm run watch
 # Run JupyterLab in another terminal
-jupyter lab
+jupyter lab --allow-root
 ```
 
 With the watch command running, every saved change will immediately be built locally and available in your running JupyterLab. Refresh JupyterLab to load the change in your browser (you may need to wait several seconds for the extension to be rebuilt).
@@ -216,12 +210,12 @@ GET /repos # returns a list of all repos and their mount_state
 
 The servers-side extension extends jupyter server, so it automatically starts as part of `jupyter lab`.
 
-API endpoints can be accessed via `localhost:8888/pachyderm/v1`
+API endpoints can be accessed via `localhost:8888/pachyderm/v2`
 
-The frontend can access the endpoints via `/v1`, for example:
+The frontend can access the endpoints via `/v2`, for example:
 
 ```js
-requestAPI<any>('/v1/repos')
+requestAPI<any>('/v2/repos')
       .then(data => {
         console.log(data);
       })
@@ -230,7 +224,7 @@ requestAPI<any>('/v1/repos')
       });
 ```
 
-You can also access it via `localhost:8888/v1
+You can also access it via `localhost:8888/v2`
 
 
 # Project Structure
