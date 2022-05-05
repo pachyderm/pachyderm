@@ -226,6 +226,7 @@ func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer ta
 			return err
 		}
 		fileSetID = result.FileSetId
+		count = int(result.Count)
 		return nil
 	}); err != nil {
 		return "", 0, errors.EnsureStack(err)

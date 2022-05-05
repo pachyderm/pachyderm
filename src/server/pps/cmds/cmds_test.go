@@ -804,3 +804,45 @@ func TestJsonnetPipelineTemplateError(t *testing.T) {
 		pachctl list pipeline | match -v foo-pipeline
 		`).Run())
 }
+
+func TestJobDatumCount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl put file data@master:/foo <<<"foo-data"
+		pachctl create pipeline <<EOF
+		{
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp -rp /pfs/data/ /pfs/out"]
+		    }
+		  }
+		EOF
+	`, "pipeline", tu.UniqueString("p-")).Run())
+	// need some time for the pod to spin up
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		return tu.BashCmd(`
+pachctl list job -x | match ' / 1'
+`).Run()
+	}, "expected to see one datum")
+	require.NoError(t, tu.BashCmd(`pachctl put file data@master:/bar <<<"bar-data"`).Run())
+	// with the new datum, should see the pipeline run another job with two datums
+
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		return tu.BashCmd(`
+pachctl list job -x | match ' / 2'
+`).Run()
+	}, "expected to see two datums")
+}
