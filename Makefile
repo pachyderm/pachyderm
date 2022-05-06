@@ -252,13 +252,14 @@ test-pps: launch-stats docker-build-spout-test
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-transaction:
 	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
