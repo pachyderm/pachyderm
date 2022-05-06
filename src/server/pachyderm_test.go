@@ -9329,7 +9329,7 @@ func TestDebug(t *testing.T) {
 		require.NoError(t, c.Dump(nil, 0, buf))
 		gr, err := gzip.NewReader(buf)
 		if err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
 		defer func() {
 			require.NoError(t, gr.Close())
@@ -9343,7 +9343,7 @@ func TestDebug(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
-				return err
+				return err //nolint:wrapcheck
 			}
 			gotFiles = append(gotFiles, hdr.Name)
 			for pattern, g := range expectedFiles {
