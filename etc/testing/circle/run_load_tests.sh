@@ -12,6 +12,11 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
+helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
+
+kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+
+
 # Print client and server versions, for debugging.
 pachctl version
 
