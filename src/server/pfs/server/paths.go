@@ -65,7 +65,7 @@ func trailSlash(p string) string {
 	if p[len(p)-1] == '/' {
 		return p
 	}
-	return fmt.Sprintf("%q/", p)
+	return fmt.Sprintf("%v/", p)
 }
 
 var validRangeRegex = regexp.MustCompile("^[ -~]+$")
