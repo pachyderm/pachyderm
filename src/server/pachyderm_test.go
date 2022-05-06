@@ -4254,8 +4254,8 @@ func TestLokiLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -9422,9 +9422,8 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9434,7 +9433,7 @@ func TestDebug(t *testing.T) {
 	for i, p := range pipelines {
 		cmdStdin := []string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-			"sleep 3",
+			"sleep 45",
 		}
 		if i == 0 {
 			// We had a bug where generating a debug dump for failed pipelines/jobs would crash pachd.
@@ -9463,41 +9462,40 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(commitInfos))
 
-	buf := &bytes.Buffer{}
-	require.NoError(t, c.Dump(nil, 0, buf))
-	gr, err := gzip.NewReader(buf)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, gr.Close())
-	}()
-	// Check that all of the expected files were returned.
-	var gotFiles []string
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		buf := &bytes.Buffer{}
+		require.NoError(t, c.Dump(nil, 0, buf))
+		gr, err := gzip.NewReader(buf)
 		if err != nil {
-			if err == io.EOF {
-				break
+			return err //nolint:wrapcheck
+		}
+		defer func() {
+			require.NoError(t, gr.Close())
+		}()
+		// Check that all of the expected files were returned.
+		var gotFiles []string
+		tr := tar.NewReader(gr)
+		for {
+			hdr, err := tr.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err //nolint:wrapcheck
 			}
-			require.NoError(t, err)
-		}
-		gotFiles = append(gotFiles, hdr.Name)
-		for pattern, g := range expectedFiles {
-			if g.Match(hdr.Name) {
-				delete(expectedFiles, pattern)
-				break
+			gotFiles = append(gotFiles, hdr.Name)
+			for pattern, g := range expectedFiles {
+				if g.Match(hdr.Name) {
+					delete(expectedFiles, pattern)
+					break
+				}
 			}
 		}
-	}
-	if len(expectedFiles) > 0 {
-		t.Logf("got files: %v", gotFiles)
-		var names []string
-		for n := range expectedFiles {
-			names = append(names, n)
+		if len(expectedFiles) > 0 {
+			return errors.Errorf("Debug dump has produced %v of the exepcted files: %v", gotFiles, expectedFiles)
 		}
-		t.Logf("no files match: %v", names)
-	}
-	require.Equal(t, 0, len(expectedFiles))
+		return nil
+	})
 }
 
 func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
