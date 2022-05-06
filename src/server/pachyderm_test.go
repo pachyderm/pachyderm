@@ -9354,14 +9354,7 @@ func TestDebug(t *testing.T) {
 			}
 		}
 		if len(expectedFiles) > 0 {
-			t.Logf("got files: %v", gotFiles)
-			var names []string
-			for n := range expectedFiles {
-				names = append(names, n)
-			}
-		}
-		if len(expectedFiles) > 0 {
-			return errors.Errorf("Debug dump hasn't produced the exepcted files: %v", expectedFiles)
+			return errors.Errorf("Debug dump has produced the exepcted files: %v", expectedFiles)
 		}
 		return nil
 	})
