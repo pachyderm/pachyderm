@@ -17,8 +17,8 @@ jobs:
           export_default_credentials: true
       - name: Pulumi Destroy # The pulumi action was not used here, as it does not download plugins when just using destroy
         run: |
-          wget https://get.pulumi.com/releases/sdk/pulumi-v3.22.1-linux-x64.tar.gz
-          tar xvf pulumi-v3.22.1-linux-x64.tar.gz
+          wget https://get.pulumi.com/releases/sdk/pulumi-v3.32.0-linux-x64.tar.gz
+          tar xvf pulumi-v3.32.0-linux-x64.tar.gz
           echo "${PWD}/pulumi" >> $GITHUB_PATH
           pulumi stack select $CURRENT_BRANCH --non-interactive 
           pulumi config set gcp:zone us-east1-b
@@ -27,6 +27,7 @@ jobs:
           pulumi config set sha $GITHUB_SHA
           pulumi preview
           pulumi destroy --yes
+          pulumi stack rm --yes
         working-directory: infra
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
