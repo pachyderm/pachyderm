@@ -8,7 +8,7 @@ console:
 enterpriseServer:
   enabled: true
   service:
-    type: LoadBalancer
+    type: NodePort
   image:
     tag: local
 
