@@ -7,7 +7,7 @@ global:
 
 pachd:
     service:
-        type: NodePort
+        type: ClusterIP
     image:
         tag: local
     storage:
