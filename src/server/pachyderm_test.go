@@ -9354,7 +9354,7 @@ func TestDebug(t *testing.T) {
 			}
 		}
 		if len(expectedFiles) > 0 {
-			return errors.Errorf("Debug dump has produced the exepcted files: %v", expectedFiles)
+			return errors.Errorf("Debug dump has produced %v of the exepcted files: %v", gotFiles, expectedFiles)
 		}
 		return nil
 	})
