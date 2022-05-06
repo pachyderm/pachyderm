@@ -128,30 +128,13 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 			return new(sql.NullBool), nil
 		}
 		return new(bool), nil
-	case "SMALLINT", "INT2":
-		if nullable {
-			return new(sql.NullInt16), nil
-		}
-		return new(int16), nil
-	case "INTEGER", "INT", "INT4":
-		if nullable {
-			return new(sql.NullInt32), nil
-		}
-		return new(int32), nil
-	case "BIGINT", "INT8":
-		if nullable {
-			return new(sql.NullInt64), nil
-		}
-		return new(int64), nil
-	case "FLOAT", "FLOAT4", "FLOAT8", "REAL", "DOUBLE PRECISION":
-		if nullable {
-			return new(sql.NullFloat64), nil
-		}
-		return new(float64), nil
-	// Handle numeric types with string to avoid losing precision.
+	// Handle number types with string to avoid losing precision.
 	// FIXED is returned by Snowflake's Go driver, while NUMBER is in INFORMATION_SCHEMA
 	// DECIMAL is used by MySQL
-	case "NUMERIC", "DECIMAL", "NUMBER", "FIXED":
+	case
+		"SMALLINT", "INT2", "INTEGER", "INT", "INT4", "BIGINT", "INT8",
+		"FLOAT", "FLOAT4", "FLOAT8", "REAL", "DOUBLE PRECISION",
+		"NUMERIC", "DECIMAL", "NUMBER", "FIXED":
 		if nullable {
 			return new(sql.NullString), nil
 		}
@@ -161,7 +144,10 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 			return new(sql.NullString), nil
 		}
 		return new(string), nil
-	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
+	// TIMESTAMP means different things in different databases
+	//     - postgres and snowflake doesn't store time zone related info
+	//     - mysql stores time zone
+	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
 		if nullable {
 			return new(sql.NullTime), nil
 		}

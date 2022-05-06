@@ -97,7 +97,6 @@ func GenerateTestData(db *DB, tableName string, n int) error {
 	for i := 0; i < n; i++ {
 		fz.Fuzz(&row)
 		row.Id = int16(i)
-		row.Time = time.Now() // support mysql
 		if _, err := db.Exec(insertStatement, makeArgs(row)...); err != nil {
 			return errors.EnsureStack(err)
 		}

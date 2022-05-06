@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -436,4 +437,15 @@ func parseTime(x string) (t time.Time, err error) {
 
 func isNullString(x string) bool {
 	return x == "null" || x == "nil" || len(x) == 0
+}
+
+// formatTimestampNTZ trims the "Z" at the end of a timestamp if the "Z" exists
+// this is assuming that the timestamp has no time zone
+// example: 2022-05-06T20:18:10Z -> 2022-05-06T20:18:10
+func formatTimestampNTZ(s string) string {
+	last := string(s[len(s)-1])
+	if strings.ToUpper(last) == "Z" {
+		s = s[:len(s)-1]
+	}
+	return s
 }
