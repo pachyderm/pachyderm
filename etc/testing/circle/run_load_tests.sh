@@ -2,6 +2,9 @@
 
 set -euxo pipefail
 
+# shellcheck disable=SC1090
+source "$(dirname "$0")/env.sh"
+
 mkdir -p "${HOME}/go/bin"
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 export GOPATH="${HOME}/go"
@@ -15,7 +18,6 @@ export VERSION
 helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
 
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
-
 
 # Print client and server versions, for debugging.
 pachctl version

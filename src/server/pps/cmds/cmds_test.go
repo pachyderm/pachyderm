@@ -832,10 +832,8 @@ func TestJobDatumCount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	require.NoError(t, tu.BashCmd(`
-		yes | pachctl delete all
-	`).Run())
-	require.NoError(t, tu.BashCmd(`
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/foo <<<"foo-data"
 		pachctl create pipeline <<EOF
@@ -857,16 +855,16 @@ func TestJobDatumCount(t *testing.T) {
 	// need some time for the pod to spin up
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		//nolint:wrapcheck
-		return tu.BashCmd(`
+		return tu.PachctlBashCmd(t, c, `
 pachctl list job -x | match ' / 1'
 `).Run()
 	}, "expected to see one datum")
-	require.NoError(t, tu.BashCmd(`pachctl put file data@master:/bar <<<"bar-data"`).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl put file data@master:/bar <<<"bar-data"`).Run())
 	// with the new datum, should see the pipeline run another job with two datums
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		//nolint:wrapcheck
-		return tu.BashCmd(`
+		return tu.PachctlBashCmd(t, c, `
 pachctl list job -x | match ' / 2'
 `).Run()
 	}, "expected to see two datums")
