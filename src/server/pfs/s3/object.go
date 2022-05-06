@@ -8,16 +8,30 @@ import (
 	"net/http"
 	"strings"
 
+	"encoding/json"
+
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/s2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/s2"
 	"go.uber.org/zap"
 )
 
-func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
+func j(i interface{}) string {
+	bs, err := json.Marshal(i)
+	if err != nil {
+		return fmt.Sprintf("(err) %s", err)
+	}
+	return string(bs)
+}
+
+func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (res *s2.GetObjectResult, retErr error) {
+	c.logger.Infof(">>>> GetObject: %s", j(r.Header))
+	defer func() {
+		c.logger.Infof("<<<< GetObject: %#v -> %s", res, retErr)
+	}()
 	defer log.Span(r.Context(), "GetObject", zap.String("bucketName", bucketName), zap.String("file", file), zap.String("version", version))()
 
 	pc := c.requestClient(r)

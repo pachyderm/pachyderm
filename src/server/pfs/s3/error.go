@@ -3,8 +3,8 @@ package s3
 import (
 	"net/http"
 
+	"github.com/pachyderm/pachyderm/v2/s2"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/s2"
 )
 
 func invalidDelimiterError(r *http.Request) *s2.Error {

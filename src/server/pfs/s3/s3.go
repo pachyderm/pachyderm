@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 
-	"github.com/pachyderm/s2"
+	"github.com/pachyderm/pachyderm/v2/s2"
 )
 
 // ClientFactory is a function called by s3g to create request-scoped

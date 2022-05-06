@@ -1,0 +1,26 @@
+dist: xenial
+language: go
+go:
+  - "1.13.1"
+
+env:
+  - PATH=~/bin:$PATH
+
+# workaround for travis not handling ssh git urls well:
+# https://stackoverflow.com/a/24600210/202309
+git:
+  submodules: false
+before_install:
+  - ./etc/travis_before_install.sh
+script:
+  - ./etc/travis_test.sh
+
+before_cache:
+  # Travis can't cache files that are not readable by "others"
+  - chmod -R a+r ${GOPATH}/pkg
+cache:
+  directories:
+  - $${GOPATH}/pkg
+
+after_failure:
+  - cat stderr.txt

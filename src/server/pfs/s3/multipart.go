@@ -24,7 +24,7 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"go.uber.org/zap"
 
-	"github.com/pachyderm/s2"
+	"github.com/pachyderm/pachyderm/v2/s2"
 )
 
 var multipartChunkPathMatcher = regexp.MustCompile(`([^/]+)/([^/]+)/(.+)/([^/]+)/(\d+)`)

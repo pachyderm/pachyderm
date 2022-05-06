@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/s2"
+	"github.com/pachyderm/pachyderm/v2/s2"
 )
 
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
