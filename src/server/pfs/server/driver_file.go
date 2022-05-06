@@ -167,7 +167,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		return err
 	}
 	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
-		return idx.Path == srcPath || strings.HasPrefix(idx.Path, srcPath+"/")
+		return idx.Path == srcPath || strings.HasPrefix(idx.Path, trailSlash(srcPath))
 	})
 	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
 		idx2 := *idx

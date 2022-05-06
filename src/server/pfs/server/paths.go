@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"path"
 	"regexp"
 	"strings"
@@ -57,6 +58,14 @@ func cleanPath(p string) string {
 		return "/"
 	}
 	return "/" + strings.Trim(p, "/")
+}
+
+// adds a trailing slash to the path if not already present
+func trailSlash(p string) string {
+	if p[len(p)-1] == '/' {
+		return p
+	}
+	return fmt.Sprintf("%q/", p)
 }
 
 var validRangeRegex = regexp.MustCompile("^[ -~]+$")
