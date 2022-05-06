@@ -536,7 +536,7 @@ func egress(e *ppsclient.Egress) string {
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling egress"))
 	}
-	return string(s) + "\n"
+	return string(s)
 }
 
 var funcMap = template.FuncMap{
