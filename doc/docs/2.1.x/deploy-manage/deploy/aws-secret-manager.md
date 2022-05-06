@@ -102,21 +102,21 @@ Follow the steps in [AWS user guide](https://docs.aws.amazon.com/eks/latest/user
 
 This [policy limits the access to the secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_examples.html#auth-and-access_examples_read){target=_blank} that your EKS cluster needs to access.
 
-### Attach Policy To IAM Role and Role To Service Account
+### Attach Your Policy To An IAM Role and The Role To Your Service Account
 
 [Create an IAM role and attach the IAM policy](https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html){target=_blank} that you specified to it. 
 The role is associated with a Kubernetes service account created in the namespace that you specify (your cluster's) and annotated with `eks.amazonaws.com/role-arn:arn:aws:iam::111122223333:role/my-role-name`.
 
 
-!!! Example TL;DR
-      ``` shell
-      eksctl create iamserviceaccount \
-      --name "<my-service-account>" \
-      --cluster "<my-cluster>" \
-      --attach-policy-arn \ "<Copy the arn of your policy HERE>" \
-      --approve \ 
-      --override-existing-serviceaccounts
-      ```
+!!! Example "TL;DR"
+    ``` shell
+    eksctl create iamserviceaccount \
+    --name "<my-service-account>" \
+    --cluster "<my-cluster>" \
+    --attach-policy-arn \ "<Copy the arn of your policy HERE>" \
+    --approve \ 
+    --override-existing-serviceaccounts
+    ```
 
 
 ## 5. Mount Your Secrets In Your EKS Cluster
@@ -192,11 +192,8 @@ metadata:
   name: secret-syncer
 spec:
   containers:
-  - name: ubuntu
-    image: busybox:latest
-    # Just spin & wait forever
-    command: [ "/bin/sh", "-c", "--" ]
-    args: [ "while true; do sleep 30; done;" ]
+  - name: secret-syncer
+    image: k8s.gcr.io/pause
     volumeMounts:
     - name: secrets-store-inline
       mountPath: "/mnt/secrets-store"
