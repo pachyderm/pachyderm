@@ -3,6 +3,7 @@ package minikubetestenv
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -48,6 +49,7 @@ type DeployOpts struct {
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset  uint16
+	Loki        bool
 	WaitSeconds int
 }
 
@@ -93,7 +95,7 @@ func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	return &copy
 }
 
-func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
+func exposedServiceType() string {
 	os := runtime.GOOS
 	serviceType := ""
 	switch os {
@@ -102,15 +104,36 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	default:
 		serviceType = "NodePort"
 	}
+	return serviceType
+}
+
+func withLokiOptions(namespace string, port int) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"pachd.lokiDeploy":             "true",
+			"loki-stack.loki.service.type": exposedServiceType(),
+			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "8000",
+			"loki-stack.loki.service.port":                                fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.service.nodePort":                            fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.config.server.http_listen_port":              fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.loki.servicePort":                        fmt.Sprintf("%v", port+9),
+		},
+		SetStrValues: map[string]string{
+			"loki-stack.promtail.initContainer.enabled": "true",
+		},
+	}
+}
+
+func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"deployTarget": "custom",
 
-			"pachd.service.type":        serviceType,
+			"pachd.service.type":        exposedServiceType(),
 			"pachd.image.tag":           image,
 			"pachd.clusterDeploymentID": "dev",
-			"pachd.lokiDeploy":          "true",
 
 			"pachd.storage.backend":        "MINIO",
 			"pachd.storage.minio.bucket":   "pachyderm-test",
@@ -133,7 +156,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddress) *helm.Options {
+func withEnterprise(namespace string, address *grpcutil.PachdAddress) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
@@ -150,7 +173,7 @@ func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddre
 	}
 }
 
-func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
+func withPort(namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
@@ -187,7 +210,6 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
-// TODO(acohen4): also wait for Loki
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
@@ -200,6 +222,17 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 			}
 		}
 		return errors.Errorf("deployment in progress")
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+}
+
+func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
+	require.NoError(t, backoff.Retry(func() error {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v", lokiHost, lokiPort), nil)
+		_, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrap(err, "loki not ready")
+		}
+		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
@@ -287,11 +320,14 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	pachAddress := getPachAddress(t)
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
-		helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
+		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port))
 	}
 	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		helmOpts = union(helmOpts, withEnterprise(t, namespace, pachAddress))
+		helmOpts = union(helmOpts, withEnterprise(namespace, pachAddress))
+	}
+	if opts.Loki {
+		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
@@ -301,6 +337,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, f(t, helmOpts, chartPath, namespace))
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
+	if opts.Loki {
+		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
+	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
