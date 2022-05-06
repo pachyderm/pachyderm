@@ -9359,7 +9359,6 @@ func TestDebug(t *testing.T) {
 			for n := range expectedFiles {
 				names = append(names, n)
 			}
-			t.Logf("no files match: %v", names)
 		}
 		if len(expectedFiles) > 0 {
 			return errors.Errorf("Debug dump hasn't produced the exepcted files: %v", expectedFiles)
