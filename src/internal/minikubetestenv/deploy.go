@@ -149,13 +149,21 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
 
+			// For tests, traffic from outside the cluster is routed through the proxy,
+			// but we bind the internal k8s service ports to the same numbers for
+			// in-cluster traffic, like enterprise registration.
 			"proxy.enabled":                       "true",
 			"proxy.service.type":                  exposedServiceType(),
 			"proxy.service.httpNodePort":          "30650",
+			"pachd.service.apiGRPCPort":           "30650",
 			"proxy.service.legacyPorts.oidc":      "30657",
+			"pachd.service.oidcPort":              "30657",
 			"proxy.service.legacyPorts.identity":  "30658",
+			"pachd.service.identityPort":          "30658",
 			"proxy.service.legacyPorts.s3Gateway": "30600",
+			"pachd.service.s3GatewayPort":         "30600",
 			"proxy.service.legacyPorts.metrics":   "30656",
+			"pachd.service.prometheusPort":        "30656",
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
@@ -188,11 +196,29 @@ func withPort(namespace string, port uint16) *helm.Options {
 			// Run gRPC traffic through the full router.
 			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
 
-			// Let everything else use the legacy way.
+			// Let everything else use the legacy way.  We use the same mapping for
+			// internal ports, so in-cluster traffic doesn't go through the proxy, but
+			// doesn't need to confusingly use a different port number.
 			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
+			"pachd.service.oidcPort":              fmt.Sprintf("%v", port+7),
 			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
+			"pachd.service.identityPort":          fmt.Sprintf("%v", port+8),
 			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
+			"pachd.service.s3GatewayPort":         fmt.Sprintf("%v", port+3),
 			"proxy.service.legacyPorts.metrics":   fmt.Sprintf("%v", port+4),
+			"pachd.service.prometheusPort":        fmt.Sprintf("%v", port+4),
+		},
+	}
+}
+
+// withoutProxy disables the Pachyderm proxy.  It's used to test upgrades from versions of Pachyderm
+// that didn't have the proxy.
+func withoutProxy(namespace string) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"proxy.enabled":      "false",
+			"pachd.service.type": exposedServiceType(),
 		},
 	}
 }
@@ -343,6 +369,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
+	}
+	if !strings.HasPrefix(opts.Version, "2.3") {
+		helmOpts = union(helmOpts, withoutProxy(namespace))
 	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
