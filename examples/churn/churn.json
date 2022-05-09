@@ -1,0 +1,41 @@
+{
+    "pipeline": {
+        "name": "churn"
+    },
+    "description": "A pipeline to predict user churn.",
+    "transform": {
+        "image": "pachyderm/churn",
+        "cmd": ["python", "/churn.py"]
+    },
+    "input": {
+        "SQL": {
+            "name": "customer",
+            "glob": "/*",
+            "URL": "snowflake://albertpachyderm@CDKSVXM-PN23804/CHURN_DEMO/PUBLIC?warehouse=COMPUTE_WH",
+            "query": "select * from churn_demo.public.customer",
+            "cronSpec": "@every 30s",
+            "secretName": "snowflakesecret",
+            "format": "csv"
+        }
+    },
+    "resource_limits": {
+        "memory": "256MB",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "256MB",
+        "cpu": 1
+    },
+    "egress": {
+        "sql_database": {
+            "url": "snowflake://albertpachyderm@CDKSVXM-PN23804/CHURN_DEMO/PUBLIC?warehouse=COMPUTE_WH",
+            "file_format": {
+                "type": "CSV"
+            },
+            "secret": {
+                "name": "snowflakesecret",
+                "key": "PACHYDERM_SQL_PASSWORD"
+            }
+        }
+    }
+}

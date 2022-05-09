@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"path"
 	"sort"
 	"strings"
@@ -248,6 +249,13 @@ func (a *apiServer) validateInput(pipelineName string, input *pps.Input) error {
 			if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
 				return errors.Wrapf(err, "error parsing cron-spec")
 			}
+		}
+		if input.SQL != nil {
+			if set {
+				return errors.Errorf("multiple input types set")
+			}
+			set = true
+			//TODO SQL input validation
 		}
 		if !set {
 			return errors.Errorf("no input set")
@@ -1864,6 +1872,47 @@ func (a *apiServer) CreatePipelineInTransaction(
 			); err != nil && !errutil.IsAlreadyExistError(err) {
 				return errors.EnsureStack(err)
 			}
+		}
+		if input.SQL != nil {
+			cprJSON, err := pachtmpl.RenderTemplate(
+				pachtmpl.SQLIngestTemplate,
+				map[string]string{
+					"name":       input.SQL.Name,
+					"url":        input.SQL.URL,
+					"query":      input.SQL.Query,
+					"cronSpec":   input.SQL.CronSpec,
+					"secretName": input.SQL.SecretName,
+					"format":     input.SQL.Format,
+				},
+			)
+			if err != nil {
+				errors.EnsureStack(err)
+			}
+			pipelineReader, err := ppsutil.NewPipelineManifestReader([]byte(cprJSON))
+			if err != nil {
+				return err
+			}
+			for {
+				subRequest, err := pipelineReader.NextCreatePipelineRequest()
+				if errors.Is(err, io.EOF) {
+					break
+				} else if err != nil {
+					return err
+				}
+				subRequest.Update = request.Update
+				if err := a.CreatePipelineInTransaction(txnCtx, subRequest); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			input.Pfs = &pps.PFSInput{
+				Name:      input.SQL.Name,
+				Repo:      input.SQL.Name,
+				Glob:      input.SQL.Glob,
+				JoinOn:    input.SQL.JoinOn,
+				OuterJoin: input.SQL.OuterJoin,
+				GroupBy:   input.SQL.GroupBy,
+			}
+			input.SQL = nil
 		}
 		return nil
 	}); visitErr != nil {
