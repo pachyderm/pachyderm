@@ -84,7 +84,7 @@ const IconView: React.FC<IconViewProps> = ({file}) => {
             !file.downloadDisabled && file.download ? (
               <>
                 <Button
-                  to={file.download}
+                  href={file.download}
                   download
                   aria-label={`Download ${file.path}`}
                   IconSVG={DownloadSVG}

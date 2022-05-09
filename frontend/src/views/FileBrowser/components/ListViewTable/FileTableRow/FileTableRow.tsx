@@ -73,7 +73,7 @@ const FileTableRow: React.FC<FileTableRowProps> = ({file}) => {
                   Preview
                 </Button>
               )}
-              <Button to={download} download buttonType="ghost">
+              <Button href={download} download buttonType="ghost">
                 Download
               </Button>
               <DeleteFileButton file={file}>Delete</DeleteFileButton>
