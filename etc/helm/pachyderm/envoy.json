@@ -68,20 +68,6 @@
          {
             "connect_timeout": "10s",
             "dns_lookup_family": "V4_ONLY",
-            "health_checks": [
-               {
-                  "healthy_threshold": 1,
-                  "http_health_check": {
-                     "host": "localhost",
-                     "path": "/"
-                  },
-                  "interval": "30s",
-                  "no_traffic_healthy_interval": "10s",
-                  "no_traffic_interval": "10s",
-                  "timeout": "10s",
-                  "unhealthy_threshold": 2
-               }
-            ],
             "lb_policy": "round_robin",
             "load_assignment": {
                "cluster_name": "console",
@@ -111,17 +97,6 @@
          {
             "connect_timeout": "10s",
             "dns_lookup_family": "V4_ONLY",
-            "health_checks": [
-               {
-                  "grpc_health_check": { },
-                  "healthy_threshold": 1,
-                  "interval": "10s",
-                  "no_traffic_healthy_interval": "10s",
-                  "no_traffic_interval": "10s",
-                  "timeout": "10s",
-                  "unhealthy_threshold": 2
-               }
-            ],
             "lb_policy": "round_robin",
             "load_assignment": {
                "cluster_name": "pachd-grpc",
@@ -159,20 +134,6 @@
          {
             "connect_timeout": "10s",
             "dns_lookup_family": "V4_ONLY",
-            "health_checks": [
-               {
-                  "healthy_threshold": 1,
-                  "http_health_check": {
-                     "host": "localhost",
-                     "path": "/dex/.well-known/openid-configuration"
-                  },
-                  "interval": "30s",
-                  "no_traffic_healthy_interval": "10s",
-                  "no_traffic_interval": "10s",
-                  "timeout": "10s",
-                  "unhealthy_threshold": 2
-               }
-            ],
             "lb_policy": "round_robin",
             "load_assignment": {
                "cluster_name": "pachd-identity",
@@ -202,7 +163,6 @@
          {
             "connect_timeout": "10s",
             "dns_lookup_family": "V4_ONLY",
-            "health_checks": [ ],
             "lb_policy": "round_robin",
             "load_assignment": {
                "cluster_name": "pachd-metrics",
@@ -232,7 +192,6 @@
          {
             "connect_timeout": "10s",
             "dns_lookup_family": "V4_ONLY",
-            "health_checks": [ ],
             "lb_policy": "round_robin",
             "load_assignment": {
                "cluster_name": "pachd-oidc",
@@ -262,7 +221,6 @@
          {
             "connect_timeout": "10s",
             "dns_lookup_family": "V4_ONLY",
-            "health_checks": [ ],
             "lb_policy": "round_robin",
             "load_assignment": {
                "cluster_name": "pachd-s3",

@@ -189,7 +189,8 @@ Envoy.bootstrap(
     (if 'grpc' in svc && svc.grpc then Envoy.GRPCCluster else Envoy.defaultCluster) + {
       name: name,
       load_assignment: Envoy.loadAssignment(name=name, address=svc.service, port=svc.internal_port),
-      health_checks: if 'health_check' in svc then [svc.health_check] else [],
+      // TODO(jonathan): Health checks seem to be causing more harm than good.  Avoid for now.
+      // health_checks: if 'health_check' in svc then [svc.health_check] else [],
     }
     for name in std.objectFields(services)
   ],
