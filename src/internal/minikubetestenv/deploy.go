@@ -370,7 +370,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
-	if !strings.HasPrefix(opts.Version, "2.3") {
+	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
 		helmOpts = union(helmOpts, withoutProxy(namespace))
 	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
