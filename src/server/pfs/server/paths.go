@@ -60,14 +60,6 @@ func cleanPath(p string) string {
 	return "/" + strings.Trim(p, "/")
 }
 
-// adds a trailing slash to the path if not already present
-func trailSlash(p string) string {
-	if p[len(p)-1] == '/' {
-		return p
-	}
-	return fmt.Sprintf("%v/", p)
-}
-
 var validRangeRegex = regexp.MustCompile("^[ -~]+$")
 
 func validate(p string) error {
