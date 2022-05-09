@@ -199,6 +199,7 @@ func withPort(namespace string, port uint16) *helm.Options {
 			// Let everything else use the legacy way.  We use the same mapping for
 			// internal ports, so in-cluster traffic doesn't go through the proxy, but
 			// doesn't need to confusingly use a different port number.
+			"pachd.service.apiGRPCPort":           fmt.Sprintf("%v", port),
 			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
 			"pachd.service.oidcPort":              fmt.Sprintf("%v", port+7),
 			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
