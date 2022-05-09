@@ -88,6 +88,7 @@ func (pj *pendingJob) load() error {
 	// base for this job.
 	// TODO: This should be an operation supported and exposed by PFS.
 	pj.baseMetaCommit = pj.metaCommitInfo.ParentCommit
+	var foundBaseMetaCommit bool
 	for pj.baseMetaCommit != nil {
 		metaCI, err := pachClient.PfsAPIClient.InspectCommit(
 			pachClient.Ctx(),
@@ -105,9 +106,13 @@ func (pj *pendingJob) load() error {
 		}
 		// both commits must have succeeded - a validation error will only show up in the output
 		if metaCI.Error == "" && outputCI.Error == "" {
+			foundBaseMetaCommit = true
 			break
 		}
 		pj.baseMetaCommit = metaCI.ParentCommit
+	}
+	if !foundBaseMetaCommit {
+		pj.baseMetaCommit = nil
 	}
 	// Load the job info.
 	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
