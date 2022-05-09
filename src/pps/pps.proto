@@ -126,11 +126,15 @@ message CronInput {
 
 message SQLInput {
   string name = 1;
-  string URL = 2;
-  string query = 3;
-  string format = 4;
-  string cron_spec = 5;
-  string secret_name = 6;
+  string glob = 2;
+  string join_on = 3;
+  bool outer_join = 4;
+  string group_by = 5;
+  string URL = 8;
+  string query = 9;
+  string format = 10;
+  string cron_spec = 11;
+  string secret_name = 12;
 }
 
 message Input {
@@ -140,7 +144,7 @@ message Input {
   repeated Input cross = 4;
   repeated Input union = 5;
   CronInput cron = 6;
-  SQLInput sql = 7;
+  SQLInput SQL = 7;
 }
 
 message JobInput {

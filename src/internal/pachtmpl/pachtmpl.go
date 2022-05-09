@@ -1,6 +1,7 @@
 package pachtmpl
 
 import (
+	_ "embed"
 	"io"
 	"net/http"
 	"strings"
@@ -8,6 +9,60 @@ import (
 	"github.com/google/go-jsonnet"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
+
+//TODO make embed work
+// go:embed src/templates/sql_ingest_cron.jsonnet
+var SQLIngestTemplatedummy string
+var SQLIngestTemplate string = `local newPipeline(name, input, transform) = {
+	pipeline: {
+		name: name,
+	},
+	transform: transform,
+	input: input,	
+};
+local pachtf(args, secretName="") = {
+	image: "pachyderm/pachtf:latest",
+	cmd: ["/app/pachtf"] + args,
+	secrets: if secretName != "" then
+		[
+			{
+				name: secretName,
+				env_var: "PACHYDERM_SQL_PASSWORD",
+				key: "PACHYDERM_SQL_PASSWORD",
+			}
+		]
+	else
+		null
+	,
+};
+
+function (name, url, query, format, cronSpec, secretName)
+	local queryPipelineName = name + "_queries";
+	[
+	newPipeline(
+		name=queryPipelineName,
+	 	input={
+			cron: {
+				name: "in",
+				spec: cronSpec,
+				overwrite: true,
+			}
+	  },
+	  transform=pachtf(["sql-gen-queries", query]),
+	),
+	newPipeline(
+		name=name,
+		input={
+			pfs: {
+				name: "in",
+				repo: queryPipelineName,
+				glob: "/*",
+			},
+		},
+		transform=pachtf(["sql-ingest", url, format], secretName),
+	)
+	]
+`
 
 // ParseArgs parses args of the form key=value
 func ParseArgs(argStrs []string) (map[string]string, error) {

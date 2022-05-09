@@ -8,9 +8,14 @@
         "cmd": ["python", "/churn.py"]
     },
     "input": {
-        "pfs": {
-            "repo": "customer",
-            "glob": "/*"
+        "SQL": {
+            "name": "customer",
+            "glob": "/*",
+            "URL": "snowflake://albertpachyderm@CDKSVXM-PN23804/CHURN_DEMO/PUBLIC?warehouse=COMPUTE_WH",
+            "query": "select * from churn_demo.public.customer",
+            "cronSpec": "@every 30s",
+            "secretName": "snowflakesecret",
+            "format": "csv"
         }
     },
     "resource_limits": {
@@ -28,7 +33,7 @@
                 "type": "CSV"
             },
             "secret": {
-                "k8s_secret": "snowflakesecret",
+                "name": "snowflakesecret",
                 "key": "PACHYDERM_SQL_PASSWORD"
             }
         }
