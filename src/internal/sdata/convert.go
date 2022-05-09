@@ -440,8 +440,11 @@ func isNullString(x string) bool {
 }
 
 // formatTimestampNTZ trims the "Z" at the end of a timestamp if the "Z" exists
-// this is assuming that the timestamp has no time zone
 // example: 2022-05-06T20:18:10Z -> 2022-05-06T20:18:10
+// The reason for this is that we use database/sql to read in a time related value as time.Time,
+// but time.Time doesn't have time zone information. We make an assumption that if a string representation
+// of time.Time ends with "Z" then it means it has no time zone information. Therefore, we want to trim
+// the "Z" such that it does not imply the time is in UTC.
 func formatTimestampNTZ(s string) string {
 	last := string(s[len(s)-1])
 	if strings.ToUpper(last) == "Z" {
