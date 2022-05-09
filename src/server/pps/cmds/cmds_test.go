@@ -178,7 +178,7 @@ func TestNotRunJobInfo(t *testing.T) {
 			| match "JOB_UNRUNNABLE"
 		# make sure the results have the full pipeline info, including version
 		pachctl list pipeline \
-			| match "cancelled"
+			| match "unrunnable"
 		`, "pipeline", pipeline2).Run())
 }
 
