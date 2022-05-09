@@ -10137,8 +10137,8 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	dbName := tu.GenerateEphermeralDBName(t)
 	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
-		Id int    `sql:"ID,INT,PRIMARY KEY"`
-		A  string `sql:"A,VARCHAR(100)"`
+		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
+		A  string `column:"A" dtype:"VARCHAR(100)"`
 	}{}))
 
 	// create K8s secrets

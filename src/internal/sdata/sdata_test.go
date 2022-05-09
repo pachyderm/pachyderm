@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestFormatParse is a round trip from a Tuple through formatting and parsing
@@ -153,8 +155,10 @@ func TestMaterializeSQL(t *testing.T) {
 			testName := fmt.Sprintf("%s-%s", dbSpec.Name, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
 				db := dbSpec.New(t)
-				setupTable(t, db)
-				rows, err := db.Query(`SELECT * FROM test_data`)
+				tableName := "test_table"
+				nRows := 10
+				setupTable(t, db, tableName, nRows)
+				rows, err := db.Query(fmt.Sprintf(`SELECT * FROM %s`, tableName))
 				require.NoError(t, err)
 				defer rows.Close()
 				buf := &bytes.Buffer{}
@@ -169,31 +173,37 @@ func TestMaterializeSQL(t *testing.T) {
 	}
 }
 
-func TestSQLTupleWriter(t *testing.T) {
+func TestSQLTupleWriter(suite *testing.T) {
 	testcases := []struct {
 		Name  string
-		NewDB func(t testing.TB) *sqlx.DB
+		NewDB func(testing.TB, string) *sqlx.DB
 	}{
 		{
 			"Postgres",
-			dockertestenv.NewPostgres,
+			dockertestenv.NewEphemeralPostgresDB,
 		},
 		{
 			"MySQL",
-			dockertestenv.NewMySQL,
+			dockertestenv.NewEphemeralMySQLDB,
 		},
 		{
 			"Snowflake",
-			testsnowflake.NewSnowSQL,
+			testsnowflake.NewEphemeralSnowflakeDB,
 		},
 	}
 	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			db := tc.NewDB(t)
-			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
+		suite.Run(tc.Name, func(t *testing.T) {
+			dbName := testutil.GenerateEphermeralDBName(t)
+			tableName := "test_table"
+			db := tc.NewDB(t, dbName)
+			require.NoError(t, pachsql.CreateTestTable(db, tableName, pachsql.TestRow{}))
 
 			ctx := context.Background()
-			tableInfo, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			schema := "public"
+			if tc.Name == "MySQL" {
+				schema = dbName
+			}
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", schema, tableName))
 			require.NoError(t, err)
 
 			tx, err := db.Beginx()
@@ -208,8 +218,7 @@ func TestSQLTupleWriter(t *testing.T) {
 				*ti = time.Now()
 			})
 
-			tuple, err := NewTupleFromTableInfo(tableInfo)
-			require.NoError(t, err)
+			tuple := newTupleFromTestRow(pachsql.TestRow{})
 			w := NewSQLTupleWriter(tx, tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
@@ -224,14 +233,23 @@ func TestSQLTupleWriter(t *testing.T) {
 
 			// assertions
 			var count int
-			require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+			require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", tableName)).Scan(&count))
 			require.Equal(t, nRows, count)
 		})
 	}
 }
 
-func setupTable(t testing.TB, db *pachsql.DB) {
-	const N = 10
-	require.NoError(t, pachsql.CreateTestTable(db, "test_data", pachsql.TestRow{}))
-	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
+func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {
+	require.NoError(t, pachsql.CreateTestTable(db, name, pachsql.TestRow{}))
+	require.NoError(t, pachsql.GenerateTestData(db, name, n))
+}
+
+func newTupleFromTestRow(row interface{}) Tuple {
+	result := Tuple{}
+	rval := reflect.TypeOf(row)
+	for i := 0; i < rval.NumField(); i++ {
+		v := reflect.New(rval.Field(i).Type).Interface()
+		result = append(result, v)
+	}
+	return result
 }
