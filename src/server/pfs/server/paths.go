@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"path"
 	"regexp"
 	"strings"
