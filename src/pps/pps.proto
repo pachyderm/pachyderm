@@ -69,7 +69,7 @@ enum JobState {
   JOB_KILLED = 6;
   JOB_EGRESSING = 7;
   JOB_FINISHING = 8;
-  JOB_NOT_RUN = 9;
+  JOB_UNRUNNABLE = 9;
 }
 
 message Metadata {

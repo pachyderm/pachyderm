@@ -175,7 +175,7 @@ func TestNotRunJobInfo(t *testing.T) {
 		sleep 10
 		# make sure that there is a not-run job
 		pachctl list job --raw \
-			| match "JOB_NOT_RUN"
+			| match "JOB_UNRUNNABLE"
 		# make sure the results have the full pipeline info, including version
 		pachctl list pipeline \
 			| match "cancelled"

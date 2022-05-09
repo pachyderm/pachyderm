@@ -1255,8 +1255,8 @@ func TestInputFailure(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 	jobInfo, err = c.WaitJob(pipeline2, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_NOT_RUN, jobInfo.State)
-	require.True(t, strings.Contains(jobInfo.Reason, "Cancelled because"))
+	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
+	require.True(t, strings.Contains(jobInfo.Reason, "unrunnable because"))
 
 	pipeline3 := tu.UniqueString("pipeline3")
 	require.NoError(t, c.CreatePipeline(
@@ -1281,7 +1281,7 @@ func TestInputFailure(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 	jobInfo, err = c.WaitJob(pipeline3, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_NOT_RUN, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
 	// the fact that pipeline 2 failed should be noted in the message
 	require.True(t, strings.Contains(jobInfo.Reason, pipeline2))
 }
@@ -1980,7 +1980,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 				case pipelineName(1):
 					require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
 				case pipelineName(2):
-					require.Equal(t, pps.JobState_JOB_NOT_RUN.String(), ji.State.String())
+					require.Equal(t, pps.JobState_JOB_UNRUNNABLE.String(), ji.State.String())
 				}
 			}
 		}
