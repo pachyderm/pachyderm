@@ -229,6 +229,8 @@ func asString(dst *string, x interface{}) error {
 	switch x := x.(type) {
 	case string:
 		*dst = x
+	case json.Number:
+		*dst = string(x)
 	default:
 		return ErrCannotConvert{Dest: dst, Value: x}
 	}
