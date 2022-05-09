@@ -6146,8 +6146,8 @@ func TestPFS(suite *testing.T) {
 		os.Setenv("PACHYDERM_SQL_PASSWORD", tu.DefaultPostgresPassword)
 
 		type Schema struct {
-			Id int    `sql:"ID,INT"`
-			A  string `sql:"A,VARCHAR(100)"`
+			Id int    `column:"ID" dtype:"INT"`
+			A  string `column:"A" dtype:"VARCHAR(100)"`
 		}
 
 		type File struct {

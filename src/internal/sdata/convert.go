@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -228,6 +229,8 @@ func asString(dst *string, x interface{}) error {
 	switch x := x.(type) {
 	case string:
 		*dst = x
+	case json.Number:
+		*dst = string(x)
 	default:
 		return ErrCannotConvert{Dest: dst, Value: x}
 	}
@@ -436,4 +439,18 @@ func parseTime(x string) (t time.Time, err error) {
 
 func isNullString(x string) bool {
 	return x == "null" || x == "nil" || len(x) == 0
+}
+
+// formatTimestampNTZ trims the "Z" at the end of a timestamp if the "Z" exists
+// example: 2022-05-06T20:18:10Z -> 2022-05-06T20:18:10
+// The reason for this is that we use database/sql to read in a time related value as time.Time,
+// but time.Time doesn't have time zone information. We make an assumption that if a string representation
+// of time.Time ends with "Z" then it means it has no time zone information. Therefore, we want to trim
+// the "Z" such that it does not imply the time is in UTC.
+func formatTimestampNTZ(s string) string {
+	last := string(s[len(s)-1])
+	if strings.ToUpper(last) == "Z" {
+		s = s[:len(s)-1]
+	}
+	return s
 }
