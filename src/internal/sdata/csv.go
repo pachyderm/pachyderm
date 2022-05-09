@@ -80,7 +80,7 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		// Maybe have a list of base64 encoded columns.
 		y = string(*x)
 	case *time.Time:
-		y = x.Format(time.RFC3339Nano)
+		y = formatTimestampNTZ(x.Format(time.RFC3339Nano))
 	case *sql.NullBool:
 		if x.Valid {
 			y = strconv.FormatBool(x.Bool)
@@ -125,7 +125,7 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 		}
 	case *sql.NullTime:
 		if x.Valid {
-			y = x.Time.Format(time.RFC3339Nano)
+			y = formatTimestampNTZ(x.Time.Format(time.RFC3339Nano))
 		} else {
 			y = null
 		}
