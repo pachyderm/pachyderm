@@ -1,33 +1,17 @@
-deployTarget: custom
-
-global:
-  postgresql:
-    postgresqlPassword: pachyderm
-    postgresqlPostgresPassword: pachyderm
-
 pachd:
-  service:
-    type: NodePort
-  image:
-    tag: local
-  storage:
-    backend: MINIO
-    minio:
-      bucket: "pachyderm-test"
-      endpoint: "minio.default.svc.cluster.local:9000"
-      id: "minioadmin"
-      secret: "minioadmin"
-      secure: "false"
-      signature: ""
-  metrics:
-    enabled: false
   resources:
     requests:
-      cpu: 250m
-      memory: 512M
+      cpu: 1000m
+      memory: 2048M
+    limits:
+      cpu: 1000m
+      memory: 2048M
 
 etcd:
   resources:
     requests:
+      cpu: 250m
+      memory: 512M
+    limits:
       cpu: 250m
       memory: 512M

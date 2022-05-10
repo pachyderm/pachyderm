@@ -2,22 +2,51 @@
 
 set -euxo pipefail
 
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh"
-
 mkdir -p "${HOME}/go/bin"
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 export GOPATH="${HOME}/go"
 
+# Install go.
+sudo rm -rf /usr/local/go
+curl -L https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
+go version
+
+# Install goreleaser.
+GORELEASER_VERSION=0.169.0
+curl -L "https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz" \
+    | tar xzf - -C "${HOME}/go/bin" goreleaser
+
+# Build pachctl.
+make install
 pachctl version --client-only
 
 # Set version for docker builds.
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
-helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
+# Build and push docker images.
+make docker-build
+make docker-push
 
-kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+# provision a pulumi load test env
+curl -X POST -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" \
+ -F name=load-test-CI1 -F pachdVersion=${VERSION} -F valuesYaml=@helm-values.yaml \
+  https://0f52-172-98-132-18.ngrok.io/v1/api/workspace
+
+for _ in $(seq 36); do
+  STATUS=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/load-test-CI1 | jq .Workspace.Status | tr -d '"')
+  if [[ ${STATUS} == "failed" ]]
+  then
+    echo "success"
+    break
+  fi
+  echo 'sleeping' | ts
+  sleep 10
+done
+
+pachctl_field=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/load-test-CI1 | jq .Workspace.Pachctl)
+
+eval ${pachctl_field}
 
 # Print client and server versions, for debugging.
 pachctl version
