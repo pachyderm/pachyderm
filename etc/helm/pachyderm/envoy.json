@@ -372,7 +372,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -473,7 +473,7 @@
                               ]
                            },
                            "stat_prefix": "proxy-http",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }
@@ -535,7 +535,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -564,7 +564,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-grpc",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }
@@ -618,7 +618,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -673,7 +673,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-s3",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }
@@ -727,7 +727,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -756,7 +756,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-identity",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }
@@ -810,7 +810,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -839,7 +839,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-oidc",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }
@@ -893,7 +893,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -928,7 +928,7 @@
                               ]
                            },
                            "stat_prefix": "direct-console",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }
@@ -982,7 +982,7 @@
                            "http_protocol_options": {
                               "accept_http_10": false
                            },
-                           "request_timeout": "300s",
+                           "request_timeout": "604800s",
                            "route_config": {
                               "virtual_hosts": [
                                  {
@@ -1011,7 +1011,7 @@
                               ]
                            },
                            "stat_prefix": "direct-pachd-metrics",
-                           "stream_idle_timeout": "0s",
+                           "stream_idle_timeout": "600s",
                            "use_remote_address": true
                         }
                      }

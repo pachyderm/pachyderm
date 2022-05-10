@@ -148,7 +148,8 @@
               http_protocol_options: {
                 accept_http_10: false,
               },
-              request_timeout: '300s',
+              request_timeout: '604800s',  // Necessary to allow long file uploads.
+              stream_idle_timeout: '600s',  // Only completely idle streams are dropped after this timeout.
               route_config: {
                 virtual_hosts: [
                   {
@@ -166,7 +167,6 @@
                 ],
               },
               stat_prefix: name,
-              stream_idle_timeout: '0s',  // disable stream idle timeouts, for waiting on jobs, tailing logs, etc.
               use_remote_address: true,
             },
           },
