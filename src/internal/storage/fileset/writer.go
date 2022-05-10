@@ -95,6 +95,9 @@ func (w *Writer) checkIndex(prevIdx, idx *index.Index) error {
 	if prevIdx.Path == idx.Path && prevIdx.File.Datum == idx.File.Datum {
 		return errors.Errorf("cannot write same path (%s) and datum (%s) twice", idx.Path, idx.File.Datum)
 	}
+	if prevIdx.Path == idx.Path && prevIdx.File.Datum > idx.File.Datum {
+		return errors.Errorf("cannot write same path (%s) for datum (%s) after datum (%s)", idx.Path, idx.File.Datum, prevIdx.File.Datum)
+	}
 	if prevIdx.Path > idx.Path {
 		return errors.Errorf("cannot write path (%s) after (%s)", idx.Path, prevIdx.Path)
 	}
