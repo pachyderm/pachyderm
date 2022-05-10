@@ -25,8 +25,13 @@ global:
     postgresqlHost: "postgres"
     # The postgresql database port to connect to. Defaults to postgres server in subchart
     postgresqlPort: "5432"
-    # postgresqlSSL is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
+    # postgresqlSSL is the SSL mode to use for pg-bouncer connecting to Postgres, for the default local postgres it is disabled
     postgresqlSSL: "disable"
+    # CA Certificate required to connect to Postgres
+    postgresqlSSLCACert: ""
+    # TLS Secret with cert/key to connect to Postgres
+    postgresqlSSLSecret: ""
+    # Indicates the DB name that dex connects to
     # Indicates the DB name that dex connects to. Defaults to "Dex" if not set.
     identityDatabaseFullNameOverride: ""
   # imagePullSecrets allow you to pull images from private repositories, these will also be added to pipeline workers
