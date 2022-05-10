@@ -41,6 +41,8 @@ spec:
          {{- else }}
           value: {{ .Values.global.postgresql.postgresqlHost }}
          {{- end }}
+        - name: PGBOUNCER_PORT
+          value: "5432"
         - name: POSTGRESQL_PORT
           value: "{{ .Values.global.postgresql.postgresqlPort }}"
         - name: PGBOUNCER_DATABASE
