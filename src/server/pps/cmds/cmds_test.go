@@ -128,7 +128,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		`).Run())
 }
 
-func TestNotRunJobInfo(t *testing.T) {
+func TestUnrunnableJobInfo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
