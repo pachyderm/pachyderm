@@ -148,7 +148,7 @@
               http_protocol_options: {
                 accept_http_10: false,
               },
-              request_timeout: '60s',
+              request_timeout: '300s',
               route_config: {
                 virtual_hosts: [
                   {
@@ -157,6 +157,11 @@
                     ],
                     name: 'any',
                     routes: routes,
+                    retry_policy: {
+                      retry_on: 'connect-failure',
+                      num_retries: 4,
+                      host_selection_retry_max_attempts: 4,
+                    },
                   },
                 ],
               },
@@ -172,7 +177,12 @@
   defaultCluster: {
     connect_timeout: '10s',
     dns_lookup_family: 'V4_ONLY',
-    lb_policy: 'round_robin',
+    dns_refresh_rate: '5s',
+    dns_failure_refresh_rate: {
+      base_interval: '0.05s',
+      max_interval: '0.1s',
+    },
+    lb_policy: 'random',
     type: 'strict_dns',
     upstream_connection_options: {
       tcp_keepalive: {},
