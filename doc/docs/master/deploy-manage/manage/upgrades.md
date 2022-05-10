@@ -156,12 +156,12 @@ In general, these values can be provided in three different ways:
 
       You have not created secrets ahead of your installation, nor did you provide values directly in the values.yaml; we created default values for you in the default secret `pachyderm-bootstrap-config` (See column C below for their key).
       
-      Example: Use `kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'` to retrieve your rootToken.
+
 
 !!! Important
-       It is important to note that if no secret name is provided for the fields mentioned in **A**, Pachyderm will retrieve the dedicated plain-text secret values in the helm values (**B**) and populate a generic, default, auto-generated secret (pachyderm-bootstrap-config) at the time of the installation (**C**). If no value is found in either one of those two cases, default values are used in `pachyderm-bootstrap-config`.
+       It is important to note that if no secret name is provided for the fields mentioned in **A**, Pachyderm will retrieve the dedicated plain-text secret values in the helm values (**B**) and populate a generic, default, auto-generated secret (pachyderm-bootstrap-config) at the time of the installation (see keys in **C**). If no value is found in either one of those two cases, default values are used in `pachyderm-bootstrap-config`.
 
-|KEY name in a Secret| Description | A - Create your secrets ahead <br> of your cluster creation| B - Pass credentials in values.yaml| C - Neither A nor B - See default `pachyderm-bootstrap-config` keys| 
+|KEY name in a Secret| <div style="width:290px"> Description </div>| A - Create your secrets ahead <br> of your cluster creation| B - Pass credentials in values.yaml| <div style="width:250px"> C - Neither A nor B - KEY name in default `pachyderm-bootstrap-config` secret </div>| 
 |------------|------------|-----|--------|---------|
 |root_token| Root clusterAdmin| pachd.rootTokenSecretName |pachd.rootToken|rootToken|
 |root_token|Root clusterAdmin of the enterprise server|pachd.enterpriseRootTokenSecretName|pachd.enterpriseRootToken|enterpriseRootToken|
