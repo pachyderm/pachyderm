@@ -1220,14 +1220,14 @@ func TestInputFailure(t *testing.T) {
 		false,
 	))
 	var jobInfos []*pps.JobInfo
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		jobInfos, err = c.ListJob(pipeline1, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	})
 	jobInfo, err := c.WaitJob(pipeline1, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
@@ -1245,14 +1245,14 @@ func TestInputFailure(t *testing.T) {
 		"",
 		false,
 	))
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		jobInfos, err = c.ListJob(pipeline2, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	})
 	jobInfo, err = c.WaitJob(pipeline2, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
@@ -1271,14 +1271,14 @@ func TestInputFailure(t *testing.T) {
 		"",
 		false,
 	))
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		jobInfos, err = c.ListJob(pipeline3, nil, -1, true)
 		require.NoError(t, err)
 		if len(jobInfos) != 1 {
 			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	})
 	jobInfo, err = c.WaitJob(pipeline3, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
