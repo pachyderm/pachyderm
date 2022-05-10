@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 import platform
+from base64 import b64decode
 
 import python_pachyderm
 from python_pachyderm.service import health_proto
@@ -28,10 +29,20 @@ class MountServerClient(MountInterface):
         self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
 
 
-    def _is_endpoint_valid(self, pachd_address):
+    def _is_endpoint_valid(self, pachd_address, **kwargs):
         """Returns if a pachd_address points to a valid cluster."""
         get_logger().debug(f"Checking if valid pachd_address: {pachd_address}")
-        client = python_pachyderm.Client.new_from_pachd_address(pachd_address)
+        
+        if "server_cas" not in kwargs:
+            client = python_pachyderm.Client.new_from_pachd_address(pachd_address)
+        else:
+            client = python_pachyderm.Client.new_from_pachd_address(
+                pachd_address,
+                root_certs=b64decode(bytes(kwargs["server_cas"], "utf-8"))
+            )
+
+        get_logger().info("Successfully initialized client")
+        get_logger().info(client.health_check())
         try:
             res = client.health_check()
             if res.status != health_proto.HealthCheckResponse.ServingStatus.SERVING:
@@ -48,7 +59,7 @@ class MountServerClient(MountInterface):
             await self.client.fetch(f"{self.address}/config")
         except Exception as e:
             get_logger().debug(f"Unable to hit server at {self.address}")
-            print(e)
+            get_logger().debug(e)
             return False
         get_logger().debug(f"Able to hit server at {self.address}")
         return True
@@ -56,19 +67,28 @@ class MountServerClient(MountInterface):
     
     def _unmount(self):
         if platform.system() == "Linux":
-            subprocess.run(["bash", "-c", f"fusermount -uz {self.mount_dir}"])
+            subprocess.run(["bash", "-c", f"fusermount -uzq {self.mount_dir}"])
         else:
-            subprocess.run(["bash", "-c", f"umount {self.mount_dir}"])
+            subprocess.run(
+                ["bash", "-c", f"umount {self.mount_dir}"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
 
 
-    def _update_config_file(self, new_pachd_address):
+    def _update_config_file(self, pachd_address, **kwargs):
         # Update config file with new pachd_address
-        get_logger().debug(f"Updating config file with pachd_address: {new_pachd_address}")  
-        os.makedirs(os.path.expanduser("~/.pachyderm"), exist_ok=True)  
+        get_logger().debug(f"Updating config file with pachd_address: {pachd_address}")  
+        os.makedirs(os.path.expanduser("~/.pachyderm"), exist_ok=True)
+
+        new_config = f'"pachd_address": "{pachd_address}"'
+        if "server_cas" in kwargs:
+            new_config += f', "server_cas": "{kwargs["server_cas"]}"'
+
         subprocess.run(
             ["bash", "-c", "pachctl config set context mount-server --overwrite"],
             text=True,
-            input=f'{{"pachd_address": "{new_pachd_address}"}}',
+            input=f"{{{new_config}}}",
             env={
                 "PACH_CONFIG": os.path.expanduser(PACH_CONFIG)
             }
@@ -79,6 +99,7 @@ class MountServerClient(MountInterface):
                 "PACH_CONFIG": os.path.expanduser(PACH_CONFIG)
             }
         )
+        get_logger().info(f"Updated config cluster endpoint to {pachd_address}")
 
 
     async def _ensure_mount_server(self):
@@ -160,13 +181,12 @@ class MountServerClient(MountInterface):
         await self._ensure_mount_server()
         pass
 
-    async def config(self, body=None):
-        if body is not None:
-            if not self._is_endpoint_valid(body["pachd_address"]):
-                return {"cluster_status": "INVALID", "pachd_address": body["pachd_address"]}
+    async def config(self, request=None):
+        if request is not None:
+            if not self._is_endpoint_valid(**request):
+                return {"cluster_status": "INVALID", **request}
 
-            self._update_config_file(body["pachd_address"])
-            get_logger().info(f"Updated config cluster endpoint to {body['pachd_address']}")
+            self._update_config_file(**request)
             self._unmount()
         
         if await self._ensure_mount_server():
