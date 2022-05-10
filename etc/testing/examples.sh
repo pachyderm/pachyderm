@@ -6,9 +6,9 @@ helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
 
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
-for i in `seq 1 20`; do
+for i in $(seq 1 20); do
     if pachctl version; then
-        echo "pachd ok"
+        echo "pachd ready after $i attempts"
         break
     else
         sleep 5
