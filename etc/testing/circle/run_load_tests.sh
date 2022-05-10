@@ -28,10 +28,6 @@ export VERSION
 make docker-build
 make docker-push
 
-# pwd
-# ls -lah
-# cat helm-values.yaml
-
 # # provision a pulumi load test env
 # curl -X POST -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" \
 #  -F name=load-test-CI1 -F pachdVersion=${VERSION} -F valuesYaml=@etc/testing/circle/helm-values.yaml \
@@ -54,6 +50,8 @@ echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl confi
 
 # Print client and server versions, for debugging.
 pachctl version
+
+echo "1WgTXSc2MccsxunEzXvSAejsKNyT4Lsy" | pachctl auth use-auth-token
 
 # Run load tests.
 set +e
