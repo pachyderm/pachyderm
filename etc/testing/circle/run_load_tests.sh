@@ -28,17 +28,17 @@ export VERSION
 make docker-build
 make docker-push
 
-cat helm-values.yaml
-pwd
-ls -lah
+# pwd
+# ls -lah
+# cat helm-values.yaml
 
-# provision a pulumi load test env
-curl -X POST -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" \
- -F name=load-test-CI1 -F pachdVersion=${VERSION} -F valuesYaml=@helm-values.yaml \
-  https://0f52-172-98-132-18.ngrok.io/v1/api/workspace
+# # provision a pulumi load test env
+# curl -X POST -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" \
+#  -F name=load-test-CI1 -F pachdVersion=${VERSION} -F valuesYaml=@etc/testing/circle/helm-values.yaml \
+#   https://0f52-172-98-132-18.ngrok.io/v1/api/workspace
 
 for _ in $(seq 36); do
-  STATUS=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/load-test-CI1 | jq .Workspace.Status | tr -d '"')
+  STATUS=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/sean-named-this-110 | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "failed" ]]
   then
     echo "success"
@@ -48,7 +48,7 @@ for _ in $(seq 36); do
   sleep 10
 done
 
-pachctl_field=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/load-test-CI1 | jq .Workspace.Pachctl)
+pachctl_field=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/sean-named-this-110 | jq .Workspace.Pachctl)
 
 eval ${pachctl_field}
 
