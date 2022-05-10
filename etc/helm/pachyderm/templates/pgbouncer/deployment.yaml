@@ -74,7 +74,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: pachyderm/pgbouncer:1.17.0-1
+        image: bitnami/1.16.1-debian-10-r82
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
@@ -89,7 +89,7 @@ spec:
         - mountPath: /pg-tls-cert
           name: pg-tls-cert
         {{- end }}
-        {{- if .Values.global.postgresql.postgresqlSSLSecret }}
+        {{- if .Values.global.postgresql.postgresqlSSLCACert }}
         - mountPath: /pg-ca-cert
           name: pg-ca-cert
         {{- end }}
