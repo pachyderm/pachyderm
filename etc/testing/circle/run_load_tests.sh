@@ -28,6 +28,10 @@ export VERSION
 make docker-build
 make docker-push
 
+cat helm-values.yaml
+pwd
+ls -lah
+
 # provision a pulumi load test env
 curl -X POST -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" \
  -F name=load-test-CI1 -F pachdVersion=${VERSION} -F valuesYaml=@helm-values.yaml \
