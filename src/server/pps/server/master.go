@@ -108,7 +108,7 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 		log.Infof("PPS master: launching master process")
-		kd := NewKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
+		kd := newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)
 		m := newMaster(ctx, a.env, a.etcdPrefix, kd, sd)
 		m.run()

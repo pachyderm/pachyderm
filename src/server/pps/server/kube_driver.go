@@ -30,7 +30,7 @@ type kubeDriver struct {
 	logger     *logrus.Logger
 }
 
-func NewKubeDriver(kubeClient *kubernetes.Clientset, config serviceenv.Configuration, logger *logrus.Logger) InfraDriver {
+func newKubeDriver(kubeClient *kubernetes.Clientset, config serviceenv.Configuration, logger *logrus.Logger) InfraDriver {
 	return &kubeDriver{
 		kubeClient: kubeClient,
 		namespace:  config.Namespace,
@@ -172,16 +172,4 @@ func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event
 		return nil, nil, errors.Wrap(err, "failed to watch kubernetes pods")
 	}
 	return kubePipelineWatch.ResultChan(), kubePipelineWatch.Stop, nil
-}
-
-func (kd *kubeDriver) GetWorkerImageID(ctx context.Context, podName string) (string, error) {
-	pod, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Get(
-		ctx,
-		podName,
-		metav1.GetOptions{})
-	if err != nil {
-		return "", errors.Wrap(err, "failed to get kubernetes pod")
-	}
-
-	return pod.Status.ContainerStatuses[1].ImageID, nil // second container should be the pipeline worker, first should be pachd
 }

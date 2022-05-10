@@ -19,7 +19,6 @@ type Status struct {
 	jobID       string
 	datumStatus *pps.DatumStatus
 	cancel      func()
-	ImageID     string
 }
 
 func convertInputs(inputs []*common.Input) []*pps.InputFile {
