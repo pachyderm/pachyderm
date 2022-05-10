@@ -11,6 +11,8 @@ import {
   JobState,
 } from '@pachyderm/node-pachyderm';
 
+import {DAGS} from './loadLimits';
+
 // Need to define this up here, as the node selector
 // map is a mutable set that can't be initialized with
 // values
@@ -436,6 +438,18 @@ const traitDiscovery = [
     ),
 ];
 
+const getLoadPipelines = (count: number) => {
+  return [...new Array(count).keys()].map((i) => {
+    return new PipelineInfo()
+      .setPipeline(new Pipeline().setName(`load-pipeline-${i}`))
+      .setDetails(
+        new PipelineInfo.Details().setInput(
+          new Input().setPfs(new PFSInput().setRepo(`load-repo-${i}`)),
+        ),
+      );
+  });
+};
+
 const pipelines: {[projectId: string]: PipelineInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
@@ -445,6 +459,7 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   '6': [],
   '7': traitDiscovery,
   '8': [],
+  '9': getLoadPipelines(DAGS),
   default: [...tutorial, ...customerTeam],
 };
 

@@ -1,6 +1,8 @@
 import {LogMessage} from '@pachyderm/node-pachyderm';
 import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
 
+import {LOGS} from './loadLimits';
+
 const tutorial = [
   new LogMessage()
     .setPipelineName('edges')
@@ -112,6 +114,23 @@ export const workspaceLogs = [
     .setMessage('PPS master: processing event for "edges"'),
 ];
 
+const getLoadLogMessages = (count: number) => {
+  const now = Math.floor(new Date().getTime() / 1000);
+  return [...new Array(count).keys()].map((i) => {
+    return new LogMessage()
+      .setUser(false)
+      .setJobId('0-0')
+      .setPipelineName('load-pipeline-0')
+      .setMessage(`log message #${i}`)
+      .setTs(
+        timestampFromObject({
+          seconds: now,
+          nanos: 0,
+        }),
+      );
+  });
+};
+
 export const pipelineAndJobLogs: {[projectId: string]: LogMessage[]} = {
   '1': tutorial,
   '2': duplicatedLogs,
@@ -120,5 +139,6 @@ export const pipelineAndJobLogs: {[projectId: string]: LogMessage[]} = {
   '5': [],
   '6': [],
   '7': [],
+  '9': getLoadLogMessages(LOGS),
   default: [...tutorial],
 };

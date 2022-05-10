@@ -1,6 +1,8 @@
 import {Branch, Repo, RepoInfo} from '@pachyderm/node-pachyderm';
 import {timestampFromObject} from '@pachyderm/node-pachyderm/dist/builders/protobuf';
 
+import {DAGS} from './loadLimits';
+
 const tutorial = [
   new RepoInfo()
     .setRepo(new Repo().setName('montage').setType('user'))
@@ -273,6 +275,31 @@ const traitDiscovery = [
     .setDetails(new RepoInfo.Details().setSizeBytes(621858)),
 ];
 
+const getLoadRepos = (count: number) => {
+  return [...new Array(count).keys()].reduce((repos: RepoInfo[], i) => {
+    const now = Math.floor(new Date().getTime() / 1000);
+    repos.push(
+      new RepoInfo()
+        .setRepo(new Repo().setName(`load-repo-${i}`).setType('user'))
+        .setCreated(timestampFromObject({seconds: now, nanos: 0}))
+        .setBranchesList([new Branch().setName('master')])
+        .setDetails(
+          new RepoInfo.Details().setSizeBytes(Math.floor(Math.random() * 1000)),
+        ),
+    );
+    repos.push(
+      new RepoInfo()
+        .setRepo(new Repo().setName(`load-pipeline-${i}`).setType('user'))
+        .setCreated(timestampFromObject({seconds: now, nanos: 0}))
+        .setBranchesList([new Branch().setName('master')])
+        .setDetails(
+          new RepoInfo.Details().setSizeBytes(Math.floor(Math.random() * 1000)),
+        ),
+    );
+    return repos;
+  }, []);
+};
+
 const repos: {[projectId: string]: RepoInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
@@ -282,6 +309,7 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   '6': [],
   '7': traitDiscovery,
   '8': tutorial,
+  '9': getLoadRepos(DAGS),
   default: [...tutorial, ...customerTeam],
 };
 

@@ -1,6 +1,8 @@
 import {JobState, JobInfo} from '@pachyderm/node-pachyderm';
 import {jobInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pps';
 
+import {JOBS} from './loadLimits';
+
 const tutorial = [
   jobInfoFromObject({
     state: JobState.JOB_SUCCESS,
@@ -143,6 +145,26 @@ const customerTeam = [
   }),
 ];
 
+const getLoadJobs = (jobCount: number) => {
+  const jobStates = Object.values(JobState);
+  const now = Math.floor(new Date().getTime() / 1000);
+  return [...new Array(jobCount).keys()].map((jobIndex) => {
+    return jobInfoFromObject({
+      state: jobStates[
+        Math.floor(Math.random() * jobStates.length)
+      ] as JobState,
+      createdAt: {seconds: now - jobIndex * 100, nanos: jobIndex * 100},
+      startedAt: {seconds: now - jobIndex * 100, nanos: jobIndex * 100},
+      job: {
+        id: `0-${jobIndex}`,
+        pipeline: {name: `load-pipeline-${jobIndex}`},
+      },
+      dataFailed: Math.floor(Math.random() * 100),
+      dataTotal: Math.floor(Math.random() * 1000),
+    });
+  });
+};
+
 const jobs: {[projectId: string]: JobInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
@@ -152,6 +174,7 @@ const jobs: {[projectId: string]: JobInfo[]} = {
   '6': [],
   '7': [],
   '8': tutorial,
+  '9': getLoadJobs(JOBS),
   default: [...tutorial, ...customerTeam],
 };
 

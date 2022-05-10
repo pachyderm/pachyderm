@@ -1,6 +1,8 @@
 import {FileInfo, FileType} from '@pachyderm/node-pachyderm';
 import {fileInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
 
+import {FILES} from './loadLimits';
+
 const tutorial = {
   '/': [
     fileInfoFromObject({
@@ -229,6 +231,25 @@ const nestedFolders = (() => {
   }, {});
 })();
 
+const getLoadFiles = (fileCount: number) => {
+  const now = Math.floor(new Date().getTime() / 1000);
+  return {
+    '/': [...new Array(fileCount).keys()].map((fileIndex) => {
+      return fileInfoFromObject({
+        committed: {seconds: now - 100 * fileIndex, nanos: 0},
+        file: {
+          commitId: `${0}-${0}`,
+          path: `${fileIndex}.json`,
+          branch: {name: 'master', repo: {name: 'images'}},
+        },
+        fileType: FileType.FILE,
+        hash: '',
+        sizeBytes: Math.floor(Math.random() * 1000),
+      });
+    }),
+  };
+};
+
 export type Files = {
   [projectId: string]: {
     [path: string]: FileInfo[];
@@ -241,6 +262,7 @@ const files: Files = {
   '3': allFiles,
   '4': tutorial,
   '5': nestedFolders,
+  '9': getLoadFiles(FILES),
   default: tutorial,
 };
 

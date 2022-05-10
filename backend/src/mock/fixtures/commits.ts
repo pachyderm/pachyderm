@@ -1,6 +1,7 @@
 import {CommitInfo, OriginKind} from '@pachyderm/node-pachyderm';
 import {commitInfoFromObject} from '@pachyderm/node-pachyderm/dist/builders/pfs';
 
+import {COMMITS} from './loadLimits';
 import repos from './repos';
 
 const tutorial = [
@@ -255,6 +256,34 @@ const nestedFolderCommits = [
   }),
 ];
 
+const getLoadCommits = (repoCount: number, commitCount: number) => {
+  const now = Math.floor(new Date().getTime() / 1000);
+  return [...new Array(repoCount).keys()].reduce(
+    (commits: CommitInfo[], repoIndex) => {
+      const repoCommits = [...new Array(commitCount).keys()].map(
+        (commitIndex) => {
+          return commitInfoFromObject({
+            commit: {
+              id: `${repoIndex}-${commitIndex}`,
+              branch: {
+                name: 'master',
+                repo: {name: `load-repo-${repoIndex}`},
+              },
+            },
+            started: {
+              seconds: now + commitIndex * 10,
+              nanos: 0,
+            },
+          });
+        },
+      );
+      commits.push(...repoCommits);
+      return commits;
+    },
+    [],
+  );
+};
+
 const commits: {[projectId: string]: CommitInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
@@ -263,6 +292,7 @@ const commits: {[projectId: string]: CommitInfo[]} = {
   default: [...tutorial],
   '7': [],
   '6': [],
+  '9': getLoadCommits(1, COMMITS),
 };
 
 export default commits;

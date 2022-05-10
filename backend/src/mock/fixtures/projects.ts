@@ -71,10 +71,19 @@ const tutorialProjects: {[projectId: string]: Project} = {
     ),
 };
 
+const loadProjects: {[projectId: string]: Project} = {
+  '9': new Project()
+    .setId('9')
+    .setName('Load Project')
+    .setCreatedat(new Timestamp().setSeconds(1651264871))
+    .setStatus(ProjectStatus.HEALTHY)
+    .setDescription('Project for testing frontend load'),
+};
+
 export const projectInfo = new Projects().setProjectInfoList(
   Object.values(projects),
 );
 
-export const allProjects = {...projects, ...tutorialProjects};
+export const allProjects = {...projects, ...tutorialProjects, ...loadProjects};
 
 export default projects;
