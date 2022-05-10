@@ -132,7 +132,8 @@ func TestNotRunJobInfo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.BashCmd(`
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run)
 	pipeline1 := tu.UniqueString("p-")
