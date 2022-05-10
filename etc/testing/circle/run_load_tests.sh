@@ -39,12 +39,12 @@ make docker-push
 
 for _ in $(seq 36); do
   STATUS=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/sean-named-this-110 | jq .Workspace.Status | tr -d '"')
-  if [[ ${STATUS} == "failed" ]]
+  if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
     break
   fi
-  echo 'sleeping' | ts
+  echo 'sleeping'
   sleep 10
 done
 
