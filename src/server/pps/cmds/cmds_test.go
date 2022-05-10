@@ -133,11 +133,11 @@ func TestNotRunJobInfo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoErrorWithinTRetry(t, 4*time.Minute, tu.PachctlBashCmd(t, c, `
+	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run)
 	pipeline1 := tu.UniqueString("p-")
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
@@ -158,7 +158,7 @@ func TestNotRunJobInfo(t *testing.T) {
 		`,
 		"pipeline", pipeline1).Run())
 	pipeline2 := tu.UniqueString("p-")
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {"name": "{{.pipeline}}"},
@@ -176,7 +176,7 @@ func TestNotRunJobInfo(t *testing.T) {
 		EOF
 		`,
 		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl wait commit data@master
 		sleep 10
 		# make sure that there is a not-run job
