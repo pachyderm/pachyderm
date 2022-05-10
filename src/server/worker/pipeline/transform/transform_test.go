@@ -110,7 +110,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{})
+			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{}, "")
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 			env.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil

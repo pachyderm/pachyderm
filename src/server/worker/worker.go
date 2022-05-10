@@ -151,7 +151,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 }
 
 func getUserContainerImageID(ctx context.Context, env serviceenv.ServiceEnv) (string, error) {
-	pod, err := env.GetKubeClient().CoreV1().Pods(*&env.Config().Namespace).Get(
+	pod, err := env.GetKubeClient().CoreV1().Pods(env.Config().Namespace).Get(
 		ctx,
 		env.Config().WorkerSpecificConfiguration.PodName,
 		metav1.GetOptions{})
