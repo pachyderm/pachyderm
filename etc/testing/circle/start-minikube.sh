@@ -37,16 +37,3 @@ while ! docker version >/dev/null 2>&1; do
 done
 
 minikube start "${minikube_args[@]}"
-
-# Try to connect for three minutes
-for _ in $(seq 36); do
-  if kubectl version &>/dev/null; then
-    exit 0
-  fi
-  sleep 5
-done
-
-# Give up--kubernetes isn't coming up
-minikube delete
-sleep 30 # Wait for minikube to go completely down
-exit 1

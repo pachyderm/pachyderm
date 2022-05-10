@@ -230,7 +230,7 @@ ParallelismSpec: {{.Details.ParallelismSpec}}
 Transform:
 {{prettyTransform .Details.Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
-Egress: {{.Details.Egress.URL}} {{end}}
+Egress: {{egress .Details.Egress}} {{end}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -280,7 +280,7 @@ Input:
 Output Branch: {{.Details.OutputBranch}}
 Transform:
 {{prettyTransform .Details.Transform}}
-{{ if .Details.Egress }}Egress: {{.Details.Egress.URL}} {{end}}
+{{ if .Details.Egress }}Egress: {{egress .Details.Egress}} {{end}}
 {{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
 `)
 	if err != nil {
@@ -529,6 +529,18 @@ func ShorthandInput(input *ppsclient.Input) string {
 	return ""
 }
 
+func egress(e *ppsclient.Egress) string {
+	target := e.GetTarget()
+	if target == nil {
+		return e.GetURL()
+	}
+	s, err := json.MarshalIndent(target, "", "  ")
+	if err != nil {
+		panic(errors.Wrapf(err, "error marshalling egress"))
+	}
+	return string(s)
+}
+
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
 	"jobState":             JobState,
@@ -541,4 +553,5 @@ var funcMap = template.FuncMap{
 	"prettyDuration":       pretty.Duration,
 	"prettySize":           pretty.Size,
 	"prettyTransform":      prettyTransform,
+	"egress":               egress,
 }

@@ -137,10 +137,19 @@ func TestSpoutPachctl(t *testing.T) {
 		// the RC to be recreated
 		c = tu.AuthenticateClient(t, c, auth.RootUser)
 
-		// make sure we can delete commits
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
-		require.NoError(t, err)
-		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
+		// Make sure we can delete commits. This needs to be retried because we race between
+		// seeing the latest commit in commitInfo and dropping it, and we can't drop a
+		// commit other than the most recent.
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			commitInfo, err := c.InspectCommit(pipeline, "master", "")
+			if err != nil {
+				return fmt.Errorf("inspect commit: %w", err) //nolint:wrapcheck
+			}
+			if err := c.DropCommitSet(commitInfo.Commit.ID); err != nil {
+				return fmt.Errorf("drop commit set: %w", err) //nolint:wrapcheck
+			}
+			return nil
+		}, "should be able to drop the latest commit")
 
 		// get 6 successive commits
 		countBreakFunc = newCountBreakFunc(6)

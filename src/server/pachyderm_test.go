@@ -4300,8 +4300,8 @@ func TestLokiLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -7332,14 +7332,22 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the job to get scheduled / appear in listjob
-	// A sleep of 15s is insufficient
-	time.Sleep(25 * time.Second)
-	jobs, err := c.ListJob(pipeline, nil, -1, true)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	var job *pps.JobInfo
+	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+		jobs, err := c.ListJob(pipeline, nil, -1, true)
+		if err != nil {
+			return fmt.Errorf("list job: %w", err) //nolint:wrapcheck
+
+		}
+		if got, want := len(jobs), 1; got != want {
+			return fmt.Errorf("job count: got %v want %v (jobs: %v)", got, want, jobs) //nolint:wrapcheck
+		}
+		job = jobs[0]
+		return nil
+	}, "pipeline should appear in list jobs")
 
 	// Block on the job being complete before we call ListDatum
-	jobInfo, err := c.WaitJob(jobs[0].Job.Pipeline.Name, jobs[0].Job.ID, false)
+	jobInfo, err := c.WaitJob(job.Job.Pipeline.Name, job.Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
 	started, err := types.TimestampFromProto(jobInfo.Started)
@@ -9374,9 +9382,8 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c := tu.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9386,7 +9393,7 @@ func TestDebug(t *testing.T) {
 	for i, p := range pipelines {
 		cmdStdin := []string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-			"sleep 3",
+			"sleep 45",
 		}
 		if i == 0 {
 			// We had a bug where generating a debug dump for failed pipelines/jobs would crash pachd.
@@ -9415,41 +9422,40 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, len(commitInfos))
 
-	buf := &bytes.Buffer{}
-	require.NoError(t, c.Dump(nil, 0, buf))
-	gr, err := gzip.NewReader(buf)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, gr.Close())
-	}()
-	// Check that all of the expected files were returned.
-	var gotFiles []string
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		buf := &bytes.Buffer{}
+		require.NoError(t, c.Dump(nil, 0, buf))
+		gr, err := gzip.NewReader(buf)
 		if err != nil {
-			if err == io.EOF {
-				break
+			return err //nolint:wrapcheck
+		}
+		defer func() {
+			require.NoError(t, gr.Close())
+		}()
+		// Check that all of the expected files were returned.
+		var gotFiles []string
+		tr := tar.NewReader(gr)
+		for {
+			hdr, err := tr.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err //nolint:wrapcheck
 			}
-			require.NoError(t, err)
-		}
-		gotFiles = append(gotFiles, hdr.Name)
-		for pattern, g := range expectedFiles {
-			if g.Match(hdr.Name) {
-				delete(expectedFiles, pattern)
-				break
+			gotFiles = append(gotFiles, hdr.Name)
+			for pattern, g := range expectedFiles {
+				if g.Match(hdr.Name) {
+					delete(expectedFiles, pattern)
+					break
+				}
 			}
 		}
-	}
-	if len(expectedFiles) > 0 {
-		t.Logf("got files: %v", gotFiles)
-		var names []string
-		for n := range expectedFiles {
-			names = append(names, n)
+		if len(expectedFiles) > 0 {
+			return errors.Errorf("Debug dump has produced %v of the exepcted files: %v", gotFiles, expectedFiles)
 		}
-		t.Logf("no files match: %v", names)
-	}
-	require.Equal(t, 0, len(expectedFiles))
+		return nil
+	})
 }
 
 func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
@@ -10229,8 +10235,8 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	dbName := tu.GenerateEphermeralDBName(t)
 	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
-		Id int    `sql:"ID,INT,PRIMARY KEY"`
-		A  string `sql:"A,VARCHAR(100)"`
+		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
+		A  string `column:"A" dtype:"VARCHAR(100)"`
 	}{}))
 
 	// create K8s secrets

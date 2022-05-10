@@ -100,19 +100,25 @@ func processUploadDatumsTask(pachClient *client.APIClient, task *UploadDatumsTas
 		}
 		dit = datum.NewJobIterator(dit, jobInfo.Job, &hasher{salt: jobInfo.Details.Salt})
 	}
-	fileSetID, err := uploadDatumFileSet(pachClient, dit)
+	fileSetID, count, err := uploadDatumFileSet(pachClient, dit)
 	if err != nil {
 		return nil, err
 	}
-	return serializeUploadDatumsTaskResult(&UploadDatumsTaskResult{FileSetId: fileSetID})
+	return serializeUploadDatumsTaskResult(&UploadDatumsTaskResult{FileSetId: fileSetID, Count: int64(count)})
 }
 
-func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
-	return withDatumFileSet(pachClient, func(s *datum.Set) error {
+func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, int, error) {
+	var count int
+	s, err := withDatumFileSet(pachClient, func(s *datum.Set) error {
 		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
+			count++
 			return s.UploadMeta(meta)
 		}))
 	})
+	if err != nil {
+		return "", 0, err
+	}
+	return s, count, nil
 }
 
 func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
