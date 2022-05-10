@@ -48,9 +48,9 @@ for _ in $(seq 36); do
   sleep 10
 done
 
-pachctl_field=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/sean-named-this-110 | jq .Workspace.Pachctl)
+pachdIp=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/sean-named-this-110 | jq .Workspace.PachdIp)
 
-eval ${pachctl_field}
+echo '{"pachd_address": ${pachdIp}, "source": 2}' | pachctl config set context sean-named-this-110 --overwrite && pachctl config set active-context sean-named-this-110
 
 # Print client and server versions, for debugging.
 pachctl version
