@@ -39,7 +39,7 @@ const Landing: React.FC = () => {
       <Helmet>
         <title>Landing - Pachyderm Console</title>
       </Helmet>
-      <LandingHeader />
+      <LandingHeader projects={projects} />
       {introductionEligible ? (
         <IntroductionModal
           projectId={projects[0].id}

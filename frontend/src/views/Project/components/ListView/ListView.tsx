@@ -8,7 +8,6 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
 import {Node, DagNodes} from '@dash-frontend/lib/types';
-import {useWorkspace} from 'hooks/useWorkspace';
 
 import ListItem from './components/ListItem';
 import styles from './ListView.module.css';
@@ -25,7 +24,6 @@ const ListView: React.FC<ListViewProps> = ({
   selectedItem,
 }) => {
   const browserHistory = useHistory();
-  const {hasConnectInfo} = useWorkspace();
 
   useEffect(() => {
     const nodes = items
@@ -57,11 +55,7 @@ const ListView: React.FC<ListViewProps> = ({
               ),
           )
         ) : (
-          <EmptyState
-            title={LETS_START_TITLE}
-            message={NO_DAG_MESSAGE}
-            connect={hasConnectInfo}
-          />
+          <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
         )}
       </div>
     </View>

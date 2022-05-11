@@ -185,12 +185,15 @@ describe('Logs Viewer', () => {
     });
 
     it('should add the correct dropdown value', async () => {
-      const {findByRole} = render(<PipelineLogsViewer />);
-      const datePicker = await findByRole('button', {
-        name: 'Last Pipeline Job',
-      });
+      const {queryByRole} = render(<PipelineLogsViewer />);
 
-      expect(datePicker).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          queryByRole('button', {
+            name: 'Last Pipeline Job',
+          }),
+        ).toBeInTheDocument(),
+      );
     });
   });
 
@@ -223,12 +226,15 @@ describe('Logs Viewer', () => {
     });
 
     it('should add the correct dropdown value', async () => {
-      const {findByRole} = render(<JobLogsViewer />);
-      const datePicker = await findByRole('button', {
-        name: 'Job Start Time',
-      });
+      const {queryByRole} = render(<JobLogsViewer />);
 
-      expect(datePicker).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          queryByRole('button', {
+            name: 'Job Start Time',
+          }),
+        ).toBeInTheDocument(),
+      );
     });
   });
 });

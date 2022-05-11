@@ -1,5 +1,6 @@
 .base {
   position: relative;
+  margin-left: 1rem;
 }
 
 .filter, .filter:not(:disabled):hover {

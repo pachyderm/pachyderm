@@ -1,10 +1,12 @@
-import {SkeletonDisplayText, Tooltip} from '@pachyderm/components';
+import {SkeletonDisplayText, Tooltip, Group} from '@pachyderm/components';
 import React, {useCallback, useState} from 'react';
 import {Link} from 'react-router-dom';
 
 import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import Header from '@dash-frontend/components/Header';
+import HeaderButtons from '@dash-frontend/components/HeaderButtons';
 import Search from '@dash-frontend/components/Search';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import {ReactComponent as BackArrowSvg} from './BackArrow.svg';
 import useProjectHeader from './hooks/useProjectHeader';
@@ -12,6 +14,7 @@ import styles from './ProjectHeader.module.css';
 
 const ProjectHeader = () => {
   const {projectName, loading} = useProjectHeader();
+  const {projectId} = useUrlState();
   const [showTooltip, setShowTooltip] = useState(false);
 
   const setProjectNameRef: React.RefCallback<HTMLHeadingElement> = useCallback(
@@ -55,7 +58,11 @@ const ProjectHeader = () => {
         )}
       </div>
       <Search />
-      <GlobalFilter />
+      <Group align="center">
+        <GlobalFilter />
+        <div className={styles.divider} />
+        <HeaderButtons projectId={projectId} showSupport={false} />
+      </Group>
     </Header>
   );
 };

@@ -6,32 +6,6 @@
   display: inline-block;
 }
 
-.divider {
-  box-sizing: border-box;
-  height: 2.6875rem;
-  width: 1px;
-  border: 1px solid var(--placeholder-grey);
-}
-
 a.logo {
   text-decoration: none;
-}
-
-.support {
-  text-decoration: underline;
-  color: var(--white);
-  max-width: 11.5rem;
-  text-overflow: ellipsis;
-  overflow-x: hidden;
-  white-space: nowrap;
-}
-
-.support:not(:disabled):hover,
-.support:not(:disabled):active,
-.support:not(:disabled):focus {
-  color: var(--pachyderm-orange);
-}
-
-.workspaceName {
-  color: var(--white);
 }

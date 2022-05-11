@@ -13,6 +13,15 @@ const useLocalProjectSettings = ({
     JSON.parse(localStorage.getItem(`pachyderm-console-${projectId}`) || '{}'),
   );
 
+  // listen for other instances of the hook having modified localStorage
+  window.addEventListener('local-project-settings', () => {
+    setValue(
+      JSON.parse(
+        localStorage.getItem(`pachyderm-console-${projectId}`) || '{}',
+      ),
+    );
+  });
+
   const setting = useMemo(() => settings[key], [key, settings]);
 
   const setSetting = useCallback(
@@ -26,6 +35,7 @@ const useLocalProjectSettings = ({
         `pachyderm-console-${projectId}`,
         JSON.stringify(newSettings),
       );
+      window.dispatchEvent(new Event('local-project-settings'));
     },
     [key, projectId, settings],
   );

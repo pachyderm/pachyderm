@@ -1,19 +1,19 @@
-import {Group, ButtonLink, Link} from '@pachyderm/components';
-import React, {useState} from 'react';
+import {Project} from '@graphqlTypes';
+import {Group} from '@pachyderm/components';
+import React from 'react';
 
-import ConnectModal from '@dash-frontend/components/ConnectModal';
 import Header from '@dash-frontend/components/Header';
-import {useWorkspace} from '@dash-frontend/hooks/useWorkspace';
+import HeaderButtons from '@dash-frontend/components/HeaderButtons';
 
 import Account from './components/Account';
 import styles from './LandingHeader.module.css';
 import {ReactComponent as LogoElephant} from './LogoElephant.svg';
 
-const LandingHeader = () => {
-  const {workspaceName, pachdAddress, pachVersion, hasConnectInfo} =
-    useWorkspace();
-  const [connectModalShow, showConnectModal] = useState(false);
+type LandingHeaderProps = {
+  projects?: Project[];
+};
 
+const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
   return (
     <Header>
       <Group justify="stretch" align="center">
@@ -22,45 +22,14 @@ const LandingHeader = () => {
             <LogoElephant />
             <h5 className={styles.dashboard}>Console</h5>
           </a>
-          {workspaceName && (
-            <>
-              <div className={styles.divider} />
-
-              {hasConnectInfo ? (
-                <ButtonLink
-                  className={styles.support}
-                  onClick={() => showConnectModal(true)}
-                >
-                  <h6 className={styles.support}>
-                    Connect to Workspace {workspaceName}
-                  </h6>
-                </ButtonLink>
-              ) : (
-                <h6 className={styles.workspaceName}>
-                  Workspace {workspaceName}
-                </h6>
-              )}
-            </>
-          )}
         </Group>
-
-        <Group spacing={24} align="center">
-          <Link className={styles.support} href="mailto:support@pachyderm.com">
-            Support
-          </Link>
-          <div className={styles.divider} />
+        <HeaderButtons
+          showSupport
+          projectId={projects.length > 0 ? projects[0].id : undefined}
+        >
           <Account />
-        </Group>
+        </HeaderButtons>
       </Group>
-      {hasConnectInfo && (
-        <ConnectModal
-          show={connectModalShow}
-          onHide={() => showConnectModal(false)}
-          workspaceName={workspaceName || ''}
-          pachdAddress={pachdAddress || ''}
-          pachVersion={pachVersion || ''}
-        />
-      )}
     </Header>
   );
 };

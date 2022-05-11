@@ -1,0 +1,23 @@
+.divider {
+  box-sizing: border-box;
+  height: 2.6875rem;
+  width: 1px;
+  border: 1px solid var(--placeholder-grey);
+}
+
+.responsiveShow {
+  display: none;
+}
+  
+@media screen and (max-width: 1023px) {
+  .responsiveShow {
+    display: block;
+  }
+  .responsiveHide > * {
+    display: none;
+  }
+}
+  
+.dropdown svg, .dropwn:hover svg {
+  color: var(--white);
+}

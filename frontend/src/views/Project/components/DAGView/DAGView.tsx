@@ -20,7 +20,6 @@ import {
 import View from '@dash-frontend/components/View';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
-import {useWorkspace} from 'hooks/useWorkspace';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 
@@ -53,7 +52,6 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
-  const {hasConnectInfo} = useWorkspace();
 
   const noDags = dags?.length === 0;
 
@@ -140,11 +138,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
         )}
       </div>
       {noDags && (
-        <EmptyState
-          title={LETS_START_TITLE}
-          message={NO_DAG_MESSAGE}
-          connect={hasConnectInfo}
-        />
+        <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
       )}
       <HoveredNodeProvider>
         <svg

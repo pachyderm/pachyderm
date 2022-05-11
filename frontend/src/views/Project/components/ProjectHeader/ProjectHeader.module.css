@@ -37,3 +37,11 @@
 .projectNameTooltip {
   margin-top: 0.75rem;
 }
+
+.divider {
+  box-sizing: border-box;
+  height: 2.6875rem;
+  width: 1px;
+  margin: 0 1.5rem;
+  border: 1px solid var(--placeholder-grey);
+}
