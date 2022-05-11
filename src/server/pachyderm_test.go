@@ -1217,7 +1217,7 @@ func TestEgressFailure(t *testing.T) {
 			},
 			Input: &pps.Input{Pfs: &pps.PFSInput{
 				Repo: repo,
-				Glob: "/",
+				Glob: "/*",
 			}},
 			Egress: &pps.Egress{
 				URL: "garbage-url",
