@@ -247,14 +247,13 @@ func TestSQLTupleWriter(suite *testing.T) {
 }
 
 func TestCSVNull(t *testing.T) {
-	// use literal `""` as empty string, and empty string as null
 	buf := &bytes.Buffer{}
 	w := NewCSVWriter(buf, nil)
 	row := Tuple{
-		&sql.NullString{String: "null", Valid: true}, // literal: null
-		&sql.NullString{String: `""`, Valid: true},   // literal: ""
-		&sql.NullString{String: "", Valid: false},    // null value
-		&sql.NullString{String: "", Valid: true},     // empty string
+		&sql.NullString{String: "null", Valid: true},
+		&sql.NullString{String: `""`, Valid: true},
+		&sql.NullString{String: "", Valid: false},
+		&sql.NullString{String: "", Valid: true},
 	}
 	expected := `null,"""""",,""` + "\n"
 	w.WriteTuple(row)
@@ -270,9 +269,6 @@ func TestCSVNull(t *testing.T) {
 	}
 	err := r.Next(row2)
 	require.NoError(t, err)
-	// for i, ptr := range row2 {
-	// 	fmt.Println(reflect.ValueOf(row[i]).Elem(), reflect.ValueOf(ptr).Elem())
-	// }
 	require.Equal(t, row, row2)
 }
 

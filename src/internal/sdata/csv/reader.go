@@ -162,7 +162,8 @@ type Reader struct {
 	// The i'th field ends at offset fieldIndexes[i] in recordBuffer.
 	fieldIndexes []int
 
-	// nilIndexes is an index of fields that should be interpreted as nil.
+	// nilIndexes is an index of fields that should be interpreted as nil,
+	// and has a one-to-one mapping with fieldIndexes.
 	nilIndexes []bool
 
 	// fieldPositions is an index of field positions for the

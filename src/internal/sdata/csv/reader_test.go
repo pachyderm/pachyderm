@@ -8,9 +8,9 @@ import (
 )
 
 func TestRead(t *testing.T) {
-	input := `,null,"",,,"""""",,旰綷罨袢捺悲ȅ-@烱ęssĂZ稈V`
-	v1, v2, v3, v4 := "null", "", `""`, "旰綷罨袢捺悲ȅ-@烱ęssĂZ稈V"
-	expected := [][]*string{{nil, &v1, &v2, nil, nil, &v3, nil, &v4}}
+	input := `,null,"",,,"""""",,"hello, world",`
+	v1, v2, v3, v4 := "null", "", `""`, "hello, world"
+	expected := [][]*string{{nil, &v1, &v2, nil, nil, &v3, nil, &v4, nil}}
 
 	r := NewReader(strings.NewReader(input))
 	out, err := r.ReadAll()

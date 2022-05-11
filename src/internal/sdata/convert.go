@@ -318,11 +318,6 @@ func asNullBool(dst *sql.NullBool, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -341,11 +336,6 @@ func asNullByte(dst *sql.NullByte, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -364,11 +354,6 @@ func asNullInt16(dst *sql.NullInt16, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -387,11 +372,6 @@ func asNullInt32(dst *sql.NullInt32, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -410,11 +390,6 @@ func asNullInt64(dst *sql.NullInt64, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -433,11 +408,6 @@ func asNullFloat64(dst *sql.NullFloat64, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -474,11 +444,6 @@ func asNullTime(dst *sql.NullTime, x interface{}) error {
 	case nil:
 		dst.Valid = false
 		return nil
-	case string:
-		if isNullString(x) {
-			dst.Valid = false
-			return nil
-		}
 	case *string:
 		if x == nil {
 			dst.Valid = false
@@ -507,10 +472,6 @@ func parseTime(x string) (t time.Time, err error) {
 		}
 	}
 	return t, err
-}
-
-func isNullString(x string) bool {
-	return x == NULL || x == "nil" || len(x) == 0
 }
 
 // formatTimestampNTZ trims the "Z" at the end of a timestamp if the "Z" exists

@@ -57,7 +57,7 @@ func (w *Writer) Write(record []*string) error {
 			}
 		}
 
-		// special-case null value as empty string
+		// Additional logic to write null value as blank in CSV
 		if field == nil {
 			w.w.WriteString("")
 			continue
