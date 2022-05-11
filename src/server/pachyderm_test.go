@@ -1220,7 +1220,7 @@ func TestEgressFailure(t *testing.T) {
 			},
 		},
 	)
-
+	require.NoError(t, err)
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
