@@ -1191,6 +1191,63 @@ func TestPipelineFailure(t *testing.T) {
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 }
 
+func TestEgressFailure(t *testing.T) {
+	// setup
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	// create input repo with CSV
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+
+	// create a pipeline with egress
+	pipeline := tu.UniqueString("egress")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: tu.DefaultTransformImage,
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp -r /pfs/in/* /pfs/out/"},
+			},
+			Input: &pps.Input{Pfs: &pps.PFSInput{
+				Repo: repo,
+				Glob: "/",
+				Name: "in",
+			}},
+			Egress: &pps.Egress{
+				URL: "garbage-url",
+			},
+		},
+	)
+
+	// Initial load
+	master := client.NewCommit(repo, "master", "")
+	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
+	require.NoError(t, err)
+	commitInfo, err := c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+
+	var jobInfos []*pps.JobInfo
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	})
+	jobInfo, err := c.WaitJob(pipeline, jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+}
+
 func TestInputFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
