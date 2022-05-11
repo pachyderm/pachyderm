@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -571,10 +572,15 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			// Master is scheduled; see if tasks have been calculated
 			var nTasks int32
 			// TODO: should this run through internal PPS service?
-			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(*task.TaskInfo) error {
+			var taskDescs []string
+			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(info *task.TaskInfo) error {
+				taskDescs = append(taskDescs, fmt.Sprint(info.State, info.Group, info.InputType))
 				nTasks++
 				return nil
 			})
+			if len(taskDescs) > 1 {
+				log.Infof("QQQ tasks for %s@%d: %s\n", pi.Pipeline.Name, pi.Version, strings.Join(taskDescs, "\n"))
+			}
 			// Set parallelism
 			log.Debugf("Beginning scale-up check for %q, which has %d tasks",
 				pi.Pipeline.Name, nTasks)

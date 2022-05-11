@@ -9731,7 +9731,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-					"sleep 30",
+					"sleep 5",
 				},
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
@@ -10195,6 +10195,7 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 				enoughReplicas = true
 			}
 			if int(scale.Spec.Replicas) > n {
+				t.Logf("too many replicas %d > %d", int(scale.Spec.Replicas), n)
 				tooManyReplicas = true
 			}
 			ci, err := c.InspectCommit(pipeline, "master", "")
