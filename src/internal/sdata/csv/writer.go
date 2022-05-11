@@ -10,6 +10,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // A Writer writes records using CSV encoding.
@@ -53,7 +55,7 @@ func (w *Writer) Write(record []*string) error {
 	for n, field := range record {
 		if n > 0 {
 			if _, err := w.w.WriteRune(w.Comma); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 
@@ -75,13 +77,13 @@ func (w *Writer) Write(record []*string) error {
 		// write out the field and continue to the next field.
 		if !w.fieldNeedsQuotes(fieldVal) {
 			if _, err := w.w.WriteString(fieldVal); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			continue
 		}
 
 		if err := w.w.WriteByte('"'); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		for len(fieldVal) > 0 {
 			// Search for special characters.
@@ -92,7 +94,7 @@ func (w *Writer) Write(record []*string) error {
 
 			// Copy verbatim everything before the special character.
 			if _, err := w.w.WriteString((fieldVal)[:i]); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			fieldVal = (fieldVal)[i:]
 
@@ -115,12 +117,12 @@ func (w *Writer) Write(record []*string) error {
 				}
 				fieldVal = fieldVal[1:]
 				if err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 			}
 		}
 		if err := w.w.WriteByte('"'); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 	}
 	var err error
@@ -129,7 +131,7 @@ func (w *Writer) Write(record []*string) error {
 	} else {
 		err = w.w.WriteByte('\n')
 	}
-	return err
+	return errors.EnsureStack(err)
 }
 
 // Flush writes any buffered data to the underlying io.Writer.
@@ -141,7 +143,7 @@ func (w *Writer) Flush() {
 // Error reports any error that has occurred during a previous Write or Flush.
 func (w *Writer) Error() error {
 	_, err := w.w.Write(nil)
-	return err
+	return errors.EnsureStack(err)
 }
 
 // WriteAll writes multiple CSV records to w using Write and then calls Flush,
@@ -153,7 +155,7 @@ func (w *Writer) WriteAll(records [][]*string) error {
 			return err
 		}
 	}
-	return w.w.Flush()
+	return errors.EnsureStack(w.w.Flush())
 }
 
 // fieldNeedsQuotes reports whether our field must be enclosed in quotes.

@@ -54,11 +54,12 @@ package csv
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // A ParseError is returned for parsing errors.
