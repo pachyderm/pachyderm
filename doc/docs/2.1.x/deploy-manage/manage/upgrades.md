@@ -10,7 +10,7 @@ Therefore, the upgrade procedure is simple and requires little to no downtime.
 Complete the following steps to upgrade Pachyderm from one minor release to another.
 ## Backup your cluster
 
-As a general good practice, start with the backup of your cluster as described in the [Backup and Restore](../backup_restore/#backup-your-cluster)
+As a general good practice, start with the backup of your cluster as described in the [Backup and Restore](../backup_restore/)
 section of this documentation.
 
 ## Update your helm values

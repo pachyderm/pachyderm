@@ -10,7 +10,7 @@ Therefore, the upgrade procedure is simple and requires little to no downtime.
 Complete the following steps to upgrade Pachyderm from one minor release to another.
 ## Backup your cluster
 
-As a general good practice, start with the backup of your cluster as described in the [Backup and Restore](../backup_restore/#backup-your-cluster)
+As a general good practice, start with the backup of your cluster as described in the [Backup and Restore](../backup_restore/)
 section of this documentation.
 
 ## Update your helm values
@@ -156,7 +156,6 @@ In general, these values can be provided in three different ways:
 
       You have not created secrets ahead of your installation, nor did you provide values directly in the values.yaml; we created default values for you in the default secret `pachyderm-bootstrap-config` (See column C below for their key).
       
-
 
 !!! Important
        It is important to note that if no secret name is provided for the fields mentioned in **A**, Pachyderm will retrieve the dedicated plain-text secret values in the helm values (**B**) and populate a generic, default, auto-generated secret (pachyderm-bootstrap-config) at the time of the installation (see keys in **C**). If no value is found in either one of those two cases, default values are used in `pachyderm-bootstrap-config`.
