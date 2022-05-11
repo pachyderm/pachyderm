@@ -550,5 +550,5 @@ func (d *driver) GetContainerImageID(ctx context.Context, containerName string) 
 			return imageID, nil
 		}
 	}
-	return "", errors.Wrap(err, "failed to get user image id")
+	return "", errors.Wrapf(err, "failed to get image id for container %s", containerName)
 }
