@@ -73,11 +73,11 @@ func NewWorker(
 	worker.APIServer = server.NewAPIServer(driver, worker.status, env.Config().PodName)
 
 	go worker.master(env)
-	go worker.worker(env)
+	go worker.worker()
 	return worker, nil
 }
 
-func (w *Worker) worker(env serviceenv.ServiceEnv) {
+func (w *Worker) worker() {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
 
