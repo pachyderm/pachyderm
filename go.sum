@@ -1101,6 +1101,10 @@ github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36/go.mod h1:zTTB5
 github.com/pachyderm/s2 v0.0.0-20190725181334-d1f4a476d240/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pachyderm/s2 v0.0.0-20220310153629-eb494ef438b2 h1:py0bVm1ID8HCLN/0R8rT7rKoeZkkC986KTbg17UqBac=
 github.com/pachyderm/s2 v0.0.0-20220310153629-eb494ef438b2/go.mod h1:+bgy+pTTvgUhcIKkb1Qj4kBFvsRvw0OOySSYmJHz/IQ=
+github.com/pachyderm/s2 v0.0.0-20220510191544-7d8a4a94b21a h1:QJ/2tD83jUEBDNX4pql7cpmOtI39+q1Hx5n0DGHz5CI=
+github.com/pachyderm/s2 v0.0.0-20220510191544-7d8a4a94b21a/go.mod h1:+bgy+pTTvgUhcIKkb1Qj4kBFvsRvw0OOySSYmJHz/IQ=
+github.com/pachyderm/s2 v0.0.0-20220510214824-e4a20345d93c h1:Zf5KLyfmWSnL28nLAZCmSVFXGASD/BAUHqicqB+vRsQ=
+github.com/pachyderm/s2 v0.0.0-20220510214824-e4a20345d93c/go.mod h1:+bgy+pTTvgUhcIKkb1Qj4kBFvsRvw0OOySSYmJHz/IQ=
 github.com/pachyderm/s2/examples/sql v0.0.0-20200528231500-590b33e3c716/go.mod h1:rDwxgIkpsabZLa85PCS2MwkFSl/HgmHfc5XHJKiPuiE=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
