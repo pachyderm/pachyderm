@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -85,14 +84,10 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
-		imageID, err := getUserContainerImageID(ctx, env)
-		if err != nil {
-			return err
-		}
 
 		// Process any tasks that the master creates.
 		eg.Go(func() error {
-			return transform.Worker(ctx, driver, logger, w.status, imageID)
+			return transform.Worker(ctx, driver, logger, w.status)
 		})
 
 		return errors.EnsureStack(eg.Wait())
@@ -148,21 +143,6 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 		logger.Logf("master: error running the master process, retrying in %v: %+v", d, err)
 		return nil
 	})
-}
-
-func getUserContainerImageID(ctx context.Context, env serviceenv.ServiceEnv) (string, error) {
-	pod, err := env.GetKubeClient().CoreV1().Pods(env.Config().Namespace).Get(
-		ctx,
-		env.Config().WorkerSpecificConfiguration.PodName,
-		metav1.GetOptions{})
-
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "user" {
-			imageID := containerStatus.ImageID
-			return imageID, nil
-		}
-	}
-	return "", errors.Wrap(err, "failed to get user image id")
 }
 
 type spawnerFunc func(driver.Driver, logs.TaggedLogger) error

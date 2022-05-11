@@ -34,7 +34,7 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.salt, inputs)
 }
 
-func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status, imageID string) error {
+func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
 	return errors.EnsureStack(driver.NewTaskSource().Iterate(
 		ctx,
 		func(ctx context.Context, input *types.Any) (*types.Any, error) {
@@ -69,7 +69,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				return processCreateDatumSetsTask(driver, createDatumSetsTask)
 			case types.Is(input, &DatumSet{}):
 				driver := driver.WithContext(ctx)
-				return processDatumSet(driver, logger, input, status, imageID)
+				return processDatumSet(driver, logger, input, status)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in transform worker", input.TypeUrl)
 			}
@@ -292,7 +292,7 @@ func createSetSpec(driver driver.Driver, fileSetID string) (*datum.SetSpec, erro
 // datum queuing (probably should be handled by datum package).
 // capture datum logs.
 // git inputs.
-func processDatumSet(driver driver.Driver, logger logs.TaggedLogger, input *types.Any, status *Status, imageID string) (*types.Any, error) {
+func processDatumSet(driver driver.Driver, logger logs.TaggedLogger, input *types.Any, status *Status) (*types.Any, error) {
 	datumSet, err := deserializeDatumSet(input)
 	if err != nil {
 		return nil, err
@@ -306,7 +306,7 @@ func processDatumSet(driver driver.Driver, logger logs.TaggedLogger, input *type
 					return err
 				}
 			}
-			return handleDatumSet(driver, logger, datumSet, status, imageID)
+			return handleDatumSet(driver, logger, datumSet, status)
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -340,12 +340,16 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	// return nil
 }
 
-func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status, imageID string) error {
+func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status) error {
 	pachClient := driver.PachClient()
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
+	if err != nil {
+		return err
+	}
 	// Setup file operation client for output meta commit.
 	resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
@@ -365,7 +369,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()
 						meta = proto.Clone(meta).(*datum.Meta)
-						meta.ImageId = imageID
+						meta.ImageId = userImageID
 						inputs := meta.Inputs
 						logger = logger.WithData(inputs)
 						env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
