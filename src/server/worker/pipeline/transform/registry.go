@@ -501,7 +501,6 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 	}); err != nil {
 		return err
 	}
-
 	return reg.succeedJob(pj)
 }
 
