@@ -1192,7 +1192,6 @@ func TestPipelineFailure(t *testing.T) {
 }
 
 func TestEgressFailure(t *testing.T) {
-	// setup
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -1225,13 +1224,10 @@ func TestEgressFailure(t *testing.T) {
 		},
 	)
 
-	// Initial load
-	master := client.NewCommit(repo, "master", "")
-	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
+	commit := client.NewCommit(repo, "master", "")
+	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
 	require.NoError(t, err)
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+	err = c.FinishCommit(repo, "master", commit.ID)
 	require.NoError(t, err)
 
 	var jobInfos []*pps.JobInfo
