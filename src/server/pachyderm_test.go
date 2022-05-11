@@ -1200,8 +1200,13 @@ func TestEgressFailure(t *testing.T) {
 
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
+	require.NoError(t, c.FinishCommit(repo, "master", commit.ID))
+
 	pipeline := tu.UniqueString("egress")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -1221,10 +1226,6 @@ func TestEgressFailure(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	commit, err := c.StartCommit(repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
-	require.NoError(t, c.FinishCommit(repo, "master", commit.ID))
 	var jobInfos []*pps.JobInfo
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
