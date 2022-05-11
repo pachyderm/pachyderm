@@ -1,6 +1,6 @@
 # Upgrade Pachyderm
 
-Upgrades between minor releases or point releases, such as `2.1.0` to version `2.2.0`,
+Upgrades between minor releases or point releases, such as `2.0.0` to version `2.0.8`,
 should be seamless.
 Therefore, the upgrade procedure is simple and requires little to no downtime.
 As a good practice, we recommend that you check the [release notes](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md){target=_blank} before an upgrade to get an understanding of the changes introduced between your current version and your target. 
