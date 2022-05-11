@@ -424,9 +424,13 @@ func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndA
 	tb.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
-	err := backoff.RetryUntilCancel(ctx, f, backoff.NewExponentialBackOff(), nil)
+	var userError error
+	err := backoff.RetryUntilCancel(ctx, func() error {
+		userError = f()
+		return userError
+	}, backoff.NewExponentialBackOff(), nil)
 	if err != nil {
-		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), err)
+		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), userError)
 	}
 }
 
