@@ -9,8 +9,8 @@ your cluster to get access to bug fixes and new features.
 These updates fall into the following categories:
 
 * An [**upgrade**](../upgrades/) moves between **minor or point releases**.
-For example, between version 1.12.2 and 1.13.0. 
-Upgrades are typically a simple process that requires little to no downtime.
+For example, between version 2.0.2 and 2.1.0. 
+Upgrades are typically a simple process should require little to no downtime.
 
 * Migrations — A **migration** must be performed when you are **moving between major releases**,
 For questions on how to migrate, please contact your technical account manager or email support@pachyderm.com.
