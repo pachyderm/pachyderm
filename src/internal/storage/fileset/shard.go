@@ -34,9 +34,10 @@ func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64,
 			if err := cb(pathRange); err != nil {
 				return err
 			}
+			// set new lower bound to include everything after previous range
 			pathRange = &index.PathRange{
-				Lower:      f.Index().Path,
-				LowerDatum: f.Index().File.Datum,
+				Lower:      pathRange.Upper,
+				LowerDatum: pathRange.UpperDatum + "_",
 			}
 			size = 0
 			count = 0
