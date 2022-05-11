@@ -1198,11 +1198,8 @@ func TestEgressFailure(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	// create input repo with CSV
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
-
-	// create a pipeline with egress
 	pipeline := tu.UniqueString("egress")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
@@ -1224,12 +1221,10 @@ func TestEgressFailure(t *testing.T) {
 		},
 	)
 
-	commit := client.NewCommit(repo, "master", "")
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
-	require.NoError(t, err)
-	err = c.FinishCommit(repo, "master", commit.ID)
-	require.NoError(t, err)
-
+	require.NoError(t, c.FinishCommit(repo, "master", commit.ID))
 	var jobInfos []*pps.JobInfo
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		jobInfos, err = c.ListJob(pipeline, nil, -1, true)
