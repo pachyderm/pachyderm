@@ -9753,11 +9753,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 		}
 		require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
 		fileIndex += n
-		replicas := n
-		if replicas > 4 {
-			replicas = 4
-		}
-		monitorReplicas(t, c, ns, pipeline, replicas)
+		monitorReplicas(t, c, ns, pipeline, n, 4)
 	}
 	commitNFiles(1)
 	commitNFiles(3)
@@ -10180,22 +10176,35 @@ func TestDatumSetCache(t *testing.T) {
 	}
 }
 
-func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
+func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, tasks, parallelism int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
+	// allow for one more task than expected, as datum set computation (which creates tasks) is itself a task
+	max := tasks + 1
+	if max > parallelism {
+		max = parallelism
+	}
+	expected := tasks
+	if expected > parallelism {
+		expected = parallelism
+	}
+	var maxSeen int
 	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
 			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if int(scale.Spec.Replicas) >= n {
+			replicas := int(scale.Spec.Replicas)
+			if replicas >= expected {
 				enoughReplicas = true
 			}
-			if int(scale.Spec.Replicas) > n {
-				t.Logf("too many replicas %d > %d", int(scale.Spec.Replicas), n)
+			if replicas > max {
+				if replicas > maxSeen {
+					maxSeen = replicas
+				}
 				tooManyReplicas = true
 			}
 			ci, err := c.InspectCommit(pipeline, "master", "")
@@ -10206,8 +10215,8 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 			time.Sleep(time.Second * 2)
 		}
 	})
-	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
-	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
+	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", expected)
+	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, expected)
 }
 
 func TestLoad(t *testing.T) {
