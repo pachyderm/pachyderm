@@ -9740,6 +9740,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
 
 	fileIndex := 0
 	commitNFiles := func(n int) {
