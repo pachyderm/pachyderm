@@ -1234,13 +1234,13 @@ func TestEgressFailure(t *testing.T) {
 		}
 		return nil
 	})
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	jobInfo, err := c.InspectJob(pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_EGRESSING, jobInfo.State)
 	fileInfos, err := c.ListFileAll(commit, "")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfos))
+	require.Equal(t, 1, len(fileInfos))
 }
 
 func TestInputFailure(t *testing.T) {
