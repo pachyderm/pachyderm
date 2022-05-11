@@ -1234,6 +1234,7 @@ func TestEgressFailure(t *testing.T) {
 		}
 		return nil
 	})
+	time.Sleep(20)
 	jobInfo, err := c.InspectJob(pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_EGRESSING, jobInfo.State)
