@@ -1202,7 +1202,7 @@ func TestEgressFailure(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoError(t, c.FinishCommit(repo, "master", commit.ID))
 
 	pipeline := tu.UniqueString("egress")
@@ -1213,12 +1213,11 @@ func TestEgressFailure(t *testing.T) {
 			Transform: &pps.Transform{
 				Image: tu.DefaultTransformImage,
 				Cmd:   []string{"bash"},
-				Stdin: []string{"cp -r /pfs/in/* /pfs/out/"},
+				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 			},
 			Input: &pps.Input{Pfs: &pps.PFSInput{
 				Repo: repo,
 				Glob: "/",
-				Name: "in",
 			}},
 			Egress: &pps.Egress{
 				URL: "garbage-url",
@@ -1238,6 +1237,9 @@ func TestEgressFailure(t *testing.T) {
 	jobInfo, err := c.InspectJob(pipeline, jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_EGRESSING, jobInfo.State)
+	fileInfos, err := c.ListFileAll(commit, "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
 }
 
 func TestInputFailure(t *testing.T) {
