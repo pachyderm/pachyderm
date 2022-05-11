@@ -1191,6 +1191,101 @@ func TestPipelineFailure(t *testing.T) {
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 }
 
+func TestInputFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestInputFailure_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
+
+	pipeline1 := tu.UniqueString("pipeline1")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"exit 1"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	var jobInfos []*pps.JobInfo
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		jobInfos, err = c.ListJob(pipeline1, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	})
+	jobInfo, err := c.WaitJob(pipeline1, jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
+	pipeline2 := tu.UniqueString("pipeline2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"exit 0"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pipeline1, "/*"),
+		"",
+		false,
+	))
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		jobInfos, err = c.ListJob(pipeline2, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	})
+	jobInfo, err = c.WaitJob(pipeline2, jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
+	require.True(t, strings.Contains(jobInfo.Reason, "unrunnable because"))
+
+	pipeline3 := tu.UniqueString("pipeline3")
+	require.NoError(t, c.CreatePipeline(
+		pipeline3,
+		"",
+		[]string{"exit 0"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pipeline2, "/*"),
+		"",
+		false,
+	))
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		jobInfos, err = c.ListJob(pipeline3, nil, -1, true)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	})
+	jobInfo, err = c.WaitJob(pipeline3, jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_UNRUNNABLE, jobInfo.State)
+	// the fact that pipeline 2 failed should be noted in the message
+	require.True(t, strings.Contains(jobInfo.Reason, pipeline2))
+}
+
 func TestPipelineErrorHandling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1881,8 +1976,11 @@ func TestWaitJobSetFailures(t *testing.T) {
 			}
 		} else {
 			for _, ji := range jobInfos {
-				if ji.Job.Pipeline.Name != pipelineName(0) {
+				switch ji.Job.Pipeline.Name {
+				case pipelineName(1):
 					require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
+				case pipelineName(2):
+					require.Equal(t, pps.JobState_JOB_UNRUNNABLE.String(), ji.State.String())
 				}
 			}
 		}

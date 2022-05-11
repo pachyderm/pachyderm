@@ -154,7 +154,7 @@ If the job fails, the output commit will not be populated with data.`,
 				}
 				jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
 				if err != nil {
-					errors.Wrap(err, "error from InspectJob")
+					return errors.Wrap(err, "error from InspectJob")
 				}
 				jobInfos = []*pps.JobInfo{jobInfo}
 			}
