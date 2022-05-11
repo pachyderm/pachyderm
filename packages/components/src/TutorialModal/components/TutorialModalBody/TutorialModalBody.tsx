@@ -20,6 +20,7 @@ export type TutorialModalBodyProps = {
   initialTask?: number;
   onTutorialComplete?: () => void;
   onSkip?: () => void;
+  onClose?: () => void;
 };
 
 const NextTaskInstance: React.FC<{
@@ -56,6 +57,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
   initialTask = 0,
   onTutorialComplete = noop,
   onSkip = noop,
+  onClose = noop,
 }) => {
   const {
     currentStory,
@@ -114,14 +116,26 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             <ArrowRightSVG />
           </Button>
           <div className={styles.rightButtons}>
-            <Button
-              className={styles.button}
-              buttonType="secondary"
-              onClick={onSkip}
-              data-testid={'TutorialModalBody__skipTutorial'}
-            >
-              Skip Tutorial
-            </Button>
+            {onSkip && (
+              <Button
+                className={styles.button}
+                buttonType="secondary"
+                onClick={onSkip}
+                data-testid={'TutorialModalBody__skipTutorial'}
+              >
+                End Tutorial
+              </Button>
+            )}
+            {onClose && (
+              <Button
+                className={styles.button}
+                buttonType="secondary"
+                onClick={onClose}
+                data-testid={'TutorialModalBody__closeTutorial'}
+              >
+                Pause Tutorial
+              </Button>
+            )}
             <Button
               className={styles.button}
               buttonType="secondary"
@@ -169,6 +183,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                   {section.Task && (
                     <section.Task
                       currentTask={currentTask}
+                      currentStory={currentStory}
                       onCompleted={() =>
                         handleTaskCompletion(
                           taskSections.findIndex(

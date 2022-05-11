@@ -375,7 +375,7 @@ const stories: Story[] = [
 ];
 
 export const Default = () => {
-  return <TutorialModal stories={stories} />;
+  return <TutorialModal stories={stories} tutorialName="image-processing" />;
 };
 
 const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
@@ -481,5 +481,10 @@ const configurationStories: Story[] = [
 ];
 
 export const ConfigurationUpload = () => {
-  return <TutorialModal stories={configurationStories} />;
+  return (
+    <TutorialModal
+      stories={configurationStories}
+      tutorialName="configuration-upload"
+    />
+  );
 };

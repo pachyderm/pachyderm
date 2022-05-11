@@ -2,6 +2,7 @@ import React from 'react';
 
 export type TaskComponentProps = {
   currentTask: number;
+  currentStory: number;
   onCompleted: () => void;
   minimized: boolean;
   index: number;

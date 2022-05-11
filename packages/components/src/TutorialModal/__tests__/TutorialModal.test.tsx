@@ -134,7 +134,9 @@ const stories: Story[] = [
 
 describe('TutorialModal', () => {
   it('should disable moving to the next story if all tasks are not complete', async () => {
-    const {findAllByRole} = render(<TutorialModal stories={stories} />);
+    const {findAllByRole} = render(
+      <TutorialModal stories={stories} tutorialName="test" />,
+    );
 
     const nextButtons = await findAllByRole('button', {
       name: 'Next Story',
@@ -154,7 +156,10 @@ describe('TutorialModal', () => {
     };
 
     const {findByRole, findByText, findAllByRole} = render(
-      <TutorialModal stories={stories.concat([nextStory])} />,
+      <TutorialModal
+        stories={stories.concat([nextStory])}
+        tutorialName="test"
+      />,
     );
 
     expect(await findByText('Story 1 of 2')).toBeInTheDocument();
@@ -177,7 +182,9 @@ describe('TutorialModal', () => {
   });
 
   it('should update the maximize/minimize button text', async () => {
-    const {findByRole} = render(<TutorialModal stories={stories} />);
+    const {findByRole} = render(
+      <TutorialModal stories={stories} tutorialName="test" />,
+    );
 
     const minimizeButton = await findByRole('button', {name: 'Minimize'});
 
@@ -187,14 +194,16 @@ describe('TutorialModal', () => {
   });
 
   it('should display info for the current task in the side bar', async () => {
-    const {findByText} = render(<TutorialModal stories={stories} />);
+    const {findByText} = render(
+      <TutorialModal stories={stories} tutorialName="test" />,
+    );
 
     expect(await findByText('Quickly define pipelines')).toBeInTheDocument();
   });
 
   it('should not mark a task completed unless the previous tasks are completed', async () => {
     const {findByRole, queryByLabelText} = render(
-      <TutorialModal stories={stories} />,
+      <TutorialModal stories={stories} tutorialName="test" />,
     );
 
     const sizeButton = await findByRole('button', {name: 'Minimize'});
@@ -222,7 +231,7 @@ describe('TutorialModal', () => {
 
   it('should display the current task when minimized', async () => {
     const {findByRole, findAllByLabelText} = render(
-      <TutorialModal stories={stories} />,
+      <TutorialModal stories={stories} tutorialName="test" />,
     );
 
     const minimizeButton = await findByRole('button', {name: 'Minimize'});
@@ -236,7 +245,7 @@ describe('TutorialModal', () => {
 
   it('should include the continue task when displaying the final task while minimized', async () => {
     const {findByRole, queryByLabelText} = render(
-      <TutorialModal stories={stories} />,
+      <TutorialModal stories={stories} tutorialName="test" />,
     );
 
     const pipelineButton = await findByRole('button', {
@@ -268,7 +277,10 @@ describe('TutorialModal', () => {
     };
 
     const {queryByText, getByText, getByRole} = render(
-      <TutorialModal stories={stories.concat([nextStory])} />,
+      <TutorialModal
+        stories={stories.concat([nextStory])}
+        tutorialName="test"
+      />,
     );
 
     expect(queryByText('Story 1 of 2')).toBeInTheDocument();
@@ -281,14 +293,34 @@ describe('TutorialModal', () => {
     expect(queryByText('Story 2 of 2')).toBeInTheDocument();
   });
 
-  it("should invoke onSkip callback when user clicks the 'Leave Tutorial' button", async () => {
+  it("should invoke onSkip callback when user clicks the 'Skip Tutorial' button", async () => {
     const handleLeave = jest.fn();
     const {findByTestId} = render(
-      <TutorialModal stories={stories} onSkip={handleLeave} />,
+      <TutorialModal
+        stories={stories}
+        onSkip={handleLeave}
+        tutorialName="test"
+      />,
     );
 
     const skipButton = await findByTestId('TutorialModalBody__skipTutorial');
     await click(skipButton);
+
+    expect(handleLeave).toHaveBeenCalled();
+  });
+
+  it("should invoke onClose callback when user clicks the 'End Tutorial' button", async () => {
+    const handleLeave = jest.fn();
+    const {findByTestId} = render(
+      <TutorialModal
+        stories={stories}
+        onClose={handleLeave}
+        tutorialName="test"
+      />,
+    );
+
+    const closeButton = await findByTestId('TutorialModalBody__closeTutorial');
+    await click(closeButton);
 
     expect(handleLeave).toHaveBeenCalled();
   });

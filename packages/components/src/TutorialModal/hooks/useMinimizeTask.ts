@@ -2,7 +2,7 @@ import {useEffect} from 'react';
 
 import {TaskComponentProps} from '../lib/types';
 
-type useMinimizeTaskProps = Omit<TaskComponentProps, 'name'>;
+type useMinimizeTaskProps = Omit<TaskComponentProps, 'name' | 'currentStory'>;
 
 const useMinimizeTask = ({
   currentTask,

@@ -8,9 +8,15 @@ import {TutorialModalBodyProps} from './components/TutorialModalBody/TutorialMod
 interface TutorialModalProps
   extends Pick<
     TutorialModalBodyProps,
-    'stories' | 'initialTask' | 'onTutorialComplete' | 'onSkip'
+    | 'stories'
+    | 'initialTask'
+    | 'initialStory'
+    | 'onTutorialComplete'
+    | 'onSkip'
+    | 'onClose'
   > {
   initialStep?: number;
+  tutorialName: string;
 }
 
 const TutorialModal: React.FC<TutorialModalProps> = (props) => {
