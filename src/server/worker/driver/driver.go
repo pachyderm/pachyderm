@@ -99,6 +99,7 @@ type Driver interface {
 	// operations in the map spawner
 	NewSQLTx(func(*pachsql.Tx) error) error
 
+	// Returns the image ID associated with a container running in the worker pod
 	GetContainerImageID(context.Context, string) (string, error)
 }
 
