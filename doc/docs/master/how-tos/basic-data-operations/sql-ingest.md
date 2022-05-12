@@ -11,7 +11,7 @@ Our **SQL ingest** tool provides a seamless connection between databases and Pac
 Specifically, we help you connect to a remote database of your choice and pull the result of a given query at regular intervals in the form of a CSV or a JSON file.  
 
 ## Use SQL Ingest
-Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/jsonnet-pipeline-specs) with the following parameters to automatically create the pipelines that access, query, and materialize the results of a SQL query to a data warehouse. The outputted results can take the form of CSV or JSON files.
+Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/jsonnet-pipeline-specs) with the following parameters to automatically create the pipelines that access, query, and materialize the results of a SQL query to a data warehouse. The outputted results can take the form of CSV or JSON files. Check the [Formatting section]() at the bottom of the page for specific details on formats and SQL Datatypes.
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
@@ -85,6 +85,7 @@ Before you create your SQL Ingest pipelines, make sure to create a [generic secr
         `pachctl create secret -f yourwarehousesecret.json`
 
     - The list returned by `kubectl get secret` should feature the secret name. 
+
 ### Database Connection URL
 Pachyderm's SQL Ingest will take an URL as its connection string to the database of your choice.
 
@@ -192,3 +193,52 @@ You have run a query using SQL Ingest. How do you inspect its result?
     {"mycolumn":"hello world","id":1}
     {"mycolumn":"hello you","id":2}
     ```
+
+## Formats and SQL DataTypes
+
+### SQL datatypes supported
+
+We support the following SQL datatypes. Some of those Data Types are specific to databases.
+
+| Dates/Timestamps | Varchars | Numerics | Booleans |
+|------------------|---------|----------|----------|
+|`DATE` <br> `TIME`<br> `TIMESTAMP`<br> `TIMESTAMP_LTZ`<br> `TIMESTAMP_NTZ`<br> `TIMESTAMP_TZ`<br> `TIMESTAMPTZ`<br> `TIMESTAMP WITH TIME ZONE`<br> `TIMESTAMP WITHOUT TIME ZONE` |`VARCHAR`<br> `TEXT`<br> `CHARACTER VARYING`|`SMALLINT`<br> `INT2`<br> `INTEGER`<br> `INT`<br> `INT4`<br> `BIGINT`<br> `INT8`<br>`FLOAT`<br> `FLOAT4`<br> `FLOAT8`<br> `REAL`<br> `DOUBLE PRECISION`<br>`NUMERIC`<br> `DECIMAL`<br> `NUMBER`<br> `FIXED`|`BOOL`<br>`BOOLEAN`|
+
+### Formatting
+
+- All **numeric** values are converted into strings in your CSV and JSON. 
+
+    ***Example***
+
+    |Database|CSV|JSON|
+    |--------|---|----|
+    | 12345 | 12345 | "12345" |
+    | 123.45 | 123.45 | "123.45" |
+
+- **Date/Timestamps** are formatted as follow `%Y-%M-%DT%h:%m:%sZ`, then converted into strings in your CSV and JSON. 
+
+    Note that the trailing Z (UTC) is truncated from Timestamps without Ttmezones and from Dates. 
+
+    ***Example***
+
+    |Type|Database|CSV|JSON|
+    |----|--------|---|----|
+    |Date|2022-05-09|2022-05-09T00:00:00|"2022-05-09T00:00:00"|
+    |Timestamp ntz|2022-05-09 16:43:00|2022-05-09 16:43:00|"2022-05-09 16:43:00"|
+    |Timestamp tz|2022-05-09 16:43:00 -05:00|2022-05-09 16:43:00 -05:00|"2022-05-09 16:43:00 -05:00"|
+
+- **Strings**
+
+    * CSV: Keep in mind when parsing your CSVs in your user code, that we escape `"` with `""` in CSV files.
+
+        ***Example***
+
+        |Database|CSV|
+        |--------|---|
+        |"null"|null|
+        |\`""\`|""""""|
+        |nil||
+        |`"my string"`|"""my string"""|
+        |"this will be enclosed in quotes because it has a ,"|"this will be enclosed in quotes because it has a ,"|
+
+    * JSON: Our JSON encoding does not support infinite (Inf) and not a number (NaN) values. 

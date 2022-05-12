@@ -85,7 +85,7 @@ Append an egress section to your pipeline specification file, then fill in:
 The user code of your pipeline determines what data should be egressed and to which tables. 
 Data (in the form of CSV files) that the pipeline writes to the output repo is interpreted as tables corresponding to directories. 
 
-**Each top-level directory is named after the table you want to egress its content to**. All of the files reachable in the walk of each root directory are parsed in the given format indicated in the egress section of the pipeline specification file (CSV for now), then inserted in their corresponding table. 
+**Each top-level directory is named after the table you want to egress its content to**. All of the files reachable in the walk of each root directory are parsed in the given format indicated in the egress section of the pipeline specification file (CSV for now), then inserted in their corresponding table. Find more information on how to format your CSV file depending on your targeted SQL Data Type in our [SQL Ingest Formatting section](../../sql-ingest/#formats-and-sql-datatypes){target=_blank}.
 
 !!! Warning
      - All interface tables must pre-exist before an insertion.
@@ -101,7 +101,6 @@ Data (in the form of CSV files) that the pipeline writes to the output repo is i
         "33","Tam","2017-01-01T21:51:45Z","false"
         "54","Pach","2017-05-15T21:51:45Z","true"
         ```
-
 
 !!! Note 
     - Pachyderm queries the schema of the interface tables before insertion then parses the data into their SQL data types.    
