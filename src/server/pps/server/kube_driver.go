@@ -134,6 +134,7 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	// Apply op's update to rc
 	rc := old.DeepCopy()
+	rc.ResourceVersion = ""
 	if update(rc) {
 		// write updated RC to k8s
 		kd.limiter.Acquire()
