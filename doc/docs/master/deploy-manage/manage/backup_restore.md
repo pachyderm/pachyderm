@@ -55,7 +55,7 @@ Before any manual backup:
 
     !!! Tip "An alternative would be to use `kubectl`"
 
-         Before you start, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank}.
+         Before starting, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank}.
          Run `kubectl config get-contexts` to list all available clusters and contexts (the current context is marked with a `*`), then `kubectl config use-context <your-context-name>` to set the proper active context.
 
          ```shell 
