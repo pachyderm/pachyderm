@@ -9731,7 +9731,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-					"sleep 5",
+					"sleep 30",
 				},
 			},
 			Input:           client.NewPFSInput(dataRepo, "/*"),
