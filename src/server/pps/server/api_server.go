@@ -21,6 +21,8 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1417,7 +1419,7 @@ func now() *types.Timestamp {
 	return t
 }
 
-func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
+func (a *apiServer) validatePipelineRequest(ctx context.Context, request *pps.CreatePipelineRequest) error {
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1450,6 +1452,16 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
+	}
+
+	for _, s := range request.GetTransform().GetSecrets() {
+		_, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
+		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return errors.Errorf("missing Kubernetes secret %s", s.Name)
+			}
+			return err
+		}
 	}
 	return nil
 }
@@ -1746,20 +1758,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline.Name)
 
-	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
-		return nil, err
-	}
+	// if err := a.validateEnterpriseChecks(ctx, request); err != nil {
+	// 	return nil, err
+	// }
 
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.CreatePipeline(request))
+		return errors.EnsureStack(txn.CreatePipeline(ctx, request))
 	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
-	if err := a.validatePipelineRequest(request); err != nil {
+func (a *apiServer) initializePipelineInfo(ctx context.Context, request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+	if err := a.validatePipelineRequest(ctx, request); err != nil {
 		return nil, err
 	}
 
@@ -1826,6 +1838,7 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 }
 
 func (a *apiServer) CreatePipelineInTransaction(
+	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
 ) error {
@@ -1840,7 +1853,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Errorf("pipeline %q already exists", pipelineName)
 	}
 
-	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(ctx, request, oldPipelineInfo)
 	if err != nil {
 		return err
 	}

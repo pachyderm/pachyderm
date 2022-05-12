@@ -1,6 +1,8 @@
 package testpachd
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -145,7 +147,7 @@ func (api *ppsTransactionAPI) UpdateJobStateInTransaction(txnCtx *txncontext.Tra
 	return errors.Errorf("unhandled pachd mock: pps.UpdateJobStateInTransaction")
 }
 
-func (api *ppsTransactionAPI) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest) error {
+func (api *ppsTransactionAPI) CreatePipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest) error {
 	if api.mock.CreatePipelineInTransaction.handler != nil {
 		return api.mock.CreatePipelineInTransaction.handler(txnCtx, req)
 	}
