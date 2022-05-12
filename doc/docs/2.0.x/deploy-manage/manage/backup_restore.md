@@ -44,27 +44,32 @@ Before any manual backup:
 
 ### Suspend Operations
 
-- Pause any external automated process ingressing data to Pachyderm input repos,
+- **Pause any external automated process ingressing data to Pachyderm input repos**,
  or queue/divert those as they will fail to connect to the cluster while the backup occurs.
 
-- Suspend all mutation of state by scaling `pachd` and the worker pods down:
-     
-    !!! Important
-             Before you start, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank} .
-             Run `kubectl config get-contexts` to list all available clusters and contexts (the current context is marked with a `*`), then `kubectl config use-context <your-context-name>` to set the proper active context.
+- **Suspend all mutation of state by scaling `pachd` and the worker pods down**:
 
-      ```shell 
-      kubectl scale deployment pachd --replicas 0 
-      kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker
-      ```
+    Before starting, make sure that your context points to the server you want to pause by running `pachctl config get active-context`. Find more information on how to [set your context](../../deploy/quickstart/#4-have-pachctl-and-your-cluster-communicate){target=_blank} in our deployment section.
 
-      Note that it takes some time for scaling down to take effect;
+    To pause Pachyderm, **run the `pachctl pause` command**. 
 
-      Run the `watch` command to monitor the state of `pachd` and worker pods terminating:
+    !!! Tip "An alternative would be to use `kubectl`"
 
-      ```shell
-      watch -n 5 kubectl get pods
-      ```
+         Before starting, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank}.
+         Run `kubectl config get-contexts` to list all available clusters and contexts (the current context is marked with a `*`), then `kubectl config use-context <your-context-name>` to set the proper active context.
+
+         ```shell 
+         kubectl scale deployment pachd --replicas 0 
+         kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker
+         ```
+
+         Note that it takes some time for scaling down to take effect;
+
+         Run the `watch` command to monitor the state of `pachd` and worker pods terminating:
+
+         ```shell
+         watch -n 5 kubectl get pods
+         ```
 
 ### Back Up The Databases And The Object Store
 
@@ -107,12 +112,13 @@ use the object store provider’s backup method.
 
 ### Resuming operations
 
-Once your backup is completed, resume normal operations by scaling `pachd` back up.  It will take care
-of restoring the worker pods.
+Once your backup is completed, **run `pachctl unpause` to resume your normal operations** by scaling `pachd` back up. It will take care of restoring the worker pods. 
 
-```sh
- kubectl scale deployment pachd --replicas 1
-```
+!!! Tip "Alternatively, if you used `kubectl`"
+
+    ```sh
+    kubectl scale deployment pachd --replicas 1
+    ```
 
 ## Restore Pachyderm
 
@@ -174,7 +180,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 - [Resume the operations on your Enterprise Server](#resuming-operations) by scaling the `pach-enterprise` deployment back up: 
 
     ```shell
-    kubectl scale deployment pachd --replicas 1
+    kubectl scale deployment pach-enterprise --replicas 1
     ```
 
 ### Restore An Enterprise Server
