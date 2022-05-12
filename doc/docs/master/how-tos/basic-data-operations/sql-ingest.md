@@ -194,7 +194,9 @@ You have run a query using SQL Ingest. How do you inspect its result?
     {"mycolumn":"hello you","id":2}
     ```
 
-## Formats and SQL DataTypes
+## Formats and SQL DataTypes 
+
+The following comments on formatting reflect the state of this release and are subject to change.
 
 ### SQL datatypes supported
 
@@ -229,7 +231,7 @@ We support the following SQL datatypes. Some of those Data Types are specific to
 
 - **Strings**
 
-    * CSV: Keep in mind when parsing your CSVs in your user code, that we escape `"` with `""` in CSV files.
+    * CSV: Keep in mind when parsing your CSVs in your user code that we escape `"` with `""` in CSV files.
 
         ***Example***
 
