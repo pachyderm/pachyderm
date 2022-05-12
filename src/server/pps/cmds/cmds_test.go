@@ -929,3 +929,33 @@ pachctl list job -x | match ' / 2'
 `).Run()
 	}, "expected to see two datums")
 }
+
+func TestPipelineWithoutSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		(
+		set +e +o pipefail
+		pachctl create repo data
+		pachctl create pipeline 2>&1 <<EOF
+		{
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp -rp /pfs/data/ /pfs/out"],
+		      "secrets": [{"name": "supersecret", "env_var": "PASSWORD", "key": "PASSWORD"}]
+		    }
+		}
+		EOF
+		true) | match secrets
+	`, "pipeline", tu.UniqueString("p-")).Run())
+
+}
