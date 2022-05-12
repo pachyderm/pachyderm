@@ -70,6 +70,15 @@ func asBool(dst *bool, x interface{}) error {
 			return errors.EnsureStack(err)
 		}
 		*dst = b
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		b, err := strconv.ParseBool(*x)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		*dst = b
 	default:
 		return ErrCannotConvert{Dest: dst, Value: x}
 	}
@@ -150,6 +159,15 @@ func asInt32(dst *int32, x interface{}) error {
 			return errors.EnsureStack(err)
 		}
 		*dst = int32(i)
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		i, err := strconv.ParseInt(*x, 10, 32)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		*dst = int32(i)
 	case json.Number:
 		i, err := x.Int64()
 		if err != nil {
@@ -170,6 +188,15 @@ func asInt64(dst *int64, x interface{}) error {
 		*dst = int64(x)
 	case string:
 		i, err := strconv.ParseInt(x, 10, 64)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		*dst = i
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		i, err := strconv.ParseInt(*x, 10, 64)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -198,6 +225,15 @@ func asFloat64(dst *float64, x interface{}) error {
 			return errors.EnsureStack(err)
 		}
 		*dst = f
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		f, err := strconv.ParseFloat(*x, 64)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		*dst = f
 	case json.Number:
 		f, err := x.Float64()
 		if err != nil {
@@ -219,6 +255,16 @@ func asBytes(dst *[]byte, x interface{}) error {
 			return errors.EnsureStack(err)
 		}
 		*dst = append((*dst)[:0], data...)
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		codec := base64.StdEncoding
+		data, err := codec.DecodeString(*x)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		*dst = append((*dst)[:0], data...)
 	default:
 		return ErrCannotConvert{Dest: dst, Value: x}
 	}
@@ -229,6 +275,11 @@ func asString(dst *string, x interface{}) error {
 	switch x := x.(type) {
 	case string:
 		*dst = x
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		*dst = *x
 	case json.Number:
 		*dst = string(x)
 	default:
@@ -247,6 +298,15 @@ func asTime(dst *time.Time, x interface{}) error {
 			return errors.EnsureStack(err)
 		}
 		*dst = t
+	case *string:
+		if x == nil {
+			return ErrCannotConvert{Dest: dst, Value: x}
+		}
+		t, err := parseTime(*x)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		*dst = t
 	default:
 		return ErrCannotConvert{Dest: dst, Value: x}
 	}
@@ -257,21 +317,17 @@ func asNullBool(dst *sql.NullBool, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asBool(&dst.Bool, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asBool(&dst.Bool, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asBool(&dst.Bool, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -279,21 +335,17 @@ func asNullByte(dst *sql.NullByte, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asByte(&dst.Byte, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asByte(&dst.Byte, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asByte(&dst.Byte, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -301,21 +353,17 @@ func asNullInt16(dst *sql.NullInt16, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asInt16(&dst.Int16, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asInt16(&dst.Int16, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asInt16(&dst.Int16, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -323,21 +371,17 @@ func asNullInt32(dst *sql.NullInt32, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asInt32(&dst.Int32, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asInt32(&dst.Int32, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asInt32(&dst.Int32, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -345,21 +389,17 @@ func asNullInt64(dst *sql.NullInt64, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asInt64(&dst.Int64, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asInt64(&dst.Int64, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asInt64(&dst.Int64, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -367,21 +407,17 @@ func asNullFloat64(dst *sql.NullFloat64, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asFloat64(&dst.Float64, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asFloat64(&dst.Float64, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asFloat64(&dst.Float64, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -389,12 +425,17 @@ func asNullString(dst *sql.NullString, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	default:
-		if err := asString(&dst.String, x); err != nil {
-			return err
+		return nil
+	case *string:
+		if x == nil {
+			dst.Valid = false
+			return nil
 		}
-		dst.Valid = true
 	}
+	if err := asString(&dst.String, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -402,21 +443,17 @@ func asNullTime(dst *sql.NullTime, x interface{}) error {
 	switch x := x.(type) {
 	case nil:
 		dst.Valid = false
-	case string:
-		if isNullString(x) {
+		return nil
+	case *string:
+		if x == nil {
 			dst.Valid = false
-			break
+			return nil
 		}
-		if err := asTime(&dst.Time, x); err != nil {
-			return err
-		}
-		dst.Valid = true
-	default:
-		if err := asTime(&dst.Time, x); err != nil {
-			return err
-		}
-		dst.Valid = true
 	}
+	if err := asTime(&dst.Time, x); err != nil {
+		return err
+	}
+	dst.Valid = true
 	return nil
 }
 
@@ -435,10 +472,6 @@ func parseTime(x string) (t time.Time, err error) {
 		}
 	}
 	return t, err
-}
-
-func isNullString(x string) bool {
-	return x == "null" || x == "nil" || len(x) == 0
 }
 
 // formatTimestampNTZ trims the "Z" at the end of a timestamp if the "Z" exists
