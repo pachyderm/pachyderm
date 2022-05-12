@@ -210,6 +210,10 @@ We support the following SQL datatypes. Some of those Data Types are specific to
 
 - All **numeric** values are converted into strings in your CSV and JSON. 
 
+!!! Warning
+
+    Use this format `#.#` for all decimals that you plan to egress back to a database.
+
     ***Example***
 
     |Database|CSV|JSON|
