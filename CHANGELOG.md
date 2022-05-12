@@ -1,5 +1,13 @@
 
 # Changelog
+## 2.1.8
+- red hat push fix 2.1.x - #7626
+- Ensure shard ranges contain all paths. - #7620
+- Upgrade s2 - #7617
+- 2.1.x backport: debug dump: collect logs for all suite=pachyderm pods - #7614
+- Added missing default jupyterhub values.yaml - #7575
+- [Marketing Ops] Use hyphen in urls - 2.1.x - #7563
+
 ## 2.1.7
 - Eagerly delete task service group entries - 7552
 - Implement compaction cache - 7551
