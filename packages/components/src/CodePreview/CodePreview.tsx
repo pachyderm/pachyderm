@@ -1,5 +1,5 @@
 import hljs from 'highlight.js/lib/core';
-import 'highlight.js/styles/googlecode.css';
+import 'highlight.js/styles/github.css';
 import json from 'highlight.js/lib/languages/json';
 import yaml from 'highlight.js/lib/languages/yaml';
 import React, {useRef, useEffect} from 'react';

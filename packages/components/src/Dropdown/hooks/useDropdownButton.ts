@@ -5,7 +5,7 @@ import {Keys} from 'lib/types';
 
 import useDropdown from './useDropdown';
 
-const useDropdownButton = (ref: React.RefObject<HTMLButtonElement>) => {
+const useDropdownButton = (ref: React.RefObject<HTMLDivElement>) => {
   const {
     toggleDropdown,
     isOpen,
