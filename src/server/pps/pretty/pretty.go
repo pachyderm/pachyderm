@@ -230,7 +230,7 @@ ParallelismSpec: {{.Details.ParallelismSpec}}
 Transform:
 {{prettyTransform .Details.Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}}{{ if .Details.Egress }}
-Egress: {{.Details.Egress.URL}} {{end}}
+Egress: {{egress .Details.Egress}} {{end}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -280,7 +280,7 @@ Input:
 Output Branch: {{.Details.OutputBranch}}
 Transform:
 {{prettyTransform .Details.Transform}}
-{{ if .Details.Egress }}Egress: {{.Details.Egress.URL}} {{end}}
+{{ if .Details.Egress }}Egress: {{egress .Details.Egress}} {{end}}
 {{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
 `)
 	if err != nil {
@@ -319,6 +319,7 @@ func datumFiles(datumInfo *ppsclient.DatumInfo) string {
 func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
 	fmt.Fprintf(w, "Job ID\t%s\n", datumInfo.Datum.Job.ID)
+	fmt.Fprintf(w, "Image ID\t%s\n", datumInfo.ImageId)
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
 	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
@@ -415,6 +416,8 @@ func JobState(jobState ppsclient.JobState) string {
 		return color.New(color.FgYellow).SprintFunc()("egressing")
 	case ppsclient.JobState_JOB_FINISHING:
 		return color.New(color.FgYellow).SprintFunc()("finishing")
+	case ppsclient.JobState_JOB_UNRUNNABLE:
+		return color.New(color.FgRed).SprintFunc()("unrunnable")
 
 	}
 	return "-"
@@ -527,6 +530,18 @@ func ShorthandInput(input *ppsclient.Input) string {
 	return ""
 }
 
+func egress(e *ppsclient.Egress) string {
+	target := e.GetTarget()
+	if target == nil {
+		return e.GetURL()
+	}
+	s, err := json.MarshalIndent(target, "", "  ")
+	if err != nil {
+		panic(errors.Wrapf(err, "error marshalling egress"))
+	}
+	return string(s)
+}
+
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
 	"jobState":             JobState,
@@ -539,4 +554,5 @@ var funcMap = template.FuncMap{
 	"prettyDuration":       pretty.Duration,
 	"prettySize":           pretty.Size,
 	"prettyTransform":      prettyTransform,
+	"egress":               egress,
 }

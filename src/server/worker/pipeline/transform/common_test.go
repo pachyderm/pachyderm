@@ -118,6 +118,10 @@ func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason st
 func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
+func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
+	imageID, err := td.inner.GetContainerImageID(ctx, containerName)
+	return imageID, errors.EnsureStack(err)
+}
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.

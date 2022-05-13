@@ -54,7 +54,7 @@ See the reference [values.yaml](../../../reference/helm_values/) for the list of
         oidc.upstreamIDPsSecretName 
         ``` 
         
-        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will retrieve the dedicated plain-text secret values in the helm values and populate a generic, default, auto-generated secret (`pachyderm-bootstrap-config`) at the time of the installation. If no value is found in either one of those two cases, default values are used in `pachyderm-bootstrap-config`.
+        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will retrieve the dedicated plain-text secret values in the helm values and populate a generic, default, auto-generated secret (`pachyderm-bootstrap-config`) at the time of the installation. If no value is found in either one of those two cases, default values are used in `pachyderm-bootstrap-config`. Check the list of all secret values fields and  `pachyderm-bootstrap-config` keys in our [upgrade section](../../manage/upgrades/#troubleshoot-upgrades){target=_blank}.
 
         This generic secret `pachyderm-bootstrap-config` is reset at each upgrade, and new default values are created, causing the **helm upgrade to fail unless you retrieve your default values (for example: `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}`), create a dedicated secret for each, then manually set each secret name back into their corresponding secret name field above.**
        

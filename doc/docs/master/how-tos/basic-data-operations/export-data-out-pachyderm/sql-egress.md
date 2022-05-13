@@ -7,10 +7,13 @@
 Pachyderm already implements [egress to object storage](../export-data-egress){target=_blank} as an optional egress field in the pipeline specification. 
 Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database.
 
-Specifically, we help you connect to a remote database and push the content of CSV files to **interface tables**, matching their column names and casting their content into their respective SQL datatype. Interface tables are intermediate tables between Pachyderm and your data warehouse. They are the tables your SQL Egress pipeline inserts its data into and should be **dedicated tables**. The content of your interface tables matches the content of the latest output commit of your pipeline. 
+Specifically, we help you connect to a remote database and push the content of CSV files to **interface tables**, matching their column names and casting their content into their respective SQL datatype. 
 
-!!! Attention "IMPORTANT" 
-        A new output commit will trigger a **delete of all interface tables** before inserting more recent values. As a best practice, we strongly recommend to **create a separate database** for Pachyderm Egress. 
+Interface tables are intermediate tables used for staging the data being egressed from Pachyderm to your data warehouse.
+They are the tables your SQL Egress pipeline inserts its data into and should be **dedicated tables**. The content of your interface tables matches the content of the latest output commit of your pipeline. 
+
+!!! Note "Best Practice" 
+        A new output commit will trigger a **delete of all data in the interface tables** before inserting more recent values. As a best practice, we strongly recommend to **create a separate database** for Pachyderm Egress. 
 
 As of today, we support the following drivers:
 
@@ -34,11 +37,11 @@ To egress data from the output commit of a pipeline to an SQL database, you will
     Write your data into CSV files placed in [root directories named after the table](#3-in-your-user-code-write-your-data-to-directories-named-after-each-table) you want to insert them into. 
     You can have multiple directories.
 
-### 1- Create a Secret 
+### 1. Create a Secret 
 
 Create a **secret** containing your database password in the field `PACHYDERM_SQL_PASSWORD`. This secret is identical to the database secret of Pachyderm SQL Ingest. Refer to the SQL Ingest page for instructions on [how to create your secret](../../sql-ingest/#database-secret){target=_blank}.
 
-### 2- Update your Pipeline Spec
+### 2. Update your Pipeline Spec
 
 Append an egress section to your pipeline specification file, then fill in:
 
@@ -77,12 +80,12 @@ Append an egress section to your pipeline specification file, then fill in:
         }
         ```
 
-### 3- In your User Code, Write Your Data to Directories Named After Each Table
+### 3. In your User Code, Write Your Data to Directories Named After Each Table
  
 The user code of your pipeline determines what data should be egressed and to which tables. 
 Data (in the form of CSV files) that the pipeline writes to the output repo is interpreted as tables corresponding to directories. 
 
-**Each top-level directory is named after the table you want to egress its content to**. All of the files reachable in the walk of each root directory are parsed in the given format indicated in the egress section of the pipeline specification file (CSV for now), then inserted in their corresponding table. 
+**Each top-level directory is named after the table you want to egress its content to**. All of the files reachable in the walk of each root directory are parsed in the given format indicated in the egress section of the pipeline specification file (CSV for now), then inserted in their corresponding table. Find more information on how to format your CSV file depending on your targeted SQL Data Type in our [SQL Ingest Formatting section](../../sql-ingest/#formats-and-sql-datatypes){target=_blank}.
 
 !!! Warning
      - All interface tables must pre-exist before an insertion.
@@ -98,7 +101,6 @@ Data (in the form of CSV files) that the pipeline writes to the output repo is i
         "33","Tam","2017-01-01T21:51:45Z","false"
         "54","Pach","2017-05-15T21:51:45Z","true"
         ```
-
 
 !!! Note 
     - Pachyderm queries the schema of the interface tables before insertion then parses the data into their SQL data types.    

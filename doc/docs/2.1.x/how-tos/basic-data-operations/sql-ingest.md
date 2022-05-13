@@ -192,3 +192,56 @@ You have run a query using SQL Ingest. How do you inspect its result?
     {"mycolumn":"hello world","id":1}
     {"mycolumn":"hello you","id":2}
     ```
+
+## Formats and SQL DataTypes 
+
+The following comments on formatting reflect the state of this release and are subject to change.
+
+### SQL datatypes supported
+
+We support the following SQL datatypes. Some of those Data Types are specific to a database.
+
+| Dates/Timestamps | Varchars | Numerics | Booleans |
+|------------------|---------|----------|----------|
+|`DATE` <br> `TIME`<br> `TIMESTAMP`<br> `TIMESTAMP_LTZ`<br> `TIMESTAMP_NTZ`<br> `TIMESTAMP_TZ`<br> `TIMESTAMPTZ`<br> `TIMESTAMP WITH TIME ZONE`<br> `TIMESTAMP WITHOUT TIME ZONE` |`VARCHAR`<br> `TEXT`<br> `CHARACTER VARYING`|`SMALLINT`<br> `INT2`<br> `INTEGER`<br> `INT`<br> `INT4`<br> `BIGINT`<br> `INT8`<br>`FLOAT`<br> `FLOAT4`<br> `FLOAT8`<br> `REAL`<br> `DOUBLE PRECISION`<br>`NUMERIC`<br> `DECIMAL`<br> `NUMBER`|`BOOL`<br>`BOOLEAN`|
+
+### Formatting
+
+- All **numeric** values are converted into strings in your CSV and JSON. 
+
+    Note that infinite (Inf) and not a number (NaN) values will also be stored as strings in JSON files. 
+
+    ***Examples***
+
+    |Database|CSV|JSON|
+    |--------|---|----|
+    | 12345 | 12345 | "12345" |
+    | 123.45 | 123.45 | "123.45" |
+
+- **Date/Timestamps** are formatted as follow `%Y-%M-%DT%h:%m:%sZ`, then converted into strings in your CSV and JSON. 
+
+    Note that the trailing Z (UTC) is truncated from Timestamps without Ttmezones and from Dates. 
+
+    ***Examples***
+
+    |Type|Database|CSV|JSON|
+    |----|--------|---|----|
+    |Date|2022-05-09|2022-05-09T00:00:00|"2022-05-09T00:00:00"|
+    |Timestamp ntz|2022-05-09 16:43:00|2022-05-09 16:43:00|"2022-05-09 16:43:00"|
+    |Timestamp tz|2022-05-09 16:43:00-05:00|2022-05-09T16:43:00-05:00|"2022-05-09T16:43:00-05:00"|
+
+- **Strings**
+
+    Keep in mind when parsing your CSVs in your user code that we escape `"` with `""` in CSV files.
+
+    ***Examples***
+
+    |Database|CSV|
+    |--------|---|
+    |"null"|null|
+    |\`""\`|""""""|
+    |""|""|
+    |nil||
+    |`"my string"`|"""my string"""|
+    |"this will be enclosed in quotes because it has a ,"|"this will be enclosed in quotes because it has a ,"|
+

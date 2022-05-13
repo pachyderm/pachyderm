@@ -100,19 +100,25 @@ func processUploadDatumsTask(pachClient *client.APIClient, task *UploadDatumsTas
 		}
 		dit = datum.NewJobIterator(dit, jobInfo.Job, &hasher{salt: jobInfo.Details.Salt})
 	}
-	fileSetID, err := uploadDatumFileSet(pachClient, dit)
+	fileSetID, count, err := uploadDatumFileSet(pachClient, dit)
 	if err != nil {
 		return nil, err
 	}
-	return serializeUploadDatumsTaskResult(&UploadDatumsTaskResult{FileSetId: fileSetID})
+	return serializeUploadDatumsTaskResult(&UploadDatumsTaskResult{FileSetId: fileSetID, Count: int64(count)})
 }
 
-func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, error) {
-	return withDatumFileSet(pachClient, func(s *datum.Set) error {
+func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, int, error) {
+	var count int
+	s, err := withDatumFileSet(pachClient, func(s *datum.Set) error {
 		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
+			count++
 			return s.UploadMeta(meta)
 		}))
 	})
+	if err != nil {
+		return "", 0, err
+	}
+	return s, count, nil
 }
 
 func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
@@ -340,6 +346,10 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
+	if err != nil {
+		return errors.Wrap(err, "could not get user image ID")
+	}
 	// Setup file operation client for output meta commit.
 	resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
@@ -358,6 +368,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					// Process each datum in the assigned datum set.
 					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()
+						meta = proto.Clone(meta).(*datum.Meta)
+						meta.ImageId = userImageID
 						inputs := meta.Inputs
 						logger = logger.WithData(inputs)
 						env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)

@@ -493,7 +493,6 @@ func TestS3SkippedDatums(t *testing.T) {
 	name := t.Name()
 
 	c, userToken, ns := initPachClient(t)
-	defer tu.DeleteAll(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.

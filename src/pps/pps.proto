@@ -69,6 +69,7 @@ enum JobState {
   JOB_KILLED = 6;
   JOB_EGRESSING = 7;
   JOB_FINISHING = 8;
+  JOB_UNRUNNABLE = 9;
 }
 
 message Metadata {
@@ -178,6 +179,7 @@ message DatumInfo {
   ProcessStats stats = 3;
   pfs_v2.File pfs_state = 4;
   repeated pfs_v2.FileInfo data = 5;
+  string image_id = 6;
 }
 
 message Aggregate {
