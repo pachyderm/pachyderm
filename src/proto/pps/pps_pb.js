@@ -43,6 +43,7 @@ goog.exportSymbol('proto.pps_v2.DeleteJobRequest', null, global);
 goog.exportSymbol('proto.pps_v2.DeletePipelineRequest', null, global);
 goog.exportSymbol('proto.pps_v2.DeleteSecretRequest', null, global);
 goog.exportSymbol('proto.pps_v2.Egress', null, global);
+goog.exportSymbol('proto.pps_v2.Egress.TargetCase', null, global);
 goog.exportSymbol('proto.pps_v2.GPUSpec', null, global);
 goog.exportSymbol('proto.pps_v2.GetLogsRequest', null, global);
 goog.exportSymbol('proto.pps_v2.Input', null, global);
@@ -171,7 +172,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.pps_v2.Egress = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.pps_v2.Egress.oneofGroups_);
 };
 goog.inherits(proto.pps_v2.Egress, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -2452,6 +2453,32 @@ proto.pps_v2.TFJob.prototype.setTfJob = function(value) {
 
 
 
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.pps_v2.Egress.oneofGroups_ = [[2,3]];
+
+/**
+ * @enum {number}
+ */
+proto.pps_v2.Egress.TargetCase = {
+  TARGET_NOT_SET: 0,
+  OBJECT_STORAGE: 2,
+  SQL_DATABASE: 3
+};
+
+/**
+ * @return {proto.pps_v2.Egress.TargetCase}
+ */
+proto.pps_v2.Egress.prototype.getTargetCase = function() {
+  return /** @type {proto.pps_v2.Egress.TargetCase} */(jspb.Message.computeOneofCase(this, proto.pps_v2.Egress.oneofGroups_[0]));
+};
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -2483,7 +2510,9 @@ proto.pps_v2.Egress.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pps_v2.Egress.toObject = function(includeInstance, msg) {
   var f, obj = {
-    url: jspb.Message.getFieldWithDefault(msg, 1, "")
+    url: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    objectStorage: (f = msg.getObjectStorage()) && pfs_pfs_pb.ObjectStorageEgress.toObject(includeInstance, f),
+    sqlDatabase: (f = msg.getSqlDatabase()) && pfs_pfs_pb.SQLDatabaseEgress.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -2524,6 +2553,16 @@ proto.pps_v2.Egress.deserializeBinaryFromReader = function(msg, reader) {
       var value = /** @type {string} */ (reader.readString());
       msg.setUrl(value);
       break;
+    case 2:
+      var value = new pfs_pfs_pb.ObjectStorageEgress;
+      reader.readMessage(value,pfs_pfs_pb.ObjectStorageEgress.deserializeBinaryFromReader);
+      msg.setObjectStorage(value);
+      break;
+    case 3:
+      var value = new pfs_pfs_pb.SQLDatabaseEgress;
+      reader.readMessage(value,pfs_pfs_pb.SQLDatabaseEgress.deserializeBinaryFromReader);
+      msg.setSqlDatabase(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -2560,6 +2599,22 @@ proto.pps_v2.Egress.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
+  f = message.getObjectStorage();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      pfs_pfs_pb.ObjectStorageEgress.serializeBinaryToWriter
+    );
+  }
+  f = message.getSqlDatabase();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      pfs_pfs_pb.SQLDatabaseEgress.serializeBinaryToWriter
+    );
+  }
 };
 
 
@@ -2578,6 +2633,80 @@ proto.pps_v2.Egress.prototype.getUrl = function() {
  */
 proto.pps_v2.Egress.prototype.setUrl = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional pfs_v2.ObjectStorageEgress object_storage = 2;
+ * @return {?proto.pfs_v2.ObjectStorageEgress}
+ */
+proto.pps_v2.Egress.prototype.getObjectStorage = function() {
+  return /** @type{?proto.pfs_v2.ObjectStorageEgress} */ (
+    jspb.Message.getWrapperField(this, pfs_pfs_pb.ObjectStorageEgress, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.ObjectStorageEgress|undefined} value
+ * @return {!proto.pps_v2.Egress} returns this
+*/
+proto.pps_v2.Egress.prototype.setObjectStorage = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.pps_v2.Egress.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.Egress} returns this
+ */
+proto.pps_v2.Egress.prototype.clearObjectStorage = function() {
+  return this.setObjectStorage(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.Egress.prototype.hasObjectStorage = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional pfs_v2.SQLDatabaseEgress sql_database = 3;
+ * @return {?proto.pfs_v2.SQLDatabaseEgress}
+ */
+proto.pps_v2.Egress.prototype.getSqlDatabase = function() {
+  return /** @type{?proto.pfs_v2.SQLDatabaseEgress} */ (
+    jspb.Message.getWrapperField(this, pfs_pfs_pb.SQLDatabaseEgress, 3));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.SQLDatabaseEgress|undefined} value
+ * @return {!proto.pps_v2.Egress} returns this
+*/
+proto.pps_v2.Egress.prototype.setSqlDatabase = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 3, proto.pps_v2.Egress.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pps_v2.Egress} returns this
+ */
+proto.pps_v2.Egress.prototype.clearSqlDatabase = function() {
+  return this.setSqlDatabase(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pps_v2.Egress.prototype.hasSqlDatabase = function() {
+  return jspb.Message.getField(this, 3) != null;
 };
 
 
@@ -5312,7 +5441,8 @@ proto.pps_v2.DatumInfo.toObject = function(includeInstance, msg) {
     stats: (f = msg.getStats()) && proto.pps_v2.ProcessStats.toObject(includeInstance, f),
     pfsState: (f = msg.getPfsState()) && pfs_pfs_pb.File.toObject(includeInstance, f),
     dataList: jspb.Message.toObjectList(msg.getDataList(),
-    pfs_pfs_pb.FileInfo.toObject, includeInstance)
+    pfs_pfs_pb.FileInfo.toObject, includeInstance),
+    imageId: jspb.Message.getFieldWithDefault(msg, 6, "")
   };
 
   if (includeInstance) {
@@ -5372,6 +5502,10 @@ proto.pps_v2.DatumInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new pfs_pfs_pb.FileInfo;
       reader.readMessage(value,pfs_pfs_pb.FileInfo.deserializeBinaryFromReader);
       msg.addData(value);
+      break;
+    case 6:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setImageId(value);
       break;
     default:
       reader.skipField();
@@ -5439,6 +5573,13 @@ proto.pps_v2.DatumInfo.serializeBinaryToWriter = function(message, writer) {
       5,
       f,
       pfs_pfs_pb.FileInfo.serializeBinaryToWriter
+    );
+  }
+  f = message.getImageId();
+  if (f.length > 0) {
+    writer.writeString(
+      6,
+      f
     );
   }
 };
@@ -5608,6 +5749,24 @@ proto.pps_v2.DatumInfo.prototype.addData = function(opt_value, opt_index) {
  */
 proto.pps_v2.DatumInfo.prototype.clearDataList = function() {
   return this.setDataList([]);
+};
+
+
+/**
+ * optional string image_id = 6;
+ * @return {string}
+ */
+proto.pps_v2.DatumInfo.prototype.getImageId = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 6, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pps_v2.DatumInfo} returns this
+ */
+proto.pps_v2.DatumInfo.prototype.setImageId = function(value) {
+  return jspb.Message.setProto3StringField(this, 6, value);
 };
 
 

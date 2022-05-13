@@ -1796,6 +1796,242 @@ export namespace RunLoadTestResponse {
     }
 }
 
+export class ObjectStorageEgress extends jspb.Message { 
+    getUrl(): string;
+    setUrl(value: string): ObjectStorageEgress;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ObjectStorageEgress.AsObject;
+    static toObject(includeInstance: boolean, msg: ObjectStorageEgress): ObjectStorageEgress.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ObjectStorageEgress, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ObjectStorageEgress;
+    static deserializeBinaryFromReader(message: ObjectStorageEgress, reader: jspb.BinaryReader): ObjectStorageEgress;
+}
+
+export namespace ObjectStorageEgress {
+    export type AsObject = {
+        url: string,
+    }
+}
+
+export class SQLDatabaseEgress extends jspb.Message { 
+    getUrl(): string;
+    setUrl(value: string): SQLDatabaseEgress;
+
+    hasFileFormat(): boolean;
+    clearFileFormat(): void;
+    getFileFormat(): SQLDatabaseEgress.FileFormat | undefined;
+    setFileFormat(value?: SQLDatabaseEgress.FileFormat): SQLDatabaseEgress;
+
+    hasSecret(): boolean;
+    clearSecret(): void;
+    getSecret(): SQLDatabaseEgress.Secret | undefined;
+    setSecret(value?: SQLDatabaseEgress.Secret): SQLDatabaseEgress;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SQLDatabaseEgress.AsObject;
+    static toObject(includeInstance: boolean, msg: SQLDatabaseEgress): SQLDatabaseEgress.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SQLDatabaseEgress, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SQLDatabaseEgress;
+    static deserializeBinaryFromReader(message: SQLDatabaseEgress, reader: jspb.BinaryReader): SQLDatabaseEgress;
+}
+
+export namespace SQLDatabaseEgress {
+    export type AsObject = {
+        url: string,
+        fileFormat?: SQLDatabaseEgress.FileFormat.AsObject,
+        secret?: SQLDatabaseEgress.Secret.AsObject,
+    }
+
+
+    export class FileFormat extends jspb.Message { 
+        getType(): SQLDatabaseEgress.FileFormat.Type;
+        setType(value: SQLDatabaseEgress.FileFormat.Type): FileFormat;
+        clearColumnsList(): void;
+        getColumnsList(): Array<string>;
+        setColumnsList(value: Array<string>): FileFormat;
+        addColumns(value: string, index?: number): string;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): FileFormat.AsObject;
+        static toObject(includeInstance: boolean, msg: FileFormat): FileFormat.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: FileFormat, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): FileFormat;
+        static deserializeBinaryFromReader(message: FileFormat, reader: jspb.BinaryReader): FileFormat;
+    }
+
+    export namespace FileFormat {
+        export type AsObject = {
+            type: SQLDatabaseEgress.FileFormat.Type,
+            columnsList: Array<string>,
+        }
+
+        export enum Type {
+    UNKNOWN = 0,
+    CSV = 1,
+    JSON = 2,
+    PARQUET = 3,
+        }
+
+    }
+
+    export class Secret extends jspb.Message { 
+        getName(): string;
+        setName(value: string): Secret;
+        getKey(): string;
+        setKey(value: string): Secret;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Secret.AsObject;
+        static toObject(includeInstance: boolean, msg: Secret): Secret.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Secret, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Secret;
+        static deserializeBinaryFromReader(message: Secret, reader: jspb.BinaryReader): Secret;
+    }
+
+    export namespace Secret {
+        export type AsObject = {
+            name: string,
+            key: string,
+        }
+    }
+
+}
+
+export class EgressRequest extends jspb.Message { 
+
+    hasCommit(): boolean;
+    clearCommit(): void;
+    getCommit(): Commit | undefined;
+    setCommit(value?: Commit): EgressRequest;
+
+    hasObjectStorage(): boolean;
+    clearObjectStorage(): void;
+    getObjectStorage(): ObjectStorageEgress | undefined;
+    setObjectStorage(value?: ObjectStorageEgress): EgressRequest;
+
+    hasSqlDatabase(): boolean;
+    clearSqlDatabase(): void;
+    getSqlDatabase(): SQLDatabaseEgress | undefined;
+    setSqlDatabase(value?: SQLDatabaseEgress): EgressRequest;
+
+    getTargetCase(): EgressRequest.TargetCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EgressRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: EgressRequest): EgressRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EgressRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EgressRequest;
+    static deserializeBinaryFromReader(message: EgressRequest, reader: jspb.BinaryReader): EgressRequest;
+}
+
+export namespace EgressRequest {
+    export type AsObject = {
+        commit?: Commit.AsObject,
+        objectStorage?: ObjectStorageEgress.AsObject,
+        sqlDatabase?: SQLDatabaseEgress.AsObject,
+    }
+
+    export enum TargetCase {
+        TARGET_NOT_SET = 0,
+        OBJECT_STORAGE = 2,
+        SQL_DATABASE = 3,
+    }
+
+}
+
+export class EgressResponse extends jspb.Message { 
+
+    hasObjectStorage(): boolean;
+    clearObjectStorage(): void;
+    getObjectStorage(): EgressResponse.ObjectStorageResult | undefined;
+    setObjectStorage(value?: EgressResponse.ObjectStorageResult): EgressResponse;
+
+    hasSqlDatabase(): boolean;
+    clearSqlDatabase(): void;
+    getSqlDatabase(): EgressResponse.SQLDatabaseResult | undefined;
+    setSqlDatabase(value?: EgressResponse.SQLDatabaseResult): EgressResponse;
+
+    getResultCase(): EgressResponse.ResultCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): EgressResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: EgressResponse): EgressResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: EgressResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): EgressResponse;
+    static deserializeBinaryFromReader(message: EgressResponse, reader: jspb.BinaryReader): EgressResponse;
+}
+
+export namespace EgressResponse {
+    export type AsObject = {
+        objectStorage?: EgressResponse.ObjectStorageResult.AsObject,
+        sqlDatabase?: EgressResponse.SQLDatabaseResult.AsObject,
+    }
+
+
+    export class ObjectStorageResult extends jspb.Message { 
+        getBytesWritten(): number;
+        setBytesWritten(value: number): ObjectStorageResult;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): ObjectStorageResult.AsObject;
+        static toObject(includeInstance: boolean, msg: ObjectStorageResult): ObjectStorageResult.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: ObjectStorageResult, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): ObjectStorageResult;
+        static deserializeBinaryFromReader(message: ObjectStorageResult, reader: jspb.BinaryReader): ObjectStorageResult;
+    }
+
+    export namespace ObjectStorageResult {
+        export type AsObject = {
+            bytesWritten: number,
+        }
+    }
+
+    export class SQLDatabaseResult extends jspb.Message { 
+
+        getRowsWrittenMap(): jspb.Map<string, number>;
+        clearRowsWrittenMap(): void;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): SQLDatabaseResult.AsObject;
+        static toObject(includeInstance: boolean, msg: SQLDatabaseResult): SQLDatabaseResult.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: SQLDatabaseResult, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): SQLDatabaseResult;
+        static deserializeBinaryFromReader(message: SQLDatabaseResult, reader: jspb.BinaryReader): SQLDatabaseResult;
+    }
+
+    export namespace SQLDatabaseResult {
+        export type AsObject = {
+
+            rowsWrittenMap: Array<[string, number]>,
+        }
+    }
+
+
+    export enum ResultCase {
+        RESULT_NOT_SET = 0,
+        OBJECT_STORAGE = 1,
+        SQL_DATABASE = 2,
+    }
+
+}
+
 export enum OriginKind {
     ORIGIN_KIND_UNKNOWN = 0,
     USER = 1,

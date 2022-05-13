@@ -57,6 +57,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     runLoadTest: IAPIService_IRunLoadTest;
     runLoadTestDefault: IAPIService_IRunLoadTestDefault;
     listTask: IAPIService_IListTask;
+    egress: IAPIService_IEgress;
 }
 
 interface IAPIService_ICreateRepo extends grpc.MethodDefinition<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty> {
@@ -428,6 +429,15 @@ interface IAPIService_IListTask extends grpc.MethodDefinition<task_task_pb.ListT
     responseSerialize: grpc.serialize<task_task_pb.TaskInfo>;
     responseDeserialize: grpc.deserialize<task_task_pb.TaskInfo>;
 }
+interface IAPIService_IEgress extends grpc.MethodDefinition<pfs_pfs_pb.EgressRequest, pfs_pfs_pb.EgressResponse> {
+    path: "/pfs_v2.API/Egress";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.EgressRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.EgressRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.EgressResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.EgressResponse>;
+}
 
 export const APIService: IAPIService;
 
@@ -473,6 +483,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     runLoadTest: grpc.handleUnaryCall<pfs_pfs_pb.RunLoadTestRequest, pfs_pfs_pb.RunLoadTestResponse>;
     runLoadTestDefault: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, pfs_pfs_pb.RunLoadTestResponse>;
     listTask: grpc.handleServerStreamingCall<task_task_pb.ListTaskRequest, task_task_pb.TaskInfo>;
+    egress: grpc.handleUnaryCall<pfs_pfs_pb.EgressRequest, pfs_pfs_pb.EgressResponse>;
 }
 
 export interface IAPIClient {
@@ -587,6 +598,9 @@ export interface IAPIClient {
     runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
+    egress(request: pfs_pfs_pb.EgressRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
+    egress(request: pfs_pfs_pb.EgressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
+    egress(request: pfs_pfs_pb.EgressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -702,4 +716,7 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public runLoadTestDefault(request: google_protobuf_empty_pb.Empty, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.RunLoadTestResponse) => void): grpc.ClientUnaryCall;
     public listTask(request: task_task_pb.ListTaskRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
     public listTask(request: task_task_pb.ListTaskRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<task_task_pb.TaskInfo>;
+    public egress(request: pfs_pfs_pb.EgressRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
+    public egress(request: pfs_pfs_pb.EgressRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
+    public egress(request: pfs_pfs_pb.EgressRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.EgressResponse) => void): grpc.ClientUnaryCall;
 }

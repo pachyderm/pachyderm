@@ -47,6 +47,10 @@ message TFJob {
 
 message Egress {
   string URL = 1;
+  oneof target {
+    pfs_v2.ObjectStorageEgress object_storage = 2;
+    pfs_v2.SQLDatabaseEgress sql_database = 3;
+  }
 }
 
 message Job {
@@ -174,6 +178,7 @@ message DatumInfo {
   ProcessStats stats = 3;
   pfs_v2.File pfs_state = 4;
   repeated pfs_v2.FileInfo data = 5;
+  string image_id = 6;
 }
 
 message Aggregate {
@@ -778,4 +783,3 @@ service API {
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
-

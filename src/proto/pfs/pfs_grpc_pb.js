@@ -254,6 +254,28 @@ function deserialize_pfs_v2_DropCommitSetRequest(buffer_arg) {
   return pfs_pfs_pb.DropCommitSetRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_EgressRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.EgressRequest)) {
+    throw new Error('Expected argument of type pfs_v2.EgressRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_EgressRequest(buffer_arg) {
+  return pfs_pfs_pb.EgressRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_EgressResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.EgressResponse)) {
+    throw new Error('Expected argument of type pfs_v2.EgressResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_EgressResponse(buffer_arg) {
+  return pfs_pfs_pb.EgressResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_FileInfo(arg) {
   if (!(arg instanceof pfs_pfs_pb.FileInfo)) {
     throw new Error('Expected argument of type pfs_v2.FileInfo');
@@ -1086,6 +1108,18 @@ listTask: {
     requestDeserialize: deserialize_taskapi_ListTaskRequest,
     responseSerialize: serialize_taskapi_TaskInfo,
     responseDeserialize: deserialize_taskapi_TaskInfo,
+  },
+  // Egress writes data from a commit to an external system
+egress: {
+    path: '/pfs_v2.API/Egress',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.EgressRequest,
+    responseType: pfs_pfs_pb.EgressResponse,
+    requestSerialize: serialize_pfs_v2_EgressRequest,
+    requestDeserialize: deserialize_pfs_v2_EgressRequest,
+    responseSerialize: serialize_pfs_v2_EgressResponse,
+    responseDeserialize: deserialize_pfs_v2_EgressResponse,
   },
 };
 
