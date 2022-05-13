@@ -29,12 +29,12 @@ make docker-build
 make docker-push
 
 # # provision a pulumi load test env
-curl -X POST -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" \
- -F name=load-test-CI1 -F pachdVersion=${VERSION} -F valuesYaml=@etc/testing/circle/helm-values.yaml \
-  https://0f52-172-98-132-18.ngrok.io/v1/api/workspace
+curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+ -F name=load-test-${@} -F pachdVersion=${VERSION} -F valuesYaml=@etc/testing/circle/helm-values.yaml \
+  https://helium.pachyderm.io/v1/api/workspace
 
 for _ in $(seq 36); do
-  STATUS=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/load-test-CI1 | jq .Workspace.Status | tr -d '"')
+  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/load-test-${@} | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
@@ -44,14 +44,14 @@ for _ in $(seq 36); do
   sleep 10
 done
 
-pachdIp=$(curl -s -H "Authorization: Bearer exvTH4eXVGh3FDTtHZ3wzTnF" https://0f52-172-98-132-18.ngrok.io/v1/api/workspace/load-test-CI1  | jq .Workspace.PachdIp)
+pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/load-test-${@}  | jq .Workspace.PachdIp)
 
-echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context sean-named-this-110 --overwrite && pachctl config set active-context sean-named-this-110
+echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context load-test-${@}  --overwrite && pachctl config set active-context load-test-${@}
 
 # Print client and server versions, for debugging.
 pachctl version
 
-echo "1WgTXSc2MccsxunEzXvSAejsKNyT4Lsy" | pachctl auth use-auth-token
+echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
 
 # Run load tests.
 set +e
