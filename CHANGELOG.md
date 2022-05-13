@@ -1,6 +1,22 @@
 # Changelog
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+# 0.5.0 
+b42eeed Adding advanced options to the ui for server CAs (#125)
+5720bb3 BE support for server cas (#124)
+e78d55f Switch from umount to fusermount (#116)
+11d35cd Remove python 3.6 support (#117)
+d68d1da Add Ubuntu key to unblock docker-build CI job  (#121)
+4cfb9c2 Make env var for setting pfs mount dir explicit (#113)
+9224bd4 INT-575 (#114)
+cd17f8d updating docker image in readme (#112)
+2e846a9 Add instructions for TLS cert (#111)
+7a10107 Move mount/unmount response generation to mount server (#92)
+38885a1 update to default port (#110)
+2ae61e2 Fix destroy action (#109)
+0fa44b9 Bump API to v2 (#104)
+ee0b1fe fix readme typo -> destory to destroy (#107)
+
 # 0.4.0
 2c9dc889 fix logo SVG, UI tweaks
 2c9dc889 adding a loader component that will display till the setup function resolves
