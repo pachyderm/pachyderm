@@ -1460,7 +1460,7 @@ func (a *apiServer) validatePipelineRequest(ctx context.Context, request *pps.Cr
 			if status.Code(err) == codes.NotFound {
 				return errors.Errorf("missing Kubernetes secret %s", s.Name)
 			}
-			return err
+			return errors.Wrapf(err, "could not get Kubernetes secret %s", s.Name)
 		}
 	}
 	return nil
@@ -1758,9 +1758,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline.Name)
 
-	// if err := a.validateEnterpriseChecks(ctx, request); err != nil {
-	// 	return nil, err
-	// }
+	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
+		return nil, err
+	}
 
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(ctx, request))
