@@ -118,17 +118,17 @@ func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, cache Cache) Doer {
 
 func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb CollectFunc) error {
 	return ed.withGroup(ctx, func(ctx context.Context, renewer *col.Renewer) error {
-		var eg errgroup.Group
 		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
 		done := make(chan struct{})
 		var count int64
 		ctx, cancel := context.WithCancel(ctx)
+		eg, egCtx := errgroup.WithContext(ctx)
 		defer func() {
 			cancel()
 			eg.Wait()
 		}()
 		eg.Go(func() error {
-			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+			err := ed.taskCol.ReadOnly(egCtx).WatchOneF(prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -145,7 +145,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					err = errors.New(task.Reason)
 				}
 				if ed.cache != nil && err == nil {
-					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
+					if err := ed.cache.Put(egCtx, task.ID, task.Output); err != nil {
 						fmt.Printf("errored putting task %v in cache: %v\n", key, err)
 					}
 				}
@@ -191,7 +191,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					return err
 				}
 				if ed.cache != nil {
-					output, err := ed.cache.Get(ctx, taskID)
+					output, err := ed.cache.Get(egCtx, taskID)
 					if err == nil {
 						if err := cb(index, output, nil); err != nil {
 							return err
@@ -208,12 +208,12 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					Index: index,
 				}
 				index++
-				if err := renewer.Put(ctx, taskKey, task); err != nil {
+				if err := renewer.Put(egCtx, taskKey, task); err != nil {
 					return err
 				}
 				atomic.AddInt64(&count, 1)
-			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+			case <-egCtx.Done():
+				return errors.EnsureStack(egCtx.Err())
 			}
 		}
 	})
