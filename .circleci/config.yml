@@ -158,7 +158,7 @@ jobs:
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
-  nightly_load:
+  nightly-load:
     parameters:
       bucket:
         type: string
