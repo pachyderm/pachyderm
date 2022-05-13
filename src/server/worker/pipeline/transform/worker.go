@@ -346,6 +346,10 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
+	if err != nil {
+		return errors.Wrap(err, "could not get user image ID")
+	}
 	// Setup file operation client for output meta commit.
 	resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 		// Setup file operation client for output PFS commit.
@@ -364,6 +368,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					// Process each datum in the assigned datum set.
 					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()
+						meta = proto.Clone(meta).(*datum.Meta)
+						meta.ImageId = userImageID
 						inputs := meta.Inputs
 						logger = logger.WithData(inputs)
 						env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)

@@ -7,11 +7,14 @@ import (
 	"net/url"
 	"path"
 	"testing"
+	"time"
 
-	"github.com/coreos/pkg/capnslog"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
 	etcdwal "go.etcd.io/etcd/server/v3/wal"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -61,6 +64,12 @@ func NewEnv(t testing.TB) *Env {
 	etcdConfig.TickMs = 10
 	etcdConfig.ElectionMs = 50
 
+	// Log to the test log.
+	baseLevel := zapcore.DebugLevel // The log level after startup (whose messages we try to suppress).
+	level := zap.NewAtomicLevelAt(baseLevel)
+	logger := zaptest.NewLogger(t, zaptest.Level(level))
+	etcdConfig.ZapLoggerBuilder = embed.NewZapLoggerBuilder(logger.Named("etcd-server"))
+
 	// We want to assign a random unused port to etcd, but etcd doesn't give us a
 	// way to read it back out later. We can work around this by creating our own
 	// listener on a random port, find out which port was used, close that
@@ -80,22 +89,29 @@ func NewEnv(t testing.TB) *Env {
 
 	// Throw away noisy messages from etcd - comment these out if you need to debug
 	// a failed start
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
+	level.SetLevel(zapcore.ErrorLevel)
 
 	env.Etcd, err = embed.StartEtcd(etcdConfig)
 	require.NoError(t, err)
 	t.Cleanup(env.Etcd.Close)
 
-	capnslog.SetGlobalLogLevel(capnslog.CRITICAL)
-
 	eg.Go(func() error {
 		return errorWait(ctx, env.Etcd.Err())
 	})
+
+	// Wait for the server to become ready, then restore the log level.
+	select {
+	case <-env.Etcd.Server.ReadyNotify():
+		level.SetLevel(baseLevel)
+	case <-time.After(30 * time.Second):
+		t.Fatal("etcd did not start after 30 seconds")
+	}
 
 	env.EtcdClient, err = etcd.New(etcd.Config{
 		Context:     env.Context,
 		Endpoints:   []string{clientURL.String()},
 		DialOptions: client.DefaultDialOptions(),
+		Logger:      logger.Named("etcd-client"),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
