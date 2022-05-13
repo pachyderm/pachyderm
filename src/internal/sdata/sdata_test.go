@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestFormatParse is a round trip from a Tuple through formatting and parsing
@@ -51,35 +53,42 @@ func TestFormatParse(t *testing.T) {
 		c := ""
 		d := sql.NullInt64{}
 		e := false
-		return Tuple{&a, &b, &c, &d, &e}
+		f := sql.NullString{}
+		return Tuple{&a, &b, &c, &d, &e, &f}
 	}
-	fieldNames := []string{"a", "b", "c", "d", "e"}
+	fieldNames := []string{"a", "b", "c", "d", "e", "f"}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			const N = 10
 			buf := &bytes.Buffer{}
 			fz := fuzz.New()
 			fz.RandSource(rand.NewSource(0))
-			fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
-				*ti = time.Now()
-			})
-			fz.Funcs(func(x *sql.NullInt64, co fuzz.Continue) {
-				if co.RandBool() {
-					x.Valid = true
-					x.Int64 = co.Int63()
-				} else {
-					x.Valid = false
-				}
-			})
-			fz.Funcs(func(x *sql.NullString, co fuzz.Continue) {
-				if co.RandBool() {
-					x.Valid = true
-					x.String = co.RandString()
-				} else {
-					x.Valid = false
-				}
-			})
-			fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
+			fz.Funcs(
+				func(ti *time.Time, co fuzz.Continue) {
+					*ti = time.Now()
+				},
+				func(x *sql.NullInt64, co fuzz.Continue) {
+					if co.RandBool() {
+						x.Valid = true
+						x.Int64 = co.Int63()
+					} else {
+						x.Valid = false
+					}
+				},
+				func(x *sql.NullString, co fuzz.Continue) {
+					n := co.Intn(10)
+					if n < 3 {
+						x.Valid = true
+						x.String = co.RandString()
+					} else if n < 6 {
+						x.Valid = true
+						x.String = ""
+					} else {
+						x.Valid = false
+					}
+				},
+				fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc(),
+			)
 
 			var expected []Tuple
 			w := tc.NewW(buf, fieldNames)
@@ -153,8 +162,10 @@ func TestMaterializeSQL(t *testing.T) {
 			testName := fmt.Sprintf("%s-%s", dbSpec.Name, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
 				db := dbSpec.New(t)
-				setupTable(t, db)
-				rows, err := db.Query(`SELECT * FROM test_data`)
+				tableName := "test_table"
+				nRows := 10
+				setupTable(t, db, tableName, nRows)
+				rows, err := db.Query(fmt.Sprintf(`SELECT * FROM %s`, tableName))
 				require.NoError(t, err)
 				defer rows.Close()
 				buf := &bytes.Buffer{}
@@ -169,31 +180,37 @@ func TestMaterializeSQL(t *testing.T) {
 	}
 }
 
-func TestSQLTupleWriter(t *testing.T) {
+func TestSQLTupleWriter(suite *testing.T) {
 	testcases := []struct {
 		Name  string
-		NewDB func(t testing.TB) *sqlx.DB
+		NewDB func(testing.TB, string) *sqlx.DB
 	}{
 		{
 			"Postgres",
-			dockertestenv.NewPostgres,
+			dockertestenv.NewEphemeralPostgresDB,
 		},
 		{
 			"MySQL",
-			dockertestenv.NewMySQL,
+			dockertestenv.NewEphemeralMySQLDB,
 		},
 		{
 			"Snowflake",
-			testsnowflake.NewSnowSQL,
+			testsnowflake.NewEphemeralSnowflakeDB,
 		},
 	}
 	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			db := tc.NewDB(t)
-			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
+		suite.Run(tc.Name, func(t *testing.T) {
+			dbName := testutil.GenerateEphermeralDBName(t)
+			tableName := "test_table"
+			db := tc.NewDB(t, dbName)
+			require.NoError(t, pachsql.CreateTestTable(db, tableName, pachsql.TestRow{}))
 
 			ctx := context.Background()
-			tableInfo, err := pachsql.GetTableInfo(ctx, db, "test_table")
+			schema := "public"
+			if tc.Name == "MySQL" {
+				schema = dbName
+			}
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", schema, tableName))
 			require.NoError(t, err)
 
 			tx, err := db.Beginx()
@@ -208,8 +225,7 @@ func TestSQLTupleWriter(t *testing.T) {
 				*ti = time.Now()
 			})
 
-			tuple, err := NewTupleFromTableInfo(tableInfo)
-			require.NoError(t, err)
+			tuple := newTupleFromTestRow(pachsql.TestRow{})
 			w := NewSQLTupleWriter(tx, tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
@@ -224,14 +240,49 @@ func TestSQLTupleWriter(t *testing.T) {
 
 			// assertions
 			var count int
-			require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
+			require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", tableName)).Scan(&count))
 			require.Equal(t, nRows, count)
 		})
 	}
 }
 
-func setupTable(t testing.TB, db *pachsql.DB) {
-	const N = 10
-	require.NoError(t, pachsql.CreateTestTable(db, "test_data", pachsql.TestRow{}))
-	require.NoError(t, pachsql.GenerateTestData(db, "test_data", N))
+func TestCSVNull(t *testing.T) {
+	buf := &bytes.Buffer{}
+	w := NewCSVWriter(buf, nil)
+	row := Tuple{
+		&sql.NullString{String: "null", Valid: true},
+		&sql.NullString{String: `""`, Valid: true},
+		&sql.NullString{String: "", Valid: false},
+		&sql.NullString{String: "", Valid: true},
+	}
+	expected := `null,"""""",,""` + "\n"
+	w.WriteTuple(row)
+	w.Flush()
+	require.Equal(t, expected, buf.String())
+
+	r := NewCSVParser(buf)
+	row2 := Tuple{
+		&sql.NullString{},
+		&sql.NullString{},
+		&sql.NullString{},
+		&sql.NullString{},
+	}
+	err := r.Next(row2)
+	require.NoError(t, err)
+	require.Equal(t, row, row2)
+}
+
+func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {
+	require.NoError(t, pachsql.CreateTestTable(db, name, pachsql.TestRow{}))
+	require.NoError(t, pachsql.GenerateTestData(db, name, n))
+}
+
+func newTupleFromTestRow(row interface{}) Tuple {
+	result := Tuple{}
+	rval := reflect.TypeOf(row)
+	for i := 0; i < rval.NumField(); i++ {
+		v := reflect.New(rval.Field(i).Type).Interface()
+		result = append(result, v)
+	}
+	return result
 }

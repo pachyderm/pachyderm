@@ -64,10 +64,6 @@ spec:
           value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
         - name: POSTGRES_DATABASE
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
-        {{- if .Values.global.postgresql.ssl }}
-        - name: POSTGRES_SSL
-          value: {{ .Values.global.postgresql.ssl | quote }}
-        {{- end }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
