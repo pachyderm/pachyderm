@@ -15,6 +15,10 @@ export type useConfigResponse = {
   callLogout: () => Promise<void>;
   shouldShowLogin: boolean;
   loading: boolean;
+  showAdvancedOptions: boolean;
+  setShowAdvancedOptions: (show: boolean) => void;
+  serverCa: string;
+  setServerCa: (serverCa: string) => void;
 };
 
 export const useConfig = (
@@ -30,6 +34,8 @@ export const useConfig = (
   const [errorMessage, setErrorMessage] = useState('');
   const [shouldShowLogin, setShouldShowLogin] = useState(false);
   const [shouldShowAddressInput, setShouldShowAddressInput] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [serverCa, setServerCa] = useState('');
 
   useEffect(() => {
     if (showConfig) {
@@ -38,6 +44,8 @@ export const useConfig = (
     }
     setErrorMessage('');
     setAddressField('');
+    setServerCa('');
+    setShowAdvancedOptions(false);
   }, [showConfig, authConfig]);
 
   const previousStatus = usePreviousValue(reposStatus);
@@ -60,9 +68,16 @@ export const useConfig = (
       const validAddressPattern = /^((grpc|grpcs|http|https|unix):\/\/)/;
 
       if (validAddressPattern.test(tmpAddress)) {
-        const response = await requestAPI<AuthConfig>('config', 'PUT', {
-          pachd_address: tmpAddress,
-        });
+        const response = await requestAPI<AuthConfig>(
+          'config',
+          'PUT',
+          serverCa
+            ? {
+                pachd_address: tmpAddress,
+                server_cas: serverCa,
+              }
+            : {pachd_address: tmpAddress},
+        );
 
         if (response.cluster_status === 'INVALID') {
           setErrorMessage('Invalid address.');
@@ -72,11 +87,11 @@ export const useConfig = (
         }
       } else {
         setErrorMessage(
-          'address should start with grpc://, grpcs://, http://, https:// or unix://',
+          'Cluster address should start with grpc://, grpcs://, http://, https:// or unix://',
         );
       }
     } catch (e) {
-      setErrorMessage('error setting pachd address.');
+      setErrorMessage('Unable to connect to cluster.');
       console.log(e);
     }
     setLoading(false);
@@ -126,5 +141,9 @@ export const useConfig = (
     callLogout,
     shouldShowLogin,
     loading,
+    showAdvancedOptions,
+    setShowAdvancedOptions,
+    serverCa,
+    setServerCa,
   };
 };

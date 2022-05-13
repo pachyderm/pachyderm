@@ -75,7 +75,7 @@
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.16.0",
     "@babel/preset-typescript": "^7.16.0",
-    "@jupyterlab/builder": "^3.1.0",
+    "@jupyterlab/builder": "^3.4.1",
     "@testing-library/cypress": "^8.0.1",
     "@testing-library/jest-dom": "^5.15.1",
     "@testing-library/react": "^12.1.2",

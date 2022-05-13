@@ -40,6 +40,7 @@ export type Repo = {
 export type AuthConfig = {
   cluster_status: clusterStatus;
   pachd_address?: string;
+  server_cas?: string;
 };
 
 export interface IMountPlugin {

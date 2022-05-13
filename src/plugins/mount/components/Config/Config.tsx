@@ -1,7 +1,14 @@
 import React from 'react';
-import {KubernetesElephantSVG} from '@pachyderm/components';
+import {
+  KubernetesElephantSVG,
+  LoadingDots,
+  Tooltip,
+} from '@pachyderm/components';
 import {AuthConfig} from 'plugins/mount/types';
 import {useConfig} from './hooks/useConfig';
+import {infoIcon} from '../../../../utils/icons';
+import {closeIcon} from '@jupyterlab/ui-components';
+
 type ConfigProps = {
   showConfig: boolean;
   setShowConfig: (shouldShow: boolean) => void;
@@ -31,6 +38,10 @@ const Config: React.FC<ConfigProps> = ({
     callLogout,
     shouldShowLogin,
     loading,
+    showAdvancedOptions,
+    setShowAdvancedOptions,
+    serverCa,
+    setServerCa,
   } = useConfig(
     showConfig,
     setShowConfig,
@@ -44,14 +55,17 @@ const Config: React.FC<ConfigProps> = ({
     <>
       <div className="pachyderm-mount-config-form-base">
         {reposStatus === 200 && (
-          <button
-            data-testid="Config__back"
-            className="pachyderm-button"
-            onClick={() => setShowConfig(false)}
-          >
-            Back
-          </button>
+          <div className="pachyderm-mount-config-back">
+            <button
+              data-testid="Config__back"
+              className="pachyderm-button-link"
+              onClick={() => setShowConfig(false)}
+            >
+              Back <closeIcon.react tag="span" />
+            </button>
+          </div>
         )}
+
         <div className="pachyderm-mount-config-heading">
           Pachyderm
           <span className="pachyderm-mount-config-subheading">
@@ -75,14 +89,52 @@ const Config: React.FC<ConfigProps> = ({
               </span>
               <button
                 data-testid="Config__pachdAddressUpdate"
-                className="pachyderm-button"
+                className="pachyderm-button-link"
                 onClick={() => setShouldShowAddressInput(true)}
               >
                 Change Address
               </button>
             </>
           ) : (
-            <>
+            <div
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <div
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '1rem',
+                }}
+              >
+                <span className="pachyderm-mount-config-subheading">
+                  {authConfig.pachd_address
+                    ? 'Update Configuration'
+                    : 'Connect To a Cluster'}
+                </span>
+
+                {authConfig.pachd_address && (
+                  <button
+                    data-testid="Config__pachdAddressCancel"
+                    className="pachyderm-button-link"
+                    disabled={loading}
+                    onClick={() => {
+                      setErrorMessage('');
+                      setAddressField('');
+                      setServerCa('');
+                      setShouldShowAddressInput(false);
+                      setShowAdvancedOptions(false);
+                    }}
+                  >
+                    <closeIcon.react tag="span" />
+                  </button>
+                )}
+              </div>
+
               <label
                 htmlFor="pachd"
                 className="pachyderm-mount-config-address-label"
@@ -90,6 +142,7 @@ const Config: React.FC<ConfigProps> = ({
                 Cluster Address
               </label>
               <input
+                className="pachyderm-input"
                 data-testid="Config__pachdAddressInput"
                 name="pachd"
                 value={addressField}
@@ -99,35 +152,86 @@ const Config: React.FC<ConfigProps> = ({
                   }
                   setAddressField(e.target.value);
                 }}
+                disabled={loading}
                 placeholder="grpcs://example.pachyderm.com:30650"
               ></input>
-              <span className="pachyderm-mount-config-address-error">
-                {errorMessage}
-              </span>
-              <button
-                data-testid="Config__pachdAddressSubmit"
-                className="pachyderm-button pachyderm-mount-config-set-address"
-                disabled={loading || !addressField}
-                onClick={updatePachdAddress}
-              >
-                Set Address
-              </button>
 
-              {authConfig.pachd_address && (
-                <button
-                  data-testid="Config__pachdAddressCancel"
-                  className="pachyderm-button"
-                  disabled={loading}
-                  onClick={() => {
-                    setErrorMessage('');
-                    setAddressField('');
-                    setShouldShowAddressInput(false);
-                  }}
-                >
-                  Cancel
-                </button>
+              {showAdvancedOptions && (
+                <div className="pachyderm-mount-config-advanced-settings">
+                  <label
+                    htmlFor="pachd"
+                    className="pachyderm-mount-config-address-label"
+                    style={{display: 'flex'}}
+                  >
+                    Server CAs
+                    <Tooltip
+                      tooltipKey="branch-status"
+                      tooltipText="Optional, include if you manage your own certificates."
+                      placement="right"
+                    >
+                      <div
+                        data-testid="ListItem__statusIcon"
+                        className="pachyderm-mount-list-item-status-icon"
+                      >
+                        <infoIcon.react tag="span" />
+                      </div>
+                    </Tooltip>
+                  </label>
+                  <textarea
+                    data-testid="Config__serverCaInput"
+                    style={{maxHeight: '200px'}}
+                    className="pachyderm-input"
+                    value={serverCa}
+                    onChange={(e: any) => {
+                      setServerCa(e.target.value);
+                    }}
+                    disabled={loading}
+                  ></textarea>
+                </div>
               )}
-            </>
+
+              <div style={{paddingTop: '1rem'}}>
+                {loading && (
+                  <div
+                    className="pachyderm-mount-list-item-status-icon"
+                    style={{position: 'static'}}
+                  >
+                    <LoadingDots />
+                  </div>
+                )}
+                <span className="pachyderm-mount-config-address-error">
+                  {errorMessage}
+                </span>
+              </div>
+
+              <div className="pachyderm-mount-config-advanced-settings-button">
+                <button
+                  data-testid="Config__advancedSettingsToggle"
+                  className="pachyderm-button-link"
+                  onClick={() => {
+                    if (showAdvancedOptions) {
+                      setServerCa('');
+                    }
+                    setShowAdvancedOptions(!showAdvancedOptions);
+                  }}
+                  disabled={loading}
+                >
+                  {showAdvancedOptions
+                    ? 'Clear Advanced Settings'
+                    : 'Use Advanced Settings'}
+                </button>
+
+                <button
+                  data-testid="Config__pachdAddressSubmit"
+                  className="pachyderm-button pachyderm-mount-config-set-address"
+                  style={{width: '100px'}}
+                  disabled={loading || !addressField}
+                  onClick={updatePachdAddress}
+                >
+                  Set Address
+                </button>
+              </div>
+            </div>
           )}
         </div>
         {shouldShowLogin && !shouldShowAddressInput && (
@@ -136,6 +240,7 @@ const Config: React.FC<ConfigProps> = ({
               <button
                 data-testid="Config__logout"
                 className="pachyderm-button"
+                style={{width: '100px'}}
                 disabled={loading}
                 onClick={callLogout}
               >
@@ -145,6 +250,7 @@ const Config: React.FC<ConfigProps> = ({
               <button
                 data-testid="Config__login"
                 className="pachyderm-button"
+                style={{width: '100px'}}
                 disabled={loading}
                 onClick={callLogin}
               >

@@ -277,7 +277,7 @@ describe('config screen', () => {
       userEvent.type(input, 'www.test.com');
       submit.click();
       await findByText(
-        'address should start with grpc://, grpcs://, http://, https:// or unix://',
+        'Cluster address should start with grpc://, grpcs://, http://, https:// or unix://',
       );
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(5);
     });
@@ -324,6 +324,61 @@ describe('config screen', () => {
           {
             pachd_address:
               'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
+          },
+        );
+        expect(updateConfig).toBeCalledTimes(1);
+      });
+    });
+
+    it('should allow user to set advanced config options', async () => {
+      const authConfig: AuthConfig = {
+        cluster_status: 'AUTH_ENABLED',
+        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      };
+
+      mockRequestAPI.requestAPI.mockImplementation(
+        mockedRequestAPI({
+          cluster_status: 'AUTH_ENABLED',
+          pachd_address:
+            'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
+        }),
+      );
+
+      const {getByTestId} = render(
+        <Config
+          showConfig={true}
+          setShowConfig={setShowConfig}
+          reposStatus={200}
+          updateConfig={updateConfig}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
+
+      getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__pachdAddressSubmit')).toBeDisabled();
+
+      getByTestId('Config__advancedSettingsToggle').click();
+      const textArea = getByTestId('Config__serverCaInput');
+      userEvent.type(textArea, '12345=');
+
+      expect(getByTestId('Config__pachdAddressSubmit')).toBeDisabled();
+
+      const input = getByTestId('Config__pachdAddressInput');
+      userEvent.type(
+        input,
+        'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
+      );
+      getByTestId('Config__pachdAddressSubmit').click();
+
+      await waitFor(() => {
+        expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
+          'config',
+          'PUT',
+          {
+            pachd_address:
+              'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
+            server_cas: '12345=',
           },
         );
         expect(updateConfig).toBeCalledTimes(1);
