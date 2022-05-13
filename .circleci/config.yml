@@ -175,10 +175,6 @@ jobs:
       - gcp-cli/initialize
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/launch.sh
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
@@ -367,12 +363,28 @@ workflows:
   #             ignore: /.*/
   #           tags:
   #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  load_tests:
+  # load_tests:
+  #   when:
+  #     and:
+  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #   jobs:
+  #     - load_test
+  nightly_load_tests:
     when:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - load_test
+      - nightly_load:
+          matrix:
+            parameters:
+              bucket:
+                - LOAD1
+                - LOAD2
+                - LOAD3
+                - LOAD4
+                - LOAD5
+                - LOAD6
+                - LOAD7
   # nightly_load_tests:
   #   triggers:
   #     - schedule:
