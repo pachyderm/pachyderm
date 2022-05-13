@@ -374,7 +374,7 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - nightly_load:
+      - nightly-load:
           matrix:
             parameters:
               bucket:
