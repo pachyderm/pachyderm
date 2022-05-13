@@ -406,7 +406,6 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					})
 					return errors.EnsureStack(err)
 				}, opts...)
-
 			})
 			if err != nil {
 				return err
