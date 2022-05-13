@@ -235,7 +235,7 @@ We support the following SQL datatypes. Some of those Data Types are specific to
 
 - **Strings**
 
-    CSV: Keep in mind when parsing your CSVs in your user code that we escape `"` with `""` in CSV files.
+    Keep in mind when parsing your CSVs in your user code that we escape `"` with `""` in CSV files.
 
     ***Examples***
 
