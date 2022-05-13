@@ -421,9 +421,6 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 func TestRwUnmountCreatesCommit(t *testing.T) {
 	// Unmounting a mounted read-write filesystem which has had some data
 	// written to it results in a new commit with that data in it.
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
@@ -459,9 +456,6 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 
 func TestRwCommitCreatesCommit(t *testing.T) {
 	// Two sequential commit operations create two commits.
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
@@ -498,9 +492,6 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	// Two sequential commit operations create two commits (and they contain the
 	// correct files).
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
@@ -553,9 +544,6 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	// Commit and then unmount results in two commits, since unmounting creates
 	// one too.
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
