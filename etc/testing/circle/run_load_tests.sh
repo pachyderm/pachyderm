@@ -33,6 +33,9 @@ curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
  -F name=commit-${CIRCLE_SHA1:0:7}-load-test${@} -F pachdVersion=${VERSION} -F valuesYaml=@etc/testing/circle/helm-values.yaml \
   https://helium.pachyderm.io/v1/api/workspace
 
+# wait for helium to kick off to pulumi before pinging it.
+sleep 5
+
 for _ in $(seq 54); do
   STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-load-test${@} | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
