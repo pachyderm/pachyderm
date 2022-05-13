@@ -7,7 +7,7 @@ import {ChevronDownSVG, ChevronRightSVG} from 'Svg';
 import styles from './DropdownButton.module.css';
 
 export interface DropdownButtonProps
-  extends ButtonHTMLAttributes<HTMLDivElement> {
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   color?: 'purple' | 'black';
   hideChevron?: boolean;
 }
@@ -20,7 +20,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   disabled = false,
   ...rest
 }) => {
-  const dropdownButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownButtonRef = useRef<HTMLButtonElement>(null);
   const {toggleDropdown, isOpen, handleKeyDown, sideOpen} = useDropdownButton(
     dropdownButtonRef,
   );
@@ -32,9 +32,8 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   });
 
   return (
-    <div
+    <button
       data-testid="DropdownButton__button"
-      role="button"
       ref={dropdownButtonRef}
       aria-haspopup
       aria-expanded={isOpen}
@@ -42,6 +41,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
       onClick={toggleDropdown}
       onKeyDown={handleKeyDown}
       type="button"
+      disabled={disabled}
       {...rest}
     >
       <span className={styles.children}>{children}</span>
@@ -52,7 +52,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
         ) : (
           <ChevronDownSVG aria-hidden className={styles.icon} />
         ))}
-    </div>
+    </button>
   );
 };
 

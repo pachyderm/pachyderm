@@ -25,7 +25,6 @@
   border: none;
   text-align: center;
   height: 2rem;
-  white-space: nowrap;
 }
 
 .base > * {
