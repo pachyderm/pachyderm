@@ -13,12 +13,12 @@ Use the `pachctl update pipeline` command to make changes to a pipeline,
 whether you have re-built a docker image after a code change and/or
 need to update pipeline parameters in the pipeline specification file. 
 
-Alternatively, you can update a pipeline using [jsonnet pipeline specification files](#using-jsonnet-pipeline-specification-Files).
+Alternatively, you can update a pipeline using [jsonnet pipeline specification files](#using-jsonnet-pipeline-specification-files).
 
 ## After You Changed Your Specification File
 
 Run the `pachctl update pipeline` command to apply any change to your
-[pipeline specification](../../reference/pipeline_spec) JSON file, such as change to the
+[pipeline specification](../../../reference/pipeline_spec) JSON file, such as change to the
 parallelism settings, change of an image tag, change of an input repository, etc...
 
 By default, a pipeline update does not trigger the reprocessing of the data
@@ -96,7 +96,7 @@ This step comes in 3 flavors:
       pachctl update pipeline -f <pipeline.json>
       ```
 
-### **If you choose to use a [jsonnet version of your pipeline specs](./jsonnet-pipeline-specs)**
+### **If you choose to use a [jsonnet version of your pipeline specs](../jsonnet-pipeline-specs)**
 
    1. Pass the tag of your image to your jsonnet specs.
 
