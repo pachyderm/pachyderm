@@ -399,6 +399,10 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 }
 
 func (a *apiServer) serveOIDC() error {
+	// serve 200 on '/' for health checks
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "200 OK")
+	})
 	// serve OIDC handler to exchange the auth code
 	mux := http.NewServeMux()
 	mux.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
