@@ -30,7 +30,7 @@ To egress data from the output commit of a pipeline to an SQL database, you will
 
  1. *In the Specification file of your egress pipeline*
 
-    Reference your secret by providing its name, provide the [**connection string**](#update-your-pipeline-spec) to the database and choose the **format of the files (CSV for now - we are planning on adding JSON soon)** containing the data to insert.
+    Reference your secret by providing its name, provide the [**connection string**](#2-update-your-pipeline-spec) to the database and choose the **format of the files (CSV for now - we are planning on adding JSON soon)** containing the data to insert.
 
  1. *In your user code*
 
