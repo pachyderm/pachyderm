@@ -152,6 +152,9 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 			return new(sql.NullTime), nil
 		}
 		return new(time.Time), nil
+	case "VARIANT", "OBJECT", "ARRAY":
+		// FIXME: implement VARIANT, OBJECT and ARRAY
+		return nil, errors.Errorf("unrecognized type: %v", dbType)
 	default:
 		return nil, errors.Errorf("unrecognized type: %v", dbType)
 	}

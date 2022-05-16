@@ -75,12 +75,21 @@ type TestRow struct {
 // CreateTestTable creates a test table at name in the database
 func CreateTestTable(db *DB, name string, schema interface{}) error {
 	t := reflect.TypeOf(schema)
-	cols := []string{}
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		cols = append(cols, fmt.Sprintf("%s %s %s", field.Tag.Get("column"), field.Tag.Get("dtype"), field.Tag.Get("constraint")))
+	var processFields func(reflect.Type) []string
+	processFields = func(t reflect.Type) []string {
+		var cols []string
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			switch {
+			case field.Anonymous && field.Type.Kind() == reflect.Struct:
+				cols = append(cols, processFields(field.Type)...)
+			default:
+				cols = append(cols, fmt.Sprintf("%s %s %s", field.Tag.Get("column"), field.Tag.Get("dtype"), field.Tag.Get("constraint")))
+			}
+		}
+		return cols
 	}
-	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(cols, ", "))
+	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(processFields(t), ", "))
 	_, err := db.Exec(q)
 	return errors.EnsureStack(err)
 }

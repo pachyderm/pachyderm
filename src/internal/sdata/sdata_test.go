@@ -12,12 +12,8 @@ import (
 	"time"
 
 	fuzz "github.com/google/gofuzz"
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 // TestFormatParse is a round trip from a Tuple through formatting and parsing
@@ -123,23 +119,6 @@ func TestFormatParse(t *testing.T) {
 // with all the supported writers.
 // It does not check that the writers themselves output in the correct format.
 func TestMaterializeSQL(t *testing.T) {
-	dbSpecs := []struct {
-		Name string
-		New  func(t testing.TB) *sqlx.DB
-	}{
-		{
-			"Postgres",
-			dockertestenv.NewPostgres,
-		},
-		{
-			"MySQL",
-			dockertestenv.NewMySQL,
-		},
-		{
-			"Snowflake",
-			testsnowflake.NewSnowSQL,
-		},
-	}
 	writerSpecs := []struct {
 		Name string
 		New  func(io.Writer, []string) TupleWriter
@@ -157,14 +136,15 @@ func TestMaterializeSQL(t *testing.T) {
 			},
 		},
 	}
-	for _, dbSpec := range dbSpecs {
+	for _, dbSpec := range supportedDBSpecs {
 		for _, writerSpec := range writerSpecs {
-			testName := fmt.Sprintf("%s-%s", dbSpec.Name, writerSpec.Name)
+			testName := fmt.Sprintf("%v-%s", dbSpec, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
-				db := dbSpec.New(t)
-				tableName := "test_table"
+				db, _, tableName := dbSpec.create(t)
 				nRows := 10
-				setupTable(t, db, tableName, nRows)
+				if err := dbSpec.setup(db, tableName, nRows); err != nil {
+					t.Fatalf("could not setup database: %v", err)
+				}
 				rows, err := db.Query(fmt.Sprintf(`SELECT * FROM %s`, tableName))
 				require.NoError(t, err)
 				defer rows.Close()
@@ -181,36 +161,14 @@ func TestMaterializeSQL(t *testing.T) {
 }
 
 func TestSQLTupleWriter(suite *testing.T) {
-	testcases := []struct {
-		Name  string
-		NewDB func(testing.TB, string) *sqlx.DB
-	}{
-		{
-			"Postgres",
-			dockertestenv.NewEphemeralPostgresDB,
-		},
-		{
-			"MySQL",
-			dockertestenv.NewEphemeralMySQLDB,
-		},
-		{
-			"Snowflake",
-			testsnowflake.NewEphemeralSnowflakeDB,
-		},
-	}
-	for _, tc := range testcases {
-		suite.Run(tc.Name, func(t *testing.T) {
-			dbName := testutil.GenerateEphermeralDBName(t)
-			tableName := "test_table"
-			db := tc.NewDB(t, dbName)
-			require.NoError(t, pachsql.CreateTestTable(db, tableName, pachsql.TestRow{}))
+	for _, dbSpec := range supportedDBSpecs {
+		suite.Run(dbSpec.String(), func(t *testing.T) {
+			var (
+				ctx              = context.Background()
+				db, _, tableName = dbSpec.create(t)
+			)
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", dbSpec.schema(), tableName))
 
-			ctx := context.Background()
-			schema := "public"
-			if tc.Name == "MySQL" {
-				schema = dbName
-			}
-			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", schema, tableName))
 			require.NoError(t, err)
 
 			tx, err := db.Beginx()
@@ -272,10 +230,10 @@ func TestCSVNull(t *testing.T) {
 	require.Equal(t, row, row2)
 }
 
-func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {
-	require.NoError(t, pachsql.CreateTestTable(db, name, pachsql.TestRow{}))
-	require.NoError(t, pachsql.GenerateTestData(db, name, n))
-}
+// func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {
+// 	require.NoError(t, pachsql.CreateTestTable(db, name, pachsql.TestRow{}))
+// 	require.NoError(t, pachsql.GenerateTestData(db, name, n))
+// }
 
 func newTupleFromTestRow(row interface{}) Tuple {
 	result := Tuple{}

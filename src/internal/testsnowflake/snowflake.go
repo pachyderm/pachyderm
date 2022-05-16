@@ -45,10 +45,12 @@ func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
 
 // NewSnowSQL creates an emphermeral database in a real Snowflake instance.
 func NewSnowSQL(t testing.TB) *sqlx.DB {
-	return NewEphemeralSnowflakeDB(t, testutil.GenerateEphermeralDBName(t))
+	db, _ := NewEphemeralSnowflakeDB(t)
+	return db
 }
 
-func NewEphemeralSnowflakeDB(t testing.TB, dbName string) *sqlx.DB {
+func NewEphemeralSnowflakeDB(t testing.TB) (*sqlx.DB, string) {
+	name := testutil.GenerateEphemeralDBName(t)
 	url, password := getURLAndPassword(t)
 	db := testutil.OpenDBURL(t, *url, password)
 	ctx := context.Background()
@@ -57,9 +59,9 @@ func NewEphemeralSnowflakeDB(t testing.TB, dbName string) *sqlx.DB {
 	defer cf()
 	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
 
-	testutil.CreateEphemeralDB(t, db, dbName)
-	url.Database = dbName
+	testutil.CreateEphemeralDB(t, db, name)
+	url.Database = name
 	url.Schema = "public"
 
-	return testutil.OpenDBURL(t, *url, password)
+	return testutil.OpenDBURL(t, *url, password), name
 }
