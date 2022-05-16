@@ -6179,6 +6179,7 @@ func TestSkippedDatums(t *testing.T) {
 	job2 := jobs[0]
 	// check the successful datum from job1 is now skipped
 	datum, err = c.InspectDatum(pipelineName, job2.Job.ID, datums[0].Datum.ID)
+	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 	// load datums for job2
 	datums, err = c.ListDatumAll(pipelineName, job2.Job.ID)
@@ -6260,6 +6261,7 @@ func TestMetaRepoContents(t *testing.T) {
 	require.NoError(t, c.DeleteFile(commit2, "/foo"))
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 	_, err = c.WaitJobSetAll(commit2.ID, false)
+	require.NoError(t, err)
 	assertMetaContents(commit2.ID, "bar")
 	fileCount := 0
 	var fileName string
