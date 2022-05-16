@@ -310,6 +310,7 @@ nav:
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md
             - reference/pachctl/pachctl_delete_branch.md
+            - reference/pachctl/pachctl_delete_commit.md
             - reference/pachctl/pachctl_delete_file.md
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
@@ -324,8 +325,11 @@ nav:
             - reference/pachctl/pachctl_enterprise_deactivate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
             - reference/pachctl/pachctl_enterprise_heartbeat.md
+            - reference/pachctl/pachctl_enterprise_pause.md
+            - reference/pachctl/pachctl_enterprise_pause-status.md
             - reference/pachctl/pachctl_enterprise_register.md
             - reference/pachctl/pachctl_enterprise_sync-contexts.md
+            - reference/pachctl/pachctl_enterprise_unpause.md
             - reference/pachctl/pachctl_exit.md
             - reference/pachctl/pachctl_finish.md
             - reference/pachctl/pachctl_finish_commit.md
@@ -379,6 +383,7 @@ nav:
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
             - reference/pachctl/pachctl_mount.md
+            - reference/pachctl/pachctl_mount-server.md
             - reference/pachctl/pachctl_port-forward.md
             - reference/pachctl/pachctl_put.md
             - reference/pachctl/pachctl_put_file.md
@@ -409,7 +414,7 @@ nav:
             - reference/pachctl/pachctl_version.md
             - reference/pachctl/pachctl_wait.md
             - reference/pachctl/pachctl_wait_commit.md
-            - reference/pachctl/pachctl_wait_job.md
+            - reference/pachctl/pachctl_wait_job.md 
         - Examples: examples/examples.md
     - Enterprise:
         - Overview: enterprise/index.md
