@@ -160,14 +160,14 @@ In general, these values can be provided in three different ways:
 
 |Secret KEY name| <div style="width:290px"> Description </div>| A - Create your secrets ahead <br> of your cluster creation| B - Pass credentials in values.yaml| <div style="width:250px"> C - Neither A nor B - KEY name in default `pachyderm-bootstrap-config` secret </div>| 
 |------------|------------|-----|--------|---------|
-|root_token| Root clusterAdmin| pachd.rootTokenSecretName |pachd.rootToken|rootToken|
-|root_token|Root clusterAdmin of the enterprise server|pachd.enterpriseRootTokenSecretName|pachd.enterpriseRootToken|enterpriseRootToken|
-|postgresql_password|Password to your database|global.postgresql.postgresqlExistingSecretName <br> global.postgresql.postgresqlExistingSecretKey |global.postgresql.postgresqlPassword|postgresql-password * in separate secret called `postgres`|
+|root-token| Root clusterAdmin| pachd.rootTokenSecretName |pachd.rootToken|rootToken|
+|root-token|Root clusterAdmin of the enterprise server|pachd.enterpriseRootTokenSecretName|pachd.enterpriseRootToken|enterpriseRootToken|
+|postgresql-password|Password to your database|global.postgresql.postgresqlExistingSecretName <br> global.postgresql.postgresqlExistingSecretKey |global.postgresql.postgresqlPassword|postgresql-password * in separate secret called `postgres`|
 |OAUTH_CLIENT_SECRET|Oauth client secret for Console <br> Required if you set Console|console.config.oauthClientSecretSecretName |console.config.oauthClientSecret|oidcClients[1].secret|
-|enterprise_license_key|Your enterprise license|pachd.enterpriseLicenseKeySecretName |pachd.enterpriseLicenseKey|license|
-|pachd_oauth_client_secret| Oauth client secret for pachd| pachd.oauthClientSecretSecretName|pachd.oauthClientSecret|oidcClients[0].secret|
-|enterprise_secret|Needed if you connect to an enterprise server|pachd.enterpriseSecretSecretName  |pachd.enterpriseSecret|enterpriseSecret|
-|upstream_idps|The list of dex connectors, each containing Oauth client info connecting to an upstream IDP|oidc.upstreamIDPsSecretName|oidc.upstreamIDPs|idps|
+|enterprise-license-key|Your enterprise license|pachd.enterpriseLicenseKeySecretName |pachd.enterpriseLicenseKey|license|
+|pachd-oauth-client-secret| Oauth client secret for pachd| pachd.oauthClientSecretSecretName|pachd.oauthClientSecret|oidcClients[0].secret|
+|enterprise-secret|Needed if you connect to an enterprise server|pachd.enterpriseSecretSecretName  |pachd.enterpriseSecret|enterpriseSecret|
+|upstream-idps|The list of dex connectors, each containing Oauth client info connecting to an upstream IDP|oidc.upstreamIDPsSecretName|oidc.upstreamIDPs|idps|
 
 
 !!! Tip

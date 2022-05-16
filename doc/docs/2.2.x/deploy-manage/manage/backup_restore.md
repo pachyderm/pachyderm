@@ -49,27 +49,30 @@ Before any manual backup:
 
 - **Suspend all mutation of state by scaling `pachd` and the worker pods down**:
 
-    Before starting, make sure that your context points to the server you want to pause by running `pachctl config get active-context`. Find more information on how to [set your context](../../deploy/quickstart/#4-have-pachctl-and-your-cluster-communicate){target=_blank} in our deployment section.
+    !!! Attention
+         Before starting, make sure that your context points to the server you want to pause by running `pachctl config get active-context`. Find more information on how to [set your context](../../deploy/quickstart/#4-have-pachctl-and-your-cluster-communicate){target=_blank} in our deployment section.
 
-    To pause Pachyderm, **run the `pachctl pause` command**. 
+    To pause Pachyderm:
+    
+    - If you are an [***Enterprise***](../../../enterprise/) user: **Run the `pachctl enterprise pause` command**. 
 
-    !!! Tip "Alternatively, you can use `kubectl`"
+    - Alternatively, you can use `kubectl`:
 
-         Before starting, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank}.
-         Run `kubectl config get-contexts` to list all available clusters and contexts (the current context is marked with a `*`), then `kubectl config use-context <your-context-name>` to set the proper active context.
+        Before starting, make sure that `kubectl` [points to the right cluster](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/){target=_blank}.
+        Run `kubectl config get-contexts` to list all available clusters and contexts (the current context is marked with a `*`), then `kubectl config use-context <your-context-name>` to set the proper active context.
 
-         ```shell 
-         kubectl scale deployment pachd --replicas 0 
-         kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker
-         ```
+        ```shell 
+        kubectl scale deployment pachd --replicas 0 
+        kubectl scale rc --replicas 0 -l suite=pachyderm,component=worker
+        ```
 
-         Note that it takes some time for scaling down to take effect;
+        Note that it takes some time for scaling down to take effect;
 
-         Run the `watch` command to monitor the state of `pachd` and worker pods terminating:
+        Run the `watch` command to monitor the state of `pachd` and worker pods terminating:
 
-         ```shell
-         watch -n 5 kubectl get pods
-         ```
+        ```shell
+        watch -n 5 kubectl get pods
+        ```
 
 ### Back Up The Databases And The Object Store
 
@@ -112,9 +115,11 @@ use the object store provider’s backup method.
 
 ### Resuming operations
 
-Once your backup is completed, **run `pachctl unpause` to resume your normal operations** by scaling `pachd` back up. It will take care of restoring the worker pods. 
+Once your backup is completed, resume your normal operations by scaling `pachd` back up. It will take care of restoring the worker pods:
 
-!!! Tip "Alternatively, if you used `kubectl`"
+- Enterprise users: **run `pachctl enterprise unpause`**. 
+
+- Alternatively, if you used `kubectl`:
 
     ```sh
     kubectl scale deployment pachd --replicas 1
@@ -164,12 +169,13 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 ### Backup A Standalone Enterprise Server
 
-- Make sure that `pachctl/kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../../enterprise/auth/enterprise-server/setup/){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
+!!! Attention
+     Make sure that `pachctl` and `kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../../enterprise/auth/enterprise-server/setup/){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
 
-- [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster by running `pachctl pause`. Make sure that [your active context points to the right cluster](#suspend-operations){target=_blank} first.
+- [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster by running `pachctl enterprise pause` (Enterprise users), or using `kubectl`.
 
-    !!! Tip "Alternatively, you can use `kubectl`"
-         Note that there is a difference with the pause of a regular cluster. The deployment of the enterprise server is named `pach-enterprise`; therefore, the first command should be:
+    !!! Note "kubectl users"
+         There is a difference with the pause of a regular cluster. The deployment of the enterprise server is named `pach-enterprise`; therefore, the first command should be:
 
          ```shell
          kubectl scale deployment pach-enterprise --replicas 0 
@@ -179,12 +185,11 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 - As a reminder, the Enterprise Server does not use any object-store. Therefore, the [backup of the Enterprise Server](#back-up-the-databases-and-the-object-store) only consists in backing up the databases.
 
-- [Resume the operations on your Enterprise Server](#resuming-operations) by running `pachctl unpause` to scale the `pach-enterprise` deployment back up: 
+- [Resume the operations on your Enterprise Server](#resuming-operations) by running `pachctl enterprise unpause`  (Enterprise users) to scale the `pach-enterprise` deployment back up. Alternatively, if you used `kubectl`, run:
 
-    !!! Tip "Alternatively, if you used `kubectl`"
-        ```shell
-        kubectl scale deployment pach-enterprise --replicas 1
-        ```
+    ```shell
+    kubectl scale deployment pach-enterprise --replicas 1
+    ```
 
 ### Restore An Enterprise Server
 
