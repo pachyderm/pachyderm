@@ -67,7 +67,11 @@ func (s snowflakeSpec) String() string { return "Snowflake" }
 func (s snowflakeSpec) create(t *testing.T) (*sqlx.DB, string, string) {
 	const tableName = "test_table"
 	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
-	require.NoError(t, pachsql.CreateTestTable(db, tableName, struct{ pachsql.TestRow }{}))
+	var row struct {
+		pachsql.TestRow
+		Variant interface{} `column:"c_variant" dtype:"VARIANT" constraint:"NULL"`
+	}
+	require.NoError(t, pachsql.CreateTestTable(db, tableName, row))
 	return db, dbName, tableName
 }
 
