@@ -10284,8 +10284,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 
 	// create output database, and destination table
-	dbName := tu.GenerateEphemeralDBName(t)
-	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
 		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
 		A  string `column:"A" dtype:"VARCHAR(100)"`
