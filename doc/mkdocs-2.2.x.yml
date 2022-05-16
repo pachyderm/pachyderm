@@ -125,7 +125,6 @@ nav:
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting-started/index.md
-        - WHAT'S NEW?: getting-started/whats-new.md
         - Quick Start - Local Installation: getting-started/local-installation.md
         - Beginner Tutorial: getting-started/beginner-tutorial.md
         - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
