@@ -1,9 +1,9 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/2.2.x-rc/
+site_url: https://docs.pachyderm.com/master/
 docs_dir: docs/master/
-site_dir: site/2.2.x-rc/
+site_dir: site/2.2.x/
 
 repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
@@ -18,13 +18,13 @@ pach_branch: '2.2.x'
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
-pach_featured_version: '2.1.8'
+pach_featured_version: '2.2.0'
 # Latest version of Pachyderm
-pach_latest_version: '2.1.8'
-pach_major_minor_version: '2.1'
-search_index_version: '2.2.x-rc'
+pach_latest_version: '2.2.0'
+pach_major_minor_version: '2.2'
+search_index_version: 'latest'
 # Latest tag of the JupyterLab Mount Extension
-jupyterlab_extension_image_tag: 'v0.4.0'
+jupyterlab_extension_image_tag: 'v0.5.0'
 
 
 # Configuration
@@ -311,6 +311,7 @@ nav:
             - reference/pachctl/pachctl_delete.md
             - reference/pachctl/pachctl_delete_all.md
             - reference/pachctl/pachctl_delete_branch.md
+            - reference/pachctl/pachctl_delete_commit.md
             - reference/pachctl/pachctl_delete_file.md
             - reference/pachctl/pachctl_delete_job.md
             - reference/pachctl/pachctl_delete_pipeline.md
@@ -325,8 +326,11 @@ nav:
             - reference/pachctl/pachctl_enterprise_deactivate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
             - reference/pachctl/pachctl_enterprise_heartbeat.md
+            - reference/pachctl/pachctl_enterprise_pause.md
+            - reference/pachctl/pachctl_enterprise_pause-status.md
             - reference/pachctl/pachctl_enterprise_register.md
             - reference/pachctl/pachctl_enterprise_sync-contexts.md
+            - reference/pachctl/pachctl_enterprise_unpause.md
             - reference/pachctl/pachctl_exit.md
             - reference/pachctl/pachctl_finish.md
             - reference/pachctl/pachctl_finish_commit.md
@@ -380,6 +384,7 @@ nav:
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
             - reference/pachctl/pachctl_mount.md
+            - reference/pachctl/pachctl_mount-server.md
             - reference/pachctl/pachctl_port-forward.md
             - reference/pachctl/pachctl_put.md
             - reference/pachctl/pachctl_put_file.md
@@ -410,7 +415,7 @@ nav:
             - reference/pachctl/pachctl_version.md
             - reference/pachctl/pachctl_wait.md
             - reference/pachctl/pachctl_wait_commit.md
-            - reference/pachctl/pachctl_wait_job.md
+            - reference/pachctl/pachctl_wait_job.md 
         - Examples: examples/examples.md
     - Enterprise:
         - Overview: enterprise/index.md
