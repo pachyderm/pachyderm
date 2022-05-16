@@ -72,12 +72,19 @@ type TestRow struct {
 	TimeNull         sql.NullTime    `column:"c_time_null" dtype:"TIMESTAMP" constraint:"NULL"`
 }
 
+func (row *TestRow) SetID(id int16) {
+	row.Id = id
+}
+
 // CreateTestTable creates a test table at name in the database
 func CreateTestTable(db *DB, name string, schema interface{}) error {
 	t := reflect.TypeOf(schema)
 	var processFields func(reflect.Type) []string
 	processFields = func(t reflect.Type) []string {
 		var cols []string
+		if t.Kind() == reflect.Ptr {
+			return processFields(t.Elem())
+		}
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
 			switch {
@@ -94,18 +101,65 @@ func CreateTestTable(db *DB, name string, schema interface{}) error {
 	return errors.EnsureStack(err)
 }
 
-func GenerateTestData(db *DB, tableName string, n int) error {
+type SetIDer interface {
+	SetID(int16)
+}
+
+func GenerateTestData(db *DB, tableName string, n int, row SetIDer) error {
 	fz := fuzz.New()
 	// support mysql
 	fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
 		*ti = time.Now()
 	})
 	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
-	var row TestRow
-	insertStatement := fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
+	fz.Funcs(func(x *interface{}, co fuzz.Continue) {
+		switch co.Intn(6) {
+		case 0:
+			*x = int16(co.Int())
+		case 1:
+			*x = int32(co.Int())
+		case 2:
+			*x = int64(co.Int())
+		case 3:
+			*x = co.Float32()
+		case 4:
+			*x = co.Float64()
+		case 5:
+			*x = co.RandString()
+		}
+	})
+	var insertStatement string
+	if db.DriverName() == "snowflake" {
+		var process func(reflect.Type, int) []string
+		process = func(t reflect.Type, acc int) []string {
+			var asClauses []string
+			if t.Kind() == reflect.Ptr {
+				return process(t.Elem(), acc)
+			}
+			for i := 0; i < t.NumField(); i++ {
+				var asClause string
+				f := t.Field(i)
+				if f.Anonymous && f.Type.Kind() == reflect.Struct {
+					asClauses = append(asClauses, process(f.Type, acc+len(asClauses))...)
+					continue
+				}
+				if f.Type.Kind() == reflect.Interface && f.Type.NumMethod() == 0 {
+					asClause = fmt.Sprintf(`to_variant(COLUMN%d) as %s`, acc+len(asClauses)+1, f.Tag.Get("column"))
+				} else {
+					asClause = fmt.Sprintf(`COLUMN%d as %s`, acc+len(asClauses)+1, f.Tag.Get("column"))
+				}
+				asClauses = append(asClauses, asClause)
+			}
+			return asClauses
+		}
+		insertStatement = fmt.Sprintf(`INSERT INTO %s SELECT %s FROM VALUES %s`, tableName, strings.Join(process(reflect.TypeOf(row), 0), ","), formatValues(row, db))
+	} else {
+		insertStatement = fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
+
+	}
 	for i := 0; i < n; i++ {
-		fz.Fuzz(&row)
-		row.Id = int16(i)
+		fz.Fuzz(row)
+		row.SetID(int16(i))
 		if _, err := db.Exec(insertStatement, makeArgs(row)...); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -114,33 +168,63 @@ func GenerateTestData(db *DB, tableName string, n int) error {
 }
 
 func formatColumns(x interface{}) string {
-	var cols []string
-	rty := reflect.TypeOf(x)
-	for i := 0; i < rty.NumField(); i++ {
-		field := rty.Field(i)
-		col := field.Tag.Get("column")
-		cols = append(cols, col)
+	var process func(reflect.Type) []string
+	process = func(t reflect.Type) []string {
+		var cols []string
+		if t.Kind() == reflect.Ptr {
+			return process(t.Elem())
+		}
+
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			if field.Anonymous && field.Type.Kind() == reflect.Struct {
+				cols = append(cols, process(field.Type)...)
+				continue
+			}
+			col := field.Tag.Get("column")
+			cols = append(cols, col)
+		}
+		return cols
 	}
-	return "(" + strings.Join(cols, ", ") + ")"
+	return "(" + strings.Join(process(reflect.TypeOf(x)), ", ") + ")"
 }
 
 func formatValues(x interface{}, db *DB) string {
-	var ret string
-	for i := 0; i < reflect.TypeOf(x).NumField(); i++ {
-		if i > 0 {
-			ret += ", "
+	var process func(reflect.Type) []string
+	process = func(t reflect.Type) []string {
+		var cols []string
+		if t.Kind() == reflect.Ptr {
+			return process(t.Elem())
 		}
-		ret += Placeholder(db.DriverName(), i)
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			if field.Anonymous && field.Type.Kind() == reflect.Struct {
+				cols = append(cols, process(field.Type)...)
+				continue
+			}
+			cols = append(cols, Placeholder(db.DriverName(), i))
+		}
+		return cols
 	}
-	return "(" + ret + ")"
+	return fmt.Sprintf("(%s)", strings.Join(process(reflect.TypeOf(x)), ", "))
 }
 
 func makeArgs(x interface{}) []interface{} {
-	var vals []interface{}
-	rval := reflect.ValueOf(x)
-	for i := 0; i < rval.NumField(); i++ {
-		v := rval.Field(i).Interface()
-		vals = append(vals, v)
+	var process func(reflect.Value) []interface{}
+	process = func(v reflect.Value) []interface{} {
+		var vals []interface{}
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Type().Field(i)
+			if field.Anonymous && field.Type.Kind() == reflect.Struct {
+				vals = append(vals, process(v.Field(i))...)
+				continue
+			}
+			vals = append(vals, v.Field(i).Interface())
+		}
+		return vals
 	}
-	return vals
+	return process(reflect.ValueOf(x))
 }

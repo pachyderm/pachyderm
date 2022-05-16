@@ -141,8 +141,9 @@ func TestMaterializeSQL(t *testing.T) {
 			testName := fmt.Sprintf("%v-%s", dbSpec, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
 				db, _, tableName := dbSpec.create(t)
+				require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.testRow()))
 				nRows := 10
-				if err := dbSpec.setup(db, tableName, nRows); err != nil {
+				if err := pachsql.GenerateTestData(db, tableName, nRows, dbSpec.testRow()); err != nil {
 					t.Fatalf("could not setup database: %v", err)
 				}
 				rows, err := db.Query(fmt.Sprintf(`SELECT * FROM %s`, tableName))
@@ -160,13 +161,14 @@ func TestMaterializeSQL(t *testing.T) {
 	}
 }
 
-func TestSQLTupleWriter(suite *testing.T) {
+func TestSQLTupleWriter(t *testing.T) {
 	for _, dbSpec := range supportedDBSpecs {
-		suite.Run(dbSpec.String(), func(t *testing.T) {
+		t.Run(dbSpec.String(), func(t *testing.T) {
 			var (
 				ctx              = context.Background()
 				db, _, tableName = dbSpec.create(t)
 			)
+			require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.testRow()))
 			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", dbSpec.schema(), tableName))
 
 			require.NoError(t, err)
@@ -182,8 +184,24 @@ func TestSQLTupleWriter(suite *testing.T) {
 				// for mysql compatibility
 				*ti = time.Now()
 			})
+			fz.Funcs(func(x *interface{}, co fuzz.Continue) {
+				switch co.Intn(6) {
+				case 0:
+					*x = int16(co.Int())
+				case 1:
+					*x = int32(co.Int())
+				case 2:
+					*x = int64(co.Int())
+				case 3:
+					*x = co.Float32()
+				case 4:
+					*x = co.Float64()
+				case 5:
+					*x = co.RandString()
+				}
+			})
 
-			tuple := newTupleFromTestRow(pachsql.TestRow{})
+			tuple := newTupleFromTestRow(dbSpec.testRow())
 			w := NewSQLTupleWriter(tx, tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
@@ -236,11 +254,21 @@ func TestCSVNull(t *testing.T) {
 // }
 
 func newTupleFromTestRow(row interface{}) Tuple {
-	result := Tuple{}
-	rval := reflect.TypeOf(row)
-	for i := 0; i < rval.NumField(); i++ {
-		v := reflect.New(rval.Field(i).Type).Interface()
-		result = append(result, v)
+	var process func(reflect.Type) Tuple
+	process = func(t reflect.Type) Tuple {
+		var rr Tuple
+		if t.Kind() == reflect.Ptr {
+			return process(t.Elem())
+		}
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.Anonymous && f.Type.Kind() == reflect.Struct {
+				rr = append(rr, process(f.Type)...)
+				continue
+			}
+			rr = append(rr, reflect.New(f.Type).Interface())
+		}
+		return rr
 	}
-	return result
+	return process(reflect.TypeOf(row))
 }

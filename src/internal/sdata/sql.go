@@ -78,9 +78,24 @@ func (m *SQLTupleWriter) GeneratePreparedStatement() (*pachsql.Stmt, error) {
 }
 
 func NewSQLTupleWriter(tx *pachsql.Tx, tableInfo *pachsql.TableInfo) *SQLTupleWriter {
-	insertStatement := fmt.Sprintf("INSERT INTO %s.%s (%s) VALUES ",
-		tableInfo.Schema,
-		tableInfo.Name,
-		strings.Join(tableInfo.ColumnNames(), ", "))
-	return &SQLTupleWriter{tx, tableInfo, insertStatement, []Tuple{}}
+	var s string
+	if tableInfo.Driver == "snowflake" {
+		var asClauses []string
+		for i, col := range tableInfo.Columns {
+			var asClause string
+			if col.DataType == "VARIANT" {
+				asClause = fmt.Sprintf(`to_variant(COLUMN%d) as %s`, i+1, col.Name)
+			} else {
+				asClause = fmt.Sprintf(`COLUMN%d as %s`, i+1, col.Name)
+			}
+			asClauses = append(asClauses, asClause)
+		}
+		s = fmt.Sprintf(`INSERT INTO %s.%s SELECT %s FROM VALUES `, tableInfo.Schema, tableInfo.Name, strings.Join(asClauses, ","))
+	} else {
+		s = fmt.Sprintf("INSERT INTO %s.%s (%s) VALUES ",
+			tableInfo.Schema,
+			tableInfo.Name,
+			strings.Join(tableInfo.ColumnNames(), ", "))
+	}
+	return &SQLTupleWriter{tx, tableInfo, s, []Tuple{}}
 }
