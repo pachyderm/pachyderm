@@ -2,10 +2,10 @@ pachd:
   resources:
     requests:
       cpu: 1000m
-      memory: 2048M
+      memory: 6Gi
     limits:
       cpu: 1000m
-      memory: 2048M
+      memory: 6Gi
 
 etcd:
   resources:
