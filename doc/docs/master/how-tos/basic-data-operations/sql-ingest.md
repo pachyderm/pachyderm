@@ -230,7 +230,7 @@ We support the following SQL datatypes. Some of those Data Types are specific to
     |Type|Database|CSV|JSON|
     |----|--------|---|----|
     |Date|2022-05-09|2022-05-09T00:00:00|"2022-05-09T00:00:00"|
-    |Timestamp ntz|2022-05-09 16:43:00|2022-05-09 16:43:00|"2022-05-09 16:43:00"|
+    |Timestamp ntz|2022-05-09 16:43:00|2022-05-09T16:43:00|"2022-05-09T16:43:00"|
     |Timestamp tz|2022-05-09 16:43:00-05:00|2022-05-09T16:43:00-05:00|"2022-05-09T16:43:00-05:00"|
 
 - **Strings**
