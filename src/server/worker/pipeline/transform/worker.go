@@ -350,8 +350,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	if err != nil {
 		return errors.Wrap(err, "could not get user image ID")
 	}
-	// Setup file operation client for output meta commit.
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		// Setup file operation client for output meta commit.
 		resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 			// Setup file operation client for output PFS commit.
 			resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
