@@ -3,6 +3,7 @@ package testsnowflake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -16,15 +17,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func DSN() string {
+func DSN() (string, error) {
 	user := os.Getenv("SNOWFLAKE_USER")
-	account_identifier := os.Getenv("SNOWFLAKE_ACCOUNT")
-	return fmt.Sprintf("snowflake://%s@%s", user, account_identifier)
+	if user == "" {
+		return "", errors.New("empty SNOWFLAKE_USER")
+	}
+	accountID := os.Getenv("SNOWFLAKE_ACCOUNT")
+	if accountID == "" {
+		return "", errors.New("empty SNOWFLAKE_ACCOUNT")
+	}
+	return fmt.Sprintf("snowflake://%s@%s", user, accountID), nil
 }
 
 func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
 	password := os.Getenv("SNOWFLAKE_PASSWORD")
-	url, err := pachsql.ParseURL(DSN())
+	if password == "" {
+		t.Fatal("empty SNOWFLAKE_PASSWORD")
+	}
+	dsn, err := DSN()
+	if err != nil {
+		t.Fatal(err)
+	}
+	url, err := pachsql.ParseURL(dsn)
 	require.NoError(t, err)
 	return url, password
 }

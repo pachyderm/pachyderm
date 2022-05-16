@@ -10308,7 +10308,11 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 
 	// create a pipeline with egress
 	pipeline := tu.UniqueString("egress")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	dsn, err := testsnowflake.DSN()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -10324,7 +10328,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 			}},
 			Egress: &pps.Egress{
 				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
-					Url: fmt.Sprintf("%s/%s", testsnowflake.DSN(), dbName),
+					Url: fmt.Sprintf("%s/%s", dsn, dbName),
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
 						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
 					},
@@ -10336,7 +10340,9 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 				},
 			},
 		},
-	)
+	); err != nil {
+		t.Fatal(err)
+	}
 
 	// Initial load
 	master := client.NewCommit(repo, "master", "")
