@@ -1,4 +1,4 @@
-CREATE TABLE tableName 
+CREATE TABLE customer
 (
     customerID	varchar(300),
     gender	varchar(300),
@@ -23,7 +23,7 @@ CREATE TABLE tableName
     Churn	varchar(300)
 );
 
-INSERT INTO tableName (customerID,gender,SeniorCitizen,Partner,Dependents,tenure,PhoneService,MultipleLines,InternetService,OnlineSecurity,OnlineBackup,DeviceProtection,TechSupport,StreamingTV,StreamingMovies,Contract,PaperlessBilling,PaymentMethod,MonthlyCharges,TotalCharges,Churn)
+INSERT INTO customer (customerID,gender,SeniorCitizen,Partner,Dependents,tenure,PhoneService,MultipleLines,InternetService,OnlineSecurity,OnlineBackup,DeviceProtection,TechSupport,StreamingTV,StreamingMovies,Contract,PaperlessBilling,PaymentMethod,MonthlyCharges,TotalCharges,Churn)
 VALUES
     ('7590-VHVEG', 'Female', '0', 'Yes', 'No', '1', 'No', 'No phone service', 'DSL', 'No', 'Yes', 'No', 'No', 'No', 'No', 'Month-to-month', 'Yes', 'Electronic check', '29.85', '29.85', 'No'),
     ('5575-GNVDE', 'Male', '0', 'No', 'No', '34', 'Yes', 'No', 'DSL', 'Yes', 'No', 'Yes', 'No', 'No', 'No', 'One year', 'No', 'Mailed check', '56.95', '1889.5', 'No'),

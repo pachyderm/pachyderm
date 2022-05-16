@@ -23,7 +23,7 @@
     },
     "egress": {
         "sql_database": {
-            "url": "snowflake://albertpachyderm@CDKSVXM-PN23804/CHURN_DEMO/PUBLIC?warehouse=COMPUTE_WH",
+            "url": "snowflake://<username>@<account>/<database>/PUBLIC?warehouse=COMPUTE_WH",
             "file_format": {
                 "type": "CSV"
             },
