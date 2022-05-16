@@ -6,7 +6,7 @@ local newPipeline(name, input, transform) = {
 	input: input,	
 };
 local pachtf(args, secretName="") = {
-	image: "pachyderm/pachtf:2.2.0-rc.2",
+	image: "pachyderm/pachtf:2.2.0",
 	cmd: ["/app/pachtf"] + args,
 	secrets: if secretName != "" then
 		[
