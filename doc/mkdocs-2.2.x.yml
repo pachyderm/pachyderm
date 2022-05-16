@@ -9,7 +9,7 @@ repo_name: pachyderm/pachyderm
 repo_url: https://github.com/pachyderm/pachyderm
 # Documentation branch
 repo_branch: master
-repo_docs_dir: doc/docs/master
+repo_docs_dir: doc/docs/2.2.x
 edit_uri: ""
 
 # Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
