@@ -191,7 +191,7 @@ nav:
                 - Set Up Secrets Manager: 
                     - AWS Secrets Manager: deploy-manage/deploy/aws-secret-manager.md
                 - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md 
-                - Deploy on GCP: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on GCP: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on-premises.md
             - Deploy Console: deploy-manage/deploy/console.md

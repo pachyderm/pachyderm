@@ -42,7 +42,7 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="google_cloud_platform/" class="md-typeset md-link">
+          <li><a href="google-cloud-platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>
           </li>

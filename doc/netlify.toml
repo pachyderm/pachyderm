@@ -161,6 +161,12 @@
   force = true
 
 [[redirects]]
+  from = "/:version/deploy-manage/deploy/google_cloud_platform/"
+  to = "/:version/deploy-manage/deploy/google-cloud-platform/"
+  status = 301
+  force = true
+  
+[[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
   status = 301

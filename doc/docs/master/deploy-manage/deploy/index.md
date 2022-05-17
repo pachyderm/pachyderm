@@ -53,7 +53,7 @@ deployment options and related topics:
           Architecture, Ingress, and LB
           </a>
           </li>
-          <li><a href="google_cloud_platform/" class="md-typeset md-link">
+          <li><a href="google-cloud-platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>
           </li>
