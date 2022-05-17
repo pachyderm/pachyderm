@@ -209,7 +209,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 			}
 		})
-		return eg.Wait()
+		return errors.EnsureStack(eg.Wait())
 	})
 }
 
