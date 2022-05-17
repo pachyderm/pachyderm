@@ -662,7 +662,6 @@ proxy:
     repository: "envoyproxy/envoy"
     tag: "v1.22.0"
     pullPolicy: "IfNotPresent"
-  envoyImage: envoyproxy/envoy:v1.22.0
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
   resources:
