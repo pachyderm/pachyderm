@@ -21,10 +21,9 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -1420,7 +1419,7 @@ func now() *types.Timestamp {
 	return t
 }
 
-func (a *apiServer) validatePipelineRequest(ctx context.Context, request *pps.CreatePipelineRequest) error {
+func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1453,16 +1452,6 @@ func (a *apiServer) validatePipelineRequest(ctx context.Context, request *pps.Cr
 	}
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
-	}
-
-	for _, s := range request.GetTransform().GetSecrets() {
-		_, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
-		if err != nil {
-			if status.Code(err) == codes.NotFound {
-				return errors.Errorf("missing Kubernetes secret %s", s.Name)
-			}
-			return errors.Wrapf(err, "could not get Kubernetes secret %s", s.Name)
-		}
 	}
 	return nil
 }
@@ -1502,6 +1491,19 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 		enterprisemetrics.IncEnterpriseFailures()
 		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
 			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+	}
+	return nil
+}
+
+func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineRequest) error {
+	for _, s := range req.GetTransform().GetSecrets() {
+		_, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return errors.Errorf("missing Kubernetes secret %s", s.Name)
+			}
+			return errors.Wrapf(err, "could not get Kubernetes secret %s", s.Name)
+		}
 	}
 	return nil
 }
@@ -1763,19 +1765,19 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
+	if err := a.validateSecret(ctx, request); err != nil {
+		return nil, err
+	}
+
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.CreatePipeline(ctx, request))
+		return errors.EnsureStack(txn.CreatePipeline(request))
 	}, nil); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) initializePipelineInfo(ctx context.Context, request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
-	if err := a.validatePipelineRequest(ctx, request); err != nil {
-		return nil, err
-	}
-
+func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
@@ -1839,7 +1841,6 @@ func (a *apiServer) initializePipelineInfo(ctx context.Context, request *pps.Cre
 }
 
 func (a *apiServer) CreatePipelineInTransaction(
-	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	request *pps.CreatePipelineRequest,
 ) error {
@@ -1854,7 +1855,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		return errors.Errorf("pipeline %q already exists", pipelineName)
 	}
 
-	newPipelineInfo, err := a.initializePipelineInfo(ctx, request, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
 	if err != nil {
 		return err
 	}

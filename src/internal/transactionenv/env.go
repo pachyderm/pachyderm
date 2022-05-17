@@ -42,7 +42,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(context.Context, *pps.CreatePipelineRequest) error
+	CreatePipeline(*pps.CreatePipelineRequest) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -175,9 +175,9 @@ func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRe
 	return res, errors.EnsureStack(err)
 }
 
-func (t *directTransaction) CreatePipeline(ctx context.Context, original *pps.CreatePipelineRequest) error {
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
 	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(ctx, t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
@@ -247,7 +247,7 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return errors.EnsureStack(err)
 }
 
-func (t *appendTransaction) CreatePipeline(ctx context.Context, req *pps.CreatePipelineRequest) error {
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
 	return errors.EnsureStack(err)
 }

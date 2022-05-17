@@ -62,7 +62,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		}
 
 		var err error
-		result, err = d.runTransaction(ctx, txnCtx, info)
+		result, err = d.runTransaction(txnCtx, info)
 		return err
 	}); err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *tran
 	return nil
 }
 
-func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	result := proto.Clone(info).(*transaction.TransactionInfo)
 	for len(result.Responses) < len(result.Requests) {
 		result.Responses = append(result.Responses, &transaction.TransactionResponse{})
@@ -172,7 +172,7 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 		} else if request.StopJob != nil {
 			err = directTxn.StopJob(request.StopJob)
 		} else if request.CreatePipeline != nil {
-			err = directTxn.CreatePipeline(ctx, request.CreatePipeline)
+			err = directTxn.CreatePipeline(request.CreatePipeline)
 		} else {
 			err = errors.New("unrecognized transaction request type")
 		}
@@ -186,7 +186,7 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
-		info, err := d.runTransaction(ctx, txnCtx, info)
+		info, err := d.runTransaction(txnCtx, info)
 		if err != nil {
 			return info, err
 		}
@@ -220,7 +220,7 @@ func (d *driver) appendTransaction(
 		if restarted {
 			info.Requests = append(info.Requests, items...)
 		}
-		return d.runTransaction(ctx, txnCtx, info)
+		return d.runTransaction(txnCtx, info)
 	})
 }
 
