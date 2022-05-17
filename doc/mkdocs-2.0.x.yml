@@ -116,7 +116,7 @@ nav:
         - Quick Start - Local Installation: getting-started/local-installation.md
         - Beginner Tutorial: getting-started/beginner-tutorial.md
         - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
-        - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
+        - Use pachctl Shell: deploy-manage/manage/pachctl-shell.md
         - Local Installation On WSL: getting-started/wsl-deploy.md
     - Concepts:
         - Overview: concepts/index.md
@@ -223,7 +223,7 @@ nav:
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Backup and Restore: deploy-manage/manage/backup-restore.md
             - Storage Use and GPUs:
-                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Storage Use Optimization: deploy-manage/manage/data-management.md
                 - Use GPUs: deploy-manage/manage/gpus.md
     - Reference:
         - Overview: reference/index.md

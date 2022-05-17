@@ -67,7 +67,7 @@ throughout the lifetime of your cluster.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="data_management/" class="md-typeset md-link">
+          <li><a href="data-management/" class="md-typeset md-link">
             Storage Use Optimization
           </a>
           </li>

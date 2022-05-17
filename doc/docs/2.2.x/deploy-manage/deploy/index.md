@@ -30,7 +30,7 @@ deployment options and related topics:
           Install pachctl Autocompletion
           </a>
           </li>
-          <li><a href="../manage/pachctl_shell/" class="md-typeset md-link">
+          <li><a href="../manage/pachctl-shell/" class="md-typeset md-link">
           Use Pachyderm Shell - Our Auto Suggest Tool
           </a>
           </li>         

@@ -110,7 +110,7 @@ nav:
         - Overview: getting-started/index.md
         - Local Installation: getting-started/local-installation.md
         - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
-        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
+        - Use Pachctl Shell: deploy-manage/manage/pachctl-shell.md
         - Deploy Pachyderm on Windows: getting-started/wsl-deploy.md
         - Beginner Tutorial: getting-started/beginner-tutorial.md
     - Concepts:
@@ -238,7 +238,7 @@ nav:
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Backup and Restore: deploy-manage/manage/backup-restore.md
             - Optimize Performance:
-                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Storage Use Optimization: deploy-manage/manage/data-management.md
                 - Use GPUs: deploy-manage/manage/gpus.md
                 - Share GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
     - Reference:

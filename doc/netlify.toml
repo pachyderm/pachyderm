@@ -179,6 +179,18 @@
   force = true
 
 [[redirects]]
+  from = "/:version/deploy-manage/manage/pachctl_shell/"
+  to = "/:version/deploy-manage/manage/pachctl-shell/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/data_management/"
+  to = "/:version/deploy-manage/manage/data-management/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
   status = 301
