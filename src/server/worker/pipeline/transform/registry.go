@@ -488,9 +488,17 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 			request.Target = &pfs.EgressRequest_SqlDatabase{SqlDatabase: egress.GetSqlDatabase()}
 		}
 	}
-	// file not found means the commit is empty, nothing to egress
-	// TODO explicitly handle/swallow more unrecoverable errors from SqlDatabase, to prevent job being stuck in egressing.
-	if _, err := client.Egress(client.Ctx(), &request); err != nil && !pfsserver.IsFileNotFoundErr(err) {
+	if err := backoff.RetryUntilCancel(client.Ctx(), func() error {
+		// file not found means the commit is empty, nothing to egress
+		// TODO explicitly handle/swallow more unrecoverable errors from SqlDatabase, to prevent job being stuck in egressing.
+		if _, err := client.Egress(client.Ctx(), &request); err != nil && !pfsserver.IsFileNotFoundErr(err) {
+			return err
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		pj.logger.Logf("error processing egress: %v, retrying in %v", err, d)
+		return nil
+	}); err != nil {
 		return err
 	}
 	return reg.succeedJob(pj)

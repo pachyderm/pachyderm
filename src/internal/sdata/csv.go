@@ -2,13 +2,15 @@ package sdata
 
 import (
 	"database/sql"
-	"encoding/csv"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/sdata/csv"
 )
+
+const NULL = ""
 
 // CSVWriter writes Tuples in CSV format.
 type CSVWriter struct {
@@ -16,7 +18,14 @@ type CSVWriter struct {
 	headers []string
 
 	headersWritten bool
-	record         []string
+	record         []*string
+}
+
+func stringsToPointers(strings []string) (ptrs []*string) {
+	for i := range strings {
+		ptrs = append(ptrs, &strings[i])
+	}
+	return
 }
 
 // NewCSVWriter returns a CSVWriter writing to w.
@@ -30,7 +39,7 @@ func NewCSVWriter(w io.Writer, headers []string) *CSVWriter {
 
 func (m *CSVWriter) WriteTuple(row Tuple) error {
 	if m.record == nil {
-		m.record = make([]string, len(row))
+		m.record = make([]*string, len(row))
 	}
 	if len(m.record) != len(row) {
 		return ErrTupleFields{
@@ -40,7 +49,7 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 	}
 	record := m.record
 	if len(m.headers) > 0 && !m.headersWritten {
-		if err := m.cw.Write(m.headers); err != nil {
+		if err := m.cw.Write(stringsToPointers(m.headers)); err != nil {
 			return errors.EnsureStack(err)
 		}
 		m.headersWritten = true
@@ -55,8 +64,7 @@ func (m *CSVWriter) WriteTuple(row Tuple) error {
 	return errors.EnsureStack(m.cw.Write(record))
 }
 
-func (m *CSVWriter) format(x interface{}) (string, error) {
-	const null = "null"
+func (m *CSVWriter) format(x interface{}) (*string, error) {
 	var y string
 	switch x := x.(type) {
 	case *bool:
@@ -82,57 +90,49 @@ func (m *CSVWriter) format(x interface{}) (string, error) {
 	case *time.Time:
 		y = formatTimestampNTZ(x.Format(time.RFC3339Nano))
 	case *sql.NullBool:
-		if x.Valid {
-			y = strconv.FormatBool(x.Bool)
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = strconv.FormatBool(x.Bool)
 	case *sql.NullByte:
-		if x.Valid {
-			y = strconv.FormatUint(uint64(x.Byte), 10)
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = strconv.FormatUint(uint64(x.Byte), 10)
 	case *sql.NullInt16:
-		if x.Valid {
-			y = strconv.FormatInt(int64(x.Int16), 10)
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = strconv.FormatInt(int64(x.Int16), 10)
 	case *sql.NullInt32:
-		if x.Valid {
-			y = strconv.FormatInt(int64(x.Int32), 10)
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = strconv.FormatInt(int64(x.Int32), 10)
 	case *sql.NullInt64:
-		if x.Valid {
-			y = strconv.FormatInt(x.Int64, 10)
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = strconv.FormatInt(x.Int64, 10)
 	case *sql.NullFloat64:
-		if x.Valid {
-			y = strconv.FormatFloat(x.Float64, 'f', -1, 64)
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = strconv.FormatFloat(x.Float64, 'f', -1, 64)
 	case *sql.NullString:
-		if x.Valid {
-			y = x.String
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = x.String
 	case *sql.NullTime:
-		if x.Valid {
-			y = formatTimestampNTZ(x.Time.Format(time.RFC3339Nano))
-		} else {
-			y = null
+		if !x.Valid {
+			return nil, nil
 		}
+		y = formatTimestampNTZ(x.Time.Format(time.RFC3339Nano))
 	default:
-		return "", errors.Errorf("unrecognized value (%v: %T)", x, x)
+		return nil, errors.Errorf("unrecognized value (%v: %T)", x, x)
 	}
-	return y, nil
+	return &y, nil
 }
 
 func (m *CSVWriter) Flush() error {

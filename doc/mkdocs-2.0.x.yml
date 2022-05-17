@@ -13,7 +13,7 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.1.7'
+pach_featured_version: '2.2.0'
 pach_latest_version: '2.0.8'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
@@ -220,6 +220,7 @@ nav:
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
                 - Overview: deploy-manage/manage/upgrades_migrations.md
+                - Upgrade your Cluster: deploy-manage/manage/upgrades.md
             - Backup and Restore: deploy-manage/manage/backup_restore.md
             - Storage Use and GPUs:
                 - Storage Use Optimization: deploy-manage/manage/data_management.md
