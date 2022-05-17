@@ -121,14 +121,19 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
 		done := make(chan struct{})
 		var count int64
-		ctx, cancel := context.WithCancel(ctx)
-		eg, egCtx := errgroup.WithContext(ctx)
 		defer func() {
-			cancel()
-			eg.Wait()
+			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
+				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
+					return errors.EnsureStack(err)
+				}
+				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
+			}); err != nil {
+				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
+			}
 		}()
+		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
-			err := ed.taskCol.ReadOnly(egCtx).WatchOneF(prefix, func(e *watch.Event) error {
+			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -145,7 +150,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					err = errors.New(task.Reason)
 				}
 				if ed.cache != nil && err == nil {
-					if err := ed.cache.Put(egCtx, task.ID, task.Output); err != nil {
+					if err := ed.cache.Put(ctx, task.ID, task.Output); err != nil {
 						fmt.Printf("errored putting task %v in cache: %v\n", key, err)
 					}
 				}
@@ -164,58 +169,47 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 			})
 			return errors.EnsureStack(err)
 		})
-		defer func() {
-			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
-					return errors.EnsureStack(err)
-				}
-				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
-			}); err != nil {
-				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
-			}
-		}()
-		var index int64
-		for {
-			select {
-			case input, more := <-inputChan:
-				if !more {
-					close(done)
-					// If the tasks have already been collected (or there were none), then just return.
-					if atomic.LoadInt64(&count) == 0 {
+		eg.Go(func() error {
+			var index int64
+			for {
+				select {
+				case input, more := <-inputChan:
+					if !more {
+						close(done)
 						return nil
 					}
-					return errors.EnsureStack(eg.Wait())
-				}
-				taskID, err := computeTaskID(input)
-				if err != nil {
-					return err
-				}
-				if ed.cache != nil {
-					output, err := ed.cache.Get(egCtx, taskID)
-					if err == nil {
-						if err := cb(index, output, nil); err != nil {
-							return err
-						}
-						index++
-						continue
+					taskID, err := computeTaskID(input)
+					if err != nil {
+						return err
 					}
+					if ed.cache != nil {
+						output, err := ed.cache.Get(ctx, taskID)
+						if err == nil {
+							if err := cb(index, output, nil); err != nil {
+								return err
+							}
+							index++
+							continue
+						}
+					}
+					taskKey := path.Join(prefix, taskID)
+					task := &Task{
+						ID:    taskID,
+						Input: input,
+						State: State_RUNNING,
+						Index: index,
+					}
+					index++
+					if err := renewer.Put(ctx, taskKey, task); err != nil {
+						return err
+					}
+					atomic.AddInt64(&count, 1)
+				case <-ctx.Done():
+					return errors.EnsureStack(ctx.Err())
 				}
-				taskKey := path.Join(prefix, taskID)
-				task := &Task{
-					ID:    taskID,
-					Input: input,
-					State: State_RUNNING,
-					Index: index,
-				}
-				index++
-				if err := renewer.Put(egCtx, taskKey, task); err != nil {
-					return err
-				}
-				atomic.AddInt64(&count, 1)
-			case <-egCtx.Done():
-				return errors.EnsureStack(egCtx.Err())
 			}
-		}
+		})
+		return eg.Wait()
 	})
 }
 
