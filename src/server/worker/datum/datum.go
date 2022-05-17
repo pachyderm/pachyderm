@@ -494,7 +494,7 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
 		tagOption := client.WithDatumDeleteFile(ID)
-		// Delete the datum directory in the meta output.
+		// Delete the datum's meta file from the meta commit.
 		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID, MetaFileName), tagOption); err != nil {
 			return errors.EnsureStack(err)
 		}
