@@ -3,28 +3,29 @@ package testsnowflake
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/sirupsen/logrus"
 )
 
 func DSN() (string, error) {
 	user := os.Getenv("SNOWFLAKE_USER")
 	if user == "" {
-		return "", errors.New("empty SNOWFLAKE_USER")
+		return "", errors.EnsureStack(errors.New("empty SNOWFLAKE_USER"))
 	}
 	accountID := os.Getenv("SNOWFLAKE_ACCOUNT")
 	if accountID == "" {
-		return "", errors.New("empty SNOWFLAKE_ACCOUNT")
+		return "", errors.EnsureStack(errors.New("empty SNOWFLAKE_ACCOUNT"))
 	}
 	return fmt.Sprintf("snowflake://%s@%s", user, accountID), nil
 }
