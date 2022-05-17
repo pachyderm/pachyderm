@@ -64,7 +64,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          image: {{ .Values.proxy.envoyImage }}
+          image: "{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
+          imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
           ports:
             - name: admin-port
               containerPort: 9901
