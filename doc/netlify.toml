@@ -149,6 +149,18 @@
   force = true
 
 [[redirects]]
+  from = "/:version/deploy-manage/deploy/on_premises/"
+  to = "/:version/deploy-manage/deploy/on-premises/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/deploy_w_tls/"
+  to = "/:version/deploy-manage/deploy/deploy-w-tls/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
   status = 301

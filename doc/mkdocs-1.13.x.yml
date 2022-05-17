@@ -196,7 +196,7 @@ nav:
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+                - Deploy On-Premises: deploy-manage/deploy/on-premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -208,7 +208,7 @@ nav:
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
-                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
+                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy-w-tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md

@@ -65,7 +65,7 @@ deployment options and related topics:
           Deploy on Azure
           </a>
           </li>
-          <li><a href="on_premises/" class="md-typeset md-link">
+          <li><a href="on-premises/" class="md-typeset md-link">
           Deploy On Premises
           </a>
           </li>
@@ -94,7 +94,7 @@ deployment options and related topics:
            Import a Kubernetes Context
            </a>
            </li>
-           <li><a href="deploy_w_tls/" class="md-typeset md-link">
+           <li><a href="deploy-w-tls/" class="md-typeset md-link">
            Deploy Pachyderm with TLS
            </a>
            </li>

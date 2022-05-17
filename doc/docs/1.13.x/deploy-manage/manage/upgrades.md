@@ -139,7 +139,7 @@ Thus, the `--dynamic-etcd-nodes` flag to `pachctl deploy` is used to deploy Pach
 !!! Tip 
       It is recommended that you deploy Pachyderm using StatefulSets when possible. 
       All of the instructions for cloud provider deployments do this by default.
-      We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on_premises/#statefulsets).
+      We also provide [instructions for on-premises deployments using StatefulSets](../../deploy/on-premises/#statefulsets).
 
 If you have deployed Pachyderm using StatefulSets, 
 you can still use the *same* deploy command to re-deploy Pachyderm. 

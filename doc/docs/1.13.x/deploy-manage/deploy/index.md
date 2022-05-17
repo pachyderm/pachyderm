@@ -87,7 +87,7 @@ deployment options and related topics:
            Import a Kubernetes Context
            </a>
            </li>
-           <li><a href="deploy_w_tls/" class="md-typeset md-link">
+           <li><a href="deploy-w-tls/" class="md-typeset md-link">
            Deploy Pachyderm with TLS
            </a>
            </li>

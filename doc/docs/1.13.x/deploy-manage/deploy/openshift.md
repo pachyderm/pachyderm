@@ -101,7 +101,7 @@ Don't yet deploy your manifest, come back here after you've set up your PV and o
     * OpenShift Deployed on [AWS](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-on-aws) 
     * OpenShift Deployed on [GCP](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/)
     * OpenShift Deployed on [Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/azure/)
-    * OpenShift Deployed [on-premise](https://docs.pachyderm.com/latest/deploy-manage/deploy/on_premises/)
+    * OpenShift Deployed [on-premise](https://docs.pachyderm.com/latest/deploy-manage/deploy/on-premises/)
 
 1. Determine your role security policy
 Pachyderm is deployed by default with cluster roles.
