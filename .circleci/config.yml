@@ -141,7 +141,7 @@ jobs:
       - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
-  load_test:
+  load-test:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -320,59 +320,65 @@ jobs:
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
 workflows:
-  # circleci:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - build
-  #     - check-prettier
-  #     - circleci:
-  #         matrix:
-  #           parameters:
-  #             bucket:
-  #               - MISC
-  #               # If you want to update the number of PPS buckets, you'll neet to
-  #               # update the value of PPS_BUCKETS above
-  #               - AUTH
-  #               - ENTERPRISE
-  #               - PFS
-  #               - PPS1
-  #               - PPS2
-  #               - PPS3
-  #               - PPS4
-  #               - PPS5
-  #               - PPS6
-  #               - EXAMPLES
-  #               - INTERNAL
-  # helm:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - helm-build:
-  #         filters:
-  #           # Note: Not ignoring branches, so will be run on branches as well as tags
-  #           tags:
-  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  #     - helm-publish:
-  #         requires:
-  #           - helm-build
-  #         filters:
-  #           branches:
-  #             ignore: /.*/
-  #           tags:
-  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  # load_tests:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - load_test
-  nightly_load_tests:
+  circleci:
     when:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - build
+      - check-prettier
+      - circleci:
+          matrix:
+            parameters:
+              bucket:
+                - MISC
+                # If you want to update the number of PPS buckets, you'll neet to
+                # update the value of PPS_BUCKETS above
+                - AUTH
+                - ENTERPRISE
+                - PFS
+                - PPS1
+                - PPS2
+                - PPS3
+                - PPS4
+                - PPS5
+                - PPS6
+                - EXAMPLES
+                - INTERNAL
+  helm:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - helm-build:
+          filters:
+            # Note: Not ignoring branches, so will be run on branches as well as tags
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - helm-publish:
+          requires:
+            - helm-build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  load_tests:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - load-test
+  nightly_load_tests:
+    triggers:
+      - schedule:
+          cron: "0 6 * * *"
+          filters:
+            branches:
+              only:
+                - master
+                - 2.1.x
+                - 2.2.x
     jobs:
       - nightly-load:
           matrix:
@@ -385,54 +391,32 @@ workflows:
                 - LOAD5
                 - LOAD6
                 - LOAD7
-  # nightly_load_tests:
-  #   triggers:
-  #     - schedule:
-  #         cron: "0 6 * * *"
-  #         filters:
-  #           branches:
-  #             only:
-  #               - master
-  #               - 2.1.x
-  #               - 2.2.x
-  #   jobs:
-  #     - nightly_load:
-  #         matrix:
-  #           parameters:
-  #             bucket:
-  #               - LOAD1
-  #               - LOAD2
-  #               - LOAD3
-  #               - LOAD4
-  #               - LOAD5
-  #               - LOAD6
-  #               - LOAD7
-  # rootless:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - rootless
-  # deploy:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - deploy
-  # pach_core_release:
-  #   when: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - release_job:
-  #         filters:
-  #           branches:
-  #             only:
-  #               - 2.1.x
-  #               - 2.2.x
-  # red_hat:
-  #   jobs:
-  #     - push_redhat:
-  #         filters:
-  #           branches:
-  #             ignore: /.*/
-  #           tags:
-  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  rootless:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - rootless
+  deploy:
+    when:
+      and:
+        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - deploy
+  pach_core_release:
+    when: << pipeline.parameters.RELEASE_PACH_CORE >>
+    jobs:
+      - release_job:
+          filters:
+            branches:
+              only:
+                - 2.1.x
+                - 2.2.x
+  red_hat:
+    jobs:
+      - push_redhat:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
