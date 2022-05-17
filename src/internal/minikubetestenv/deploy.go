@@ -188,16 +188,21 @@ func withPort(namespace string, port uint16) *helm.Options {
 
 func union(a, b *helm.Options) *helm.Options {
 	c := &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: b.KubectlOptions.Namespace},
-		SetValues:      make(map[string]string),
-		SetStrValues:   make(map[string]string),
+		SetValues:    make(map[string]string),
+		SetStrValues: make(map[string]string),
 	}
 	copy := func(src, dst *helm.Options) {
+		if src.KubectlOptions != nil {
+			dst.KubectlOptions = &k8s.KubectlOptions{Namespace: src.KubectlOptions.Namespace}
+		}
 		for k, v := range src.SetValues {
 			dst.SetValues[k] = v
 		}
 		for k, v := range src.SetStrValues {
 			dst.SetStrValues[k] = v
+		}
+		if src.Version != "" {
+			dst.Version = src.Version
 		}
 	}
 	copy(a, c)
@@ -304,12 +309,14 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	version := localImage
 	chartPath := helmChartLocalPath(t)
+	// TODO(acohen4): apply minio deployment to this namespace
+	helmOpts := localDeploymentWithMinioOptions(namespace, version)
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
+		helmOpts.Version = version
+		helmOpts.SetValues["pachd.image.tag"] = version
 	}
-	// TODO(acohen4): apply minio deployment to this namespace
-	helmOpts := localDeploymentWithMinioOptions(namespace, version)
 	pachAddress := getPachAddress(t)
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
