@@ -21,5 +21,5 @@ For questions on how to migrate, please contact your technical account manager o
     major versions.
 
 Whether you upgrade or migrate your cluster, Pachyderm recommends that you
-[perform a back up](../backup_restore/). A backup guarantees that you can restore
+[perform a back up](../backup-restore/). A backup guarantees that you can restore
 your cluster to its previous, stable state.

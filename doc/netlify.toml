@@ -165,7 +165,19 @@
   to = "/:version/deploy-manage/deploy/google-cloud-platform/"
   status = 301
   force = true
-  
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/upgrades_migrations/"
+  to = "/:version/deploy-manage/manage/upgrades-migrations/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/backup_restore/"
+  to = "/:version/deploy-manage/manage/backup-restore/"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"

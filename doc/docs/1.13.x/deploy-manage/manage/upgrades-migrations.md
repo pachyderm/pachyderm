@@ -17,5 +17,5 @@ These updates fall into the following categories:
     major releases!
 
 Whether you upgrade or migrate your cluster, Pachyderm recommendeds that you
-[back up Pachyderm](./backup_restore.md). A backup guarantees that you can restore
+[back up Pachyderm](./backup-restore.md). A backup guarantees that you can restore
 your cluster to its previous, stable state.

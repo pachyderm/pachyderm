@@ -9,7 +9,7 @@ your cluster to get access to bug fixes and new features.
 These updates fall into the following categories:
 
 * An [**upgrade**](../upgrades/) moves between **minor or point releases**.
-For example, between version 2.1.2 and 2.2.0. 
+For example, between version 2.0.2 and 2.1.0. 
 Upgrades are typically a simple process should require little to no downtime.
 
 * Migrations — A **migration** must be performed when you are **moving between major releases**,
@@ -21,5 +21,5 @@ For questions on how to migrate, please contact your technical account manager o
     major versions.
 
 Whether you upgrade or migrate your cluster, Pachyderm recommends that you
-[perform a back up](../backup_restore/). A backup guarantees that you can restore
+[perform a back up](../backup-restore/). A backup guarantees that you can restore
 your cluster to its previous, stable state.
