@@ -53,35 +53,42 @@ func TestFormatParse(t *testing.T) {
 		c := ""
 		d := sql.NullInt64{}
 		e := false
-		return Tuple{&a, &b, &c, &d, &e}
+		f := sql.NullString{}
+		return Tuple{&a, &b, &c, &d, &e, &f}
 	}
-	fieldNames := []string{"a", "b", "c", "d", "e"}
+	fieldNames := []string{"a", "b", "c", "d", "e", "f"}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			const N = 10
 			buf := &bytes.Buffer{}
 			fz := fuzz.New()
 			fz.RandSource(rand.NewSource(0))
-			fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
-				*ti = time.Now()
-			})
-			fz.Funcs(func(x *sql.NullInt64, co fuzz.Continue) {
-				if co.RandBool() {
-					x.Valid = true
-					x.Int64 = co.Int63()
-				} else {
-					x.Valid = false
-				}
-			})
-			fz.Funcs(func(x *sql.NullString, co fuzz.Continue) {
-				if co.RandBool() {
-					x.Valid = true
-					x.String = co.RandString()
-				} else {
-					x.Valid = false
-				}
-			})
-			fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
+			fz.Funcs(
+				func(ti *time.Time, co fuzz.Continue) {
+					*ti = time.Now()
+				},
+				func(x *sql.NullInt64, co fuzz.Continue) {
+					if co.RandBool() {
+						x.Valid = true
+						x.Int64 = co.Int63()
+					} else {
+						x.Valid = false
+					}
+				},
+				func(x *sql.NullString, co fuzz.Continue) {
+					n := co.Intn(10)
+					if n < 3 {
+						x.Valid = true
+						x.String = co.RandString()
+					} else if n < 6 {
+						x.Valid = true
+						x.String = ""
+					} else {
+						x.Valid = false
+					}
+				},
+				fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc(),
+			)
 
 			var expected []Tuple
 			w := tc.NewW(buf, fieldNames)
@@ -237,6 +244,32 @@ func TestSQLTupleWriter(suite *testing.T) {
 			require.Equal(t, nRows, count)
 		})
 	}
+}
+
+func TestCSVNull(t *testing.T) {
+	buf := &bytes.Buffer{}
+	w := NewCSVWriter(buf, nil)
+	row := Tuple{
+		&sql.NullString{String: "null", Valid: true},
+		&sql.NullString{String: `""`, Valid: true},
+		&sql.NullString{String: "", Valid: false},
+		&sql.NullString{String: "", Valid: true},
+	}
+	expected := `null,"""""",,""` + "\n"
+	w.WriteTuple(row)
+	w.Flush()
+	require.Equal(t, expected, buf.String())
+
+	r := NewCSVParser(buf)
+	row2 := Tuple{
+		&sql.NullString{},
+		&sql.NullString{},
+		&sql.NullString{},
+		&sql.NullString{},
+	}
+	err := r.Next(row2)
+	require.NoError(t, err)
+	require.Equal(t, row, row2)
 }
 
 func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {

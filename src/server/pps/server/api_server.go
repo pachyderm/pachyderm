@@ -1069,8 +1069,9 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 			Job: meta.Job,
 			ID:  common.DatumID(meta.Inputs),
 		},
-		State: convertDatumState(meta.State),
-		Stats: meta.Stats,
+		State:   convertDatumState(meta.State),
+		Stats:   meta.Stats,
+		ImageId: meta.ImageId,
 	}
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
