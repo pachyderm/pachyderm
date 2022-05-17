@@ -137,6 +137,18 @@
   force = true
 
 [[redirects]]
+  from = "/:version/deploy-manage/deploy/prometheus/job_metrics/"
+  to = "/:version/deploy-manage/deploy/prometheus/job-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/prometheus/pachd_metrics/"
+  to = "/:version/deploy-manage/deploy/prometheus/pachd-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
   status = 301
