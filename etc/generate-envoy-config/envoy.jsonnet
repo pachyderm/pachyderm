@@ -173,6 +173,8 @@ Envoy.bootstrap(
     Envoy.httpListener(
       port=8080,  // Not port 80, because we run as user 101 and not root.
       name='proxy-http',
+      // Everything except the metrics service is served on the multiplexed route.  The order of
+      // services' routes is important!
       routes=std.flatMap(function(name) services[name].routes, ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'console'])
     ),
   ] + [
@@ -182,7 +184,9 @@ Envoy.bootstrap(
       name='direct-' + name,
       routes=svc.routes,
     )
-    for name in ['pachd-grpc', 'pachd-s3', 'pachd-identity', 'pachd-oidc', 'console', 'pachd-metrics']
+    // Every service gets a direct route.  We sort the keys so that the output is
+    // stable across regeneration.
+    for name in std.sort(std.objectFields(services), keyF=function(name) services[name].internal_port)
   ],
   clusters=[
     local svc = services[name];
