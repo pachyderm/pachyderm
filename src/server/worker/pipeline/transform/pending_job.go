@@ -376,14 +376,6 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 	return outputFileSetID, deleteFileSetID, skipped, nil
 }
 
-// checkPreconditions checks that the preconditions for running a job are
-// satisfied, otherwise it returns an error.
-//
-// TODO: move input checking in
-func (pj *pendingJob) checkPreconditions() error {
-	return nil
-}
-
 // TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
 func serializeUploadDatumsTask(task *UploadDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)

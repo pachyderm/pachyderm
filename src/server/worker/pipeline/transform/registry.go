@@ -260,9 +260,6 @@ func (reg *registry) processJob(pj *pendingJob) error {
 }
 
 func (reg *registry) processJobStarting(pj *pendingJob) error {
-	if err := pj.checkPreconditions(); err != nil {
-		return err
-	}
 	// block until job inputs are ready
 	failed, err := failedInputs(pj.driver.PachClient(), pj.ji)
 	if err != nil {
