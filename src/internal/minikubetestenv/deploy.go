@@ -314,7 +314,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
-		helmOpts = union(helmOpts, &helm.Options{Version: version})
+		helmOpts.Version = version
+		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := getPachAddress(t)
 	if opts.PortOffset != 0 {
