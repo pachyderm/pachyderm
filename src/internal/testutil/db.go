@@ -86,7 +86,6 @@ func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) {
 		})
 	}
 	t.Log("database", dbName, "successfully created")
-	return
 }
 
 func GenerateEphemeralDBName(t testing.TB) string {
