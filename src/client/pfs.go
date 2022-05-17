@@ -509,7 +509,7 @@ func (c APIClient) ClearCommit(repoName string, branchName string, commitID stri
 // prevent the completion of fsck. Errors that do prevent completion will be
 // returned from the function.
 func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
-	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix})
+	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix, DetectZombie: true})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}

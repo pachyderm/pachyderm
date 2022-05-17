@@ -7,12 +7,16 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -300,5 +304,38 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			return nil
 		})
 	}
+	return nil
+}
+
+type ErrZombieData struct {
+	Commit *pfs.Commit
+	ID     string
+}
+
+func (e ErrZombieData) Error() string {
+	return fmt.Sprintf("commit %v contains output from datum %s which should have been deleted", e.Commit, e.ID)
+}
+
+func (d *driver) detectZombie(ctx context.Context, c *client.APIClient, outputCommit, metaCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+	knownDatums := make(map[string]struct{})
+	iter := datum.NewCommitIterator(c, metaCommit)
+	iter.Iterate(func(meta *datum.Meta) error {
+		knownDatums[common.DatumID(meta.Inputs)] = struct{}{}
+		return nil
+	})
+	_, fs, err := d.openCommit(ctx, outputCommit)
+	if err != nil {
+		return err
+	}
+	fs.Iterate(ctx, func(f fileset.File) error {
+		id := f.Index().GetFile().GetDatum()
+		if _, ok := knownDatums[id]; id != "" && !ok {
+			return cb(&pfs.FsckResponse{Error: ErrZombieData{
+				Commit: outputCommit,
+				ID:     id,
+			}.Error()})
+		}
+		return nil
+	})
 	return nil
 }

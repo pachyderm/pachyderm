@@ -20,10 +20,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
@@ -32,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 )
@@ -629,11 +632,40 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
-	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
+	ctx := fsckServer.Context()
+	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
 		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
 		return err
 	}
+	a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+		pipeline, err := a.env.GetPPSServer().InspectPipeline(ctx, &pps.InspectPipelineRequest{
+			Pipeline: client.NewPipeline(info.Repo.Name),
+			Details:  true,
+		})
+		if err != nil {
+			if errutil.IsNotFoundError(err) {
+				return nil // this shouldn't happen, but really just means some previous deletion failed
+			}
+			return err
+		}
+		output := info.Repo.NewCommit(pipeline.Details.OutputBranch, "")
+		for output != nil {
+			info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+			if err != nil {
+				return err
+			}
+			// we will be reading the whole file system, so unfinished commits would be very slow
+			if info.Error == "" && info.Finished != nil && info.Origin.Kind == pfs.OriginKind_AUTO {
+				break
+			}
+			output = info.ParentCommit
+		}
+		if output == nil {
+			return nil
+		}
+		return a.driver.detectZombie(ctx, a.env.GetPachClient(ctx), output, ppsutil.MetaCommit(output), fsckServer.Send)
+	})
 	return nil
 }
 

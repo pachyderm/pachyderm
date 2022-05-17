@@ -386,6 +386,7 @@ message DiffFileResponse {
 
 message FsckRequest {
   bool fix = 1;
+  bool detect_zombie = 2;
 }
 
 message FsckResponse {
