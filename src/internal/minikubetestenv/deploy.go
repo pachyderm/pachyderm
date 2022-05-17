@@ -384,11 +384,11 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		// successful.
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
-	waitForPachd(t, ctx, kubeClient, namespace, version)
 	if opts.Loki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
+	waitForPachd(t, ctx, kubeClient, namespace, version)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
