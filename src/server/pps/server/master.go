@@ -27,9 +27,10 @@ const (
 
 var (
 	failures = map[string]bool{
-		"InvalidImageName": true,
-		"ErrImagePull":     true,
-		"Unschedulable":    true,
+		"InvalidImageName":           true,
+		"ErrImagePull":               true,
+		"Unschedulable":              true,
+		"CreateContainerConfigError": true,
 	}
 
 	zero     int32 // used to turn down RCs in scaleDownWorkersForPipeline
