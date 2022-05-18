@@ -1,0 +1,83 @@
+{{- if .Values.proxy.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.service.labels -}}
+    {{- toYaml .Values.proxy.service.labels | nindent 4 }}
+    {{- end }}
+  {{- if .Values.proxy.service.annotations }}
+  annotations:
+    {{- toYaml .Values.proxy.service.annotations | nindent 4 }}
+  {{- end }}
+  name: pachyderm-proxy
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: {{ .Values.proxy.service.type }}
+  ports:
+    - name: http-port
+      targetPort: http-port
+      port: {{ .Values.proxy.service.httpPort }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.httpNodePort }}
+      {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.console }}
+    - name: console-direct
+      targetPort: console-direct
+      port: {{ .Values.proxy.service.legacyPorts.console }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.console }}
+      {{- end }}
+    {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.grpc }}
+    - name: grpc-direct
+      targetPort: grpc-direct
+      port: {{ .Values.proxy.service.legacyPorts.grpc }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.grpc }}
+      {{- end }}
+    {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.s3Gateway }}
+    - name: s3-direct
+      targetPort: s3-direct
+      port: {{ .Values.proxy.service.legacyPorts.s3Gateway }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.s3Gateway }}
+      {{- end }}
+    {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.oidc }}
+    - name: oidc-direct
+      targetPort: oidc-direct
+      port: {{ .Values.proxy.service.legacyPorts.oidc }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.oidc }}
+      {{- end }}
+    {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.identity }}
+    - name: identity-direct
+      targetPort: identity-direct
+      port: {{ .Values.proxy.service.legacyPorts.identity }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.identity }}
+      {{- end }}
+    {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.metrics }}
+    - name: metrics-direct
+      targetPort: metrics-direct
+      port: {{ .Values.proxy.service.legacyPorts.metrics }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.metrics }}
+      {{- end }}
+    {{- end }}
+  selector:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.labels -}} {{/* Note that these are the pod labels. */}}
+    {{- toYaml .Values.proxy.labels | nindent 4 }}
+    {{- end }}
+  {{- if ne .Values.proxy.service.loadBalancerIP "" }}
+  loadBalancerIP: {{ .Values.proxy.service.loadBalancerIP }}
+  {{- end }}
+{{- end }}
