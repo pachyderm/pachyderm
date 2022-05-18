@@ -137,7 +137,9 @@ func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Client
 // Deploy pachyderm using a `helm install ...`, then run a test with an API Client corresponding to the deployment
 func InstallPublishedRelease(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, version, user string, cleanup bool) *client.APIClient {
 	maybeCleanup(t, cleanup, kubeClient)
-	require.NoError(t, helm.InstallE(t, localDeploymentWithMinioOptions(ns, version), helmChartPublishedPath, helmRelease))
+	opts := localDeploymentWithMinioOptions(ns, version)
+	opts.Version = version
+	require.NoError(t, helm.InstallE(t, opts, helmChartPublishedPath, helmRelease))
 	waitForPachd(t, ctx, kubeClient, ns, version)
 	return testutil.AuthenticatedPachClient(t, testutil.NewPachClient(t), user)
 }
