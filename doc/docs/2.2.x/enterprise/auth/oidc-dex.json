@@ -1,0 +1,17 @@
+{
+  "type": "oidc",
+  "id": "auth0",
+  "name": "Auth0",
+  "version": 3,
+  "config":{
+  "issuer": "https://dev-k34x5yjn.us.auth0.com/",
+  "clientID": "hegmOc5rTotLPu5ByRDXOvBAzgs3wuw5",
+  "clientSecret": "7xk8O71Uhp5T-bJp_aP2Squwlh4zZTJs65URPma-2UT7n1iigDaMUD9ArhUR-2aL",
+  "redirectURI": "http://localhost:30658/callback",
+  "scopes": ["groups", "email", "profile"],
+  "claimMapping":{
+      "groups": "authorization:groups"
+    },
+  "insecureEnableGroups": true
+  }
+}

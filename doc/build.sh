@@ -35,9 +35,9 @@ for d in $all_versions; do
         <option style="color:white;background-color:#4b2a5c;" value="${d}">${d}</option>"
 EOF
 done
-    cat <<EOF >>overrides/partials/versions.html
-        <option style="color:white;background-color:#4b2a5c;" value="2.2.x-rc">2.2.x-rc</option>"
-EOF
+#    cat <<EOF >>overrides/partials/versions.html
+#        <option style="color:white;background-color:#4b2a5c;" value="2.2.x-rc">2.2.x-rc</option>"
+#EOF
 
     cat <<EOF >>overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
@@ -66,8 +66,8 @@ for d in $all_versions; do
     mkdocs build --config-file "${mkdocs_file}" --site-dir "${out_dir}"
 done
 ## Temp preview of 2.2.x-rc out of master
-mkdocs build --config-file "mkdocs-master.yml" --site-dir "site/2.2.x-rc"
-
+rm -rf ./site/2.2.x-rc/
+#mkdocs build --config-file "mkdocs-master.yml" --site-dir "site/2.2.x-rc"
 # Finally, copy latest version of the docs into 'latest'
 if [[ -z "${latest_version}" ]]; then
     echo "No latest version to symlink"

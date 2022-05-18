@@ -218,9 +218,7 @@ We support the following SQL datatypes. Some of those Data Types are specific to
     | 12345 | 12345 | "12345" |
     | 123.45 | 123.45 | "123.45" |
 
-- **Date/Timestamps** are formatted as follow `%Y-%M-%DT%h:%m:%sZ`, then converted into strings in your CSV and JSON. 
-
-    Note that the trailing Z (UTC) is truncated from Timestamps without Ttmezones and from Dates. 
+- **Date/Timestamps** 
 
     ***Examples***
 
