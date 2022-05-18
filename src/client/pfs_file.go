@@ -73,6 +73,38 @@ type ModifyFile interface {
 	CopyFile(dst string, src *pfs.File, opts ...CopyFileOption) error
 }
 
+// WithMonitoredModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
+// TODO: Context should be a parameter, not stored in the pach client.
+func (c APIClient) WithMonitoredModifyFileClient(commit *pfs.Commit, monitor MonitoredModifyFileFunc, cb func(ModifyFile) error) (retErr error) {
+	cancelCtx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	mfc, err := c.WithCtx(cancelCtx).NewModifyFileClient(commit)
+	if err != nil {
+		return err
+	}
+	go func(ctx context.Context, monitor MonitoredModifyFileFunc) {
+		defer close(mfc.done)
+		for {
+			s, err := mfc.client.Recv()
+			if err != nil {
+				if err != io.EOF {
+					monitor(ctx, nil, err)
+				}
+				return
+			}
+			if err := monitor(ctx, s, nil); err != nil {
+				return
+			}
+		}
+	}(cancelCtx, monitor)
+	defer func() {
+		if retErr == nil {
+			retErr = mfc.Close()
+		}
+	}()
+	return cb(mfc)
+}
+
 // WithModifyFileClient creates a new ModifyFileClient that is scoped to the passed in callback.
 // TODO: Context should be a parameter, not stored in the pach client.
 func (c APIClient) WithModifyFileClient(commit *pfs.Commit, cb func(ModifyFile) error) (retErr error) {
@@ -95,7 +127,7 @@ func (c APIClient) NewModifyFileClient(commit *pfs.Commit) (_ *ModifyFileClient,
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	client, err := c.PfsAPIClient.ModifyFile(c.Ctx())
+	client, err := c.PfsAPIClient.MonitoredModifyFile(c.Ctx())
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +138,7 @@ func (c APIClient) NewModifyFileClient(commit *pfs.Commit) (_ *ModifyFileClient,
 	}
 	return &ModifyFileClient{
 		client: client,
+		done:   make(chan struct{}),
 		modifyFileCore: modifyFileCore{
 			client: client,
 		},
@@ -113,7 +146,8 @@ func (c APIClient) NewModifyFileClient(commit *pfs.Commit) (_ *ModifyFileClient,
 }
 
 type ModifyFileClient struct {
-	client pfs.API_ModifyFileClient
+	client pfs.API_MonitoredModifyFileClient
+	done   chan struct{}
 	modifyFileCore
 }
 
@@ -307,10 +341,13 @@ func (mfc *modifyFileCore) sendCopyFile(req *pfs.CopyFile) error {
 // Close closes the ModifyFileClient.
 func (mfc *ModifyFileClient) Close() error {
 	return mfc.maybeError(func() error {
-		_, err := mfc.client.CloseAndRecv()
+		err := mfc.client.CloseSend()
+		<-mfc.done
 		return err
 	})
 }
+
+type MonitoredModifyFileFunc func(context.Context, *pfs.ModifyFileStatus, error) error
 
 // FileSetsRepoName is the repo name used to access filesets as virtual commits.
 const FileSetsRepoName = "__filesets__"

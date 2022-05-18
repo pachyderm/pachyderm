@@ -357,8 +357,33 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	})
 }
 
+func (a *apiServer) MonitoredModifyFile(server pfs.API_MonitoredModifyFileServer) (retErr error) {
+	commit, err := monitoredReadCommit(server)
+	if err != nil {
+		return err
+	}
+	return metrics.ReportRequestWithThroughput(func() (int64, error) {
+		var bytesRead int64
+		if err := a.driver.modifyFile(server.Context(), commit, func(uw *fileset.UnorderedWriter) error {
+			n, err := a.modifyFile(server.Context(), uw, server)
+			if err != nil {
+				return err
+			}
+			bytesRead += n
+			return nil
+		}); err != nil {
+			return bytesRead, err
+		}
+		return bytesRead, nil
+	})
+}
+
 type modifyFileSource interface {
 	Recv() (*pfs.ModifyFileRequest, error)
+}
+
+type modifyFileSink interface {
+	Send(*pfs.ModifyFileStatus) error
 }
 
 // modifyFile reads from a modifyFileSource until io.EOF and writes changes to an UnorderedWriter.
@@ -377,16 +402,102 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 		case *pfs.ModifyFileRequest_AddFile:
 			var err error
 			var n int64
+
 			p := mod.AddFile.Path
 			t := mod.AddFile.Datum
 			switch src := mod.AddFile.Source.(type) {
 			case *pfs.AddFile_Raw:
+				var status *pfs.ModifyFileStatus
+				if server, ok := server.(modifyFileSink); ok {
+					// don’t waste bandwidth returning bytes
+					emptySrc := new(pfs.AddFile_Raw)
+					emptySrc = src
+					emptySrc.Raw = nil
+					op := new(pfs.AddFile)
+					*op = *mod.AddFile
+					op.Source = emptySrc
+					status = &pfs.ModifyFileStatus{
+						Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+						Status:    pfs.ModifyFileStatus_STARTED,
+					}
+					if err := server.Send(status); err != nil {
+						return bytesRead, err
+					}
+				}
 				n, err = putFileRaw(uw, p, t, src.Raw)
+				if server, ok := server.(modifyFileSink); ok {
+					if err != nil {
+						status.Status = pfs.ModifyFileStatus_ERROR
+						status.Error = err.Error()
+						if err := server.Send(status); err != nil {
+							return bytesRead, err
+						}
+					} else {
+						status.Status = pfs.ModifyFileStatus_COMPLETED
+						if err := server.Send(status); err != nil {
+							return bytesRead, err
+						}
+					}
+				}
 			case *pfs.AddFile_Url:
+				if server, ok := server.(modifyFileSink); ok {
+					if err := server.Send(&pfs.ModifyFileStatus{
+						Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+						Status:    pfs.ModifyFileStatus_STARTED,
+					}); err != nil {
+						return bytesRead, err
+					}
+				}
 				n, err = putFileURL(ctx, uw, p, t, src.Url)
+				if server, ok := server.(modifyFileSink); ok {
+					if err != nil {
+
+						if err := server.Send(&pfs.ModifyFileStatus{
+							Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+							Status:    pfs.ModifyFileStatus_ERROR,
+							Error:     err.Error(),
+						}); err != nil {
+							return bytesRead, err
+						}
+					} else {
+						if err := server.Send(&pfs.ModifyFileStatus{
+							Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+							Status:    pfs.ModifyFileStatus_COMPLETED,
+						}); err != nil {
+							return bytesRead, err
+						}
+					}
+				}
 			default:
+				if server, ok := server.(modifyFileSink); ok {
+					if err := server.Send(&pfs.ModifyFileStatus{
+						Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+						Status:    pfs.ModifyFileStatus_STARTED,
+					}); err != nil {
+						return bytesRead, err
+					}
+				}
 				// need to write empty data to path
 				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
+				if server, ok := server.(modifyFileSink); ok {
+					if err != nil {
+
+						if err := server.Send(&pfs.ModifyFileStatus{
+							Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+							Status:    pfs.ModifyFileStatus_ERROR,
+							Error:     err.Error(),
+						}); err != nil {
+							return bytesRead, err
+						}
+					} else {
+						if err := server.Send(&pfs.ModifyFileStatus{
+							Operation: &pfs.ModifyFileStatus_AddFile{AddFile: mod.AddFile},
+							Status:    pfs.ModifyFileStatus_COMPLETED,
+						}); err != nil {
+							return bytesRead, err
+						}
+					}
+				}
 			}
 			if err != nil {
 				return bytesRead, err
@@ -882,6 +993,19 @@ func (a *apiServer) ListTask(req *taskapi.ListTaskRequest, server pfs.API_ListTa
 }
 
 func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
+	msg, err := srv.Recv()
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	switch x := msg.Body.(type) {
+	case *pfs.ModifyFileRequest_SetCommit:
+		return x.SetCommit, nil
+	default:
+		return nil, errors.Errorf("first message must be a commit")
+	}
+}
+
+func monitoredReadCommit(srv pfs.API_MonitoredModifyFileServer) (*pfs.Commit, error) {
 	msg, err := srv.Recv()
 	if err != nil {
 		return nil, errors.EnsureStack(err)

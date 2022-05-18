@@ -413,6 +413,10 @@ func (c *unsupportedPfsBuilderClient) ModifyFile(_ context.Context, opts ...grpc
 	return nil, unsupportedError("ModifyFile")
 }
 
+func (c *unsupportedPfsBuilderClient) MonitoredModifyFile(_ context.Context, opts ...grpc.CallOption) (pfs_v2.API_MonitoredModifyFileClient, error) {
+	return nil, unsupportedError("MonitoredModifyFile")
+}
+
 func (c *unsupportedPfsBuilderClient) PutCache(_ context.Context, _ *pfs_v2.PutCacheRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("PutCache")
 }

@@ -3,6 +3,7 @@ package cmds
 import (
 	"archive/tar"
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1098,41 +1099,58 @@ $ {{alias}} repo@branch -i http://host/path`,
 				sources = filePaths
 			}
 
-			return c.WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
-				for _, source := range sources {
-					source := source
-					if file.Path == "" {
-						// The user has not specified a path so we use source as path.
-						if source == "-" {
-							return errors.Errorf("must specify filename when reading data from stdin")
-						}
-						target := source
-						if !fullPath {
-							target = filepath.Base(source)
-						}
-						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
-							return err
-						}
-					} else if len(sources) == 1 {
-						// We have a single source and the user has specified a path,
-						// we use the path and ignore source (in terms of naming the file).
-						if err := putFileHelper(mf, file.Path, source, recursive, appendFile); err != nil {
-							return err
-						}
-					} else {
-						// We have multiple sources and the user has specified a path,
-						// we use that path as a prefix for the filepaths.
-						target := source
-						if !fullPath {
-							target = filepath.Base(source)
-						}
-						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
-							return err
+			return c.WithMonitoredModifyFileClient(file.Commit,
+				func(ctx context.Context, s *pfs.ModifyFileStatus, err error) error {
+					if err != nil {
+						fmt.Printf(" error: %v\n", err)
+						return nil
+					}
+					switch s.Status {
+					case pfs.ModifyFileStatus_STARTED:
+						fmt.Printf("%s started …", s.GetAddFile().Path)
+					case pfs.ModifyFileStatus_COMPLETED:
+						fmt.Print(" done\n")
+					case pfs.ModifyFileStatus_ERROR:
+					default:
+						fmt.Printf(" unknown status %s\n", s.Status)
+					}
+					return nil
+				},
+				func(mf client.ModifyFile) error {
+					for _, source := range sources {
+						source := source
+						if file.Path == "" {
+							// The user has not specified a path so we use source as path.
+							if source == "-" {
+								return errors.Errorf("must specify filename when reading data from stdin")
+							}
+							target := source
+							if !fullPath {
+								target = filepath.Base(source)
+							}
+							if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
+								return err
+							}
+						} else if len(sources) == 1 {
+							// We have a single source and the user has specified a path,
+							// we use the path and ignore source (in terms of naming the file).
+							if err := putFileHelper(mf, file.Path, source, recursive, appendFile); err != nil {
+								return err
+							}
+						} else {
+							// We have multiple sources and the user has specified a path,
+							// we use that path as a prefix for the filepaths.
+							target := source
+							if !fullPath {
+								target = filepath.Base(source)
+							}
+							if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
+								return err
+							}
 						}
 					}
-				}
-				return nil
-			})
+					return nil
+				})
 		}),
 	}
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
