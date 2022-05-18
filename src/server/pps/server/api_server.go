@@ -1497,6 +1497,9 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 
 func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineRequest) error {
 	for _, s := range req.GetTransform().GetSecrets() {
+		if s.EnvVar != "" && s.Key == "" {
+			return errors.Errorf("secret %s has env_var set but is missing key", s.Name)
+		}
 		_, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
