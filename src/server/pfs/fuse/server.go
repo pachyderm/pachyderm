@@ -1123,6 +1123,10 @@ func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
 }
 
 func (m *MountStateMachine) maybeUploadFiles() error {
+	// TODO XXX VERY IMPORTANT: pause/block filesystem operations during the
+	// upload, otherwise we could get filesystem inconsistency! Need a sort of
+	// lock which multiple fs operations can hold but only one "pauser" can.
+
 	// Only upload files for writeable filesystems
 	if m.Mode == "rw" {
 		// upload any files whose paths start with where we're mounted
@@ -1150,15 +1154,9 @@ func (m *MountStateMachine) maybeUploadFiles() error {
 }
 
 func committingState(m *MountStateMachine) StateFn {
-	// TODO: refactor wrt unmountingState...
-
 	// NB: this function is responsible for placing a response on m.responses
 	// _in all cases_
 	m.transitionedTo("committing", "")
-
-	// TODO XXX VERY IMPORTANT: pause/block filesystem operations during the
-	// upload, otherwise we could get filesystem inconsistency! Need a sort of
-	// lock which multiple fs operations can hold but only one "pauser" can.
 
 	err := m.maybeUploadFiles()
 	if err != nil {
