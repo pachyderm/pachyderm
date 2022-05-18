@@ -91,11 +91,11 @@ Jump to [Helm install](#3-helm-install)
 1. Additional client installation:
 Install [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank}
 
-1. [Create a GKE cluster](../google_cloud_platform/#2-deploy-kubernetes)
+1. [Create a GKE cluster](../google-cloud-platform/#2-deploy-kubernetes)
 Note: 
 Add `--scopes storage-rw` to your `gcloud container clusters create` command. 
 
-1. [Create a GCS Bucket](../google_cloud_platform/#3-create-a-gcs-bucket) for your data
+1. [Create a GCS Bucket](../google-cloud-platform/#3-create-a-gcs-bucket) for your data
 
 1. Create a values.yaml
 

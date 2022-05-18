@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func put(path string, body io.Reader) (*http.Response, error) {
@@ -415,4 +416,179 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 	// Gotta give the fuse mount time to come up.
 	time.Sleep(2 * time.Second)
 	f(dir)
+}
+
+func TestRwUnmountCreatesCommit(t *testing.T) {
+	// Unmounting a mounted read-write filesystem which has had some data
+	// written to it results in a new commit with that data in it.
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = ioutil.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_unmount?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+	})
+}
+
+func TestRwCommitCreatesCommit(t *testing.T) {
+	// Commit operation creates a commit.
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = ioutil.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+	})
+}
+
+func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
+	// Two sequential commit operations create two commits (and they contain the
+	// correct files).
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = ioutil.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+
+		// another file!
+		err = ioutil.WriteFile(
+			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 2)
+	})
+}
+
+func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
+	// Commit and then unmount results in two commits, since unmounting creates
+	// one too.
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = ioutil.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+
+		// another file!
+		err = ioutil.WriteFile(
+			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_unmount?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 2)
+	})
 }

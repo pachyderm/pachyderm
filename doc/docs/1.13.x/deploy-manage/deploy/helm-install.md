@@ -19,7 +19,7 @@ This page gives you a high level view of the steps to follow to install Pachyder
     * **Find the deployment page that applies to your Cloud provider** (or custom deployment, or on-premises deployment).
     It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation that fit your own use case:
     
-        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/#google-cloud-platform) page.
+        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google-cloud-platform/#google-cloud-platform) page.
 
     * Additionally, those instructions will also help you configure the various elements (persistent volume, object store, credentials...) that relate to your deployment needs. 
     In the case of a deployment using `pachctl deploy`, the values of those parameters would ultimately be passed to the corresponding arguments and flags of the command.

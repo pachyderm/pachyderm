@@ -11,7 +11,7 @@ As a good practice, we recommend that you check the [release notes](https://gith
 Complete the following steps to upgrade Pachyderm from one minor release to another.
 ## Backup your cluster
 
-As a general good practice, start with the backup of your cluster as described in the [Backup and Restore](../backup_restore/)
+As a general good practice, start with the backup of your cluster as described in the [Backup and Restore](../backup-restore/)
 section of this documentation.
 
 ## Update your helm values
