@@ -45,11 +45,14 @@ const RawLogRow: React.FC<LogRowProps> = ({
     >
       <div ref={heightRef} className={styles.messageCol}>
         {highlightUserLogs && user ? (
-          <CodeText data-testid="RawLogRow__user_log" className={styles.mark}>
+          <CodeText
+            data-testid="RawLogRow__user_log"
+            className={classnames(styles.rawText, styles.mark)}
+          >
             {message}
           </CodeText>
         ) : (
-          <CodeText>{message}</CodeText>
+          <CodeText className={styles.rawText}>{message}</CodeText>
         )}
       </div>
     </div>

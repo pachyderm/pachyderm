@@ -19,3 +19,7 @@
   background-color: var(--background-blue);
   padding: 0;
 }
+
+.rawText {
+  color: var(--white);
+}
