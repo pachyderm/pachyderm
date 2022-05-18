@@ -145,7 +145,6 @@ type ServerOptions struct {
 
 type Request struct {
 	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
-	Mount  bool   // true for desired state == mounted, false for desired state == unmounted
 	Repo   string
 	Branch string
 	Commit string // "" for no commit (commit as noun)
@@ -298,7 +297,6 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
 		Action: "mount",
-		Mount:  true,
 		Repo:   key.Repo,
 		Branch: key.Branch,
 		Commit: key.Commit,
@@ -313,7 +311,6 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
 		Action: "unmount",
-		Mount:  false,
 		Repo:   key.Repo,
 		Branch: key.Branch,
 		Commit: key.Commit,
@@ -1064,7 +1061,11 @@ func mountedState(m *MountStateMachine) StateFn {
 		req := <-m.requests
 		switch req.Action {
 		case "mount":
-			// XXX this should be keyed on mount name now, no?
+			// This check is necessary to make sure that if the incoming request
+			// is trying to mount a repo at mount_name and mount_name is already
+			// being used, the request repo and branch match the repo and branch
+			// already associated with mount_name. It's essentially a safety
+			// check for when we get to the remounting case below.
 			if req.Repo != m.MountKey.Repo || req.Branch != m.MountKey.Branch {
 				m.responses <- Response{
 					Repo:       m.MountKey.Repo,
@@ -1121,6 +1122,33 @@ func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
 	}
 }
 
+func (m *MountStateMachine) maybeUploadFiles() error {
+	// Only upload files for writeable filesystems
+	if m.Mode == "rw" {
+		// upload any files whose paths start with where we're mounted
+		err := m.manager.uploadFiles(m.Name)
+		if err != nil {
+			return err
+		}
+		// close the mfc, uploading files, then delete it
+		mfc, err := m.manager.mfc(m.Name)
+		if err != nil {
+			return err
+		}
+		err = mfc.Close()
+		if err != nil {
+			return err
+		}
+		// cleanup mfc - a new one will be created on-demand
+		func() {
+			m.manager.mu.Lock()
+			defer m.manager.mu.Unlock()
+			delete(m.manager.mfcs, m.Name)
+		}()
+	}
+	return nil
+}
+
 func committingState(m *MountStateMachine) StateFn {
 	// TODO: refactor wrt unmountingState...
 
@@ -1132,59 +1160,19 @@ func committingState(m *MountStateMachine) StateFn {
 	// upload, otherwise we could get filesystem inconsistency! Need a sort of
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
-	// Only upload files for writeable filesystems
-	if m.Mode == "rw" {
-		// upload any files whose paths start with where we're mounted
-		err := m.manager.uploadFiles(m.Name)
-		if err != nil {
-			logrus.Infof("Error while uploading! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
+	err := m.maybeUploadFiles()
+	if err != nil {
+		logrus.Infof("Error while uploading! %s", err)
+		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
 		}
-
-		// close the mfc, uploading files, then delete it
-		mfc, err := m.manager.mfc(m.Name)
-		if err != nil {
-			logrus.Infof("Error while getting mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
-		}
-		err = mfc.Close()
-		if err != nil {
-			logrus.Infof("Error while closing mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
-		}
-		// cleanup mfc - a new one will be created on-demand
-		func() {
-			m.manager.mu.Lock()
-			defer m.manager.mu.Unlock()
-			delete(m.manager.mfcs, m.Name)
-		}()
+		return errorState
 	}
 
 	// TODO: fill in more fields?
@@ -1205,61 +1193,21 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// upload, otherwise we could get filesystem inconsistency! Need a sort of
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
-	// Only upload files for writeable filesystems
-	if m.Mode == "rw" {
-		// upload any files whose paths start with where we're mounted
-		err := m.manager.uploadFiles(m.Name)
-		if err != nil {
-			logrus.Infof("Error while uploading! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
+	err := m.maybeUploadFiles()
+	if err != nil {
+		logrus.Infof("Error while uploading! %s", err)
+		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
 		}
-
-		// close the mfc, uploading files, then delete it
-		mfc, err := m.manager.mfc(m.Name)
-		if err != nil {
-			logrus.Infof("Error while getting mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
-		}
-		err = mfc.Close()
-		if err != nil {
-			logrus.Infof("Error while closing mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
-		}
+		return errorState
 	}
 
-	// cleanup
-	func() {
-		m.manager.mu.Lock()
-		defer m.manager.mu.Unlock()
-		delete(m.manager.mfcs, m.Name)
-	}()
 	func() {
 		m.manager.root.mu.Lock()
 		defer m.manager.root.mu.Unlock()
@@ -1274,7 +1222,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
 	logrus.Infof("Path is %s", cleanPath)
 
-	err := os.RemoveAll(cleanPath)
+	err = os.RemoveAll(cleanPath)
 	m.responses <- Response{
 		Repo:       m.MountKey.Repo,
 		Branch:     m.MountKey.Branch,

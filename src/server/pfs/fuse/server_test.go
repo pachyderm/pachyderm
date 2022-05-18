@@ -455,7 +455,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 }
 
 func TestRwCommitCreatesCommit(t *testing.T) {
-	// Two sequential commit operations create two commits.
+	// Commit operation creates a commit.
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	client.NewCommit("repo", "master", "")
