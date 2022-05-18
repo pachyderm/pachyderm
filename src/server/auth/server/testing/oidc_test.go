@@ -1,7 +1,6 @@
 package server
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -92,7 +91,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 			Expires:        ts,
 		})
 	require.NoError(t, err)
-	require.True(t, resp.GetInfo().Expires.Seconds == ts.Seconds)
+	require.Equal(t, ts.Seconds, resp.GetInfo().Expires.Seconds)
 
 	// Heartbeat forces Enterprise Service to refresh it's view of the LicenseRecord
 	_, err = adminClient.Enterprise.Heartbeat(adminClient.Ctx(), &enterprise.HeartbeatRequest{})
@@ -102,7 +101,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	_, err = testClient.Authenticate(testClient.Ctx(),
 		&auth.AuthenticateRequest{OIDCState: loginInfo.State})
 	require.YesError(t, err)
-	require.True(t, strings.Contains(err.Error(), "Pachyderm Enterprise is not active"))
+	require.Matches(t, "Pachyderm Enterprise is not active", err.Error())
 
 	// give test user the Cluster Admin Role
 	// admin grants alice cluster admin role

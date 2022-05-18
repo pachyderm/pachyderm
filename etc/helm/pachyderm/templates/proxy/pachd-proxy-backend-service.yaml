@@ -1,0 +1,37 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Values.proxy.enabled .Values.pachd.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: pachyderm-proxy-support
+    suite: pachyderm
+  name: pachd-proxy-backend
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - name: api-grpc-port
+    port: 1650
+    targetPort: api-grpc-port
+  - name: oidc-port
+    port: 1657
+    targetPort: oidc-port
+  - name: identity-port
+    port: 1658
+    targetPort: identity-port
+  - name: s3gateway-port
+    port: 1600
+    targetPort: s3gateway-port
+  - name: prom-metrics
+    port: 1656
+    protocol: TCP
+    targetPort: prom-metrics
+  selector:
+    app: pachd
+    suite: pachyderm
+  type: ClusterIP
+  clusterIP: None
+{{- end }}

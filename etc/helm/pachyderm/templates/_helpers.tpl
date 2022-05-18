@@ -46,9 +46,14 @@ http
 
 {{- define "pachyderm.issuerURI" -}}
 {{- if .Values.oidc.issuerURI -}}
+{{- if and .Values.proxy.enabled (not (hasSuffix "/dex" .Values.oidc.issuerURI)) -}}
+{{ fail (printf "With the proxy enabled, oidc.issuerURI must end with /dex, not %s" .Values.oidc.issuerURI) }}
+{{- end -}}
 {{ .Values.oidc.issuerURI }}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s/dex" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- else if .Values.proxy.enabled -}}
+http://pachd:30658/dex
 {{- else if not .Values.ingress.enabled -}}
 {{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658
@@ -61,7 +66,7 @@ http://pachd:30658
 {{- end }}
 
 {{- /*
-reactAppRuntimeIssuerURI: The URI without the path of the user accessible issuerURI. 
+reactAppRuntimeIssuerURI: The URI without the path of the user accessible issuerURI.
 ie. In local deployments, this is http://localhost:30658, while the issuer URI is http://pachd:30658
 In deployments where the issuerURI is user accessible (ie. Via ingress) this would be the issuerURI without the path
 */ -}}
