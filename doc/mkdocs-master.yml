@@ -181,7 +181,7 @@ nav:
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Egress to an SQL Database: how-tos/basic-data-operations/export-data-out-pachyderm/sql-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
-            - Delete a Commit / Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+            - Delete a Commit / Delete Data: how-tos/basic-data-operations/removing-data-from-pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md

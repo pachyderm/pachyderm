@@ -57,7 +57,7 @@ data operations in Pachyderm.
           Ingress/Egress Data from an External Object Store
           </a>
           </li>
-          <li><a href="basic-data-operations/removing_data_from_pachyderm" class="md-typeset md-link">
+          <li><a href="basic-data-operations/removing-data-from-pachyderm" class="md-typeset md-link">
           Delete Data
           </a>
           </li>         

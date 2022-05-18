@@ -215,6 +215,12 @@
   force = true
 
 [[redirects]]
+  from = "/:version/how-tos/basic-data-operations/removing_data_from_pachyderm/"
+  to = "/:version/how-tos/basic-data-operations/removing-data-from-pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/:version/how-tos/pipeline-operations/"
   to = "/:version/how-tos/pipeline-operations/create-pipeline/"
   status = 301

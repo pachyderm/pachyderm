@@ -51,7 +51,7 @@ data operations in Pachyderm.
           Ingest/Export Strategies Overview
           </a>
           </li>
-          <li><a href="basic-data-operations/removing_data_from_pachyderm" class="md-typeset md-link">
+          <li><a href="basic-data-operations/removing-data-from-pachyderm" class="md-typeset md-link">
           Delete Data
           </a>
           </li>         
