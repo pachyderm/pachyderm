@@ -1,0 +1,70 @@
+{
+   "admin": {
+      "access_log": [
+         {
+            "name": "envoy.access_loggers.stderr",
+            "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog"
+            }
+         }
+      ],
+      "address": {
+         "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": 9901
+         }
+      }
+   },
+   "layered_runtime": {
+      "layers": [
+         {
+            "name": "static_layer_0",
+            "static_layer": {
+               "overload": {
+                  "global_downstream_max_connections": 50000
+               }
+            }
+         }
+      ]
+   },
+   "overload_manager": {
+      "actions": [
+         {
+            "name": "envoy.overload_actions.shrink_heap",
+            "triggers": [
+               {
+                  "name": "envoy.resource_monitors.fixed_heap",
+                  "threshold": {
+                     "value": 0.94999999999999996
+                  }
+               }
+            ]
+         },
+         {
+            "name": "envoy.overload_actions.stop_accepting_requests",
+            "triggers": [
+               {
+                  "name": "envoy.resource_monitors.fixed_heap",
+                  "threshold": {
+                     "value": 0.97999999999999998
+                  }
+               }
+            ]
+         }
+      ],
+      "refresh_interval": "0.25s",
+      "resource_monitors": [
+         {
+            "name": "envoy.resource_monitors.fixed_heap",
+            "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.resource_monitors.fixed_heap.v3.FixedHeapConfig",
+               "max_heap_size_bytes": 500000000
+            }
+         }
+      ]
+   },
+   "static_resources": {
+      "clusters": [ ],
+      "listeners": [ ]
+   }
+}
