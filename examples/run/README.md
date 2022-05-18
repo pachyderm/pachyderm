@@ -34,7 +34,7 @@ All the configuration variables for the creation of the pipeline are stored in t
 This includes pipeline name, where the pipeline takes the input from etc. All the variables
 are commented in the file so read on there for more details.
 
-[pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline. For more information, see: [Pipeline specs](https://docs.pachyderm.com/latest/reference/pipeline_spec/).
+[pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline. For more information, see: [Pipeline specs](https://docs.pachyderm.com/latest/reference/pipeline-spec/).
 
 ## Creating the pipeline
 
