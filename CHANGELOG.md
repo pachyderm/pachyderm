@@ -1,5 +1,111 @@
 
 # Changelog
+
+## 2.2.0
+
+- [CORE-586] Update how we handle null values in CSV  - #7623	
+- Ensure shard ranges contain all paths.  - #7621		
+- Upgrade s2  - #7616	
+- 2.2.x backport: debug dump: collect logs for all suite=pachyderm pods  - #7613		
+- [CORE-572] Enable copying root directory of source repo  - #7606	
+- Fix annotations setting in pachd (2.2.x merge)  - #7602		
+- 2.2.x patch - Convert SQL numeric types to string  - #7603		
+- [CORE-550] Pretty-print egress  - #7598		
+- CORE-558 rename "k8s_secret" to "name" in Egress secret  - #7580		
+- [CORE-370] Fix reference to non-existent AccessLevel  - #7582		
+- CORE-387 New Egress API  - #7522		
+- [CORE-295] Check repo existence before put file  - #7549		
+- Make postgres watches respect contexts. - #7544		
+- Collect all minikubetestenv logs, avoid minikubetestenv port conflicts - #7550		
+- Implement compaction cache - #7538		
+- Migrate Auth tests to Client Factory - #7546		
+- Migrate Admin Tests - #7545		
+- Add docker build and push to build job - #7547		
+- Migrating tests to use Client Factory	 - #7543		
+- Remove reference to Hub - #7548		
+- move ListPipelineInfo to ppsutil to reduce PPS master dependency on APIServer	- #7529		
+- Fix `pachctl unmount --all` bug for mac - #7306		
+- Add responses for mount/unmount handlers - #7403		
+- Skip validation errors when choosing a job's base commit. - #7519		
+- Use prettier to autoformat the circleci config and helm values files - #7523		
+- [ENT-89] Azure cluster creation script - #7512	
+- Turn off mockIDP role binding when using Upstream IDPs - #7484	
+- NewSQLTupleWriter and tests - #7507	
+- Make pipeline logic and side-effect handling explicit	 - #7489	
+- Clean up container after proto build again. - #7511	
+- Batch copy operations in unordered writer. - #7436	
+- Fix test after merge.	- #7505		
+- Expose configuration for compaction sharding - #7503	
+- Ensure shard path ranges are disjoint. - #7474		
+- Start to break out composite uses of k8s in pipeline_controller into kubeDriver - #7449		
+- Fix missing files (flaky correctness issue) & switch keys to mount name - #7428		
+- pachctl port-forward: cleanup on SIGHUP (window closed) - #7500		
+- Exit finishing early for errored commits.	 - #7433		
+- pachsql: GetTableInfo	 - #7439
+- don't include deployTarget in enterprise server's helm config	 - #7479	
+- Add buffering to debug dump stream	 - #7493		
+- Significantly improve performance in FUSE mounts	 - #7495	
+- Decouple content defined chunking from file batching	 - #7442		
+- Remove the restart call from inside getRC	 - #7475		
+- Use a singleton pach address object in deploy.go	 - #7476	
+- Support Dex Secret files for IDPs	 - #7466		
+- Re-revert wikipedia example license matches - #7478	
+- Expose pachd.identityDatabaseFullNameOverride to configure dex DB name - #7464	
+- Wordcount example now finds license 13 times - #7465	
+- PPS master event nits	 - #7446		
+- expose PGBOUNCER_DEFAULT_POOL_SIZE - #7454	
+- Fix typo and improve verbiage in pachctl pps cmds	- #7409	
+- Address CVE-2021-3121 - #7453	
+- Speed up pause/unpause test - #7451		
+- Find helm chart in a more os-independent way.	 - #7445	
+- Block task service setup on etcd client creation.	 - #7448		
+- Refactor to reduce complexity in Pipeline Controller	 - #7438	
+- Fix pachtcl port-forward so that it directs by default at the pod ports - #7443		
+- Remove deleted load tests from circle	 - #7437	
+- Distribute load testing - #7388	
+- Structured Data: CSV & JSON Parsers - #7370		
+- Start simplifying pipeline_controller.go - #7393
+- storage/chunk: Fix TaskChain executing callbacks after Wait has returned.	 - #7416	
+- Propagating Custom certs referenced in pachd's SSL_CERT_DIR to side-cars	 - #7414
+- Add unmounting all repos handler - #7302	
+- Strip build directory from pachd stack traces	 - #7413	
+- [mount server] Error if trying to mount nonexistent repo - #7389	
+- Don't propagate TotalFileSet if parent commit errored in alias commits  - #7408	
+- Add .png extension to charts - #7396	
+- Fix Secure (HTTPS) setting for Minio	- #7390		
+- Upgrade to latest S2 library - #7397		
+- [ENT-102] pachgen is non-deterministic	 - #7387	
+- [ENT-39] Implement pause and unpause	 - #7272		
+- DeleteAll() before and after test in AcquireClient - #7395	
+- Pool pachyderm clusters for parallel integration tests - #7357	
+- Fix: check sql.ErrNoRows in error chain - #7380
+- Set Nodeports to the same values as the service port - #7366
+- Receive keep alive responses for worker ip renewal - #7367	
+- Fix debug dump segfault on failed jobs - #7373	
+- Add post upgrade hook for configpod - #7375	
+- Remove Enterprise Server's init container	 - #7368	
+- [Mount Server] Add 401 return code for unauthenticated user - #7365	
+- Update to Pachyderm 2.1.0, fix PostgreSQL password - #7362	
+- CORE-288 Add Snowflake driver - #7346	
+- pachctl: only print "reading from stdin" if stdin is a terminal - #7356	
+- pps/cmds: change jsonnet args to StringArrayVar from StringSliceVar - #7336	
+- Limit k8s requests inside getRC retry. - #7359	
+- Add annotations to helm chart for pachd and console services.	 - #7345	
+- Handle "never" cron ticks. - #7353
+- Reduce the chunk batch size - #7351	
+- Finer grained locking of Index Writer data - #7290	
+- Testing enterprise deployments - #7299	
+- Remove pachd's init container	 - #7335	
+- Add node selectors to many components. - #7339	
+- Temporarily skip ECS test. - #7341	
+- Open commits performance changes  - #7333
+- Add protoc plugin for autogenerating some protobuf boilerplate - #7244	
+- Start Enterprise Heartbeat routine immediately - #7310
+- Allow incorrect use of update pipeline. - #7332	
+- Fix symlink upload with lazy files - #7301	
+- Fix a couple task service issues - #7315	
+
+
 ## 2.1.8
 - red hat push fix 2.1.x - #7626
 - Ensure shard ranges contain all paths. - #7620

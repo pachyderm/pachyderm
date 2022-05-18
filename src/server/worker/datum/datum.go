@@ -494,16 +494,13 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 	return func(meta *Meta) error {
 		ID := common.DatumID(meta.Inputs)
 		tagOption := client.WithDatumDeleteFile(ID)
-		// Delete the datum directory in the meta output.
-		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID)+"/", tagOption); err != nil {
+		// Delete the datum's meta file from the meta commit.
+		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID, MetaFileName), tagOption); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := metaOutputClient.DeleteFile(path.Join(PFSPrefix, ID)+"/", tagOption); err != nil {
-			return errors.EnsureStack(err)
-		}
-		// Delete the content output by the datum.
-		outputDir := "/" + path.Join(PFSPrefix, ID, OutputPrefix)
-		files, err := metaFileWalker(outputDir)
+		pfsDir := "/" + path.Join(PFSPrefix, ID)
+		outDir := path.Join(pfsDir, OutputPrefix)
+		files, err := metaFileWalker(pfsDir)
 		if err != nil {
 			if pfsserver.IsFileNotFoundErr(err) {
 				return nil
@@ -511,13 +508,19 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 			return err
 		}
 		for i := range files {
-			// Remove the output directory prefix.
-			file, err := filepath.Rel(outputDir, files[i])
-			if err != nil {
+			if err := metaOutputClient.DeleteFile(files[i], tagOption); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if err := pfsOutputClient.DeleteFile(file, tagOption); err != nil {
-				return errors.EnsureStack(err)
+			// Delete the content output by the datum.
+			if strings.HasPrefix(files[i], outDir) {
+				// Remove the output directory prefix.
+				file, err := filepath.Rel(outDir, files[i])
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				if err := pfsOutputClient.DeleteFile(file, tagOption); err != nil {
+					return errors.EnsureStack(err)
+				}
 			}
 		}
 		return nil

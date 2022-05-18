@@ -1,7 +1,7 @@
 site_name: Pachyderm Documentation
 site_description: A Pachyderm documentation website that provides information on how to use Pachyderm data version control products.
 site_author: Pachyderm
-site_url: https://docs.pachyderm.com/latest/
+site_url: https://docs.pachyderm.com/2.1.x/
 docs_dir: docs/2.1.x/
 site_dir: site/2.1.x/
 
@@ -19,13 +19,13 @@ pach_branch: '2.1.x'
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
-pach_featured_version: '2.1.8'
+pach_featured_version: '2.2.0'
 # Latest version of Pachyderm
-pach_latest_version: '2.1.8'
-pach_major_minor_version: '2.1'
-search_index_version: 'latest'
+pach_latest_version: '2.2.0'
+pach_major_minor_version: '2.2'
+search_index_version: '2.1.x'
 # Latest tag of the JupyterLab Mount Extension
-jupyterlab_extension_image_tag: 'v0.4.0'
+jupyterlab_extension_image_tag: 'v0.5.0'
 
 
 # Configuration
@@ -129,7 +129,7 @@ nav:
         - Quick Start - Local Installation: getting-started/local-installation.md
         - Beginner Tutorial: getting-started/beginner-tutorial.md
         - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
-        - Use pachctl Shell: deploy-manage/manage/pachctl_shell.md
+        - Use pachctl Shell: deploy-manage/manage/pachctl-shell.md
         - Local Installation On WSL: getting-started/wsl-deploy.md
     - Concepts:
         - Overview: concepts/index.md
@@ -208,14 +208,14 @@ nav:
                 - Set Up Secrets Manager: 
                     - AWS Secrets Manager: deploy-manage/deploy/aws-secret-manager.md  
                 - Deploy on AWS: deploy-manage/deploy/aws-deploy-pachyderm.md
-                - Deploy on GCP: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on GCP: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
-                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+                - Deploy On-Premises: deploy-manage/deploy/on-premises.md
             - Deploy Console: deploy-manage/deploy/console.md
             - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/#install-the-mount-extension
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
-                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
+                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy-w-tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
             - Post-Deployment:    
@@ -236,11 +236,11 @@ nav:
                 - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
-                - Overview: deploy-manage/manage/upgrades_migrations.md
+                - Overview: deploy-manage/manage/upgrades-migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
-            - Backup and Restore: deploy-manage/manage/backup_restore.md
+            - Backup and Restore: deploy-manage/manage/backup-restore.md
             - Storage Use and GPUs:
-                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Storage Use Optimization: deploy-manage/manage/data-management.md
                 - Use GPUs: deploy-manage/manage/gpus.md
     - Reference:
         - Overview: reference/index.md
