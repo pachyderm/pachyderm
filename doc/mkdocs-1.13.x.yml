@@ -417,9 +417,9 @@ nav:
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
-        - General Troubleshooting: troubleshooting/general_troubleshooting.md
-        - Deployment Troubleshooting: troubleshooting/deploy_troubleshooting.md
-        - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
+        - General Troubleshooting: troubleshooting/general-troubleshooting.md
+        - Deployment Troubleshooting: troubleshooting/deploy-troubleshooting.md
+        - Pipeline Troubleshooting: troubleshooting/pipeline-troubleshooting.md
 
 # Google Analytics
 #google_analytics:

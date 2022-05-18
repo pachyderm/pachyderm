@@ -221,8 +221,26 @@
   force = true
 
 [[redirects]]
-  from = "/:version/how-tos/pipeline-operations/updating_pipelines"
+  from = "/:version/how-tos/pipeline-operations/updating_pipelines/"
   to = "/:version/how-tos/pipeline-operations/updating-pipelines/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/troubleshooting/general_troubleshooting/"
+  to = "/:version/troubleshooting/general-troubleshooting/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/troubleshooting/deploy_troubleshooting/"
+  to = "/:version/troubleshooting/deploy-troubleshooting/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/troubleshooting/pipeline_troubleshooting/"
+  to = "/:version/troubleshooting/pipeline-troubleshooting/"
   status = 301
   force = true
 
