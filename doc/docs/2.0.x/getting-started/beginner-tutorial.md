@@ -13,7 +13,7 @@ This guide assumes that you already have Pachyderm running.
 - Or check out our [Quick Install](../../deploy-manage/deploy/quickstart/) page to deploy on your favorite cloud.
 
 !!! tip
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/).
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/).
     This handy tool suggests `pachctl` commands as you type and
     helps you learn Pachyderm faster.
 

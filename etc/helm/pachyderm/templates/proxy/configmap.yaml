@@ -1,0 +1,19 @@
+{{- if .Values.proxy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.labels }}
+    {{- toYaml .Values.proxy.labels | nindent 6 }}
+    {{- end }}
+  {{- if .Values.proxy.annotations }}
+  annotations:
+    {{- toYaml .Values.proxy.annotations | nindent 8 }}
+  {{- end }}
+  name: pachyderm-proxy-config
+data:
+  envoy.json: |
+    {{- .Files.Get "envoy.json" | nindent 4 }}
+{{- end }}

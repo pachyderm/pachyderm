@@ -32,7 +32,7 @@ Each job has the following stages:
 
 Below, the state transition diagram of a job:  
 
-![Job State Diagram](../../images/job_state_diagram.png)
+![Job State Diagram](../../images/job-state-diagram.png)
 
 ## List Jobs
 

@@ -23,6 +23,7 @@ Each job has the following stages:
 | --------- | ------------ |
 |CREATED| An input commit exists, but the job has not been started by a worker yet.|
 |STARTING| The worker has allocated resources for the job (that is, the job counts towards parallelism), but it is still waiting on the inputs to be ready.|
+|UNRUNNABLE|The job could not be run, because one or more of its inputs is the result of a failed or unrunnable job.|
 |RUNNING|The worker is processing datums.|
 |EGRESS|The worker has completed all the datums and is uploading the output to the egress endpoint.|
 |FINISHING| After all of the datum processing and egress (if any) is done, the job transitions to a finishing state where all of the post-processing tasks such as compaction are performed.|
@@ -32,7 +33,7 @@ Each job has the following stages:
 
 Below, the state transition diagram of a job: 
 
-![Job State Diagram](../../images/job_state_diagram.png)
+![Job State Diagram](../../images/job-state-diagram.png)
 
 ## List Jobs
 
