@@ -137,6 +137,60 @@
   force = true
 
 [[redirects]]
+  from = "/:version/deploy-manage/deploy/prometheus/job_metrics/"
+  to = "/:version/deploy-manage/deploy/prometheus/job-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/prometheus/pachd_metrics/"
+  to = "/:version/deploy-manage/deploy/prometheus/pachd-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/on_premises/"
+  to = "/:version/deploy-manage/deploy/on-premises/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/deploy_w_tls/"
+  to = "/:version/deploy-manage/deploy/deploy-w-tls/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/google_cloud_platform/"
+  to = "/:version/deploy-manage/deploy/google-cloud-platform/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/upgrades_migrations/"
+  to = "/:version/deploy-manage/manage/upgrades-migrations/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/backup_restore/"
+  to = "/:version/deploy-manage/manage/backup-restore/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/pachctl_shell/"
+  to = "/:version/deploy-manage/manage/pachctl-shell/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/data_management/"
+  to = "/:version/deploy-manage/manage/data-management/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
   status = 301

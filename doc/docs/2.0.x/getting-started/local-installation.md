@@ -151,7 +151,7 @@ Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
   
 !!! Tip  
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/). This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/). This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
   
 * Get the Repo Info:  
    ```shell  

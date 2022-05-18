@@ -110,7 +110,7 @@ nav:
         - Overview: getting-started/index.md
         - Local Installation: getting-started/local-installation.md
         - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
-        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
+        - Use Pachctl Shell: deploy-manage/manage/pachctl-shell.md
         - Deploy Pachyderm on Windows: getting-started/wsl-deploy.md
         - Beginner Tutorial: getting-started/beginner-tutorial.md
     - Concepts:
@@ -192,11 +192,11 @@ nav:
                     - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
                     - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
                     - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
-                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
+                - Deploy on GKE: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+                - Deploy On-Premises: deploy-manage/deploy/on-premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -208,7 +208,7 @@ nav:
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
-                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
+                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy-w-tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
@@ -233,12 +233,12 @@ nav:
                 - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
-                - Overview: deploy-manage/manage/upgrades_migrations.md
+                - Overview: deploy-manage/manage/upgrades-migrations.md
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
-            - Backup and Restore: deploy-manage/manage/backup_restore.md
+            - Backup and Restore: deploy-manage/manage/backup-restore.md
             - Optimize Performance:
-                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Storage Use Optimization: deploy-manage/manage/data-management.md
                 - Use GPUs: deploy-manage/manage/gpus.md
                 - Share GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
     - Reference:
