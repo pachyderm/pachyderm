@@ -173,9 +173,9 @@ nav:
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
-            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time-windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
-            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
+            - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md        
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md

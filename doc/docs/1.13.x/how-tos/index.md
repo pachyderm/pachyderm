@@ -124,7 +124,7 @@ data operations in Pachyderm.
            Split Data
            </a>
            </li>
-           <li><a href="advanced-data-operations/time_windows" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/time-windows" class="md-typeset md-link">
            Processing Time-Windowed Data
            </a>
           </li>
@@ -133,7 +133,7 @@ data operations in Pachyderm.
            Use Transactions
            </a>
           </li>
-           <li><a href="advanced-data-operations/err_cmd" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/err-cmd" class="md-typeset md-link">
            Skip Failed Datums
            </a>
           </li>

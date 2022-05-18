@@ -197,6 +197,18 @@
   force = true
 
 [[redirects]]
+  from = "/:version/how-tos/advanced-data-operations/err_cmd/"
+  to = "/:version/how-tos/advanced-data-operations/err-cmd/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/how-tos/advanced-data-operations/time_windows/"
+  to = "/:version/how-tos/advanced-data-operations/time-windows/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/:version/how-tos/basic-data-operations/export-data-out-pachyderm/"
   to = "/:version/how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl/"
   status = 301

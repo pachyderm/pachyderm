@@ -173,9 +173,9 @@ nav:
                 - Overview: how-tos/advanced-data-operations/splitting-data/index.md
                 - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
                 - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
-            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time-windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
-            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md    
+            - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md    
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md   
         - Use Pachyderm IDE:
             - Overview: how-tos/use-pachyderm-ide/index.md
