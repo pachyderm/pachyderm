@@ -24,7 +24,7 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig() *auth.OIDCConfig {
 	return &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "pachyderm",
 		ClientSecret:    "notsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/callback",
@@ -43,7 +43,7 @@ func ConfigureOIDCProvider(t *testing.T, c *client.APIClient) error {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://pachd:1658/",
+			Issuer: "http://pachd:1658/dex",
 		},
 	})
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func ConfigureOIDCProvider(t *testing.T, c *client.APIClient) error {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://pachd:1658/", resp.Config.Issuer,
+			"http://pachd:1658/dex", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -148,8 +148,8 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient) strin
 		ClientSecret: "test",
 		RedirectURL:  "http://test.example.com:1657/authorization-code/callback",
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  RewriteURL(t, "http://pachd:30658/auth", DexHost(testClient)),
-			TokenURL: RewriteURL(t, "http://pachd:30658/token", DexHost(testClient)),
+			AuthURL:  RewriteURL(t, "http://pachd:30658/dex/auth", DexHost(testClient)),
+			TokenURL: RewriteURL(t, "http://pachd:30658/dex/token", DexHost(testClient)),
 		},
 		Scopes: []string{
 			"openid",

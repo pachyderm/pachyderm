@@ -156,7 +156,7 @@ func TestSetConfiguration(t *testing.T) {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:30658/",
+			Issuer: "http://localhost:30658/dex",
 		},
 	})
 	require.NoError(t, err)
@@ -166,16 +166,16 @@ func TestSetConfiguration(t *testing.T) {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://localhost:30658/", resp.Config.Issuer,
+			"http://localhost:30658/dex", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 
-	resp, err := http.Get(fmt.Sprintf("http://%v/.well-known/openid-configuration", tu.DexHost(adminClient)))
+	resp, err := http.Get(fmt.Sprintf("http://%v/dex/.well-known/openid-configuration", tu.DexHost(adminClient)))
 	require.NoError(t, err)
 
 	var oidcConfig map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&oidcConfig))
-	require.Equal(t, "http://localhost:30658/", oidcConfig["issuer"].(string))
+	require.Equal(t, "http://localhost:30658/dex", oidcConfig["issuer"].(string))
 }
 
 func TestOIDCClientCRUD(t *testing.T) {
@@ -277,7 +277,7 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer:              "http://pachd:1658/",
+			Issuer:              "http://pachd:1658/dex",
 			IdTokenExpiry:       "1h",
 			RotationTokenExpiry: "5h",
 		},
