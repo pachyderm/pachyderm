@@ -1778,6 +1778,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+	if err := a.validatePipelineRequest(request); err != nil {
+		return nil, err
+	}
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
