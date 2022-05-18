@@ -111,5 +111,5 @@ will still be in the `HEAD` of the branch.
     - [Pipelines](../../../concepts/pipeline-concepts/pipeline/)
     - [Pipeline Specification](../../../reference/pipeline_spec/)
     - [Jsonnet Pipeline Specification](../jsonnet-pipeline-specs/)
-    - [Update a Pipeline](../updating_pipelines/)
+    - [Update a Pipeline](../updating-pipelines/)
     - [Delete a Pipeline](../delete-pipeline/)

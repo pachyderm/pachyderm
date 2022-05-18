@@ -77,7 +77,7 @@ data operations in Pachyderm.
            <li><a href="pipeline-operations/create-pipeline/" class="md-typeset md-link">
            Create a Pipeline
            </a></li>
-           <li><a href="pipeline-operations/updating_pipelines/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/updating-pipelines/" class="md-typeset md-link">
            Update a Pipeline
            </a></li>
            <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">

@@ -184,7 +184,7 @@ nav:
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
-            - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
+            - Update a Pipeline: how-tos/pipeline-operations/updating-pipelines.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Use Jsonnet Pipeline Specs: how-tos/pipeline-operations/jsonnet-pipeline-specs.md
         - Advanced Data Operations: 

@@ -92,5 +92,5 @@ will still be in the `HEAD` of the branch.
 !!! note "See Also:"
     - [Pipelines](../../../concepts/pipeline-concepts/pipeline/)
     - [Pipeline Specification](../../../reference/pipeline_spec/)
-    - [Update a Pipeline](../updating_pipelines/)
+    - [Update a Pipeline](../updating-pipelines/)
     - [Delete a Pipeline](../delete-pipeline/)
