@@ -36,6 +36,9 @@ const pachyderm = new k8s.helm.v3.Release(
         oauthClientSecret: "i9mRbLujCvi8j3NPKOFPklXai71oqz3y",
         rootToken: "1WgTXSc2MccsxunEzXvSAejsKNyT4Lsy",
         enterpriseSecret: "SBgvzhmVtMxiVbzSIzpWqi3fKCfsup3o",
+        annotations: {
+          "cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+        },
       },
       deployTarget: "LOCAL",
       console: {
