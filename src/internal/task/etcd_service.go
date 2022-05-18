@@ -121,7 +121,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
 		done := make(chan struct{})
 		var count int64
-		defer func() {
+		defer func(ctx context.Context) {
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
 				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
 					return errors.EnsureStack(err)
@@ -130,7 +130,8 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 			}); err != nil {
 				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
 			}
-		}()
+		}(ctx)
+		ctx, cancel := context.WithCancel(ctx)
 		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
@@ -167,7 +168,10 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				return nil
 			})
-			return errors.EnsureStack(err)
+			if err != nil && !errors.As(err, context.Canceled) {
+				return errors.EnsureStack(err)
+			}
+			return nil
 		})
 		eg.Go(func() error {
 			var index int64
@@ -176,6 +180,11 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				case input, more := <-inputChan:
 					if !more {
 						close(done)
+						// if there are no tasks left to consume, cancel to close the Watcher goroutine in
+						// case that the watcher doesn't run again
+						if atomic.LoadInt64(&count) == 0 {
+							cancel()
+						}
 						return nil
 					}
 					taskID, err := computeTaskID(input)
