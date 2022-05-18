@@ -1500,12 +1500,18 @@ func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineR
 		if s.EnvVar != "" && s.Key == "" {
 			return errors.Errorf("secret %s has env_var set but is missing key", s.Name)
 		}
-		_, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
+		ss, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return errors.Errorf("missing Kubernetes secret %s", s.Name)
 			}
 			return errors.Wrapf(err, "could not get Kubernetes secret %s", s.Name)
+		}
+		if s.EnvVar == "" {
+			continue
+		}
+		if _, ok := ss.Data[s.Key]; !ok {
+			return errors.Errorf("Kubernetes secret %s missing key %s", s.Name, s.Key)
 		}
 	}
 	return nil
