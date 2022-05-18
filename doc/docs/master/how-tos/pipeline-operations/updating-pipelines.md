@@ -18,7 +18,7 @@ Alternatively, you can update a pipeline using [jsonnet pipeline specification f
 ## After You Changed Your Specification File
 
 Run the `pachctl update pipeline` command to apply any change to your
-[pipeline specification](../../../reference/pipeline_spec) JSON file, such as change to the
+[pipeline specification](../../../reference/pipeline-spec) JSON file, such as change to the
 parallelism settings, change of an image tag, change of an input repository, etc...
 
 By default, a pipeline update does not trigger the reprocessing of the data
@@ -85,7 +85,7 @@ This step comes in 3 flavors:
       image registry documentation. For example, if you use
       DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/){target=_blank}.
 
-   1. Update the [`transform.image`](../../../reference/pipeline_spec/#transform-required) field of your pipeline spec with your new tag.
+   1. Update the [`transform.image`](../../../reference/pipeline-spec/#transform-required) field of your pipeline spec with your new tag.
    
       !!! Important
             Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.). Failing to update your tag will result in your pipeline running on a previous version of your code.

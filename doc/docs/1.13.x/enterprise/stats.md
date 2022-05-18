@@ -4,7 +4,7 @@ To use the advanced statistics features in Pachyderm, you need to:
 
 1. Run your pipelines on a Pachyderm cluster.
 2. Enable stats collection in your pipelines by including
-   `"enable_stats": true` in your [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/#enable-stats-optional).
+   `"enable_stats": true` in your [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline-spec/#enable-stats-optional).
 
 Advanced statistics provides the following information for any jobs
 corresponding to your pipelines:

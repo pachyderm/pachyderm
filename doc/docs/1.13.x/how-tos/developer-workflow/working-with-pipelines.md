@@ -163,7 +163,7 @@ To create a Pipeline, complete the following steps:
    ```
 
 !!! note "See Also:"
-    - [Pipeline Specification](../../reference/pipeline_spec.md)
+    - [Pipeline Specification](../../reference/pipeline-spec.md)
 
 ## Step 5: Deploy/Update the Pipeline
 

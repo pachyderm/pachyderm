@@ -135,7 +135,7 @@ parameters:
     require you to specify all of these parameters. 
     Spout pipelines, for example, do not have input repos.
 
-Check our reference [pipeline specification](../../../reference/pipeline_spec) page, for a list of all available fields in a pipeline specification file.
+Check our reference [pipeline specification](../../../reference/pipeline-spec) page, for a list of all available fields in a pipeline specification file.
 
 You can store your pipeline specifications locally or in a remote location, such
 as a GitHub repository.

@@ -15,7 +15,7 @@ define data distribution.
 The glob pattern applies to all of the directories/files in the branch specified by the [`pfs` section of the pipeline specification (referred to as PFS inputs)](../#pfs-input-and-glob-pattern). The directories/files that match are the [datums](../) that will be processed by the worker(s) that run your pipeline code. 
 
 !!! Important
-        You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline_spec/#pipeline-specification). 
+        You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline-spec/#pipeline-specification). 
 
 
 We have listed some commonly used glob patterns. We will later illustrate their use in an example:

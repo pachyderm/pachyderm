@@ -244,12 +244,12 @@ nav:
                 - Use GPUs: deploy-manage/manage/gpus.md
     - Reference:
         - Overview: reference/index.md
-        - COMMUNITY EDITION LIMITS: reference/scaling_limits.md
-        - Pipeline Specification: reference/pipeline_spec.md
-        - Pachyderm Config Specification: reference/config_spec.md
-        - Pachyderm Helm Chart Values Specification: reference/helm_values.md
+        - COMMUNITY EDITION LIMITS: reference/scaling-limits.md
+        - Pipeline Specification: reference/pipeline-spec.md
+        - Pachyderm Config Specification: reference/config-spec.md
+        - Pachyderm Helm Chart Values Specification: reference/helm-values.md
         - Pachyderm Language Clients: reference/clients.md
-        - S3 Gateway API Reference: reference/s3gateway_api.md
+        - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md
             - reference/pachctl/pachctl_auth.md

@@ -108,5 +108,5 @@ input bucket(s) are read-only, and the output bucket is initially empty and writ
 !!! note "See Also"
     - [Configure Environment Variables](../../../deploy/environment-variables/)
     - [Pachyderm S3 Gateway Supported Operations](./supported-operations.md)
-    - [Complete S3 Gateway API reference](../../../../reference/s3gateway_api/)
-    - [Pipeline Specification](../../../../reference/pipeline_spec/#input)
+    - [Complete S3 Gateway API reference](../../../../reference/s3gateway-api/)
+    - [Pipeline Specification](../../../../reference/pipeline-spec/#input)

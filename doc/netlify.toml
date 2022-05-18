@@ -197,6 +197,36 @@
   force = true
 
 [[redirects]]
+  from = "/:version/reference/s3gateway_api/"
+  to = "/:version/reference/s3gateway-api/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/helm_values/"
+  to = "/:version/reference/helm-values/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/config_spec/"
+  to = "/:version/reference/config-spec/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/pipeline_spec/"
+  to = "/:version/reference/pipeline-spec/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/scaling_limits/"
+  to = "/:version/reference/scaling-limits/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/:version/how-tos/advanced-data-operations/err_cmd/"
   to = "/:version/how-tos/advanced-data-operations/err-cmd/"
   status = 301

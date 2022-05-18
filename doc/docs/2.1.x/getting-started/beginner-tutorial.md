@@ -170,7 +170,7 @@ specification or pipeline spec for short. For this [example](https://github.com/
 [created the pipeline spec for you](https://github.com/pachyderm/pachyderm/blob/master/examples/opencv/edges.json){target=_blank}.
 
 When you want to create your own pipeline specification later, you can refer to the
-full [Pipeline Specification](../../reference/pipeline_spec) to use
+full [Pipeline Specification](../../reference/pipeline-spec) to use
 more advanced options. Options include building your own code into a
 container. In this tutorial, we are using a pre-built Docker image.
 
@@ -452,7 +452,7 @@ are several interesting ways to combine data in Pachyderm, which are
 discussed in
 [pipelines' concepts](../../concepts/pipeline-concepts/datum/)
 and
-[our pipeline specification page](../../reference/pipeline_spec/#pfs-input).
+[our pipeline specification page](../../reference/pipeline-spec/#pfs-input).
 
 We create the `montage` pipeline as before, with `pachctl`:
 

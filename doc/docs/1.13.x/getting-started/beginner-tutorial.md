@@ -162,7 +162,7 @@ specification or pipeline spec for short. For this example, we already
 [created the pipeline spec for you](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv).
 
 When you want to create your own pipeline specs later, you can refer to the
-full [Pipeline Specification](../../reference/pipeline_spec) to use
+full [Pipeline Specification](../../reference/pipeline-spec) to use
 more advanced options. Options include building your own code into a
 container. In this tutorial, we are using a pre-built Docker image.
 
@@ -420,7 +420,7 @@ repositories using a `cross` pattern. This `cross` pattern creates a
 single pairing of our input images with our edge detected images. There
 are several interesting ways to combine data in Pachyderm, which are
 discussed in
-[our pipeline specification page](../../reference/pipeline_spec/#pfs-input)
+[our pipeline specification page](../../reference/pipeline-spec/#pfs-input)
 and
 [pipelines' concepts](../../concepts/pipeline-concepts/datum/).
 
