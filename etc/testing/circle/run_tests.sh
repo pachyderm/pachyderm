@@ -87,14 +87,14 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-fuse
     ;;
+  PPS_AUTH)
+    export PACH_TEST_WITH_AUTH=1
+    go test -v -count=1 ./src/server/pps/server -timeout 420s
+    ;;
   PPS?)
     make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
-    if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      export PACH_TEST_WITH_AUTH=1
-      go test -v -count=1 ./src/server/pps/server -timeout 420s
-    fi
     ;;
   AUTH)
     make test-identity
