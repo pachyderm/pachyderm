@@ -132,6 +132,11 @@ func main() {
 						"postgresqlPassword": pulumi.String("Vq90lGAZBA"),
 					},
 				},
+				"pachd": pulumi.Map{
+					"annotations": pulumi.Map{
+						"cluster-autoscaler.kubernetes.io/safe-to-evict": pulumi.String("true"),
+					},
+				},
 			},
 		}, pulumi.Provider(k8sProvider))
 
