@@ -955,7 +955,7 @@ func TestPipelineWithoutSecrets(t *testing.T) {
 		    }
 		}
 		EOF
-		true) | match secrets
+		true) | match secret
 	`, "pipeline", tu.UniqueString("p-")).Run())
 
 }
