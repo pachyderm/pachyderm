@@ -2,6 +2,10 @@
 
 set -ex
 
+helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
+
+kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+
 # Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 

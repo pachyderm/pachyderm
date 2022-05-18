@@ -90,7 +90,7 @@ For more information, see [Datum Processing States](../../../concepts/pipeline-c
 
 !!! Note
      The global commit and global job above are the result of
-     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting_started/beginner_tutorial/).
+     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting-started/beginner-tutorial/).
 
 The following diagram illustrates the global commit and its various components:
     ![global_commit_after_putfile](../images/global_commit_after_putfile.png)

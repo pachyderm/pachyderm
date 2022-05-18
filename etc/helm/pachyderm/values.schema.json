@@ -340,6 +340,12 @@
                         "postgresqlSSL": {
                             "type": "string"
                         },
+                        "postgresqlSSLCACert": {
+                            "type": "string"
+                        },
+                        "postgresqlSSLSecret": {
+                            "type": "string"
+                        },
                         "postgresqlUsername": {
                             "type": "string"
                         }
@@ -743,6 +749,12 @@
                         },
                         "backend": {
                             "type": "string"
+                        },
+                        "compactionShardCountThreshold": {
+                            "type": "integer"
+                        },
+                        "compactionShardSizeThreshold": {
+                            "type": "integer"
                         },
                         "google": {
                             "type": "object",

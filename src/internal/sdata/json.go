@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -81,10 +82,14 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 			}
 		case *sql.NullTime:
 			if x.Valid {
-				y = x.Time
+				y = formatTimestampNTZ(x.Time.Format(time.RFC3339Nano))
 			} else {
 				y = nil
 			}
+		case *time.Time:
+			y = formatTimestampNTZ(x.Format(time.RFC3339Nano))
+		case *sql.RawBytes:
+			y = string(*x)
 		default:
 			y = row[i]
 		}

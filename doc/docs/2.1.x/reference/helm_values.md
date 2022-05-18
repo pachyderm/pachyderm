@@ -9,13 +9,13 @@ ignore_macros: true
 
 
 This document discusses each of the fields present in the `values.yaml` that can be used to deploy with Helm.
-To see how to use a helm values files to customize your deployment, refer to our [Helm Deployment Documentation](../../deploy-manage/deploy/helm_install/) section.
+To see how to use a helm values files to customize your deployment, refer to our [Helm Deployment Documentation](../../deploy-manage/deploy/helm-install/) section.
 
 !!! Note
     You rarely need to specify all the fields. Most fields either come with sensible defaults or can be empty.
     Values that are unchanged from the defaults can be omitted from the values file you supply at installation.
     
-    Take a look at our deployment instructions [locally](../../getting_started/local_installation/) or [in the cloud](../../deploy-manage/deploy/quickstart/) to identify which of those are required for your deployment target.
+    Take a look at our deployment instructions [locally](../../getting-started/local-installation/) or [in the cloud](../../deploy-manage/deploy/quickstart/) to identify which of those are required for your deployment target.
 
 ## Values.yaml
 The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.1.x/etc/helm/pachyderm/values.yaml). 

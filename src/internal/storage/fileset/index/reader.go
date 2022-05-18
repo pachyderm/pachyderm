@@ -54,14 +54,20 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			}
 			return errors.EnsureStack(err)
 		}
+		var indexDatum string
+		if idx.File != nil {
+			// a range index will include multiple datums,
+			// so only do datum range comparisons if we have a single file
+			indexDatum = idx.File.Datum
+		}
 		// Return if done.
-		if r.atEnd(idx.Path) {
+		if r.atEnd(idx.Path, indexDatum) {
 			return nil
 		}
 		// Handle lowest level index.
 		if idx.Range == nil {
 			// Skip to the starting index.
-			if !r.atStart(idx.Path) {
+			if !r.atStart(idx.Path, indexDatum) {
 				continue
 			}
 			if r.datum == "" || r.datum == idx.File.Datum {
@@ -75,7 +81,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			continue
 		}
 		// Skip to the starting index.
-		if !r.atStart(idx.Range.LastPath) {
+		if !r.atStart(idx.Range.LastPath, indexDatum) {
 			continue
 		}
 		levels = append(levels, pbutil.NewReader(newLevelReader(ctx, pbr, r.chunks, idx)))
@@ -90,27 +96,29 @@ func (r *Reader) topLevel() pbutil.Reader {
 }
 
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
-// For a range filter, this means the name is >= to the lower bound.
+// For a range filter, this means the name is >= to the lower bound or the datum (if provided)
+// is >= the lower bound datum at the lower bound path itself
 // For a prefix filter, this means the name is >= to the prefix.
-func (r *Reader) atStart(name string) bool {
+func (r *Reader) atStart(name, datum string) bool {
 	if r.filter == nil {
 		return true
 	}
-	if r.filter.pathRange != nil && r.filter.pathRange.Lower != "" {
-		return name >= r.filter.pathRange.Lower
+	if r.filter.pathRange != nil {
+		return r.filter.pathRange.atStart(name, datum)
 	}
 	return name >= r.filter.prefix
 }
 
 // atEnd returns true when the name is past the valid range for a filter (always false if no filter is set).
-// For a range filter, this means the name is > than the upper bound.
+// For a range filter, this means the name is > than the upper bound, or the datum (if provided)
+// is > the upper bound datum at the upper bound path
 // For a prefix filter, this means the name does not have the prefix and a name with the prefix cannot show up after it.
-func (r *Reader) atEnd(name string) bool {
+func (r *Reader) atEnd(name, datum string) bool {
 	if r.filter == nil {
 		return false
 	}
-	if r.filter.pathRange != nil && r.filter.pathRange.Upper != "" {
-		return name > r.filter.pathRange.Upper
+	if r.filter.pathRange != nil {
+		return r.filter.pathRange.atEnd(name, datum)
 	}
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
 	// (use len(name) bytes for comparison when len(name) < len(prefix)).

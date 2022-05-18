@@ -724,7 +724,7 @@ func (a *apiServer) listJob(
 		return fmt.Sprintf("%s-%v", name, version)
 	}
 	pipelineVersions := make(map[string]bool)
-	if err := a.listPipelineInfo(ctx, pipeline, history,
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
 		func(ptr *pps.PipelineInfo) error {
 			pipelineVersions[versionKey(ptr.Pipeline.Name, ptr.Version)] = true
 			return nil
@@ -1067,8 +1067,9 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 			Job: meta.Job,
 			ID:  common.DatumID(meta.Inputs),
 		},
-		State: convertDatumState(meta.State),
-		Stats: meta.Stats,
+		State:   convertDatumState(meta.State),
+		Stats:   meta.Stats,
+		ImageId: meta.ImageId,
 	}
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
@@ -1493,6 +1494,14 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
+// validateEgress validates the egress field.
+func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
+	if egress == nil {
+		return nil
+	}
+	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
+}
+
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
@@ -1515,6 +1524,9 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		return errors.Wrapf(err, "invalid transform")
 	}
 	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
+		return err
+	}
+	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
 		return err
 	}
 	if pipelineInfo.Details.ParallelismSpec != nil {
@@ -2277,7 +2289,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	// get all pipelines at once to avoid holding the list query open
 	// this should be fine with numbers of pipelines pachyderm can actually run
 	var infos []*pps.PipelineInfo
-	if err := a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
 		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
 		return nil
 	}); err != nil {
@@ -2311,53 +2323,6 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}
 	return nil
-}
-
-// listPipelineInfo enumerates all PPS pipelines in the database, filters them
-// based on 'request', and then calls 'f' on each value
-func (a *apiServer) listPipelineInfo(ctx context.Context,
-	pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
-	p := &pps.PipelineInfo{}
-	versionMap := make(map[string]uint64)
-	checkPipelineVersion := func(_ string) error {
-		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
-		// won't use this function to get their auth token)
-		p.AuthToken = ""
-		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if last, ok := versionMap[p.Pipeline.Name]; ok {
-			if p.Version < last {
-				// don't send, exit early
-				return nil
-			}
-		} else {
-			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
-			var lastVersionToSend uint64
-			if history < 0 || uint64(history) >= p.Version {
-				lastVersionToSend = 1
-			} else {
-				lastVersionToSend = p.Version - uint64(history)
-			}
-			versionMap[p.Pipeline.Name] = lastVersionToSend
-		}
-
-		return f(p)
-	}
-	if pipeline != nil {
-		if err := a.pipelines.ReadOnly(ctx).GetByIndex(
-			ppsdb.PipelinesNameIndex,
-			pipeline.Name,
-			p,
-			col.DefaultOptions(),
-			checkPipelineVersion); err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(versionMap) == 0 {
-			// pipeline didn't exist after all
-			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
-		}
-		return nil
-	}
-	return errors.EnsureStack(a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC

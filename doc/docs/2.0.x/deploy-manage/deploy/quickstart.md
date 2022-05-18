@@ -25,7 +25,7 @@ clients on your machine. Use the
 latest available version of the components listed below.
 
 * [kubectl](https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli){target=_blank}: the cli to interact with your cluster.
-* [pachctl](../../../getting_started/local_installation#install-pachctl): the cli to interact with Pachyderm.
+* [pachctl](../../../getting-started/local-installation#install-pachctl): the cli to interact with Pachyderm.
 * Install [`Helm`](https://helm.sh/docs/intro/install/){target=_blank} for your deployment. 
 
 
@@ -92,11 +92,11 @@ Jump to [Helm install](#3-helm-install)
 1. Additional client installation:
 Install [Google Cloud SDK](https://cloud.google.com/sdk/){target=_blank}
 
-1. [Create a GKE cluster](../google_cloud_platform/#2-deploy-kubernetes)
+1. [Create a GKE cluster](../google-cloud-platform/#2-deploy-kubernetes)
 Note: 
 Add `--scopes storage-rw` to your `gcloud container clusters create` command. 
 
-1. [Create a GCS Bucket](../google_cloud_platform/#3-create-a-gcs-bucket) for your data
+1. [Create a GCS Bucket](../google-cloud-platform/#3-create-a-gcs-bucket) for your data
 
 1. Create a values.yaml
 
@@ -184,7 +184,7 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
 
 Jump to [Helm install](#3-helm-install)
 
-## 3. [Helm Install](../helm_install/#install-pachyderms-helm-chart)
+## 3. [Helm Install](../helm-install/#install-pachyderms-helm-chart)
 - You will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell
@@ -266,7 +266,7 @@ To connect to your Console (Pachyderm UI):
 
 You are all set! 
 
-## 6. Try our [beginner tutorial](../../../getting_started/beginner_tutorial/).
+## 6. Try our [beginner tutorial](../../../getting-started/beginner-tutorial/).
 
 
     

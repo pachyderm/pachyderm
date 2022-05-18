@@ -38,7 +38,7 @@ to create a diff. A diff for mounting a volume might look like this:
 This output needs to be converted into a one-liner and added to the
 pipeline spec.
 
-We will use the [OpenCV example](../../../getting_started/beginner_tutorial/).
+We will use the [OpenCV example](../../../getting-started/beginner-tutorial/).
 to demonstrate this functionality.
 
 To mount a volume, complete the following steps:
@@ -154,7 +154,7 @@ example, it is `/data`.
 
       You might want to adjust your pipeline code to read from or write to
       the mounted directory. For example, in the aforementioned
-      [OpenCV example](https://docs.pachyderm.com/latest/getting_started/beginner_tutorial/#create-a-pipeline){target=_blank},
+      [OpenCV example](https://docs.pachyderm.com/latest/getting-started/beginner-tutorial/#create-a-pipeline){target=_blank},
       the code reads from the `/pfs/images` directory and writes to the
       `/pfs/out` directory. If you want to read or write to the `/data`
       directory, you need to change those to `/data`.

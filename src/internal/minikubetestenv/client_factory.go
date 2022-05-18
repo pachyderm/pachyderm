@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -19,11 +21,22 @@ const (
 	namespacePrefix = "test-cluster-"
 )
 
+type acquireSettings struct {
+	WaitForLoki bool
+}
+
+type Option func(*acquireSettings)
+
+var WaitForLokiOption = func(ds *acquireSettings) {
+	ds.WaitForLoki = true
+}
+
 var (
 	clusterFactory      *ClusterFactory
 	setup               sync.Once
 	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
+	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
 )
 
 type ClusterFactory struct {
@@ -38,6 +51,21 @@ func (cf *ClusterFactory) assignClient(assigned string, c *client.APIClient) {
 	cf.mu.Lock()
 	defer cf.mu.Unlock()
 	cf.managedClusters[assigned] = c
+}
+
+func clusterIdx(t testing.TB, name string) int {
+	s := strings.Split(name, "-")
+	r, err := strconv.Atoi(s[len(s)-1])
+	require.NoError(t, err)
+	return r
+}
+
+func deployOpts(clusterIdx int, loki bool) *DeployOpts {
+	return &DeployOpts{
+		PortOffset:         uint16(clusterIdx * 10),
+		UseLeftoverCluster: *useLeftoverClusters,
+		Loki:               loki,
+	}
 }
 
 func deleteAll(t testing.TB, c *client.APIClient) {
@@ -62,7 +90,7 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 	return "", nil
 }
 
-func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APIClient) {
+func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *client.APIClient) {
 	assigned, clusterIdx := func() (string, int) {
 		cf.mu.Lock()
 		defer cf.mu.Unlock()
@@ -86,17 +114,15 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 		context.Background(),
 		assigned,
 		kube,
-		&DeployOpts{
-			PortOffset:         uint16(clusterIdx * 10),
-			UseLeftoverCluster: *useLeftoverClusters,
-		})
+		deployOpts(clusterIdx, as.WaitForLoki),
+	)
 	cf.assignClient(assigned, c)
 	return assigned, c
 }
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
 // clusters deployed in separate namespace, along with the associated namespace
-func AcquireCluster(t testing.TB) (*client.APIClient, string) {
+func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
 			managedClusters:   map[string]*client.APIClient{},
@@ -109,14 +135,29 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 	var assigned string
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
-		deleteAll(t, clusterFactory.managedClusters[assigned])
+		if *cleanupDataAfter {
+			deleteAll(t, clusterFactory.managedClusters[assigned])
+		}
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
+	as := &acquireSettings{}
+	for _, o := range opts {
+		o(as)
+	}
 	assigned, c := clusterFactory.acquireFreeCluster()
 	if assigned == "" {
-		assigned, c = clusterFactory.acquireNewCluster(t)
+		assigned, c = clusterFactory.acquireNewCluster(t, as)
+	}
+	// in the case loki is requested, upgrade the cluster to include it
+	if as.WaitForLoki {
+		c = UpgradeRelease(t,
+			context.Background(),
+			assigned,
+			testutil.GetKubeClient(t),
+			deployOpts(clusterIdx(t, assigned), as.WaitForLoki),
+		)
 	}
 	deleteAll(t, c)
 	return c, assigned

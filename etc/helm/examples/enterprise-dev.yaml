@@ -1,5 +1,3 @@
-deployTarget: LOCAL
-
 oidc:
   mockIDP: true
   issuerURI: "http://pach-enterprise.enterprise.svc.cluster.local:1658"

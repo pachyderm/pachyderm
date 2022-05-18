@@ -15,7 +15,7 @@ This machine learning pipeline integrates Nervana Neon training and inference in
 
 ## Deploying Pachyderm
 
-Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting_started/local_installation/) for details. Note, this demo requires `pachctl` 1.4.0+.
+Install Pachyderm as described in [Local Installation](https://docs.pachyderm.com/latest/getting-started/local-installation/) for details. Note, this demo requires `pachctl` 1.4.0+.
 
 ## Deploying training and inference
 

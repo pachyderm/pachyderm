@@ -13,7 +13,7 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.1.5'
+pach_featured_version: '2.2.0'
 pach_latest_version: '1.13.4'
 pach_major_minor_version: '1.13'
 search_index_version: '1.13.x'
@@ -107,12 +107,12 @@ nav:
             - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
-        - Overview: getting_started/index.md
-        - Local Installation: getting_started/local_installation.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
-        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
-        - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Overview: getting-started/index.md
+        - Local Installation: getting-started/local-installation.md
+        - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
+        - Use Pachctl Shell: deploy-manage/manage/pachctl-shell.md
+        - Deploy Pachyderm on Windows: getting-started/wsl-deploy.md
+        - Beginner Tutorial: getting-started/beginner-tutorial.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -140,8 +140,8 @@ nav:
                 - Group: concepts/pipeline-concepts/datum/group.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
-            - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
-            - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
+            - Deferred Processing of Data: concepts/advanced-concepts/deferred-processing.md
+            - Distributed Computing: concepts/advanced-concepts/distributed-computing.md
     - How-Tos:
         - Overview: how-tos/index.md
         - Workflow: 
@@ -184,19 +184,19 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Deploy with Helm: deploy-manage/deploy/helm_install.md
+            - Deploy with Helm: deploy-manage/deploy/helm-install.md
             - Production Deployments:
-                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md
                     - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
                     - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
                     - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
                     - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+                - Deploy on GKE: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+                - Deploy On-Premises: deploy-manage/deploy/on-premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -208,7 +208,7 @@ nav:
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
-                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
+                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy-w-tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
@@ -221,8 +221,6 @@ nav:
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
                     - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
-                    - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
-                    - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
                 - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
@@ -235,12 +233,12 @@ nav:
                 - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
-                - Overview: deploy-manage/manage/upgrades_migrations.md
+                - Overview: deploy-manage/manage/upgrades-migrations.md
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
-            - Backup and Restore: deploy-manage/manage/backup_restore.md
+            - Backup and Restore: deploy-manage/manage/backup-restore.md
             - Optimize Performance:
-                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Storage Use Optimization: deploy-manage/manage/data-management.md
                 - Use GPUs: deploy-manage/manage/gpus.md
                 - Share GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
     - Reference:

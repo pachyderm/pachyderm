@@ -154,7 +154,7 @@ If the job fails, the output commit will not be populated with data.`,
 				}
 				jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
 				if err != nil {
-					errors.Wrap(err, "error from InspectJob")
+					return errors.Wrap(err, "error from InspectJob")
 				}
 				jobInfos = []*pps.JobInfo{jobInfo}
 			}
@@ -1133,7 +1133,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
@@ -1159,7 +1158,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)

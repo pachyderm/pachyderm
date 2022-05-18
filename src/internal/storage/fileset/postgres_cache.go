@@ -65,6 +65,9 @@ func (c *Cache) Put(ctx context.Context, key string, value *types.Any, ids []ID,
 }
 
 func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID, tag string) error {
+	if ids == nil {
+		ids = []ID{}
+	}
 	_, err := tx.Exec(`
 		INSERT INTO storage.cache (key, value_pb, ids, tag)
 		VALUES ($1, $2, $3, $4)

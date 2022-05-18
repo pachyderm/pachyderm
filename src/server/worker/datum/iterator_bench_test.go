@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func benchmarkIterators(j int, b *testing.B) {
-	c := tu.GetPachClient(b)
-	defer require.NoError(b, c.DeleteAll())
+	c, _ := minikubetestenv.AcquireCluster(b)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {

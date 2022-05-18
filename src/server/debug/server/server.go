@@ -70,7 +70,6 @@ func (s *debugServer) handleRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 	collect collectFunc,
-	extraApps ...string,
 ) error {
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
@@ -124,15 +123,13 @@ func (s *debugServer) handleRedirect(
 					return err
 				}
 			}
-			if len(extraApps) > 0 {
-				return s.appLogs(tw, extraApps)
-			}
-			return nil
+			// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
+			return s.appLogs(tw)
 		})
 	})
 }
 
-func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
+func (s *debugServer) appLogs(tw *tar.Writer) error {
 	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(s.env.Context(), metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
@@ -142,26 +139,33 @@ func (s *debugServer) appLogs(tw *tar.Writer, apps []string) error {
 			MatchLabels: map[string]string{
 				"suite": "pachyderm",
 			},
-			MatchExpressions: []metav1.LabelSelectorRequirement{{
-				Key:      "app",
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   apps,
-			}},
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{
+					Key:      "component",
+					Operator: metav1.LabelSelectorOpNotIn,
+					// Worker and pachd logs are collected by separate
+					// functions.
+					Values: []string{"worker", "pachd"},
+				},
+			},
 		}),
 	})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	for _, pod := range pods.Items {
-		prefix := join(pod.Labels["app"], pod.Name)
-		if err := s.collectDescribe(tw, pod.Name, prefix); err != nil {
+		podPrefix := join(pod.Labels["app"], pod.Name)
+		if err := s.collectDescribe(tw, pod.Name, podPrefix); err != nil {
 			return err
 		}
-		if err := s.collectLogs(tw, pod.Name, "", prefix); err != nil {
-			return err
-		}
-		if err := s.collectLogsLoki(tw, pod.Name, "", join(pod.Labels["app"], pod.Name)); err != nil {
-			return err
+		for _, container := range pod.Spec.Containers {
+			prefix := join(podPrefix, container.Name)
+			if err := s.collectLogs(tw, pod.Name, container.Name, prefix); err != nil {
+				return err
+			}
+			if err := s.collectLogsLoki(tw, pod.Name, container.Name, prefix); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -317,9 +321,6 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 	if p == nil {
 		return errors.Errorf("unable to find profile %q", profile.Name)
 	}
-	if profile.Name == "goroutine" {
-		return errors.EnsureStack(p.WriteTo(w, 2))
-	}
 	return errors.EnsureStack(p.WriteTo(w, 0))
 }
 
@@ -390,7 +391,6 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		s.collectWorkerDump,
 		redirectDumpFunc(pachClient.Ctx()),
 		collectDump,
-		"pg-bouncer", "etcd",
 	)
 }
 

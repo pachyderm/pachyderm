@@ -167,6 +167,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/RunLoadTest":        authDisabledOr(authenticated),
 	"/pfs_v2.API/RunLoadTestDefault": authDisabledOr(authenticated),
 	"/pfs_v2.API/ListTask":           authDisabledOr(authenticated),
+	"/pfs_v2.API/Egress":             authDisabledOr(authenticated),
 
 	//
 	// PPS API

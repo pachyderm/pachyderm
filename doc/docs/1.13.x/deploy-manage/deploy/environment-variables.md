@@ -22,7 +22,7 @@ is generated when you run `pachctl deploy` with the --dry-run`
 flag.
 
 !!! note "See Also:"
-    [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
+    [Deploy Pachyderm](../../../getting-started/local-installation/#deploy-pachyderm)
 
 ## `pachd` Environment Variables
 

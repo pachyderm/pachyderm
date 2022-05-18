@@ -35,7 +35,7 @@ var maxOpenConnsPerPool = (postgresMaxConnections - 1) / runtime.GOMAXPROCS(0)
 // After t finishes, the database is dropped.
 func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 	db := OpenDB(t, opts...)
-	dbName := CreateEphemeralDB(t, db)
+	dbName := CreateEphemeralDB(t, db, GenerateEphermeralDBName(t))
 	opts2 := []dbutil.Option{
 		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
 	}
@@ -72,8 +72,7 @@ func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
 
 // CreateEphemeralDB creates a new database using db with a lifetime scoped to the test t
 // and returns its name
-func CreateEphemeralDB(t testing.TB, db *pachsql.DB) string {
-	dbName := ephemeralDBName(t)
+func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) string {
 	_, err := db.Exec(`CREATE DATABASE ` + dbName)
 	require.NoError(t, err)
 	if cleanup {
@@ -90,7 +89,7 @@ func CreateEphemeralDB(t testing.TB, db *pachsql.DB) string {
 	return dbName
 }
 
-func ephemeralDBName(t testing.TB) string {
+func GenerateEphermeralDBName(t testing.TB) string {
 	buf := [8]byte{}
 	n, err := rand.Reader.Read(buf[:])
 	require.NoError(t, err)

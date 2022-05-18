@@ -5,7 +5,7 @@
     described in the following sections:
 
     - [Datum](../../concepts/pipeline-concepts/datum/index.md)
-    - [Distributed Computing](../../concepts/advanced-concepts/distributed_computing.md)
+    - [Distributed Computing](../../concepts/advanced-concepts/distributed-computing.md)
     - [Developer Workflow](../../developer-workflow/)
 
 If you are analyzing data that is changing over time, you might

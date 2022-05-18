@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 // Tuple is an alias for []interface{}.
@@ -30,9 +31,8 @@ type TupleReader interface {
 
 // MaterializationResult is returned by MaterializeSQL
 type MaterializationResult struct {
-	ColumnNames   []string
-	ColumnDBTypes []string
-	RowCount      uint64
+	ColumnNames []string
+	RowCount    uint64
 }
 
 // MaterializeSQL reads all the rows from a *sql.Rows, and writes them to tw.
@@ -46,12 +46,12 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	var dbTypes []string
-	for _, cType := range cTypes {
-		dbTypes = append(dbTypes, cType.DatabaseTypeName())
+	row, err := NewTupleFromColumnTypes(cTypes)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
 	}
+
 	var count uint64
-	row := NewTupleFromSQL(cTypes)
 	for rows.Next() {
 		if err := rows.Scan(row...); err != nil {
 			return nil, errors.EnsureStack(err)
@@ -67,52 +67,36 @@ func MaterializeSQL(tw TupleWriter, rows *sql.Rows) (*MaterializationResult, err
 	if err := tw.Flush(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return &MaterializationResult{
-		ColumnNames:   colNames,
-		ColumnDBTypes: dbTypes,
-		RowCount:      count,
+		ColumnNames: colNames,
+		RowCount:    count,
 	}, nil
 }
 
-// NewTupleFromSQL returns a new Tuple based on column types from the sql package.
-func NewTupleFromSQL(colTypes []*sql.ColumnType) Tuple {
-	row := make([]interface{}, len(colTypes))
-	for i, cType := range colTypes {
-		var rType reflect.Type
-		switch cType.DatabaseTypeName() {
-		case "VARCHAR", "TEXT":
-			// force scan type to be string
-			rType = reflect.TypeOf("")
-		default:
-			rType = cType.ScanType()
+func NewTupleFromColumnTypes(cTypes []*sql.ColumnType) (Tuple, error) {
+	row := make(Tuple, len(cTypes))
+	for i, cType := range cTypes {
+		dbType := cType.DatabaseTypeName()
+		nullable, ok := cType.Nullable()
+		if !ok {
+			nullable = true
 		}
-		v := reflect.New(rType).Interface()
-		if nullable, ok := cType.Nullable(); !ok || nullable {
-			switch v.(type) {
-			case *int16:
-				v = &sql.NullInt16{}
-			case *int32:
-				v = &sql.NullInt32{}
-			case *int64:
-				v = &sql.NullInt64{}
-			case *float64:
-				v = &sql.NullFloat64{}
-			case *string:
-				v = &sql.NullString{}
-			case *time.Time:
-				v = &sql.NullTime{}
-			}
+		var err error
+		row[i], err = makeTupleElement(dbType, nullable)
+		if err != nil {
+			return nil, err
 		}
-		row[i] = v
 	}
-	return row
+	return row, nil
 }
 
-// Copy copies a tuple from w to r.  Row is used to indicate the correct shape of read data.
+// Copy copies a tuple from r to w. Row is used to indicate the correct shape of read data.
 func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 	for {
 		err := r.Next(row)
 		if errors.Is(err, io.EOF) {
+			w.Flush()
 			break
 		} else if err != nil {
 			return n, errors.EnsureStack(err)
@@ -123,4 +107,63 @@ func Copy(w TupleWriter, r TupleReader, row Tuple) (n int, _ error) {
 		n++
 	}
 	return n, nil
+}
+
+func NewTupleFromTableInfo(info *pachsql.TableInfo) (Tuple, error) {
+	tuple := make(Tuple, len(info.Columns))
+	for i, ci := range info.Columns {
+		var err error
+		tuple[i], err = makeTupleElement(ci.DataType, ci.IsNullable)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tuple, nil
+}
+
+func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
+	switch dbType {
+	case "BOOL", "BOOLEAN":
+		if nullable {
+			return new(sql.NullBool), nil
+		}
+		return new(bool), nil
+	// Handle number types with string to avoid losing precision.
+	// FIXED is returned by Snowflake's Go driver, while NUMBER is in INFORMATION_SCHEMA
+	// DECIMAL is used by MySQL
+	case
+		"SMALLINT", "INT2", "INTEGER", "INT", "INT4", "BIGINT", "INT8",
+		"FLOAT", "FLOAT4", "FLOAT8", "REAL", "DOUBLE PRECISION",
+		"NUMERIC", "DECIMAL", "NUMBER", "FIXED":
+		if nullable {
+			return new(sql.NullString), nil
+		}
+		return new(string), nil
+	case "VARCHAR", "TEXT", "CHARACTER VARYING":
+		if nullable {
+			return new(sql.NullString), nil
+		}
+		return new(string), nil
+	// TIMESTAMP means different things in different databases
+	//     - postgres and snowflake doesn't store time zone related info
+	//     - mysql stores time zone
+	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
+		if nullable {
+			return new(sql.NullTime), nil
+		}
+		return new(time.Time), nil
+	default:
+		return nil, errors.Errorf("unrecognized type: %v", dbType)
+	}
+}
+
+// CloneTuple uses Go reflection to make a copy of a Tuple.
+func CloneTuple(t Tuple) Tuple {
+	newTuple := make(Tuple, len(t))
+	for i := range t {
+		v := reflect.New(reflect.TypeOf(t[i]).Elem())
+		v.Elem().Set(reflect.ValueOf(t[i]).Elem())
+		newTuple[i] = v.Interface()
+	}
+	return newTuple
 }

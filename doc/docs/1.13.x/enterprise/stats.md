@@ -33,7 +33,7 @@ commands or through their language client equivalents.
 
 As mentioned above, enabling stats collection for a pipeline is as simple as
 adding the `"enable_stats": true` field to a pipeline specification. For
-example, to enable stats collection for the [OpenCV demo pipeline](../getting_started/beginner_tutorial.md),
+example, to enable stats collection for the [OpenCV demo pipeline](../getting-started/beginner-tutorial.md),
 modify the pipeline specification as follows:
 
 !!! example

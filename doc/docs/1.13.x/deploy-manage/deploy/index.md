@@ -15,15 +15,15 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="../../getting_started/local_installation/" class="md-typeset md-link">
+          <li><a href="../../getting-started/local-installation/" class="md-typeset md-link">
           Deploy Locally
           </a>
           </li>
-          <li><a href="../../getting_started/install-pachctl-completion/" class="md-typeset md-link">
+          <li><a href="../../getting-started/install-pachctl-completion/" class="md-typeset md-link">
           Install pachctl Autocompletion
           </a>
           </li>
-          <li><a href="../manage/pachctl_shell/" class="md-typeset md-link">
+          <li><a href="../manage/pachctl-shell/" class="md-typeset md-link">
           Use Pachyderm Shell - Our Auto Suggest Tool
           </a>
           </li>         
@@ -42,7 +42,7 @@ deployment options and related topics:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="google_cloud_platform/" class="md-typeset md-link">
+          <li><a href="google-cloud-platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>
           </li>
@@ -87,7 +87,7 @@ deployment options and related topics:
            Import a Kubernetes Context
            </a>
            </li>
-           <li><a href="deploy_w_tls/" class="md-typeset md-link">
+           <li><a href="deploy-w-tls/" class="md-typeset md-link">
            Deploy Pachyderm with TLS
            </a>
            </li>

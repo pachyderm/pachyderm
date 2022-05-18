@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
@@ -13,7 +14,8 @@ func TestCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	require.NoError(t, tu.BashCmd(`
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
 
 		# Create a commit and put some data in it
@@ -45,7 +47,8 @@ func TestPutFileSplit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	require.NoError(t, tu.BashCmd(`
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
 
 		pachctl put file {{.repo}}@master:/data --split=csv --header-records=1 <<EOF
@@ -77,6 +80,23 @@ func TestPutFileSplit(t *testing.T) {
 		`,
 		"repo", tu.UniqueString("TestPutFileSplit-repo"),
 	).Run())
+}
+
+func TestPutFileNonexistentRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	repoName := tu.UniqueString("TestPutFileNonexistentRepo-repo")
+	// This assumes that the file-existence check is after the
+	// repo-existence check.  If you are seeing this test fail after
+	// restructuring `pachctl put file`, then that is probably why; either
+	// restore the order or adopt a different test.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                (pachctl put file {{.repo}}@master:random -f nonexistent-file 2>&1 || true) \
+                  | match "repo {{.repo}} not found"
+`,
+		"repo", repoName).Run())
 }
 
 func TestMountParsing(t *testing.T) {
@@ -115,7 +135,8 @@ func TestDiffFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	require.NoError(t, tu.BashCmd(`
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
 
 		echo "foo" | pachctl put file {{.repo}}@master:/data

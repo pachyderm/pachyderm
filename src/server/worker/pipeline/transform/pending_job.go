@@ -45,7 +45,6 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 	pj.ji.DataSkipped += stats.Skipped
 	pj.ji.DataFailed += stats.Failed
 	pj.ji.DataRecovered += stats.Recovered
-	pj.ji.DataTotal += stats.Processed + stats.Skipped + stats.Failed + stats.Recovered
 }
 
 func (pj *pendingJob) load() error {
@@ -90,7 +89,7 @@ func (pj *pendingJob) load() error {
 	// TODO: This should be an operation supported and exposed by PFS.
 	pj.baseMetaCommit = pj.metaCommitInfo.ParentCommit
 	for pj.baseMetaCommit != nil {
-		ci, err := pachClient.PfsAPIClient.InspectCommit(
+		metaCI, err := pachClient.PfsAPIClient.InspectCommit(
 			pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit: pj.baseMetaCommit,
@@ -99,10 +98,16 @@ func (pj *pendingJob) load() error {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		if ci.Error == "" {
+		outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Branch.Repo.Name,
+			pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		// both commits must have succeeded - a validation error will only show up in the output
+		if metaCI.Error == "" && outputCI.Error == "" {
 			break
 		}
-		pj.baseMetaCommit = ci.ParentCommit
+		pj.baseMetaCommit = metaCI.ParentCommit
 	}
 	// Load the job info.
 	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
@@ -154,12 +159,29 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func(datum.De
 	})
 }
 
+// writeDatumCount gets the total count of input datums for the job and updates
+// its DataTotal field.
+func (pj *pendingJob) writeDatumCount(ctx context.Context, taskDoer task.Doer) error {
+	pachClient := pj.driver.PachClient().WithCtx(ctx)
+	var count int
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		// Upload the datums from the current job into the datum file set format.
+		var err error
+		_, count, err = pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
+		return err
+	}); err != nil {
+		return err
+	}
+	pj.ji.DataTotal = int64(count)
+	return pj.writeJobInfo()
+}
+
 // The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the base job.
 func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer, cb func(context.Context, string) error) error {
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
-		fileSetID, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
+		fileSetID, _, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
 		if err != nil {
 			return err
 		}
@@ -182,8 +204,11 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer
 }
 
 // TODO: There is probably a way to reduce the boilerplate for running all of these preprocessing tasks.
-func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, error) {
-	var fileSetID string
+func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, int, error) {
+	var (
+		fileSetID string
+		count     int
+	)
 	if err := pj.logger.LogStep("creating full job datum file set", func() error {
 		input, err := serializeUploadDatumsTask(&UploadDatumsTask{Job: pj.ji.Job})
 		if err != nil {
@@ -201,11 +226,12 @@ func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer ta
 			return err
 		}
 		fileSetID = result.FileSetId
+		count = int(result.Count)
 		return nil
 	}); err != nil {
-		return "", errors.EnsureStack(err)
+		return "", 0, errors.EnsureStack(err)
 	}
-	return fileSetID, nil
+	return fileSetID, count, nil
 }
 
 func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, error) {
@@ -283,7 +309,7 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
-		fileSetID, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
+		fileSetID, _, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
 		if err != nil {
 			return err
 		}

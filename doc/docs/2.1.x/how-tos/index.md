@@ -71,7 +71,7 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
+           <li><a href="../concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
            Test datums
            </a>
            <li><a href="pipeline-operations/create-pipeline/" class="md-typeset md-link">
@@ -95,7 +95,6 @@ data operations in Pachyderm.
       </div>
     </div>
   </div>
-<div class="row">
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
@@ -127,6 +126,25 @@ data operations in Pachyderm.
            Attach a Volume to your Pipeline
           </a>
           </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Other<i class="fa fa-book"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        Pachyderm JupyterLab Extension
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <ul>
+           <li><a href="jupyterlab-extension/" class="md-typeset md-link">
+           Use Pachyderm Mount Extension
+           </a></li>
         </ul>
       </div>
     </div>

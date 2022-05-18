@@ -94,7 +94,7 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 
 // NewUnorderedWriter creates a new unordered file set writer.
 func (s *Storage) NewUnorderedWriter(ctx context.Context, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
-	return newUnorderedWriter(ctx, s, s.memThreshold, opts...)
+	return newUnorderedWriter(ctx, s, s.memThreshold, s.shardCountThreshold/2, opts...)
 }
 
 // NewWriter creates a new file set writer.

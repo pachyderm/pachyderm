@@ -165,7 +165,7 @@ type MountManager struct {
 	Client *client.APIClient
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
-	States map[MountKey]*MountStateMachine
+	States map[string]*MountStateMachine
 	// map from mount name onto mfc for that mount
 	mfcs   map[string]*client.ModifyFileClient
 	root   *loopbackRoot
@@ -175,7 +175,7 @@ type MountManager struct {
 	mu     sync.Mutex
 }
 
-func (mm *MountManager) List() (ListResponse, error) {
+func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
@@ -199,11 +199,14 @@ func (mm *MountManager) List() (ListResponse, error) {
 				Branch: branch.Branch.Name,
 				Commit: "",
 			}
-			s, ok := mm.States[k]
-			if ok {
-				br.Mount = s.MountState
-			} else {
-				br.Mount = MountState{State: "unmounted"}
+			// Add all mounts associated with a repo/branch
+			for _, msm := range mm.States {
+				if msm.MountKey == k && msm.State != "unmounted" {
+					br.Mount = append(br.Mount, msm.MountState)
+				}
+			}
+			if br.Mount == nil {
+				br.Mount = append(br.Mount, MountState{State: "unmounted"})
 			}
 			rr.Branches[branch.Branch.Name] = br
 		}
@@ -217,10 +220,49 @@ func (mm *MountManager) List() (ListResponse, error) {
 	return lr, nil
 }
 
-func NewMountStateMachine(key MountKey, mm *MountManager) *MountStateMachine {
+func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	mr := ListMountResponse{
+		Mounted:   map[string]MountState{},
+		Unmounted: []MountState{},
+	}
+	seen := map[MountKey]bool{}
+	for name, msm := range mm.States {
+		if msm.State == "mounted" || msm.State == "unmouting" {
+			mr.Mounted[name] = msm.MountState
+			seen[msm.MountKey] = true
+		}
+	}
+	// Iterate through repos/branches because there will be some not present in
+	// state machine
+	repos, err := mm.Client.ListRepo()
+	if err != nil {
+		return mr, err
+	}
+	for _, repo := range repos {
+		bs, err := mm.Client.ListBranch(repo.Repo.Name)
+		if err != nil {
+			return mr, err
+		}
+		for _, branch := range bs {
+			mk := MountKey{Repo: repo.Repo.Name, Branch: branch.Branch.Name}
+			// TODO: Might need to modify this when we start using Commit and
+			// and compare only repo and branch names
+			if _, ok := seen[mk]; !ok {
+				mr.Unmounted = append(mr.Unmounted, MountState{MountKey: mk, State: "unmounted"})
+			}
+		}
+	}
+
+	return mr, nil
+}
+
+func NewMountStateMachine(name string, mm *MountManager) *MountStateMachine {
 	return &MountStateMachine{
 		MountState: MountState{
-			MountKey: key,
+			Name: name,
 		},
 		manager:   mm,
 		mu:        sync.Mutex{},
@@ -229,14 +271,14 @@ func NewMountStateMachine(key MountKey, mm *MountManager) *MountStateMachine {
 	}
 }
 
-func (mm *MountManager) MaybeStartFsm(key MountKey) {
+func (mm *MountManager) MaybeStartFsm(name string) {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-	_, ok := mm.States[key]
+	_, ok := mm.States[name]
 	if !ok {
 		// set minimal state and kick it off!
-		m := NewMountStateMachine(key, mm)
-		mm.States[key] = m
+		m := NewMountStateMachine(name, mm)
+		mm.States[name] = m
 		go func() {
 			m.Run()
 			// when execution completes, remove ourselves from the map so that
@@ -244,7 +286,7 @@ func (mm *MountManager) MaybeStartFsm(key MountKey) {
 			// running
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
-			delete(mm.States, key)
+			delete(mm.States, name)
 		}()
 	} // else: fsm was already running
 }
@@ -252,8 +294,8 @@ func (mm *MountManager) MaybeStartFsm(key MountKey) {
 func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, error) {
 	// name: an optional name for the mount, corresponds to where on the
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
-	mm.MaybeStartFsm(key)
-	mm.States[key].requests <- Request{
+	mm.MaybeStartFsm(name)
+	mm.States[name].requests <- Request{
 		Mount:  true,
 		Repo:   key.Repo,
 		Branch: key.Branch,
@@ -261,13 +303,13 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 		Name:   name,
 		Mode:   mode,
 	}
-	response := <-mm.States[key].responses
+	response := <-mm.States[name].responses
 	return response, response.Error
 }
 
 func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
-	mm.MaybeStartFsm(key)
-	mm.States[key].requests <- Request{
+	mm.MaybeStartFsm(name)
+	mm.States[name].requests <- Request{
 		Mount:  false,
 		Repo:   key.Repo,
 		Branch: key.Branch,
@@ -275,15 +317,15 @@ func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, erro
 		Name:   name,
 		Mode:   "",
 	}
-	response := <-mm.States[key].responses
+	response := <-mm.States[name].responses
 	return response, response.Error
 }
 
 func (mm *MountManager) UnmountAll() error {
-	for key, msm := range mm.States {
+	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			//TODO: Add Commit field here once we support mounting specific commits
-			_, err := mm.UnmountBranch(MountKey{Repo: key.Repo, Branch: key.Branch}, msm.Name)
+			_, err := mm.UnmountBranch(MountKey{Repo: msm.MountKey.Repo, Branch: msm.MountKey.Branch}, name)
 			if err != nil {
 				return err
 			}
@@ -312,7 +354,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	logrus.Infof("Loopback root at %s", rootDir)
 	return &MountManager{
 		Client: c,
-		States: map[MountKey]*MountStateMachine{}, // TODO: shouldn't this be indexed by mount name, not key?
+		States: map[string]*MountStateMachine{},
 		mfcs:   map[string]*client.ModifyFileClient{},
 		root:   root,
 		opts:   opts,
@@ -388,7 +430,25 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 
-		l, err := mm.List()
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := json.Marshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Write(marshalled)
+	})
+	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		l, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -439,9 +499,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 				)
 				return
 			}
-			// TODO: use response (serialize it to the client, it's polite to hand
-			// back the object you just modified in the API response)
-			l, err := mm.List()
+			l, err := mm.ListByRepos()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -456,6 +514,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			l, err = mm.ListByRepos()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			marshalled, err := jsonMarshal(l)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write(marshalled)
 		})
 	router.Methods("PUT").
 		Queries("name", "{name}").
@@ -486,6 +555,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isAuthOnAndUserUnauthenticated(mm.Client) {
@@ -498,6 +578,17 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		r, err := getClusterStatus(mm.Client)
@@ -731,11 +822,11 @@ type MountStateMachine struct {
 }
 
 // TODO: switch to pach internal types if appropriate?
-type ListResponse map[string]RepoResponse
+type ListRepoResponse map[string]RepoResponse
 
 type BranchResponse struct {
-	Name  string     `json:"name"`
-	Mount MountState `json:"mount"`
+	Name  string       `json:"name"`
+	Mount []MountState `json:"mount"`
 }
 
 type RepoResponse struct {
@@ -744,12 +835,17 @@ type RepoResponse struct {
 	// TODO: Commits map[string]CommitResponse
 }
 
+type ListMountResponse struct {
+	Mounted   map[string]MountState `json:"mounted"`
+	Unmounted []MountState          `json:"unmounted"`
+}
+
 type GetResponse RepoResponse
 
 type MountKey struct {
-	Repo   string
-	Branch string
-	Commit string
+	Repo   string `json:"repo"`
+	Branch string `json:"branch"`
+	Commit string `json:"commit"`
 }
 
 func (m *MountKey) String() string {
@@ -789,9 +885,13 @@ func mountKeyFromString(key string) (MountKey, error) {
 type StateFn func(*MountStateMachine) StateFn
 
 func (m *MountStateMachine) transitionedTo(state, status string) {
+
+	// before we lock, as this fn takes the same lock.
+	m.manager.root.setState(m.Name, state)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	logrus.Infof("[%s] %s -> %s", m.MountKey, m.State, state)
+	logrus.Infof("[%s] (%s) %s -> %s", m.Name, m.MountKey, m.State, state)
 	m.State = state
 	m.Status = status
 }
@@ -885,13 +985,24 @@ func mountedState(m *MountStateMachine) StateFn {
 		// go back into mounting, as they can remount a fs as ro/rw.
 		req := <-m.requests
 		if req.Mount {
+			if req.Repo != m.MountKey.Repo || req.Branch != m.MountKey.Branch {
+				m.responses <- Response{
+					Repo:       m.MountKey.Repo,
+					Branch:     m.MountKey.Branch,
+					Commit:     m.MountKey.Commit,
+					Name:       m.Name,
+					MountState: m.MountState,
+					Error:      fmt.Errorf("mount at '%s' already in use", m.Name),
+				}
+			} else {
+				m.responses <- Response{}
+			}
 			// TODO: handle remount case (switching mode):
 			// if mounted ro and switching to rw, just upgrade
 			// if mounted rw and switching to ro, upload changes, then switch the mount type
 		} else {
 			return unmountingState
 		}
-		m.responses <- Response{}
 	}
 }
 

@@ -33,8 +33,8 @@ Additionally, make sure that you understand the concept of [datum](https://docs.
 
 ## 1. Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
+- A running workspace. Install Pachyderm[locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e. you are logged in)
 
 ***Getting started***
 - Clone this repo.
