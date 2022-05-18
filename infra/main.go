@@ -49,6 +49,7 @@ func main() {
 
 		fileStr := string(file)
 		_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
+			Timeout:   pulumi.Int(600),
 			Namespace: namespace.Metadata.Elem().Name(),
 			RepositoryOpts: helm.RepositoryOptsArgs{
 				Repo: pulumi.String("https://jupyterhub.github.io/helm-chart/"),
@@ -126,6 +127,11 @@ func main() {
 			Chart: pulumi.String("pachyderm"),
 			Values: pulumi.Map{
 				"deployTarget": pulumi.String("LOCAL"),
+				"global": pulumi.Map{
+					"postgresql": pulumi.Map{
+						"postgresqlPassword": pulumi.String("Vq90lGAZBA"),
+					},
+				},
 			},
 		}, pulumi.Provider(k8sProvider))
 
