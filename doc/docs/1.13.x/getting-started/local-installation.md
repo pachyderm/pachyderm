@@ -163,7 +163,7 @@ deploy Pachyderm on your local cluster by following these steps:
 
 ### Using `pachctl`
 !!! Tip
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/).
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/).
     This add-on tool suggests `pachctl` commands as you type. 
     It will help you learn Pachyderm's main commands faster.
 

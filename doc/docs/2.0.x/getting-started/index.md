@@ -42,7 +42,7 @@ For a quick start, deploy Pachyderm on your [local machine](./local-installation
           Install pachctl Autocompletion
           </a>
           </li>
-          <li><a href="../deploy-manage/manage/pachctl_shell/" class="md-typeset md-link">
+          <li><a href="../deploy-manage/manage/pachctl-shell/" class="md-typeset md-link">
           Use pachctl Shell
           </a>
           </li>

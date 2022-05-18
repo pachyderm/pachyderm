@@ -42,11 +42,11 @@ throughout the lifetime of your cluster.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-            <li><a href="upgrades_migrations/" class="md-typeset md-link">
+            <li><a href="upgrades-migrations/" class="md-typeset md-link">
              Upgrades and Migrations
             </a>
             </li>
-            <li><a href="backup_restore/" class="md-typeset md-link">
+            <li><a href="backup-restore/" class="md-typeset md-link">
               Backup and Restore
             </a>
             </li>
@@ -67,7 +67,7 @@ throughout the lifetime of your cluster.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="data_management/" class="md-typeset md-link">
+          <li><a href="data-management/" class="md-typeset md-link">
             Storage Use Optimization
           </a>
           </li>

@@ -14,7 +14,7 @@ Pachyderm needs a few things to install and run successfully in any Kubernetes e
 1. An object store, used by Pachyderm's `pachd` for storing all your data. 
    The object store you use will probably be dependent on where you're going to run OpenShift: 
 	- S3 for [AWS](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-on-aws)
-	- GCS for [Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/)
+	- GCS for [Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google-cloud-platform/)
 	- Azure Blob Storage for  [Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/azure/)
 	- or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
 1. Access to particular TCP/IP ports for communication.
@@ -99,9 +99,9 @@ Below you'll find links to the documentation for each kind of deployment you can
 Follow the instructions there for setting up persistent volumes and object storage resources.
 Don't yet deploy your manifest, come back here after you've set up your PV and object store.
     * OpenShift Deployed on [AWS](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm/#deploy-pachyderm-on-aws) 
-    * OpenShift Deployed on [GCP](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/)
+    * OpenShift Deployed on [GCP](https://docs.pachyderm.com/latest/deploy-manage/deploy/google-cloud-platform/)
     * OpenShift Deployed on [Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/azure/)
-    * OpenShift Deployed [on-premise](https://docs.pachyderm.com/latest/deploy-manage/deploy/on_premises/)
+    * OpenShift Deployed [on-premise](https://docs.pachyderm.com/latest/deploy-manage/deploy/on-premises/)
 
 1. Determine your role security policy
 Pachyderm is deployed by default with cluster roles.

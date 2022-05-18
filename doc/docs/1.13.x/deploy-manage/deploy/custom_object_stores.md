@@ -4,7 +4,7 @@ In other sections of this guide was have demonstrated how to deploy Pachyderm in
 
 As long as you are running an object store that has an S3 compatible API, you can easily deploy Pachyderm in a way that will allow you to back Pachyderm by that object store.  For example, we have seen Pachyderm be backed by [Minio](https://minio.io/), [GlusterFS](https://www.gluster.org/), [Ceph](http://ceph.com/), and more.
 
-To deploy Pachyderm with your choice of object store in Google, Azure, or AWS, see the below guides.  To deploy Pachyderm on premise with a custom object store, see the [on premise docs](../on_premises/).
+To deploy Pachyderm with your choice of object store in Google, Azure, or AWS, see the below guides.  To deploy Pachyderm on premise with a custom object store, see the [on premise docs](../on-premises/).
 
 ## Common Prerequisites
 

@@ -8,7 +8,7 @@
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
-- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google_cloud_platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation).
+- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google-cloud-platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation).
 - To deploy locally, follow the instructions below.
 
 ## Deploy Locally

@@ -52,7 +52,7 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="deploy-manage/deploy/google_cloud_platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="deploy-manage/deploy/google-cloud-platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Deploy Pachyderm
           </a>
           </li>
