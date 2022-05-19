@@ -10458,3 +10458,62 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
 	require.Equal(t, expected, count)
 }
+
+func TestMissingSecretFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
+	kc := tu.GetKubeClient(t).CoreV1().Secrets(ns)
+
+	secret := tu.UniqueString(strings.ToLower(t.Name() + "-secret"))
+	repo := tu.UniqueString(t.Name() + "-data")
+	pipeline := tu.UniqueString(t.Name())
+	_, err := kc.Create(c.Ctx(), &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: secret},
+		StringData: map[string]string{"foo": "bar"}}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.NoError(t, c.CreateRepo(repo))
+	req := basicPipelineReq(pipeline, repo)
+	req.Transform.Secrets = append(req.Transform.Secrets, &pps.SecretMount{
+		Name:   secret,
+		Key:    "foo",
+		EnvVar: "MY_SECRET_ENV_VAR",
+	})
+	req.Autoscaling = true
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	// wait for system to go into standby
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		_, err = c.WaitCommit(repo, "master", "")
+		if err != nil {
+			return err
+		}
+		info, err := c.InspectPipeline(pipeline, false)
+		if err != nil {
+			return err
+		}
+		if info.State != pps.PipelineState_PIPELINE_STANDBY {
+			return errors.Errorf("pipeline in %s instead of standby", info.State)
+		}
+		return nil
+	})
+
+	require.NoError(t, kc.Delete(c.Ctx(), secret, metav1.DeleteOptions{}))
+	// force pipeline to come back up, and check for failure
+	require.NoError(t, c.PutFile(
+		client.NewCommit(repo, "master", ""), "foo", strings.NewReader("bar")))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		info, err := c.InspectPipeline(pipeline, false)
+		if err != nil {
+			return err
+		}
+		if info.State != pps.PipelineState_PIPELINE_CRASHING {
+			return errors.Errorf("pipeline in %s instead of crashing", info.State)
+		}
+		return nil
+	})
+}

@@ -16,7 +16,7 @@ Pachyderm needs a few things to install and run successfully in IBM Cloud OpenSh
 
 1. Since this is a stateful set based deployment, it uses either Persistent Volume Provisioning or pre-provisioned PV's using a defined storage class.
 1. An object store, used by Pachyderm's `pachd` for storing all your data.
-   The object store you use will probably be dependent on where you're going to run OpenShift: S3 for [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html), GCS for [Google Cloud Platform](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), Azure Blob Storage for  [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
+   The object store you use will probably be dependent on where you're going to run OpenShift: S3 for [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html), GCS for [Google Cloud Platform](https://pachyderm.readthedocs.io/en/latest/deployment/google-cloud-platform.html), Azure Blob Storage for  [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), or a storage provider like Minio, EMC's ECS or Swift providing S3-compatible access to enterprise storage for on-premises deployment.
 1. Access to particular TCP/IP ports for communication.
 
 ### Stateful Set

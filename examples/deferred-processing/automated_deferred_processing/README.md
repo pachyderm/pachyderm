@@ -41,7 +41,7 @@ you might want to refer to the following documentation as you work through the e
 * [Pachyderm access controls and authentication documentation](https://docs.pachyderm.com/latest/enterprise/auth/)
 * [Kubernetes documentation on Secrets](https://kubernetes.io/docs/concepts/configuration/secret/)
 * The [pachctl create secret](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_create_secret/) command
-* [transform.secret in the pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/)
+* [transform.secret in the pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline-spec/)
 
 Before you can start working on this example, make sure you have the following prerequisites:
 

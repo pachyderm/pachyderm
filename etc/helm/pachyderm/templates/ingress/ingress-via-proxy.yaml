@@ -1,0 +1,33 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if and .Values.ingress.enabled .Values.proxy.enabled -}}
+apiVersion: "networking.k8s.io/v1"
+kind: "Ingress"
+metadata:
+  name: "pachyderm-proxy"
+  annotations: {{ toYaml .Values.ingress.annotations | nindent 4 }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: "pachyderm-proxy"
+    suite: "pachyderm"
+spec:
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - secretName: {{ required "if ingress.tls.enabled you must specify ingress.tls.secretName" .Values.ingress.tls.secretName }}
+      hosts:
+       - {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
+  {{- end }}
+  rules:
+    - host: {{ required "ingress.host is required when ingress.enabled" .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: "/"
+            pathType: Prefix
+            backend:
+              service:
+                name: pachyderm-proxy
+                port:
+                  name: http-port
+{{ end -}}
