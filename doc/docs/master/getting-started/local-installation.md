@@ -163,7 +163,7 @@ JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-
 Note that you can run both Console and JupyterLab on your local installation.
 
 !!! Tip  
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl_shell/){target=_blank}. This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/){target=_blank}. This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
   
 * Get the Repo Info:  
 
@@ -348,7 +348,7 @@ Complete the [Beginner Tutorial](../beginner-tutorial) to learn the basics of Pa
   
   
 !!! note "See Also"  
-    [General Troubleshooting](../troubleshooting/general_troubleshooting.md)  
+    [General Troubleshooting](../troubleshooting/general-troubleshooting.md)  
   
 
 

@@ -20,4 +20,4 @@ The usage of the flag is shown below:
    ```
 
 !!! note
-      For more details on the `--push-images` flag, see [Update a Pipeline](../../pipeline-operations/updating_pipelines/#update-the-code-in-a-pipeline).
+      For more details on the `--push-images` flag, see [Update a Pipeline](../../pipeline-operations/updating-pipelines/#update-the-code-in-a-pipeline).

@@ -30,7 +30,7 @@ deployment options and related topics:
           Install pachctl Autocompletion
           </a>
           </li>
-          <li><a href="../manage/pachctl_shell/" class="md-typeset md-link">
+          <li><a href="../manage/pachctl-shell/" class="md-typeset md-link">
           Use Pachyderm Shell - Our Auto Suggest Tool
           </a>
           </li>         
@@ -53,7 +53,7 @@ deployment options and related topics:
           Architecture, Ingress, and LB
           </a>
           </li>
-          <li><a href="google_cloud_platform/" class="md-typeset md-link">
+          <li><a href="google-cloud-platform/" class="md-typeset md-link">
           Deploy on GKE
           </a>
           </li>
@@ -65,7 +65,7 @@ deployment options and related topics:
           Deploy on Azure
           </a>
           </li>
-          <li><a href="on_premises/" class="md-typeset md-link">
+          <li><a href="on-premises/" class="md-typeset md-link">
           Deploy On Premises
           </a>
           </li>
@@ -94,7 +94,7 @@ deployment options and related topics:
            Import a Kubernetes Context
            </a>
            </li>
-           <li><a href="deploy_w_tls/" class="md-typeset md-link">
+           <li><a href="deploy-w-tls/" class="md-typeset md-link">
            Deploy Pachyderm with TLS
            </a>
            </li>

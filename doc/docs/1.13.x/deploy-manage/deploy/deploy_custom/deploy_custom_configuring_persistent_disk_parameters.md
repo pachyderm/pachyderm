@@ -28,7 +28,7 @@ the following flags you define:
 
 * `--dynamic-etcd-nodes`. The `--dynamic-etcd-nodes` flag is
 used when your Kubernetes installation is configured to use
-[StatefulSets](../../on_premises/#statefulsets).
+[StatefulSets](../../on-premises/#statefulsets).
 Many Kubernetes deployments use StatefulSets as a reliable solution that
 ensures the persistence of pod storage. Your on-premises
 Kubernetes installation might also be configured to use StatefulSets.

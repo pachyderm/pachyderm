@@ -26,9 +26,13 @@ package cmds
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"testing"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -928,4 +932,112 @@ pachctl list job -x | match ' / 1'
 pachctl list job -x | match ' / 2'
 `).Run()
 	}, "expected to see two datums")
+}
+
+func TestPipelineWithoutSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		(
+		set +e +o pipefail
+		pachctl create repo data
+		pachctl create pipeline 2>&1 <<EOF
+		{
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp -rp /pfs/data/ /pfs/out"],
+		      "secrets": [{"name": "{{.secret}}", "env_var": "PASSWORD", "key": "PASSWORD"}]
+		    }
+		}
+		EOF
+		true) | match "missing Kubernetes secret"
+	`, "pipeline", tu.UniqueString("p-"), "secret", tu.UniqueString("supersecret")).Run())
+}
+
+func TestPipelineWithMissingSecret(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, ns := minikubetestenv.AcquireCluster(t)
+	k8sClient := tu.GetKubeClient(t)
+	secretName := tu.UniqueString("supersecret")
+	_, err := k8sClient.CoreV1().Secrets(ns).Create(context.Background(), &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"NOTPASSWORD": []byte("correcthorsebatterystaple"),
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		(
+		set +e +o pipefail
+		pachctl create repo data
+		pachctl create pipeline 2>&1 <<EOF
+		{
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp -rp /pfs/data/ /pfs/out"],
+		      "secrets": [{"name": "{{.secret}}", "env_var": "PASSWORD", "key": "PASSWORD"}]
+		    }
+		}
+		EOF
+		true) | match "missing key"
+	`, "pipeline", tu.UniqueString("p-"), "secret", secretName).Run())
+}
+
+func TestPipelineWithSecret(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, ns := minikubetestenv.AcquireCluster(t)
+	k8sClient := tu.GetKubeClient(t)
+	secretName := tu.UniqueString("supersecret")
+	_, err := k8sClient.CoreV1().Secrets(ns).Create(context.Background(), &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: ns,
+		},
+		Data: map[string][]byte{
+			"PASSWORD": []byte("correcthorsebatterystaple"),
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo data
+		pachctl create pipeline 2>&1 <<EOF
+		{
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp -rp /pfs/data/ /pfs/out"],
+		      "secrets": [{"name": "{{.secret}}", "env_var": "PASSWORD", "key": "PASSWORD"}]
+		    }
+		}
+		EOF
+	`, "pipeline", tu.UniqueString("p-"), "secret", secretName).Run())
 }

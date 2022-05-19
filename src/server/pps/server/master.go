@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -27,9 +28,14 @@ const (
 
 var (
 	failures = map[string]bool{
-		"InvalidImageName": true,
-		"ErrImagePull":     true,
-		"Unschedulable":    true,
+		// from k8s.io/kubernetes/pkg/kubelet/images/types.go
+		"ErrImagePull":            true,
+		"InvalidImageName":        true,
+		"ImagePullBackOff":        true,
+		v1.PodReasonUnschedulable: true,
+		// from k8s.io/kubernetes/pkg/kubelet/kuberuntime/kuberuntime_container.go
+		"CreateContainerConfigError": true,
+		"CreateContainerError":       true,
 	}
 
 	zero     int32 // used to turn down RCs in scaleDownWorkersForPipeline
