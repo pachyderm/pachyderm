@@ -199,6 +199,9 @@ func TestRepoAccess(t *testing.T) {
 		reposResp := &ListRepoResponse{}
 		json.NewDecoder(resp.Body).Decode(reposResp)
 		require.Equal(t, (*reposResp)["repo1"].Authorized, false)
+
+		_, err = put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
+		require.YesError(t, err)
 	})
 }
 
