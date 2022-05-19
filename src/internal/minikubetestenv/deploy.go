@@ -379,7 +379,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			return pachClient(t, pachAddress, opts.AuthUser, namespace)
 		}
 		deleteRelease(t, context.Background(), namespace, kubeClient)
-		require.NoError(t, f(t, helmOpts, chartPath, namespace))
+		// When CircleCI was experiencing network slowness, downloading
+		// the Helm chart would sometimes fail.  Retrying it was
+		// successful.
+		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
 	if opts.Loki {
