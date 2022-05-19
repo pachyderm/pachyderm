@@ -248,11 +248,6 @@ func TestCSVNull(t *testing.T) {
 	require.Equal(t, row, row2)
 }
 
-// func setupTable(t testing.TB, db *pachsql.DB, name string, n int) {
-// 	require.NoError(t, pachsql.CreateTestTable(db, name, pachsql.TestRow{}))
-// 	require.NoError(t, pachsql.GenerateTestData(db, name, n))
-// }
-
 func newTupleFromTestRow(row interface{}) Tuple {
 	var process func(reflect.Type) Tuple
 	process = func(t reflect.Type) Tuple {

@@ -137,8 +137,6 @@ func (m *CSVWriter) format(x interface{}) (*string, error) {
 		vv := reflect.New(v.Type())
 		vv.Elem().Set(v)
 		return m.format(vv.Interface())
-		//return m.format()
-		//return m.format(*x)
 	default:
 		return nil, errors.Errorf("unrecognized value (%v: %T)", x, x)
 	}
