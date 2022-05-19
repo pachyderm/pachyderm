@@ -109,7 +109,7 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
-	go s.bootstrap(context.Background())
+	go s.envBootstrap(context.Background())
 
 	if watchesEnabled {
 		s.configCache = keycache.NewCache(env.BackgroundContext, s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
@@ -127,10 +127,11 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	return s, nil
 }
 
-func (a *apiServer) bootstrap(ctx context.Context) {
+func (a *apiServer) envBootstrap(ctx context.Context) {
 	if a.env.Config.AuthRootToken == "" {
 		return
 	}
+	a.env.Logger.Info("Configuring Auth Server via environment")
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if _, err := a.Activate(ctx, &auth.ActivateRequest{
 			RootToken: a.env.Config.AuthRootToken,
@@ -144,15 +145,15 @@ func (a *apiServer) bootstrap(ctx context.Context) {
 			return err
 		} else {
 			if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return nil
 		}
 	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
-		panic("failed to bootstrap the Auth Server from the environment")
+		panic(fmt.Errorf("failed to configure the Auth Server from the environment: %v", err))
 	}
 }
 
@@ -292,13 +293,7 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
-	if a.env.Config.AuthRootToken != "" {
-		return nil, errors.New("Activate() is disabled when the root token is configured in the environment")
-	}
-	return a.activate(ctx, req)
-}
-
-func (a *apiServer) activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
+	// TODO(acohen4) 2.3: disable RPC if a.env.Config.AuthRootToken != ""
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState(ctx)
