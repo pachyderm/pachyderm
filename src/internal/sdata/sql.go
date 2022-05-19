@@ -56,18 +56,16 @@ func (m *SQLTupleWriter) GeneratePreparedStatement() (*pachsql.Stmt, error) {
 	if len(m.buf) == 0 {
 		return nil, nil
 	}
-	driverName := m.tx.DriverName()
-	placeholders := []string{} // a list of (?, ?, ...)
+	var placeholders []string // a list of (?, ?, ...)
 
-	// construct list of placeholders by accumulating elements into a placeholderRow first
-	placeholderRow := []string{}
 	for r := range m.buf {
+		// construct list of placeholders by accumulating elements into a placeholderRow first
+		var placeholderRow []string
 		for c := range m.buf[r] {
 			i := r*len(m.buf[r]) + c
-			placeholderRow = append(placeholderRow, pachsql.Placeholder(driverName, i))
+			placeholderRow = append(placeholderRow, pachsql.Placeholder(m.tableInfo.Driver, i))
 		}
 		placeholders = append(placeholders, fmt.Sprintf("(%s)", strings.Join(placeholderRow, ", ")))
-		placeholderRow = placeholderRow[:0]
 	}
 	sqlStr := m.insertStatement + strings.Join(placeholders, ", ")
 	stmt, err := m.tx.Preparex(sqlStr)
