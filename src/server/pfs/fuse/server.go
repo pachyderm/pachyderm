@@ -187,18 +187,11 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 		return lr, err
 	}
 	for _, repo := range repos {
+		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
 		readAccess := true
 		if repo.AuthInfo != nil {
-			readAccess = false
-			for _, permission := range repo.AuthInfo.Permissions {
-				if permission == auth.Permission_REPO_READ {
-					readAccess = true
-					break
-				}
-			}
+			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
 		}
-
-		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
 		if readAccess {
 			bs, err := mm.Client.ListBranch(repo.Repo.Name)
 			if err != nil {
@@ -872,6 +865,15 @@ func jsonMarshal(t interface{}) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
+func hasRepoRead(permissions []auth.Permission) bool {
+	for _, p := range permissions {
+		if p == auth.Permission_REPO_READ {
+			return true
+		}
+	}
+	return false
+}
+
 type MountState struct {
 	Name       string   `json:"name"`       // where to mount it. written by client
 	MountKey   MountKey `json:"mount_key"`  // what to mount. written by client
@@ -988,6 +990,33 @@ func unmountedState(m *MountStateMachine) StateFn {
 		req := <-m.requests
 		switch req.Action {
 		case "mount":
+			// check if user has read access on repo
+			repoInfo, err := m.manager.Client.InspectRepo(req.Repo)
+			if err != nil {
+				m.responses <- Response{
+					Repo:       req.Repo,
+					Branch:     req.Branch,
+					Commit:     req.Commit,
+					Name:       req.Name,
+					MountState: m.MountState,
+					Error:      err,
+				}
+				return unmountedState
+			}
+			if repoInfo.AuthInfo != nil {
+				if !hasRepoRead(repoInfo.AuthInfo.Permissions) {
+					m.responses <- Response{
+						Repo:       req.Repo,
+						Branch:     req.Branch,
+						Commit:     req.Commit,
+						Name:       req.Name,
+						MountState: m.MountState,
+						Error:      fmt.Errorf("forbidden: user doesn't have read permission on repo %s", req.Repo),
+					}
+					return unmountedState
+				}
+			}
+
 			// copy data from request into fields that are documented as being
 			// written by the client (see MountState struct)
 			m.MountState.Name = req.Name
