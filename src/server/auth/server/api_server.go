@@ -109,7 +109,7 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
-	go s.envBootstrap(context.Background())
+	go s.bootstrap(context.Background())
 
 	if watchesEnabled {
 		s.configCache = keycache.NewCache(env.BackgroundContext, s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
@@ -127,11 +127,10 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	return s, nil
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) {
+func (a *apiServer) bootstrap(ctx context.Context) {
 	if a.env.Config.AuthRootToken == "" {
 		return
 	}
-	a.env.Logger.Info("Started to configure auth server via environment")
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if _, err := a.Activate(ctx, &auth.ActivateRequest{
 			RootToken: a.env.Config.AuthRootToken,
@@ -139,24 +138,22 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 			if !errors.As(err, auth.ErrAlreadyActivated) {
 				return err
 			}
-			_, err := a.rotateRootToken(internalauth.AsInternalUser(ctx, "auth-server"),
-				&auth.RotateRootTokenRequest{
-					RootToken: a.env.Config.AuthRootToken,
-				})
+			_, err := a.rotateRootToken(ctx, &auth.RotateRootTokenRequest{
+				RootToken: a.env.Config.AuthRootToken,
+			})
 			return err
 		} else {
 			if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
-				return errors.EnsureStack(err)
+				return err
 			}
 			if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
-				return errors.EnsureStack(err)
+				return err
 			}
 			return nil
 		}
 	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
-		panic(fmt.Errorf("Failed to configure the auth server via environment: %v", errors.EnsureStack(err)))
+		panic("failed to bootstrap the Auth Server from the environment")
 	}
-	a.env.Logger.Info("Successfully configured auth server via environment")
 }
 
 func waitForError(name string, required bool, cb func() error) {
@@ -295,7 +292,13 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
-	// TODO(acohen4) 2.3: disable RPC if a.env.Config.AuthRootToken != ""
+	if a.env.Config.AuthRootToken != "" {
+		return nil, errors.New("Activate() is disabled when the root token is configured in the environment")
+	}
+	return a.activate(ctx, req)
+}
+
+func (a *apiServer) activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState(ctx)
