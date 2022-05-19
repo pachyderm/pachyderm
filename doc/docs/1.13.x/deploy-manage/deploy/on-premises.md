@@ -11,7 +11,7 @@ This document is broken down into the following sections, available at the links
 
 Need information on a particular flavor of Kubernetes or object store?  Check out the [see also](#see-also) section.
 
-Troubleshooting a deployment? Check out [Troubleshooting Deployments](../../troubleshooting/deploy_troubleshooting.md).
+Troubleshooting a deployment? Check out [Troubleshooting Deployments](../../troubleshooting/deploy-troubleshooting.md).
 
 ## Introduction
 

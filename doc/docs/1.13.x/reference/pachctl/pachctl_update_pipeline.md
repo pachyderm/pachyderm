@@ -4,7 +4,7 @@ Update an existing Pachyderm pipeline.
 
 ### Synopsis
 
-Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.
+Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline-spec.html.
 
 ```
 pachctl update pipeline [flags]

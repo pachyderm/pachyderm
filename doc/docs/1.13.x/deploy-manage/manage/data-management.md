@@ -41,4 +41,4 @@ rescheduled to a different node, where the same thing might happen
 
 !!! note "See Also:"
 
-   [Troubleshoot a pipeline](../../../troubleshooting/pipeline_troubleshooting#all-your-pods-or-jobs-get-evicted)
+   [Troubleshoot a pipeline](../../../troubleshooting/pipeline-troubleshooting#all-your-pods-or-jobs-get-evicted)

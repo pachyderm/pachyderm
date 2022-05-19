@@ -24,7 +24,7 @@ then you will need to install and configure Promtail
 While installing Loki will enable the collection of logs, commands such as `pachctl logs` will not fetch logs directly
 from Loki until the `LOKI_LOGGING` environment variable on the `pachd` container is **true**.
 
-This is controlled by the helm value `pachd.lokiLogging`, which can be set by adding the following to your [values.yaml](../../../reference/helm_values/) file:
+This is controlled by the helm value `pachd.lokiLogging`, which can be set by adding the following to your [values.yaml](../../../reference/helm-values/) file:
 
 ```yaml
     pachd:

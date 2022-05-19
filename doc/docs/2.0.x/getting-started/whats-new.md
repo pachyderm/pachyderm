@@ -49,7 +49,7 @@ All existing `pachctl deploy` commands are [EOL](../../contributing/supported-re
     - For a quick deployment on a [specific Cloud target](../../deploy-manage/deploy/quickstart/), or [Locally](../local-installation/), on your machine's Docker Desktop or Minikube.
     - For [Production](../../deploy-manage/deploy/) settings.
 
-- As a reference, check the complete list of all configurable fields in our [Reference](../../reference/helm_values/) section or on [GitHub](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+- As a reference, check the complete list of all configurable fields in our [Reference](../../reference/helm-values/) section or on [GitHub](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Elimination Of Automatic Merge
  

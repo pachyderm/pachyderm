@@ -861,7 +861,7 @@ Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it 
 !!! Note "About the default behavior"
     `"reprocess_spec": "until_success"` is the default behavior.
     To mitigate datums failing for transient connection reasons,
-    Pachyderm automatically [retries user code three (3) times before marking a datum as failed](https://docs.pachyderm.com/latest/troubleshooting/pipeline_troubleshooting/#introduction){target=_blank}. Additionally, you can [set the  `datum_tries`](https://docs.pachyderm.com/latest/reference/pipeline_spec/#datum-tries-optional){target=_blank} field to determine the number of times a job attempts to run on a datum when a failure occurs.
+    Pachyderm automatically [retries user code three (3) times before marking a datum as failed](https://docs.pachyderm.com/latest/troubleshooting/pipeline-troubleshooting/#introduction){target=_blank}. Additionally, you can [set the  `datum_tries`](https://docs.pachyderm.com/latest/reference/pipeline-spec/#datum-tries-optional){target=_blank} field to determine the number of times a job attempts to run on a datum when a failure occurs.
 
 
 Let's compare `"until_success"` and `"every_job"`:

@@ -32,7 +32,7 @@ When exceeding the number of pipelines:
 - all other `extract`, `list`, `run`, `start`, `stop pipeline` commands' behavior remains unchanged.
 
 ### Limit on the number of workers per pipeline
-Pachyderm has [two parallelism](https://docs.pachyderm.com/latest/reference/pipeline_spec/#parallelism-spec-optional) strategies: constant and coefficient.
+Pachyderm has [two parallelism](https://docs.pachyderm.com/latest/reference/pipeline-spec/#parallelism-spec-optional) strategies: constant and coefficient.
 
 When `constant` parallelism > 8: 
 
