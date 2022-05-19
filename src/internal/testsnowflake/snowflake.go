@@ -46,12 +46,6 @@ func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
 	return url, password
 }
 
-// NewSnowSQL creates an emphermeral database in a real Snowflake instance.
-func NewSnowSQL(t testing.TB) *sqlx.DB {
-	db, _ := NewEphemeralSnowflakeDB(t)
-	return db
-}
-
 func NewEphemeralSnowflakeDB(t testing.TB) (*sqlx.DB, string) {
 	name := testutil.GenerateEphemeralDBName(t)
 	url, password := getURLAndPassword(t)
