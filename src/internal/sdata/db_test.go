@@ -14,7 +14,7 @@ type dbSpec interface {
 	fmt.Stringer
 	create(t *testing.T) (db *sqlx.DB, dbName string, tableName string)
 	schema() string
-	testRow() pachsql.SetIDer
+	testRow() setIDer
 }
 
 var supportedDBSpecs = []dbSpec{postgreSQLSpec{}, mySQLSpec{}, snowflakeSpec{}}
@@ -31,7 +31,7 @@ func (s postgreSQLSpec) create(t *testing.T) (*sqlx.DB, string, string) {
 
 func (s postgreSQLSpec) schema() string { return "public" }
 
-func (s postgreSQLSpec) testRow() pachsql.SetIDer {
+func (s postgreSQLSpec) testRow() setIDer {
 	return &pachsql.TestRow{}
 }
 
@@ -50,7 +50,7 @@ func (s mySQLSpec) create(t *testing.T) (*sqlx.DB, string, string) {
 
 func (s mySQLSpec) schema() string { return s.dbName }
 
-func (s mySQLSpec) testRow() pachsql.SetIDer {
+func (s mySQLSpec) testRow() setIDer {
 	return &pachsql.TestRow{}
 }
 
@@ -66,7 +66,7 @@ func (s snowflakeSpec) create(t *testing.T) (*sqlx.DB, string, string) {
 
 func (s snowflakeSpec) schema() string { return "public" }
 
-func (s snowflakeSpec) testRow() pachsql.SetIDer {
+func (s snowflakeSpec) testRow() setIDer {
 	return &snowflakeRow{}
 }
 
