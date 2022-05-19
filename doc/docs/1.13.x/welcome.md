@@ -154,7 +154,7 @@ email at support@pachyderm.io.
            Splitting Data for Distributed Processing
            </a>
            </li>
-           <li><a href="how-tos/time_windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="how-tos/time-windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Process Time-Windowed Data
            </a>
            </li>

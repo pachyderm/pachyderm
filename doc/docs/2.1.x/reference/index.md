@@ -17,7 +17,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="pipeline_spec/" class="md-typeset md-link">
+          <li><a href="pipeline-spec/" class="md-typeset md-link">
           Pipeline Specification
           </a>
           </li>
@@ -36,7 +36,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="config_spec" class="md-typeset md-link">
+          <li><a href="config-spec" class="md-typeset md-link">
           Pachyderm Config Specification
           </a>
           </li>
@@ -76,7 +76,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="s3gateway_api/" class="md-typeset md-link">
+          <li><a href="s3gateway-api/" class="md-typeset md-link">
             S3 Gateway API References
           </a>
           </li>

@@ -85,4 +85,4 @@ Pachyderm has the following special types of pipelines whose behavior might slig
     message. A spout does not have an input repo.
 
 !!! note "See Also:"
-    [Pipeline Specification](../../../reference/pipeline_spec.md)
+    [Pipeline Specification](../../../reference/pipeline-spec.md)

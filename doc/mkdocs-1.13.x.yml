@@ -159,11 +159,11 @@ nav:
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
             - Ingress and Egress Data from an External Object Store: how-tos/basic-data-operations/ingressing_from_diff_cloud.md
-            - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+            - Delete Data: how-tos/basic-data-operations/removing-data-from-pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
-            - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
+            - Update a Pipeline: how-tos/pipeline-operations/updating-pipelines.md
             - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
@@ -173,9 +173,9 @@ nav:
                 - Overview: how-tos/advanced-data-operations/splitting-data/index.md
                 - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
                 - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
-            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time-windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
-            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md    
+            - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md    
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md   
         - Use Pachyderm IDE:
             - Overview: how-tos/use-pachyderm-ide/index.md
@@ -243,11 +243,11 @@ nav:
                 - Share GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
     - Reference:
         - Overview: reference/index.md
-        - COMMUNITY EDITION LIMITS: reference/scaling_limits.md
-        - Pipeline Specification: reference/pipeline_spec.md
-        - Pachyderm Config Specification: reference/config_spec.md
+        - COMMUNITY EDITION LIMITS: reference/scaling-limits.md
+        - Pipeline Specification: reference/pipeline-spec.md
+        - Pachyderm Config Specification: reference/config-spec.md
         - Pachyderm Language Clients: reference/clients.md
-        - S3 Gateway API Reference: reference/s3gateway_api.md
+        - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md
             - reference/pachctl/pachctl_auth.md
@@ -417,9 +417,9 @@ nav:
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
-        - General Troubleshooting: troubleshooting/general_troubleshooting.md
-        - Deployment Troubleshooting: troubleshooting/deploy_troubleshooting.md
-        - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
+        - General Troubleshooting: troubleshooting/general-troubleshooting.md
+        - Deployment Troubleshooting: troubleshooting/deploy-troubleshooting.md
+        - Pipeline Troubleshooting: troubleshooting/pipeline-troubleshooting.md
 
 # Google Analytics
 #google_analytics:

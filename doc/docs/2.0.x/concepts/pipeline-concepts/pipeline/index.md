@@ -18,7 +18,7 @@ chain multiple pipelines together to create a directed acyclic
 graph (DAG).
 
 You define a pipeline declaratively, using a JSON or YAML file. 
-Pipeline specification files follow Pachyderm's [pipeline reference specification file](../../../reference/pipeline_spec).
+Pipeline specification files follow Pachyderm's [pipeline reference specification file](../../../reference/pipeline-spec).
 
 A minimum pipeline specification must include the following parameters:
 
@@ -88,4 +88,4 @@ Pachyderm has the following special types of pipelines whose behavior might slig
     message. A spout does not have an input repo.
 
 !!! note "See Also:"
-    [Pipeline Specification](../../../reference/pipeline_spec.md)
+    [Pipeline Specification](../../../reference/pipeline-spec.md)
