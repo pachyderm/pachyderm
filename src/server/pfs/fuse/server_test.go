@@ -172,6 +172,36 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	})
 }
 
+func TestRepoAccess(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+
+	require.NoError(t, aliceClient.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, aliceClient, nil, func(mountPoint string) {
+		resp, err := get("repos")
+		require.NoError(t, err)
+
+		reposResp := &ListRepoResponse{}
+		json.NewDecoder(resp.Body).Decode(reposResp)
+		require.Equal(t, (*reposResp)["repo1"].Authorized, true)
+	})
+
+	withServerMount(t, bobClient, nil, func(mountPoint string) {
+		resp, err := get("repos")
+		require.NoError(t, err)
+
+		reposResp := &ListRepoResponse{}
+		json.NewDecoder(resp.Body).Decode(reposResp)
+		require.Equal(t, (*reposResp)["repo1"].Authorized, false)
+	})
+}
+
 func TestUnmountAll(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 

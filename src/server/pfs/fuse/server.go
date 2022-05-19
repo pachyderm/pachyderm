@@ -187,28 +187,42 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 		return lr, err
 	}
 	for _, repo := range repos {
-		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
-		bs, err := mm.Client.ListBranch(repo.Repo.Name)
-		if err != nil {
-			return lr, err
-		}
-		for _, branch := range bs {
-			br := BranchResponse{Name: branch.Branch.Name}
-			k := MountKey{
-				Repo:   repo.Repo.Name,
-				Branch: branch.Branch.Name,
-				Commit: "",
-			}
-			// Add all mounts associated with a repo/branch
-			for _, msm := range mm.States {
-				if msm.MountKey == k && msm.State != "unmounted" {
-					br.Mount = append(br.Mount, msm.MountState)
+		readAccess := true
+		if repo.AuthInfo != nil {
+			readAccess = false
+			for _, permission := range repo.AuthInfo.Permissions {
+				if permission == auth.Permission_REPO_READ {
+					readAccess = true
+					break
 				}
 			}
-			if br.Mount == nil {
-				br.Mount = append(br.Mount, MountState{State: "unmounted"})
+		}
+
+		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
+		if readAccess {
+			bs, err := mm.Client.ListBranch(repo.Repo.Name)
+			if err != nil {
+				return lr, err
 			}
-			rr.Branches[branch.Branch.Name] = br
+			for _, branch := range bs {
+				br := BranchResponse{Name: branch.Branch.Name}
+				k := MountKey{
+					Repo:   repo.Repo.Name,
+					Branch: branch.Branch.Name,
+					Commit: "",
+				}
+				// Add all mounts associated with a repo/branch
+				for _, msm := range mm.States {
+					if msm.MountKey == k && msm.State != "unmounted" {
+						br.Mount = append(br.Mount, msm.MountState)
+					}
+				}
+				if br.Mount == nil {
+					br.Mount = append(br.Mount, MountState{State: "unmounted"})
+				}
+				rr.Branches[branch.Branch.Name] = br
+			}
+			rr.Authorized = true
 		}
 		lr[repo.Repo.Name] = rr
 	}
@@ -884,8 +898,9 @@ type BranchResponse struct {
 }
 
 type RepoResponse struct {
-	Name     string                    `json:"name"`
-	Branches map[string]BranchResponse `json:"branches"`
+	Name       string                    `json:"name"`
+	Branches   map[string]BranchResponse `json:"branches"`
+	Authorized bool                      `json:"authorized"`
 	// TODO: Commits map[string]CommitResponse
 }
 
