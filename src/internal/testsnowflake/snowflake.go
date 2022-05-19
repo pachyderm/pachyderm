@@ -40,7 +40,9 @@ func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
 		t.Fatal(err)
 	}
 	url, err := pachsql.ParseURL(dsn)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return url, password
 }
 
