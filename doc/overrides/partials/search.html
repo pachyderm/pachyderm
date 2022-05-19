@@ -1,5 +1,5 @@
 <!-- at the end of the HEAD - Algolia snippet 1-->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@docsearch/css@3" />
   {% import "partials/language.html" as lang with context %}
   
 <style>
@@ -18,58 +18,90 @@
   }
 }
 
+.md-search {
+    padding: 8px 0 0 0;
+}
+
+:root {
+    --docsearch-primary-color: #672373;
+    --docsearch-text-color: #1c1e21;
+    --docsearch-highlight-color: var(--docsearch-primary-color);
+    --docsearch-muted-color: #1c1e21;
+    --docsearch-container-background: transparent;
+    --docsearch-logo-color: #aaa;
+    --docsearch-modal-background: white;
+    --docsearch-searchbox-background: rgba(0, 0, 0, 0.26);
+    --docsearch-searchbox-focus-background: white; 
+    --docsearch-hit-shadow: none;
+    --docsearch-spacing: 18px;
+    --docsearch-searchbox-height: 46px;
+    --docsearch-hit-height: 30px;
+    --docsearch-hit-active-color: #672373;
+    --docsearch-searchbox-shadow: inset 0 0 0 1.5px var(--docsearch-primary-color);
+
+}
+
+.DocSearch-Button-Placeholder {
+    font-size: .7rem;
+    padding: 0 80px 0 6px;
+}
+
+.DocSearch-Button .DocSearch-Search-Icon {
+  color: white;
+}
+
+
+.DocSearch-Button {
+  border-radius: 0;
+  height: 37px;
+  color: white;
+}
+
+.DocSearch-Modal {
+  border-radius: 0;
+}
+
+.DocSearch-Form {
+  border-radius: 0;
+}
+
+.DocSearch-Hit-title {
+    font-size: 1.2em;
+
+}
+
+.DocSearch-Hit[aria-selected=true] a {
+    background-color: #572f6ad6;
+    font-weight:600
+}
+
 /* Search formatting section */
-.algolia-autocomplete .algolia-docsearch-suggestion--category-header {
-  color: rgb(62, 56, 64);
+.DocSearch-Hit-source {
   font-size: 14px !important;
   font-weight: bold;
   border-bottom: 1px solid rgb(62, 56, 64);
 }
 
-.algolia-autocomplete .algolia-docsearch-suggestion--category-header  > span > .algolia-docsearch-suggestion--highlight {
-  color: rgb(62, 56, 64);
-  box-shadow: none !important;
-  padding: 0;
+.DocSearch-Hit-path {
+  font-size: 10px !important;
 }
 
-.algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column {
-  color: rgb(62, 56, 64);
-  font-weight: lighter;
-  font-size: 13px !important;
+.DocSearch-Hits mark {
+    font-weight: bold;
 }
 
-.algolia-autocomplete .algolia-docsearch-suggestion--title {
-  color: #000;
-  font-size: 13px !important;
+
+.DocSearch-Hit[aria-selected=true] .DocSearch-Hit-action, 
+.DocSearch-Hit[aria-selected=true] .DocSearch-Hit-icon, 
+.DocSearch-Hit[aria-selected=true] .DocSearch-Hit-path, 
+.DocSearch-Hit[aria-selected=true] .DocSearch-Hit-text, 
+.DocSearch-Hit[aria-selected=true] .DocSearch-Hit-title, 
+.DocSearch-Hit[aria-selected=true] .DocSearch-Hit-Tree, 
+.DocSearch-Hit[aria-selected=true] mark {
+    color: white !important;
 }
 
-.algolia-autocomplete .algolia-docsearch-suggestion--text {
-  font-size: 12px !important;
-  font-weight: normal;
-  color: rgb(62, 56, 64);
-}
 
-.algolia-autocomplete .algolia-docsearch-suggestion--subcategory-column-text > .algolia-docsearch-suggestion--highlight {
-  color: rgb(62, 56, 64);
-  padding: 0;
-}
-
-.algolia-autocomplete .algolia-docsearch-suggestion--title > .algolia-docsearch-suggestion--highlight {
-  box-shadow: inset 0 -2px 0 0 rgb(88, 47, 107);
-  color: rgb(88, 47, 107);
-  padding: 0;
-}
-
-.algolia-autocomplete .algolia-docsearch-suggestion--text > .algolia-docsearch-suggestion--highlight {
-  box-shadow: inset 0 -2px 0 0 rgb(88, 47, 107);
-  color: rgb(88, 47, 107);
-  padding: 0;
-}
-
-/* If you're using your own paid Algolia account and run the crawler yourself, you don't have to keep the logo.*/
-.algolia-autocomplete .algolia-docsearch-footer--logo {
-  background-size: 50%;
-} 
 
 </style>
 
@@ -91,7 +123,7 @@
   </div>
 
 <!-- at the end of the BODY - Algolia snippet 2-->
-<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@docsearch/js@3"></script>
 <script type="text/javascript"> 
 function debounce(fn, delay) {
   var timer = null;
@@ -107,9 +139,9 @@ docsearch({
   apiKey: '265cd17486e2e0a2819615f05763df50',
   appId: '5ZDILAAVOQ',
   indexName: 'pachyderm',
-  inputSelector: '.md-search__input',
-  algoliaOptions: { 
-    'facetFilters': ["version:{{ config.search_index_version }}"],
+  container: '.md-search__inner',
+  searchParameters: { 
+    facetFilters: ["version:{{ config.search_index_version }}"],
     hitsPerPage: 10,
     clickAnalytics: true
   },

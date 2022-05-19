@@ -154,7 +154,7 @@ If the job fails, the output commit will not be populated with data.`,
 				}
 				jobInfo, err := client.WaitJob(job.Pipeline.Name, job.ID, true)
 				if err != nil {
-					errors.Wrap(err, "error from InspectJob")
+					return errors.Wrap(err, "error from InspectJob")
 				}
 				jobInfos = []*pps.JobInfo{jobInfo}
 			}
@@ -700,7 +700,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var reprocess bool
 	updatePipeline := &cobra.Command{
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.",
+		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline-spec/.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(reprocess, pushImages, registry, username, pipelinePath, jsonnetPath, jsonnetArgs, true)
 		}),

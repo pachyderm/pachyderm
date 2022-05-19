@@ -126,48 +126,32 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	case "BOOL", "BOOLEAN":
 		if nullable {
 			return new(sql.NullBool), nil
-		} else {
-			return new(bool), nil
 		}
-	case "SMALLINT", "INT2":
+		return new(bool), nil
+	// Handle number types with string to avoid losing precision.
+	// FIXED is returned by Snowflake's Go driver, while NUMBER is in INFORMATION_SCHEMA
+	// DECIMAL is used by MySQL
+	case
+		"SMALLINT", "INT2", "INTEGER", "INT", "INT4", "BIGINT", "INT8",
+		"FLOAT", "FLOAT4", "FLOAT8", "REAL", "DOUBLE PRECISION",
+		"NUMERIC", "DECIMAL", "NUMBER", "FIXED":
 		if nullable {
-			return new(sql.NullInt16), nil
-		} else {
-			return new(int16), nil
+			return new(sql.NullString), nil
 		}
-	case "INTEGER", "INT", "INT4":
-		if nullable {
-			return new(sql.NullInt32), nil
-		} else {
-			return new(int32), nil
-		}
-	// TODO "NUMBER" type from Snowflake can vary in precision, but default to int64 for now.
-	// https://docs.snowflake.com/en/sql-reference/data-types-numeric.html#number
-	case "BIGINT", "INT8", "NUMBER":
-		if nullable {
-			return new(sql.NullInt64), nil
-		} else {
-			return new(int64), nil
-		}
-	// TODO account for precision and scale as well
-	case "FLOAT", "FLOAT8", "REAL", "DOUBLE PRECISION", "FIXED":
-		if nullable {
-			return new(sql.NullFloat64), nil
-		} else {
-			return new(float64), nil
-		}
+		return new(string), nil
 	case "VARCHAR", "TEXT", "CHARACTER VARYING":
 		if nullable {
 			return new(sql.NullString), nil
-		} else {
-			return new(string), nil
 		}
-	case "DATE", "TIMESTAMP", "TIMESTAMP_NTZ", "TIMESTAMP WITHOUT TIME ZONE":
+		return new(string), nil
+	// TIMESTAMP means different things in different databases
+	//     - postgres and snowflake doesn't store time zone related info
+	//     - mysql stores time zone
+	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
 		if nullable {
 			return new(sql.NullTime), nil
-		} else {
-			return new(time.Time), nil
 		}
+		return new(time.Time), nil
 	default:
 		return nil, errors.Errorf("unrecognized type: %v", dbType)
 	}

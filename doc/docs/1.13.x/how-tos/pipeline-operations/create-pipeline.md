@@ -38,7 +38,7 @@ After you have your pipeline spec ready, you need to pass that configuration
 to Pachyderm so that it creates a Kubernetes pod or pods that will run your code.
 
 For more information about property fields that you can define in a pipeline,
-see [Pipeline Specification](../../../reference/pipeline_spec/).
+see [Pipeline Specification](../../../reference/pipeline-spec/).
 
 !!! note
     To create a pipeline, you can use either the Pachyderm UI or the CLI.
@@ -48,7 +48,7 @@ see [Pipeline Specification](../../../reference/pipeline_spec/).
 To create a pipeline, complete the following steps:
 
 1. Create a pipeline specification. For more information, see
-[Pipeline Specification](../../../reference/pipeline_spec/).
+[Pipeline Specification](../../../reference/pipeline-spec/).
 
 1. Create a pipeline by passing the pipeline configuration to Pachyderm:
 
@@ -125,6 +125,6 @@ To access the old files, complete the following steps:
 
 !!! note "See Also:"
     - [Pipelines](../../../concepts/pipeline-concepts/pipeline/)
-    - [Pipeline Specification](../../../reference/pipeline_spec/)
-    - [Update a Pipeline](../updating_pipelines/)
+    - [Pipeline Specification](../../../reference/pipeline-spec/)
+    - [Update a Pipeline](../updating-pipelines/)
     - [Delete a Pipeline](../delete-pipeline/)

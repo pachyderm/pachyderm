@@ -166,7 +166,7 @@ func PipelineStateFromName(name string) (PipelineState, error) {
 // otherwise.
 func IsTerminal(state JobState) bool {
 	switch state {
-	case JobState_JOB_SUCCESS, JobState_JOB_FAILURE, JobState_JOB_KILLED:
+	case JobState_JOB_SUCCESS, JobState_JOB_FAILURE, JobState_JOB_KILLED, JobState_JOB_UNRUNNABLE:
 		return true
 	case JobState_JOB_CREATED, JobState_JOB_STARTING, JobState_JOB_RUNNING, JobState_JOB_EGRESSING, JobState_JOB_FINISHING:
 		return false

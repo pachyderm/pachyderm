@@ -144,10 +144,10 @@ type ServerOptions struct {
 }
 
 type Request struct {
-	Mount  bool // true for desired state == mounted, false for desired state == unmounted
+	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
 	Repo   string
 	Branch string
-	Commit string // "" for no commit
+	Commit string // "" for no commit (commit as noun)
 	Name   string
 	Mode   string // "ro", "rw"
 }
@@ -296,7 +296,7 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
-		Mount:  true,
+		Action: "mount",
 		Repo:   key.Repo,
 		Branch: key.Branch,
 		Commit: key.Commit,
@@ -310,7 +310,21 @@ func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, 
 func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
-		Mount:  false,
+		Action: "unmount",
+		Repo:   key.Repo,
+		Branch: key.Branch,
+		Commit: key.Commit,
+		Name:   name,
+		Mode:   "",
+	}
+	response := <-mm.States[name].responses
+	return response, response.Error
+}
+
+func (mm *MountManager) CommitBranch(key MountKey, name string) (Response, error) {
+	mm.MaybeStartFsm(name)
+	mm.States[name].requests <- Request{
+		Action: "commit",
 		Repo:   key.Repo,
 		Branch: key.Branch,
 		Commit: key.Commit,
@@ -567,6 +581,47 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		}
 		w.Write(marshalled)
 	})
+	router.Methods("PUT").
+		Queries("name", "{name}").
+		Path("/repos/{key:.+}/_commit").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isAuthOnAndUserUnauthenticated(mm.Client) {
+			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			return
+		}
+
+		vs := mux.Vars(req)
+		k, ok := vs["key"]
+		if !ok {
+			http.Error(w, "no key", http.StatusBadRequest)
+			return
+		}
+		name, ok := vs["name"]
+		if !ok {
+			http.Error(w, "no name", http.StatusBadRequest)
+			return
+		}
+		key, err := mountKeyFromString(k)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_, err = mm.CommitBranch(key, name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		l, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(l)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isAuthOnAndUserUnauthenticated(mm.Client) {
 			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
@@ -682,7 +737,6 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		cfg.Write()
 		mm.Client.SetAuthToken("")
 	})
-	// TODO: implement _commit
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
 	// TCP port (just for convenient manual testing with curl for now...)
@@ -917,8 +971,8 @@ func unmountedState(m *MountStateMachine) StateFn {
 	// TODO: listen on our request chan, mount filesystems, and respond
 	for {
 		req := <-m.requests
-
-		if req.Mount {
+		switch req.Action {
+		case "mount":
 			// copy data from request into fields that are documented as being
 			// written by the client (see MountState struct)
 			m.MountState.Name = req.Name
@@ -929,7 +983,17 @@ func unmountedState(m *MountStateMachine) StateFn {
 			}
 			m.MountState.Mode = req.Mode
 			return mountingState
-		} else {
+		case "commit":
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("bad request: can't commit when unmounted"),
+			}
+			return unmountedState
+		case "unmount":
 			m.responses <- Response{
 				Repo:       m.MountKey.Repo,
 				Branch:     m.MountKey.Branch,
@@ -939,6 +1003,17 @@ func unmountedState(m *MountStateMachine) StateFn {
 				Error:      fmt.Errorf("can't unmount when we're already unmounted"),
 			}
 			// stay unmounted
+			return unmountedState
+		default:
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("bad request: unsupported/unknown action %s while unmounted", req.Action),
+			}
+			return unmountedState
 		}
 	}
 }
@@ -984,7 +1059,13 @@ func mountedState(m *MountStateMachine) StateFn {
 		// into unmounting. mount requests for already mounted repos should
 		// go back into mounting, as they can remount a fs as ro/rw.
 		req := <-m.requests
-		if req.Mount {
+		switch req.Action {
+		case "mount":
+			// This check is necessary to make sure that if the incoming request
+			// is trying to mount a repo at mount_name and mount_name is already
+			// being used, the request repo and branch match the repo and branch
+			// already associated with mount_name. It's essentially a safety
+			// check for when we get to the remounting case below.
 			if req.Repo != m.MountKey.Repo || req.Branch != m.MountKey.Branch {
 				m.responses <- Response{
 					Repo:       m.MountKey.Repo,
@@ -1000,8 +1081,20 @@ func mountedState(m *MountStateMachine) StateFn {
 			// TODO: handle remount case (switching mode):
 			// if mounted ro and switching to rw, just upgrade
 			// if mounted rw and switching to ro, upload changes, then switch the mount type
-		} else {
+		case "unmount":
 			return unmountingState
+		case "commit":
+			return committingState
+		default:
+			m.responses <- Response{
+				Repo:       m.MountKey.Repo,
+				Branch:     m.MountKey.Branch,
+				Commit:     m.MountKey.Commit,
+				Name:       m.Name,
+				MountState: m.MountState,
+				Error:      fmt.Errorf("bad request: unsupported/unknown action %s while mounted", req.Action),
+			}
+			return unmountedState
 		}
 	}
 }
@@ -1029,6 +1122,63 @@ func cleanByPrefixFileStates(theMap map[string]fileState, prefix string) {
 	}
 }
 
+func (m *MountStateMachine) maybeUploadFiles() error {
+	// TODO XXX VERY IMPORTANT: pause/block filesystem operations during the
+	// upload, otherwise we could get filesystem inconsistency! Need a sort of
+	// lock which multiple fs operations can hold but only one "pauser" can.
+
+	// Only upload files for writeable filesystems
+	if m.Mode == "rw" {
+		// upload any files whose paths start with where we're mounted
+		err := m.manager.uploadFiles(m.Name)
+		if err != nil {
+			return err
+		}
+		// close the mfc, uploading files, then delete it
+		mfc, err := m.manager.mfc(m.Name)
+		if err != nil {
+			return err
+		}
+		err = mfc.Close()
+		if err != nil {
+			return err
+		}
+		// cleanup mfc - a new one will be created on-demand
+		func() {
+			m.manager.mu.Lock()
+			defer m.manager.mu.Unlock()
+			delete(m.manager.mfcs, m.Name)
+		}()
+	}
+	return nil
+}
+
+func committingState(m *MountStateMachine) StateFn {
+	// NB: this function is responsible for placing a response on m.responses
+	// _in all cases_
+	m.transitionedTo("committing", "")
+
+	err := m.maybeUploadFiles()
+	if err != nil {
+		logrus.Infof("Error while uploading! %s", err)
+		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
+		}
+		return errorState
+	}
+
+	// TODO: fill in more fields?
+	m.responses <- Response{}
+	// we always go back from committingState back into mountedState
+	return mountedState
+}
+
 func unmountingState(m *MountStateMachine) StateFn {
 	// NB: this function is responsible for placing a response on m.responses
 	// _in all cases_
@@ -1041,61 +1191,21 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// upload, otherwise we could get filesystem inconsistency! Need a sort of
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
-	// Only upload files for writeable filesystems
-	if m.Mode == "rw" {
-		// upload any files whose paths start with where we're mounted
-		err := m.manager.uploadFiles(m.Name)
-		if err != nil {
-			logrus.Infof("Error while uploading! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
+	err := m.maybeUploadFiles()
+	if err != nil {
+		logrus.Infof("Error while uploading! %s", err)
+		m.transitionedTo("error", err.Error())
+		m.responses <- Response{
+			Repo:       m.MountKey.Repo,
+			Branch:     m.MountKey.Branch,
+			Commit:     m.MountKey.Commit,
+			Name:       m.Name,
+			MountState: m.MountState,
+			Error:      err,
 		}
-
-		// close the mfc, uploading files, then delete it
-		mfc, err := m.manager.mfc(m.Name)
-		if err != nil {
-			logrus.Infof("Error while getting mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
-		}
-		err = mfc.Close()
-		if err != nil {
-			logrus.Infof("Error while closing mfc! %s", err)
-			m.transitionedTo("error", err.Error())
-			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
-				MountState: m.MountState,
-				Error:      err,
-			}
-			return errorState
-		}
+		return errorState
 	}
 
-	// cleanup
-	func() {
-		m.manager.mu.Lock()
-		defer m.manager.mu.Unlock()
-		delete(m.manager.mfcs, m.Name)
-	}()
 	func() {
 		m.manager.root.mu.Lock()
 		defer m.manager.root.mu.Unlock()
@@ -1110,7 +1220,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
 	logrus.Infof("Path is %s", cleanPath)
 
-	err := os.RemoveAll(cleanPath)
+	err = os.RemoveAll(cleanPath)
 	m.responses <- Response{
 		Repo:       m.MountKey.Repo,
 		Branch:     m.MountKey.Branch,

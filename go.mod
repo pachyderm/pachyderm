@@ -48,7 +48,7 @@ require (
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36
-	github.com/pachyderm/s2 v0.0.0-20220310153629-eb494ef438b2
+	github.com/pachyderm/s2 v0.0.0-20220510214824-e4a20345d93c
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0

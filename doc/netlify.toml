@@ -83,7 +83,7 @@
   force = true
 
 [[redirects]]
-  from = "/2.1.x/*"
+  from = "/2.2.x/*"
   to = "/latest/:splat"
   status = 301
   force = true
@@ -137,8 +137,104 @@
   force = true
 
 [[redirects]]
+  from = "/:version/deploy-manage/deploy/prometheus/job_metrics/"
+  to = "/:version/deploy-manage/deploy/prometheus/job-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/prometheus/pachd_metrics/"
+  to = "/:version/deploy-manage/deploy/prometheus/pachd-metrics/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/on_premises/"
+  to = "/:version/deploy-manage/deploy/on-premises/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/deploy_w_tls/"
+  to = "/:version/deploy-manage/deploy/deploy-w-tls/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/deploy/google_cloud_platform/"
+  to = "/:version/deploy-manage/deploy/google-cloud-platform/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/upgrades_migrations/"
+  to = "/:version/deploy-manage/manage/upgrades-migrations/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/backup_restore/"
+  to = "/:version/deploy-manage/manage/backup-restore/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/pachctl_shell/"
+  to = "/:version/deploy-manage/manage/pachctl-shell/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/deploy-manage/manage/data_management/"
+  to = "/:version/deploy-manage/manage/data-management/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/concepts/*"
   to = "/latest/concepts/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/s3gateway_api/"
+  to = "/:version/reference/s3gateway-api/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/helm_values/"
+  to = "/:version/reference/helm-values/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/config_spec/"
+  to = "/:version/reference/config-spec/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/pipeline_spec/"
+  to = "/:version/reference/pipeline-spec/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/reference/scaling_limits/"
+  to = "/:version/reference/scaling-limits/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/how-tos/advanced-data-operations/err_cmd/"
+  to = "/:version/how-tos/advanced-data-operations/err-cmd/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/how-tos/advanced-data-operations/time_windows/"
+  to = "/:version/how-tos/advanced-data-operations/time-windows/"
   status = 301
   force = true
 
@@ -149,8 +245,38 @@
   force = true
 
 [[redirects]]
+  from = "/:version/how-tos/basic-data-operations/removing_data_from_pachyderm/"
+  to = "/:version/how-tos/basic-data-operations/removing-data-from-pachyderm/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/:version/how-tos/pipeline-operations/"
   to = "/:version/how-tos/pipeline-operations/create-pipeline/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/how-tos/pipeline-operations/updating_pipelines/"
+  to = "/:version/how-tos/pipeline-operations/updating-pipelines/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/troubleshooting/general_troubleshooting/"
+  to = "/:version/troubleshooting/general-troubleshooting/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/troubleshooting/deploy_troubleshooting/"
+  to = "/:version/troubleshooting/deploy-troubleshooting/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/:version/troubleshooting/pipeline_troubleshooting/"
+  to = "/:version/troubleshooting/pipeline-troubleshooting/"
   status = 301
   force = true
 

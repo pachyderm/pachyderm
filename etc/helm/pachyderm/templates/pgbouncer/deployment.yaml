@@ -43,6 +43,8 @@ spec:
          {{- end }}
         - name: PGBOUNCER_PORT
           value: "5432"
+        - name: POSTGRESQL_PORT
+          value: "{{ .Values.global.postgresql.postgresqlPort }}"
         - name: PGBOUNCER_DATABASE
           value: "*"
         - name: PGBOUNCER_MAX_CLIENT_CONN
@@ -55,6 +57,18 @@ spec:
           value: "300"
         - name: PGBOUNCER_IGNORE_STARTUP_PARAMETERS
           value: "extra_float_digits"
+        - name: PGBOUNCER_SERVER_TLS_SSLMODE
+          value: "{{ .Values.global.postgresql.postgresqlSSL }}"
+         {{- if .Values.global.postgresql.postgresqlSSLSecret  }}
+        - name: PGBOUNCER_SERVER_TLS_CERT_FILE
+          value: /pg-tls-cert/tls.crt
+        - name: PGBOUNCER_SERVER_TLS_KEY_FILE
+          value: /pg-tls-cert/tls.key
+         {{- end }}
+         {{- if .Values.global.postgresql.postgresqlSSLCACert  }}
+        - name: PGBOUNCER_SERVER_TLS_CA_FILE
+          value: /pg-ca-cert/ca.crt
+         {{- end }}
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
         - name: POSTGRESQL_PASSWORD
@@ -62,7 +76,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: bitnami/pgbouncer:1.16.0
+        image: bitnami/pgbouncer:1.16.1-debian-10-r82
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
@@ -72,9 +86,29 @@ spec:
           requests:
             cpu: 250m
             memory: 256M
+        volumeMounts:
+        {{- if .Values.global.postgresql.postgresqlSSLSecret }}
+        - mountPath: /pg-tls-cert
+          name: pg-tls-cert
+        {{- end }}
+        {{- if .Values.global.postgresql.postgresqlSSLCACert }}
+        - mountPath: /pg-ca-cert
+          name: pg-ca-cert
+        {{- end }}
       {{- if .Values.pgbouncer.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pgbouncer.nodeSelector | nindent 8 }}
       {{- end }}
       {{- if .Values.pgbouncer.tolerations }}
       tolerations: {{ toYaml .Values.pgbouncer.tolerations | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{- if .Values.global.postgresql.postgresqlSSLSecret }}
+      - name: pg-tls-cert
+        secret:
+          secretName: "{{ .Values.global.postgresql.postgresqlSSLSecret }}"
+      {{- end }}
+      {{- if .Values.global.postgresql.postgresqlSSLCACert }}
+      - name: pg-ca-cert
+        secret:
+          secretName: "pg-ca-cert"
       {{- end }}

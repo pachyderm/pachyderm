@@ -3,6 +3,7 @@ package minikubetestenv
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -48,6 +49,7 @@ type DeployOpts struct {
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset  uint16
+	Loki        bool
 	WaitSeconds int
 }
 
@@ -93,7 +95,7 @@ func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	return &copy
 }
 
-func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
+func exposedServiceType() string {
 	os := runtime.GOOS
 	serviceType := ""
 	switch os {
@@ -102,15 +104,36 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	default:
 		serviceType = "NodePort"
 	}
+	return serviceType
+}
+
+func withLokiOptions(namespace string, port int) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"pachd.lokiDeploy":             "true",
+			"loki-stack.loki.service.type": exposedServiceType(),
+			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "8000",
+			"loki-stack.loki.service.port":                                fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.service.nodePort":                            fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.config.server.http_listen_port":              fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.loki.servicePort":                        fmt.Sprintf("%v", port+9),
+		},
+		SetStrValues: map[string]string{
+			"loki-stack.promtail.initContainer.enabled": "true",
+		},
+	}
+}
+
+func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"deployTarget": "custom",
 
-			"pachd.service.type":        serviceType,
+			"pachd.service.type":        "ClusterIP",
 			"pachd.image.tag":           image,
 			"pachd.clusterDeploymentID": "dev",
-			"pachd.lokiDeploy":          "true",
 
 			"pachd.storage.backend":        "MINIO",
 			"pachd.storage.minio.bucket":   "pachyderm-test",
@@ -125,6 +148,22 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
+
+			// For tests, traffic from outside the cluster is routed through the proxy,
+			// but we bind the internal k8s service ports to the same numbers for
+			// in-cluster traffic, like enterprise registration.
+			"proxy.enabled":                       "true",
+			"proxy.service.type":                  exposedServiceType(),
+			"proxy.service.httpNodePort":          "30650",
+			"pachd.service.apiGRPCPort":           "30650",
+			"proxy.service.legacyPorts.oidc":      "30657",
+			"pachd.service.oidcPort":              "30657",
+			"proxy.service.legacyPorts.identity":  "30658",
+			"pachd.service.identityPort":          "30658",
+			"proxy.service.legacyPorts.s3Gateway": "30600",
+			"pachd.service.s3GatewayPort":         "30600",
+			"proxy.service.legacyPorts.metrics":   "30656",
+			"pachd.service.prometheusPort":        "30656",
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
@@ -133,7 +172,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddress) *helm.Options {
+func withEnterprise(namespace string, address *grpcutil.PachdAddress) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
@@ -150,31 +189,58 @@ func withEnterprise(t testing.TB, namespace string, address *grpcutil.PachdAddre
 	}
 }
 
-func withPort(t testing.TB, namespace string, port uint16) *helm.Options {
+func withPort(namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
-			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
-			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
+			// Run gRPC traffic through the full router.
+			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
+
+			// Let everything else use the legacy way.  We use the same mapping for
+			// internal ports, so in-cluster traffic doesn't go through the proxy, but
+			// doesn't need to confusingly use a different port number.
+			"pachd.service.apiGRPCPort":           fmt.Sprintf("%v", port),
+			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
+			"pachd.service.oidcPort":              fmt.Sprintf("%v", port+7),
+			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
+			"pachd.service.identityPort":          fmt.Sprintf("%v", port+8),
+			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
+			"pachd.service.s3GatewayPort":         fmt.Sprintf("%v", port+3),
+			"proxy.service.legacyPorts.metrics":   fmt.Sprintf("%v", port+4),
+			"pachd.service.prometheusPort":        fmt.Sprintf("%v", port+4),
+		},
+	}
+}
+
+// withoutProxy disables the Pachyderm proxy.  It's used to test upgrades from versions of Pachyderm
+// that didn't have the proxy.
+func withoutProxy(namespace string) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"proxy.enabled":      "false",
+			"pachd.service.type": exposedServiceType(),
 		},
 	}
 }
 
 func union(a, b *helm.Options) *helm.Options {
 	c := &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: b.KubectlOptions.Namespace},
-		SetValues:      make(map[string]string),
-		SetStrValues:   make(map[string]string),
+		SetValues:    make(map[string]string),
+		SetStrValues: make(map[string]string),
 	}
 	copy := func(src, dst *helm.Options) {
+		if src.KubectlOptions != nil {
+			dst.KubectlOptions = &k8s.KubectlOptions{Namespace: src.KubectlOptions.Namespace}
+		}
 		for k, v := range src.SetValues {
 			dst.SetValues[k] = v
 		}
 		for k, v := range src.SetStrValues {
 			dst.SetStrValues[k] = v
+		}
+		if src.Version != "" {
+			dst.Version = src.Version
 		}
 	}
 	copy(a, c)
@@ -182,7 +248,6 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
-// TODO(acohen4): also wait for Loki
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
 	require.NoError(t, backoff.Retry(func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
@@ -195,6 +260,17 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 			}
 		}
 		return errors.Errorf("deployment in progress")
+	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+}
+
+func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
+	require.NoError(t, backoff.Retry(func() error {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v", lokiHost, lokiPort), nil)
+		_, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return errors.Wrap(err, "loki not ready")
+		}
+		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
@@ -222,6 +298,10 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
 		if err != nil {
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
+		}
+		// Ensure that pachd is really ready to receive requests.
+		if _, err := c.InspectCluster(); err != nil {
+			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
@@ -271,29 +351,43 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	version := localImage
 	chartPath := helmChartLocalPath(t)
+	// TODO(acohen4): apply minio deployment to this namespace
+	helmOpts := localDeploymentWithMinioOptions(namespace, version)
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
+		helmOpts.Version = version
+		helmOpts.SetValues["pachd.image.tag"] = version
 	}
-	// TODO(acohen4): apply minio deployment to this namespace
-	helmOpts := localDeploymentWithMinioOptions(namespace, version)
 	pachAddress := getPachAddress(t)
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
-		helmOpts = union(helmOpts, withPort(t, namespace, pachAddress.Port))
+		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port))
 	}
 	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		helmOpts = union(helmOpts, withEnterprise(t, namespace, pachAddress))
+		helmOpts = union(helmOpts, withEnterprise(namespace, pachAddress))
+	}
+	if opts.Loki {
+		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
+	}
+	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
+		helmOpts = union(helmOpts, withoutProxy(namespace))
 	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
 			return pachClient(t, pachAddress, opts.AuthUser, namespace)
 		}
 		deleteRelease(t, context.Background(), namespace, kubeClient)
-		require.NoError(t, f(t, helmOpts, chartPath, namespace))
+		// When CircleCI was experiencing network slowness, downloading
+		// the Helm chart would sometimes fail.  Retrying it was
+		// successful.
+		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
+	if opts.Loki {
+		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
+	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)

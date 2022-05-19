@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -1067,8 +1068,9 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 			Job: meta.Job,
 			ID:  common.DatumID(meta.Inputs),
 		},
-		State: convertDatumState(meta.State),
-		Stats: meta.Stats,
+		State:   convertDatumState(meta.State),
+		Stats:   meta.Stats,
+		ImageId: meta.ImageId,
 	}
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
@@ -1493,6 +1495,28 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
+func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineRequest) error {
+	for _, s := range req.GetTransform().GetSecrets() {
+		if s.EnvVar != "" && s.Key == "" {
+			return errors.Errorf("secret %s has env_var set but is missing key", s.Name)
+		}
+		ss, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return errors.Errorf("missing Kubernetes secret %s", s.Name)
+			}
+			return errors.Wrapf(err, "could not get Kubernetes secret %s", s.Name)
+		}
+		if s.EnvVar == "" {
+			continue
+		}
+		if _, ok := ss.Data[s.Key]; !ok {
+			return errors.Errorf("Kubernetes secret %s missing key %s", s.Name, s.Key)
+		}
+	}
+	return nil
+}
+
 // validateEgress validates the egress field.
 func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
 	if egress == nil {
@@ -1750,6 +1774,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
+	if err := a.validateSecret(ctx, request); err != nil {
+		return nil, err
+	}
+
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}, nil); err != nil {
@@ -1762,7 +1790,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
 	}
-
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()

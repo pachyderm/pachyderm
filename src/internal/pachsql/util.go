@@ -51,21 +51,25 @@ func SplitTableSchema(driver string, tablePath string) (schemaName string, table
 // TestRow is the type of a row in the test table
 // struct tag: sql:"<column_name>,<data_type>,<table_constraint>"
 type TestRow struct {
-	Id int `sql:"c_id,INT,PRIMARY KEY NOT NULL"`
+	Id int16 `column:"c_id" dtype:"SMALLINT" constraint:"PRIMARY KEY NOT NULL"`
 
-	Smallint int16     `sql:"c_smallint,SMALLINT,NOT NULL"`
-	Int      int32     `sql:"c_int,INT,NOT NULL"`
-	Bigint   int64     `sql:"c_bigint,BIGINT,NOT NULL"`
-	Float    float32   `sql:"c_float,FLOAT,NOT NULL"`
-	Varchar  string    `sql:"c_varchar,VARCHAR(100),NOT NULL"`
-	Time     time.Time `sql:"c_time,TIMESTAMP,NOT NULL"`
+	Smallint     int16     `column:"c_smallint" dtype:"SMALLINT" constraint:"NOT NULL"`
+	Int          int32     `column:"c_int" dtype:"INT" constraint:"NOT NULL"`
+	Bigint       int64     `column:"c_bigint" dtype:"BIGINT" constraint:"NOT NULL"`
+	Float        float32   `column:"c_float" dtype:"FLOAT" constraint:"NOT NULL"`
+	NumericInt   int64     `column:"c_numeric_int" dtype:"NUMERIC(20,0)" constraint:"NOT NULL"`
+	NumericFloat float64   `column:"c_numeric_float" dtype:"NUMERIC(20,19)" constraint:"NOT NULL"`
+	Varchar      string    `column:"c_varchar" dtype:"VARCHAR(100)" constraint:"NOT NULL"`
+	Time         time.Time `column:"c_time" dtype:"TIMESTAMP" constraint:"NOT NULL"`
 
-	SmallintNull sql.NullInt16   `sql:"c_smallint_null,SMALLINT,NULL"`
-	IntNull      sql.NullInt32   `sql:"c_int_null,INT,NULL"`
-	BigintNull   sql.NullInt64   `sql:"c_bigint_null,BIGINT,NULL"`
-	FloatNull    sql.NullFloat64 `sql:"c_float_null,FLOAT,NULL"`
-	VarcharNull  sql.NullString  `sql:"c_varchar_null,VARCHAR(100),NULL"`
-	TimeNull     sql.NullTime    `sql:"c_time_null,TIMESTAMP,NULL"`
+	SmallintNull     sql.NullInt16   `column:"c_smallint_null" dtype:"SMALLINT" constraint:"NULL"`
+	IntNull          sql.NullInt32   `column:"c_int_null" dtype:"INT" constraint:"NULL"`
+	BigintNull       sql.NullInt64   `column:"c_bigint_null" dtype:"BIGINT" constraint:"NULL"`
+	FloatNull        sql.NullFloat64 `column:"c_float_null" dtype:"FLOAT" constraint:"NULL"`
+	NumericIntNull   sql.NullInt64   `column:"c_numeric_int_null" dtype:"NUMERIC(20,0)" constraint:"NULL"`
+	NumericFloatNull sql.NullFloat64 `column:"c_numeric_float_null" dtype:"NUMERIC(20,19)" constraint:"NULL"`
+	VarcharNull      sql.NullString  `column:"c_varchar_null" dtype:"VARCHAR(100)" constraint:"NULL"`
+	TimeNull         sql.NullTime    `column:"c_time_null" dtype:"TIMESTAMP" constraint:"NULL"`
 }
 
 // CreateTestTable creates a test table at name in the database
@@ -74,7 +78,7 @@ func CreateTestTable(db *DB, name string, schema interface{}) error {
 	cols := []string{}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		cols = append(cols, strings.Join(strings.Split(field.Tag.Get("sql"), ","), " "))
+		cols = append(cols, fmt.Sprintf("%s %s %s", field.Tag.Get("column"), field.Tag.Get("dtype"), field.Tag.Get("constraint")))
 	}
 	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(cols, ", "))
 	_, err := db.Exec(q)
@@ -89,11 +93,10 @@ func GenerateTestData(db *DB, tableName string, n int) error {
 	})
 	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
 	var row TestRow
-	insertStatement := fmt.Sprintf("INSERT INTO test_data %s VALUES %s", formatColumns(row), formatValues(row, db))
+	insertStatement := fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
 	for i := 0; i < n; i++ {
 		fz.Fuzz(&row)
-		row.Id = i
-		row.Time = time.Now() // support mysql
+		row.Id = int16(i)
 		if _, err := db.Exec(insertStatement, makeArgs(row)...); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -106,7 +109,7 @@ func formatColumns(x interface{}) string {
 	rty := reflect.TypeOf(x)
 	for i := 0; i < rty.NumField(); i++ {
 		field := rty.Field(i)
-		col := strings.Split(field.Tag.Get("sql"), ",")[0]
+		col := field.Tag.Get("column")
 		cols = append(cols, col)
 	}
 	return "(" + strings.Join(cols, ", ") + ")"

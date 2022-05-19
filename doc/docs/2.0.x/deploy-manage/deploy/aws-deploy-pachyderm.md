@@ -35,7 +35,7 @@ you have the following prerequisites installed and configured:
 ## 2. Deploy Kubernetes by using `eksctl`
 
 !!! Attention
-      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+      Pachyderm requires running your cluster on Kubernetes 1.19.0 and above.
 
 Use the `eksctl` tool to deploy an EKS cluster in your
 Amazon AWS environment. The `eksctl create cluster` command
@@ -75,7 +75,10 @@ To deploy an EKS cluster, complete the following steps:
 
 Once your Kubernetes cluster is up, and your infrastructure is configured, 
 you are ready to prepare for the installation of Pachyderm. 
-Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
+Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure.
+
+!!! Note "Secrets Manager"
+      Pachyderm recommends securing and managing your secrets in a Secret Manager. Learn about the [set up and configuration of your EKS cluster to retrieve the relevant secrets from AWS Secrets Manager](../aws-secret-manager){target=_blank} then resume the following installation steps.
 
 ## 3. Create an S3 bucket
 ### Create an S3 object store bucket for data
@@ -458,10 +461,10 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
       ```
 
 
-Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 !!! Important
-      Retain (ideally in version control) a copy of the Helm values used to deploy your cluster. It might be useful if you need to [restore a cluster from a backup](../../manage/backup_restore).
+      Retain (ideally in version control) a copy of the Helm values used to deploy your cluster. It might be useful if you need to [restore a cluster from a backup](../../manage/backup-restore).
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 
