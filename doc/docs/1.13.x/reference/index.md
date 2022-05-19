@@ -17,7 +17,7 @@ your favorite programming language.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="pipeline_spec/" class="md-typeset md-link">
+          <li><a href="pipeline-spec/" class="md-typeset md-link">
           Pipeline Specification
           </a>
           </li>
