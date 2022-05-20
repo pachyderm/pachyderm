@@ -3,7 +3,7 @@
 Before you start creating a custom deployment, verify that you have
 completed the following steps:
 
-1. Read and complete the steps described in the [Introduction](../../on_premises/#introduction)
+1. Read and complete the steps described in the [Introduction](../../on-premises/#introduction)
 in the *On-Premises* section. This section explains the differences between
 static persistent volumes, StatefulSets, and StatefulSets with StorageClasses.
 Also, it explains the meanings of the variables, such as  `PVC_STORAGE_SIZE`

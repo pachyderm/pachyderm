@@ -51,7 +51,7 @@ data operations in Pachyderm.
           Ingest/Export Strategies Overview
           </a>
           </li>
-          <li><a href="basic-data-operations/removing_data_from_pachyderm" class="md-typeset md-link">
+          <li><a href="basic-data-operations/removing-data-from-pachyderm" class="md-typeset md-link">
           Delete Data
           </a>
           </li>         
@@ -77,7 +77,7 @@ data operations in Pachyderm.
            <li><a href="pipeline-operations/create-pipeline/" class="md-typeset md-link">
            Create a Pipeline
            </a></li>
-           <li><a href="pipeline-operations/updating_pipelines/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/updating-pipelines/" class="md-typeset md-link">
            Update a Pipeline
            </a></li>
            <li><a href="pipeline-operations/delete-pipeline/" class="md-typeset md-link">
@@ -104,7 +104,7 @@ data operations in Pachyderm.
            Create and Manage Secrets 
            </a>
            </li>
-           <li><a href="advanced-data-operations/time_windows" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/time-windows" class="md-typeset md-link">
            Processing Time-Windowed Data
            </a>
           </li>
@@ -113,7 +113,7 @@ data operations in Pachyderm.
            Use Transactions
            </a>
           </li>
-           <li><a href="advanced-data-operations/err_cmd" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/err-cmd" class="md-typeset md-link">
            Skip Failed Datums
            </a>
           </li>

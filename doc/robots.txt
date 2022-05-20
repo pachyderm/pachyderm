@@ -1,0 +1,8 @@
+
+User-agent: *
+Disallow: /latest/reference/pachctl/*
+Disallow: /1.13.x/*
+Disallow: /2.0.x/*
+Disallow: /2.1.x/*
+
+Sitemap: https://docs.pachyderm.com/latest/sitemap.xml

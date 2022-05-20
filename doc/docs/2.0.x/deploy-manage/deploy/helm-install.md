@@ -21,14 +21,14 @@ This page gives a high level view of the steps to follow to install Pachyderm us
     * **Find the deployment page that applies to your Cloud provider** (or custom deployment, or on-premises deployment).
     It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation that fit your own use case:
     
-        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google_cloud_platform/#google-cloud-platform){target=_blank} page.
+        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/latest/deploy-manage/deploy/google-cloud-platform/#google-cloud-platform){target=_blank} page.
 
     * Additionally, those instructions will also help you configure the various elements (object store, credentials...) that relate to your deployment needs. Those parameters values will **be specified in a YAML configuration file** as follows.
 
 ### Edit a Values.yaml File
 Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/2.0.x/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
 
-See the reference [values.yaml](../../../reference/helm_values/) for the list of all available helm values at your disposal.
+See the reference [values.yaml](../../../reference/helm-values/) for the list of all available helm values at your disposal.
 
 !!! Warning
     **No default k8s CPU and memory requests and limits** are created for pachd.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 

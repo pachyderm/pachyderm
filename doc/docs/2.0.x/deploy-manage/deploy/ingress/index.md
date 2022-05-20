@@ -23,7 +23,7 @@ we recommend that you:
     You can deploy `pachd` and `console` with different certificates
     if required. Self-signed certificates might require additional configuration.
     For instructions on deployment with TLS, 
-    see [Deploy Pachyderm with TLS](../deploy_w_tls/).
+    see [Deploy Pachyderm with TLS](../deploy-w-tls/).
 
     !!! Note
         Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as kubernetes secrets into your cluster for the ingress and load balancer to use.

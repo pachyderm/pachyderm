@@ -131,7 +131,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 		SetValues: map[string]string{
 			"deployTarget": "custom",
 
-			"pachd.service.type":        exposedServiceType(),
+			"pachd.service.type":        "ClusterIP",
 			"pachd.image.tag":           image,
 			"pachd.clusterDeploymentID": "dev",
 
@@ -148,6 +148,22 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
+
+			// For tests, traffic from outside the cluster is routed through the proxy,
+			// but we bind the internal k8s service ports to the same numbers for
+			// in-cluster traffic, like enterprise registration.
+			"proxy.enabled":                       "true",
+			"proxy.service.type":                  exposedServiceType(),
+			"proxy.service.httpNodePort":          "30650",
+			"pachd.service.apiGRPCPort":           "30650",
+			"proxy.service.legacyPorts.oidc":      "30657",
+			"pachd.service.oidcPort":              "30657",
+			"proxy.service.legacyPorts.identity":  "30658",
+			"pachd.service.identityPort":          "30658",
+			"proxy.service.legacyPorts.s3Gateway": "30600",
+			"pachd.service.s3GatewayPort":         "30600",
+			"proxy.service.legacyPorts.metrics":   "30656",
+			"pachd.service.prometheusPort":        "30656",
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
@@ -177,11 +193,33 @@ func withPort(namespace string, port uint16) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.service.apiGRPCPort":    fmt.Sprintf("%v", port),
-			"pachd.service.oidcPort":       fmt.Sprintf("%v", port+7),
-			"pachd.service.identityPort":   fmt.Sprintf("%v", port+8),
-			"pachd.service.s3GatewayPort":  fmt.Sprintf("%v", port+3),
-			"pachd.service.prometheusPort": fmt.Sprintf("%v", port+4),
+			// Run gRPC traffic through the full router.
+			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
+
+			// Let everything else use the legacy way.  We use the same mapping for
+			// internal ports, so in-cluster traffic doesn't go through the proxy, but
+			// doesn't need to confusingly use a different port number.
+			"pachd.service.apiGRPCPort":           fmt.Sprintf("%v", port),
+			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
+			"pachd.service.oidcPort":              fmt.Sprintf("%v", port+7),
+			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
+			"pachd.service.identityPort":          fmt.Sprintf("%v", port+8),
+			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
+			"pachd.service.s3GatewayPort":         fmt.Sprintf("%v", port+3),
+			"proxy.service.legacyPorts.metrics":   fmt.Sprintf("%v", port+4),
+			"pachd.service.prometheusPort":        fmt.Sprintf("%v", port+4),
+		},
+	}
+}
+
+// withoutProxy disables the Pachyderm proxy.  It's used to test upgrades from versions of Pachyderm
+// that didn't have the proxy.
+func withoutProxy(namespace string) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"proxy.enabled":      "false",
+			"pachd.service.type": exposedServiceType(),
 		},
 	}
 }
@@ -261,6 +299,10 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		if err != nil {
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
+		// Ensure that pachd is really ready to receive requests.
+		if _, err := c.InspectCluster(); err != nil {
+			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
+		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
 	t.Logf("Success connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
@@ -329,12 +371,18 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
+	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
+		helmOpts = union(helmOpts, withoutProxy(namespace))
+	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
 			return pachClient(t, pachAddress, opts.AuthUser, namespace)
 		}
 		deleteRelease(t, context.Background(), namespace, kubeClient)
-		require.NoError(t, f(t, helmOpts, chartPath, namespace))
+		// When CircleCI was experiencing network slowness, downloading
+		// the Helm chart would sometimes fail.  Retrying it was
+		// successful.
+		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version)
 	if opts.Loki {

@@ -71,7 +71,7 @@ we recommend that you:
     You can deploy `pachd` and `dash` with different certificates
     if required. Self-signed certificates might require additional configuration.
     For instructions on deployment with TLS, 
-    see [Deploy Pachyderm with TLS](https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy_w_tls/).
+    see [Deploy Pachyderm with TLS](https://docs.pachyderm.com/latest/deploy-manage/deploy/deploy-w-tls/).
 
 * **Use Pachyderm authentication/authorization**
 
