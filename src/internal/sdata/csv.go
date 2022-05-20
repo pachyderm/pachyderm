@@ -3,6 +3,7 @@ package sdata
 import (
 	"database/sql"
 	"io"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -129,6 +130,13 @@ func (m *CSVWriter) format(x interface{}) (*string, error) {
 			return nil, nil
 		}
 		y = formatTimestampNTZ(x.Time.Format(time.RFC3339Nano))
+	case *interface{}:
+		// In the case where the value is a pointer to an interface,
+		// convert it into a pointer to its type, then recurse.
+		v := reflect.ValueOf(*x)
+		vv := reflect.New(v.Type())
+		vv.Elem().Set(v)
+		return m.format(vv.Interface())
 	default:
 		return nil, errors.Errorf("unrecognized value (%v: %T)", x, x)
 	}

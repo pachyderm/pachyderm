@@ -10,6 +10,7 @@ import (
 
 // TableInfo contains information about a SQL table
 type TableInfo struct {
+	Driver  string
 	Name    string
 	Schema  string
 	Columns []ColumnInfo
@@ -96,7 +97,7 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	if err := rows.Err(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &TableInfo{Name: tableName, Schema: schemaName, Columns: cinfos}, nil
+	return &TableInfo{Driver: tx.DriverName(), Name: tableName, Schema: schemaName, Columns: cinfos}, nil
 }
 
 func (t *TableInfo) ColumnNames() []string {
