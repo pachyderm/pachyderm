@@ -38,6 +38,13 @@
 
 Note that we are assuming that you **already have a Pachyderm cluster running** to connect your JupyterHub/JupyterLab. Find Pachyderm installation instructions in the [Deploy/Manage](../../deploy-manage/deploy/) section of our documentation.
 ## Using The Extension
+
+!!! Warning "Troubleshooting - When in doubt, restart your mount server"
+        JupyterLab Mount Extension is an [experimental feature](https://docs.pachyderm.com/latest/contributing/supported-releases/#experimental){target=_blank}. Many issues can be resolved by restarting the mount server, should you find yourself in an odd situation. To kill/restart your server, run the following command from the terminal window in jupyterlab:
+        ```shell
+        pkill -f "pachctl mount-server" 
+        ```
+        The server will restart by itself.
 ### Connect The Extension To Your Pachyderm Cluster
 
 To connect the extension to your Pachyderm cluster, fill in the full `pachd_address` (i.e., Pachyderm cluster address) in the login form accessible by clicking on the mount extension icon in the far left tab bar. It should look like "grpc://`<external-IP-address-or-domain-name>`:`<port-number>`".
