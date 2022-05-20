@@ -9,32 +9,45 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/sirupsen/logrus"
 )
 
-func DSN() string {
+func DSN() (string, error) {
 	user := os.Getenv("SNOWFLAKE_USER")
-	account_identifier := os.Getenv("SNOWFLAKE_ACCOUNT")
-	return fmt.Sprintf("snowflake://%s@%s", user, account_identifier)
+	if user == "" {
+		return "", errors.EnsureStack(errors.New("empty SNOWFLAKE_USER"))
+	}
+	accountID := os.Getenv("SNOWFLAKE_ACCOUNT")
+	if accountID == "" {
+		return "", errors.EnsureStack(errors.New("empty SNOWFLAKE_ACCOUNT"))
+	}
+	return fmt.Sprintf("snowflake://%s@%s", user, accountID), nil
 }
 
 func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
 	password := os.Getenv("SNOWFLAKE_PASSWORD")
-	url, err := pachsql.ParseURL(DSN())
-	require.NoError(t, err)
+	if password == "" {
+		t.Fatal("empty SNOWFLAKE_PASSWORD")
+	}
+	dsn, err := DSN()
+	if err != nil {
+		t.Fatal(err)
+	}
+	url, err := pachsql.ParseURL(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return url, password
 }
 
-// NewSnowSQL creates an emphermeral database in a real Snowflake instance.
-func NewSnowSQL(t testing.TB) *sqlx.DB {
-	return NewEphemeralSnowflakeDB(t, testutil.GenerateEphermeralDBName(t))
-}
-
-func NewEphemeralSnowflakeDB(t testing.TB, dbName string) *sqlx.DB {
+func NewEphemeralSnowflakeDB(t testing.TB) (*sqlx.DB, string) {
+	name := testutil.GenerateEphemeralDBName(t)
 	url, password := getURLAndPassword(t)
 	db := testutil.OpenDBURL(t, *url, password)
 	ctx := context.Background()
@@ -43,9 +56,9 @@ func NewEphemeralSnowflakeDB(t testing.TB, dbName string) *sqlx.DB {
 	defer cf()
 	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
 
-	testutil.CreateEphemeralDB(t, db, dbName)
-	url.Database = dbName
+	testutil.CreateEphemeralDB(t, db, name)
+	url.Database = name
 	url.Schema = "public"
 
-	return testutil.OpenDBURL(t, *url, password)
+	return testutil.OpenDBURL(t, *url, password), name
 }
