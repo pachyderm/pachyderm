@@ -874,6 +874,15 @@ func hasRepoRead(permissions []auth.Permission) bool {
 	return false
 }
 
+func hasRepoWrite(permissions []auth.Permission) bool {
+	for _, p := range permissions {
+		if p == auth.Permission_REPO_WRITE {
+			return true
+		}
+	}
+	return false
+}
+
 type MountState struct {
 	Name       string   `json:"name"`       // where to mount it. written by client
 	MountKey   MountKey `json:"mount_key"`  // what to mount. written by client
@@ -990,7 +999,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 		req := <-m.requests
 		switch req.Action {
 		case "mount":
-			// check if user has read access on repo
+			// check user permissions on repo
 			repoInfo, err := m.manager.Client.InspectRepo(req.Repo)
 			if err != nil {
 				m.responses <- Response{
@@ -1011,7 +1020,19 @@ func unmountedState(m *MountStateMachine) StateFn {
 						Commit:     req.Commit,
 						Name:       req.Name,
 						MountState: m.MountState,
-						Error:      fmt.Errorf("forbidden: user doesn't have read permission on repo %s", req.Repo),
+						Error:      fmt.Errorf("user doesn't have read permission on repo %s", req.Repo),
+					}
+					return unmountedState
+				}
+
+				if req.Mode == "rw" && !hasRepoWrite(repoInfo.AuthInfo.Permissions) {
+					m.responses <- Response{
+						Repo:       req.Repo,
+						Branch:     req.Branch,
+						Commit:     req.Commit,
+						Name:       req.Name,
+						MountState: m.MountState,
+						Error:      fmt.Errorf("can't create writable mount since user doesn't have write access on repo %s", req.Repo),
 					}
 					return unmountedState
 				}
