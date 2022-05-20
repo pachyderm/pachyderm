@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	fuzz "github.com/google/gofuzz"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
@@ -72,66 +71,31 @@ type TestRow struct {
 	TimeNull         sql.NullTime    `column:"c_time_null" dtype:"TIMESTAMP" constraint:"NULL"`
 }
 
+func (row *TestRow) SetID(id int16) {
+	row.Id = id
+}
+
 // CreateTestTable creates a test table at name in the database
 func CreateTestTable(db *DB, name string, schema interface{}) error {
 	t := reflect.TypeOf(schema)
-	cols := []string{}
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		cols = append(cols, fmt.Sprintf("%s %s %s", field.Tag.Get("column"), field.Tag.Get("dtype"), field.Tag.Get("constraint")))
+	var processFields func(reflect.Type) []string
+	processFields = func(t reflect.Type) []string {
+		var cols []string
+		if t.Kind() == reflect.Ptr {
+			return processFields(t.Elem())
+		}
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			switch {
+			case field.Anonymous && field.Type.Kind() == reflect.Struct:
+				cols = append(cols, processFields(field.Type)...)
+			default:
+				cols = append(cols, fmt.Sprintf("%s %s %s", field.Tag.Get("column"), field.Tag.Get("dtype"), field.Tag.Get("constraint")))
+			}
+		}
+		return cols
 	}
-	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(cols, ", "))
+	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(processFields(t), ", "))
 	_, err := db.Exec(q)
 	return errors.EnsureStack(err)
-}
-
-func GenerateTestData(db *DB, tableName string, n int) error {
-	fz := fuzz.New()
-	// support mysql
-	fz.Funcs(func(ti *time.Time, co fuzz.Continue) {
-		*ti = time.Now()
-	})
-	fz.Funcs(fuzz.UnicodeRange{First: '!', Last: '~'}.CustomStringFuzzFunc())
-	var row TestRow
-	insertStatement := fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
-	for i := 0; i < n; i++ {
-		fz.Fuzz(&row)
-		row.Id = int16(i)
-		if _, err := db.Exec(insertStatement, makeArgs(row)...); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	return nil
-}
-
-func formatColumns(x interface{}) string {
-	var cols []string
-	rty := reflect.TypeOf(x)
-	for i := 0; i < rty.NumField(); i++ {
-		field := rty.Field(i)
-		col := field.Tag.Get("column")
-		cols = append(cols, col)
-	}
-	return "(" + strings.Join(cols, ", ") + ")"
-}
-
-func formatValues(x interface{}, db *DB) string {
-	var ret string
-	for i := 0; i < reflect.TypeOf(x).NumField(); i++ {
-		if i > 0 {
-			ret += ", "
-		}
-		ret += Placeholder(db.DriverName(), i)
-	}
-	return "(" + ret + ")"
-}
-
-func makeArgs(x interface{}) []interface{} {
-	var vals []interface{}
-	rval := reflect.ValueOf(x)
-	for i := 0; i < rval.NumField(); i++ {
-		v := rval.Field(i).Interface()
-		vals = append(vals, v)
-	}
-	return vals
 }
