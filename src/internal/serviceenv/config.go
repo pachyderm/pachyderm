@@ -101,7 +101,17 @@ type PachdSpecificConfiguration struct {
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
 	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
-	AuthRootToken                string `env:"AUTH_ROOT_TOKEN,default="`
+}
+
+// EnterpriseServerConfiguration contains the full configuration for an enterprise server
+type EnterpriseServerConfiguration struct {
+	GlobalConfiguration
+	EnterpriseSpecifcConfiguration
+}
+
+// EnterpriseSpecifcConfiguration contains the configuration required for enterprise features
+type EnterpriseSpecifcConfiguration struct {
+	AuthRootToken string `env:"AUTH_ROOT_TOKEN,default="`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
