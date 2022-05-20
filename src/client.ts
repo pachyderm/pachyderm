@@ -2,6 +2,7 @@ import {Metadata} from '@grpc/grpc-js';
 
 import createCredentials from './createCredentials';
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
+import admin from './services/admin';
 import auth from './services/auth';
 import pfs from './services/pfs';
 import pps from './services/pps';
@@ -69,6 +70,7 @@ const client = ({
   let ppsService: ReturnType<typeof pps> | undefined;
   let authService: ReturnType<typeof auth> | undefined;
   let projectsService: ReturnType<typeof projects> | undefined;
+  let adminService: ReturnType<typeof admin> | undefined;
 
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
@@ -133,6 +135,19 @@ const client = ({
     }: Pick<ClientArgs, 'authToken' | 'projectId'>) => {
       credentialMetadata.set('authn-token', authToken);
       credentialMetadata.set('project-id', projectId);
+    },
+    admin: () => {
+      if (adminService) return adminService;
+
+      adminService = attachPlugins(
+        admin({
+          pachdAddress,
+          channelCredentials,
+          credentialMetadata,
+        }),
+        plugins,
+      );
+      return adminService;
     },
   };
 
