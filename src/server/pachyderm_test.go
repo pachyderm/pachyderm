@@ -10378,8 +10378,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 
 	// create output database, and destination table
-	dbName := tu.GenerateEphermeralDBName(t)
-	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
 		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
 		A  string `column:"A" dtype:"VARCHAR(100)"`
@@ -10402,7 +10401,11 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 
 	// create a pipeline with egress
 	pipeline := tu.UniqueString("egress")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	dsn, err := testsnowflake.DSN()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -10418,7 +10421,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 			}},
 			Egress: &pps.Egress{
 				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
-					Url: fmt.Sprintf("%s/%s", testsnowflake.DSN(), dbName),
+					Url: fmt.Sprintf("%s/%s", dsn, dbName),
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
 						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
 					},
@@ -10430,7 +10433,9 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 				},
 			},
 		},
-	)
+	); err != nil {
+		t.Fatal(err)
+	}
 
 	// Initial load
 	master := client.NewCommit(repo, "master", "")

@@ -56,18 +56,16 @@ func (m *SQLTupleWriter) GeneratePreparedStatement() (*pachsql.Stmt, error) {
 	if len(m.buf) == 0 {
 		return nil, nil
 	}
-	driverName := m.tx.DriverName()
-	placeholders := []string{} // a list of (?, ?, ...)
+	var placeholders []string // a list of (?, ?, ...)
 
-	// construct list of placeholders by accumulating elements into a placeholderRow first
-	placeholderRow := []string{}
 	for r := range m.buf {
+		// construct list of placeholders by accumulating elements into a placeholderRow first
+		var placeholderRow []string
 		for c := range m.buf[r] {
 			i := r*len(m.buf[r]) + c
-			placeholderRow = append(placeholderRow, pachsql.Placeholder(driverName, i))
+			placeholderRow = append(placeholderRow, pachsql.Placeholder(m.tableInfo.Driver, i))
 		}
 		placeholders = append(placeholders, fmt.Sprintf("(%s)", strings.Join(placeholderRow, ", ")))
-		placeholderRow = placeholderRow[:0]
 	}
 	sqlStr := m.insertStatement + strings.Join(placeholders, ", ")
 	stmt, err := m.tx.Preparex(sqlStr)
@@ -78,9 +76,28 @@ func (m *SQLTupleWriter) GeneratePreparedStatement() (*pachsql.Stmt, error) {
 }
 
 func NewSQLTupleWriter(tx *pachsql.Tx, tableInfo *pachsql.TableInfo) *SQLTupleWriter {
-	insertStatement := fmt.Sprintf("INSERT INTO %s.%s (%s) VALUES ",
-		tableInfo.Schema,
-		tableInfo.Name,
-		strings.Join(tableInfo.ColumnNames(), ", "))
-	return &SQLTupleWriter{tx, tableInfo, insertStatement, []Tuple{}}
+	var s string
+	if tableInfo.Driver == "snowflake" {
+		var (
+			vv []string
+			cc []string
+		)
+		for i, col := range tableInfo.Columns {
+			var v string
+			if col.DataType == "VARIANT" {
+				v = fmt.Sprintf(`to_variant(COLUMN%d)`, i+1)
+			} else {
+				v = fmt.Sprintf(`COLUMN%d`, i+1)
+			}
+			vv = append(vv, v)
+			cc = append(cc, col.Name)
+		}
+		s = fmt.Sprintf(`INSERT INTO %s.%s (%s) SELECT %s FROM VALUES `, tableInfo.Schema, tableInfo.Name, strings.Join(cc, ","), strings.Join(vv, ","))
+	} else {
+		s = fmt.Sprintf("INSERT INTO %s.%s (%s) VALUES ",
+			tableInfo.Schema,
+			tableInfo.Name,
+			strings.Join(tableInfo.ColumnNames(), ", "))
+	}
+	return &SQLTupleWriter{tx, tableInfo, s, []Tuple{}}
 }

@@ -34,7 +34,10 @@ func PGBouncerHost() string {
 }
 
 func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
-	ctx := context.Background()
+	var (
+		ctx  = context.Background()
+		name = testutil.GenerateEphemeralDBName(t)
+	)
 	require.NoError(t, ensureDBEnv(t, ctx))
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
@@ -42,10 +45,10 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
-	dbName := testutil.CreateEphemeralDB(t, db, testutil.GenerateEphermeralDBName(t))
+	testutil.CreateEphemeralDB(t, db, name)
 	return func(c *serviceenv.Configuration) {
 		// common
-		c.PostgresDBName = dbName
+		c.PostgresDBName = name
 
 		// direct
 		c.PostgresHost = postgresHost()
@@ -62,10 +65,13 @@ func NewTestDB(t testing.TB) *pachsql.DB {
 	return testutil.OpenDB(t, NewTestDBOptions(t)...)
 }
 
-// NewEphemeralPostgresDB creates a new database with a user defined name,
-// and returns a database connection connected to the new database.
-func NewEphemeralPostgresDB(t testing.TB, dbName string) *pachsql.DB {
-	ctx := context.Background()
+// NewEphemeralPostgresDB creates a randomly-named new database, returning a
+// connection to the new DB and the name itself.
+func NewEphemeralPostgresDB(t testing.TB) (*pachsql.DB, string) {
+	var (
+		ctx  = context.Background()
+		name = testutil.GenerateEphemeralDBName(t)
+	)
 	require.NoError(t, ensureDBEnv(t, ctx))
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
@@ -73,13 +79,13 @@ func NewEphemeralPostgresDB(t testing.TB, dbName string) *pachsql.DB {
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 	)
-	dbName = testutil.CreateEphemeralDB(t, db, dbName)
+	testutil.CreateEphemeralDB(t, db, name)
 	return testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
-		dbutil.WithDBName(dbName),
-	)
+		dbutil.WithDBName(name),
+	), name
 }
 
 func NewTestDirectDB(t testing.TB) *pachsql.DB {

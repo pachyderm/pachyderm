@@ -10,13 +10,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGetTableInfo(suite *testing.T) {
 	type testCase struct {
 		Name     string
-		NewDB    func(testing.TB, string) *pachsql.DB
+		NewDB    func(testing.TB) (*pachsql.DB, string)
 		Expected *pachsql.TableInfo
 	}
 	tcs := []testCase{
@@ -24,6 +23,7 @@ func TestGetTableInfo(suite *testing.T) {
 			Name:  "Postgres",
 			NewDB: dockertestenv.NewEphemeralPostgresDB,
 			Expected: &pachsql.TableInfo{
+				"pgx",
 				"test_table",
 				"public",
 				[]pachsql.ColumnInfo{
@@ -51,6 +51,7 @@ func TestGetTableInfo(suite *testing.T) {
 			Name:  "MySQL",
 			NewDB: dockertestenv.NewEphemeralMySQLDB,
 			Expected: &pachsql.TableInfo{
+				"mysql",
 				"test_table",
 				"MySQL doesn't have schema, use database name instead",
 				[]pachsql.ColumnInfo{
@@ -78,6 +79,7 @@ func TestGetTableInfo(suite *testing.T) {
 			Name:  "Snowflake",
 			NewDB: testsnowflake.NewEphemeralSnowflakeDB,
 			Expected: &pachsql.TableInfo{
+				"snowflake",
 				"test_table",
 				"public",
 				[]pachsql.ColumnInfo{
@@ -105,11 +107,10 @@ func TestGetTableInfo(suite *testing.T) {
 	ctx := context.Background()
 	for _, tc := range tcs {
 		suite.Run(tc.Name, func(t *testing.T) {
-			dbName := testutil.GenerateEphermeralDBName(t)
+			db, dbName := tc.NewDB(t)
 			if tc.Name == "MySQL" {
 				tc.Expected.Schema = dbName
 			}
-			db := tc.NewDB(t, dbName)
 			require.NoError(t, pachsql.CreateTestTable(db, "test_table", pachsql.TestRow{}))
 			info, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.test_table", tc.Expected.Schema))
 			require.NoError(t, err)
