@@ -15,5 +15,22 @@ metadata:
   name: pachyderm-proxy-config
 data:
   envoy.json: |
+    {{- if .Values.proxy.tls.enabled }}
+    {{- .Files.Get "envoy-tls.json" | nindent 4 }}
+    {{- else -}}
     {{- .Files.Get "envoy.json" | nindent 4 }}
+    {{- end }}
+  {{- if .Values.proxy.tls.enabled }}
+  sds.yaml: |
+    resources:
+      - "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret
+        name: "tls"
+        tls_certificate:
+          watched_directory:
+            path: "/tls"
+          certificate_chain:
+            filename: "/tls/tls.crt"
+          private_key:
+            filename: "/tls/tls.key"
+  {{- end }}
 {{- end }}

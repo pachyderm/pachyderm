@@ -16,7 +16,7 @@ check-envoy-config: ../helm/pachyderm/envoy.json
 	envoy -c ../helm/pachyderm/envoy.json --mode validate
 
 check-envoy-config-tls: ../helm/pachyderm/envoy.json
-	envoy -c ../helm/pachyderm/envoy-tls.json --mode validate
+	envoy -c ../helm/pachyderm/envoy-tls.json --mode validate --service-node localhost --service-zone localhost --service-cluster envoy
 
 # So that CI can fail when you forget to run jsonnetfmt.
 check-formatting:
