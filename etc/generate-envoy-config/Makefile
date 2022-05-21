@@ -16,6 +16,10 @@ check-envoy-config: ../helm/pachyderm/envoy.json
 	envoy -c ../helm/pachyderm/envoy.json --mode validate
 
 check-envoy-config-tls: ../helm/pachyderm/envoy.json
+	sudo mkdir -p /etc/envoy # Sadly, we have to make the local machine look like a k8s pod.
+	sudo mkdir -p /tls
+	sudo touch /tls/tls.key /tls/tls.crt
+	sudo cp ../helm/pachyderm/envoy-sds.yaml /etc/envoy/sds.yaml
 	envoy -c ../helm/pachyderm/envoy-tls.json --mode validate --service-node localhost --service-zone localhost --service-cluster envoy
 
 # So that CI can fail when you forget to run jsonnetfmt.
