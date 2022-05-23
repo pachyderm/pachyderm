@@ -191,6 +191,7 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 		readAccess := true
 		if repo.AuthInfo != nil {
 			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
+			rr.Authorization = "none"
 		}
 		if readAccess {
 			bs, err := mm.Client.ListBranch(repo.Repo.Name)
@@ -215,7 +216,13 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 				}
 				rr.Branches[branch.Branch.Name] = br
 			}
-			rr.Authorized = true
+			if repo.AuthInfo == nil {
+				rr.Authorization = "off"
+			} else if hasRepoWrite(repo.AuthInfo.Permissions) {
+				rr.Authorization = "write"
+			} else {
+				rr.Authorization = "read"
+			}
 		}
 		lr[repo.Repo.Name] = rr
 	}
@@ -909,9 +916,9 @@ type BranchResponse struct {
 }
 
 type RepoResponse struct {
-	Name       string                    `json:"name"`
-	Branches   map[string]BranchResponse `json:"branches"`
-	Authorized bool                      `json:"authorized"`
+	Name          string                    `json:"name"`
+	Branches      map[string]BranchResponse `json:"branches"`
+	Authorization string                    `json:"authorization"` // "off", "none", "read", "write"
 	// TODO: Commits map[string]CommitResponse
 }
 
