@@ -15,7 +15,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -412,10 +411,6 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 }
 
 func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesValue) (int64, error) {
-	logrus.WithFields(logrus.Fields{
-		"path": path,
-		"size": len(src.Value),
-	}).Info("putting raw file")
 	if err := uw.Put(path, tag, true, bytes.NewReader(src.Value)); err != nil {
 		return 0, err
 	}
@@ -423,10 +418,6 @@ func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesV
 }
 
 func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag string, src *pfs.AddFile_URLSource) (n int64, retErr error) {
-	logrus.WithFields(logrus.Fields{
-		"path": dstPath,
-		"url":  src.URL,
-	}).Infof("putting URL")
 	url, err := url.Parse(src.URL)
 	if err != nil {
 		return 0, errors.EnsureStack(err)

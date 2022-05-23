@@ -6,9 +6,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -97,16 +96,19 @@ func (uw *UnorderedWriter) serialize() error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
-			return w.Add(path, datum, r)
-		}, func(f File, datum string) error {
-			return w.Copy(f, datum)
-		}); err != nil {
-			return err
-		}
-		return uw.buffer.WalkDeletive(func(path, datum string) error {
-			return w.Delete(path, datum)
+	return miscutil.LogStep("UnorderedWriter.serialize", func() error {
+		return uw.withWriter(func(w *Writer) error {
+
+			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
+				return w.Add(path, datum, r)
+			}, func(f File, datum string) error {
+				return w.Copy(f, datum)
+			}); err != nil {
+				return err
+			}
+			return uw.buffer.WalkDeletive(func(path, datum string) error {
+				return w.Delete(path, datum)
+			})
 		})
 	})
 }
@@ -204,8 +206,6 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 }
 
 func (uw *UnorderedWriter) compact() error {
-	logrus.Info("UnorderedWriter.Close: compacting")
-	defer logrus.Info("UnorderedWriter.Close: compacted")
 	for len(uw.ids) > uw.maxFanIn {
 		var ids []ID
 		for start := 0; start < len(uw.ids); start += int(uw.maxFanIn) {
