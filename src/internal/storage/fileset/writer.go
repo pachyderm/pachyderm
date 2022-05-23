@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/sirupsen/logrus"
 )
 
 // TODO: Size zero files need to be addressed now that we are moving away from storing tar headers.
@@ -64,6 +65,7 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 }
 
 func (w *Writer) Add(path, datum string, r io.Reader) error {
+	logrus.WithField("path", path).Info("UnorderedWriter.serialize: adding")
 	idx := &index.Index{
 		Path: path,
 		File: &index.File{
@@ -103,6 +105,7 @@ func (w *Writer) checkIndex(prevIdx, idx *index.Index) error {
 
 // Delete creates a delete operation for a file.
 func (w *Writer) Delete(path, datum string) error {
+	logrus.WithField("path", path).Info("UnorderedWriter.serialize: deleting")
 	idx := &index.Index{
 		Path: path,
 		File: &index.File{

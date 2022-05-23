@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -202,6 +204,8 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 }
 
 func (uw *UnorderedWriter) compact() error {
+	logrus.Info("UnorderedWriter.Close: compacting")
+	defer logrus.Info("UnorderedWriter.Close: compacted")
 	for len(uw.ids) > uw.maxFanIn {
 		var ids []ID
 		for start := 0; start < len(uw.ids); start += int(uw.maxFanIn) {
