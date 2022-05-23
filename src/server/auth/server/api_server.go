@@ -131,7 +131,8 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 	if a.env.Config.AuthRootToken == "" {
 		return
 	}
-	a.env.Logger.Info("Configuring Auth Server via environment")
+	a.env.Logger.Info("Started to configure auth server via environment")
+	defer a.env.Logger.Info("Successfully configured auth server via environment")
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if _, err := a.Activate(ctx, &auth.ActivateRequest{
 			RootToken: a.env.Config.AuthRootToken,
@@ -139,9 +140,10 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 			if !errors.As(err, auth.ErrAlreadyActivated) {
 				return err
 			}
-			_, err := a.rotateRootToken(ctx, &auth.RotateRootTokenRequest{
-				RootToken: a.env.Config.AuthRootToken,
-			})
+			_, err := a.rotateRootToken(internalauth.AsInternalUser(ctx, "auth-server"),
+				&auth.RotateRootTokenRequest{
+					RootToken: a.env.Config.AuthRootToken,
+				})
 			return err
 		} else {
 			if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
@@ -153,7 +155,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 			return nil
 		}
 	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
-		panic(fmt.Errorf("failed to configure the Auth Server from the environment: %v", err))
+		panic(fmt.Errorf("Failed to configure the auth server via environment: %v", errors.EnsureStack(err)))
 	}
 }
 

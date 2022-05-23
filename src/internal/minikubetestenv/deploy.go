@@ -48,9 +48,10 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset  uint16
-	Loki        bool
-	WaitSeconds int
+	PortOffset     uint16
+	Loki           bool
+	WaitSeconds    int
+	ValueOverrides map[string]string
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -375,6 +376,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
 		helmOpts = union(helmOpts, withoutProxy(namespace))
+	}
+	if opts.ValueOverrides != nil {
+		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
 	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
