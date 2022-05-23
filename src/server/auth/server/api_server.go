@@ -132,7 +132,6 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 		return
 	}
 	a.env.Logger.Info("Started to configure auth server via environment")
-	defer a.env.Logger.Info("Successfully configured auth server via environment")
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if _, err := a.Activate(ctx, &auth.ActivateRequest{
 			RootToken: a.env.Config.AuthRootToken,
@@ -157,6 +156,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
 		panic(fmt.Errorf("Failed to configure the auth server via environment: %v", errors.EnsureStack(err)))
 	}
+	a.env.Logger.Info("Successfully configured auth server via environment")
 }
 
 func waitForError(name string, required bool, cb func() error) {

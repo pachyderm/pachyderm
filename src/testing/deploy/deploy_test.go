@@ -54,6 +54,10 @@ func TestUpgradeEnterpriseWithEnv(t *testing.T) {
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
+	// old token should no longer work
+	c.SetAuthToken(testutil.RootToken)
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
