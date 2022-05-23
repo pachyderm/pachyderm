@@ -3,6 +3,7 @@ package fuse
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -143,6 +144,11 @@ type ServerOptions struct {
 	Unmount chan struct{}
 }
 
+type ConfigRequest struct {
+	PachdAddress string `json:"pachd_address"`
+	ServerCas    string `json:"server_cas"`
+}
+
 type Request struct {
 	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
 	Repo   string
@@ -167,12 +173,13 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 	// map from mount name onto mfc for that mount
-	mfcs   map[string]*client.ModifyFileClient
-	root   *loopbackRoot
-	opts   *Options
-	tmpDir string
-	target string
-	mu     sync.Mutex
+	mfcs     map[string]*client.ModifyFileClient
+	root     *loopbackRoot
+	opts     *Options
+	tmpDir   string
+	target   string
+	mu       sync.Mutex
+	configMu sync.RWMutex
 }
 
 func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
@@ -646,6 +653,8 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		mm.configMu.RLock()
+		defer mm.configMu.RUnlock()
 		r, err := getClusterStatus(mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -659,9 +668,8 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		type ConfigRequest struct {
-			PachdAddress string `json:"pachd_address"`
-		}
+		mm.configMu.Lock()
+		defer mm.configMu.Unlock()
 
 		var cfgReq ConfigRequest
 		err := json.NewDecoder(req.Body).Decode(&cfgReq)
@@ -670,7 +678,7 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			return
 		}
 
-		clusterStatus, err := mm.updateClientEndpoint(cfgReq.PachdAddress)
+		clusterStatus, err := validateNewCluster(mm, &cfgReq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -792,16 +800,8 @@ func getClusterStatus(c *client.APIClient) (map[string]string, error) {
 	return map[string]string{"cluster_status": clusterStatus, "pachd_address": pachdAddress}, nil
 }
 
-func (mm *MountManager) updateClientEndpoint(reqPachdAddress string) (map[string]string, error) {
-	cfg, err := config.Read(false, false)
-	if err != nil {
-		return nil, err
-	}
-	contextName, _, err := cfg.ActiveContext(true)
-	if err != nil {
-		return nil, err
-	}
-	pachdAddress, err := grpcutil.ParsePachdAddress(reqPachdAddress)
+func validateNewCluster(mm *MountManager, cfgReq *ConfigRequest) (map[string]string, error) {
+	pachdAddress, err := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	if err != nil {
 		return nil, errors.WithStack(fmt.Errorf("either empty or poorly formatted cluster endpoint"))
 	}
@@ -816,38 +816,78 @@ func (mm *MountManager) updateClientEndpoint(reqPachdAddress string) (map[string
 		logrus.Infof("New endpoint is same as current endpoint: %s\n", clusterStatus["pachd_address"])
 	} else {
 		// Check if new cluster endpoint is valid
-		newClient, err := client.NewFromPachdAddress(pachdAddress)
+		var options []client.Option
+		if cfgReq.ServerCas != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(cfgReq.ServerCas)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not decode server CA certs")
+			}
+			options = append(options, client.WithAdditionalRootCAs(pemBytes))
+		}
+		newClient, err := client.NewFromPachdAddress(pachdAddress, options...)
 		if err != nil {
 			clusterStatus = map[string]string{"cluster_status": "INVALID", "pachd_address": pachdAddress.Qualified()}
 		} else {
+			// Put in separate function for resetting to new config
 			defer newClient.Close()
-			clusterStatus, err = getClusterStatus(newClient)
+			clusterStatus, err = mm.changeCluster(cfgReq, newClient)
 			if err != nil {
-				return nil, err
-			}
-			if clusterStatus["cluster_address"] != "INVALID" {
-				err := mm.UnmountAll()
-				if err != nil {
-					return nil, err
-				}
-
-				logrus.Infof("Updating pachd address from %s to %s\n", mm.Client.GetAddress().Qualified(), pachdAddress.Qualified())
-				cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified()}
-				err = cfg.Write()
-				if err != nil {
-					return nil, err
-				}
-
-				newClientPtr, err := client.NewOnUserMachine("fuse")
-				if err != nil {
-					return nil, err
-				}
-				*(mm.Client) = *(newClientPtr)
+				return nil, errors.Wrap(err, "issue changing clusters")
 			}
 		}
 	}
 
 	return clusterStatus, nil
+}
+
+func (mm *MountManager) changeCluster(cfgReq *ConfigRequest, newClient *client.APIClient) (map[string]string, error) {
+	clusterStatus, err := getClusterStatus(newClient)
+	if err != nil {
+		return nil, err
+	}
+	if clusterStatus["cluster_address"] != "INVALID" {
+		err := mm.ResetMountManager()
+		if err != nil {
+			return nil, err
+		}
+		pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
+		logrus.Infof("Updating pachd address from %s to %s\n", mm.Client.GetAddress().Qualified(), pachdAddress.Qualified())
+		cfg, err := config.Read(false, false)
+		if err != nil {
+			return nil, err
+		}
+		contextName, _, err := cfg.ActiveContext(true)
+		if err != nil {
+			return nil, err
+		}
+		cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+		err = cfg.Write()
+		if err != nil {
+			return nil, err
+		}
+
+		newClientPtr, err := client.NewOnUserMachine("fuse")
+		if err != nil {
+			return nil, err
+		}
+		*(mm.Client) = *(newClientPtr)
+	}
+
+	return clusterStatus, nil
+}
+
+func (mm *MountManager) ResetMountManager() error {
+	err := mm.UnmountAll()
+	if err != nil {
+		return err
+	}
+	err = mm.FinishAll()
+	if err != nil {
+		return err
+	}
+	mm.States = make(map[string]*MountStateMachine)
+	mm.Client = nil
+	return nil
 }
 
 func jsonMarshal(t interface{}) ([]byte, error) {
