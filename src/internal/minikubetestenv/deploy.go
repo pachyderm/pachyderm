@@ -154,6 +154,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			// in-cluster traffic, like enterprise registration.
 			"proxy.enabled":                       "true",
 			"proxy.service.type":                  exposedServiceType(),
+			"proxy.service.httpPort":              "30650",
 			"proxy.service.httpNodePort":          "30650",
 			"pachd.service.apiGRPCPort":           "30650",
 			"proxy.service.legacyPorts.oidc":      "30657",
@@ -194,6 +195,7 @@ func withPort(namespace string, port uint16) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			// Run gRPC traffic through the full router.
+			"proxy.service.httpPort":     fmt.Sprintf("%v", port),
 			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
 
 			// Let everything else use the legacy way.  We use the same mapping for
