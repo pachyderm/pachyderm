@@ -112,6 +112,7 @@ type EnterpriseServerConfiguration struct {
 // EnterpriseSpecifcConfiguration contains the configuration required for enterprise features
 type EnterpriseSpecifcConfiguration struct {
 	AuthRootToken string `env:"AUTH_ROOT_TOKEN,default="`
+	LicenseKey    string `env:"LICENSE_KEY,default="`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server

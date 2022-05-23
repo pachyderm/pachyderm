@@ -9,6 +9,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -19,7 +20,8 @@ import (
 )
 
 const (
-	licenseRecordKey = "license"
+	licenseRecordKey             = "license"
+	localhostEnterpriseClusterId = "localhost"
 )
 
 type apiServer struct {
@@ -35,11 +37,62 @@ func New(env Env) (lc.APIServer, error) {
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
+	go s.envBootstrap(context.Background())
 	return s, nil
 }
 
+func (a *apiServer) envBootstrap(ctx context.Context) {
+	if a.env.Config.LicenseKey == "" {
+		return
+	}
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		licenseResp, err := a.getLicenseRecord(ctx)
+		if err != nil {
+			return err
+		}
+		_, err = a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
+		if err != nil {
+			return err
+		}
+		if licenseResp.State != ec.State_NONE {
+			// license service was already configured. No need to rebootstrap communication with local enterprise service
+			return nil
+		}
+		// TODO: maybe loop this part? Need to think through looping interactions?
+		enterpriseSecret := "la di da..." // where do we get this secret?
+		_, err = a.AddCluster(ctx, &lc.AddClusterRequest{
+			Id:               localhostEnterpriseClusterId,
+			Address:          "grpc://localhost:1653",
+			UserAddress:      "grpc://localhost:1653",
+			Secret:           enterpriseSecret,
+			EnterpriseServer: true,
+		})
+		if err != nil {
+			return err
+		}
+		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
+			Id:            localhostEnterpriseClusterId,
+			LicenseServer: "grpc://localhost:1653",
+			Secret:        enterpriseSecret})
+		if err != nil {
+			return err
+		}
+		return nil
+	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
+		panic(fmt.Errorf("failed to configure the Auth Server from the environment: %v", err))
+	}
+
+}
+
 // Activate implements the Activate RPC
-func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
+func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (*lc.ActivateResponse, error) {
+	if a.env.Config.LicenseKey != "" {
+		return nil, errors.New("license.Activate() is disabled when the license key is configured via environment")
+	}
+	return a.activate(ctx, req)
+}
+
+func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
 	// Validate the activation code
 	expiration, err := license.Validate(req.ActivationCode)
 	if err != nil {
