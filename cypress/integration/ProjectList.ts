@@ -4,6 +4,7 @@ describe('Project List', () => {
   })
 
   beforeEach(() => {
+    cy.findByText('Skip tutorial').click();
     cy.findAllByText(/^View(\sProject)*$/, {timeout: 6000}).eq(0).click();
     cy.findByText('View List', {timeout: 12000}).click();
   });

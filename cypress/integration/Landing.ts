@@ -4,6 +4,7 @@ describe('Landing', () => {
   })
   beforeEach(() => {
     cy.visit('/')
+    cy.findByText('Skip tutorial').click();
   });
 
   afterEach(() => {

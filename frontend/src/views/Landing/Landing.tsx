@@ -40,7 +40,7 @@ const Landing: React.FC = () => {
         <title>Landing - Pachyderm Console</title>
       </Helmet>
       <LandingHeader projects={projects} />
-      {introductionEligible ? (
+      {introductionEligible && projects.length > 0 ? (
         <IntroductionModal
           projectId={projects[0].id}
           onClose={onIntroductionClose}

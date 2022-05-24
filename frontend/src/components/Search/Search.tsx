@@ -3,20 +3,25 @@ import classnames from 'classnames';
 import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import DefaultDropdown from './components/DefaultDropdown';
 import SearchBar from './components/SearchInput';
 import SearchResults from './components/SearchResultsDropdown';
 import SearchContext from './contexts/SearchContext';
 import {useDebounce} from './hooks/useDebounce';
-import {useSearchHistory} from './hooks/useSearchHistory';
 import styles from './Search.module.css';
 
 const Search: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const {viewState} = useUrlQueryState();
-  const {history, setHistory} = useSearchHistory();
+  const {projectId} = useUrlState();
+  const [history = [], setHistory] = useLocalProjectSettings({
+    projectId,
+    key: 'search_history',
+  });
 
   const formCtx = useForm();
   const {watch, setValue, reset} = formCtx;

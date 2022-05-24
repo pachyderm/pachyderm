@@ -37,7 +37,7 @@ describe('Search', () => {
     window.history.replaceState({}, '', '/project/1');
   });
   afterEach(() => {
-    window.localStorage.removeItem('searchHistory');
+    window.localStorage.removeItem('pachyderm-console-1');
   });
 
   it('should display empty state messages', async () => {

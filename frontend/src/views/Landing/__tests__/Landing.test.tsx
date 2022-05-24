@@ -16,6 +16,17 @@ describe('Landing', () => {
     return <LandingComponent />;
   });
 
+  beforeEach(() => {
+    window.localStorage.setItem(
+      'pachyderm-console-account-data',
+      '{"tutorial_introduction_seen": true}',
+    );
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem('pachyderm-console-account-data');
+  });
+
   it('should display projects', async () => {
     const {findAllByRole, findByRole} = render(<Landing />);
 

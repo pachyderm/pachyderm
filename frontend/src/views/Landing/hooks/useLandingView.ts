@@ -11,10 +11,8 @@ import reduce from 'lodash/reduce';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
-import {useProjectDetailsLazyQuery} from '@dash-frontend/generated/hooks';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-
-const seenKey = 'pachyderm-console-image-tutorial-introduction-seen';
 
 type sortOptionsType = {
   [key: string]: SortableItem<Project>;
@@ -61,10 +59,10 @@ export const useLandingView = () => {
     initialDirection: -1,
   });
 
-  const [
-    getProjectDetails,
-    {data: projectDetails, loading: projectDetailsLoading},
-  ] = useProjectDetailsLazyQuery();
+  const [tutorialIntroSeen, setTutorialIntroSeen] = useLocalProjectSettings({
+    projectId: 'account-data',
+    key: 'tutorial_introduction_seen',
+  });
 
   const [searchValue, setSearchValue] = useState('');
   const [sortButtonText, setSortButtonText] = useState('Newest');
@@ -81,28 +79,8 @@ export const useLandingView = () => {
     [comparatorName, setComparator],
   );
 
-  const introductionEligible = useMemo(() => {
-    if (
-      projects?.length === 1 &&
-      !localStorage.getItem(seenKey) &&
-      !projectDetails &&
-      !projectDetailsLoading
-    ) {
-      getProjectDetails({
-        variables: {args: {projectId: projects[0].id, jobSetsLimit: 0}},
-      });
-    }
-    return (
-      projects?.length === 1 &&
-      !localStorage.getItem(seenKey) &&
-      projectDetails &&
-      projectDetails?.projectDetails.pipelineCount === 0 &&
-      projectDetails?.projectDetails.repoCount === 0
-    );
-  }, [projects, projectDetails, projectDetailsLoading, getProjectDetails]);
-
   const onIntroductionClose = () => {
-    localStorage.setItem(seenKey, 'true');
+    setTutorialIntroSeen(true);
   };
 
   const sortDropdown = useMemo(
@@ -180,7 +158,7 @@ export const useLandingView = () => {
     selectedProject,
     setSelectedProject,
     sortDropdown,
-    introductionEligible,
+    introductionEligible: !tutorialIntroSeen,
     onIntroductionClose,
   };
 };

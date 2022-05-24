@@ -3,6 +3,7 @@ describe('Dag', () => {
     cy.setupProject('error-opencv').visit('/');
   });
   beforeEach(() => {
+    cy.findByText('Skip tutorial').click();
     cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
   });
   afterEach(() => {
