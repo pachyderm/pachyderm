@@ -91,7 +91,7 @@ func main() {
 		// i.e., default — mode.
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(doEnterpriseMode, &serviceenv.GlobalConfiguration{})
+		cmdutil.Main(doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
