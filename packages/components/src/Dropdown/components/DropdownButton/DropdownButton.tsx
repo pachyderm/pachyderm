@@ -1,58 +1,67 @@
 import classnames from 'classnames';
-import React, {ButtonHTMLAttributes, useRef} from 'react';
+import React, {useRef, useMemo} from 'react';
 
 import useDropdownButton from 'Dropdown/hooks/useDropdownButton';
 import {ChevronDownSVG, ChevronRightSVG} from 'Svg';
 
+import {Button, ButtonProps} from '../../../Button';
+
 import styles from './DropdownButton.module.css';
 
-export interface DropdownButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement> {
-  color?: 'purple' | 'black';
+export type DropdownButtonProps = Omit<
+  ButtonProps,
+  'href' | 'to' | 'download' | 'buttonRef'
+> & {
   hideChevron?: boolean;
-}
+};
 
 export const DropdownButton: React.FC<DropdownButtonProps> = ({
   children,
   className,
-  color = 'black',
   hideChevron = false,
   disabled = false,
+  buttonType = 'dropdown',
+  IconSVG,
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
   const {toggleDropdown, isOpen, handleKeyDown, sideOpen} = useDropdownButton(
     dropdownButtonRef,
   );
-  const mergedClasses = classnames(styles.base, className, {
-    [styles.hideChevron]: hideChevron,
-    [styles.purple]: color === 'purple',
-    [styles.disabled]: disabled,
-    [styles.sideOpen]: sideOpen,
-  });
+  const mergedClasses = classnames(styles.base, className);
+
+  const Icon = useMemo<
+    React.FunctionComponent<React.SVGProps<SVGSVGElement>> | undefined
+  >(() => {
+    if (IconSVG) {
+      return IconSVG;
+    }
+
+    if (!hideChevron) {
+      return sideOpen ? ChevronRightSVG : ChevronDownSVG;
+    }
+
+    return undefined;
+  }, [IconSVG, hideChevron, sideOpen]);
 
   return (
-    <button
+    <Button
       data-testid="DropdownButton__button"
-      ref={dropdownButtonRef}
+      buttonRef={dropdownButtonRef}
       aria-haspopup
       aria-expanded={isOpen}
+      buttonType={buttonType}
       className={mergedClasses}
       onClick={toggleDropdown}
       onKeyDown={handleKeyDown}
       type="button"
       disabled={disabled}
+      iconPosition="end"
+      IconSVG={Icon}
       {...rest}
     >
-      <span className={styles.children}>{children}</span>
-
-      {!hideChevron &&
-        (sideOpen ? (
-          <ChevronRightSVG aria-hidden className={styles.icon} />
-        ) : (
-          <ChevronDownSVG aria-hidden className={styles.icon} />
-        ))}
-    </button>
+      {children && <span className={styles.children}>{children}</span>}
+    </Button>
   );
 };
 

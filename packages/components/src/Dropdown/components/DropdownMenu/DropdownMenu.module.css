@@ -67,7 +67,7 @@
   box-shadow: 1px 1px 3px var(--dropshadow-grey);
   max-height: 33rem;
   overflow-y: auto;
-  top: 0.5rem;
+  top: 1rem;
 }
 
 .left {

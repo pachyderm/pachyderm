@@ -25,6 +25,8 @@
   border: none;
   text-align: center;
   height: 2rem;
+  white-space: nowrap;
+  background-color: transparent;
 }
 
 .base > * {
@@ -46,13 +48,17 @@
 } 
 
  
-.base:not(:disabled):hover {
+.base:not(:disabled):not(.default):hover {
   box-shadow: 0 2px 6px 2px rgba(70,73,82,0.25);
 }
 
 .base:disabled {
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.default:not(:disabled):hover, .default:not(:disabled):hover svg {
+  color: var(--hover-purple);
 }
 
 .primary {

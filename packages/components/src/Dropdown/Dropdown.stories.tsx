@@ -80,13 +80,17 @@ export const SideOpen = () => {
 
 export const Icon = () => {
   return (
-    <DefaultDropdown
-      items={items}
-      storeSelected
-      buttonOpts={{hideChevron: true}}
-      menuOpts={{pin: 'left'}}
-    >
-      <HamburgerSVG />
-    </DefaultDropdown>
+    <div style={{backgroundColor: 'black', padding: '1rem'}}>
+      <DefaultDropdown
+        items={items}
+        storeSelected
+        buttonOpts={{
+          hideChevron: true,
+          IconSVG: HamburgerSVG,
+          buttonType: 'tertiary',
+        }}
+        menuOpts={{pin: 'left'}}
+      />
+    </div>
   );
 };

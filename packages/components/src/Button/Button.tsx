@@ -10,7 +10,7 @@ import styles from './Button.module.css';
 export type ButtonProps = React.ButtonHTMLAttributes<
   HTMLButtonElement & HTMLAnchorElement
 > & {
-  buttonType?: 'primary' | 'secondary' | 'ghost' | 'tertiary';
+  buttonType?: 'primary' | 'secondary' | 'ghost' | 'tertiary' | 'dropdown';
   color?: string;
   href?: string;
   to?: LinkProps['to'];
@@ -18,6 +18,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<
   download?: boolean;
   IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
   iconPosition?: 'start' | 'end' | 'both';
+  buttonRef?: React.RefObject<HTMLButtonElement>;
 };
 
 export const ButtonGroup: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
@@ -43,6 +44,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
   to,
   iconPosition = 'start',
   download,
+  buttonRef,
   ...props
 }) => {
   const iconOnly = useMemo(() => IconSVG && Children.count(children) === 0, [
@@ -51,6 +53,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
   ]);
 
   const classes = classNames(styles.base, className, {
+    [styles.dropdown]: buttonType === 'dropdown',
     [styles.primary]: buttonType === 'primary',
     [styles.secondary]: buttonType === 'secondary',
     [styles.ghost]: buttonType === 'ghost',
@@ -69,6 +72,9 @@ export const Button: FunctionComponent<ButtonProps> = ({
         break;
       case 'ghost':
         iconColor = color === 'black' ? 'black' : 'plum';
+        break;
+      case 'dropdown':
+        iconColor = 'black';
         break;
       default:
         iconColor = 'white';
@@ -123,7 +129,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
   }
 
   return (
-    <button disabled={disabled} className={classes} {...props}>
+    <button disabled={disabled} className={classes} ref={buttonRef} {...props}>
       {buttonChildren}
     </button>
   );
