@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@apollo/client": "3.5.10",
-    "@pachyderm/components": "3.1.5",
+    "@pachyderm/components": "3.1.6",
     "@pachyderm/polyfills": "0.1.0",
     "@sentry/browser": "6.18.2",
     "@sentry/react": "6.18.2",

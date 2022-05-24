@@ -10,6 +10,7 @@ import CodeElement from '@dash-frontend/components/ConfigFilePreview/components/
 import {Format} from '@dash-frontend/components/ConfigFilePreview/utils/stringifyToFormat';
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const PIPELINE_JSON = `{
@@ -31,6 +32,7 @@ const PIPELINE_JSON = `{
 const CreatePipelineTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
 }) => {
@@ -54,6 +56,13 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
     onCompleted,
   );
 
+  const action = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+    createPipeline,
+  );
+
   const file = {
     name: 'pipeline.json',
     path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json',
@@ -63,7 +72,7 @@ const CreatePipelineTask: React.FC<TaskComponentProps> = ({
     <TaskCard
       task={name}
       index={index}
-      action={createPipeline}
+      action={action}
       currentTask={currentTask}
       actionText="Create the edges pipeline"
       taskInfoTitle="Create the edges pipeline"

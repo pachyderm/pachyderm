@@ -21,7 +21,14 @@ const TUTORIALS: TutorialMap = {
 const ProjectTutorial: React.FC = () => {
   const {projectId} = useUrlState();
   const {viewState, updateViewState} = useUrlQueryState();
-
+  const [, setTutorialData] = useLocalProjectSettings({
+    projectId: 'account-data',
+    key: 'tutorial_id',
+  });
+  const [, setTutorialProgress] = useLocalProjectSettings({
+    projectId,
+    key: 'tutorial_progress',
+  });
   const [id, setActiveTutorial] = useLocalProjectSettings({
     projectId,
     key: 'active_tutorial',
@@ -30,42 +37,20 @@ const ProjectTutorial: React.FC = () => {
   const onClose = useCallback(() => {
     updateViewState({tutorialId: undefined});
     setActiveTutorial(null);
-  }, [updateViewState, setActiveTutorial]);
+    setTutorialData(null);
+    setTutorialProgress(null);
+  }, [
+    updateViewState,
+    setActiveTutorial,
+    setTutorialData,
+    setTutorialProgress,
+  ]);
 
   useEffect(() => {
     if (viewState.tutorialId && viewState.tutorialId !== id) {
       setActiveTutorial(viewState.tutorialId);
     }
   }, [viewState.tutorialId, setActiveTutorial, id]);
-
-  useEffect(() => {
-    if (id) {
-      const beforeUnloadListener = (event: BeforeUnloadEvent) => {
-        event.preventDefault();
-
-        // Firefox will automatically trigger the unload prompt by
-        // having a truthy event listener. Chrome requires you to have a
-        // non-undefined returned value.
-        event.returnValue = '';
-      };
-
-      window.addEventListener('beforeunload', beforeUnloadListener, {
-        capture: true,
-      });
-
-      window.addEventListener('unload', onClose);
-
-      return () => {
-        window.removeEventListener('beforeunload', beforeUnloadListener, {
-          capture: true,
-        });
-
-        window.removeEventListener('unload', onClose);
-
-        onClose();
-      };
-    }
-  }, [id, onClose]);
 
   if (id) {
     const Tutorial = TUTORIALS[id];

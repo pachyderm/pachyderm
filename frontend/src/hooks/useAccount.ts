@@ -1,22 +1,31 @@
 import {getRandomName} from '@pachyderm/components';
+import {useEffect} from 'react';
 
 import {useGetAccountQuery} from '@dash-frontend/generated/hooks';
-
-const tutorialId = getRandomName();
-
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 interface useAccountArgs {
   skip?: boolean;
 }
 
 const useAccount = ({skip = false}: useAccountArgs = {}) => {
   const {data, error, loading} = useGetAccountQuery({skip});
+  const [tutorialId, setTutorialData] = useLocalProjectSettings({
+    projectId: 'account-data',
+    key: 'tutorial_id',
+  });
+
+  useEffect(() => {
+    if (!tutorialId) {
+      setTutorialData(getRandomName());
+    }
+  }, [setTutorialData, tutorialId]);
 
   return {
     error,
     account: data?.account,
     displayName: data?.account.name || data?.account.email,
     loading,
-    tutorialId,
+    tutorialId: tutorialId,
   };
 };
 

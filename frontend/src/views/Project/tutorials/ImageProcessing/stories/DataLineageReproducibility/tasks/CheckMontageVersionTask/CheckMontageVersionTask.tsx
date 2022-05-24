@@ -5,14 +5,30 @@ import {
 } from '@pachyderm/components';
 import React from 'react';
 
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
+
 const CheckMontageVersionTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
   minimized,
 }) => {
-  useMinimizeTask({currentTask, index, minimized, onCompleted});
+  const recordTutorialProgress = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+    onCompleted,
+  );
+
+  useMinimizeTask({
+    currentTask,
+    index,
+    minimized,
+    onCompleted: recordTutorialProgress,
+  });
+
   return (
     <TaskCard
       task={name}

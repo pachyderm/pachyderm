@@ -8,15 +8,20 @@ const useRunTutorialButton = (projectId?: string) => {
     projectId: projectId || 'default',
     key: 'active_tutorial',
   });
+  const [tutorialProgress] = useLocalProjectSettings({
+    projectId: projectId || 'default',
+    key: 'tutorial_progress',
+  });
 
   const startTutorial = () => {
     setActiveTutorial('image-processing');
-    routerHistory.push(`/lineage/${projectId}`);
+    routerHistory.push(`/lineage/${projectId || 'default'}`);
   };
 
   return {
     activeTutorial,
     startTutorial,
+    tutorialProgress: !!tutorialProgress,
   };
 };
 

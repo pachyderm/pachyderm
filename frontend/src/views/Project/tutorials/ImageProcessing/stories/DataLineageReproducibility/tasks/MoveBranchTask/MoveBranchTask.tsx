@@ -3,15 +3,22 @@ import React, {useCallback} from 'react';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreateBranch from '@dash-frontend/hooks/useCreateBranch';
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const MoveBranchTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
 }) => {
   const {projectId} = useUrlState();
+  const recordTutorialProgress = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+  );
   const {tutorialId, loading: accountLoading} = useAccount();
   const onCreateBranch = useCallback(() => {
     onCompleted();
@@ -26,7 +33,8 @@ const MoveBranchTask: React.FC<TaskComponentProps> = ({
       branch: {name: 'master', repo: {name: `images_${tutorialId}`}},
       projectId,
     });
-  }, [createBranch, projectId, tutorialId]);
+    recordTutorialProgress();
+  }, [createBranch, projectId, recordTutorialProgress, tutorialId]);
 
   return (
     <TaskCard

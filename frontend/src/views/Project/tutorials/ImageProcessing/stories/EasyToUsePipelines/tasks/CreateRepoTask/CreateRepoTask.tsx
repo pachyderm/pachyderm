@@ -8,11 +8,13 @@ import React from 'react';
 
 import {useCreateRepoMutation} from '@dash-frontend/generated/hooks';
 import useAccount from '@dash-frontend/hooks/useAccount';
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const CreateRepoTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
 }) => {
@@ -27,12 +29,18 @@ const CreateRepoTask: React.FC<TaskComponentProps> = ({
     },
     onCompleted,
   });
+  const action = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+    createRepo,
+  );
 
   return (
     <TaskCard
       task={name}
       index={index}
-      action={createRepo}
+      action={action}
       currentTask={currentTask}
       actionText="Create the images repo"
       taskInfoTitle="Create the images repo"

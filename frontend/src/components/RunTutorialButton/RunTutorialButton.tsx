@@ -4,7 +4,8 @@ import React from 'react';
 import useRunTutorialButton from './hooks/useRunTutorialButton';
 
 const RunTutorialButton = ({projectId}: {projectId?: string}) => {
-  const {activeTutorial, startTutorial} = useRunTutorialButton(projectId);
+  const {activeTutorial, startTutorial, tutorialProgress} =
+    useRunTutorialButton(projectId);
 
   if (activeTutorial) {
     return null;
@@ -16,7 +17,7 @@ const RunTutorialButton = ({projectId}: {projectId?: string}) => {
       IconSVG={EducationSVG}
       onClick={startTutorial}
     >
-      Run Tutorial
+      {tutorialProgress ? 'Resume Tutorial' : 'Run Tutorial'}
     </Button>
   );
 };

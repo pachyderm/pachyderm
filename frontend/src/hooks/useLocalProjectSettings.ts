@@ -1,4 +1,5 @@
-import {useState, useMemo, useCallback} from 'react';
+import isEqual from 'lodash/isEqual';
+import {useState, useCallback, useEffect} from 'react';
 
 interface LocalProjectSettingsProps {
   key: string;
@@ -9,35 +10,51 @@ const useLocalProjectSettings = ({
   projectId,
   key,
 }: LocalProjectSettingsProps) => {
-  const [settings, setValue] = useState(
-    JSON.parse(localStorage.getItem(`pachyderm-console-${projectId}`) || '{}'),
+  const [setting, setValue] = useState(
+    JSON.parse(localStorage.getItem(`pachyderm-console-${projectId}`) || '{}')[
+      key
+    ],
   );
 
   // listen for other instances of the hook having modified localStorage
-  window.addEventListener('local-project-settings', () => {
-    setValue(
-      JSON.parse(
+  useEffect(() => {
+    const updateSettings = () => {
+      const newSettings = JSON.parse(
         localStorage.getItem(`pachyderm-console-${projectId}`) || '{}',
-      ),
-    );
-  });
+      );
 
-  const setting = useMemo(() => settings[key], [key, settings]);
+      if (!isEqual(setting, newSettings[key])) {
+        setValue(newSettings[key]);
+      }
+    };
+    window.addEventListener(
+      `local-project-settings-${projectId}`,
+      updateSettings,
+    );
+    return () =>
+      window.removeEventListener(
+        `local-project-settings-${projectId}`,
+        updateSettings,
+      );
+  }, [key, projectId, setting]);
 
   const setSetting = useCallback(
     (newValue: string) => {
+      const oldSettings = JSON.parse(
+        localStorage.getItem(`pachyderm-console-${projectId}`) || '{}',
+      );
       const newSettings = {
-        ...settings,
+        ...oldSettings,
         [key]: newValue,
       };
-      setValue(newSettings);
+      setValue(newValue);
       localStorage.setItem(
         `pachyderm-console-${projectId}`,
         JSON.stringify(newSettings),
       );
-      window.dispatchEvent(new Event('local-project-settings'));
+      window.dispatchEvent(new Event(`local-project-settings-${projectId}`));
     },
-    [key, projectId, settings],
+    [key, projectId],
   );
 
   return [setting, setSetting];

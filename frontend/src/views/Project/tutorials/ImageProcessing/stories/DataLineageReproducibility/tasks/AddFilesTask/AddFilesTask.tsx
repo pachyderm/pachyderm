@@ -8,6 +8,7 @@ import React, {useCallback} from 'react';
 
 import {usePutFilesFromUrLsMutation} from '@dash-frontend/generated/hooks';
 import useAccount from '@dash-frontend/hooks/useAccount';
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const files = {
@@ -32,10 +33,16 @@ const files = {
 const AddFilesTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
 }) => {
   const {projectId} = useUrlState();
+  const recordTutorialProgress = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+  );
 
   const {tutorialId, loading: accountLoading} = useAccount();
   const {register, setDisabled, setUploaded} = useMultiSelectModule({files});
@@ -63,14 +70,16 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
           },
         },
       });
+      recordTutorialProgress();
     }
   }, [
-    tutorialId,
+    loading,
     setDisabled,
     putFilesFromURLsMutation,
-    projectId,
     register.files,
-    loading,
+    tutorialId,
+    projectId,
+    recordTutorialProgress,
   ]);
 
   return (

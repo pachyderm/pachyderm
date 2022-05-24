@@ -1,18 +1,28 @@
 import {TaskComponentProps, TaskCard} from '@pachyderm/components';
 import React, {useEffect} from 'react';
 
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
+
 const MinimizeTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
   minimized,
 }) => {
+  const recordTutorialProgress = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+    onCompleted,
+  );
+
   useEffect(() => {
     if (minimized && currentTask === index) {
-      onCompleted();
+      recordTutorialProgress();
     }
-  }, [minimized, currentTask, index, onCompleted]);
+  }, [minimized, currentTask, index, onCompleted, recordTutorialProgress]);
 
   return (
     <TaskCard

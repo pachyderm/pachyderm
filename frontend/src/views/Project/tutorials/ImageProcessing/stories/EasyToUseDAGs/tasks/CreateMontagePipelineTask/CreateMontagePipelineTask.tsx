@@ -8,6 +8,7 @@ import React from 'react';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
+import useRecordTutorialProgress from '@dash-frontend/hooks/useRecordTutorialProgress';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 // just used for display, make sure to update the useCreatePipeline args if this is updated
@@ -45,6 +46,7 @@ const PIPELINE_JSON = `{
 const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
   onCompleted,
   currentTask,
+  currentStory,
   index,
   name,
 }) => {
@@ -80,6 +82,13 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
     onCompleted,
   );
 
+  const action = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+    createPipeline,
+  );
+
   const file = {
     name: 'montage.json',
     path: 'https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json',
@@ -89,7 +98,7 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
     <TaskCard
       task={name}
       index={index}
-      action={createPipeline}
+      action={action}
       currentTask={currentTask}
       actionText="Create the montage pipeline"
       taskInfoTitle="Create the montage pipeline"

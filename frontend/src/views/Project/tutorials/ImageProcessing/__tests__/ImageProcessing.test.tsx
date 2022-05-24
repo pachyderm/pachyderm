@@ -31,11 +31,19 @@ describe('Image Processing', () => {
   it('should allow the user to skip the tutorial', async () => {
     const {findByText, findByTestId, container} = render(<Tutorial />);
 
-    await click(await findByText('Skip Tutorial'));
+    await click(await findByText('End Tutorial'));
 
-    await click(await findByText('Skip'));
+    await click(await findByText('Finish Tutorial'));
 
     await click(await findByTestId('ModalFooter__cancel'));
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
+  it('should allow the user to pause the tutorial', async () => {
+    const {findByText, container} = render(<Tutorial />);
+
+    await click(await findByText('Pause Tutorial'));
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });

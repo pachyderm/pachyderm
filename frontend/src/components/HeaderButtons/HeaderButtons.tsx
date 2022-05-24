@@ -23,7 +23,7 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   showSupport = false,
   children,
 }) => {
-  const {startTutorial} = useRunTutorialButton(projectId);
+  const {startTutorial, tutorialProgress} = useRunTutorialButton(projectId);
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
@@ -37,7 +37,11 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   };
 
   let menuItems: DropdownItem[] = [
-    {id: 'tutorial', content: 'Run Tutorial', closeOnClick: true},
+    {
+      id: 'tutorial',
+      content: tutorialProgress ? 'Resume Tutorial' : 'Run Tutorial',
+      closeOnClick: true,
+    },
   ];
 
   if (showSupport) {
