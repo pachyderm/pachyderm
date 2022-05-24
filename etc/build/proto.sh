@@ -9,7 +9,9 @@ GOGO_VERSION="v1.3.2"
 OUT_DIR="src/proto"
 
 rm -rf $OUT_DIR
-mkdir -p ${OUT_DIR}/task ${OUT_DIR}/pfs ${OUT_DIR}/pps ${OUT_DIR}/auth ${OUT_DIR}/projects ${OUT_DIR}/gogoproto ${OUT_DIR}/admin
+mkdir -p ${OUT_DIR}/license ${OUT_DIR}/enterprise ${OUT_DIR}/task ${OUT_DIR}/pfs ${OUT_DIR}/pps ${OUT_DIR}/auth ${OUT_DIR}/projects ${OUT_DIR}/gogoproto ${OUT_DIR}/admin
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/license/license.proto > ${OUT_DIR}/license/license.proto
+curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/enterprise/enterprise.proto > ${OUT_DIR}/enterprise/enterprise.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/task/task.proto > ${OUT_DIR}/task/task.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/pfs/pfs.proto > ${OUT_DIR}/pfs/pfs.proto
 curl https://raw.githubusercontent.com/pachyderm/pachyderm/${PACHYDERM_VERSION}/src/pps/pps.proto > ${OUT_DIR}/pps/pps.proto

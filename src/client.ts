@@ -4,6 +4,8 @@ import createCredentials from './createCredentials';
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
 import admin from './services/admin';
 import auth from './services/auth';
+import enterprise from './services/enterprise';
+import license from './services/license';
 import pfs from './services/pfs';
 import pps from './services/pps';
 import projects from './services/projects';
@@ -71,11 +73,41 @@ const client = ({
   let authService: ReturnType<typeof auth> | undefined;
   let projectsService: ReturnType<typeof projects> | undefined;
   let adminService: ReturnType<typeof admin> | undefined;
+  let enterpriseService: ReturnType<typeof enterprise> | undefined;
+  let licenseService: ReturnType<typeof license> | undefined;
 
   // NOTE: These service clients are singletons, as we
   // don't want to create a new instance of APIClient for
   // every call stream in a transaction.
   const methods = {
+    license: () => {
+      if (licenseService) return licenseService;
+
+      licenseService = attachPlugins(
+        license({
+          pachdAddress,
+          channelCredentials,
+          credentialMetadata,
+        }),
+        plugins,
+      );
+
+      return licenseService;
+    },
+    enterprise: () => {
+      if (enterpriseService) return enterpriseService;
+
+      enterpriseService = attachPlugins(
+        enterprise({
+          pachdAddress,
+          channelCredentials,
+          credentialMetadata,
+        }),
+        plugins,
+      );
+
+      return enterpriseService;
+    },
     pfs: () => {
       if (pfsService) return pfsService;
 
