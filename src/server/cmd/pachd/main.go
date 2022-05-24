@@ -902,6 +902,9 @@ func doPausedMode(config interface{}) (retErr error) {
 	}()
 	log.Println("starting up in paused mode")
 	env, err := commonSetup(config, "pachyderm-pachd-paused", true, true)
+	if err != nil {
+		return err
+	}
 
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
