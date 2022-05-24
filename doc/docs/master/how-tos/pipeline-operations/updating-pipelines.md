@@ -7,6 +7,7 @@ ignore_macros: true
 
 # Update a Pipeline
 
+
 While working with your data, you often need to modify an existing
 pipeline with new transformation code or pipeline parameters. 
 
@@ -82,15 +83,17 @@ Then build, tag, and push the new image to your image registry and update the pi
 This step comes in 3 flavors:
 ### **If you prefer to use instructions from your image registry**
 
+ 
    1. Build, tag, and push a new image as described in your
       image registry documentation. For example, if you use
       DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/){target=_blank}.
 
-   1. Update the [`transform.image`](../../../reference/pipeline-spec/
-      
-   ```yaml
-   {{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.2.x') }}
-   ```
+   1. Update the [`transform.image`](../../../reference/pipeline-spec/)
+
+ 
+```json
+{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.2.x') }}
+```     
 
    1. Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
 

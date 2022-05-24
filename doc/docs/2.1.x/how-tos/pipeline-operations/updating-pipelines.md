@@ -102,8 +102,8 @@ This step comes in 3 flavors:
 
       As an example, see the `tag` parameter in this jsonnet version of opencv's edges pipeline (`edges.jsonnet`):
       
-      ```yaml
-      {{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', 'master') }}
+```json
+{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.1.x') }}
       ```
 
    1. Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
