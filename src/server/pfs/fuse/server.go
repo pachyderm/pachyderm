@@ -356,10 +356,7 @@ func (mm *MountManager) UnmountAll() error {
 	return nil
 }
 
-func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
-	if err := opts.validate(c); err != nil {
-		return nil, err
-	}
+func NewMountManager(target string, opts *Options) (ret *MountManager, retErr error) {
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -368,21 +365,50 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	root, err := newLoopbackRoot(rootDir, target, c, opts)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
 	logrus.Infof("Loopback root at %s", rootDir)
 	return &MountManager{
-		Client: c,
-		States: map[string]*MountStateMachine{},
-		mfcs:   map[string]*client.ModifyFileClient{},
-		root:   root,
-		opts:   opts,
-		target: target,
-		tmpDir: rootDir,
-		mu:     sync.Mutex{},
+		States:   map[string]*MountStateMachine{},
+		mfcs:     map[string]*client.ModifyFileClient{},
+		opts:     opts,
+		target:   target,
+		tmpDir:   rootDir,
+		mu:       sync.Mutex{},
+		configMu: sync.RWMutex{},
 	}, nil
+}
+
+func (mm *MountManager) UpdateCluster(c *client.APIClient) error {
+	err := mm.ResetClusterData()
+	if err != nil {
+		return err
+	}
+	if err := mm.opts.validate(c); err != nil {
+		return err
+	}
+	root, err := newLoopbackRoot(mm.tmpDir, mm.target, c, mm.opts)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	mm.Client = c
+	mm.root = root
+
+	return nil
+}
+
+func (mm *MountManager) ResetClusterData() error {
+	err := mm.UnmountAll()
+	if err != nil {
+		return err
+	}
+	err = mm.FinishAll()
+	if err != nil {
+		return err
+	}
+	mm.States = map[string]*MountStateMachine{}
+	mm.mfcs = map[string]*client.ModifyFileClient{}
+	mm.Client = nil
+	mm.root = nil
+	return nil
 }
 
 func (mm *MountManager) Cleanup() error {
@@ -422,7 +448,7 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(c *client.APIClient, sopts *ServerOptions) error {
+func Server(sopts *ServerOptions) error {
 	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
 	mountOpts := &Options{
@@ -439,15 +465,16 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		Unmount: sopts.Unmount,
 	}
 
-	mm, err := NewMountManager(c, sopts.MountDir, mountOpts)
+	mm, err := NewMountManager(sopts.MountDir, mountOpts)
 	if err != nil {
 		return err
 	}
 
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isAuthOnAndUserUnauthenticated(mm.Client) {
-			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+		errMsg, webCode := initialChecks(mm)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
 			return
 		}
 
@@ -653,8 +680,15 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
 		mm.configMu.RLock()
 		defer mm.configMu.RUnlock()
+
 		r, err := getClusterStatus(mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -677,13 +711,24 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		clusterStatus, err := validateNewCluster(mm, &cfgReq)
+		sameClient, newClient, err := getNewClient(mm, &cfgReq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if !sameClient {
+			err = mm.UpdateCluster(newClient)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
 
+		clusterStatus, err := getClusterStatus(newClient)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		marshalled, err := jsonMarshal(clusterStatus)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -768,6 +813,16 @@ func Server(c *client.APIClient, sopts *ServerOptions) error {
 	return errors.EnsureStack(srv.ListenAndServe())
 }
 
+func initialChecks(mm *MountManager) (string, int) {
+	if mm.Client == nil {
+		return "not connected to a cluster", http.StatusMethodNotAllowed
+	}
+	if isAuthOnAndUserUnauthenticated(mm.Client) {
+		return "user unauthenticated", http.StatusUnauthorized
+	}
+	return "", 0
+}
+
 func isAuthOnAndUserUnauthenticated(c *client.APIClient) bool {
 	active, _ := c.IsAuthActive()
 	if !active {
@@ -800,93 +855,60 @@ func getClusterStatus(c *client.APIClient) (map[string]string, error) {
 	return map[string]string{"cluster_status": clusterStatus, "pachd_address": pachdAddress}, nil
 }
 
-func validateNewCluster(mm *MountManager, cfgReq *ConfigRequest) (map[string]string, error) {
+func getNewClient(mm *MountManager, cfgReq *ConfigRequest) (bool, *client.APIClient, error) {
 	pachdAddress, err := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	if err != nil {
-		return nil, errors.WithStack(fmt.Errorf("either empty or poorly formatted cluster endpoint"))
+		return false, nil, errors.WithStack(fmt.Errorf("either empty or poorly formatted cluster endpoint"))
 	}
-
 	// Check if same pachd address as current client
-	var clusterStatus map[string]string
 	if reflect.DeepEqual(pachdAddress, mm.Client.GetAddress()) {
-		clusterStatus, err = getClusterStatus(mm.Client)
-		if err != nil {
-			return nil, err
-		}
-		logrus.Infof("New endpoint is same as current endpoint: %s\n", clusterStatus["pachd_address"])
-	} else {
-		// Check if new cluster endpoint is valid
-		var options []client.Option
-		if cfgReq.ServerCas != "" {
-			pemBytes, err := base64.StdEncoding.DecodeString(cfgReq.ServerCas)
-			if err != nil {
-				return nil, errors.Wrap(err, "could not decode server CA certs")
-			}
-			options = append(options, client.WithAdditionalRootCAs(pemBytes))
-		}
-		newClient, err := client.NewFromPachdAddress(pachdAddress, options...)
-		if err != nil {
-			clusterStatus = map[string]string{"cluster_status": "INVALID", "pachd_address": pachdAddress.Qualified()}
-		} else {
-			// Put in separate function for resetting to new config
-			defer newClient.Close()
-			clusterStatus, err = mm.changeCluster(cfgReq, newClient)
-			if err != nil {
-				return nil, errors.Wrap(err, "issue changing clusters")
-			}
-		}
+		logrus.Infof("New endpoint is same as current endpoint: %s. No change\n", pachdAddress.Qualified())
+		return true, mm.Client, nil
 	}
-
-	return clusterStatus, nil
-}
-
-func (mm *MountManager) changeCluster(cfgReq *ConfigRequest, newClient *client.APIClient) (map[string]string, error) {
-	clusterStatus, err := getClusterStatus(newClient)
+	// Check if new cluster endpoint is valid
+	var options []client.Option
+	if cfgReq.ServerCas != "" {
+		pemBytes, err := base64.StdEncoding.DecodeString(cfgReq.ServerCas)
+		if err != nil {
+			return false, nil, errors.Wrap(err, "could not decode server CA certs")
+		}
+		options = append(options, client.WithAdditionalRootCAs(pemBytes))
+	}
+	testClient, err := client.NewFromPachdAddress(pachdAddress, options...)
+	defer testClient.Close()
 	if err != nil {
-		return nil, err
+		return false, nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}
-	if clusterStatus["cluster_address"] != "INVALID" {
-		err := mm.ResetMountManager()
-		if err != nil {
-			return nil, err
-		}
-		pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
-		logrus.Infof("Updating pachd address from %s to %s\n", mm.Client.GetAddress().Qualified(), pachdAddress.Qualified())
-		cfg, err := config.Read(false, false)
-		if err != nil {
-			return nil, err
-		}
-		contextName, _, err := cfg.ActiveContext(true)
-		if err != nil {
-			return nil, err
-		}
-		cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
-		err = cfg.Write()
-		if err != nil {
-			return nil, err
-		}
-
-		newClientPtr, err := client.NewOnUserMachine("fuse")
-		if err != nil {
-			return nil, err
-		}
-		*(mm.Client) = *(newClientPtr)
+	// Update config file and cachedConfig
+	logrus.Infof("Updating pachd address from %s to %s\n", mm.Client.GetAddress().Qualified(), pachdAddress.Qualified())
+	err = updateConfig(cfgReq)
+	if err != nil {
+		return false, nil, errors.Wrap(err, "issue updating config")
+	}
+	newClient, err := client.NewOnUserMachine("fuse")
+	if err != nil {
+		return false, nil, err
 	}
 
-	return clusterStatus, nil
+	return false, newClient, nil
 }
 
-func (mm *MountManager) ResetMountManager() error {
-	err := mm.UnmountAll()
+func updateConfig(cfgReq *ConfigRequest) error {
+	cfg, err := config.Read(false, false)
 	if err != nil {
 		return err
 	}
-	err = mm.FinishAll()
+	contextName, _, err := cfg.ActiveContext(true)
 	if err != nil {
 		return err
 	}
-	mm.States = make(map[string]*MountStateMachine)
-	mm.Client = nil
+	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
+	cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+	err = cfg.Write()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
