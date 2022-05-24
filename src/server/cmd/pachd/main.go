@@ -102,18 +102,7 @@ func main() {
 	}
 }
 
-func doReadinessCheck(config interface{}) error {
-	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
-	return env.GetPachClient(context.Background()).Health()
-}
-
-func doEnterpriseMode(config interface{}) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			log.WithError(retErr).Print("failed to start server")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
-		}
-	}()
+func commonSetup(config interface{}, service string, initDB, initDexDB bool) (env *serviceenv.NonblockingServiceEnv, err error) {
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -133,30 +122,52 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
+	env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	profileutil.StartCloudProfiler(service, env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
-
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
-		return err
+	if initDB {
+		// TODO: currently all pachds attempt to apply migrations, we should coordinate this
+		if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
+			return nil, err
+		}
+		if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
+			return nil, err
+		}
+		if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+			return nil, err
+		}
 	}
-	if err := migrations.ApplyMigrations(context.Background(), env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
-		return err
+	if initDexDB {
+		env.InitDexDB()
 	}
-	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	env.InitDexDB()
-
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 
-	// Setup External Pachd GRPC Server.
-	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := grpcutil.NewServer(
+	return env, err
+}
+
+func newInternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+	return grpcutil.NewServer(
+		context.Background(),
+		false,
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
+}
+
+func newExternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+	return grpcutil.NewServer(
 		context.Background(),
 		true,
 		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
@@ -181,6 +192,28 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			loggingInterceptor.StreamServerInterceptor,
 		),
 	)
+}
+
+func doReadinessCheck(config interface{}) error {
+	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
+	return env.GetPachClient(context.Background()).Health()
+}
+
+func doEnterpriseMode(config interface{}) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			log.WithError(retErr).Print("failed to start server")
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		}
+	}()
+	env, err := commonSetup(config, "pachyderm-pachd-enterprise", true, true)
+	if err != nil {
+		return err
+	}
+	// Setup External Pachd GRPC Server.
+	authInterceptor := authmw.NewInterceptor(env.AuthServer)
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
+	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -275,21 +308,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(
-		context.Background(),
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -402,49 +421,13 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
-	// may create a pach client before tracing is active, not install the Jaeger
-	// gRPC interceptor in the client, and not propagate traces)
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-sidecar", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
+	env, err := commonSetup(config, "pachyderm-pachd-sidecar", false, false)
+	if err != nil {
+		return err
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	server, err := grpcutil.NewServer(
-		context.Background(),
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	server, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -556,48 +539,10 @@ func doFullMode(config interface{}) (retErr error) {
 	var ctx = context.Background()
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	defer func() {
-		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
-		}
-	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-
-	// must run InstallJaegerTracer before InitWithKube/pach client initialization
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
-	}
-
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(ctx, log.StandardLogger(), env.GetDBClient()); err != nil {
+	env, err := commonSetup(config, "pachyderm-pachd-full", true, true)
+	if err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	if err := migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	env.InitDexDB()
-
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
@@ -607,32 +552,7 @@ func doFullMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := grpcutil.NewServer(
-		ctx,
-		true,
-		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
-		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
-		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
-		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
-		}),
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			version_middleware.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			version_middleware.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
-
+	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -781,21 +701,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(
-		ctx,
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -994,76 +900,15 @@ func doPausedMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-
 	log.Println("starting up in paused mode")
-
-	// must run InstallJaegerTracer before InitWithKube/pach client initialization
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-paused", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
-	}
-
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(ctx, log.StandardLogger(), env.GetDBClient()); err != nil {
-		return err
-	}
-	if err := migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	if err := migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	env.InitDexDB()
+	env, err := commonSetup(config, "pachyderm-pachd-paused", true, true)
 
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := grpcutil.NewServer(
-		ctx,
-		true,
-		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
-		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
-		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
-		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
-		}),
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			version_middleware.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			version_middleware.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
-
+	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -1157,21 +1002,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(
-		ctx,
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
