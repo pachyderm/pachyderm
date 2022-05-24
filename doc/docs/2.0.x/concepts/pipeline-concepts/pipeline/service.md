@@ -43,4 +43,4 @@ The service section specifies the following parameters:
         The Service starts running *at the first commit* in the input repo.
 
 !!! Note "See Also:"    
-        - [Service](../../../../reference/pipeline_spec/#service-optional)
+        - [Service](../../../../reference/pipeline-spec/#service-optional)

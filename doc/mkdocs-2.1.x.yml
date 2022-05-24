@@ -180,18 +180,18 @@ nav:
                 - Export Your Data with pachctl: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-pachctl.md
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
-            - Delete a Commit / Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+            - Delete a Commit / Delete Data: how-tos/basic-data-operations/removing-data-from-pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
-            - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
+            - Update a Pipeline: how-tos/pipeline-operations/updating-pipelines.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Use Jsonnet Pipeline Specs: how-tos/pipeline-operations/jsonnet-pipeline-specs.md
         - Advanced Data Operations: 
             - Create and Manage Secrets: how-tos/advanced-data-operations/secrets.md             
-            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time-windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
-            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md        
+            - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md        
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
         - Use JupyterLab Mount Extension: how-tos/jupyterlab-extension/index.md
     - Deploy and Manage:
@@ -244,12 +244,12 @@ nav:
                 - Use GPUs: deploy-manage/manage/gpus.md
     - Reference:
         - Overview: reference/index.md
-        - COMMUNITY EDITION LIMITS: reference/scaling_limits.md
-        - Pipeline Specification: reference/pipeline_spec.md
-        - Pachyderm Config Specification: reference/config_spec.md
-        - Pachyderm Helm Chart Values Specification: reference/helm_values.md
+        - COMMUNITY EDITION LIMITS: reference/scaling-limits.md
+        - Pipeline Specification: reference/pipeline-spec.md
+        - Pachyderm Config Specification: reference/config-spec.md
+        - Pachyderm Helm Chart Values Specification: reference/helm-values.md
         - Pachyderm Language Clients: reference/clients.md
-        - S3 Gateway API Reference: reference/s3gateway_api.md
+        - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md
             - reference/pachctl/pachctl_auth.md
@@ -428,9 +428,9 @@ nav:
             - Manage your Enterprise Server: enterprise/auth/enterprise-server/manage.md 
     - Troubleshooting:
         - Overview: troubleshooting/index.md
-        - General Troubleshooting: troubleshooting/general_troubleshooting.md
-        - Deployment Troubleshooting: troubleshooting/deploy_troubleshooting.md
-        - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
+        - General Troubleshooting: troubleshooting/general-troubleshooting.md
+        - Deployment Troubleshooting: troubleshooting/deploy-troubleshooting.md
+        - Pipeline Troubleshooting: troubleshooting/pipeline-troubleshooting.md
 
 # Google Analytics
 #google_analytics:

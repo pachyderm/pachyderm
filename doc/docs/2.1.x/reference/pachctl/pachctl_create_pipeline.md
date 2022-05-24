@@ -4,7 +4,7 @@ Create a new pipeline.
 
 ### Synopsis
 
-Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline_spec/.
+Create a new pipeline from a pipeline specification. For details on the format, see https://docs.pachyderm.com/latest/reference/pipeline-spec/.
 
 ```
 pachctl create pipeline [flags]

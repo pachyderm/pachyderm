@@ -82,4 +82,4 @@ to monitor its status:
   pipeline job.
 
 !!! note "See Also"
-    [Pipeline Troubleshooting](../../../troubleshooting/pipeline_troubleshooting/)
+    [Pipeline Troubleshooting](../../../troubleshooting/pipeline-troubleshooting/)

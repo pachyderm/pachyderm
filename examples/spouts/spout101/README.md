@@ -22,7 +22,7 @@ For more information about spout pipelines,
 we recommend reading the following pages:
 
 - [Spout](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/spout/) concept.
-- [Spout](https://docs.pachyderm.com/latest/reference/pipeline_spec/#spout-optional) configuration 
+- [Spout](https://docs.pachyderm.com/latest/reference/pipeline-spec/#spout-optional) configuration 
 
 
 In this example, we have emulated the reception 

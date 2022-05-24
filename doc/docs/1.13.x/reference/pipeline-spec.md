@@ -1,14 +1,12 @@
 # Pipeline Specification
 
 This document discusses each of the fields present in a pipeline specification.
-To see how to use a pipeline spec to create a pipeline, refer to the [create pipeline](../../how-tos/pipeline-operations/create-pipeline/#create-a-pipeline) section.
+To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
+create pipeline](./pachctl/pachctl_create_pipeline.md) section.
 
 !!! Info
     - Pachyderm's pipeline specifications can be written in JSON or YAML.
     - Pachyderm uses its json parser if the first character is `{`.
-
-!!! Tip
-    A pipeline specification file can contain multiple pipeline declarations at once.
 ## Manifest Format
 
 === "JSON Full Specifications"
@@ -49,18 +47,18 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
         "debug": bool,
         "user": string,
         "working_dir": string,
-        "dockerfile": string,
       },
       "parallelism_spec": {
-        "constant": int
+        // Set at most one of the following:
+        "constant": int,
+        "coefficient": number
+      },
+      "hashtree_spec": {
+      "constant": int,
       },
       "resource_requests": {
         "memory": string,
         "cpu": number,
-        "gpu": {
-          "type": string,
-          "number": int
-        }
         "disk": string,
       },
       "resource_limits": {
@@ -80,7 +78,7 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
       "datum_tries": int,
       "job_timeout": string,
       "input": {
-        <"pfs", "cross", "union", "join", "group" or "cron" see below>
+        <"pfs", "cross", "union", "join", "group", "cron", or "git" see below>
       },
       "s3_out": bool,
       "reprocess_spec": string,
@@ -88,18 +86,26 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
       "egress": {
         "URL": "s3://bucket/dir"
       },
+      "standby": bool,
       "autoscaling": bool,
+      "cache_size": string,
+      "enable_stats": bool,
       "service": {
         "internal_port": int,
         "external_port": int
       },
       "spout": {
-        \\ Optionally, you can combine a spout with a service:
-        "service": {
-          "internal_port": int,
-          "external_port": int
+      \\ Optionally, you can combine a spout with a service:
+      "service": {
+            "internal_port": int,
+            "external_port": int
         }
-      }
+      },
+      "max_queue_size": int,
+      "chunk_spec": {
+        "number": int,
+        "size_bytes": int
+      },
       "scheduling_spec": {
         "node_selector": {string: string},
         "priority_class_name": string
@@ -233,7 +239,18 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
     }
 
 
+    ------------------------------------
+    "git" input
+    ------------------------------------
+
+    "git": {
+      "URL": string,
+      "name": string,
+      "branch": string
+    }
+
     ```
+
 === "YAML Sample"
     ```yaml
     pipeline:
@@ -249,7 +266,7 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
         - /edges.py
       image: pachyderm/opencv
     ```
- 
+    
 In practice, you rarely need to specify all the fields.
 Most fields either come with sensible defaults or can be empty.
 The following text is an example of a minimum spec:
@@ -293,7 +310,7 @@ This parameter enables you to add metadata to your pipeline pods by using Kubern
 
 Similarly to labels, you can add metadata through annotations. The difference is that you can specify any arbitrary metadata through annotations.
 
-Both parameters require a key-value pair.  Do not confuse this parameter with `pod_patch` which adds metadata to the user container of the pipeline pod. For more information, see [Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/){target=_blank} and [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/){target=_blank} in the Kubernetes documentation.
+Both parameters require a key-value pair.  Do not confuse this parameter with `pod_patch` which adds metadata to the user container of the pipeline pod. For more information, see [Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and [Kubernetes Annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) in the Kubernetes documentation.
 
 ### Transform (required)
 
@@ -340,7 +357,7 @@ Kubernetes secrets by name and specify a path to map the secrets or
 an environment variable (`env_var`) that the value should be bound to. Secrets
 must set `name` which should be the name of a secret in Kubernetes. Secrets
 must also specify either `mount_path` or `env_var` and `key`. See more
-information about Kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/){target=_blank}.
+information about Kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
 secrets are similar to secrets except that they are mounted before the
@@ -354,7 +371,7 @@ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGIS
 
 And then, notify your pipeline about it by using
 `"image_pull_secrets": [ "myregistrykey" ]`. Read more about image pull secrets
-[here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod){target=_blank}.
+[here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
 
 `transform.accept_return_code` is an array of return codes, such as exit codes
 from your Docker command that are considered acceptable.
@@ -370,12 +387,23 @@ accomplished with a `USER` directive in your `Dockerfile`.
 `transform.working_dir` sets the directory that your command runs from. You
 can also specify the `WORKDIR` directive in your `Dockerfile`.
 
+`transform.dockerfile` is the path to the `Dockerfile` used with the `--build`
+flag. This defaults to `./Dockerfile`.
+
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm parallelizes your pipeline.
+Currently, Pachyderm has two parallelism strategies: `constant` and
+`coefficient`.
 
-Pachyderm starts the number of workers that you specify. For example, set
-`"constant":10` to use 10 workers.
+If you set the `constant` field, Pachyderm starts the number of workers
+that you specify. For example, set `"constant":10` to use 10 workers.
+
+If you set the `coefficient` field, Pachyderm starts a number of workers
+that is a multiple of your Kubernetes cluster’s size. For example, if your
+Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
+starts five workers. If you set it to 2.0, Pachyderm starts 20 workers
+(two per Kubernetes node).
 
 The default value is "constant=1".
 
@@ -393,9 +421,11 @@ This parameter is optional, and if you do not explicitly add it in
 the pipeline spec, Pachyderm creates Kubernetes containers with the
 following default resources: 
 
-- The user and storage containers request 0 CPU, 0 disk space, and 64MB of memory.
+- The user container requests 0 CPU, 0 disk space, and 64MB of memory. 
 - The init container requests the same amount of CPU, memory, and disk
 space that is set for the user container.
+- The storage container requests 0 CPU and the amount of memory set by the
+[cache_size](#cache-size-optional) parameter.
 
 The `resource_requests` parameter enables you to overwrite these default
 values.
@@ -433,7 +463,7 @@ workers because no machine has enough unclaimed memory. `cpu` works
 similarly, but for CPU time.
 
 For more information about resource requests and limits see the
-[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/){target=_blank}
+[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
 on the subject.
 
 ### Resource Limits (optional)
@@ -448,7 +478,7 @@ requesting a GPU the worker will have sole access to that GPU while it is
 running. It's recommended to enable `autoscaling` if you are using GPUs so other
 processes in the cluster will have access to the GPUs while the pipeline has
 nothing to process. For more information about scheduling GPUs see the
-[Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/){target=_blank}
+[Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
 on the subject.
 
 ### Sidecar Resource Limits (optional)
@@ -502,7 +532,8 @@ parameter is not set, the job will run indefinitely until it succeeds or fails.
 endpoint instead of the typical `pfs/out` directory. When this parameter
 is set to `true`, Pachyderm includes a sidecar S3 gateway instance
 container in the same pod as the pipeline container. The address of the
-output repository will be `s3://<output_repo>`. 
+output repository will be `s3://<output_repo>`. If you enable `s3_out`,
+verify that the `enable_stats` parameter is disabled.
 
 If you want to expose an input repository through an S3 gateway, see
 `input.pfs.s3` in [PFS Input](#pfs-input). 
@@ -529,6 +560,7 @@ exceptions, such as a spout, which does not need an `input`.
     "join": join_input,
     "group": group_input,
     "cron": cron_input,
+    "git": git_input,
 }
 ```
 
@@ -691,7 +723,7 @@ one or more Cron inputs, `pachd` creates a repo for each of them. The start
 time for Cron input is specified in its spec.
 When a Cron input triggers,
 `pachd` commits a single file, named by the current [RFC
-3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt){target=_blank} to the repo which
+3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt) to the repo which
 contains the time which satisfied the spec.
 
 ```
@@ -709,7 +741,7 @@ those of `input.pfs.name`. Except that it is not optional.
 
 `input.cron.spec` is a cron expression which specifies the schedule on
 which to trigger the pipeline. To learn more about how to write schedules,
-see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron){target=_blank}.
+see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron).
 Pachyderm supports non-standard schedules, such as `"@daily"`.
 
 `input.cron.repo` is the repo which Pachyderm creates for the input. This
@@ -722,7 +754,7 @@ time when the pipeline was created is used by default. Specifying a
 time enables you to run on matching times from the past or skip times
 from the present and only start running
 on matching times in the future. Format the time value according to [RFC
-3339](https://www.ietf.org/rfc/rfc3339.txt){target=_blank}.
+3339](https://www.ietf.org/rfc/rfc3339.txt).
 
 `input.cron.overwrite` is a flag to specify whether you want the timestamp file
 to be overwritten on each tick. This parameter is optional, and if you do not
@@ -747,7 +779,7 @@ You can set 0 to many PFS input to `"outer_join": true` within your `join`.
 You can specify the following parameters for the `join` input.
 
 * `input.pfs.name` — the name of the PFS input that appears in the
-`INPUT` field when you run the `pachctl list pipeline` command.
+`INPUT` field when you run the `pachctl list job` command.
 If an input name is not specified, it defaults to the name of the repo.
 
 * `input.pfs.repo` — see the description in [PFS Input](#pfs-input).
@@ -796,7 +828,7 @@ to work properly. A group can combine multiple inputs, as long as all the base i
 You can specify the following parameters for the `group` input.
 
 * `input.pfs.name` — the name of the PFS input that appears in the
-`INPUT` field when you run the `pachctl list pipeline` command.
+`INPUT` field when you run the `pachctl list job` command.
 If an input name is not specified, it defaults to the name of the repo.
 
 * `input.pfs.repo` — see the description in [PFS Input](#pfs-input).
@@ -832,6 +864,35 @@ you want to join with other data.
 * `input.pfs.lazy` — see the description in [PFS Input](#pfs-input).
 * `input.pfs.empty_files` — see the description in [PFS Input](#pfs-input).
 
+#### Git Input
+
+!!! Warning
+    Git Inputs are an [experimental feature](../../contributing/supported-releases/#experimental).
+
+Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
+
+**Note:** This only works on cloud deployments, not local clusters.
+
+`input.git.URL` must be a URL of the form: `https://github.com/foo/bar.git`
+
+`input.git.name` is the name for the input, its semantics are similar to
+those of `input.pfs.name`. It is optional.
+
+`input.git.branch` is the name of the git branch to use as input.
+
+Git inputs also require some additional configuration. In order for new commits on your git repository to correspond to new commits on the Pachyderm Git Input repo, we need to setup a git webhook. At the moment, only GitHub is supported. (Though if you ask nicely, we can add support for GitLab or BitBucket).
+
+1. Create your Pachyderm pipeline with the Git Input.
+
+2. To get the URL of the webhook to your cluster, do `pachctl inspect pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
+
+3. To setup the GitHub webhook, navigate to:
+
+```
+https://github.com/<your_org>/<your_repo>/settings/hooks/new
+```
+Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
+
 ### Output Branch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
@@ -846,22 +907,80 @@ successful.
 
 For more information, see [Exporting Data by using egress](../how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md)
 
+### Standby (optional)
+
+`standby` indicates that the pipeline should be put into "standby" when there's
+no data for it to process.  A pipeline in standby will have no pods running and
+thus will consume no resources, it's state will be displayed as "standby".
+
 ### Autoscaling (optional)
 `autoscaling` indicates that the pipeline should automatically scale the worker
-pool based on the datums it has to process.
-The maximum number of workers is controlled by the `parallelism_spec`.
-A pipeline with no outstanding jobs
-will go into *standby*. A pipeline in a *standby* state will have no pods running and
-thus will consume no resources. 
+pool based on the datums it has to process. A pipeline with no outstanding jobs
+will go into `standby` and have no workers.
+
+`autoscaling` is a more sophisticated version of `standby` that was introduced
+in 1.13.0.
+
+### Cache Size (optional)
+
+`cache_size` controls how much **in-memory cache** a pipeline's sidecar containers use. In
+general, your pipeline's performance will increase with the cache size, but
+only up to a certain point depending on your workload.
+
+Every worker in every pipeline has a limited-functionality `pachd` server
+running adjacent to it, which proxies PFS reads and writes (this prevents
+thundering herds when jobs start and end, which is when all of a pipeline's
+workers are reading from and writing to PFS simultaneously). 
+Part of what these "sidecar" pachd servers do is *cache PFS reads:*
+Any time the worker reads files from the input repo or writes files to the output repo,
+the sidecar manages those requests, 
+which will **cache the files in memory for better performance**.
+
+If a pipeline has a cross input,
+and a worker is downloading the same datum from one branch of the input
+repeatedly, then the cache can speed up processing significantly.
+
+If not explicitly specified, cache_size defaults to 64M.
+
+!!! Note
+    When setting `cache_size`, it is important to keep in mind that any file
+    which is larger than 25% of the total `cache_size` will NOT be cached. 
+    For example, if `cache_size` is set to 1G, 
+    then only files which are 250M or smaller will be cached; 
+    files larger than 250M will not be cached.
+
+### Enable Stats (optional)
+
+The `enable_stats` parameter turns on statistics tracking for the pipeline.
+When you enable the statistics tracking, the pipeline automatically creates
+and commits datum processing information to a special branch in its output
+repo called `"stats"`. This branch stores information about each datum that
+the pipeline processes, including timing information, size information, logs,
+and `/pfs` snapshots. You can view this statistics by running the `pachctl
+inspect datum` and `pachctl list datum` commands, as well as through the web UI.
+Do not enable statistics tracking for S3-enabled pipelines.
+
+Once turned on, statistics tracking cannot be disabled for the pipeline. You can
+turn it off by deleting the pipeline, setting `enable_stats` to `false` or
+completely removing it from your pipeline spec, and recreating the pipeline from
+that updated spec file. While the pipeline that collects the stats
+exists, the storage space used by the stats cannot be released.
+
+!!! note
+    Enabling stats results in slight storage use increase for logs and timing
+    information.
+    However, stats do not use as much extra storage as it might appear because
+    snapshots of the `/pfs` directory that are the largest stored assets
+    do not require extra space.
 
 ### Reprocess Datums (optional)
 
-Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum){target=_blank} ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
+Per default, Pachyderm avoids repeated processing of unchanged datums (i.e., it processes only the datums that have changed and skip the unchanged datums). This [**incremental behavior**](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#example-1-one-file-in-the-input-datum-one-file-in-the-output-datum) ensures efficient resource utilization. However, you might need to alter this behavior for specific use cases and **force the reprocessing of all of your datums systematically**. This is especially useful when your pipeline makes an external call to other resources, such as a deployment or triggering an external pipeline system.  Set `"reprocess_spec": "every_job"` in order to enable this behavior. 
 
-!!! Note "About the default behavior"
+!!! Note "About the default behavior "
     `"reprocess_spec": "until_success"` is the default behavior.
     To mitigate datums failing for transient connection reasons,
-    Pachyderm automatically [retries user code three (3) times before marking a datum as failed](https://docs.pachyderm.com/latest/troubleshooting/pipeline_troubleshooting/#introduction){target=_blank}. Additionally, you can [set the  `datum_tries`](https://docs.pachyderm.com/latest/reference/pipeline_spec/#datum-tries-optional){target=_blank} field to determine the number of times a job attempts to run on a datum when a failure occurs.
+    Pachyderm automatically [retries user code three (3) times before marking a datum as failed](https://docs.pachyderm.com/latest/troubleshooting/pipeline-troubleshooting/#introduction). Additionally, you can [set the  `datum_tries`](https://docs.pachyderm.com/latest/reference/pipeline-spec/#datum-tries-optional) field to determine the number of times a job attempts to run on a datum when a failure occurs.
 
 
 Let's compare `"until_success"` and `"every_job"`:
@@ -871,11 +990,11 @@ Let's compare `"until_success"` and `"every_job"`:
 
   - When adding 3 text files to the input repo (file1.txt, file2.txt, file3.txt), the 2 pipelines (reprocess_until_success and reprocess_at_every_job) will process the 3 datums (here, the glob pattern `/*` creates one datum per file).
   - Now, let's add a 4th file file4.txt to our input repo or modify the content of file2.txt for example.
-      - **Case of our default `reprocess_until_success.json pipeline`**: A quick check at the [list datum on the job id](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#running-list-datum-on-a-past-job){target=_blank} shows 4 datums, of which 3 were skipped. (Only the changed file was processed)
+      - **Case of our default `reprocess_until_success.json pipeline`**: A quick check at the [list datum on the job id](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#running-list-datum-on-a-past-job) shows 4 datums, of which 3 were skipped. (Only the changed file was processed)
       - **Case of `reprocess_at_every_job.json`**: A quick check at the list datum on the job id shows that all 4 datums were reprocessed, none were skipped.
 
 !!! Warning
-    `"reprocess_spec": "every_job` will not take advantage of Pachyderm's default de-duplication. In effect, this can lead to slower pipeline performance. Before using this setting, consider other options such as including metadata in your file, naming your files with a timestamp, UUID, or other unique identifiers in order to take advantage of de-duplication. Review how [datum processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/){target=_blank} works to understand more.
+    `"reprocess_spec": "every_job` will not take advantage of Pachyderm's default de-duplication. In effect, this can lead to slower pipeline performance. Before using this setting, consider other options such as including metadata in your file, naming your files with a timestamp, UUID, or other unique identifiers in order to take advantage of de-duplication. Review how [datum processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/) works to understand more.
 
 ### Service (optional)
 
@@ -912,38 +1031,47 @@ Instead, it consumes data from an outside source.
 
 For more information, see [Spouts](../concepts/pipeline-concepts/pipeline/spout.md).
 
-### Datum Set Spec (optional)
-`datum_set_spec` specifies how a pipeline should group its datums.
- A datum set is the unit of work that workers claim. Each worker claims 1 or more
- datums and it commits a full set once it's done processing it. Generally you
- should set this if your pipeline is experiencing "stragglers." I.e. situations
- where most of the workers are idle but a few are still processing jobs. It can
- fix this problem by spreading the datums out in to more granular chunks for
- the workers to process.
+### Max Queue Size (optional)
+`max_queue_size` specifies that maximum number of datums that a worker should
+hold in its processing queue at a given time (after processing its entire
+queue, a worker "checkpoints" its progress by writing to persistent storage).
+The default value is `1` which means workers will only hold onto the value that
+they're currently processing.
 
-`datum_set_spec.number` if nonzero, specifies that each datum set should contain `number`
- datums. Sets may contain fewer if the total number of datums don't
- divide evenly. If you lower the number to 1 it'll update after every datum,
+Increasing this value can improve pipeline performance, as that allows workers
+to simultaneously download, process and upload different datums at the same
+time (and reduces the total time spent on checkpointing). Decreasing this value
+can make jobs more robust to failed workers, as work gets checkpointed more
+often, and a failing worker will not lose as much progress. Setting this value
+too high can also cause problems if you have `lazy` inputs, as there's a cap of
+10,000 `lazy` files per worker and multiple datums that are running all count
+against this limit.
+
+### Chunk Spec (optional)
+`chunk_spec` specifies how a pipeline should chunk its datums.
+ A chunk is the unit of work that workers claim. Each worker claims 1 or more datums 
+ and it commits a full chunk once it's done processing it.
+ 
+`chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
+ datums. Chunks may contain fewer if the total number of datums don't
+ divide evenly. If you lower the chunk number to 1 it'll update after every datum, 
  the cost is extra load on etcd which can slow other stuff down.
  The default value is 2.
 
-`datum_set_spec.size_bytes` , if nonzero, specifies a target size for each set of datums.
- Sets may be larger or smaller than `size_bytes`, but will usually be
+`chunk_spec.size_bytes` , if nonzero, specifies a target size for each chunk of datums.
+ Chunks may be larger or smaller than `size_bytes`, but will usually be
  pretty close to `size_bytes` in size.
-
-`datum_set_spec.chunks_per_worker`, if nonzero, specifies how many datum sets should be
- created for each worker. It can't be set with number or size_bytes.
 
 ### Scheduling Spec (optional)
 `scheduling_spec` specifies how the pods for a pipeline should be scheduled.
 
 `scheduling_spec.node_selector` allows you to select which nodes your pipeline
-will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector){target=_blank}
+will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
 on node selectors for more information about how this works.
 
 `scheduling_spec.priority_class_name` allows you to select the prioriy class
 for the pipeline, which will how Kubernetes chooses to schedule and deschedule
-the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass){target=_blank}
+the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#priorityclass)
 on priority and preemption for more information about how this works.
 
 ### Pod Spec (optional)
@@ -960,12 +1088,12 @@ this will give you a correctly formated piece of JSON, you should then remove
 the extraneous fields that Kubernetes injects or that can be set else where.
 
 The JSON is applied after the other parameters for the `pod_spec` have already
-been set as a [JSON Merge Patch](https://tools.ietf.org/html/rfc7386){target=_blank}. This
+been set as a [JSON Merge Patch](https://tools.ietf.org/html/rfc7386). This
 means that you can modify things such as the storage and user containers.
 
 ### Pod Patch (optional)
 `pod_patch` is similar to `pod_spec` above but is applied as a [JSON
-Patch](https://tools.ietf.org/html/rfc6902){target=_blank}. Note, this means that the
+Patch](https://tools.ietf.org/html/rfc6902). Note, this means that the
 process outlined above of modifying an existing pod spec and then manually
 blanking unchanged fields won't work, you'll need to create a correctly
 formatted patch by diffing the two pod specs.
@@ -975,11 +1103,11 @@ formatted patch by diffing the two pod specs.
 Each PFS input needs to **specify a [glob pattern](../../concepts/pipeline-concepts/datum/glob-pattern/)**.
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
-consists of.  [Datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/#datum){target=_blank} are the *unit of parallelism* in Pachyderm.  
+consists of.  [Datums](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/#datum) are the *unit of parallelism* in Pachyderm.  
 Per default,
 Pachyderm auto-scales its workers to process datums in parallel. 
 You can override this behaviour by setting your own parameter
-(see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed-computing/){target=_blank}).
+(see [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed-computing/)).
 
 
 ## PPS Mounts and File Access

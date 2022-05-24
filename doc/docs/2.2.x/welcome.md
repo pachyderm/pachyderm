@@ -150,7 +150,7 @@ email at support@pachyderm.io.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-           <li><a href="how-tos/time_windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="how-tos/time-windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Process Time-Windowed Data
            </a>
            </li>

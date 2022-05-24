@@ -347,7 +347,7 @@ Complete the [Beginner Tutorial](../beginner-tutorial) to learn the basics of Pa
   
   
 !!! note "See Also:"  
-    [General Troubleshooting](../troubleshooting/general_troubleshooting.md)  
+    [General Troubleshooting](../troubleshooting/general-troubleshooting.md)  
   
 
 

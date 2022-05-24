@@ -126,7 +126,7 @@ and a client certificate:
 
 You can update an existing context with new parameters, such
 as a Pachyderm IP address, certificate authority (CA), and others.
-For the list of parameters, see [Pachyderm Config Specification](../../reference/config_spec.md).
+For the list of parameters, see [Pachyderm Config Specification](../../reference/config-spec.md).
 
 To update the Active Context, run the following commands:
 
