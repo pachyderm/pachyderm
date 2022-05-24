@@ -2,7 +2,8 @@ package errors
 
 import (
 	"context"
-	"errors"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -22,12 +23,25 @@ func StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *gr
 }
 
 func errorForGRPC(err error) error {
-	if _, ok := status.FromError(err); ok {
+	// strip off the initial stack trace layer, in case this is just a once-wrapped auth error
+	cursor := err
+	for cursor != nil {
+		if _, ok := cursor.(errors.StackTracer); ok {
+			cursor = errors.Unwrap(cursor)
+		} else {
+			break
+		}
+	}
+	if cursor == nil && err != nil {
+		// this should never happen, we unwrapped an error consisting only of stack traces
+		// reset to the original error, we have no idea what this is
+		cursor = err
+	}
+	if _, ok := status.FromError(cursor); ok {
 		// handles nil as well
-		return err //nolint:wrapcheck
+		return cursor //nolint:wrapcheck
 	}
 	code := codes.Unknown
-	cursor := err
 	for cursor != nil {
 		if res, ok := status.FromError(cursor); ok {
 			code = res.Code()
