@@ -1,5 +1,4 @@
 .commit {
-  overflow-y: hidden;
   transition: all 400ms ease-in;
 }
 
@@ -7,14 +6,9 @@
   padding: 0 1.5625rem;
 }
 
-.commitTime {
-  color: var(--pachyderm-black);
-}
-
 .commitInfo {
-  border-left: 1px dashed var(--line-grey);
-  margin-left: 0.25rem;
-  padding: 0.375rem 0 0.125rem 0.625rem;
+  padding: 0.375rem 0 0.125rem 0;
+  margin-bottom: 1.5rem;
 }
 
 .commitData {
@@ -23,11 +17,14 @@
 
 .commits {
   margin-top: 0.625rem;
+  overflow-y: scroll;
+  height: calc(100vh - 22.5rem);
 }
 
 .autoCommits {
   padding: 0rem 1.5625rem;
   margin-bottom: 1.25rem;
+  border-bottom: 1px dashed var(--line-grey);
 }
 
 /* Transition group styles */

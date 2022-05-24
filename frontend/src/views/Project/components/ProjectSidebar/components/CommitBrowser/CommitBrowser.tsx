@@ -1,10 +1,11 @@
 import {OriginKind, RepoQuery} from '@graphqlTypes';
 import {
-  Link,
   LoadingDots,
   Tooltip,
   PureCheckbox,
   Group,
+  Button,
+  ButtonGroup,
 } from '@pachyderm/components';
 import React from 'react';
 import {CSSTransition, TransitionGroup} from 'react-transition-group';
@@ -75,7 +76,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
         <PureCheckbox
           selected={!hideAutoCommits}
           small
-          label="Show auto commits"
+          label="Auto Commits"
           onChange={() => handleHideAutoCommitChange(!hideAutoCommits)}
         />
       </div>
@@ -107,10 +108,10 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                     className={styles.commit}
                     data-testid="CommitBrowser__commit"
                   >
-                    <div className={styles.commitTime}>
+                    <strong>
                       <CommitTime commit={commit} />
-                      {` (${commit.sizeDisplay})`}
-                    </div>
+                      {`, ${commit.sizeDisplay}`}
+                    </strong>
                     <dl className={styles.commitInfo}>
                       {commit.description ? (
                         <Tooltip
@@ -123,40 +124,50 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                             className={styles.commitData}
                             align="center"
                           >
-                            ID
-                            <CommitIdCopy small longId commit={commit.id} />
+                            <CommitIdCopy
+                              small
+                              longId
+                              commit={commit.id}
+                              clickable
+                            />
                           </Group>
                         </Tooltip>
                       ) : (
                         <Group spacing={8} className={styles.commitData}>
-                          ID
-                          <CommitIdCopy small longId commit={commit.id} />
+                          <CommitIdCopy
+                            small
+                            longId
+                            commit={commit.id}
+                            clickable
+                          />
                         </Group>
                       )}
-                      <dt className={styles.commitData}>
-                        {commit.hasLinkedJob && (
-                          <Link
-                            to={jobRoute({
+                      <dt>
+                        <ButtonGroup>
+                          <Button
+                            buttonType="secondary"
+                            to={getPathToFileBrowser({
                               projectId,
-                              jobId: commit.id,
-                              pipelineId: repo?.name,
+                              branchId,
+                              repoId: repoId,
+                              commitId: commit.id,
                             })}
                           >
-                            Linked Job
-                          </Link>
-                        )}
-                      </dt>
-                      <dt className={styles.commitData}>
-                        <Link
-                          to={getPathToFileBrowser({
-                            projectId,
-                            branchId,
-                            repoId: repoId,
-                            commitId: commit.id,
-                          })}
-                        >
-                          View Files
-                        </Link>
+                            View Files
+                          </Button>
+                          {commit.hasLinkedJob && (
+                            <Button
+                              buttonType="ghost"
+                              to={jobRoute({
+                                projectId,
+                                jobId: commit.id,
+                                pipelineId: repo?.name,
+                              })}
+                            >
+                              Linked Job
+                            </Button>
+                          )}
+                        </ButtonGroup>
                       </dt>
                     </dl>
                   </div>

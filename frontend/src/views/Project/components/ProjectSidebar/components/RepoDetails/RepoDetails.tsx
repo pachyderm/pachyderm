@@ -51,10 +51,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
         )}
       </div>
 
-      <Tabs.RouterTabs
-        basePathTabId={viewState.globalIdFilter ? TAB_ID.COMMITS : TAB_ID.INFO}
-        basePath={tabsBasePath}
-      >
+      <Tabs.RouterTabs basePathTabId={TAB_ID.COMMITS} basePath={tabsBasePath}>
         <Tabs.TabsHeader className={styles.tabsHeader}>
           {Object.values(TAB_ID).map((tabId) => {
             let text = capitalize(tabId);
@@ -101,7 +98,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
             </Description>
           </dl>
         </Tabs.TabPanel>
-        <Tabs.TabPanel id={TAB_ID.COMMITS}>
+        <Tabs.TabPanel id={TAB_ID.COMMITS} className={styles.commitsTab}>
           {viewState.globalIdFilter ? (
             !dagsLoading && (
               <CommitDetails commitId={viewState.globalIdFilter} />

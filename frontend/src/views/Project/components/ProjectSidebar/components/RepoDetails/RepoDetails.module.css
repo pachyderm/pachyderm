@@ -1,8 +1,11 @@
 .base {
-  height: calc(100vh - var(--header-height));
-  overflow-y: auto;
+  height: 100vh;
   scrollbar-width: none;
   padding-top: 2rem;
+}
+
+.base section {
+  height: 100vh;
 }
 
 .tabsHeader,

@@ -6,6 +6,7 @@
 }
 
 .copy {
+  visibility: hidden;
   display: inline-flex;
   margin-left: 0.5rem;
   margin-right: 1.75rem;
@@ -26,4 +27,13 @@
 
 .copyCheckmark.small {
   margin-left: 0rem;
+}
+
+.copy.show {
+  visibility: visible;
+}
+
+
+.base.clickable:hover {
+  cursor: pointer;
 }

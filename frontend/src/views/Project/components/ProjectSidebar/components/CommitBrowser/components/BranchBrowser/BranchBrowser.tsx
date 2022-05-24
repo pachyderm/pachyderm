@@ -35,7 +35,7 @@ const BranchBrowser: React.FC<BranchBrowserProps> = ({repo, repoBaseRef}) => {
         onSelect={handleBranchClick}
         emptyResultsContent={'No matching branches found.'}
       >
-        Commits (Branch: {branchId})
+        <strong>Commits (Branch: {branchId})</strong>
       </SearchableDropdown>
     </div>
   );
