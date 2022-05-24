@@ -10,7 +10,6 @@ export const useSearch = () => {
     searchValue,
     setSearchValue,
     debouncedValue,
-    reset,
     history,
     setHistory,
   } = useContext(SearchContext);
@@ -44,13 +43,17 @@ export const useSearch = () => {
     setHistory([]);
   }, [setHistory]);
 
+  const clearSearch = useCallback(() => {
+    setSearchValue('');
+  }, [setSearchValue]);
+
   return {
     isOpen,
     closeDropdown,
     openDropdown,
     searchValue,
     setSearchValue,
-    clearSearch: reset,
+    clearSearch,
     history,
     addToSearchHistory,
     clearSearchHistory,

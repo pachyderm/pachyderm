@@ -24,7 +24,7 @@ const Search: React.FC = () => {
   });
 
   const formCtx = useForm();
-  const {watch, setValue, reset} = formCtx;
+  const {watch, setValue} = formCtx;
   const searchValue = watch('project_search');
   const debouncedValue = useDebounce(searchValue, 200);
 
@@ -42,7 +42,6 @@ const Search: React.FC = () => {
       searchValue,
       setSearchValue,
       debouncedValue,
-      reset,
       history,
       setHistory,
     }),
@@ -52,7 +51,6 @@ const Search: React.FC = () => {
       searchValue,
       setSearchValue,
       debouncedValue,
-      reset,
       history,
       setHistory,
     ],

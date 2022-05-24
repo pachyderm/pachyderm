@@ -25,6 +25,7 @@ const SearchInput: React.FC = () => {
         <SearchSVG aria-hidden />
       </Icon>
       <input
+        autoComplete="off"
         role="searchbox"
         placeholder={placeholderText}
         className={classNames(styles.input, {[styles.open]: isOpen})}

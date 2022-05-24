@@ -7,7 +7,6 @@ type SearchContextType = {
   searchValue: string;
   setSearchValue: React.Dispatch<React.SetStateAction<string>>;
   debouncedValue: string;
-  reset: () => void;
   history: string[];
   setHistory: (history: string[]) => void;
 };
@@ -18,7 +17,6 @@ export default createContext<SearchContextType>({
   searchValue: '',
   setSearchValue: noop,
   debouncedValue: '',
-  reset: noop,
   history: [],
   setHistory: noop,
 });
