@@ -458,6 +458,14 @@
                            },
                            "request_timeout": "604800s",
                            "route_config": {
+                              "response_headers_to_add": [
+                                 {
+                                    "header": {
+                                       "key": "strict-transport-security",
+                                       "value": "max-age=604800"
+                                    }
+                                 }
+                              ],
                               "virtual_hosts": [
                                  {
                                     "domains": [

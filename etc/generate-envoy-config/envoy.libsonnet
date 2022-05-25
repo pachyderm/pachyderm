@@ -90,7 +90,7 @@
     ],
   },
 
-  httpConnectionManager(name, routes):: {
+  httpConnectionManager(name, routes=[], response_headers_to_add={}):: {
     name: 'envoy.http_connection_manager',
     typed_config: {
       '@type': 'type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager',
@@ -138,6 +138,15 @@
       request_timeout: '604800s',  // Necessary to allow long file uploads.
       stream_idle_timeout: '600s',  // Only completely idle streams are dropped after this timeout.
       route_config: {
+        [if std.length(response_headers_to_add) > 0 then 'response_headers_to_add' else null]: [
+          {
+            header: {
+              key: key,
+              value: response_headers_to_add[key],
+            },
+          }
+          for key in std.objectFields(response_headers_to_add)
+        ],
         virtual_hosts: [
           {
             domains: ['*'],
@@ -249,7 +258,7 @@
             },
           },
         },
-        filters: [$.httpConnectionManager(name, routes)],
+        filters: [$.httpConnectionManager(name, routes, response_headers_to_add={ 'strict-transport-security': 'max-age=604800' })],
       },
 
       // Redirect to https if this request wasn't sent over TLS.
