@@ -5,6 +5,7 @@ import {URL} from 'url';
 import {Server, ServerCredentials, ServiceError} from '@grpc/grpc-js';
 import {
   AuthAPIService,
+  EnterpriseAPIService,
   GRPC_MAX_MESSAGE_LENGTH,
   PfsAPIService,
   PpsAPIService,
@@ -21,6 +22,7 @@ import accounts from './fixtures/accounts';
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';
 import auth from './handlers/auth';
+import enterprise from './handlers/enterprise';
 import MockState from './handlers/MockState';
 import pfs from './handlers/pfs';
 import pps from './handlers/pps';
@@ -53,6 +55,7 @@ const createServer = () => {
   grpcServer.addService(PfsAPIService, pfs.getService());
   grpcServer.addService(AuthAPIService, auth.getService());
   grpcServer.addService(ProjectsAPIService, projects.getService());
+  grpcServer.addService(EnterpriseAPIService, enterprise.getService());
 
   // allow cors request to dev auth server
   // for devtools

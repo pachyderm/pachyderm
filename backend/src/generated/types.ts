@@ -197,6 +197,19 @@ export type Diff = {
   sizeDisplay: Scalars['String'];
 };
 
+export type EnterpriseInfo = {
+  __typename?: 'EnterpriseInfo';
+  expiration: Scalars['Int'];
+  state: EnterpriseState;
+};
+
+export enum EnterpriseState {
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+  HEARTBEAT_FAILED = 'HEARTBEAT_FAILED',
+  NONE = 'NONE',
+}
+
 export type File = {
   __typename?: 'File';
   commitAction?: Maybe<FileCommitState>;
@@ -562,6 +575,7 @@ export type Query = {
   dag: Array<Vertex>;
   datum: Datum;
   datums?: Maybe<Array<Datum>>;
+  enterpriseInfo: EnterpriseInfo;
   files: FileQueryResponse;
   job: Job;
   jobSet: JobSet;
@@ -912,6 +926,8 @@ export type ResolversTypes = ResolversObject<{
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   Diff: ResolverTypeWrapper<Diff>;
+  EnterpriseInfo: ResolverTypeWrapper<EnterpriseInfo>;
+  EnterpriseState: EnterpriseState;
   File: ResolverTypeWrapper<File>;
   FileCommitState: FileCommitState;
   FileFromURL: FileFromUrl;
@@ -1000,6 +1016,7 @@ export type ResolversParentTypes = ResolversObject<{
   DeletePipelineArgs: DeletePipelineArgs;
   DeleteRepoArgs: DeleteRepoArgs;
   Diff: Diff;
+  EnterpriseInfo: EnterpriseInfo;
   File: File;
   FileFromURL: FileFromUrl;
   FileQueryArgs: FileQueryArgs;
@@ -1156,6 +1173,15 @@ export type DiffResolvers<
   filesUpdated?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   size?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   sizeDisplay?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type EnterpriseInfoResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['EnterpriseInfo'] = ResolversParentTypes['EnterpriseInfo'],
+> = ResolversObject<{
+  expiration?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['EnterpriseState'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1541,6 +1567,11 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QueryDatumsArgs, 'args'>
   >;
+  enterpriseInfo?: Resolver<
+    ResolversTypes['EnterpriseInfo'],
+    ParentType,
+    ContextType
+  >;
   files?: Resolver<
     ResolversTypes['FileQueryResponse'],
     ParentType,
@@ -1774,6 +1805,7 @@ export type Resolvers<ContextType = Context> = ResolversObject<{
   CronInput?: CronInputResolvers<ContextType>;
   Datum?: DatumResolvers<ContextType>;
   Diff?: DiffResolvers<ContextType>;
+  EnterpriseInfo?: EnterpriseInfoResolvers<ContextType>;
   File?: FileResolvers<ContextType>;
   FileQueryResponse?: FileQueryResponseResolvers<ContextType>;
   GitInput?: GitInputResolvers<ContextType>;
@@ -2156,6 +2188,17 @@ export type DatumsQuery = {
     processTime?: number | null;
     downloadTime?: number | null;
   }> | null;
+};
+
+export type GetEnterpriseInfoQueryVariables = Exact<{[key: string]: never}>;
+
+export type GetEnterpriseInfoQuery = {
+  __typename?: 'Query';
+  enterpriseInfo: {
+    __typename?: 'EnterpriseInfo';
+    state: EnterpriseState;
+    expiration: number;
+  };
 };
 
 export type GetFilesQueryVariables = Exact<{

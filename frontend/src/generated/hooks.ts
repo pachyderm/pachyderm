@@ -1045,6 +1045,64 @@ export type DatumsQueryResult = Apollo.QueryResult<
   Types.DatumsQuery,
   Types.DatumsQueryVariables
 >;
+export const GetEnterpriseInfoDocument = gql`
+  query getEnterpriseInfo {
+    enterpriseInfo {
+      state
+      expiration
+    }
+  }
+`;
+
+/**
+ * __useGetEnterpriseInfoQuery__
+ *
+ * To run a query within a React component, call `useGetEnterpriseInfoQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetEnterpriseInfoQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetEnterpriseInfoQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetEnterpriseInfoQuery(
+  baseOptions?: Apollo.QueryHookOptions<
+    Types.GetEnterpriseInfoQuery,
+    Types.GetEnterpriseInfoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetEnterpriseInfoQuery,
+    Types.GetEnterpriseInfoQueryVariables
+  >(GetEnterpriseInfoDocument, options);
+}
+export function useGetEnterpriseInfoLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetEnterpriseInfoQuery,
+    Types.GetEnterpriseInfoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetEnterpriseInfoQuery,
+    Types.GetEnterpriseInfoQueryVariables
+  >(GetEnterpriseInfoDocument, options);
+}
+export type GetEnterpriseInfoQueryHookResult = ReturnType<
+  typeof useGetEnterpriseInfoQuery
+>;
+export type GetEnterpriseInfoLazyQueryHookResult = ReturnType<
+  typeof useGetEnterpriseInfoLazyQuery
+>;
+export type GetEnterpriseInfoQueryResult = Apollo.QueryResult<
+  Types.GetEnterpriseInfoQuery,
+  Types.GetEnterpriseInfoQueryVariables
+>;
 export const GetFilesDocument = gql`
   query getFiles($args: FileQueryArgs!) {
     files(args: $args) {

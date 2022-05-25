@@ -100,6 +100,13 @@ enum PipelineType {
   SERVICE
 }
 
+enum EnterpriseState {
+  NONE
+  ACTIVE
+  EXPIRED
+  HEARTBEAT_FAILED
+}
+
 type Transform {
   cmdList: [String!]!
   image: String!
@@ -523,6 +530,11 @@ input DatumQueryArgs {
   pipelineId: ID!
 }
 
+type EnterpriseInfo {
+  state: EnterpriseState!
+  expiration: Int!
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -547,6 +559,7 @@ type Query {
   branch(args: BranchQueryArgs!): Branch!
   datum(args: DatumQueryArgs!): Datum!
   datums(args: DatumsQueryArgs!): [Datum!]
+  enterpriseInfo: EnterpriseInfo!
 }
 
 type Subscription {

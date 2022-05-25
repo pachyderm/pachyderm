@@ -5,6 +5,7 @@ import {
   ProjectStatus,
   OriginKind,
   DatumState,
+  State,
 } from '@pachyderm/node-pachyderm';
 
 import {OriginKind as GQLOriginKind} from '@graphqlTypes';
@@ -17,6 +18,7 @@ import {
   toGQLCommitOrigin,
   toProtoCommitOrigin,
   toGQLDatumState,
+  toGQLEnterpriseState,
 } from '../gqlEnumMappers';
 
 describe('gqlEnumMappers', () => {
@@ -79,6 +81,15 @@ describe('gqlEnumMappers', () => {
       Object.values(DatumState).forEach((val) => {
         if (typeof val === 'string') return;
         expect(() => toGQLDatumState(val)).not.toThrowError();
+      });
+    });
+  });
+
+  describe('toGQLEnterpriseState', () => {
+    it('should not return an error for any enterprise state', () => {
+      Object.values(State).forEach((val) => {
+        if (typeof val === 'string') return;
+        expect(() => toGQLEnterpriseState(val)).not.toThrowError();
       });
     });
   });

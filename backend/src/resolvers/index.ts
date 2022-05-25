@@ -8,6 +8,7 @@ import branchResolver from './Branch';
 import commitResolver from './Commit';
 import dagResolver from './Dag';
 import datumResolver from './Datum';
+import enterpriseResolver from './Enterprise';
 import fileResolver from './File';
 import jobResolver from './Job';
 import logsResolver from './Logs';
@@ -29,6 +30,7 @@ const resolvers: Resolvers = merge(
   pipelineResolver,
   commitResolver,
   branchResolver,
+  enterpriseResolver,
   {},
 );
 

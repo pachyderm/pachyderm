@@ -5,6 +5,7 @@ import {
   ProjectStatus,
   OriginKind,
   DatumState,
+  State,
 } from '@pachyderm/node-pachyderm';
 import {ApolloError} from 'apollo-server-errors';
 
@@ -15,6 +16,7 @@ import {
   JobState as GQLJobState,
   OriginKind as GQLOriginKind,
   DatumState as GQLDatumState,
+  EnterpriseState as GQLEnterpriseState,
 } from '@graphqlTypes';
 
 /*
@@ -147,5 +149,20 @@ export const toGQLDatumState = (state: DatumState) => {
       return GQLDatumState.UNKOWN;
     default:
       throw new ApolloError(`Uknown datum state ${state}`);
+  }
+};
+
+export const toGQLEnterpriseState = (state: State) => {
+  switch (state) {
+    case State.ACTIVE:
+      return GQLEnterpriseState.ACTIVE;
+    case State.EXPIRED:
+      return GQLEnterpriseState.EXPIRED;
+    case State.HEARTBEAT_FAILED:
+      return GQLEnterpriseState.HEARTBEAT_FAILED;
+    case State.NONE:
+      return GQLEnterpriseState.NONE;
+    default:
+      throw new ApolloError(`Unknown enterprise state ${state}`);
   }
 };
