@@ -86,13 +86,28 @@ This step comes in 3 flavors:
       image registry documentation. For example, if you use
       DockerHub, see [Docker Documentation](https://docs.docker.com/docker-hub/){target=_blank}.
 
-   1. Update the [`transform.image`](../../../reference/pipeline-spec/
-      
-   ```yaml
-   {{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.2.x') }}
-   ```
+   1. Update the [`transform.image`](../../../reference/pipeline-spec/#transform-required) field of your pipeline spec with your new tag.
+   
+      !!! Important
+            Make sure to update your tag every time you re-build. Our pull policy is `IfNotPresent` (Only pull the image if it does not already exist on the node.). Failing to update your tag will result in your pipeline running on a previous version of your code.
 
-   1. Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
+   1. Update the pipeline:
+
+      ```shell
+      pachctl update pipeline -f <pipeline.json>
+      ```
+
+### **If you chose to use a [jsonnet version of your pipeline specs](../jsonnet-pipeline-specs)**
+
+   * Pass the tag of your image to your jsonnet specs.
+
+      As an example, see the `tag` parameter in this jsonnet version of opencv's edges pipeline (`edges.jsonnet`):
+      
+```json
+{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.2.x') }}
+```
+
+   * Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
 
       ```shell
       pachctl update pipeline --jsonnet jsonnet/edges.jsonnet --arg suffix=1 --arg tag=1.0.2
