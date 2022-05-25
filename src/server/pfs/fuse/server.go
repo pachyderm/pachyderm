@@ -180,6 +180,7 @@ type MountManager struct {
 	target   string
 	mu       sync.Mutex
 	configMu sync.RWMutex
+	Cleanup  chan struct{}
 }
 
 func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
@@ -356,7 +357,10 @@ func (mm *MountManager) UnmountAll() error {
 	return nil
 }
 
-func NewMountManager(target string, opts *Options) (ret *MountManager, retErr error) {
+func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *MountManager, retErr error) {
+	if err := opts.validate(c); err != nil {
+		return nil, err
+	}
 	rootDir, err := ioutil.TempDir("", "pfs")
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -365,69 +369,63 @@ func NewMountManager(target string, opts *Options) (ret *MountManager, retErr er
 	if err := os.MkdirAll(rootDir, 0777); err != nil {
 		return nil, errors.WithStack(err)
 	}
+	root, err := newLoopbackRoot(rootDir, target, c, opts)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	logrus.Infof("Loopback root at %s", rootDir)
 	return &MountManager{
+		Client:   c,
 		States:   map[string]*MountStateMachine{},
 		mfcs:     map[string]*client.ModifyFileClient{},
+		root:     root,
 		opts:     opts,
 		target:   target,
 		tmpDir:   rootDir,
 		mu:       sync.Mutex{},
 		configMu: sync.RWMutex{},
+		Cleanup:  make(chan struct{}),
 	}, nil
 }
 
-func (mm *MountManager) UpdateCluster(c *client.APIClient) error {
-	err := mm.ResetClusterData()
+func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
+	mountOpts := &Options{
+		Write: true,
+		Fuse: &fs.Options{
+			MountOptions: gofuse.MountOptions{
+				Debug:  false,
+				FsName: "pfs",
+				Name:   "pfs",
+			},
+		},
+		RepoOptions: make(map[string]*RepoOptions),
+		// thread this through for the tests
+		Unmount: make(chan struct{}),
+	}
+	mm, err := NewMountManager(c, mountDir, mountOpts)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := mm.opts.validate(c); err != nil {
-		return err
-	}
-	root, err := newLoopbackRoot(mm.tmpDir, mm.target, c, mm.opts)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	mm.Client = c
-	mm.root = root
-
-	return nil
+	go mm.Start()
+	return mm, nil
 }
 
-func (mm *MountManager) ResetClusterData() error {
-	err := mm.UnmountAll()
+func (mm *MountManager) Start() {
+	err := mm.Run()
 	if err != nil {
-		return err
+		logrus.Infof("Error running mount manager: %s", err)
+		os.Exit(1)
 	}
-	err = mm.FinishAll()
-	if err != nil {
-		return err
-	}
-	mm.States = map[string]*MountStateMachine{}
-	mm.mfcs = map[string]*client.ModifyFileClient{}
-	mm.Client = nil
-	mm.root = nil
-	return nil
 }
 
-func (mm *MountManager) Cleanup() error {
-	return errors.EnsureStack(os.RemoveAll(mm.tmpDir))
-}
-
-func (mm *MountManager) Start() error {
+func (mm *MountManager) Run() error {
 	fuse := mm.opts.getFuse()
 	server, err := fs.Mount(mm.target, mm.root, fuse)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
 	go func() {
-		select {
-		case <-sigChan:
-		case <-mm.opts.getUnmount():
-		}
+		<-mm.opts.getUnmount()
 		server.Unmount()
 	}()
 	server.Wait()
@@ -436,6 +434,11 @@ func (mm *MountManager) Start() error {
 	if err != nil {
 		return err
 	}
+	err = os.RemoveAll(mm.tmpDir)
+	if err != nil {
+		return nil
+	}
+	close(mm.Cleanup)
 	return nil
 }
 
@@ -451,28 +454,10 @@ func (mm *MountManager) FinishAll() (retErr error) {
 func Server(sopts *ServerOptions) error {
 	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
-	mountOpts := &Options{
-		Write: true,
-		Fuse: &fs.Options{
-			MountOptions: gofuse.MountOptions{
-				Debug:  false,
-				FsName: "pfs",
-				Name:   "pfs",
-			},
-		},
-		RepoOptions: make(map[string]*RepoOptions),
-		// thread this through for the tests
-		Unmount: sopts.Unmount,
-	}
-
-	mm, err := NewMountManager(sopts.MountDir, mountOpts)
-	if err != nil {
-		return err
-	}
-
+	var mm *MountManager = &MountManager{}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm)
+		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -491,8 +476,9 @@ func Server(sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isAuthOnAndUserUnauthenticated(mm.Client) {
-			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
 			return
 		}
 
@@ -513,8 +499,9 @@ func Server(sopts *ServerOptions) error {
 		Queries("mode", "{mode}").
 		Queries("name", "{name}").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			if isAuthOnAndUserUnauthenticated(mm.Client) {
-				http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+			errMsg, webCode := initialChecks(mm, true)
+			if errMsg != "" {
+				http.Error(w, errMsg, webCode)
 				return
 			}
 
@@ -577,8 +564,9 @@ func Server(sopts *ServerOptions) error {
 	router.Methods("PUT").
 		Queries("name", "{name}").
 		Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isAuthOnAndUserUnauthenticated(mm.Client) {
-			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
 			return
 		}
 
@@ -618,8 +606,9 @@ func Server(sopts *ServerOptions) error {
 	router.Methods("PUT").
 		Queries("name", "{name}").
 		Path("/repos/{key:.+}/_commit").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isAuthOnAndUserUnauthenticated(mm.Client) {
-			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
 			return
 		}
 
@@ -657,8 +646,9 @@ func Server(sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isAuthOnAndUserUnauthenticated(mm.Client) {
-			http.Error(w, "user unauthenticated", http.StatusUnauthorized)
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
 			return
 		}
 
@@ -680,7 +670,7 @@ func Server(sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm)
+		errMsg, webCode := initialChecks(mm, false)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -711,20 +701,30 @@ func Server(sopts *ServerOptions) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		sameClient, newClient, err := getNewClient(mm, &cfgReq)
+		pachdAddress, err := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "either empty or poorly formatted cluster endpoint", http.StatusBadRequest)
 			return
 		}
-		if !sameClient {
-			err = mm.UpdateCluster(newClient)
+		if isNewCluster(mm, pachdAddress) {
+			newClient, err := getNewClient(&cfgReq)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if mm.Client != nil {
+				close(mm.opts.getUnmount())
+				<-mm.Cleanup
+			}
+			logrus.Infof("Updating pachd_address to %s\n", pachdAddress.Qualified())
+			mm, err = CreateMount(newClient, sopts.MountDir)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 
-		clusterStatus, err := getClusterStatus(newClient)
+		clusterStatus, err := getClusterStatus(mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -737,6 +737,12 @@ func Server(sopts *ServerOptions) error {
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, false)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
 		authActive, _ := mm.Client.IsAuthActive()
 		if !authActive {
 			http.Error(w, "auth isn't activated on the cluster", http.StatusInternalServerError)
@@ -770,6 +776,12 @@ func Server(sopts *ServerOptions) error {
 		}()
 	})
 	router.Methods("PUT").Path("/auth/_logout").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
 		cfg, err := config.Read(false, false)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -797,15 +809,12 @@ func Server(sopts *ServerOptions) error {
 	srv := &http.Server{Addr: ":9002", Handler: router}
 
 	go func() {
-		err := mm.Start()
-		if err != nil {
-			logrus.Infof("Error running mount manager: %s", err)
-			os.Exit(1)
-		}
-		err = mm.Cleanup()
-		if err != nil {
-			logrus.Infof("Error cleaning up mount manager: %s", err)
-			os.Exit(1)
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+		<-sigChan
+		if mm.Client != nil {
+			close(mm.opts.getUnmount())
+			<-mm.Cleanup
 		}
 		srv.Shutdown(context.Background())
 	}()
@@ -813,11 +822,11 @@ func Server(sopts *ServerOptions) error {
 	return errors.EnsureStack(srv.ListenAndServe())
 }
 
-func initialChecks(mm *MountManager) (string, int) {
+func initialChecks(mm *MountManager, authCheck bool) (string, int) {
 	if mm.Client == nil {
 		return "not connected to a cluster", http.StatusMethodNotAllowed
 	}
-	if isAuthOnAndUserUnauthenticated(mm.Client) {
+	if authCheck && isAuthOnAndUserUnauthenticated(mm.Client) {
 		return "user unauthenticated", http.StatusUnauthorized
 	}
 	return "", 0
@@ -833,11 +842,9 @@ func isAuthOnAndUserUnauthenticated(c *client.APIClient) bool {
 }
 
 func getClusterStatus(c *client.APIClient) (map[string]string, error) {
-	var clusterStatus string
+	clusterStatus := "INVALID"
 	err := c.Health()
-	if err != nil {
-		clusterStatus = "INVALID"
-	} else {
+	if err == nil {
 		authActive, err := c.IsAuthActive()
 		if err != nil {
 			return nil, err
@@ -855,42 +862,47 @@ func getClusterStatus(c *client.APIClient) (map[string]string, error) {
 	return map[string]string{"cluster_status": clusterStatus, "pachd_address": pachdAddress}, nil
 }
 
-func getNewClient(mm *MountManager, cfgReq *ConfigRequest) (bool, *client.APIClient, error) {
-	pachdAddress, err := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
-	if err != nil {
-		return false, nil, errors.WithStack(fmt.Errorf("either empty or poorly formatted cluster endpoint"))
+func isNewCluster(mm *MountManager, pachdAddress *grpcutil.PachdAddress) bool {
+	if mm.Client == nil {
+		return true
 	}
-	// Check if same pachd address as current client
 	if reflect.DeepEqual(pachdAddress, mm.Client.GetAddress()) {
-		logrus.Infof("New endpoint is same as current endpoint: %s. No change\n", pachdAddress.Qualified())
-		return true, mm.Client, nil
+		logrus.Infof("New endpoint is same as current endpoint: %s, no change\n", pachdAddress.Qualified())
+		return false
 	}
+	return true
+}
+
+func getNewClient(cfgReq *ConfigRequest) (*client.APIClient, error) {
+	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	// Check if new cluster endpoint is valid
 	var options []client.Option
 	if cfgReq.ServerCas != "" {
 		pemBytes, err := base64.StdEncoding.DecodeString(cfgReq.ServerCas)
 		if err != nil {
-			return false, nil, errors.Wrap(err, "could not decode server CA certs")
+			return nil, errors.Wrap(err, "could not decode server CA certs")
 		}
 		options = append(options, client.WithAdditionalRootCAs(pemBytes))
 	}
 	testClient, err := client.NewFromPachdAddress(pachdAddress, options...)
-	defer testClient.Close()
 	if err != nil {
-		return false, nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
+		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}
+	defer testClient.Close()
+
 	// Update config file and cachedConfig
-	logrus.Infof("Updating pachd address from %s to %s\n", mm.Client.GetAddress().Qualified(), pachdAddress.Qualified())
 	err = updateConfig(cfgReq)
 	if err != nil {
-		return false, nil, errors.Wrap(err, "issue updating config")
-	}
-	newClient, err := client.NewOnUserMachine("fuse")
-	if err != nil {
-		return false, nil, err
+		return nil, errors.Wrap(err, "issue updating config")
 	}
 
-	return false, newClient, nil
+	// Get new client
+	newClient, err := client.NewOnUserMachine("fuse")
+	if err != nil {
+		return nil, err
+	}
+
+	return newClient, nil
 }
 
 func updateConfig(cfgReq *ConfigRequest) error {
