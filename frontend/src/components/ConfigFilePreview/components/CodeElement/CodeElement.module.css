@@ -8,11 +8,11 @@
 }
 
 .depth0 > :global(.hljs-attr) {
-  color: var(--chart-blue);
+  color: var(--chart-hover-dark-blue);
 }
 
 .depth1 > :global(.hljs-attr) {
-  color: var(--chart-dark-green);
+  color: var(--purple-viz-text-1);
 }
 
 .depth2 > :global(.hljs-attr) {
@@ -20,15 +20,15 @@
 }
 
 .depth3 > :global(.hljs-attr) {
-  color: var(--pachyderm-plum);
+  color: var(--chart-blue);
 }
 
 .depth4 > :global(.hljs-attr) {
-  color: var(--pachyderm-green);
+  color: var(--purple-viz-text-3);
 }
 
 .depth5 > :global(.hljs-attr) {
-  color: var(--chart-hover-dark-blue);
+  color: var(--pachyderm-green);
 }
 
 .codeSection {

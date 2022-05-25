@@ -6,22 +6,24 @@ import {
   DropdownItem,
   SupportSVG,
 } from '@pachyderm/components';
-import React, {Children} from 'react';
+import React from 'react';
 
 import RunTutorialButton from '@dash-frontend/components/RunTutorialButton';
 import useRunTutorialButton from '@dash-frontend/components/RunTutorialButton/hooks/useRunTutorialButton';
 
+import Account from './components/Account';
 import styles from './HeaderButtons.module.css';
 
 type HeaderButtonsProps = {
   projectId?: string;
   showSupport?: boolean;
+  showAccount?: boolean;
 };
 
 const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   projectId,
   showSupport = false,
-  children,
+  showAccount = false,
 }) => {
   const {startTutorial, tutorialProgress} = useRunTutorialButton(projectId);
 
@@ -64,20 +66,32 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
             Contact Support
           </Button>
         )}
-        {Children.count(children) !== 0 && <div className={styles.divider} />}
-        {children}
+        {showAccount && (
+          <>
+            <div className={styles.divider} />
+            <Account />
+          </>
+        )}
       </Group>
-      <div className={styles.responsiveShow}>
+      <Group spacing={16} align="center" className={styles.responsiveShow}>
+        {showAccount && (
+          <>
+            <Account />
+            <div className={styles.divider} />
+          </>
+        )}
         <DefaultDropdown
           items={menuItems}
           className={styles.dropdown}
           onSelect={onDropdownMenuSelect}
-          buttonOpts={{hideChevron: true}}
+          buttonOpts={{
+            hideChevron: true,
+            buttonType: 'tertiary',
+            IconSVG: HamburgerSVG,
+          }}
           menuOpts={{pin: 'right'}}
-        >
-          <HamburgerSVG />
-        </DefaultDropdown>
-      </div>
+        />
+      </Group>
     </>
   );
 };

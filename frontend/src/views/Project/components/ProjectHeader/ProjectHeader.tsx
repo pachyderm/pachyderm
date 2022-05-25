@@ -1,14 +1,19 @@
-import {SkeletonDisplayText, Tooltip, Group} from '@pachyderm/components';
+import {
+  SkeletonDisplayText,
+  Tooltip,
+  Group,
+  Button,
+  ArrowLeftSVG,
+} from '@pachyderm/components';
 import React, {useCallback, useState} from 'react';
-import {Link} from 'react-router-dom';
 
 import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import Header from '@dash-frontend/components/Header';
 import HeaderButtons from '@dash-frontend/components/HeaderButtons';
+import useRunTutorialButton from '@dash-frontend/components/RunTutorialButton/hooks/useRunTutorialButton';
 import Search from '@dash-frontend/components/Search';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
-import {ReactComponent as BackArrowSvg} from './BackArrow.svg';
 import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
@@ -16,6 +21,7 @@ const ProjectHeader = () => {
   const {projectName, loading} = useProjectHeader();
   const {projectId} = useUrlState();
   const [showTooltip, setShowTooltip] = useState(false);
+  const {activeTutorial} = useRunTutorialButton(projectId);
 
   const setProjectNameRef: React.RefCallback<HTMLHeadingElement> = useCallback(
     (element: HTMLHeadingElement | null) => {
@@ -28,14 +34,15 @@ const ProjectHeader = () => {
 
   return (
     <Header>
-      <Link to="/" className={styles.goBack}>
-        <BackArrowSvg
+      <Group spacing={16} align="center">
+        <Button
+          buttonType="tertiary"
+          IconSVG={ArrowLeftSVG}
+          className={styles.goBack}
+          to="/"
           aria-label="Go back to landing page."
-          className={styles.goBackSvg}
         />
-      </Link>
 
-      <div className={styles.projectNameWrapper}>
         {loading ? (
           <SkeletonDisplayText
             data-testid="ProjectHeader__projectNameLoader"
@@ -56,12 +63,13 @@ const ProjectHeader = () => {
             </h6>
           </Tooltip>
         )}
-      </div>
+      </Group>
+      <div className={styles.dividerSearch} />
       <Search />
       <Group align="center">
         <GlobalFilter />
-        <div className={styles.divider} />
-        <HeaderButtons projectId={projectId} showSupport={false} />
+        {!activeTutorial && <div className={styles.divider} />}
+        <HeaderButtons projectId={projectId} />
       </Group>
     </Header>
   );

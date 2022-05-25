@@ -19,45 +19,49 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
         <button
           aria-expanded="false"
           aria-haspopup="true"
-          class="_base_1o7uy_1 _hideChevron_1o7uy_33 _purple_1o7uy_42"
+          class="_base_bgw3o_16 _base_1ktzr_1 undefined"
           data-testid="DropdownButton__button"
           type="button"
         >
-          <span
-            class="_children_1o7uy_26"
+          <div
+            class="_base_1p360_1 _horizontal_1p360_45 _justifyCenter_1p360_97 _alignCenter_1p360_129 _spacing8_1p360_17"
           >
-            <div
-              class="_base_19s37_1 _plum_19s37_22"
+            <span
+              class="_children_1ktzr_8"
             >
-              <svg
-                height="20"
-                width="20"
-                xmlns="http://www.w3.org/2000/svg"
+              <div
+                class="_base_19s37_1 _plum_19s37_22"
               >
-                <g
-                  fill="none"
-                  fill-rule="evenodd"
+                <svg
+                  height="20"
+                  width="20"
+                  xmlns="http://www.w3.org/2000/svg"
                 >
-                  <path
-                    d="M0 0h20v20H0z"
-                  />
-                  <path
-                    d="M10.794 1a.75.75 0 0 1 .744.658l.164 1.3a.19.19 0 0 0 .138.158 7.045 7.045 0 0 1 1.725.718.188.188 0 0 0 .21-.014l1.034-.808a.75.75 0 0 1 .99.062L16.926 4.2a.75.75 0 0 1 .061.991l-.806 1.037a.188.188 0 0 0-.014.21c.315.54.557 1.12.719 1.724.02.074.082.128.157.138l1.301.162a.75.75 0 0 1 .657.744v1.588a.75.75 0 0 1-.657.746l-1.3.163a.186.186 0 0 0-.158.137 7.048 7.048 0 0 1-.72 1.725.188.188 0 0 0 .015.209l.808 1.038a.75.75 0 0 1-.061.99l-1.125 1.125a.75.75 0 0 1-.99.061l-1.037-.806a.186.186 0 0 0-.21-.014 7.03 7.03 0 0 1-1.725.718.189.189 0 0 0-.138.158l-.162 1.3a.75.75 0 0 1-.744.657h-1.59a.75.75 0 0 1-.744-.657l-.163-1.3a.189.189 0 0 0-.138-.158 7.03 7.03 0 0 1-1.725-.718.188.188 0 0 0-.209.014l-1.037.806a.75.75 0 0 1-.99-.062L3.074 15.8a.75.75 0 0 1-.061-.99l.806-1.04a.188.188 0 0 0 .014-.209 7.048 7.048 0 0 1-.719-1.724.186.186 0 0 0-.158-.137l-1.3-.163A.75.75 0 0 1 1 10.793V9.205a.75.75 0 0 1 .658-.744l1.3-.164a.187.187 0 0 0 .157-.137 7.048 7.048 0 0 1 .72-1.725.188.188 0 0 0-.015-.21l-.809-1.034a.75.75 0 0 1 .062-.991l1.125-1.125a.75.75 0 0 1 .99-.062l1.039.807c.06.047.143.053.209.014a7.045 7.045 0 0 1 1.725-.718.189.189 0 0 0 .138-.158l.163-1.301A.75.75 0 0 1 9.206 1ZM10 5.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"
-                    fill="currentcolor"
-                    fill-rule="nonzero"
-                  />
-                </g>
-              </svg>
-            </div>
-          </span>
+                  <g
+                    fill="none"
+                    fill-rule="evenodd"
+                  >
+                    <path
+                      d="M0 0h20v20H0z"
+                    />
+                    <path
+                      d="M10.794 1a.75.75 0 0 1 .744.658l.164 1.3a.19.19 0 0 0 .138.158 7.045 7.045 0 0 1 1.725.718.188.188 0 0 0 .21-.014l1.034-.808a.75.75 0 0 1 .99.062L16.926 4.2a.75.75 0 0 1 .061.991l-.806 1.037a.188.188 0 0 0-.014.21c.315.54.557 1.12.719 1.724.02.074.082.128.157.138l1.301.162a.75.75 0 0 1 .657.744v1.588a.75.75 0 0 1-.657.746l-1.3.163a.186.186 0 0 0-.158.137 7.048 7.048 0 0 1-.72 1.725.188.188 0 0 0 .015.209l.808 1.038a.75.75 0 0 1-.061.99l-1.125 1.125a.75.75 0 0 1-.99.061l-1.037-.806a.186.186 0 0 0-.21-.014 7.03 7.03 0 0 1-1.725.718.189.189 0 0 0-.138.158l-.162 1.3a.75.75 0 0 1-.744.657h-1.59a.75.75 0 0 1-.744-.657l-.163-1.3a.189.189 0 0 0-.138-.158 7.03 7.03 0 0 1-1.725-.718.188.188 0 0 0-.209.014l-1.037.806a.75.75 0 0 1-.99-.062L3.074 15.8a.75.75 0 0 1-.061-.99l.806-1.04a.188.188 0 0 0 .014-.209 7.048 7.048 0 0 1-.719-1.724.186.186 0 0 0-.158-.137l-1.3-.163A.75.75 0 0 1 1 10.793V9.205a.75.75 0 0 1 .658-.744l1.3-.164a.187.187 0 0 0 .157-.137 7.048 7.048 0 0 1 .72-1.725.188.188 0 0 0-.015-.21l-.809-1.034a.75.75 0 0 1 .062-.991l1.125-1.125a.75.75 0 0 1 .99-.062l1.039.807c.06.047.143.053.209.014a7.045 7.045 0 0 1 1.725-.718.189.189 0 0 0 .138-.158l.163-1.301A.75.75 0 0 1 9.206 1ZM10 5.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"
+                      fill="currentcolor"
+                      fill-rule="nonzero"
+                    />
+                  </g>
+                </svg>
+              </div>
+            </span>
+          </div>
         </button>
         <div
           aria-hidden="true"
-          class="_base_1kfrl_57 _right_1kfrl_77"
+          class="_base_1lb78_57 _right_1lb78_77"
           role="menu"
         >
           <button
-            class="_base_bt078_1"
+            class="_base_1sr2r_1"
             data-testid="DropdownMenuItem__button"
             role="menuitem"
             tabindex="-1"
@@ -66,7 +70,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
             Copy
           </button>
           <button
-            class="_base_bt078_1"
+            class="_base_1sr2r_1"
             data-testid="DropdownMenuItem__button"
             role="menuitem"
             tabindex="-1"
@@ -75,7 +79,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
             Download JSON
           </button>
           <button
-            class="_base_bt078_1"
+            class="_base_1sr2r_1"
             data-testid="DropdownMenuItem__button"
             role="menuitem"
             tabindex="-1"

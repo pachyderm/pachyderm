@@ -4,7 +4,6 @@
 }
 
 .filter, .filter:not(:disabled):hover {
-  text-decoration: underline;
   max-width: 11.5rem;
   text-overflow: ellipsis;
   overflow-x: hidden;

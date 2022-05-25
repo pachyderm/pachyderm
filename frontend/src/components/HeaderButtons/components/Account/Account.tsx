@@ -19,7 +19,7 @@ const Account: React.FC = () => {
     return null;
   }
 
-  return <span className={styles.base}>Hello, {displayName}!</span>;
+  return <strong className={styles.base}>Hello, {displayName}!</strong>;
 };
 
 export default Account;

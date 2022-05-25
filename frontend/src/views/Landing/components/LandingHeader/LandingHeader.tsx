@@ -5,7 +5,6 @@ import React from 'react';
 import Header from '@dash-frontend/components/Header';
 import HeaderButtons from '@dash-frontend/components/HeaderButtons';
 
-import Account from './components/Account';
 import styles from './LandingHeader.module.css';
 import {ReactComponent as LogoElephant} from './LogoElephant.svg';
 
@@ -25,10 +24,9 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({projects = []}) => {
         </Group>
         <HeaderButtons
           showSupport
+          showAccount
           projectId={projects.length > 0 ? projects[0].id : undefined}
-        >
-          <Account />
-        </HeaderButtons>
+        />
       </Group>
     </Header>
   );

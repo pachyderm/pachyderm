@@ -35,10 +35,10 @@ const GlobalFilter: React.FC = () => {
           onClick={() => setDropdownOpen(true)}
           className={styles.filter}
         >
-          {globalIdFilter && <div className={styles.dot} />}
           {!globalIdFilter
             ? 'Filter by Global ID'
             : `Global ID: ${globalIdFilter.slice(0, 8)}`}
+          {globalIdFilter && <div className={styles.dot} />}
         </Button>
         {dropdownOpen && (
           <div className={styles.dropdownBase}>

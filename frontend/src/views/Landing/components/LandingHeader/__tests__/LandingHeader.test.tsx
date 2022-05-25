@@ -13,23 +13,20 @@ describe('LandingHeader', () => {
   const Header = withContextProviders(LandingHeader);
 
   it("should display the user's name", async () => {
-    const {findByText, queryByTestId} = render(<Header />);
-
-    expect(queryByTestId('Account__loader')).toBeInTheDocument();
+    const {findAllByText} = render(<Header />);
 
     expect(
-      await findByText(`Hello, ${mockServer.getAccount().name}!`),
-    ).toBeInTheDocument();
-    expect(queryByTestId('Account__loader')).not.toBeInTheDocument();
+      await findAllByText(`Hello, ${mockServer.getAccount().name}!`),
+    ).toHaveLength(2);
   });
 
   it("should display user's email as a fallback", async () => {
     setIdTokenForAccount({id: 'ff7', email: 'barret.wallace@avalanche.net'});
 
-    const {findByText} = render(<Header />);
+    const {findAllByText} = render(<Header />);
 
     expect(
-      await findByText(`Hello, barret.wallace@avalanche.net!`),
-    ).toBeInTheDocument();
+      await findAllByText(`Hello, barret.wallace@avalanche.net!`),
+    ).toHaveLength(2);
   });
 });

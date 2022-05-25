@@ -1,17 +1,17 @@
 .divider {
   box-sizing: border-box;
-  height: 2.6875rem;
+  height: 2rem;
   width: 1px;
   border: 1px solid var(--placeholder-grey);
 }
 
 .responsiveShow {
-  display: none;
+  display: none !important;
 }
   
 @media screen and (max-width: 1023px) {
   .responsiveShow {
-    display: block;
+    display: inline-flex !important;
   }
   .responsiveHide > * {
     display: none;

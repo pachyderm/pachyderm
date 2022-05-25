@@ -1,22 +1,3 @@
-.goBack {
-  margin-right: 25px;
-}
-
-.goBack:hover .goBackSvg path,
-.goBack:active .goBackSvg path,
-.goBack:focus[class$='focus-visible'] .goBackSvg path {  
-  fill: var(--pachyderm-orange);
-}
-
-.goBack:focus:not([class$='focus-visible']) {
-  outline: none;
-}
-
-.projectNameWrapper {
-  border-right: 1px solid var(--placeholder-grey);
-  padding-right: 1.5rem;
-}
-
 .projectName {
   color: var(--white);
   margin-bottom: 0;
@@ -38,10 +19,18 @@
   margin-top: 0.75rem;
 }
 
-.divider {
+.divider, .dividerSearch {
   box-sizing: border-box;
-  height: 2.6875rem;
+  height: 2rem;
   width: 1px;
-  margin: 0 1.5rem;
+  margin: 0 1rem;
   border: 1px solid var(--placeholder-grey);
+}
+
+.dividerSearch {
+  margin-right: 0;
+}
+
+.goBack {
+  border: none;
 }

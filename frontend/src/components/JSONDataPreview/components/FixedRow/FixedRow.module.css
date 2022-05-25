@@ -19,28 +19,28 @@
   background-color: var(--hover-grey);
 }
 
+.base.depth0 {
+  color: var(--chart-hover-dark-blue);
+}
+
 .base.depth1 {
-  color: var(--chart-blue);
+  color: var(--purple-viz-text-1);
 }
 
 .base.depth2 {
-  color: var(--chart-dark-green);
-}
-
-.base.depth3 {
   color: var(--pachyderm-coral);
 }
 
+.base.depth3 {
+  color: var(--chart-blue);
+}
+
 .base.depth4 {
-  color: var(--pachyderm-plum);
+  color: var(--purple-viz-text-3);
 }
 
 .base.depth5 {
   color: var(--pachyderm-green);
-}
-
-.base.depth6 {
-  color: var(--chart-hover-dark-blue);
 }
 
 .chevron {

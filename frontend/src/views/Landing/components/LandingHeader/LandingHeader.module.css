@@ -8,4 +8,6 @@
 
 a.logo {
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
