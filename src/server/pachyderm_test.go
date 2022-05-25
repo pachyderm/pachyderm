@@ -4527,7 +4527,7 @@ func TestDatumStatusRestart(t *testing.T) {
 				// so `Before` is true for any non-zero time.
 				started, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
 				if err != nil {
-					return err
+					return errors.Errorf("could not convert timestamp: %v", err)
 				}
 				if !datumStarted.Before(started) {
 					return errors.Errorf("%v ≮ %v", datumStarted, started)
