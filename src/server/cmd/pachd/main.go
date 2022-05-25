@@ -13,7 +13,6 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
@@ -92,7 +91,7 @@ func main() {
 		// i.e., default — mode.
 		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(doEnterpriseMode, &serviceenv.GlobalConfiguration{})
+		cmdutil.Main(doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
@@ -951,9 +950,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return env.GetPachClient(ctx), nil
-		})
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
@@ -1285,9 +1282,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return env.GetPachClient(ctx), nil
-		})
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 		certPath, keyPath, err := tls.GetCertPaths()
 		if err != nil {
