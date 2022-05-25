@@ -13,4 +13,6 @@ if (LOG_LEVEL?.match(/^\d+$/)) {
   level = (process.env.LOG_LEVEL as LogLevel) || 'trace';
 }
 
-export default createBunyanLogger({name: 'dash-api', level});
+const logger = createBunyanLogger({name: 'dash-api', level});
+
+export default logger;

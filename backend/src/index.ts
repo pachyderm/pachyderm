@@ -2,6 +2,8 @@ import {Server} from 'http';
 import {AddressInfo} from 'net';
 import path from 'path';
 
+import {pachydermClient} from '@pachyderm/node-pachyderm';
+import Analytics from '@rudderstack/rudder-sdk-node';
 import * as Sentry from '@sentry/node';
 import cookieParser from 'cookie-parser';
 import {renderFile} from 'ejs';
@@ -69,14 +71,46 @@ const attachFileHandlers = (app: Express) => {
   app.get('/download/:repoName/:branchName/:commitId/*', handleFileDownload);
 };
 
+const attachAnalytics = async () => {
+  if (!process.env.NODE_RUDDERSTACK_ID) {
+    log.warn('No rudderstck ID provided for telemetry');
+    return;
+  }
+  const analyticsClient = new Analytics(
+    process.env.NODE_RUDDERSTACK_ID,
+    'https://pachyderm-dataplane.rudderstack.com/v1/batch',
+  );
+  const pachClient = pachydermClient({
+    pachdAddress: process.env.PACHD_ADDRESS,
+    ssl: false,
+  });
+  const clusterInfo = await pachClient.admin().inspectCluster();
+  log.addStream({
+    level: 'info',
+    stream: {
+      write: (log: unknown) => {
+        analyticsClient.track({
+          event: JSON.stringify(log),
+          anonymousId: clusterInfo.id,
+        });
+      },
+    },
+    type: 'raw',
+  });
+  log.info('Telemetry stream to rudderstack started');
+};
+
 const createServer = () => {
   const app = express();
   app.use(json());
   app.use(urlencoded({extended: true}));
 
+  const enableTelemetry =
+    process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true';
+
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
-    enabled: process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true',
+    enabled: enableTelemetry,
     tracesSampleRate: 0.5,
   });
 
@@ -84,6 +118,9 @@ const createServer = () => {
 
   if (process.env.NODE_ENV !== 'development') {
     attachWebServer(app);
+  }
+  if (enableTelemetry) {
+    attachAnalytics();
   }
 
   return {
