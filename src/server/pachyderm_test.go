@@ -4512,7 +4512,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoError(t, backoff.Retry(func() error {
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
 			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
@@ -4525,14 +4525,18 @@ func TestDatumStatusRestart(t *testing.T) {
 				}
 				// The first time this function is called, datumStarted is zero
 				// so `Before` is true for any non-zero time.
-				_datumStarted, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
-				require.NoError(t, err)
-				require.True(t, datumStarted.Before(_datumStarted))
-				datumStarted = _datumStarted
+				started, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
+				if err != nil {
+					return errors.Errorf("could not convert timestamp: %v", err)
+				}
+				if !datumStarted.Before(started) {
+					return errors.Errorf("%v ≮ %v", datumStarted, started)
+				}
+				datumStarted = started
 				return nil
 			}
 			return errors.Errorf("worker status from wrong job")
-		}, backoff.RetryEvery(time.Second).For(30*time.Second)))
+		})
 	}
 	checkStatus()
 	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
