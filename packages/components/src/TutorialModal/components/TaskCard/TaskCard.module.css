@@ -55,13 +55,17 @@
   background-color: var(--cyan-30);
 }
 
-.taskCompleted {
+.error {
+  background-color: var(--background-pink);
+}
+
+.buttonCover {
   display: flex;
   align-items: center;
   box-shadow: 0 1 4  1 var(--dropshadow);
 }
 
-.svgWrapper {
+.svgWrapper, .svgWrapperError {
   background-color: var(--cyan);
   border-radius: 3px 0 0 3px;
   border: 1px solid transparent;
@@ -72,14 +76,16 @@
   justify-content: center;
 }
 
-.taskCompleted path + path {
+.svgWrapperError {
+  background-color: var(--error-red);
+}
+
+.buttonCover path + path {
   fill: var(--white);
 }
 
-.completedText {
-  padding: 0.75rem;
+.completedText, .errorText {
   background-color: var(--white);
-  color: var(--black);
   text-align: center;
   width: 100%;
   border-radius: 0 3px 3px 0;
@@ -87,7 +93,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 2.625rem;
+  min-height: 2.625rem;
+}
+
+.completedText {
+  color: var(--black);
 }
 
 .button {

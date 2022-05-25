@@ -2,13 +2,20 @@ import classNames from 'classnames';
 import React from 'react';
 
 import {Button} from '../../../Button';
-import {CheckmarkSVG, StatusCheckmarkSVG, InfoSVG} from '../../../Svg';
+import {
+  CheckmarkSVG,
+  StatusWarningSVG,
+  StatusCheckmarkSVG,
+  InfoSVG,
+} from '../../../Svg';
+import {ErrorText} from '../../../Text';
 
 import styles from './TaskCard.module.css';
 
 type TaskCardProps = {
   task: React.ReactNode;
   action?: () => void;
+  error?: string;
   index: number;
   currentTask: number;
   actionText?: React.ReactNode;
@@ -23,6 +30,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   currentTask,
   action,
   actionText,
+  error,
   task,
   taskInfoTitle,
   taskInfo,
@@ -57,17 +65,28 @@ const TaskCard: React.FC<TaskCardProps> = ({
         <div
           className={classNames(styles.action, {
             [styles.completed]: currentTask > index,
+            [styles.error]: error,
           })}
         >
           {currentTask > index && (
-            <div className={styles.taskCompleted}>
+            <div className={styles.buttonCover}>
               <div className={styles.svgWrapper}>
                 <CheckmarkSVG />
               </div>
               <strong className={styles.completedText}>Task Completed!</strong>
             </div>
           )}
-          {currentTask <= index && (
+          {error && (
+            <div className={styles.buttonCover}>
+              <div className={styles.svgWrapperError}>
+                <StatusWarningSVG />
+              </div>
+              <ErrorText className={styles.errorText}>
+                {error} - you may need to restart the tutorial
+              </ErrorText>
+            </div>
+          )}
+          {currentTask <= index && !error && (
             <div>
               <Button
                 disabled={currentTask < index || disabled}
