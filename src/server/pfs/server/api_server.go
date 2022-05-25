@@ -3,6 +3,7 @@ package server
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -32,8 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
-
-	"golang.org/x/net/context"
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
