@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/hanwen/go-fuse/v2/fs"
@@ -898,6 +899,7 @@ func getNewClient(cfgReq *ConfigRequest) (*client.APIClient, error) {
 		}
 		options = append(options, client.WithAdditionalRootCAs(pemBytes))
 	}
+	options = append(options, client.WithDialTimeout(5*time.Second))
 	testClient, err := client.NewFromPachdAddress(pachdAddress, options...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
