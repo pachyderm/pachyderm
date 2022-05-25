@@ -37,6 +37,8 @@ type RepoOptions struct {
 	Repo string
 	// Branch is the branch of the repo to mount
 	Branch string
+	// Commit is a specific commit on the branch to mount
+	Commit string
 	// Write indicates that the repo should be mounted for writing.
 	Write bool
 }

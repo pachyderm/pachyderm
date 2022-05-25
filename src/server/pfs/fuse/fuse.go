@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -64,9 +63,22 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	commits := make(map[string]string)
 	if opts != nil {
 		for repo, ropts := range opts.RepoOptions {
-			if uuid.IsUUIDWithoutDashes(ropts.Branch) {
+			if ropts.Commit != "" && ropts.Branch == "" {
 				commits[repo] = ropts.Branch
-				ropts.Branch = "master"
+				cis, err := c.InspectCommitSet(ropts.Commit)
+				if err != nil {
+					return err
+				}
+				branch := ""
+				for _, ci := range cis {
+					if ci.Commit.Branch.Repo.Name == repo {
+						if branch != "" {
+							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.Commit)
+						}
+						branch = ci.Commit.Branch.Name
+					}
+				}
+				ropts.Branch = branch
 			}
 		}
 	}

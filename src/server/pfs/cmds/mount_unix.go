@@ -29,45 +29,27 @@ const (
 func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
-		var repo string
-		var flag string
 		opts := &fuse.RepoOptions{}
-		repoAndRest := strings.Split(arg, "@")
-		if len(repoAndRest) == 1 {
-			// No branch specified
-			opts.Branch = "master"
-			repoAndFlag := strings.Split(repoAndRest[0], "+")
-			repo = repoAndFlag[0]
-			if len(repoAndFlag) > 1 {
-				flag = repoAndFlag[1]
-			}
-			opts.Repo = repo
-		} else {
-			repo = repoAndRest[0]
-			branchAndFlag := strings.Split(repoAndRest[1], "+")
-			opts.Branch = branchAndFlag[0]
-			if len(branchAndFlag) > 1 {
-				flag = branchAndFlag[1]
-			}
-			opts.Repo = repo
+		commitAndFlag := strings.Split(arg, "+")
+		commit, err := cmdutil.ParseCommit(commitAndFlag[0])
+		if err != nil {
+			return nil, err
 		}
-		if flag != "" {
-			for _, c := range flag {
+		opts.Name = commit.Branch.Repo.Name
+		opts.Repo = commit.Branch.Repo.Name
+		opts.Branch = commit.Branch.Name
+		opts.Commit = commit.ID
+		if len(commitAndFlag) > 1 {
+			for _, c := range commitAndFlag[1] {
 				if c != 'w' && c != 'r' {
 					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
 				}
 			}
-			if strings.Contains("w", flag) {
+			if strings.Contains("w", commitAndFlag[1]) {
 				opts.Write = true
 			}
 		}
-		if repo == "" {
-			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
-		}
-		// NB: `pachctl mount` always mounts a repo at its own name, but that
-		// key can be something else
-		opts.Name = repo
-		result[repo] = opts
+		result[opts.Repo] = opts
 	}
 	return result, nil
 }
