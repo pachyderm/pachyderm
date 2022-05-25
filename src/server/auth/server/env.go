@@ -6,6 +6,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pps"
 	logrus "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
@@ -20,6 +22,8 @@ type Env struct {
 
 	// circular dependency
 	GetEnterpriseServer func() enterprise.APIServer
+	GetPfsServer        func() pfs.APIServer
+	GetPpsServer        func() pps.APIServer
 
 	BackgroundContext context.Context
 	Logger            *logrus.Logger
@@ -34,6 +38,8 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		TxnEnv:     txnEnv,
 
 		GetEnterpriseServer: senv.EnterpriseServer,
+		GetPfsServer:        senv.PfsServer,
+		GetPpsServer:        senv.PpsServer,
 
 		BackgroundContext: senv.Context(),
 		Logger:            senv.Logger(),
