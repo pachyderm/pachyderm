@@ -1838,7 +1838,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	if oldPipelineInfo != nil && !request.Update {
-		return errors.Errorf("pipeline %q already exists", pipelineName)
+		return ppsServer.ErrPipelineAlreadyExists{
+			Pipeline: request.Pipeline,
+		}
 	}
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
