@@ -98,7 +98,6 @@ func (uw *UnorderedWriter) serialize() error {
 	}
 	return miscutil.LogStep("UnorderedWriter.serialize", func() error {
 		return uw.withWriter(func(w *Writer) error {
-
 			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 				return w.Add(path, datum, r)
 			}, func(f File, datum string) error {
