@@ -14,4 +14,4 @@ helm repo add pach https://helm.pachyderm.com
 
 helm repo update
 
-go test -v ./src/testing/deploy
+go test -v ./src/testing/deploy --timeout=3600s
