@@ -93,7 +93,7 @@ func mountCmds() []*cobra.Command {
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo@branch+w\", where the trailing flag \"+w\" indicates write.")
+	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo[@branch=commit][+w]\", where the trailing flag \"+w\" indicates write. You can omit the branch when specifying a commit unless the same commit ID is on multiple branches in the repo.")
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
