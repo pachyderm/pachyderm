@@ -62,9 +62,12 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		return err
 	}
 	commits := make(map[string]string)
-	for repo, branch := range opts.getBranches() {
-		if uuid.IsUUIDWithoutDashes(branch) {
-			commits[repo] = branch
+	if opts != nil {
+		for repo, ropts := range opts.RepoOptions {
+			if uuid.IsUUIDWithoutDashes(ropts.Branch) {
+				commits[repo] = ropts.Branch
+				ropts.Branch = "master"
+			}
 		}
 	}
 	rootDir, err := ioutil.TempDir("", "pfs")
