@@ -9,7 +9,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,6 +21,7 @@ import (
 const (
 	licenseRecordKey             = "license"
 	localhostEnterpriseClusterId = "localhost"
+	localhostPeerPort            = "grpc://localhost:1653"
 )
 
 type apiServer struct {
@@ -42,46 +42,49 @@ func New(env Env) (lc.APIServer, error) {
 }
 
 func (a *apiServer) envBootstrap(ctx context.Context) {
-	if a.env.Config.LicenseKey == "" {
+	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
 		return
 	}
-	if err := backoff.RetryUntilCancel(ctx, func() error {
-		licenseResp, err := a.getLicenseRecord(ctx)
+	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
+		panic("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
+	}
+	// TODO: wrap in transaction?
+	if err := func() error {
+		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
 		if err != nil {
 			return err
 		}
-		_, err = a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
-		if err != nil {
-			return err
-		}
-		if licenseResp.State != ec.State_NONE {
-			// license service was already configured. No need to rebootstrap communication with local enterprise service
-			return nil
-		}
-		// TODO: maybe loop this part? Need to think through looping interactions?
-		enterpriseSecret := "la di da..." // where do we get this secret?
 		_, err = a.AddCluster(ctx, &lc.AddClusterRequest{
 			Id:               localhostEnterpriseClusterId,
-			Address:          "grpc://localhost:1653",
-			UserAddress:      "grpc://localhost:1653",
-			Secret:           enterpriseSecret,
+			Address:          localhostPeerPort,
+			UserAddress:      localhostPeerPort,
+			Secret:           a.env.Config.EnterpriseSecret,
 			EnterpriseServer: true,
 		})
 		if err != nil {
-			return err
+			if errors.As(err, lc.ErrDuplicateClusterID) {
+				_, err = a.UpdateCluster(ctx, &lc.UpdateClusterRequest{
+					Id:          localhostEnterpriseClusterId,
+					Address:     localhostPeerPort,
+					UserAddress: localhostPeerPort,
+					Secret:      a.env.Config.EnterpriseSecret,
+				})
+			} else {
+				return err
+			}
 		}
+		// TODO: do we need to wrap this in case the enterprise server isn't up?
 		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
 			Id:            localhostEnterpriseClusterId,
-			LicenseServer: "grpc://localhost:1653",
-			Secret:        enterpriseSecret})
+			LicenseServer: localhostPeerPort,
+			Secret:        a.env.Config.EnterpriseSecret})
 		if err != nil {
 			return err
 		}
 		return nil
-	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
-		panic(fmt.Errorf("failed to configure the Auth Server from the environment: %v", err))
+	}(); err != nil {
+		panic(fmt.Errorf("failed to configure the License Server from the environment: %v", err))
 	}
-
 }
 
 // Activate implements the Activate RPC
@@ -306,6 +309,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	fieldValues["address"] = req.Address
 	fieldValues["user_address"] = req.UserAddress
 	fieldValues["cluster_deployment_id"] = req.ClusterDeploymentId
+	fieldValues["secret"] = req.Secret
 
 	var setFields string
 	for k, v := range fieldValues {
