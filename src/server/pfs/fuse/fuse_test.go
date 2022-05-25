@@ -367,6 +367,74 @@ func TestOpenCommit(t *testing.T) {
 	})
 }
 
+func TestMountCommit(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	txn, err := env.PachClient.StartTransaction()
+	require.NoError(t, err)
+	c := env.PachClient.WithTransaction(txn)
+	c1, err := c.StartCommit("repo", "b1")
+	require.NoError(t, err)
+	c2, err := c.StartCommit("repo", "b2")
+	require.NoError(t, err)
+	_, err = env.PachClient.FinishTransaction(txn)
+	require.NoError(t, err)
+
+	err = env.PachClient.PutFile(c1, "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(c2, "bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name:   "repo",
+				Repo:   "repo",
+				Branch: "b1",
+				Commit: c1.ID,
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "foo", filepath.Base(files[0].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+	})
+
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name:   "repo",
+				Repo:   "repo",
+				Branch: "b2",
+				Commit: c2.ID,
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "bar", filepath.Base(files[0].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "bar"))
+		require.NoError(t, err)
+		require.Equal(t, "bar", string(data))
+	})
+}
+
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
 	dir := tb.TempDir()
 	if opts == nil {
