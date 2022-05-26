@@ -730,6 +730,7 @@ func Server(sopts *ServerOptions) error {
 			if mm.Client != nil {
 				close(mm.opts.getUnmount())
 				<-mm.Cleanup
+				mm.Client.Close()
 			}
 			logrus.Infof("Updating pachd_address to %s\n", pachdAddress.Qualified())
 			mm, err = CreateMount(newClient, sopts.MountDir)
@@ -830,6 +831,7 @@ func Server(sopts *ServerOptions) error {
 		if mm.Client != nil {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
+			mm.Client.Close()
 		}
 		srv.Shutdown(context.Background())
 	}()
@@ -900,22 +902,14 @@ func getNewClient(cfgReq *ConfigRequest) (*client.APIClient, error) {
 		options = append(options, client.WithAdditionalRootCAs(pemBytes))
 	}
 	options = append(options, client.WithDialTimeout(5*time.Second))
-	testClient, err := client.NewFromPachdAddress(pachdAddress, options...)
+	newClient, err := client.NewFromPachdAddress(pachdAddress, options...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}
-	defer testClient.Close()
-
 	// Update config file and cachedConfig
 	err = updateConfig(cfgReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "issue updating config")
-	}
-
-	// Get new client
-	newClient, err := client.NewOnUserMachine("fuse")
-	if err != nil {
-		return nil, err
 	}
 
 	return newClient, nil
@@ -926,12 +920,9 @@ func updateConfig(cfgReq *ConfigRequest) error {
 	if err != nil {
 		return err
 	}
-	contextName, _, err := cfg.ActiveContext(true)
-	if err != nil {
-		return err
-	}
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
-	cfg.V2.Contexts[contextName] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
+	cfg.V2.ActiveContext = "mount-server"
+	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
 	err = cfg.Write()
 	if err != nil {
 		return err
