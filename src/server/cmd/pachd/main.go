@@ -79,7 +79,7 @@ func init() {
 }
 
 func main() {
-	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	log.SetFormatter(&log.JSONFormatter{})
 	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
@@ -137,6 +137,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
 
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
@@ -433,6 +437,11 @@ func doSidecarMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-sidecar", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -591,6 +600,11 @@ func doFullMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
