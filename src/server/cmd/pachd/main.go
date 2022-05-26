@@ -54,7 +54,6 @@ import (
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -79,8 +78,7 @@ func init() {
 }
 
 func main() {
-	log.SetFormatter(&log.JSONFormatter{})
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 
 	switch {
 	case readiness:
@@ -161,7 +159,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,

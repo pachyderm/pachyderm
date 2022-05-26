@@ -55,6 +55,22 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 	return serialized, nil
 }
 
+var jsonFormatter = &logrus.JSONFormatter{}
+
+// JSONPretty is similar to Pretty() above, but it formats logrus log entries as
+// valid JSON objects. This is required by GCP (or else it misunderstands
+// severity and treats all log lines as ERROR logs).
+func JSONPretty(entry *logrus.Entry) ([]byte, error) {
+	if entry.Data["service"] != nil && entry.Data["method"] != nil {
+		entry.Data["method"] = fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"])
+		delete(entry.Data, "service")
+	}
+	if entry.Data["duration"] != nil {
+		entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
+	}
+	return jsonFormatter.Format(entry)
+}
+
 // GRPCLogWriter proxies gRPC and etcd-produced log messages to a logrus
 // logger. Because it implements `io.Writer`, it could be used anywhere where
 // `io.Writer`s are used, but it has some logic specifically designed to
