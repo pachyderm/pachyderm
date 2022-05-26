@@ -1,5 +1,18 @@
 
 # Changelog
+## 2.2.1
+- Include gRPC status codes for more errors. - #7680
+- Enable IAM Login for Cloud SQL Auth Proxy - #7678
+- Migrate Cmd Tests to Client Factory - #7672
+- Fix a flaky etcd collection test, improve etcd logging - #7676
+- Simple put-file progress indication - #7677
+- Eagerly delete task service group entries - #7645
+- Cherry-pick Snowflake VARIANT support = #7661
+- Include more pod failure reasons - #7651
+- Worker Master deletes meta files for unskippable datums - #7642
+- Renew temporary filesets produced in handleDatumSet task - #7646
+- Fix deployment test - #7644
+
 ## 2.2.0
 - [CORE-586] Update how we handle null values in CSV  - #7623	
 - Ensure shard ranges contain all paths.  - #7621		
