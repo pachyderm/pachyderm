@@ -121,10 +121,16 @@ func TestMountParsing(t *testing.T) {
 			Repo:   "repo3",
 			Branch: "master",
 		},
+		"repo4": {
+			Name:   "repo4",
+			Repo:   "repo4",
+			Branch: "master",
+			Commit: "dee0c3904d6f44beb4fa10fc0db12d02",
+		},
 	}
-	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3"})
+	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
 	require.NoError(t, err)
-	require.Equal(t, 3, len(opts))
+	require.Equal(t, 4, len(opts))
 	fmt.Printf("%+v\n", opts)
 	for repo, ro := range expected {
 		require.Equal(t, ro, opts[repo])

@@ -49,6 +49,9 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 				opts.Write = true
 			}
 		}
+		if opts.Branch == "" {
+			opts.Branch = "master"
+		}
 		result[opts.Repo] = opts
 	}
 	return result, nil
