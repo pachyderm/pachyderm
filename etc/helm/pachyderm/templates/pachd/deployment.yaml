@@ -172,15 +172,15 @@ spec:
           value: {{ .Values.pachd.enterpriseLicenseKey }}
           {{- end }}
         {{- end }}
-        {{- if or .Values.pachd.enterpriseSecretSecretName .Values.pachd.enterpriseSecret }}
+        {{- if or .Values.pachd.enterpriseSecretSecretName (include "pachyderm.enterpriseSecret" . ) }}
         - name: ENTERPRISE_SECRET
           {{- if .Values.pachd.enterpriseSecretSecretName }}
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.enterpriseSecret | quote }}
+              name: {{ .Values.pachd.enterpriseSecretSecretName }}
               key: "enterprise-secret"
           {{- else }}
-          value: {{ .Values.pachd.rootToken | quote }}
+          value: {{ (include "pachyderm.enterpriseSecret" . ) | quote }}
           {{- end }}
         {{- end }}
         {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}

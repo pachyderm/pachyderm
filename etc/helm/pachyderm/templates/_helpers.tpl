@@ -146,3 +146,9 @@ localhost:30658
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}
 {{- end }}
+
+{{- define "pachyderm.enterpriseSecret" -}}
+{{- if .Values.pachd.enterpriseLicenseKey -}}
+{{ default (randAlphaNum 32) .Values.pachd.enterpriseSecret }}
+{{- end}}
+{{- end }}
