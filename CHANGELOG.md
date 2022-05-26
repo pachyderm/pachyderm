@@ -1,8 +1,8 @@
 
 # Changelog
 ## 2.1.9
-- Worker Master deletes meta files for unskippable datums - #7648
-- Account for chart version in upgrade test installs - #7649
+- worker Master deletes meta files for unskippable datums. - #7648
+- account for chart version in upgrade test installs. - #7649
 
 ## 2.1.8
 - red hat push fix 2.1.x - #7626
