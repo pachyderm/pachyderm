@@ -226,6 +226,7 @@ pachd:
     # tag defaults to the chart’s specified appVersion.
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
+  logFormat: "text"
   logLevel: "info"
   lokiDeploy: false
   # lokiLogging enables Loki logging if set.
