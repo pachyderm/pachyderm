@@ -159,7 +159,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
