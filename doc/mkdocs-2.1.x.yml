@@ -19,10 +19,10 @@ pach_branch: '2.1.x'
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
-pach_featured_version: '2.2.0'
+pach_featured_version: '2.2.1'
 # Latest version of Pachyderm
-pach_latest_version: '2.2.0'
-pach_major_minor_version: '2.2'
+pach_latest_version: '2.1.9'
+pach_major_minor_version: '2.1'
 search_index_version: '2.1.x'
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.5.0'
