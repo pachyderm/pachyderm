@@ -161,6 +161,28 @@ spec:
         - name: TLS_CERT_SECRET_NAME
           value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
         {{- end }}
+        {{- if or .Values.pachd.enterpriseLicenseKey .Values.pachd.enterpriseLicenseKeySecretName }}
+        - name: LICENSE_KEY
+          {{- if .Values.pachd.enterpriseLicenseKeySecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseLicenseKeySecretName }}
+              key: "enterprise-license-key"
+          {{- else }}
+          value: {{ .Values.pachd.enterpriseLicenseKey }}
+          {{- end }}
+        {{- end }}
+        {{- if or .Values.pachd.enterpriseSecretSecretName .Values.pachd.enterpriseSecret }}
+        - name: ENTERPRISE_SECRET
+          {{- if .Values.pachd.enterpriseSecretSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseSecret | quote }}
+              key: "enterprise-secret"
+          {{- else }}
+          value: {{ .Values.pachd.rootToken | quote }}
+          {{- end }}
+        {{- end }}
         {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}
         - name: AUTH_ROOT_TOKEN
           {{- if .Values.pachd.rootTokenSecretName }}
