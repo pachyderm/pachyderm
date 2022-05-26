@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
@@ -50,6 +51,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 	}
 	// TODO: wrap in transaction?
 	if err := func() error {
+		ctx = auth.AsInternalUser(ctx, "license-server")
 		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
 		if err != nil {
 			return err
