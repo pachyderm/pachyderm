@@ -118,15 +118,21 @@ func newEtcdDoer(namespaceEtcd *namespaceEtcd, group string, cache Cache) Doer {
 
 func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb CollectFunc) error {
 	return ed.withGroup(ctx, func(ctx context.Context, renewer *col.Renewer) error {
-		var eg errgroup.Group
 		prefix := path.Join(ed.group, uuid.NewWithoutDashes())
 		done := make(chan struct{})
 		var count int64
+		defer func(ctx context.Context) {
+			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
+				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
+					return errors.EnsureStack(err)
+				}
+				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
+			}); err != nil {
+				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
+			}
+		}(ctx)
 		ctx, cancel := context.WithCancel(ctx)
-		defer func() {
-			cancel()
-			eg.Wait()
-		}()
+		eg, ctx := errgroup.WithContext(ctx)
 		eg.Go(func() error {
 			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
@@ -162,60 +168,57 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				}
 				return nil
 			})
-			return errors.EnsureStack(err)
-		})
-		defer func() {
-			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
-					return errors.EnsureStack(err)
-				}
-				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
-			}); err != nil {
-				fmt.Printf("errored deleting tasks with the prefix %v: %v\n", prefix, err)
+			if err != nil && !errors.As(err, context.Canceled) {
+				return errors.EnsureStack(err)
 			}
-		}()
-		var index int64
-		for {
-			select {
-			case input, more := <-inputChan:
-				if !more {
-					close(done)
-					// If the tasks have already been collected (or there were none), then just return.
-					if atomic.LoadInt64(&count) == 0 {
+			return nil
+		})
+		eg.Go(func() error {
+			var index int64
+			for {
+				select {
+				case input, more := <-inputChan:
+					if !more {
+						close(done)
+						// if there are no tasks left to consume, cancel to close the Watcher goroutine in
+						// case that the watcher doesn't run again
+						if atomic.LoadInt64(&count) == 0 {
+							cancel()
+						}
 						return nil
 					}
-					return errors.EnsureStack(eg.Wait())
-				}
-				taskID, err := computeTaskID(input)
-				if err != nil {
-					return err
-				}
-				if ed.cache != nil {
-					output, err := ed.cache.Get(ctx, taskID)
-					if err == nil {
-						if err := cb(index, output, nil); err != nil {
-							return err
-						}
-						index++
-						continue
+					taskID, err := computeTaskID(input)
+					if err != nil {
+						return err
 					}
+					if ed.cache != nil {
+						output, err := ed.cache.Get(ctx, taskID)
+						if err == nil {
+							if err := cb(index, output, nil); err != nil {
+								return err
+							}
+							index++
+							continue
+						}
+					}
+					taskKey := path.Join(prefix, taskID)
+					task := &Task{
+						ID:    taskID,
+						Input: input,
+						State: State_RUNNING,
+						Index: index,
+					}
+					index++
+					if err := renewer.Put(ctx, taskKey, task); err != nil {
+						return err
+					}
+					atomic.AddInt64(&count, 1)
+				case <-ctx.Done():
+					return errors.EnsureStack(ctx.Err())
 				}
-				taskKey := path.Join(prefix, taskID)
-				task := &Task{
-					ID:    taskID,
-					Input: input,
-					State: State_RUNNING,
-					Index: index,
-				}
-				index++
-				if err := renewer.Put(ctx, taskKey, task); err != nil {
-					return err
-				}
-				atomic.AddInt64(&count, 1)
-			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
 			}
-		}
+		})
+		return errors.EnsureStack(eg.Wait())
 	})
 }
 
