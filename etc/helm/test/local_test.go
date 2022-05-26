@@ -23,7 +23,6 @@ func TestLocal(t *testing.T) {
 					"deployTarget":                 expectedStorageBackend,
 					"pachd.storage.local.hostPath": hostPath,
 					"global.imagePullSecrets[0]":   secret,
-					"pachd.enterpriseLicenseKey":   "licenseKey",
 				},
 				SetValues: map[string]string{
 					"oidc.mockIDP": "true",
@@ -77,14 +76,6 @@ func TestLocal(t *testing.T) {
 				continue
 			}
 			checks["headless service"] = true
-
-		case *v1.Secret:
-			if object.Name == "pachyderm-bootstrap-config" {
-				if object.StringData["license"] != "licenseKey" {
-					t.Errorf("license key: %s, should equal pachyderm-bootstrap-config.license: %v", "licenseKey", object.StringData["license"])
-				}
-			}
-		}
 	}
 	for check := range checks {
 		if !checks[check] {

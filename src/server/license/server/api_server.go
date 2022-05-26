@@ -69,6 +69,9 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 					UserAddress: localhostPeerPort,
 					Secret:      a.env.Config.EnterpriseSecret,
 				})
+				if err != nil {
+					return err
+				}
 			} else {
 				return err
 			}
@@ -79,7 +82,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 			LicenseServer: localhostPeerPort,
 			Secret:        a.env.Config.EnterpriseSecret})
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	}(); err != nil {
