@@ -38,7 +38,9 @@ func New(env Env) (lc.APIServer, error) {
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
-	s.envBootstrap(context.Background())
+	if err := s.envBootstrap(context.Background()); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 

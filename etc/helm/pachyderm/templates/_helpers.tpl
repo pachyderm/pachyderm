@@ -147,8 +147,18 @@ localhost:30658
 {{- end }}
 {{- end }}
 
-{{- define "pachyderm.enterpriseSecret" -}}
-{{- if or .Values.pachd.enterpriseLicenseKeySecretName .Values.pachd.enterpriseLicenseKey -}}
-{{ default (randAlphaNum 32) .Values.pachd.enterpriseSecret }}
+{{- define "pachyderm.entepriseLicenseKeySecretName" -}}
+{{- if .Values.pachd.enterpriseLicenseKeySecretName }}
+{{ .Values.pachd.enterpriseLicenseKeySecretName }}
+{{- else if .Values.pachd.enterpriseLicenseKey }}
+pachyderm-license
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.enterpriseSecretName" -}}
+{{- if .Values.pachd.enterpriseSecretSecretName }}
+{{ .Values.pachd.enterpriseSecretSecretName }}
+{{- else if (include "pachyderm.enterpriseLicenseKeySecretName") }}
+pachyderm-enterprise
 {{- end }}
 {{- end }}
