@@ -30,29 +30,27 @@ func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
 		opts := &fuse.RepoOptions{}
-		commitAndFlag := strings.Split(arg, "+")
-		commit, err := cmdutil.ParseCommit(commitAndFlag[0])
+		fileAndFlag := strings.Split(arg, "+")
+		file, err := cmdutil.ParseFile(fileAndFlag[0])
 		if err != nil {
 			return nil, err
 		}
-		opts.Name = commit.Branch.Repo.Name
-		opts.Repo = commit.Branch.Repo.Name
-		opts.Branch = commit.Branch.Name
-		opts.Commit = commit.ID
-		if len(commitAndFlag) > 1 {
-			for _, c := range commitAndFlag[1] {
+		opts.Name = file.Commit.Branch.Repo.Name
+		opts.File = file
+		if len(fileAndFlag) > 1 {
+			for _, c := range fileAndFlag[1] {
 				if c != 'w' && c != 'r' {
 					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
 				}
 			}
-			if strings.Contains("w", commitAndFlag[1]) {
+			if strings.Contains("w", fileAndFlag[1]) {
 				opts.Write = true
 			}
 		}
-		if opts.Branch == "" {
-			opts.Branch = "master"
+		if opts.File.Commit.Branch.Name == "" {
+			opts.File.Commit.Branch.Name = "master"
 		}
-		result[opts.Repo] = opts
+		result[opts.File.Commit.Branch.Repo.Name] = opts
 	}
 	return result, nil
 }

@@ -617,7 +617,7 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	repoName := ro.Repo
+	repoName := ro.File.Commit.Branch.Repo.Name
 	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
@@ -695,7 +695,7 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	repoName := ro.Repo
+	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
 	bi, err := n.root().c.InspectBranch(repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {

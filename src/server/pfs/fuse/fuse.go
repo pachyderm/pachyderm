@@ -50,10 +50,9 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			opts.RepoOptions[ri.Repo.Name] = &RepoOptions{
 				// mount name is same as repo name, i.e. mount it at a directory
 				// named the same as the repo itself
-				Name:   ri.Repo.Name,
-				Repo:   ri.Repo.Name,
-				Branch: branch,
-				Write:  write,
+				Name:  ri.Repo.Name,
+				File:  client.NewFile(ri.Repo.Name, branch, "", ""),
+				Write: write,
 			}
 		}
 	}
@@ -63,9 +62,9 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	commits := make(map[string]string)
 	if opts != nil {
 		for repo, ropts := range opts.RepoOptions {
-			if ropts.Commit != "" && ropts.Branch == "" {
-				commits[repo] = ropts.Branch
-				cis, err := c.InspectCommitSet(ropts.Commit)
+			if ropts.File.Commit.ID != "" && ropts.File.Commit.Branch.Name == "" {
+				commits[repo] = ropts.File.Commit.ID
+				cis, err := c.InspectCommitSet(ropts.File.Commit.ID)
 				if err != nil {
 					return err
 				}
@@ -73,12 +72,12 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 				for _, ci := range cis {
 					if ci.Commit.Branch.Repo.Name == repo {
 						if branch != "" {
-							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.Commit)
+							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.ID)
 						}
 						branch = ci.Commit.Branch.Name
 					}
 				}
-				ropts.Branch = branch
+				ropts.File.Commit.Branch.Name = branch
 			}
 		}
 	}
