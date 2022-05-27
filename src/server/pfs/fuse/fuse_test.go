@@ -270,7 +270,8 @@ func TestRepoOpts(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
 	require.NoError(t, env.PachClient.CreateRepo("repo2"))
 	require.NoError(t, env.PachClient.CreateRepo("repo3"))
-	err := env.PachClient.PutFile(client.NewCommit("repo1", "master", ""), "foo", strings.NewReader("foo\n"))
+	file := client.NewFile("repo1", "master", "", "")
+	err := env.PachClient.PutFile(file.Commit, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
 		Fuse: &fs.Options{
@@ -279,7 +280,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Name: "repo1", Repo: "repo1"},
+			"repo1": {Name: "repo1", File: file},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -298,7 +299,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Name: "repo1", Repo: "repo1", Write: true},
+			"repo1": {Name: "repo1", File: file, Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -320,7 +321,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Name: "repo1", Repo: "repo1", Branch: "staging", Write: true},
+			"repo1": {Name: "repo1", File: file, Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -387,10 +388,8 @@ func TestMountCommit(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
-				Name:   "repo",
-				Repo:   "repo",
-				Branch: "b1",
-				Commit: c1.ID,
+				Name: "repo",
+				File: &pfs.File{Commit: c1},
 			},
 		},
 	}, func(mountPoint string) {
@@ -412,10 +411,68 @@ func TestMountCommit(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
-				Name:   "repo",
-				Repo:   "repo",
-				Branch: "b2",
-				Commit: c2.ID,
+				Name: "repo",
+				File: &pfs.File{Commit: c2},
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "bar", filepath.Base(files[0].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "bar"))
+		require.NoError(t, err)
+		require.Equal(t, "bar", string(data))
+	})
+}
+
+func TestMountFile(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	err := env.PachClient.WithModifyFileClient(client.NewCommit("repo", "master", ""), func(mf client.ModifyFile) error {
+		if err := mf.PutFile("foo", strings.NewReader("foo")); err != nil {
+			return err
+		}
+		if err := mf.PutFile("bar", strings.NewReader("bar")); err != nil {
+			return err
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name: "repo",
+				File: client.NewFile("repo", "master", "", "/foo"),
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "foo", filepath.Base(files[0].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+	})
+
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name: "repo",
+				File: client.NewFile("repo", "master", "", "/bar"),
 			},
 		},
 	}, func(mountPoint string) {
