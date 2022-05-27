@@ -970,8 +970,9 @@ func doFullMode(config interface{}) (retErr error) {
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		http.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
 	})
 	go func(c chan os.Signal) {
 		<-c
@@ -1304,8 +1305,9 @@ func doPausedMode(config interface{}) (retErr error) {
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		http.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
 	})
 	go func(c chan os.Signal) {
 		<-c
