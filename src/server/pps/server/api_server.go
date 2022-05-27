@@ -1416,13 +1416,13 @@ func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
 	parseDocker := func(line string) error {
 		var result struct{ Log string }
 		if err := json.Unmarshal([]byte(line), &result); err != nil {
-			return fmt.Errorf("outer json: %w", err)
+			return errors.Errorf("outer json: %v", err)
 		}
 		if result.Log == "" {
 			return errors.New("log field is empty")
 		}
 		if err := parseNative(result.Log); err != nil {
-			return fmt.Errorf("native json (%q): %w", result.Log, err)
+			return errors.Errorf("native json (%q): %v", result.Log, err)
 		}
 		return nil
 	}
@@ -1439,7 +1439,7 @@ func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
 		}
 		l := string(b[i:])
 		if err := parseNative(l); err != nil {
-			return fmt.Errorf("native json (%q): %w", l, err)
+			return errors.Errorf("native json (%q): %v", l, err)
 		}
 		return nil
 	}
