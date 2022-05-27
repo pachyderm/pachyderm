@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -78,9 +77,9 @@ func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, 
 	if resp.StatusCode >= http.StatusBadRequest {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			body = append(body, []byte(fmt.Sprintf("\nreading body: %v", err))...)
+			return errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %q); additionally, reading body: %v", resp.Status, body, err))
 		}
-		return errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %s)", resp.Status, body))
+		return errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %q)", resp.Status, body))
 	}
 	return errors.EnsureStack(json.NewDecoder(resp.Body).Decode(out))
 }
