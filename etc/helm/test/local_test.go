@@ -23,6 +23,7 @@ func TestLocal(t *testing.T) {
 					"deployTarget":                 expectedStorageBackend,
 					"pachd.storage.local.hostPath": hostPath,
 					"global.imagePullSecrets[0]":   secret,
+					"pachd.enterpriseLicenseKey":   "licenseKey",
 				},
 				SetValues: map[string]string{
 					"oidc.mockIDP": "true",
