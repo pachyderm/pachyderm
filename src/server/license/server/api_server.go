@@ -38,18 +38,17 @@ func New(env Env) (lc.APIServer, error) {
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
-	go s.envBootstrap(context.Background())
+	s.envBootstrap(context.Background())
 	return s, nil
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) {
+func (a *apiServer) envBootstrap(ctx context.Context) error {
 	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
-		return
+		return nil
 	}
 	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
-		panic("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
+		errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
 	}
-	// TODO: wrap in transaction?
 	if err := func() error {
 		ctx = auth.AsInternalUser(ctx, "license-server")
 		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
@@ -78,7 +77,6 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 				return err
 			}
 		}
-		// TODO: do we need to wrap this in case the enterprise server isn't up?
 		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
 			Id:            localhostEnterpriseClusterId,
 			LicenseServer: localhostPeerPort,
@@ -88,8 +86,9 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 		}
 		return nil
 	}(); err != nil {
-		panic(fmt.Errorf("failed to configure the License Server from the environment: %v", err))
+		return errors.Errorf("failed to configure the License Server from the environment: %v", err)
 	}
+	return nil
 }
 
 // Activate implements the Activate RPC
