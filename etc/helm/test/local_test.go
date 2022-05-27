@@ -77,6 +77,7 @@ func TestLocal(t *testing.T) {
 				continue
 			}
 			checks["headless service"] = true
+		}
 	}
 	for check := range checks {
 		if !checks[check] {
