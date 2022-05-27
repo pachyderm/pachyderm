@@ -147,7 +147,7 @@ Update your values.yaml with your enterprise license key and auth configurations
 	 - `ISSUER`, `CLIENT-ID`, `CLIENT-SECRET`: Refer to our [Identity Provider Configuration page](../../authentication/idp-dex/#create-a-connector-configuration-file).
 
 
-Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+Check the [list of all available helm values](../../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 
 

@@ -9,7 +9,7 @@ ignore_macros: true
 !!! Warning
     `Jsonnet pipeline specifications` is an [experimental feature](../../../contributing/supported-releases/#experimental).
 
-Pachyderm [pipeline's specification](../../../reference/pipeline_spec){target=_blank} files are intuitive, simple, and language agnostic.
+Pachyderm [pipeline's specification](../../../reference/pipeline-spec){target=_blank} files are intuitive, simple, and language agnostic.
 They are, however, very static.
 
 A **jsonnet pipeline specification file** is a thin wrapping layer atop of your JSON file, 

@@ -18,7 +18,7 @@ chain multiple pipelines together to create a directed acyclic
 graph (DAG).
 
 You define a pipeline declaratively, using a JSON or YAML file. 
-Pipeline specification files follow Pachyderm's [pipeline reference specification file](../../../reference/pipeline_spec).
+Pipeline specification files follow Pachyderm's [pipeline reference specification file](../../../reference/pipeline-spec).
 
 A minimum pipeline specification must include the following parameters:
 

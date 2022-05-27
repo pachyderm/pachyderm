@@ -12,7 +12,7 @@ following stages:
 ### 1- **Creation of input datums** 
 In this stage, Pachyderm **creates datums based on the input data according to the
 [pipeline input(s)](../#pipeline-inputs)** set
-in the [pipeline specification file](../../../../reference/pipeline_spec/#pipeline-specification).
+in the [pipeline specification file](../../../../reference/pipeline-spec/#pipeline-specification).
 
 ### 2- **Transformation**
 The pipeline **uses your code to process the datums**.

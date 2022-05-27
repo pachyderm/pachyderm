@@ -304,7 +304,7 @@ disk size.
 ### Increase merge performance
 
 Performance tweaks when it comes to merges can be done directly in
-the [Pachyderm pipeline spec](../../../reference/pipeline_spec/).
+the [Pachyderm pipeline spec](../../../reference/pipeline-spec/).
 More specifically, you can increase the number of hashtrees (hashtree spec)
 in the pipeline spec. This number determines the number of shards for the
 filesystem metadata. In general this number should be lower than the number

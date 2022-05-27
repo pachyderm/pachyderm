@@ -4512,7 +4512,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoError(t, backoff.Retry(func() error {
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
 			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
@@ -4525,14 +4525,18 @@ func TestDatumStatusRestart(t *testing.T) {
 				}
 				// The first time this function is called, datumStarted is zero
 				// so `Before` is true for any non-zero time.
-				_datumStarted, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
-				require.NoError(t, err)
-				require.True(t, datumStarted.Before(_datumStarted))
-				datumStarted = _datumStarted
+				started, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
+				if err != nil {
+					return errors.Errorf("could not convert timestamp: %v", err)
+				}
+				if !datumStarted.Before(started) {
+					return errors.Errorf("%v ≮ %v", datumStarted, started)
+				}
+				datumStarted = started
 				return nil
 			}
 			return errors.Errorf("worker status from wrong job")
-		}, backoff.RetryEvery(time.Second).For(30*time.Second)))
+		})
 	}
 	checkStatus()
 	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
@@ -10378,8 +10382,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 
 	// create output database, and destination table
-	dbName := tu.GenerateEphermeralDBName(t)
-	db := testsnowflake.NewEphemeralSnowflakeDB(t, dbName)
+	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(t)
 	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
 		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
 		A  string `column:"A" dtype:"VARCHAR(100)"`
@@ -10402,7 +10405,11 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 
 	// create a pipeline with egress
 	pipeline := tu.UniqueString("egress")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	dsn, err := testsnowflake.DSN()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -10418,7 +10425,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 			}},
 			Egress: &pps.Egress{
 				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
-					Url: fmt.Sprintf("%s/%s", testsnowflake.DSN(), dbName),
+					Url: fmt.Sprintf("%s/%s", dsn, dbName),
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
 						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
 					},
@@ -10430,7 +10437,9 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 				},
 			},
 		},
-	)
+	); err != nil {
+		t.Fatal(err)
+	}
 
 	// Initial load
 	master := client.NewCommit(repo, "master", "")
@@ -10457,4 +10466,63 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	expected = 3
 	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
 	require.Equal(t, expected, count)
+}
+
+func TestMissingSecretFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
+	kc := tu.GetKubeClient(t).CoreV1().Secrets(ns)
+
+	secret := tu.UniqueString(strings.ToLower(t.Name() + "-secret"))
+	repo := tu.UniqueString(t.Name() + "-data")
+	pipeline := tu.UniqueString(t.Name())
+	_, err := kc.Create(c.Ctx(), &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: secret},
+		StringData: map[string]string{"foo": "bar"}}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	require.NoError(t, c.CreateRepo(repo))
+	req := basicPipelineReq(pipeline, repo)
+	req.Transform.Secrets = append(req.Transform.Secrets, &pps.SecretMount{
+		Name:   secret,
+		Key:    "foo",
+		EnvVar: "MY_SECRET_ENV_VAR",
+	})
+	req.Autoscaling = true
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	// wait for system to go into standby
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		_, err = c.WaitCommit(repo, "master", "")
+		if err != nil {
+			return err
+		}
+		info, err := c.InspectPipeline(pipeline, false)
+		if err != nil {
+			return err
+		}
+		if info.State != pps.PipelineState_PIPELINE_STANDBY {
+			return errors.Errorf("pipeline in %s instead of standby", info.State)
+		}
+		return nil
+	})
+
+	require.NoError(t, kc.Delete(c.Ctx(), secret, metav1.DeleteOptions{}))
+	// force pipeline to come back up, and check for failure
+	require.NoError(t, c.PutFile(
+		client.NewCommit(repo, "master", ""), "foo", strings.NewReader("bar")))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		info, err := c.InspectPipeline(pipeline, false)
+		if err != nil {
+			return err
+		}
+		if info.State != pps.PipelineState_PIPELINE_CRASHING {
+			return errors.Errorf("pipeline in %s instead of crashing", info.State)
+		}
+		return nil
+	})
 }

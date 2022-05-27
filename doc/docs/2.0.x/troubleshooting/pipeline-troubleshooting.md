@@ -30,7 +30,7 @@ If you are running on the Community Edition, you might have **hit the limit set 
 
 That scenario is quite easy to troubleshoot:
 
-1. Check your number of pipelines and parallelism settings (`"parallelism_spec"` attribute in your pipeline specification files) against our [limits](../../reference/scaling_limits).
+1. Check your number of pipelines and parallelism settings (`"parallelism_spec"` attribute in your pipeline specification files) against our [limits](../../reference/scaling-limits).
 1. Additionally, your stderr and pipeline logs (`pachctl log -p <pipeline name> --master` or `pachctl log -p <pipeline name> --worker`) should contain one or both of those messages:
     - number of pipelines limit exceeded:
         ```

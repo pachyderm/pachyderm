@@ -300,4 +300,4 @@ by running `pachctl port-forward`, and then point your browser to
 `localhost:30080`.
 
 !!! note "See Also:"
-    [General Troubleshooting](../troubleshooting/general_troubleshooting.md)
+    [General Troubleshooting](../troubleshooting/general-troubleshooting.md)

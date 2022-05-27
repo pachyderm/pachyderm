@@ -78,4 +78,5 @@ cp -Rl "site/${latest_version}" site/latest
 # Add custom 404
 ln "site/${latest_version}/404.html" site/404.html
 cp -Rl "site/${latest_version}/assets" site/assets
-
+cp robots.txt site/robots.txt
+cp google6522bd76c3ff2fe7.html site/google6522bd76c3ff2fe7.html

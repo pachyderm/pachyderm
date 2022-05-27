@@ -1,8 +1,11 @@
 package pachsql
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -71,5 +74,36 @@ func TestParseURL(t *testing.T) {
 		actual, err := ParseURL(tc.In)
 		assert.NoError(t, err)
 		assert.Equal(t, &tc.Out, actual)
+	}
+}
+
+func TestSnowflakeConnection(t *testing.T) {
+	user := os.Getenv("SNOWFLAKE_USER")
+	role := os.Getenv("SNOWFLAKE_USER_ROLE")
+	account := os.Getenv("SNOWFLAKE_ACCOUNT")
+	host := account + ".snowflakecomputing.com"
+	password := os.Getenv("SNOWFLAKE_PASSWORD")
+
+	tests := map[string]struct {
+		dsn     string
+		require func(testing.TB, error, ...interface{})
+	}{
+		"simple":         {fmt.Sprintf("snowflake://%s@%s", user, account), require.NoError},
+		"wh":             {fmt.Sprintf("snowflake://%s@%s?warehouse=COMPUTE_WH", user, account), require.NoError},
+		"bad wh":         {fmt.Sprintf("snowflake://%s@%s?warehouse=badWH", user, account), require.YesError},
+		"role":           {fmt.Sprintf("snowflake://%s@%s?role=%s", user, account, role), require.NoError},
+		"bad role":       {fmt.Sprintf("snowflake://%s@%s?role=badRole", user, account), require.YesError},
+		"host":           {fmt.Sprintf("snowflake://%s@%s", user, host), require.NoError},
+		"host with port": {fmt.Sprintf("snowflake://%s@%s:443?account=%s", user, host, account), require.NoError},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			url, err := ParseURL(tc.dsn)
+			require.NoError(t, err)
+			db, err := OpenURL(*url, password)
+			require.NoError(t, err)
+			tc.require(t, db.Ping())
+		})
 	}
 }

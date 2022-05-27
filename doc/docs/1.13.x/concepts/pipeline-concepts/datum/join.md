@@ -55,7 +55,7 @@ For example, `$1` indicates that you want Pachyderm to match based on
 capture group `1`. Similarly, `$2` matches the capture group `2`.
 `$1$2` means that it must match both capture groups `1` and `2`.
 
-See the full `join` input configuration in the [pipeline specification](../../../reference/pipeline_spec.md).
+See the full `join` input configuration in the [pipeline specification](../../../reference/pipeline-spec.md).
 
 You can test your glob pattern and capture groups by using the
 `pachctl list datum -f <your_pipeline_spec.json>` command as described in
