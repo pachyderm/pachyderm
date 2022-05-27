@@ -626,8 +626,13 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 		}
 		queryStr += `"}`
 		return s.queryLoki(ctx, queryStr, func(_ loki.LabelSet, line string) error {
-			_, err := w.Write([]byte(line))
-			return errors.EnsureStack(err)
+			if _, err := w.Write([]byte(line)); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if _, err := w.Write([]byte("\n")); err != nil {
+				return errors.EnsureStack(err)
+			}
+			return nil
 		})
 	}, prefix...)
 }
@@ -747,7 +752,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string, cb func(lo
 					advancedStart = true
 					start = entry.Timestamp
 				}
-				if err := cb(stream.Labels, entry.Line+"\n"); err != nil {
+				if err := cb(stream.Labels, entry.Line); err != nil {
 					return err
 				}
 			}
