@@ -70,6 +70,7 @@ func (s *debugServer) handleRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 	collect collectFunc,
+	wantAppLogs bool,
 ) error {
 	ctx := pachClient.Ctx() // this context has authorization credentials we need
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
@@ -124,8 +125,13 @@ func (s *debugServer) handleRedirect(
 					return err
 				}
 			}
-			// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
-			return s.appLogs(ctx, tw)
+			if wantAppLogs {
+				// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
+				if err := s.appLogs(ctx, tw); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 	})
 }
@@ -288,6 +294,7 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 		nil,
 		redirectProfileFunc(request.Profile),
 		collectProfileFunc(request.Profile),
+		false,
 	)
 }
 
@@ -351,6 +358,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 		nil,
 		redirectBinaryFunc,
 		collectBinary,
+		false,
 	)
 }
 
@@ -392,6 +400,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		s.collectWorkerDump,
 		redirectDumpFunc,
 		collectDump,
+		true,
 	)
 }
 
