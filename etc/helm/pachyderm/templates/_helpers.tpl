@@ -158,7 +158,7 @@ pachyderm-license
 {{- define "pachyderm.enterpriseSecretName" -}}
 {{- if .Values.pachd.enterpriseSecretSecretName }}
 {{ .Values.pachd.enterpriseSecretSecretName }}
-{{- else if (include "pachyderm.enterpriseLicenseKeySecretName") }}
+{{- else if or .Values.pachd.enterpriseSecret (include "pachyderm.enterpriseLicenseKeySecretName") }}
 pachyderm-enterprise
 {{- end }}
 {{- end }}
