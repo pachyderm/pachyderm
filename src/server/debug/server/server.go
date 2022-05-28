@@ -649,17 +649,18 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 		}
 
 		var cursor *loki.LabelSet
-		for _, entry := range logs {
+		for i, entry := range logs {
 			// Print the stream labels in %v format whenever they are different from the
 			// previous line.  The pointer comparison is a fast path to avoid
 			// reflect.DeepEqual when both log lines are from the same chunk of logs
 			// returned by Loki.
 			if cursor != entry.Labels && !reflect.DeepEqual(cursor, entry.Labels) {
-				cursor = entry.Labels
-				if _, err := fmt.Fprintf(w, "%v\n", cursor); err != nil {
+				if _, err := fmt.Fprintf(w, "%v\n", entry.Labels); err != nil {
 					return errors.EnsureStack(err)
 				}
 			}
+			cursor = entry.Labels
+
 			// Then the line itself.
 			if _, err := fmt.Fprintf(w, "%s\n", entry.Entry.Line); err != nil {
 				return errors.EnsureStack(err)
