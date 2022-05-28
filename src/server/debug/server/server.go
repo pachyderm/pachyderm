@@ -363,7 +363,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 		collectBinary,
 		nil,
 		nil,
-		redirectBinaryFunc,
+		redirectBinary,
 		collectBinary,
 		false,
 	)
@@ -385,7 +385,7 @@ func collectBinary(_ context.Context, tw *tar.Writer, _ *client.APIClient, prefi
 	}, prefix...)
 }
 
-func redirectBinaryFunc(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+func redirectBinary(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
 	binaryC, err := c.Binary(ctx, &debug.BinaryRequest{Filter: filter})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -405,7 +405,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		s.collectPachdDumpFunc(request.Limit),
 		s.collectPipelineDumpFunc(request.Limit),
 		s.collectWorkerDump,
-		redirectDumpFunc,
+		redirectDump,
 		collectDump,
 		true,
 	)
@@ -869,7 +869,7 @@ func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod
 	return s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerSidecarContainerName, sidecarPrefix)
 }
 
-func redirectDumpFunc(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+func redirectDump(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
 	dumpC, err := c.Dump(ctx, &debug.DumpRequest{Filter: filter})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
