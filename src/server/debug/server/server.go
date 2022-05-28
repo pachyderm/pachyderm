@@ -299,18 +299,18 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 }
 
 func collectProfileFunc(profile *debug.Profile) collectFunc {
-	return func(_ context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-		return collectProfile(tw, profile, prefix...)
+	return func(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+		return collectProfile(ctx, tw, profile, prefix...)
 	}
 }
 
-func collectProfile(tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
+func collectProfile(ctx context.Context, tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
 	return collectDebugFile(tw, profile.Name, "", func(w io.Writer) error {
-		return writeProfile(w, profile)
+		return writeProfile(ctx, w, profile)
 	}, prefix...)
 }
 
-func writeProfile(w io.Writer, profile *debug.Profile) error {
+func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) error {
 	if profile.Name == "cpu" {
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
@@ -323,7 +323,14 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 				return errors.EnsureStack(err)
 			}
 		}
-		time.Sleep(duration)
+
+		// Wait for either the defined duration, or until the context is done.  We'll eat
+		// the context cancelled / deadline exceeded error here, but I think that's fine
+		// since we don't do any other IO in this function.  (The writer is going to be
+		// written to until StopCPUProfile anyway.)
+		tctx, c := context.WithTimeout(ctx, duration)
+		<-tctx.Done()
+		c()
 		pprof.StopCPUProfile()
 		return nil
 	}
@@ -646,11 +653,11 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 	}, prefix...)
 }
 
-func collectDump(_ context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
-	if err := collectProfile(tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
+func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+	if err := collectProfile(ctx, tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
 	}
-	return collectProfile(tw, &debug.Profile{Name: "heap"}, prefix...)
+	return collectProfile(ctx, tw, &debug.Profile{Name: "heap"}, prefix...)
 }
 
 func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
