@@ -810,7 +810,6 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 		}
 
 		var readThisIteration int
-		var advancedTime bool
 		for _, s := range streams {
 			stream := s // Alias for pointer later.
 			for _, e := range stream.Entries {
@@ -818,7 +817,11 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 				numLogs++
 				readThisIteration++
 				if entry.Timestamp.Before(end) {
-					advancedTime = true
+					// Because end is an "exclusive" range, if we read any logs
+					// at all we are guaranteed to not read them in the next
+					// iteration.  (If all 5000 logs are at the same time, we
+					// still advance past them on the next iteration, which is
+					// the best we can do under those circumstances.)
 					end = entry.Timestamp
 				}
 				result = append(result, lokiLog{
@@ -826,14 +829,6 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 					Entry:  &entry,
 				})
 			}
-		}
-		if !advancedTime {
-			// This means we read a chunk of 5000 logs without the timestamp changing,
-			// probably because more than 5000 logs were logged in the same moment of
-			// time.  We can't do anything about this except step past it.  If we didn't
-			// move the end time, we'd just read the same chunk over and over until the
-			// loop ends because of numLogs.
-			end = end.Add(-time.Second)
 		}
 		if readThisIteration == 0 {
 			break
