@@ -7,7 +7,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"reflect"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"time"
 
@@ -641,15 +643,29 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, 
 			queryStr += `", container="` + container
 		}
 		queryStr += `"}`
-		return s.queryLoki(ctx, queryStr, func(_ loki.LabelSet, line string) error {
-			if _, err := w.Write([]byte(line)); err != nil {
+		logs, err := s.queryLoki(ctx, queryStr)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		var cursor *loki.LabelSet
+		for _, entry := range logs {
+			// Print the stream labels in %v format whenever they are different from the
+			// previous line.  The pointer comparison is a fast path to avoid
+			// reflect.DeepEqual when both log lines are from the same chunk of logs
+			// returned by Loki.
+			if cursor != entry.Labels && !reflect.DeepEqual(cursor, entry.Labels) {
+				cursor = entry.Labels
+				if _, err := fmt.Fprintf(w, "%v\n", cursor); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			// Then the line itself.
+			if _, err := fmt.Fprintf(w, "%s\n", entry.Entry.Line); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if _, err := w.Write([]byte("\n")); err != nil {
-				return errors.EnsureStack(err)
-			}
-			return nil
-		})
+		}
+		return nil
 	}, prefix...)
 }
 
@@ -720,17 +736,29 @@ func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.P
 }
 
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+	// This function uses the log querying API and not the label querying API, to bound the the
+	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
+	// logs for each pipeline, and return the names of the workers that contributed to those
+	// logs for further inspection.  The alternative would be to get every worker that existed
+	// in some time interval, but that results in too much data to inspect.
+
 	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
 	pods := make(map[string]struct{})
-	if err := s.queryLoki(ctx, queryStr, func(labels loki.LabelSet, _ string) error {
+	logs, err := s.queryLoki(ctx, queryStr)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, l := range logs {
+		if l.Labels == nil {
+			continue
+		}
+		labels := *l.Labels
 		pod, ok := labels["pod"]
 		if !ok {
-			return errors.Errorf("pod label missing from loki label set")
+			return nil, errors.Errorf("pod label missing from loki label set")
 		}
 		pods[pod] = struct{}{}
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	return pods, nil
 }
@@ -743,51 +771,77 @@ const (
 	serverMaxLogs = 5000
 )
 
-func (s *debugServer) queryLoki(ctx context.Context, queryStr string, cb func(loki.LabelSet, string) error) error {
+type lokiLog struct {
+	Labels *loki.LabelSet
+	Entry  *loki.Entry
+}
+
+func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog, error) {
 	c, err := s.env.GetLokiClient()
 	if err != nil {
-		return errors.EnsureStack(errors.Errorf("get loki client: %v", err))
+		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
 	}
-	for numLogs, start, end := 0, time.Now().Add(-(30 * 24 * time.Hour)), time.Now(); start.Before(end) && numLogs < maxLogs; {
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "FORWARD", 0, 0, true)
+
+	// We used to just stream the output, but that results in logs from different streams
+	// (stdout/stderr) being randomly interspersed with each other, which is hard to follow when
+	// written in text form.  We also used "FORWARD" and basically got the first 30,000 logs
+	// this month, instead of the most recent 30,000 logs.  To use "BACKWARD" to get chunks of
+	// logs starting with the most recent (whose start time we can't know without asking), we
+	// have to either output logs in reverse order, or collect them all and then reverse.  Thus,
+	// we just buffer.  30k logs * (200 bytes each + 16 bytes of pointers per line + 24 bytes of
+	// time.Time) = 6.8MiB.  That seems totally reasonable to keep in memory, with the benefit
+	// of providing lines in chronological order even when the app uses both stdout and stderr.
+	var result []lokiLog
+
+	end := time.Now().Add(time.Minute)            // Account for some clock skew between our node and the Loki node.
+	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
+
+	for numLogs := 0; start.Before(end) && numLogs < maxLogs; {
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
 		if err != nil {
-			// The error from QueryRange has a stack.
-			return errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+			// Note: the error from QueryRange has a stack.
+			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 		}
+
 		streams, ok := resp.Data.Result.(loki.Streams)
 		if !ok {
-			return errors.Errorf("resp.Data.Result must be of type loki.Streams")
+			return nil, errors.Errorf("resp.Data.Result must be of type loki.Streams")
 		}
-		var advancedStart bool
+
 		var readThisIteration int
-		for _, stream := range streams {
-			for _, entry := range stream.Entries {
+		var advancedTime bool
+		for _, s := range streams {
+			stream := s // Alias for pointer later.
+			for _, e := range stream.Entries {
+				entry := e
 				numLogs++
 				readThisIteration++
-				if entry.Timestamp.After(start) {
-					advancedStart = true
-					start = entry.Timestamp
+				if entry.Timestamp.Before(end) {
+					advancedTime = true
+					end = entry.Timestamp
 				}
-				if err := cb(stream.Labels, entry.Line); err != nil {
-					return err
-				}
+				result = append(result, lokiLog{
+					Labels: &stream.Labels,
+					Entry:  &entry,
+				})
 			}
+		}
+		if !advancedTime {
+			// This means we read a chunk of 5000 logs without the timestamp changing,
+			// probably because more than 5000 logs were logged in the same moment of
+			// time.  We can't do anything about this except step past it.  If we didn't
+			// move the end time, we'd just read the same chunk over and over until the
+			// loop ends because of numLogs.
+			end = end.Add(-time.Second)
 		}
 		if readThisIteration == 0 {
 			break
 		}
-		if !advancedStart {
-			// This loses logs, but there is no correct algorithm for getting all logs.
-			// Consider the case where 10000 logs happen at the exact same nanosecond;
-			// there is no way we can coerce the Loki API to give us the second set of
-			// 5000 logs.
-			//
-			// time.Second is chosen here as a compromise between making progress and
-			// accuracy.  This is literally a billion times faster than time.Nanosecond.
-			start = start.Add(time.Second)
-		}
 	}
-	return nil
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
+	})
+	return result, nil
 }
 
 func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
