@@ -92,7 +92,7 @@ case "${BUCKET}" in
     go test -v -count=1 ./src/server/pps/server -timeout 420s
     ;;
   PPS?)
-    make docker-build-kafka
+    # make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
     ;;
