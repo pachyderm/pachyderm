@@ -91,7 +91,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
-      - run: 
+      - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
