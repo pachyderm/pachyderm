@@ -46,13 +46,15 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
   );
   const {tutorialId, loading: accountLoading} = useAccount();
 
-  const [putFilesFromURLsMutation, {loading}] = usePutFilesFromUrLsMutation({
-    onCompleted: () => {
-      setUploaded();
-      onCompleted();
-    },
-    onError: () => setDisabled(false),
-  });
+  const [putFilesFromURLsMutation, {loading, error}] =
+    usePutFilesFromUrLsMutation({
+      onCompleted: () => {
+        setUploaded();
+        onCompleted();
+        recordTutorialProgress();
+      },
+      onError: () => setDisabled(false),
+    });
 
   const addFiles = useCallback(() => {
     const files = Object.keys(register.files)
@@ -76,9 +78,8 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
     if (!loading) {
       setDisabled(true);
       addFiles();
-      recordTutorialProgress();
     }
-  }, [addFiles, loading, recordTutorialProgress, setDisabled]);
+  }, [addFiles, loading, setDisabled]);
 
   return (
     <TaskCard
@@ -91,6 +92,7 @@ const AddImagesTask: React.FC<TaskComponentProps> = ({
         'Select one or more images and click "add" to get them added to the images input repo. Since we already added the edges pipeline, you\'ll see them get processed automatically.'
       }
       action={action}
+      error={error?.message}
       disabled={accountLoading}
     >
       <MultiSelectModule

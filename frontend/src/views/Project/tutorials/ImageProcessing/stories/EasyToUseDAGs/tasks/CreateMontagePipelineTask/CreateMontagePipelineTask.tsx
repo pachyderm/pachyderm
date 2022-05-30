@@ -52,6 +52,11 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
 }) => {
   const {projectId} = useUrlState();
   const {tutorialId, loading: accountLoading} = useAccount();
+  const recordTutorialProgress = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+  );
 
   const {createPipeline, status} = useCreatePipeline(
     {
@@ -79,14 +84,10 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
       ],
       projectId: projectId,
     },
-    onCompleted,
-  );
-
-  const action = useRecordTutorialProgress(
-    'image-processing',
-    currentStory,
-    currentTask,
-    createPipeline,
+    () => {
+      onCompleted();
+      recordTutorialProgress();
+    },
   );
 
   const file = {
@@ -98,7 +99,8 @@ const CreateMontagePipelineTask: React.FC<TaskComponentProps> = ({
     <TaskCard
       task={name}
       index={index}
-      action={action}
+      action={createPipeline}
+      error={status.error?.message}
       currentTask={currentTask}
       actionText="Create the montage pipeline"
       taskInfoTitle="Create the montage pipeline"

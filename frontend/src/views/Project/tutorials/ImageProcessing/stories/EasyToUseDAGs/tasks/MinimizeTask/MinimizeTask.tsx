@@ -15,12 +15,12 @@ const MinimizeTask: React.FC<TaskComponentProps> = ({
     'image-processing',
     currentStory,
     currentTask,
-    onCompleted,
   );
 
   useEffect(() => {
     if (minimized && currentTask === index) {
       recordTutorialProgress();
+      onCompleted();
     }
   }, [minimized, currentTask, index, onCompleted, recordTutorialProgress]);
 

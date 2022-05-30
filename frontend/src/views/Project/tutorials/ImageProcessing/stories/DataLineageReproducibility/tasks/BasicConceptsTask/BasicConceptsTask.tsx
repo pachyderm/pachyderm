@@ -19,14 +19,16 @@ const BasicConceptsTask: React.FC<TaskComponentProps> = ({
     'image-processing',
     currentStory,
     currentTask,
-    onCompleted,
   );
 
   useMinimizeTask({
     currentTask,
     index,
     minimized,
-    onCompleted: recordTutorialProgress,
+    onCompleted: () => {
+      onCompleted();
+      recordTutorialProgress();
+    },
   });
 
   return (

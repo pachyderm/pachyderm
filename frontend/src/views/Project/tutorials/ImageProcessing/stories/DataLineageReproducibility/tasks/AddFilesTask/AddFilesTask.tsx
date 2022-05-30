@@ -47,13 +47,15 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
   const {tutorialId, loading: accountLoading} = useAccount();
   const {register, setDisabled, setUploaded} = useMultiSelectModule({files});
 
-  const [putFilesFromURLsMutation, {loading}] = usePutFilesFromUrLsMutation({
-    onCompleted: () => {
-      setUploaded();
-      onCompleted();
-    },
-    onError: () => setDisabled(false),
-  });
+  const [putFilesFromURLsMutation, {loading, error}] =
+    usePutFilesFromUrLsMutation({
+      onCompleted: () => {
+        setUploaded();
+        onCompleted();
+        recordTutorialProgress();
+      },
+      onError: () => setDisabled(false),
+    });
 
   const action = useCallback(() => {
     if (!loading) {
@@ -70,7 +72,6 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
           },
         },
       });
-      recordTutorialProgress();
     }
   }, [
     loading,
@@ -79,7 +80,6 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
     register.files,
     tutorialId,
     projectId,
-    recordTutorialProgress,
   ]);
 
   return (
@@ -87,6 +87,7 @@ const AddFilesTask: React.FC<TaskComponentProps> = ({
       task={name}
       index={index}
       action={action}
+      error={error?.message}
       disabled={accountLoading}
       currentTask={currentTask}
       actionText="Add these images"

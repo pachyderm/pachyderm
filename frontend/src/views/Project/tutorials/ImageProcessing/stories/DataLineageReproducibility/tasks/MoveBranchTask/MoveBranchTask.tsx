@@ -22,8 +22,9 @@ const MoveBranchTask: React.FC<TaskComponentProps> = ({
   const {tutorialId, loading: accountLoading} = useAccount();
   const onCreateBranch = useCallback(() => {
     onCompleted();
-  }, [onCompleted]);
-  const {createBranch} = useCreateBranch(onCreateBranch);
+    recordTutorialProgress();
+  }, [onCompleted, recordTutorialProgress]);
+  const {createBranch, status} = useCreateBranch(onCreateBranch);
   const action = useCallback(() => {
     createBranch({
       head: {
@@ -33,8 +34,7 @@ const MoveBranchTask: React.FC<TaskComponentProps> = ({
       branch: {name: 'master', repo: {name: `images_${tutorialId}`}},
       projectId,
     });
-    recordTutorialProgress();
-  }, [createBranch, projectId, recordTutorialProgress, tutorialId]);
+  }, [createBranch, projectId, tutorialId]);
 
   return (
     <TaskCard
@@ -42,6 +42,7 @@ const MoveBranchTask: React.FC<TaskComponentProps> = ({
       index={index}
       currentTask={currentTask}
       action={action}
+      error={status.error?.message}
       actionText="Move images branch"
       taskInfoTitle="Reproduce results through branch manipulation"
       taskInfo={

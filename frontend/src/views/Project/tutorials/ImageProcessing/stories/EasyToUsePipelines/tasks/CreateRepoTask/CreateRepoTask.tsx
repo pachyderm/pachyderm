@@ -20,27 +20,30 @@ const CreateRepoTask: React.FC<TaskComponentProps> = ({
 }) => {
   const {projectId} = useUrlState();
   const {tutorialId, loading: accountLoading} = useAccount();
-  const [createRepo, {loading}] = useCreateRepoMutation({
+  const recordTutorialProgress = useRecordTutorialProgress(
+    'image-processing',
+    currentStory,
+    currentTask,
+  );
+  const [createRepo, {loading, error}] = useCreateRepoMutation({
     variables: {
       args: {
         name: `images_${tutorialId}`,
         projectId,
       },
     },
-    onCompleted,
+    onCompleted: () => {
+      onCompleted();
+      recordTutorialProgress();
+    },
   });
-  const action = useRecordTutorialProgress(
-    'image-processing',
-    currentStory,
-    currentTask,
-    createRepo,
-  );
 
   return (
     <TaskCard
       task={name}
       index={index}
-      action={action}
+      action={createRepo}
+      error={error?.message}
       currentTask={currentTask}
       actionText="Create the images repo"
       taskInfoTitle="Create the images repo"
