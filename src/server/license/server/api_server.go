@@ -32,17 +32,13 @@ type apiServer struct {
 	license col.PostgresCollection
 }
 
-// New returns an implementation of license.APIServer.
-func New(env Env, public bool) (lc.APIServer, error) {
+// New returns an implementation of license.APIServer, and a function that bootstraps the license server via environment.
+func New(env Env, public bool) (lc.APIServer, func(context.Context) error, error) {
 	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
-	// envBootstrap runs concurrently because it reaches out to the enterprise service which heartbeats back to the license service. Therefore it must return to allow its service endpoints to be accessible
-	if !public {
-		go s.envBootstrap(context.Background())
-	}
-	return s, nil
+	return s, s.envBootstrap, nil
 }
 
 func (a *apiServer) envBootstrap(ctx context.Context) error {
@@ -50,7 +46,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		return nil
 	}
 	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
-		errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
+		return errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
 	}
 	logrus.Info("Started to configure license server via environment")
 	localhostPeerAddr := "grpc://localhost:" + fmt.Sprint(a.env.Config.PeerPort)
@@ -91,7 +87,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		}
 		return nil
 	}(); err != nil {
-		panic(fmt.Sprintf("failed to configure the License Server from the environment: %v", err))
+		return errors.Errorf("failed to configure the License Server from the environment: %v", err)
 	}
 	logrus.Info("Successfully configured license server via environment")
 	return nil
