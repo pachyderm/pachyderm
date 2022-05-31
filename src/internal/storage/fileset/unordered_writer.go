@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"time"
@@ -196,7 +197,9 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 	if err := uw.serialize(); err != nil {
 		return nil, err
 	}
-	if err := uw.compact(); err != nil {
+	if err := miscutil.LogStep(fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
+		return uw.compact()
+	}); err != nil {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
