@@ -206,6 +206,8 @@ spec:
           value: {{ .Values.pachd.securityContext.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
+        - name: ENTERPRISE_MEMBER
+          value: {{ .Values.pachd.activateEnterpriseMember | quote }}
         {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE
           value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
