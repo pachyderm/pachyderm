@@ -204,7 +204,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env), true)
 			if err != nil {
 				return err
 			}
@@ -313,7 +313,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env), false)
 			if err != nil {
 				return err
 			}
@@ -723,7 +723,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env), true)
 			if err != nil {
 				return err
 			}
@@ -871,9 +871,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				licenseserver.EnvFromServiceEnv(env),
-			)
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env), false)
 			if err != nil {
 				return err
 			}
@@ -1123,7 +1121,7 @@ func doPausedMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env), true)
 			if err != nil {
 				return err
 			}
@@ -1252,9 +1250,7 @@ func doPausedMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(
-				licenseserver.EnvFromServiceEnv(env),
-			)
+			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env), false)
 			if err != nil {
 				return err
 			}

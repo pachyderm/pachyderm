@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -22,7 +23,6 @@ import (
 const (
 	licenseRecordKey             = "license"
 	localhostEnterpriseClusterId = "localhost"
-	localhostPeerPort            = "grpc://localhost:1653"
 )
 
 type apiServer struct {
@@ -33,13 +33,14 @@ type apiServer struct {
 }
 
 // New returns an implementation of license.APIServer.
-func New(env Env) (lc.APIServer, error) {
+func New(env Env, public bool) (lc.APIServer, error) {
 	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
-	if err := s.envBootstrap(context.Background()); err != nil {
-		return nil, err
+	// envBootstrap runs concurrently because it reaches out to the enterprise service which heartbeats back to the license service. Therefore it must return to allow its service endpoints to be accessible
+	if !public {
+		go s.envBootstrap(context.Background())
 	}
 	return s, nil
 }
@@ -51,6 +52,8 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
 		errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
 	}
+	logrus.Info("Started to configure license server via environment")
+	localhostPeerAddr := "grpc://localhost:" + fmt.Sprint(a.env.Config.PeerPort)
 	if err := func() error {
 		ctx = auth.AsInternalUser(ctx, "license-server")
 		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
@@ -59,8 +62,8 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		}
 		_, err = a.AddCluster(ctx, &lc.AddClusterRequest{
 			Id:               localhostEnterpriseClusterId,
-			Address:          localhostPeerPort,
-			UserAddress:      localhostPeerPort,
+			Address:          localhostPeerAddr,
+			UserAddress:      localhostPeerAddr,
 			Secret:           a.env.Config.EnterpriseSecret,
 			EnterpriseServer: true,
 		})
@@ -68,8 +71,8 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 			if errors.As(err, lc.ErrDuplicateClusterID) {
 				_, err = a.UpdateCluster(ctx, &lc.UpdateClusterRequest{
 					Id:          localhostEnterpriseClusterId,
-					Address:     localhostPeerPort,
-					UserAddress: localhostPeerPort,
+					Address:     localhostPeerAddr,
+					UserAddress: localhostPeerAddr,
 					Secret:      a.env.Config.EnterpriseSecret,
 				})
 				if err != nil {
@@ -81,15 +84,16 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		}
 		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
 			Id:            localhostEnterpriseClusterId,
-			LicenseServer: localhostPeerPort,
+			LicenseServer: localhostPeerAddr,
 			Secret:        a.env.Config.EnterpriseSecret})
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil
 	}(); err != nil {
-		return errors.Errorf("failed to configure the License Server from the environment: %v", err)
+		panic(fmt.Sprintf("failed to configure the License Server from the environment: %v", err))
 	}
+	logrus.Info("Successfully configured license server via environment")
 	return nil
 }
 
