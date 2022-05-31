@@ -233,6 +233,9 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  # If lokiDeploy is true, then Loki will be deployed with a
+  # Pachyderm-optimized configuration.  Set to false if you manage
+  # Loki yourself.
   lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
