@@ -33,7 +33,7 @@ type apiServer struct {
 }
 
 // New returns an implementation of license.APIServer, and a function that bootstraps the license server via environment.
-func New(env Env, public bool) (lc.APIServer, func(context.Context) error, error) {
+func New(env Env) (lc.APIServer, func(context.Context) error, error) {
 	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
