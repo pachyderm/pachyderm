@@ -129,7 +129,7 @@ func mountCmds() []*cobra.Command {
 				MountDir: mountDir,
 			}
 			printWarning()
-			return fuse.Server(serverOpts)
+			return fuse.Server(serverOpts, nil)
 		}),
 	}
 	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")

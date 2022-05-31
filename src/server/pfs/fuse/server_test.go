@@ -259,8 +259,6 @@ func TestConfig(t *testing.T) {
 		b := new(bytes.Buffer)
 		json.NewEncoder(b).Encode(m)
 
-		// This put call takes 30 seconds since the client attempts to connect to an
-		// endpoint for 30 seconds before timing out if it can't.
 		putResp, err := put("config", b)
 		require.NoError(t, err)
 		defer putResp.Body.Close()
@@ -443,7 +441,7 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 		}
 	}()
 	go func() {
-		mountErr = Server(sopts)
+		mountErr = Server(sopts, c)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.
