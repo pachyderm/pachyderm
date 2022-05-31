@@ -229,6 +229,11 @@ jobs:
           paths:
             - /home/circleci/.gocache
       - run: etc/testing/circle/deploy_test.sh
+      - run:
+          command: etc/testing/circle/upload_stats.sh
+          when: always
+      - store_test_results:
+          path: /tmp/test-results
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build:
