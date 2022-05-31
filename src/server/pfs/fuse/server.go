@@ -452,10 +452,17 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(sopts *ServerOptions) error {
+func Server(sopts *ServerOptions, testClient *client.APIClient) error {
 	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
 	var mm *MountManager = &MountManager{}
+	if testClient != nil {
+		var err error
+		mm, err = CreateMount(testClient, sopts.MountDir)
+		if err != nil {
+			return err
+		}
+	}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
