@@ -88,6 +88,7 @@ jobs:
           command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
       - run: etc/testing/circle/launch.sh
+      - run: go mod download
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
