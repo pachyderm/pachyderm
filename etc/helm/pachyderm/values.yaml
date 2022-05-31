@@ -215,6 +215,9 @@ loki-stack:
       tolerations: []
   grafana:
     enabled: false
+  promtail:
+    config:
+      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
 
 pachd:
   enabled: true
@@ -233,6 +236,8 @@ pachd:
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
   logLevel: "info"
+  # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
+  # be deployed.
   lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
