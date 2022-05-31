@@ -54,7 +54,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		ctx = auth.AsInternalUser(ctx, "license-server")
 		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to activate the license service")
 		}
 		_, err = a.AddCluster(ctx, &lc.AddClusterRequest{
 			Id:               localhostEnterpriseClusterId,
@@ -72,10 +72,10 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 					Secret:      a.env.Config.EnterpriseSecret,
 				})
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "failed to update localhost cluster in the license service")
 				}
 			} else {
-				return err
+				return errors.Wrapf(err, "failed to add localhost cluster in the license service")
 			}
 		}
 		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
@@ -83,7 +83,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 			LicenseServer: localhostPeerAddr,
 			Secret:        a.env.Config.EnterpriseSecret})
 		if err != nil {
-			return errors.EnsureStack(err)
+			return errors.Wrapf(errors.EnsureStack(err), "failed to activate localhost cluster in the enterprise service")
 		}
 		return nil
 	}(); err != nil {
