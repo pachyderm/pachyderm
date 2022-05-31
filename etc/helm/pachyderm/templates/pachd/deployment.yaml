@@ -165,14 +165,14 @@ spec:
         - name: LICENSE_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
+              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | quote }}
               key: "enterprise-license-key"
         {{- end }}
         {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
         - name: ENTERPRISE_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) }}
+              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | quote }}
               key: "enterprise-secret"
         {{- end }}
         {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}
