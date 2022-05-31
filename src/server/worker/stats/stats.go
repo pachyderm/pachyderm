@@ -202,9 +202,10 @@ var (
 // code, and exposes the stats on an http endpoint.
 func InitPrometheus() {
 	logrus.Infof("registering prometheus collectors")
-	http.Handle("/metrics", promhttp.Handler())
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
 	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), mux); err != nil {
 			logrus.Errorf("error serving prometheus metrics: %v", err)
 		}
 	}()
