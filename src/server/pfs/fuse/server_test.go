@@ -44,11 +44,6 @@ func get(path string) (*http.Response, error) {
 	return x, errors.EnsureStack(err)
 }
 
-type Config struct {
-	ClusterStatus string `json:"cluster_status"`
-	PachdAddress  string `json:"pachd_address"`
-}
-
 /*
 
 Tests to write:
@@ -253,6 +248,11 @@ func TestConfig(t *testing.T) {
 	c = tu.AuthenticateClient(t, c, auth.RootUser)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
+		type Config struct {
+			ClusterStatus string `json:"cluster_status"`
+			PachdAddress  string `json:"pachd_address"`
+		}
+
 		// PUT
 		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
 		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
@@ -446,19 +446,6 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 	}()
 	// Gotta give the fuse mount time to come up.
 	time.Sleep(2 * time.Second)
-
-	m := map[string]string{"pachd_address": c.GetAddress().Qualified()}
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(m)
-
-	resp, err := put("/config", b)
-	require.NoError(tb, err)
-	defer resp.Body.Close()
-	config := &Config{}
-	json.NewDecoder(resp.Body).Decode(config)
-	require.NotEqual(tb, config.ClusterStatus, "INVALID")
-
-	// TODO: make sure resp comes back with valid cluster
 	f(dir)
 }
 
