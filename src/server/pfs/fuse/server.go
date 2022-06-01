@@ -820,7 +820,10 @@ func Server(sopts *ServerOptions, testClient *client.APIClient) error {
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt)
-		<-sigChan
+		select {
+		case <-sigChan:
+		case <-sopts.Unmount:
+		}
 		if mm.Client != nil {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
