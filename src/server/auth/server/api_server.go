@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -108,6 +109,8 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 		go waitForError("OIDC HTTP Server", requireNoncriticalServers, s.serveOIDC)
 	}
 
+	go s.envBootstrap(context.Background())
+
 	if watchesEnabled {
 		s.configCache = keycache.NewCache(env.BackgroundContext, s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
 		s.clusterRoleBindingCache = keycache.NewCache(env.BackgroundContext, s.roleBindings.ReadOnly(env.BackgroundContext), clusterRoleBindingKey, &auth.RoleBinding{})
@@ -122,6 +125,38 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	s.deleteExpiredTokensRoutine()
 
 	return s, nil
+}
+
+func (a *apiServer) envBootstrap(ctx context.Context) {
+	if a.env.Config.AuthRootToken == "" {
+		return
+	}
+	a.env.Logger.Info("Started to configure auth server via environment")
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		if _, err := a.Activate(ctx, &auth.ActivateRequest{
+			RootToken: a.env.Config.AuthRootToken,
+		}); err != nil {
+			if !errors.As(err, auth.ErrAlreadyActivated) {
+				return err
+			}
+			_, err := a.rotateRootToken(internalauth.AsInternalUser(ctx, "auth-server"),
+				&auth.RotateRootTokenRequest{
+					RootToken: a.env.Config.AuthRootToken,
+				})
+			return err
+		} else {
+			if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
+				return errors.EnsureStack(err)
+			}
+			if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
+				return errors.EnsureStack(err)
+			}
+			return nil
+		}
+	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
+		panic(fmt.Errorf("Failed to configure the auth server via environment: %v", errors.EnsureStack(err)))
+	}
+	a.env.Logger.Info("Successfully configured auth server via environment")
 }
 
 func waitForError(name string, required bool, cb func() error) {
@@ -196,6 +231,9 @@ func (a *apiServer) getClusterRoleBindingInTransaction(txnCtx *txncontext.Transa
 }
 
 func (a *apiServer) getEnterpriseTokenState(ctx context.Context) (enterpriseclient.State, error) {
+	if a.env.GetEnterpriseServer() == nil {
+		return 0, errors.New("Enterprise Server not yet initialized")
+	}
 	resp, err := a.env.GetEnterpriseServer().GetState(ctx, &enterpriseclient.GetStateRequest{})
 	if err != nil {
 		return 0, errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get Enterprise status")
@@ -256,7 +294,8 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 }
 
 // Activate implements the protobuf auth.Activate RPC
-func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
+func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
+	// TODO(acohen4) 2.3: disable RPC if a.env.Config.AuthRootToken != ""
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState(ctx)
@@ -314,7 +353,13 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 
 // RotateRootToken implements the protobuf auth.RotateRootToken RPC
 func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
-	// TODO(acohen4): Merge with postgres-integration library changes
+	if a.env.Config.AuthRootToken != "" {
+		return nil, errors.New("RotateRootToken() is disabled when the root token is configured in the environment")
+	}
+	return a.rotateRootToken(ctx, req)
+}
+
+func (a *apiServer) rotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
 	var rootToken string
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		// First revoke root's existing auth token

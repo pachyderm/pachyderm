@@ -12,16 +12,12 @@ import (
 func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
 	c.logger.Debugf("ListBuckets")
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
+	pc := c.requestClient(r)
 	result := s2.ListBucketsResult{
 		Owner:   &defaultUser,
 		Buckets: []*s2.Bucket{},
 	}
-	if err = c.driver.listBuckets(pc, r, &result.Buckets); err != nil {
+	if err := c.driver.listBuckets(pc, r, &result.Buckets); err != nil {
 		return nil, err
 	}
 

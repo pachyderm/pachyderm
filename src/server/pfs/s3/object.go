@@ -18,11 +18,7 @@ import (
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
+	pc := c.requestClient(r)
 	if strings.HasSuffix(file, "/") {
 		return nil, s2.NoSuchKeyError(r)
 	}
@@ -76,11 +72,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, srcObj *s2.GetObjectResult, destBucketName, destFile string) (string, error) {
 	c.logger.Tracef("CopyObject: srcBucketName=%+v, srcFile=%+v, srcObj=%+v, destBucketName=%+v, destFile=%+v", srcBucketName, srcFile, srcObj, destBucketName, destFile)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return "", err
-	}
-
+	pc := c.requestClient(r)
 	if strings.HasSuffix(destFile, "/") {
 		return "", invalidFilePathError(r)
 	}
@@ -130,11 +122,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 func (c *controller) PutObject(r *http.Request, bucketName, file string, reader io.Reader) (*s2.PutObjectResult, error) {
 	c.logger.Debugf("PutObject: bucketName=%+v, file=%+v", bucketName, file)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
+	pc := c.requestClient(r)
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}
@@ -180,11 +168,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 func (c *controller) DeleteObject(r *http.Request, bucketName, file, version string) (*s2.DeleteObjectResult, error) {
 	c.logger.Debugf("DeleteObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
+	pc := c.requestClient(r)
 	if strings.HasSuffix(file, "/") {
 		return nil, invalidFilePathError(r)
 	}

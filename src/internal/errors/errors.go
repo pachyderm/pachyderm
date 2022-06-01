@@ -5,8 +5,6 @@ import (
 	"runtime"
 
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var (
@@ -53,12 +51,6 @@ func EnsureStack(err error) error {
 	if _, ok := err.(StackTracer); ok {
 		return err
 	}
-
-	// wrap gRPC status error with stack, then wrap again with an implementation of GRPCStatus
-	if _, ok := status.FromError(err); ok {
-		return &gRPCStatusError{WithStack(err)}
-	}
-
 	return WithStack(err)
 }
 
@@ -101,27 +93,4 @@ func ForEachStackFrame(err error, f func(Frame)) {
 			f(Frame{frame})
 		}
 	}
-}
-
-type gRPCStatusError struct {
-	err error
-}
-
-func (e *gRPCStatusError) GRPCStatus() *status.Status {
-	if se, ok := e.err.(interface{ GRPCStatus() *status.Status }); ok {
-		return se.GRPCStatus()
-	}
-	if se, ok := errors.Unwrap(e.err).(interface{ GRPCStatus() *status.Status }); ok {
-		return se.GRPCStatus()
-	}
-	// should not get here unless wrapped a non GRPCStatus error
-	return status.New(codes.Unknown, e.Error())
-}
-
-func (e *gRPCStatusError) Error() string {
-	return e.err.Error()
-}
-
-func (e *gRPCStatusError) Unwrap() error {
-	return e.err
 }
