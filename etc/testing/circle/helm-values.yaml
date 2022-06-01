@@ -1,10 +1,10 @@
 pachd:
     resources:
         requests:
-            cpu: 4000m
+            cpu: 3750m
             memory: 12Gi
         limits:
-            cpu: 4000m
+            cpu: 3750m
             memory: 12Gi
     nodeSelector:
         loadtest: enabled
