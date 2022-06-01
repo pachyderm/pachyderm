@@ -294,7 +294,8 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	bootstrappers := make([]bootstrapFunc, 0)
+
+	var bootstrappers []bootstrapFunc
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
 		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("Auth API", func() error {
@@ -787,7 +788,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	bootstrappers := make([]bootstrapFunc, 0)
+	var bootstrappers []bootstrapFunc
 	// Setup Internal Pachd GRPC Server.
 	internalServer, err := grpcutil.NewServer(
 		ctx,
