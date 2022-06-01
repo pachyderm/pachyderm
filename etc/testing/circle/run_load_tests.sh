@@ -28,18 +28,18 @@ export VERSION
 make docker-build
 make docker-push
 
-JOB=$(echo $CIRCLE_JOB | tr '[:upper:]' '[:lower:]')
+JOB=$(echo "$CIRCLE_JOB" | tr '[:upper:]' '[:lower:]')
 
 # # provision a pulumi load test env
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name=commit-${CIRCLE_SHA1:0:7}-${JOB} -F pachdVersion=${VERSION} -F valuesYaml=@etc/testing/circle/helm-values.yaml \
+ -F name=commit-"${CIRCLE_SHA1:0:7}-${JOB}" -F pachdVersion="${VERSION}" -F valuesYaml=@etc/testing/circle/helm-values.yaml \
   https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
 
 for _ in $(seq 54); do
-  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB} | jq .Workspace.Status | tr -d '"')
+  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}" | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
@@ -49,9 +49,9 @@ for _ in $(seq 54); do
   sleep 10
 done
 
-pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}  | jq .Workspace.PachdIp)
+pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}"  | jq .Workspace.PachdIp)
 
-echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context commit-${CIRCLE_SHA1:0:7}-${JOB} --overwrite && pachctl config set active-context commit-${CIRCLE_SHA1:0:7}-${JOB}
+echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "commit-${CIRCLE_SHA1:0:7}-${JOB}" --overwrite && pachctl config set active-context "commit-${CIRCLE_SHA1:0:7}-${JOB}"
 
 echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
 

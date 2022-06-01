@@ -164,7 +164,7 @@ jobs:
     parameters:
       bucket:
         type: string
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
