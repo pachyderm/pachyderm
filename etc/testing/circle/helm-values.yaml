@@ -1,17 +1,21 @@
 pachd:
     resources:
         requests:
-            cpu: 1000m
-            memory: 6Gi
+            cpu: 4000m
+            memory: 12Gi
         limits:
-            cpu: 1000m
-            memory: 6Gi
+            cpu: 4000m
+            memory: 12Gi
+    nodeSelector:
+        loadtest: enabled
 
 etcd:
     resources:
         requests:
-            cpu: 250m
-            memory: 512M
+            cpu: 1000m
+            memory: 1000M
         limits:
-            cpu: 250m
-            memory: 512M
+            cpu: 1000m
+            memory: 1000M
+    nodeSelector:
+        loadtest: enabled
