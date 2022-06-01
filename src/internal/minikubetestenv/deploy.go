@@ -181,7 +181,6 @@ func withEnterprise(namespace string, address *grpcutil.PachdAddress) *helm.Opti
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      testutil.RootToken,
 			"pachd.oauthClientSecret":              "oidc-client-secret",
-			"pachd.enterpriseSecret":               "enterprise-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
 			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
