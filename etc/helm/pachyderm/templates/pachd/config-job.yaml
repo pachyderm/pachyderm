@@ -38,7 +38,7 @@ spec:
         {{- end}}
         {{- if .Values.enterpriseServer.enabled }}
         - name: PACH_ADDR
-          value: "grpc://pach-enterprise:"{{ .Values.enterpriseServer.service.apiGRPCPort }}    
+          value: "grpc://pach-enterprise:{{ .Values.enterpriseServer.service.apiGRPCPort }}"    
         {{- end }}
         {{- if .Values.pachd.rootTokenSecretName }}    
         - name: ROOT_TOKEN
