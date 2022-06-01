@@ -11,7 +11,6 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
@@ -211,7 +210,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.Env{})
+			licenseAPIServer, _, err := licenseserver.New(licenseserver.Env{})
 			if err != nil {
 				return err
 			}
@@ -382,9 +381,7 @@ func RunLocal() (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
-		})
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 
 		if err != nil {
@@ -405,8 +402,9 @@ func RunLocal() (retErr error) {
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		http.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
 	})
 	return <-errChan
 }

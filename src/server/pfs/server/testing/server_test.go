@@ -6201,7 +6201,7 @@ func TestPFS(suite *testing.T) {
 			_suite.Run(test.name, func(t *testing.T) {
 				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 				// setup target database
-				dbName := tu.GenerateEphermeralDBName(t)
+				dbName := tu.GenerateEphemeralDBName(t)
 				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
 				db := tu.OpenDB(t,
 					dbutil.WithMaxOpenConns(1),

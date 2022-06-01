@@ -38,11 +38,7 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 func (c *controller) GetLocation(r *http.Request, bucketName string) (string, error) {
 	c.logger.Debugf("GetLocation: %+v", bucketName)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return "", err
-	}
-
+	pc := c.requestClient(r)
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
@@ -62,11 +58,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 	// means the same as "foo"
 	prefix = strings.TrimPrefix(prefix, "/")
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
+	pc := c.requestClient(r)
 	if delimiter != "" && delimiter != "/" {
 		return nil, invalidDelimiterError(r)
 	}
@@ -156,10 +148,7 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 		return s2.NotImplementedError(r)
 	}
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return err
-	}
+	pc := c.requestClient(r)
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -205,10 +194,7 @@ func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 		return s2.NotImplementedError(r)
 	}
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return err
-	}
+	pc := c.requestClient(r)
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -272,10 +258,7 @@ func (c *controller) ListObjectVersions(r *http.Request, bucketName, prefix, key
 func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (string, error) {
 	c.logger.Debugf("GetBucketVersioning: %+v", bucketName)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return "", err
-	}
+	pc := c.requestClient(r)
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -295,10 +278,7 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status string) error {
 	c.logger.Debugf("SetBucketVersioning: bucketName=%+v, status=%+v", bucketName, status)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return err
-	}
+	pc := c.requestClient(r)
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {

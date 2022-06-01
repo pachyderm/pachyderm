@@ -5,6 +5,7 @@ type Configuration struct {
 	*GlobalConfiguration
 	*PachdSpecificConfiguration
 	*WorkerSpecificConfiguration
+	*EnterpriseSpecificConfiguration
 }
 
 // GlobalConfiguration contains the global configuration.
@@ -78,6 +79,7 @@ type GlobalConfiguration struct {
 type PachdFullConfiguration struct {
 	GlobalConfiguration
 	PachdSpecificConfiguration
+	EnterpriseSpecificConfiguration
 }
 
 // PachdSpecificConfiguration contains the pachd specific configuration.
@@ -99,6 +101,19 @@ type PachdSpecificConfiguration struct {
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
 	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
+}
+
+// EnterpriseServerConfiguration contains the full configuration for an enterprise server
+type EnterpriseServerConfiguration struct {
+	GlobalConfiguration
+	EnterpriseSpecificConfiguration
+}
+
+// EnterpriseSpecificConfiguration contains the configuration required for enterprise features
+type EnterpriseSpecificConfiguration struct {
+	AuthRootToken    string `env:"AUTH_ROOT_TOKEN,default="`
+	LicenseKey       string `env:"LICENSE_KEY,default="`
+	EnterpriseSecret string `env:"ENTERPRISE_SECRET,default="`
 }
 
 // StorageConfiguration contains the storage configuration.
@@ -152,10 +167,15 @@ func NewConfiguration(config interface{}) *Configuration {
 	case *PachdFullConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
 		configuration.PachdSpecificConfiguration = &v.PachdSpecificConfiguration
+		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	case *WorkerFullConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
 		configuration.WorkerSpecificConfiguration = &v.WorkerSpecificConfiguration
+		return configuration
+	case *EnterpriseServerConfiguration:
+		configuration.GlobalConfiguration = &v.GlobalConfiguration
+		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	default:
 		return nil

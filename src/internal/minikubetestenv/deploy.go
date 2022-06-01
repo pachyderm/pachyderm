@@ -48,9 +48,10 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset  uint16
-	Loki        bool
-	WaitSeconds int
+	PortOffset     uint16
+	Loki           bool
+	WaitSeconds    int
+	ValueOverrides map[string]string
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -154,6 +155,7 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			// in-cluster traffic, like enterprise registration.
 			"proxy.enabled":                       "true",
 			"proxy.service.type":                  exposedServiceType(),
+			"proxy.service.httpPort":              "30650",
 			"proxy.service.httpNodePort":          "30650",
 			"pachd.service.apiGRPCPort":           "30650",
 			"proxy.service.legacyPorts.oidc":      "30657",
@@ -179,7 +181,6 @@ func withEnterprise(namespace string, address *grpcutil.PachdAddress) *helm.Opti
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      testutil.RootToken,
 			"pachd.oauthClientSecret":              "oidc-client-secret",
-			"pachd.enterpriseSecret":               "enterprise-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
 			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
@@ -194,6 +195,7 @@ func withPort(namespace string, port uint16) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			// Run gRPC traffic through the full router.
+			"proxy.service.httpPort":     fmt.Sprintf("%v", port),
 			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
 
 			// Let everything else use the legacy way.  We use the same mapping for
@@ -373,6 +375,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
 		helmOpts = union(helmOpts, withoutProxy(namespace))
+	}
+	if opts.ValueOverrides != nil {
+		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
 	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
