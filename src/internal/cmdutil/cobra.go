@@ -319,7 +319,17 @@ func (r *RepeatedStringArg) Type() string {
 // '{{alias}}' will be replaced with the full command path.  These commands can
 // later be merged into the final Command tree using 'MergeCommands' below.
 func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
+	return createAlias(cmd, invocation)
+}
 
+// CreateAliasWithPlurals is like CreateAlias, except it allows us to specify one or more plurals for the
+// last argument in the command with the assumption that the last argument in the command is a resource
+// such as 'repo' or 'pipeline'.
+func CreateAliasWithPlurals(cmd *cobra.Command, invocation string, plurals ...string) *cobra.Command {
+	return createAlias(cmd, invocation, plurals...)
+}
+
+func createAlias(cmd *cobra.Command, invocation string, plurals ...string) *cobra.Command {
 	// Create logical commands for each substring in each invocation
 	var root, prev *cobra.Command
 	args := strings.Split(invocation, " ")
@@ -337,6 +347,11 @@ func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
 				cur.Use = strings.ReplaceAll(cmd.Use, "{{alias}}", arg)
 			}
 			cur.Example = strings.ReplaceAll(cmd.Example, "{{alias}}", fmt.Sprintf("%s %s", os.Args[0], invocation))
+
+			if len(plurals) != 0 {
+				cur.Aliases = append([]string{cur.Use}, plurals...)
+			}
+
 		} else {
 			cur.Use = arg
 		}

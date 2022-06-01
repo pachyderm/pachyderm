@@ -155,7 +155,7 @@ or type (e.g. csv, binary, images, etc).`,
 	inspectRepo.Flags().AddFlagSet(outputFlags)
 	inspectRepo.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
+	commands = append(commands, cmdutil.CreateAliasWithPlurals(inspectRepo, "inspect repo", "repos"))
 
 	var all bool
 	var repoType string
@@ -206,7 +206,7 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
 	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
-	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
+	commands = append(commands, cmdutil.CreateAliasWithPlurals(listRepo, "list repo", "repos"))
 
 	var force bool
 	deleteRepo := &cobra.Command{
@@ -246,7 +246,7 @@ or type (e.g. csv, binary, images, etc).`,
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
+	commands = append(commands, cmdutil.CreateAliasWithPlurals(deleteRepo, "delete repo", "repos"))
 
 	commitDocs := &cobra.Command{
 		Short: "Docs for commits.",
