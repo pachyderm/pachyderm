@@ -2,13 +2,32 @@ package cmds
 
 import (
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
+
+func resourcesMap() map[string][]string {
+	return map[string][]string{
+		branch: {create, delete, inspect, list},
+		commit: {delete, finish, inspect, list, squash, start, subscribe, wait},
+		file:   {copy, delete, diff, get, glob, inspect, list, put},
+		repo:   {create, delete, inspect, list, update},
+	}
+}
+
+func pluralsMap() map[string]string {
+	return map[string]string{
+		branch: branches,
+		commit: commits,
+		file:   files,
+		repo:   repos,
+	}
+}
 
 func TestCommit(t *testing.T) {
 	if testing.Short() {
@@ -148,4 +167,63 @@ func TestDiffFile(t *testing.T) {
 		`,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 	).Run())
+}
+
+// TestPlurals walks through the command tree for each resource and verb combination defined in PPS.
+// A template is filled in that calls the help flag and the output is compared. It seems like 'match'
+// is unable to compare the outputs correctly, but we can use diff here which returns an exit code of 0
+// if there is no difference.
+func TestPlurals(t *testing.T) {
+	pluralCheckTemplate := `
+		pachctl {{VERB}} {{RESOURCE_PLURAL}} -h > plural.txt
+		pachctl {{VERB}} {{RESOURCE}} -h > singular.txt
+		diff plural.txt singular.txt
+		rm plural.txt singular.txt
+	`
+
+	resources := resourcesMap()
+	plurals := pluralsMap()
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	for resource, verbs := range resources {
+		withResource := strings.ReplaceAll(pluralCheckTemplate, "{{RESOURCE}}", resource)
+		withResources := strings.ReplaceAll(withResource, "{{RESOURCE_PLURAL}}", plurals[resource])
+
+		for _, verb := range verbs {
+			pluralCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
+			t.Logf("Testing %s %s -h\n", verb, resource)
+			require.NoError(t, tu.PachctlBashCmd(t, c, pluralCommand).Run())
+		}
+	}
+}
+
+// TestPluralsDocs is like TestPlurals except it only tests commands registered by CreateDocsAliases.
+func TestPluralsDocs(t *testing.T) {
+	pluralCheckTemplate := `
+		pachctl {{RESOURCE_PLURAL}} -h > plural.txt
+		pachctl {{RESOURCE}} -h > singular.txt
+		diff plural.txt singular.txt
+		rm plural.txt singular.txt
+	`
+
+	plurals := pluralsMap()
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	for resource := range plurals {
+		withResource := strings.ReplaceAll(pluralCheckTemplate, "{{RESOURCE}}", resource)
+		pluralCommand := strings.ReplaceAll(withResource, "{{RESOURCE_PLURAL}}", plurals[resource])
+
+		t.Logf("Testing %s -h\n", resource)
+		require.NoError(t, tu.PachctlBashCmd(t, c, pluralCommand).Run())
+	}
 }

@@ -417,3 +417,41 @@ func TestRotateRootToken(t *testing.T) {
 		pachctl auth whoami | match "pach:root"
 	`).Run())
 }
+
+// TestPlurals walks through the command tree for each resource and verb combination defined in PPS.
+// A template is filled in that calls the help flag and the output is compared. It seems like 'match'
+// is unable to compare the outputs correctly, but we can use diff here which returns an exit code of 0
+// if there is no difference.
+func TestPlurals(t *testing.T) {
+	pluralCheckTemplate := `
+		pachctl auth {{VERB}} {{RESOURCE_PLURAL}} -h > plural.txt
+		pachctl auth {{VERB}} {{RESOURCE}} -h > singular.txt
+		diff plural.txt singular.txt
+		rm plural.txt singular.txt
+	`
+
+	resources := map[string][]string{
+		"repo": {"check", "set", "get"},
+	}
+
+	pluralMap := map[string]string{
+		"repo": "repos",
+	}
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	for resource, verbs := range resources {
+		withResource := strings.ReplaceAll(pluralCheckTemplate, "{{RESOURCE}}", resource)
+		withResources := strings.ReplaceAll(withResource, "{{RESOURCE_PLURAL}}", pluralMap[resource])
+
+		for _, verb := range verbs {
+			pluralCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
+			t.Logf("Testing auth %s %s -h\n", verb, resource)
+			require.NoError(t, tu.PachctlBashCmd(t, c, pluralCommand).Run())
+		}
+	}
+}
