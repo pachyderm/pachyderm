@@ -23,7 +23,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v8-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -32,7 +32,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v8-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
@@ -144,7 +144,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -153,7 +153,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.9-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
@@ -191,7 +191,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -200,7 +200,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.9-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
       - run:
@@ -224,7 +224,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -233,7 +233,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.9-cache-v7-{{ checksum "ci-requirements.txt" }}
+          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
       - run:
