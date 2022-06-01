@@ -188,27 +188,41 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 	}
 	for _, repo := range repos {
 		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
-		bs, err := mm.Client.ListBranch(repo.Repo.Name)
-		if err != nil {
-			return lr, err
+		readAccess := true
+		if repo.AuthInfo != nil {
+			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
+			rr.Authorization = "none"
 		}
-		for _, branch := range bs {
-			br := BranchResponse{Name: branch.Branch.Name}
-			k := MountKey{
-				Repo:   repo.Repo.Name,
-				Branch: branch.Branch.Name,
-				Commit: "",
+		if readAccess {
+			bs, err := mm.Client.ListBranch(repo.Repo.Name)
+			if err != nil {
+				return lr, err
 			}
-			// Add all mounts associated with a repo/branch
-			for _, msm := range mm.States {
-				if msm.MountKey == k && msm.State != "unmounted" {
-					br.Mount = append(br.Mount, msm.MountState)
+			for _, branch := range bs {
+				br := BranchResponse{Name: branch.Branch.Name}
+				k := MountKey{
+					Repo:   repo.Repo.Name,
+					Branch: branch.Branch.Name,
+					Commit: "",
 				}
+				// Add all mounts associated with a repo/branch
+				for _, msm := range mm.States {
+					if msm.MountKey == k && msm.State != "unmounted" {
+						br.Mount = append(br.Mount, msm.MountState)
+					}
+				}
+				if br.Mount == nil {
+					br.Mount = append(br.Mount, MountState{State: "unmounted"})
+				}
+				rr.Branches[branch.Branch.Name] = br
 			}
-			if br.Mount == nil {
-				br.Mount = append(br.Mount, MountState{State: "unmounted"})
+			if repo.AuthInfo == nil {
+				rr.Authorization = "off"
+			} else if hasRepoWrite(repo.AuthInfo.Permissions) {
+				rr.Authorization = "write"
+			} else {
+				rr.Authorization = "read"
 			}
-			rr.Branches[branch.Branch.Name] = br
 		}
 		lr[repo.Repo.Name] = rr
 	}
@@ -858,6 +872,24 @@ func jsonMarshal(t interface{}) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
+func hasRepoRead(permissions []auth.Permission) bool {
+	for _, p := range permissions {
+		if p == auth.Permission_REPO_READ {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRepoWrite(permissions []auth.Permission) bool {
+	for _, p := range permissions {
+		if p == auth.Permission_REPO_WRITE {
+			return true
+		}
+	}
+	return false
+}
+
 type MountState struct {
 	Name       string   `json:"name"`       // where to mount it. written by client
 	MountKey   MountKey `json:"mount_key"`  // what to mount. written by client
@@ -884,8 +916,9 @@ type BranchResponse struct {
 }
 
 type RepoResponse struct {
-	Name     string                    `json:"name"`
-	Branches map[string]BranchResponse `json:"branches"`
+	Name          string                    `json:"name"`
+	Branches      map[string]BranchResponse `json:"branches"`
+	Authorization string                    `json:"authorization"` // "off", "none", "read", "write"
 	// TODO: Commits map[string]CommitResponse
 }
 
@@ -973,6 +1006,45 @@ func unmountedState(m *MountStateMachine) StateFn {
 		req := <-m.requests
 		switch req.Action {
 		case "mount":
+			// check user permissions on repo
+			repoInfo, err := m.manager.Client.InspectRepo(req.Repo)
+			if err != nil {
+				m.responses <- Response{
+					Repo:       req.Repo,
+					Branch:     req.Branch,
+					Commit:     req.Commit,
+					Name:       req.Name,
+					MountState: m.MountState,
+					Error:      err,
+				}
+				return unmountedState
+			}
+			if repoInfo.AuthInfo != nil {
+				if !hasRepoRead(repoInfo.AuthInfo.Permissions) {
+					m.responses <- Response{
+						Repo:       req.Repo,
+						Branch:     req.Branch,
+						Commit:     req.Commit,
+						Name:       req.Name,
+						MountState: m.MountState,
+						Error:      fmt.Errorf("user doesn't have read permission on repo %s", req.Repo),
+					}
+					return unmountedState
+				}
+
+				if req.Mode == "rw" && !hasRepoWrite(repoInfo.AuthInfo.Permissions) {
+					m.responses <- Response{
+						Repo:       req.Repo,
+						Branch:     req.Branch,
+						Commit:     req.Commit,
+						Name:       req.Name,
+						MountState: m.MountState,
+						Error:      fmt.Errorf("can't create writable mount since user doesn't have write access on repo %s", req.Repo),
+					}
+					return unmountedState
+				}
+			}
+
 			// copy data from request into fields that are documented as being
 			// written by the client (see MountState struct)
 			m.MountState.Name = req.Name

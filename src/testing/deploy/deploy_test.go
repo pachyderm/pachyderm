@@ -34,6 +34,32 @@ func TestDeployEnterprise(t *testing.T) {
 	mockIDPLogin(t, c)
 }
 
+func TestUpgradeEnterpriseWithEnv(t *testing.T) {
+	k := testutil.GetKubeClient(t)
+	opts := &minikubetestenv.DeployOpts{
+		AuthUser:     auth.RootUser,
+		Enterprise:   true,
+		CleanupAfter: true,
+	}
+	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, opts)
+	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	// set new root token via env
+	opts.AuthUser = ""
+	token := "new-root-token"
+	opts.ValueOverrides = map[string]string{"pachd.rootToken": token}
+	c = minikubetestenv.UpgradeRelease(t, context.Background(), "default", k, opts)
+	c.SetAuthToken(token)
+	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	// old token should no longer work
+	c.SetAuthToken(testutil.RootToken)
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
+}
+
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	// login using mock IDP admin
 	hc := &http.Client{}

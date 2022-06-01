@@ -98,12 +98,8 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
 	c.logger.Debugf("ListMultipart: bucketName=%+v, keyMarker=%+v, uploadIDMarker=%+v, maxUploads=%+v", bucketName, keyMarker, uploadIDMarker, maxUploads)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = c.ensureRepo(pc); err != nil {
+	pc := c.requestClient(r)
+	if err := c.ensureRepo(pc); err != nil {
 		return nil, err
 	}
 
@@ -156,12 +152,8 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (string, error) {
 	c.logger.Debugf("InitMultipart: bucketName=%+v, key=%+v", bucketName, key)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return "", err
-	}
-
-	if err = c.ensureRepo(pc); err != nil {
+	pc := c.requestClient(r)
+	if err := c.ensureRepo(pc); err != nil {
 		return "", err
 	}
 
@@ -191,12 +183,9 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 	defer func(start time.Time) {
 		c.logger.Infof("AbortMultipart: duration=%v, error=%v", time.Since(start), retErr)
 	}(time.Now())
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return err
-	}
 
-	if err = c.ensureRepo(pc); err != nil {
+	pc := c.requestClient(r)
+	if err := c.ensureRepo(pc); err != nil {
 		return err
 	}
 
@@ -223,12 +212,9 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	defer func(start time.Time) {
 		c.logger.Infof("CompleteMultipart: duration=%v, result=%+v, error=%v", time.Since(start), res, retErr)
 	}(time.Now())
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
 
-	if err = c.ensureRepo(pc); err != nil {
+	pc := c.requestClient(r)
+	if err := c.ensureRepo(pc); err != nil {
 		return nil, err
 	}
 
@@ -319,12 +305,8 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
 	c.logger.Debugf("ListMultipartChunks: bucketName=%+v, key=%+v, uploadID=%+v, partNumberMarker=%+v, maxParts=%+v", bucketName, key, uploadID, partNumberMarker, maxParts)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = c.ensureRepo(pc); err != nil {
+	pc := c.requestClient(r)
+	if err := c.ensureRepo(pc); err != nil {
 		return nil, err
 	}
 
@@ -372,12 +354,8 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
 	c.logger.Debugf("UploadMultipartChunk: bucketName=%+v, key=%+v, uploadID=%+v partNumber=%+v", bucketName, key, uploadID, partNumber)
 
-	pc, err := c.requestClient(r)
-	if err != nil {
-		return "", err
-	}
-
-	if err = c.ensureRepo(pc); err != nil {
+	pc := c.requestClient(r)
+	if err := c.ensureRepo(pc); err != nil {
 		return "", err
 	}
 

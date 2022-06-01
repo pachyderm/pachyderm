@@ -6,6 +6,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ErrJobFinished represents a finished job error.
@@ -23,6 +26,22 @@ type ErrPipelineNotFound struct {
 
 func (e ErrPipelineNotFound) Error() string {
 	return fmt.Sprintf("pipeline %q not found", e.Pipeline.Name)
+}
+
+func (e ErrPipelineNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, e.Error())
+}
+
+type ErrPipelineAlreadyExists struct {
+	Pipeline *pps.Pipeline
+}
+
+func (e ErrPipelineAlreadyExists) Error() string {
+	return fmt.Sprintf("pipeline %q already exists", e.Pipeline.Name)
+}
+
+func (e ErrPipelineAlreadyExists) GRPCStatus() *status.Status {
+	return status.New(codes.AlreadyExists, e.Error())
 }
 
 var (

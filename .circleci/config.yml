@@ -91,7 +91,9 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
-      - run: etc/testing/circle/upload_stats.sh
+      - run:
+          command: etc/testing/circle/upload_stats.sh
+          when: always
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -203,10 +205,37 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      # Note: This gets saves in the main test runs, no need to save here
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
       - run: etc/testing/circle/deploy_test.sh
+      - run:
+          command: etc/testing/circle/upload_stats.sh
+          when: always
+      - store_test_results:
+          path: /tmp/test-results
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build:

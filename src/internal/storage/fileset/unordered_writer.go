@@ -2,11 +2,13 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -95,16 +97,18 @@ func (uw *UnorderedWriter) serialize() error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
-			return w.Add(path, datum, r)
-		}, func(f File, datum string) error {
-			return w.Copy(f, datum)
-		}); err != nil {
-			return err
-		}
-		return uw.buffer.WalkDeletive(func(path, datum string) error {
-			return w.Delete(path, datum)
+	return miscutil.LogStep("UnorderedWriter.serialize", func() error {
+		return uw.withWriter(func(w *Writer) error {
+			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
+				return w.Add(path, datum, r)
+			}, func(f File, datum string) error {
+				return w.Copy(f, datum)
+			}); err != nil {
+				return err
+			}
+			return uw.buffer.WalkDeletive(func(path, datum string) error {
+				return w.Delete(path, datum)
+			})
 		})
 	})
 }
@@ -193,7 +197,9 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 	if err := uw.serialize(); err != nil {
 		return nil, err
 	}
-	if err := uw.compact(); err != nil {
+	if err := miscutil.LogStep(fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
+		return uw.compact()
+	}); err != nil {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{

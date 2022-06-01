@@ -89,7 +89,7 @@ case "${BUCKET}" in
     ;;
   PPS_AUTH)
     export PACH_TEST_WITH_AUTH=1
-    go test -v -count=1 ./src/server/pps/server -timeout 420s
+    go test -count=1 ./src/server/pps/server -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
     ;;
   PPS?)
     make docker-build-kafka

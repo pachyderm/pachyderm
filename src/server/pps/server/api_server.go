@@ -18,7 +18,7 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
-	logrus "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -1864,7 +1864,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	if oldPipelineInfo != nil && !request.Update {
-		return errors.Errorf("pipeline %q already exists", pipelineName)
+		return ppsServer.ErrPipelineAlreadyExists{
+			Pipeline: request.Pipeline,
+		}
 	}
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)

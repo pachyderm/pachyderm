@@ -4,6 +4,7 @@ ignore_macros: true
 ---
 
 <!-- git-snippet: enable -->
+
 # Update a Pipeline
 
 While working with your data, you often need to modify an existing
@@ -96,17 +97,17 @@ This step comes in 3 flavors:
       pachctl update pipeline -f <pipeline.json>
       ```
 
-### **If you choose to use a [jsonnet version of your pipeline specs](../jsonnet-pipeline-specs)**
+### **If you chose to use a [jsonnet version of your pipeline specs](../jsonnet-pipeline-specs)**
 
-   1. Pass the tag of your image to your jsonnet specs.
+   * Pass the tag of your image to your jsonnet specs.
 
       As an example, see the `tag` parameter in this jsonnet version of opencv's edges pipeline (`edges.jsonnet`):
       
-      ```yaml
-      {{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', 'master') }}
-      ```
+```json
+{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.2.x') }}
+```
 
-   1. Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
+   * Once your pipeline code is updated and your image is built, tagged, and pushed, update your pipeline using this command line. In this case, there is no need to edit the pipeline specification file to update the value of your new tag. This command will take care of it:
 
       ```shell
       pachctl update pipeline --jsonnet jsonnet/edges.jsonnet --arg suffix=1 --arg tag=1.0.2
