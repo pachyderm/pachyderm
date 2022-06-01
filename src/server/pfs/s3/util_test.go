@@ -130,8 +130,8 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 }
 
 func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver Driver, runner func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client)) {
-	router := Router(driver, func() (*client.APIClient, error) {
-		return pachClient.WithCtx(context.Background()), nil
+	router := Router(driver, func(_ctx context.Context) *client.APIClient {
+		return pachClient.WithCtx(context.Background())
 	})
 	server := Server(0, router)
 	listener, err := net.Listen("tcp", ":0")
