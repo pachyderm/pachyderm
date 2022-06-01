@@ -423,13 +423,11 @@ workflows:
   nightly_load_tests:
     triggers:
       - schedule:
-          cron: "0 6 * * *"
+          cron: "0 * * * *"
           filters:
             branches:
               only:
-                - master
-                - 2.1.x
-                - 2.2.x
+                - reorganize-load-tests
     jobs:
       - nightly_load:
           matrix:
@@ -442,6 +440,14 @@ workflows:
                 - LOAD5
                 - LOAD6
                 - LOAD7
+                - LOAD8
+                - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
+                - LOAD13
+                - LOAD14
+                - LOAD15
   rootless:
     when:
       and:
