@@ -64,11 +64,16 @@ spec:
           value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
         - name: POSTGRES_DATABASE
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "password"
+        {{- else }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
