@@ -73,7 +73,7 @@ spec:
           value: " "
           {{- if .Values.cloudsqlAuthProxy.iamLogin }}
         - name: POSTGRESQL_PASSWORD
-          value: "password"
+          value: "Using-iamLogin"
           {{- else }}
         - name: POSTGRESQL_PASSWORD
           valueFrom:
