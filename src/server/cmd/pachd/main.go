@@ -79,6 +79,7 @@ func init() {
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
