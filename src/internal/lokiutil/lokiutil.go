@@ -65,7 +65,7 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 			}
 			err := json.Unmarshal([]byte(line), &entry)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			return f(t, entry.Log)
 		}); err != nil {
