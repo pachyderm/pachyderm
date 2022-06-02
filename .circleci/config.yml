@@ -140,7 +140,7 @@ jobs:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
+      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
   load_test:
