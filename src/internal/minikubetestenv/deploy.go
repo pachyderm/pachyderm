@@ -86,6 +86,9 @@ func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 		require.NoError(t, err)
 		computedPachAddress, err = client.GetUserMachineAddr(context)
 		require.NoError(t, err)
+		if computedPachAddress != nil && computedPachAddress.Port < 30000 {
+			computedPachAddress.Port = 30000
+		}
 		if computedPachAddress == nil {
 			copy := grpcutil.DefaultPachdAddress
 			computedPachAddress = &copy

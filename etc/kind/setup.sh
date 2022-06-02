@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -xeu -o pipefail -o errexit
 
+
 # create registry container unless it already exists
 reg_name='kind-registry'
 reg_port='5001'
@@ -224,7 +225,22 @@ EOF
 
 kubectl apply -f etc/testing/minio.yaml
 
-helm install pachyderm etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
+kubectl create secret tls envoy-tls --cert=/tls/tls.crt --key=/tls/tls.key
+
+# Try to pre-load some images
+for img in $(cat <<EOF
+pachyderm/etcd:v3.5.1
+bitnami/pgbouncer:1.16.0
+docker.io/bitnami/postgresql:13.3.0
+EOF
+); do
+    docker pull $img
+    kind load docker-image $img
+done
+
+# helm install pachyderm etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
+
+helm install pachyderm ../pachyderm-2.2.x/etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
 
 #helm install pachyderm ../pachyderm-envoy/etc/helm/pachyderm -f etc/kind/hostname-values.yaml -f etc/kind/enterprise-key-values.yaml -f etc/kind/values.yaml
 

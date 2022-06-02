@@ -17,17 +17,26 @@ pachd:
             secure: "false"
             signature: ""
     localhostIssuer: "true"
+    image:
+        tag: 2.2.1
+    lokiDeploy: true
+    lokiLogging: true
 postgresql:
     postgresqlPassword: "abc123321cba"
     postgresqlPostgresPassword: "npLvsvhGcF"
 console:
     enabled: true
+    image:
+        tag: 2.2.1-1
     config:
         oauthClientSecret: "Hz1iySrX5Gm8owpRrYMM8vY7NXfgxhUs"
 ingress:
     enabled: false
 proxy:
     enabled: true
+    tls:
+        enabled: false
+        secretName: envoy-tls
     service:
         type: NodePort
         legacyPorts:
