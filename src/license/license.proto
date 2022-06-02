@@ -76,6 +76,7 @@ message UpdateClusterRequest {
   string address = 2;
   string user_address = 3;
   string cluster_deployment_id = 4;
+  string secret = 5;
 }
 message UpdateClusterResponse{}
 
