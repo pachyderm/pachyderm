@@ -54,6 +54,7 @@ import (
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -79,6 +80,8 @@ func init() {
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	// set GOMAXPROCS to the container limit & log outcome to stdout
+	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
 	case readiness:
