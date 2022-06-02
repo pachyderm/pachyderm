@@ -722,10 +722,9 @@ func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) 
 		return errors.EnsureStack(err)
 	}
 	start := time.Now().Add(-(30 * 24 * time.Hour))
-	end := time.Now()
 	for {
 		// TODO: Need a real context.
-		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, end, "FORWARD", 0, 0, true)
+		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, time.Time{}, "FORWARD", 0, 0, true)
 		if err != nil {
 			return err
 		}
