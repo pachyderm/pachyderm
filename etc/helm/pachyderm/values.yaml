@@ -217,7 +217,6 @@ loki-stack:
     enabled: false
   promtail:
     config:
-      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
       snippets:
         common:
           # This is copy and paste of existing actions, so we don't lose them.
