@@ -113,12 +113,14 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.lokiDeploy":             "true",
+			"pachd.lokiLogging":            "true",
 			"loki-stack.loki.service.type": exposedServiceType(),
 			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "8000",
 			"loki-stack.loki.service.port":                                fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.service.nodePort":                            fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.config.server.http_listen_port":              fmt.Sprintf("%v", port+9),
-			"loki-stack.promtail.loki.servicePort":                        fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.serverPort":                       fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.lokiAddress":                      fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+9),
 		},
 		SetStrValues: map[string]string{
 			"loki-stack.promtail.initContainer.enabled": "true",
@@ -263,7 +265,7 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 			}
 		}
 		return errors.Errorf("deployment in progress")
-	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	})
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
