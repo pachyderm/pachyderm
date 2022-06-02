@@ -45,6 +45,7 @@ func TestRegisterPachd(t *testing.T) {
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{.pach_address}}
 		pachctl enterprise get-state | match ACTIVE
@@ -66,6 +67,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 	cluster := tu.UniqueString("cluster")
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }}
@@ -91,6 +93,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }}
@@ -114,6 +117,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }}
@@ -140,6 +144,7 @@ func TestConfig(t *testing.T) {
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }}
@@ -182,6 +187,7 @@ func TestLoginEnterprise(t *testing.T) {
 	require.NoError(t, err)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }}
@@ -226,6 +232,7 @@ func TestLoginPachd(t *testing.T) {
 	require.NoError(t, err)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl config set active-enterprise-context enterprise
 		echo {{.license}} | pachctl license activate
 		echo {{.enterprise_token}} | pachctl auth activate --enterprise --issuer http://pach-enterprise.enterprise:31658 --supply-root-token
 		pachctl enterprise register --id {{.id}} --enterprise-server-address grpc://pach-enterprise.enterprise:31650 --pachd-address {{ .pach_address }}

@@ -81,6 +81,8 @@ jobs:
           command: |
             go install ./src/testing/match
             make launch-stats
+            make launch-enterprise
+            echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
             PROM_PORT="$(minikube ip):32002" go test -v $(go list ./... | circleci tests split) | stdbuf -i0 tee -a /tmp/results
       - run: 
           command: etc/testing/circle/upload_stats.sh
