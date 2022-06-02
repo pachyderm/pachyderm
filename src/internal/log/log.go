@@ -20,6 +20,20 @@ func (f FormatterFunc) Format(entry *logrus.Entry) ([]byte, error) {
 	return f(entry)
 }
 
+// formatServiceAndDuration factors out simple formatting code from Pretty() and
+// PrettyJSON() to ensure that the two are kept in sync and format these fields
+// identically.
+func formatServiceAndDuration(entry *logrus.Entry) {
+	if entry.Data["service"] != nil && entry.Data["method"] != nil {
+		// TODO: seems like a bad idea to modify the log statement data
+		entry.Data["method"] = fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"])
+		delete(entry.Data, "service")
+	}
+	if entry.Data["duration"] != nil {
+		entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
+	}
+}
+
 // Pretty formats a logrus entry like so:
 // ```
 // 2019-02-11T16:02:02Z INFO pfs.API.InspectRepo {"request":{"repo":{"name":"images"}}} []
@@ -32,15 +46,11 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 			strings.ToUpper(entry.Level.String()),
 		),
 	)
-	if entry.Data["service"] != nil && entry.Data["method"] != nil {
-		serialized = append(serialized, []byte(fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"]))...)
-		// TODO: seems like a bad idea to modify the log statement data
-		delete(entry.Data, "service")
-		delete(entry.Data, "method")
-	}
 	if len(entry.Data) > 0 {
-		if entry.Data["duration"] != nil {
-			entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
+		formatServiceAndDuration(entry)
+		if method, ok := entry.Data["method"].(string); ok {
+			serialized = append(serialized, []byte(method)...)
+			delete(entry.Data, "method")
 		}
 		data, err := json.Marshal(entry.Data)
 		if err != nil {
@@ -72,14 +82,12 @@ var jsonFormatter = &logrus.JSONFormatter{
 // valid JSON objects. This is required by GCP (or else it misunderstands
 // severity and treats all log lines as ERROR logs).
 func JSONPretty(entry *logrus.Entry) ([]byte, error) {
-	if entry.Data["service"] != nil && entry.Data["method"] != nil {
-		entry.Data["method"] = fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"])
-		delete(entry.Data, "service")
+	formatServiceAndDuration(entry)
+	log, err := jsonFormatter.Format(entry)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal fields to JSON")
 	}
-	if entry.Data["duration"] != nil {
-		entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
-	}
-	return jsonFormatter.Format(entry)
+	return log, nil
 }
 
 // GRPCLogWriter proxies gRPC and etcd-produced log messages to a logrus
