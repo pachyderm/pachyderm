@@ -11,7 +11,7 @@ For a quick test installation of Pachyderm on GCP (suitable for development), ju
     We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))** 
     allowing your cluster to expose one single port to the Internet.
     
-    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [local deployment instructions](../envoy/). 
+    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [deployment instructions](../envoy/). 
 
 The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/){target=_blank} (GKE). 
 

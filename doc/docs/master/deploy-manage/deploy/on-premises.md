@@ -11,7 +11,7 @@ This page walks you through the fundamentals of what you need to know about Kube
     We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))** 
     allowing your cluster to expose one single port to the Internet.
     
-    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [local deployment instructions](../envoy/). 
+    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [deployment instructions](../envoy/). 
 ## Introduction
 
 Deploying Pachyderm successfully on-premises requires a few prerequisites.
