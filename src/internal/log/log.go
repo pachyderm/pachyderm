@@ -55,7 +55,18 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 	return serialized, nil
 }
 
-var jsonFormatter = &logrus.JSONFormatter{}
+var jsonFormatter = &logrus.JSONFormatter{
+	// Use GCP's field name conventions (absent any better alternative)
+	// https://cloud.google.com/logging/docs/agent/logging/configuration
+	FieldMap: logrus.FieldMap{
+		logrus.FieldKeyTime:  "time",
+		logrus.FieldKeyLevel: "severity",
+		logrus.FieldKeyMsg:   "message",
+	},
+
+	// https://github.com/sirupsen/logrus/pull/162/files
+	TimestampFormat: time.RFC3339Nano,
+}
 
 // JSONPretty is similar to Pretty() above, but it formats logrus log entries as
 // valid JSON objects. This is required by GCP (or else it misunderstands
