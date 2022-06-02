@@ -77,7 +77,9 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh
-      - run: etc/testing/circle/upload_stats.sh
+      - run: 
+          command: etc/testing/circle/upload_stats.sh
+          when: always
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
