@@ -3,6 +3,7 @@ package minikubetestenv
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -254,7 +255,7 @@ func union(a, b *helm.Options) *helm.Options {
 }
 
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
@@ -270,10 +271,18 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.Retry(func() error {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v", lokiHost, lokiPort), nil)
-		_, err := http.DefaultClient.Do(req)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return errors.Wrap(err, "loki not ready")
+		}
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Wrap(err, "could not read response body")
+		}
+		status := strings.TrimSpace(string(b))
+		if status != "ready" {
+			return errors.Errorf("loki not ready but %s", status)
 		}
 		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
