@@ -210,7 +210,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.Env{})
+			licenseAPIServer, _, err := licenseserver.New(licenseserver.Env{})
 			if err != nil {
 				return err
 			}
