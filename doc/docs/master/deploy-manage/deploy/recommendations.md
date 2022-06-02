@@ -2,6 +2,19 @@
 
 To deploy in production, we recommend setting up the following pieces of networking infrastructure: A load balancer, a kubernetes ingress controller, and a DNS pointing to the load balancer. In addition we recommend using a managed database instance (such as RDS for AWS). 
 
+!!! Attention "Interested in deploying with Envoy and expose one single external port?"
+    We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))** 
+    allowing your cluster to expose one single port to the Internet.
+    
+    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [deployment instructions](../envoy/). 
+
+    Deploying with Envoy presents a couple of advantages:
+
+    - You only need to set up one TCP Load Balancer (No more Ingress in front of Console).
+    - You will need one DNS only.
+    - It simplifies the deployment of Console.
+    - No more port-forward.
+
 Once you have your networking infrastructure set up, apply a helm values file such as the one specified in the example file below to wire up routing through an Ingress, and set up TLS. We recommend using a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as kubernetes secrets into your cluster for the ingress and load balancer to use.
 
 !!! Note

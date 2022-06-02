@@ -7,6 +7,11 @@ This page walks you through the fundamentals of what you need to know about Kube
     - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
     - Troubleshooting a deployment? Check out [Troubleshooting Deployments](../../troubleshooting/deploy-troubleshooting.md).
 
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))** 
+    allowing your cluster to expose one single port to the Internet.
+    
+    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [local deployment instructions](../envoy/). 
 ## Introduction
 
 Deploying Pachyderm successfully on-premises requires a few prerequisites.

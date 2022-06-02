@@ -1,15 +1,14 @@
-# One Port For All External Traffic
+# Deploy Pachyderm With Envoy: One Port For All External Traffic
 
+We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))** allowing Pachyderm to expose one only port to the Internet (whether you access `pachd` over gRPC using `pachctl`, or `console` over HTTP, for example).
 
-We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))**. As a result, Pachyderm only need to expose one port to the Internet (whether you access `pachd` over gRPC using `pachctl`, or `console` over HTTP, for example).
-
-This page is an add-on to existing installation instructions in the case where you chose to enable the proxy Envoy when deploying Pachyderm. The informations below supplement of replace existing part of the installation documentaiton. We will let you know when to use them and which section they overwrite.
+This page is an add-on to existing installation instructions in the case where you choose to enable the proxy Envoy when deploying Pachyderm. The instructions below replace all or existing parts of the installation documentation. We will let you know when to use them and which section they overwrite.
 
 !!! Warning
     Envoy is an [experimental feature](../../../contributing/supported-releases/#experimental).
 
 !!! Note "TL;DR" 
-    - When envoy is activated, Pachyderm is reachable through **one TCP port for all incoming grpc (grpcs), console (http/https), s3 gateway, OIDC, and dex traffic**, then routes each call to the appropriate backend microservice without any additional configuration.
+    - When Envoy is activated, Pachyderm is reachable through **one TCP port for all incoming grpc (grpcs), console (HTTP/HTTPS), s3 gateway, OIDC, and dex traffic**, then routes each call to the appropriate backend microservice without any additional configuration.
     - To deploy Pachyderm with Envoy, enable the proxy as follow:
 
     ```yaml
@@ -19,23 +18,23 @@ This page is an add-on to existing installation instructions in the case where y
         type: LoadBalancer
     ```
     
-The high-level architecture diagram below gives a quick overview of the layout of services and pods when using Envoy. In particular, it details how Pachyderm serves all external traffic on one port, then routes each call to the appropriate backend:
-![Infrastruture Recommendation](../../images/infra-recommendations-envoy.png)
+The high-level architecture diagram below gives a quick overview of the layout of services and pods when using Envoy. In particular, it details how Pachyderm serves all external traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../../images/infra-recommendations-envoy.png)
 
-!!! Note
+!!! Note 
     See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L649){target=_blank} for all available configurable fields of the proxy.
 
-Before any deployment in production, we recommend to read the following recommendations section and [set up your production infrastructure](#deploy-pachyderm-in-production-with-envoy). 
-Alternatively, you can skip those infrastructure prerequisites and make a [quick cloud installation](#quick-cloud-deployment-with-envoy), or jump to our [local deployment](#deploy-pachyderm-locally-with-envoy) section for a first encounter with Pachyderm.
+Before any deployment in production, we recommend reading the following recommendations section and [set up your production infrastructure](#deploy-pachyderm-in-production-with-envoy). 
+
+Alternatively, you can skip those infrastructure prerequisites and make a [quick cloud installation](#quick-cloud-deployment-with-envoy) or jump to our [local deployment](#deploy-pachyderm-locally-with-envoy) section for the first encounter with Pachyderm.
 
 ## Pachyderm General Infrastructure Recommendations
 
 For production deployments, we recommend that you:
 
 * **Provision a TCP load balancer** for all HTTP/HTTPS, gRPC/gRPCs, aws s3, /dex incoming traffic.
-The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/443` forwarding to `pachyderm-proxy` service entry point. See the diagram above.
+The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/443` forwarding to the `pachyderm-proxy` service entry point. Please take a look at the diagram above.
         
-    When Envoy is enabled with `type:LoadBalancer` (see the snippet of a values.yaml enabling the proxy below), Pachyderm creates a `pachyderm-proxy` service allowing your cloud platform (AWS, GKE...) to **provision a TCP Load Balancer automatically**.
+    When Envoy is enabled with `type:LoadBalancer` (see the snippet of values.yaml allowing the proxy to below), Pachyderm creates a `pachyderm-proxy` service allowing your cloud platform (AWS, GKE...) to **provision a TCP Load Balancer automatically**.
         
     To provision this external load balancer automatically (if supported), add the appropriate `annotations` in the `proxy` service of your values.yaml (see below) to attach any Load Balancer configuration information to the metadata of your service:
 
@@ -87,15 +86,10 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
 
 * **Use a secure connection**
 
-    Make sure that you have Transport
-    Layer Security (TLS) enabled for your incoming traffic.
-    You can deploy `pachd` and `console` with different certificates
-    if required. Self-signed certificates might require additional configuration.
-    For instructions on deployment with TLS, 
-    see [Deploy Pachyderm with TLS](../deploy-w-tls/).
+    Make sure that you have Transport Layer Security (TLS) is enabled for your incoming traffic. If required, you can deploy `pachd` and `console` with different certificates. Self-signed certificates might require additional configuration. For instructions on deployment with TLS, see [Deploy Pachyderm with TLS](../deploy-w-tls/).
 
-    !!! Note
-        Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as kubernetes secrets into your cluster for the TCP load balancer to use.
+    !!! Note 
+        Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as Kubernetes secrets into your cluster for the TCP load balancer to use.
    
 * **Use Pachyderm authentication/authorization**
 
@@ -112,13 +106,53 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
 Once you have your networking infrastructure setup, 
 check the [deployment page that matches your cloud provider](../../){target=_blank}.
 
-Follow the installation steps applying to the cloud provider of your choice. 
+Follow the installation steps that apply to the cloud provider of your choice. 
 The use of Envoy does not change any of the installation steps up to the setup of your context.
-Follow all instructions from ch. 1-6. Once your cluster is provisionned and Pachyderm installed, however, 
+
+!!! Attention "Deploying Console in Production"
+    Deploying Pachyderm with Envoy simplifies the setup of Console (No more ingress needed in front of Console). In a production environment, you will need to:
+    - Activate Authentication.
+    - Update the values in the highlighted fields below.
+    - Additionally, you will need to configure your Identity Provider as a part of your values.yaml (`oidc.upstreamIDPs`). See examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461){target=_blank} and read [our IDP Configuration page](../../../enterprise/auth/authentication/IDP-dex) for a better understanding of each field. 
+
+    Add the following to your values.yaml:
+    ```yaml hl_lines="4-7 17 19-28"
+
+    deployTarget: "<pick-your-cloud-provider>"
+
+    # enable the proxy
+    proxy:
+      enabled: true
+      service:
+        type: LoadBalancer
+
+    pachd:
+      storage:
+        amazon:
+          bucket: "<bucket-name>"
+          ...
+          region: "<us-east-2>"
+      # pachyderm enterprise key
+      enterpriseLicenseKey: "<your-enterprise-token>"
+      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
+
+    console:
+      enabled: true
+      config:
+        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
+        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
+
+    oidc:
+      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
+      # populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
+      upstreamIDPs: []
+    ```
+
+Follow all instructions from ch. 1-6. Once your cluster is provisioned, and Pachyderm installed, however, 
 replace the instructions in ch. 7 (Have 'pachctl' And Your Cluster Communicate) of your cloud deployment instructions by the following.
 
 ### To connect your `pachctl` client to your cluster
-The grpc address provided when pointing your `pachctl` CLI at your cluster changes now that Envoy allows a single entrypoint.
+The grpc address provided when pointing your `pachctl` CLI at your cluster changes now that Envoy allows a single entry point.
 Run the following commands:
 
 1. Retrieve the external IP address of your TCP load balancer (or use your domain name):
@@ -142,19 +176,19 @@ Run the following commands:
   Your cluster context name should show up. You `pachctl` client now points to your cluster.
 
 ### If you have deployed **Console**
-Point your browser to `<external-IP-address-or-domain-name`. No port number needed. You will be prompted to login to your Console.
+Point your browser to `<external-IP-address-or-domain-name`. No port number is needed. You will be prompted to log in to your Console.
 
 ### If you have installed **JupyterHub and the Mount Extension**
 The connection string to your Pachyderm cluster (check the login form accessible by clicking on the mount extension icon in the far left tab bar) is now "grpc://<external-IP-address-or-domain-name>:80".
 
 ## Quick Cloud Deployment With Envoy
 
-Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for those few steps:
+Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for those few steps:
 
-- In section 2 (Create Your Values.yaml), replace your values yaml with the following. Pick your cloud provider. Make sure to replace the dummy values with their relevant information. Then proceed with the helm installation as detailed in section 3. 
+- In section 2 (Create Your Values.yaml), replace your values yaml with the following. Pick your cloud provider. Replace the dummy values with their relevant information. Then proceed with the helm installation as detailed in section 3. 
 - To [connect your `pachctl` client to your cluster](#to-connect-your-pachctl-client-to-your-cluster),replace section 4 with the instructions detailed above.
-- To [connect to Console](#if-you-have-deployed-console), replace section 5 with the the instructions provided in the link.
-- If you deployed JupyterHub (section 7), use the instructions in the link to [log into the Mount Extension](#if-you-have-installed-jupyterhub-and-the-mount-extension). 
+- To [connect to Console](#if-you-have-deployed-console), replace section 5 with the instructions provided in the link.
+- If you deployed JupyterHub (section 7), use the instructions in the link to [login to the Mount Extension](#if-you-have-installed-jupyterhub-and-the-mount-extension). 
 
 
 ### AWS
@@ -180,7 +214,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
     ```
 === "Deploy Pachyderm with Console"
 
-    ```yaml
+    ```yaml hl_lines="3-6 18-30"
     deployTarget: "AMAZON"
 
     proxy:
@@ -199,6 +233,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
           region: "<us-east-2>"
       # pachyderm enterprise key 
       enterpriseLicenseKey: "<your-enterprise-token>"
+      localhostIssuer: "true"
       oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
 
     console:
@@ -233,7 +268,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
     ```
 === "Deploy Pachyderm with Console"
 
-    ```yaml
+    ```yaml hl_lines="3-6 15-26"
     deployTarget: "GOOGLE"
 
     proxy:
@@ -249,6 +284,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
             INSERT JSON CONTENT HERE
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
+      localhostIssuer: "true"
       oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
 
     console:
@@ -285,7 +321,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
     ```
 === "Deploy Pachyderm with Console"
 
-    ```yaml    
+    ```yaml hl_lines="3-6 18-29"
     deployTarget: "MICROSOFT"
 
     proxy:
@@ -304,6 +340,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
           secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
+      localhostIssuer: "true"
       oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
 
     console:
@@ -318,7 +355,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/) but for t
 ## Deploy Pachyderm Locally With Envoy
 
 This section is an alternative to the default [local deployment instructions](../../../getting-started/local-installation){target=_blank}. It uses a variant of the default local values.yaml enabling the Envoy proxy. 
-We will make many references to the original local installation instructions and only highlight the differences.
+We will reference the original local installation instructions and only highlight the differences.
 
   
 !!! Warning "Reminder"
@@ -329,9 +366,9 @@ We will make many references to the original local installation instructions and
       Persistent Volumes (PVs). If you want to deploy a production multi-node  
       cluster, follow the instructions for your cloud provider or on-prem  
       installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).  
-      New Kubernetes nodes cannot be added to this single-node cluster.   
+      You won't be able to add new Kubernetes nodes to this single-node cluster.   
  
-### 0- Prerequisites  
+### Prerequisites  
 You have installed:  
   
 - A [Kubernetes cluster](../../../getting-started/local-installation/#setup-a-local-kubernetes-cluster){target=_blank} running on your local environment (pick the virtual machine of your choice):   
@@ -344,7 +381,7 @@ You have installed:
 - [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank} to interact with your underlying Kubernetes cluster.
  
   
-### 1- Deploy Pachyderm Community Edition Or Enterprise
+### Deploy Pachyderm Community Edition Or Enterprise
   
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps. 
 Note that the Enterprise version of Pachyderm comes with Console, Pachyderm's UI.
@@ -412,7 +449,7 @@ Note that you can run both Console and JupyterLab on your local installation.
       kubectl delete pvc -l suite=pachyderm 
       ```
 
-### 2- Check Your Install
+### Check Your Install
 
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
@@ -444,13 +481,13 @@ Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
 Kubernetes restarted those pods. Re-run `kubectl get pods`
  
 
-### 3- Connect 'pachctl' To Your Cluster
+### Connect 'pachctl' To Your Cluster
 
 Assuming your `pachd` is running as shown above,
 you can now connect `pachctl` to your local cluster.
 
 !!! Attention "Minikube users" 
-  Open a new tab in your terminal and run `minikube tunnel` (the command creates a network route on your host to `pachyderm-proxy` service deployed with type LoadBalancer, and set its ingress to its ClusterIP, here `127.0.0.1`). You will be prompted to enter your password.
+    Open a new tab in your terminal and run `minikube tunnel` (the command creates a network route on your host to `pachyderm-proxy` service deployed with type LoadBalancer, and set its ingress to its ClusterIP, here `127.0.0.1`). You will be prompted to enter your password.
 
 - To connect `pachctl` to your new Pachyderm instance, run:
 
@@ -458,16 +495,16 @@ you can now connect `pachctl` to your local cluster.
     echo '{"pachd_address":"grpc://127.0.0.1:80"}' | pachctl config set context local --overwrite && pachctl config set active-context local
     ```
 
-   Verify that `pachctl` and your cluster are connected by running `pachctl version`:
-  
+    Verify that `pachctl` and your cluster are connected by running `pachctl version`:
+    
     **System Response:**  
 
-    ```  
-    COMPONENT           VERSION  
-    pachctl             {{ config.pach_latest_version }}  
-    pachd               {{ config.pach_latest_version }}  
-    ```  
-    You are all set!  
+      ```  
+      COMPONENT           VERSION  
+      pachctl             {{ config.pach_latest_version }}  
+      pachd               {{ config.pach_latest_version }}  
+      ```  
+      You are all set!  
 
 - To connect to your Console (Pachyderm UI), point your browser to **`localhost`** (no port number needed)
 and authenticate using the mock User (username: `admin`, password: `password`).
@@ -483,92 +520,3 @@ authenticate again (to Pachyderm this time) with the mock User (username: `admin
   
 Complete the [Beginner Tutorial](../beginner-tutorial) to learn the basics of Pachyderm, such as adding data to a repository and building analysis pipelines.  
   
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-By default, the local deployment of Pachyderm deploys the `pachyderm-proxy` service as `type:LoadBalancer`.
-
-The plan is:
-
-Make a proxy that serves all traffic on one port available, but optional (proxy.enabled).  Only cleartext HTTP on port 80 for now.  (Currently working in a PR, hopefully part of 2.2.   )
-
-Allow the proxy to serve individual ports without special routing, to be the same as the legacy NodePort/LoadBalancer port.  (proxy.service.type, proxy.service.legacyPorts={ grpc: 30650, ... } (Currently working in a PR, hopefully part of 2.2.)
-
-Allow the proxy to be configured with a TLS certificate and serve secure traffic on port 443, and redirect port 80 to https.  (2.2.something)
-
-Make the proxy the default (2.3)
-
-Make pachd.proxy.enabled default to true.
-
-Make the proxy non-optional (2.4)
-
-Remove the pachd.service and pachd.externalService configuration keys.
-
-Convert any external pachd service in the cluster to point at the proxy instead of directly at pachd.
-
-Consider supporting mTLS; where envoy ↔︎ {pachd, console} traffic is encrypted.  (More user feedback needed on whether or not they need this.) (2.4-ish.)
-
-Depending on the outcome of this, TLS configuration can be removed from pachd and console.  Envoy will terminate TLS, and pachd need not concern itself with updating keys.
-
-
-
-https://pachyderm.atlassian.net/browse/ENT-10#icft=ENT-10 and https://pachyderm.atlassian.net/browse/ENT-11#icft=ENT-11 make it possible to just point an Ingress controller, ANY ingress controller, at this Envoy port and have everything work perfectly with no setup.
-
-This epic tracks doing the necessary work to make this work smoothly.  We can remove a lot of hacks that are in place once we have this, specifically relating to local deployment.  Local deployment and real deployment should be identical from a networking perspective now.  I think the only knobs to turn are: what's the external name of this TCP port (needed for oauth redirects), and do you want TLS.
