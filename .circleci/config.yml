@@ -77,11 +77,11 @@ jobs:
       - run: etc/testing/circle/launch.sh
       - run:
           name: run tests
-          no_output_timeout: 40m
+          no_output_timeout: 20m
           command: |
             go install ./src/testing/match
             make launch-stats
-            PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) go test -v $(go list ./... | circleci tests split) | stdbuf -i0 tee -a /tmp/results
+            PROM_PORT="http://$(minikube ip):32002" go test -v $(go list ./... | circleci tests split) | stdbuf -i0 tee -a /tmp/results
       - run: 
           command: etc/testing/circle/upload_stats.sh
           when: always
