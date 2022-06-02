@@ -77,7 +77,7 @@ jobs:
           command: |
             go install ./src/testing/match
             wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
-            go test -v $(go list ./... | circleci tests split)
+            go test -v $(go list ./... | circleci tests split) | stdbuf -i0 tee -a /tmp/results
       - run: 
           command: etc/testing/circle/upload_stats.sh
           when: always
