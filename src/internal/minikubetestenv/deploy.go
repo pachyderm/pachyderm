@@ -3,7 +3,6 @@ package minikubetestenv
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -276,13 +275,9 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 		if err != nil {
 			return errors.Wrap(err, "loki not ready")
 		}
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return errors.Wrap(err, "could not read response body")
-		}
-		status := strings.TrimSpace(string(b))
-		if status != "ready" {
-			return errors.Errorf("loki not ready but %s", status)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return errors.Errorf("loki not ready")
 		}
 		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
