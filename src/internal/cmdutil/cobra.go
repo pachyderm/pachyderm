@@ -334,9 +334,9 @@ func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
 			if cmd.Use == "" {
 				cur.Use = arg
 			} else {
-				cur.Use = strings.Replace(cmd.Use, "{{alias}}", arg, -1)
+				cur.Use = strings.ReplaceAll(cmd.Use, "{{alias}}", arg)
 			}
-			cur.Example = strings.Replace(cmd.Example, "{{alias}}", fmt.Sprintf("%s %s", os.Args[0], invocation), -1)
+			cur.Example = strings.ReplaceAll(cmd.Example, "{{alias}}", fmt.Sprintf("%s %s", os.Args[0], invocation))
 		} else {
 			cur.Use = arg
 		}

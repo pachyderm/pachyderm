@@ -161,6 +161,20 @@ spec:
         - name: TLS_CERT_SECRET_NAME
           value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
         {{- end }}
+        {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
+              key: "enterprise-license-key"
+        {{- end }}
+        {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
+        - name: ENTERPRISE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
+              key: "enterprise-secret"
+        {{- end }}
         {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}
         - name: AUTH_ROOT_TOKEN
           {{- if .Values.pachd.rootTokenSecretName }}

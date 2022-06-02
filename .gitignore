@@ -5,6 +5,9 @@
 # vim temporary files
 *.sw[a-p]
 
+# Ignore IntelliJ project metadata
+.idea
+
 # For context helper script config
 .ctx
 

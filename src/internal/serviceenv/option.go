@@ -25,10 +25,10 @@ func ApplyOptions(config *Configuration, opts ...ConfigOption) {
 // config with certain default values overridden via options.
 func ConfigFromOptions(opts ...ConfigOption) *Configuration {
 	result := &Configuration{
-		GlobalConfiguration:            &GlobalConfiguration{},
-		PachdSpecificConfiguration:     &PachdSpecificConfiguration{},
-		WorkerSpecificConfiguration:    &WorkerSpecificConfiguration{},
-		EnterpriseSpecifcConfiguration: &EnterpriseSpecifcConfiguration{},
+		GlobalConfiguration:             &GlobalConfiguration{},
+		PachdSpecificConfiguration:      &PachdSpecificConfiguration{},
+		WorkerSpecificConfiguration:     &WorkerSpecificConfiguration{},
+		EnterpriseSpecificConfiguration: &EnterpriseSpecificConfiguration{},
 	}
 	ApplyOptions(result, opts...)
 	return result
