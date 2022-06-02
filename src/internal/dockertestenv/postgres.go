@@ -142,6 +142,7 @@ then
     -e POSTGRES_HOST_AUTH_METHOD=trust \
     -p 30228:5432 \
 	--name pach_test_postgres \
+	--rm \
     postgres:13.0-alpine)
 
     postgres_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' $postgres_id)
