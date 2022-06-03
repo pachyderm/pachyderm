@@ -134,6 +134,12 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	// Apply op's update to rc
 	rc := old.DeepCopy()
+	// clearing resourceVersion effectively tells k8s to ignore concurrent modifications.
+	// While this has a chance of overwriting a direct change to the RC outside of pachyderm,
+	// the most likely source of conflict is replica state changes, which can be safely ignored.
+	// Ensuring an uninterrupted update would require changing our retry logic,
+	// as currently a failure here leads to failing the pipeline
+	rc.ResourceVersion = ""
 	if update(rc) {
 		// write updated RC to k8s
 		kd.limiter.Acquire()
