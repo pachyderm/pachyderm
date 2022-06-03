@@ -57,12 +57,17 @@ spec:
           value: "extra_float_digits"
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
+          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRESQL_PASSWORD
+          value: "password"
+          {{- else }}
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: bitnami/pgbouncer:1.16.0
+          {{- end }}
+        image: bitnami/pgbouncer:1.16.1-debian-10-r82
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
