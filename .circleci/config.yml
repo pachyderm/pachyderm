@@ -27,16 +27,12 @@ parameters:
 
 jobs:
   circleci:
-    parameters:
-      bucket:
-        type: string
+    parallelism: 16
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
-      PPS_BUCKETS: "6"
       GOPROXY: https://proxy.golang.org
-      BUCKET: << parameters.bucket >>
     steps:
       - checkout
       - run:
@@ -52,6 +48,9 @@ jobs:
           key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
+      - run:
+          name: add cached deps to path
+          command: echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -70,18 +69,6 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh
-      - when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
-          condition:
-            equal: [MISC, <<parameters.bucket>>]
-          steps:
-            - save_cache:
-                key: pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-                paths:
-                  - /home/circleci/.go_workspace/pkg/mod
-            - save_cache:
-                key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-                paths:
-                  - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
@@ -89,9 +76,15 @@ jobs:
           background: true
       - run: etc/testing/circle/launch.sh
       - run:
+          name: run tests
           no_output_timeout: 20m
-          command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
-      - run:
+          command: |
+            go install ./src/testing/match
+            make launch-stats
+            make launch-enterprise
+            echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
+            PROM_PORT="$(minikube ip):32002" go test -v $(go list ./... | circleci tests split) | stdbuf -i0 tee -a /tmp/results
+      - run: 
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
@@ -374,100 +367,102 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - build
-      - check-prettier
-      - test-envoy
-      - circleci:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS_AUTH
-                - EXAMPLES
-                - INTERNAL
-  helm:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - helm-build:
-          filters:
-            # Note: Not ignoring branches, so will be run on branches as well as tags
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish:
-          requires:
-            - helm-build
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  load_tests:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - load_test
-  nightly_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - 2.1.x
-                - 2.2.x
-    jobs:
-      - nightly_load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-  rootless:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - rootless
-  deploy:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - deploy
-  pach_core_release:
-    when: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - release_job:
-          filters:
-            branches:
-              only:
-                - 2.1.x
-                - 2.2.x
-  red_hat:
-    jobs:
-      - push_redhat:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+       - circleci
+     # - build
+     # - check-prettier
+     # - test-envoy
+     # - circleci:
+     #     matrix:
+     #       parameters:
+     #         bucket:
+     #           - MISC
+     #           # If you want to update the number of PPS buckets, you'll need to
+     #           # update the value of PPS_BUCKETS above
+     #           - AUTH
+     #           - ENTERPRISE
+     #           - PFS
+     #           - PPS1
+     #           - PPS2
+     #           - PPS3
+     #           - PPS4
+     #           - PPS5
+     #           - PPS6
+     #           - PPS_AUTH
+     #           - EXAMPLES
+     #           - INTERNAL
+  #helm:
+  #  when:
+  #    and:
+  #      - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #  jobs:
+  #    - helm-build:
+  #        filters:
+  #          # Note: Not ignoring branches, so will be run on branches as well as tags
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #    - helm-publish:
+  #        requires:
+  #          - helm-build
+  #        filters:
+  #          branches:
+  #            ignore: /.*/
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #load_tests:
+  #  when:
+  #    and:
+  #      - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #  jobs:
+  #    - load_test
+  #nightly_load_tests:
+  #  triggers:
+  #    - schedule:
+  #        cron: "0 6 * * *"
+  #        filters:
+  #          branches:
+  #            only:
+  #              - master
+  #              - 2.1.x
+  #              - 2.2.x
+  #  jobs:
+  #    - nightly_load:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - LOAD1
+  #              - LOAD2
+  #              - LOAD3
+  #              - LOAD4
+  #              - LOAD5
+  #              - LOAD6
+  #              - LOAD7
+  #rootless:
+  #  when:
+  #    and:
+  #      - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #  jobs:
+  #    - rootless
+  #deploy:
+  #  when:
+  #    and:
+  #      - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #  jobs:
+  #    - deploy
+  #pach_core_release:
+  #  when: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #  jobs:
+  #    - release_job:
+  #        filters:
+  #          branches:
+  #            only:
+  #              - 2.1.x
+  #              - 2.2.x
+  #red_hat:
+  #  jobs:
+  #    - push_redhat:
+  #        filters:
+  #          branches:
+  #            ignore: /.*/
+  #          tags:
+  #            only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+#

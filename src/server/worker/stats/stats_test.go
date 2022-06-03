@@ -87,7 +87,7 @@ func TestPrometheusStats(t *testing.T) {
 
 	port := os.Getenv("PROM_PORT")
 	promClient, err := prom_api.NewClient(prom_api.Config{
-		Address: fmt.Sprintf("http://127.0.0.1:%v", port),
+		Address: fmt.Sprintf("http://%v", port),
 	})
 	require.NoError(t, err)
 	promAPI := prom_api_v1.NewAPI(promClient)
