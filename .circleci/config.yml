@@ -143,7 +143,7 @@ jobs:
       - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
-  load_test:
+  load-test:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -156,19 +156,15 @@ jobs:
       - gcp-cli/initialize
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/launch.sh
       - run: etc/testing/circle/run_load_tests.sh
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
-  nightly_load:
+  nightly-load:
     parameters:
       bucket:
         type: string
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -181,10 +177,6 @@ jobs:
       - gcp-cli/initialize
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/launch.sh
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
@@ -419,7 +411,7 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - load_test
+      - load-test
   nightly_load_tests:
     triggers:
       - schedule:
@@ -431,7 +423,7 @@ workflows:
                 - 2.1.x
                 - 2.2.x
     jobs:
-      - nightly_load:
+      - nightly-load:
           matrix:
             parameters:
               bucket:
