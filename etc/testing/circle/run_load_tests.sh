@@ -2,22 +2,58 @@
 
 set -euxo pipefail
 
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh"
-
 mkdir -p "${HOME}/go/bin"
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 export GOPATH="${HOME}/go"
 
+# Install go.
+sudo rm -rf /usr/local/go
+curl -L https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
+go version
+
+# Install goreleaser.
+GORELEASER_VERSION=0.169.0
+curl -L "https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz" \
+    | tar xzf - -C "${HOME}/go/bin" goreleaser
+
+# Build pachctl.
+make install
 pachctl version --client-only
 
 # Set version for docker builds.
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
-helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
+# Build and push docker images.
+make docker-build
+make docker-push
 
-kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+JOB=$(echo "$CIRCLE_JOB" | tr '[:upper:]' '[:lower:]')
+
+# # provision a pulumi load test env
+curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
+ -F name=commit-"${CIRCLE_SHA1:0:7}-${JOB}" -F pachdVersion="${VERSION}" -F valuesYaml=@etc/testing/circle/helm-load-env-values.yaml \
+  https://helium.pachyderm.io/v1/api/workspace
+
+# wait for helium to kick off to pulumi before pinging it.
+sleep 5
+
+for _ in $(seq 54); do
+  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}" | jq .Workspace.Status | tr -d '"')
+  if [[ ${STATUS} == "ready" ]]
+  then
+    echo "success"
+    break
+  fi
+  echo 'sleeping'
+  sleep 10
+done
+
+pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}"  | jq .Workspace.PachdIp)
+
+echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "commit-${CIRCLE_SHA1:0:7}-${JOB}" --overwrite && pachctl config set active-context "commit-${CIRCLE_SHA1:0:7}-${JOB}"
+
+echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
 
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
 for i in $(seq 1 20); do
@@ -39,7 +75,7 @@ if [ "${?}" -ne 0 ]; then
 	exit 1
 fi
 
-if [[ "$CIRCLE_JOB" == *"nightly_load"* ]]; then
+if [[ "$CIRCLE_JOB" == *"nightly-load"* ]]; then
 
 DURATION=$(echo "$PFS_RESPONSE_SPEC" | jq '.duration')
 DURATION=${DURATION: 1:-2}
@@ -51,7 +87,7 @@ fi
 
 PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
 
-if [[ "$CIRCLE_JOB" == *"nightly_load"* ]]; then
+if [[ "$CIRCLE_JOB" == *"nightly-load"* ]]; then
 
 DURATION=$(echo "$PPS_RESPONSE_SPEC" | jq '.duration')
 DURATION=${DURATION: 1:-2}

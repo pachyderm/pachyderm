@@ -252,18 +252,19 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
-	parallelism := pipelineInfo.Parallelism
-	if parallelism == 0 {
-		parallelism = 1
-	}
 	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
+		currRC, _, err := pc.getRC(ctx, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		parallelism := int(*currRC.Spec.Replicas)
 		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
 			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
-		if int(parallelism) == len(workerStatus) {
+		if len(workerStatus) >= parallelism && int(currRC.Status.ReadyReplicas) >= parallelism {
 			if err := pc.psDriver.TransitionState(ctx,
 				pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
