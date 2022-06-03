@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -67,6 +68,8 @@ func (c *Config) ActiveContext(errorOnNoActive bool) (string, *Context, error) {
 		}
 
 	}
+
+	fmt.Printf("pachyderm context is: %v\n", context.PachdAddress)
 	return c.V2.ActiveContext, context, nil
 }
 

@@ -66,10 +66,10 @@ case "${BUCKET}" in
     make enterprise-code-checkin-test
     go install -v ./src/testing/match
     make test-cmds
-    make test-proto-static
-    make test-transaction
-    make test-s3gateway-unit
-    make test-worker
+    #make test-proto-static
+    #make test-transaction
+    #make test-s3gateway-unit
+    #make test-worker
     # these tests require secure env vars to run, which aren't available
     # when the PR is coming from an outside contributor - so we just
     # disable them

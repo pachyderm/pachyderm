@@ -137,6 +137,8 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...strin
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(bashCmd(cmd, subs...))
 
+	fmt.Println("dynamically creating pachctl config...")
+
 	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
 	if _, err := os.Open(config); err != nil {
 		_, err = os.Create(config)

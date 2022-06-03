@@ -81,10 +81,16 @@ func helmChartLocalPath(t testing.TB) string {
 
 func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	if computedPachAddress == nil {
+		fmt.Println("computed address was nil")
 		cfg, err := config.Read(true, true)
 		require.NoError(t, err)
 		_, context, err := cfg.ActiveContext(false)
 		require.NoError(t, err)
+		if context != nil {
+			fmt.Println("got non-nil context")
+		} else {
+			fmt.Println("got nil context")
+		}
 		computedPachAddress, err = client.GetUserMachineAddr(context)
 		require.NoError(t, err)
 		if computedPachAddress == nil {
@@ -362,6 +368,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := getPachAddress(t)
+	fmt.Printf("Pach address is host: %v port: %v socket: %v secured: %v\n", pachAddress.Host, pachAddress.Port,
+		pachAddress.UnixSocket, pachAddress.Secured)
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port))

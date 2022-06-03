@@ -390,7 +390,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddrStr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
-
+		fmt.Println("PACH_ADDRESS was set!")
 		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "could not parse 'PACHD_ADDRESS'")
@@ -429,6 +429,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 		return pachdAddress, options, nil
 	}
 
+	fmt.Println("getting default (broadcast) address")
 	// 3) Use default address (broadcast) if nothing else works
 	options, err := getCertOptionsFromEnv() // error if PACH_CA_CERTS is set
 	if err != nil {

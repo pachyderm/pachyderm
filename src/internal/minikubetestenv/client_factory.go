@@ -62,7 +62,7 @@ func clusterIdx(t testing.TB, name string) int {
 
 func deployOpts(clusterIdx int, loki bool) *DeployOpts {
 	return &DeployOpts{
-		PortOffset:         uint16(clusterIdx * 10),
+		PortOffset:         0, //uint16(clusterIdx * 10),
 		UseLeftoverCluster: *useLeftoverClusters,
 		Loki:               loki,
 	}
@@ -91,6 +91,7 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 }
 
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *client.APIClient) {
+	fmt.Println("going to acquire a new cluster instead")
 	assigned, clusterIdx := func() (string, int) {
 		cf.mu.Lock()
 		defer cf.mu.Unlock()
