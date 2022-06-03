@@ -4,7 +4,6 @@ import telemetry from './plugins/telemetry';
 import help from './plugins/help';
 import examples from './plugins/examples';
 import mount from './plugins/mount';
-import '@pachyderm/components/dist/style.css';
 
 /**
  * Export the plugins as default.

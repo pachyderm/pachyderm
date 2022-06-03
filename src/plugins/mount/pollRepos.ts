@@ -17,9 +17,9 @@ export const UNMOUNTED_STATES: mountState[] = [
   'unmounted',
 ];
 
-export type RepoStatus = {
-  status: number;
-  message: string;
+export type ServerStatus = {
+  code: number;
+  message?: string;
 };
 
 export class PollRepos {
@@ -32,12 +32,15 @@ export class PollRepos {
 
   private _mounted: Repo[] = [];
   private _unmounted: Repo[] = [];
-  private _status = 999;
-  private _config: AuthConfig = {pachd_address: '', cluster_status: 'INVALID'};
+  private _status: ServerStatus = {code: 999, message: ''};
+  private _config: AuthConfig = {
+    pachd_address: '',
+    cluster_status: 'INVALID',
+  };
 
   private _mountedSignal = new Signal<this, Repo[]>(this);
   private _unmountedSignal = new Signal<this, Repo[]>(this);
-  private _statusSignal = new Signal<this, number>(this);
+  private _statusSignal = new Signal<this, ServerStatus>(this);
   private _configSignal = new Signal<this, AuthConfig>(this);
 
   private _dataPoll = new Poll({
@@ -74,14 +77,15 @@ export class PollRepos {
     this._unmountedSignal.emit(data);
   }
 
-  get status(): number {
+  get status(): ServerStatus {
     return this._status;
   }
 
-  set status(status: number) {
-    if (status === this._status) {
+  set status(status: ServerStatus) {
+    if (JSON.stringify(status) === JSON.stringify(this._status)) {
       return;
     }
+
     this._status = status;
     this._statusSignal.emit(status);
   }
@@ -105,7 +109,7 @@ export class PollRepos {
     return this._unmountedSignal;
   }
 
-  get statusSignal(): ISignal<this, number> {
+  get statusSignal(): ISignal<this, ServerStatus> {
     return this._statusSignal;
   }
 
@@ -140,12 +144,15 @@ export class PollRepos {
       this.config = config;
       if (config.cluster_status !== 'INVALID') {
         const data = await requestAPI<Repo[]>('repos', 'GET');
-        this.status = 200;
+        this.status = {code: 200};
         this.updateData(data);
       }
     } catch (error) {
       if (error instanceof ServerConnection.ResponseError) {
-        this.status = error.response.status;
+        this.status = {
+          code: error.response.status,
+          message: error.response.statusText,
+        };
       }
     }
   }

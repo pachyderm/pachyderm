@@ -22,7 +22,7 @@ describe('mount', () => {
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
       .first()
       .invoke('text')
-      .should('eq', '/ pfs /images/');
+      .should('eq', '/ pfs/images/');
   });
 
   it("should correctly mount a repo's branch", () => {

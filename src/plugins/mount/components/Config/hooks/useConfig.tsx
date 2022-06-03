@@ -1,6 +1,6 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
-import {usePreviousValue} from '@pachyderm/components';
+import usePreviousValue from '../../../../../utils/hooks/usePreviousValue';
 import {AuthConfig} from 'plugins/mount/types';
 
 export type useConfigResponse = {

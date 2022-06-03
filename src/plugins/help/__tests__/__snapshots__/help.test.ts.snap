@@ -4,7 +4,7 @@ exports[`help plugin should execute the contact-support command 1`] = `
 <div
   className="pachyderm-help-title"
 >
-  <ForwardRef
+  <SvgPachydermLogo
     className="pachyderm-help-title-logo"
   />
    

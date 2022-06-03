@@ -34,11 +34,27 @@ export class MountDrive implements Contents.IDrive {
     localPath: string,
     options?: Contents.IFetchOptions,
   ): Promise<Contents.IModel> {
-    const response = await requestAPI<any>(
-      URLExt.join('pfs', localPath),
-      'GET',
-    );
-    return response;
+    try {
+      const response = await requestAPI<Contents.IModel>(
+        URLExt.join('pfs', localPath),
+        'GET',
+      );
+      return response;
+    } catch (e) {
+      console.log('/pfs not found');
+      return {
+        name: '',
+        path: '',
+        last_modified: '2022-04-26T16:28:48.015858Z',
+        created: '2022-04-26T16:28:48.015858Z',
+        content: [],
+        format: 'json',
+        mimetype: '',
+        size: undefined,
+        writable: true,
+        type: 'directory',
+      };
+    }
   }
   getDownloadUrl(localPath: string): Promise<string> {
     throw new Error('Method not implemented.');

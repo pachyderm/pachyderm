@@ -2,7 +2,7 @@ import React from 'react';
 import {JupyterFrontEnd} from '@jupyterlab/application';
 import {IMainMenu} from '@jupyterlab/mainmenu';
 import {Dialog, showDialog} from '@jupyterlab/apputils';
-import {PachydermLogoFooterSVG} from '@pachyderm/components';
+import {PachydermLogo} from '../../utils/components/Svgs';
 
 namespace CommandIDs {
   export const openDocs = 'jupyterlab-pachyderm:open-docs';
@@ -23,7 +23,7 @@ export const init = (app: JupyterFrontEnd, mainMenu?: IMainMenu): void => {
       execute: () => {
         const title = (
           <div className="pachyderm-help-title">
-            <PachydermLogoFooterSVG className="pachyderm-help-title-logo" />{' '}
+            <PachydermLogo className="pachyderm-help-title-logo" />{' '}
             <h2>Pachyderm Support</h2>
           </div>
         );

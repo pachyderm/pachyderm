@@ -1,14 +1,13 @@
 import React from 'react';
-import {act, render, screen, fireEvent, waitFor} from '@testing-library/react';
+import {render, fireEvent, waitFor} from '@testing-library/react';
 
 import SortableList from '../SortableList';
-import userEvent from '@testing-library/user-event';
 import {Repo} from 'plugins/mount/types';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 jest.mock('../../../../../handler');
 
-describe('mount components', () => {
+describe('sortable list components', () => {
   let open = jest.fn();
   let updateData = jest.fn();
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
@@ -20,9 +19,10 @@ describe('mount components', () => {
   });
 
   it('should disable mount for repo with no branches', async () => {
-    const repos = [
+    const repos: Repo[] = [
       {
         repo: 'images',
+        authorization: 'off',
         branches: [],
       },
     ];
@@ -33,16 +33,43 @@ describe('mount components', () => {
     const listItem = getByTestId('ListItem__noBranches');
     expect(listItem).toHaveTextContent('images');
     expect(listItem).toHaveTextContent('No Branches');
+    expect(listItem).toHaveAttribute(
+      'title',
+      'A repository must have a branch in order to mount it',
+    );
+  });
+
+  it('should disable mount for repo with no access', async () => {
+    const repos: Repo[] = [
+      {
+        repo: 'images',
+        authorization: 'none',
+        branches: [],
+      },
+    ];
+
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
+    const listItem = getByTestId('ListItem__unauthorized');
+    expect(listItem).toHaveTextContent('images');
+    expect(listItem).toHaveTextContent('No read access');
+    expect(listItem).toHaveAttribute(
+      'title',
+      "You don't have the correct permissions to access this repository",
+    );
   });
 
   it('should sort repos by name', async () => {
-    const repos = [
+    const repos: Repo[] = [
       {
         repo: 'images',
+        authorization: 'off',
         branches: [],
       },
       {
         repo: 'data',
+        authorization: 'off',
         branches: [],
       },
     ];
@@ -67,6 +94,7 @@ describe('mount components', () => {
     const repos: Repo[] = [
       {
         repo: 'images',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -109,6 +137,7 @@ describe('mount components', () => {
     const repos: Repo[] = [
       {
         repo: 'images',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -152,6 +181,7 @@ describe('mount components', () => {
     const repos: Repo[] = [
       {
         repo: 'images',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -181,6 +211,7 @@ describe('mount components', () => {
     const repos: Repo[] = [
       {
         repo: 'images',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -231,6 +262,7 @@ describe('mount components', () => {
     const repos: Repo[] = [
       {
         repo: 'edges',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -248,23 +280,20 @@ describe('mount components', () => {
         ],
       },
     ];
-    act(() => {
-      render(
-        <SortableList open={open} repos={repos} updateData={updateData} />,
-      );
-    });
-    const statusIcon = screen.getByTestId('ListItem__statusIcon');
 
-    userEvent.hover(statusIcon);
-    expect(screen.queryByTestId('tooltip-branch-status')).toHaveTextContent(
-      'Error: error mounting branch',
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
     );
+
+    const statusIcon = getByTestId('ListItem__statusIcon');
+    expect(statusIcon.title).toEqual('Error: error mounting branch');
   });
 
   it('should disable item when it is in a loading state', async () => {
     const repos: Repo[] = [
       {
         repo: '1',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -283,6 +312,7 @@ describe('mount components', () => {
       },
       {
         repo: '2',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',
@@ -301,6 +331,7 @@ describe('mount components', () => {
       },
       {
         repo: '3',
+        authorization: 'off',
         branches: [
           {
             branch: 'master',

@@ -2,7 +2,7 @@ import React, {useCallback} from 'react';
 import {Repo} from '../../types';
 import ListItem from './ListItem';
 import {caretUpIcon, caretDownIcon} from '@jupyterlab/ui-components';
-import {useSort, stringComparator} from '@pachyderm/components';
+import {useSort, stringComparator} from '../../../../utils/hooks/useSort';
 
 type SortableListProps = {
   repos: Repo[];

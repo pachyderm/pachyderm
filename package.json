@@ -33,6 +33,7 @@
     "build:labextension": "jupyter labextension build .",
     "build:labextension:dev": "jupyter labextension build --development True .",
     "build:lib": "tsc",
+    "build:svg": "svgr --out-dir src/utils/components/Svgs svg-images",
     "clean": "npm run clean:lib",
     "clean:lib": "rimraf lib tsconfig.tsbuildinfo",
     "clean:labextension": "rimraf jupyterlab_pachyderm/labextension",
@@ -50,7 +51,6 @@
     "watch:labextension": "jupyter labextension watch ."
   },
   "dependencies": {
-    "@apollo/client": "^3.4.17",
     "@jupyterlab/application": "^3.1.0",
     "@jupyterlab/coreutils": "^5.1.0",
     "@jupyterlab/filebrowser": "^3.2.4",
@@ -59,28 +59,25 @@
     "@jupyterlab/notebook": "^3.2.1",
     "@jupyterlab/services": "^6.1.0",
     "@jupyterlab/terminal": "^3.2.1",
-    "@pachyderm/components": "^1.14.0",
     "@pachyderm/config": "^0.7.0",
-    "@sentry/react": "^6.14.1",
-    "graphql": "^16.0.1",
     "lodash": "^4.17.21",
     "react": "^17.0.2",
-    "react-helmet": "^6.1.0",
-    "react-hook-form": "^7.19.1",
-    "react-router-dom": "^6.0.1",
     "rudder-sdk-js": "^1.2.1",
     "svg-url-loader": "^7.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.16.0",
+    "@babel/preset-react": "^7.17.12",
     "@babel/preset-typescript": "^7.16.0",
     "@jupyterlab/builder": "^3.4.1",
+    "@svgr/cli": "^6.2.1",
     "@testing-library/cypress": "^8.0.1",
     "@testing-library/jest-dom": "^5.15.1",
     "@testing-library/react": "^12.1.2",
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.0.2",
+    "@types/lodash": "^4.14.182",
     "@types/react": "^17.0.34",
     "@typescript-eslint/eslint-plugin": "^4.8.1",
     "@typescript-eslint/parser": "^4.8.1",
@@ -107,7 +104,6 @@
     "access": "public"
   },
   "jupyterlab": {
-    "webpackConfig": "./webpack.config.js",
     "discovery": {
       "server": {
         "managers": [

@@ -14,7 +14,10 @@
 .pachyderm-mount-base-title {
   padding: 0.25rem 0.75rem;
   font-weight: 800;
-  height: 1.563rem;
+}
+
+.pachyderm-mount-icon-padding {
+  padding-top: 3px;
 }
 
 .pachyderm-mount-config-container {
@@ -33,7 +36,7 @@
   display: flex;
   flex-direction: column;
   width: 75%;
-  padding-left:5px;
+  padding-left: 5px;
 }
 
 .pachyderm-mount-list-item-name {
@@ -78,6 +81,7 @@
 }
 
 .pachyderm-mount-list-item-status-icon {
+  margin-top: -1px;
   transform: scale(0.7);
 }
 
@@ -144,13 +148,13 @@
   border-bottom: 1px solid var(--jp-border-color2);
 }
 
+.pachyderm-mount-sortableList-item:hover {
+  background: var(--jp-layout-color2);
+}
+
 .pachyderm-mount-sortableList-disabled {
   opacity: 50%;
   pointer-events: none;
-}
-
-.pachyderm-mount-sortableList-item:hover {
-  background: var(--jp-layout-color2);
 }
 
 .pachyderm-mount-list-item-branch-select {

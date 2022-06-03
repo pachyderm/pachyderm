@@ -1,4 +1,4 @@
-import {Circle, CircleColor, Tooltip} from '@pachyderm/components';
+import {Circle, CircleColor} from '../../../../utils/components/Circle/Circle';
 import {capitalize} from 'lodash';
 import React, {useEffect, useState} from 'react';
 import {requestAPI} from '../../../../handler';
@@ -12,6 +12,8 @@ export const DISABLED_STATES: mountState[] = [
   'error',
 ];
 
+export const ACCESS: mountState[] = ['unmounting', 'mounting', 'error'];
+
 type ListItemProps = {
   repo: Repo;
   open: (path: string) => void;
@@ -22,6 +24,11 @@ const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
   const [mountedBanch, setMountedBranch] = useState<Branch>();
   const [selectedBranch, setSelectedBranch] = useState<string>();
   const [disabled, setDisabled] = useState<boolean>(false);
+  const [authorized, setAuthorized] = useState<boolean>(false);
+
+  useEffect(() => {
+    setAuthorized(repo.authorization !== 'none');
+  }, [repo]);
 
   useEffect(() => {
     const found = findMountedBranch(repo);
@@ -79,11 +86,32 @@ const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
     }
   };
 
+  if (!authorized) {
+    return (
+      <li
+        className="pachyderm-mount-sortableList-item"
+        data-testid="ListItem__unauthorized"
+        style={{cursor: 'not-allowed'}}
+        title="You don't have the correct permissions to access this repository"
+      >
+        <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
+          <span className="pachyderm-mount-list-item-name" title={repo.repo}>
+            {repo.repo}
+          </span>
+          <span className="pachyderm-mount-list-item-branch">
+            No read access
+          </span>
+        </span>
+      </li>
+    );
+  }
+
   if (!hasBranches) {
     return (
       <li
         className="pachyderm-mount-sortableList-item"
         data-testid="ListItem__noBranches"
+        title="A repository must have a branch in order to mount it"
       >
         <span className="pachyderm-mount-list-item-name-branch-wrapper pachyderm-mount-sortableList-disabled">
           <span className="pachyderm-mount-list-item-name" title={repo.repo}>
@@ -190,18 +218,14 @@ const renderStatus = (state: mountState, status: string | null) => {
         color={color as CircleColor}
         className="pachyderm-mount-list-item-status-circle"
       />
-      <Tooltip
-        tooltipKey="branch-status"
-        tooltipText={statusMessage}
-        placement="right"
+
+      <div
+        data-testid="ListItem__statusIcon"
+        className="pachyderm-mount-list-item-status-icon"
+        title={statusMessage}
       >
-        <div
-          data-testid="ListItem__statusIcon"
-          className="pachyderm-mount-list-item-status-icon"
-        >
-          <infoIcon.react tag="span" />
-        </div>
-      </Tooltip>
+        <infoIcon.react tag="span" />
+      </div>
     </>
   );
 };

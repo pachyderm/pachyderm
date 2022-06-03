@@ -42,7 +42,7 @@ const createCustomFileBrowser = (
     if (breadCrumbs) {
       breadCrumbs.node
         .querySelector('svg[data-icon="ui-components:folder"]')
-        ?.replaceWith('/ pfs ');
+        ?.replaceWith('/ pfs');
       const homeElement = breadCrumbs.node.querySelector(
         'span[title="~/extension-wd"]',
       );

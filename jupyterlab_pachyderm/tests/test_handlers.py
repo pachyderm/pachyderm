@@ -29,6 +29,7 @@ def jp_server_config():
 async def test_list_repos(mock_client, jp_fetch):
     mock_client.list.return_value = json.dumps({
         "images": {
+            "authorization": "read",
             "branches": {
                 "master": {
                     "mount": [
@@ -51,6 +52,7 @@ async def test_list_repos(mock_client, jp_fetch):
             "name": "images"
         },
         "edges": {
+            "authorization": "write",
             "branches": {
                 "master": {
                     "mount": [
@@ -79,6 +81,7 @@ async def test_list_repos(mock_client, jp_fetch):
     assert json.loads(r.body) == [
         {
             "repo": "images",
+            "authorization": "read",
             "branches": [
                 {
                     "branch": "master",
@@ -101,6 +104,7 @@ async def test_list_repos(mock_client, jp_fetch):
         },
         {
             "repo": "edges",
+            "authorization": "write",
             "branches": [
                 {
                     "branch": "master",
@@ -142,6 +146,7 @@ async def test_list_repos_error(mock_client, jp_fetch):
 async def test_get_repo(mock_client, jp_fetch):
     mock_client.list.return_value = json.dumps({
         "images": {
+            "authorization": "off",
             "branches": {
                 "master": {
                     "mount": [
@@ -164,6 +169,7 @@ async def test_get_repo(mock_client, jp_fetch):
             "name": "images"
         },
         "edges": {
+            "authorization": "off",
             "branches": {
                 "master": {
                     "mount": [
@@ -192,6 +198,7 @@ async def test_get_repo(mock_client, jp_fetch):
     assert r.code == 200
     assert json.loads(r.body) == {
         "repo": "images",
+        "authorization": "off",
         "branches": [
             {
                 "branch": "master",
@@ -249,6 +256,7 @@ async def test_mount(mock_client, jp_fetch):
     repo, name, mode = "myrepo", "myrepo_mount_name", "ro"
     mock_client.mount.return_value = json.dumps({
         repo: {
+            "authorization": "read",
             "branches": {
                 "master": {
                     "mount": [
@@ -284,6 +292,7 @@ async def test_mount(mock_client, jp_fetch):
     assert r.code == 200
     assert json.loads(r.body) == [
         {
+            "authorization": "read",
             "repo": repo,
             "branches": [
                 {
@@ -317,6 +326,7 @@ async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     repo, branch, mode, name = "myrepo", "mybranch", "rw", "myrepo_mount_name"
     mock_client.mount.return_value = json.dumps({
         repo: {
+            "authorization": "write",
             "branches": {
                 branch: {
                     "mount": [
@@ -353,6 +363,7 @@ async def test_mount_with_branch_and_mode(mock_client, jp_fetch):
     assert json.loads(r.body) == [
         {
             "repo": repo,
+            "authorization": "write",
             "branches": [
                 {
                     "branch": branch,
@@ -407,6 +418,7 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
     repo, branch, name = "myrepo", "mybranch", "mount_name"
     mock_client.unmount.return_value = json.dumps({
         repo: {
+            "authorization": "write",
             "branches": {
                 branch: {
                     "mount": [
@@ -443,6 +455,7 @@ async def test_unmount_with_branch(mock_client, jp_fetch):
     assert json.loads(r.body) == [
         {
             "repo": repo,
+            "authorization": "write",
             "branches": [
                 {
                     "branch": branch,
@@ -496,6 +509,7 @@ async def test_unmount_with_error(mock_client, jp_fetch):
 async def test_unmount_all(mock_client, jp_fetch):
     mock_client.unmount_all.return_value = json.dumps({
         "repo": {
+            "authorization": "off",
             "branches": {
                 "branch": {
                     "mount": [
@@ -527,6 +541,7 @@ async def test_unmount_all(mock_client, jp_fetch):
     assert json.loads(r.body) == [
         {
             "repo": "repo",
+            "authorization": "off",
             "branches": [
                 {
                     "branch": "branch",

@@ -12,6 +12,8 @@ export type mountState =
 
 export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
 
+export type authorization = 'off' | 'none' | 'read' | 'write';
+
 export type Branch = {
   branch: string;
   mount: Mount[];
@@ -34,6 +36,7 @@ export type MountKey = {
 
 export type Repo = {
   repo: string;
+  authorization: authorization;
   branches: Branch[];
 };
 

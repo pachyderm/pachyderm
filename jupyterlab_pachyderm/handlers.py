@@ -55,6 +55,7 @@ def _transform_response(resp):
     return [
         {
             "repo": repo_name,
+            "authorization": repo_info["authorization"],
             "branches": [
                 {"branch": branch_name, "mount": branch_info["mount"]}
                 for branch_name, branch_info in repo_info["branches"].items()
@@ -130,6 +131,7 @@ class RepoHandler(BaseHandler):
         response = json.dumps(
             {
                 "repo": repo,
+                "authorization": repos[repo]["authorization"],
                 "branches": [
                     {"branch": branch_name, "mount": mount_state["mount"]}
                     for branch_name, mount_state in repos[repo]["branches"].items()

@@ -226,6 +226,9 @@ requestAPI<any>('/v2/repos')
 
 You can also access it via `localhost:8888/v2`
 
+## SVG Images
+
+We are leveraging [svgr](https://react-svgr.com/) to simplify the use of non icon svgs in in the project. Svg images that are to be converted live in the `svg-images` folder and get output to the `src/utils/components/Svgs` folder. If you want to add a new image to the project simply add the svg to the `svg-images` folder and run `npm run build:svg`. We have spent some time trying to get svgr to work through the `@svgr/webpack` plugin but have not been successful as of yet.
 
 # Project Structure
 Jupyter extensions are composed of several plugins. These plugins can be selectively enabled or disabled. Because of this we have decided separate the functionality in the extension using plugins. Plugins exported in this extension are as follows.

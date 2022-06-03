@@ -13,13 +13,15 @@ import createCustomFileBrowser from './customFileBrowser';
 import {AuthConfig, IMountPlugin, Repo} from './types';
 import Config from './components/Config/Config';
 import SortableList from './components/SortableList/SortableList';
-import {LoadingDots} from '@pachyderm/components';
+import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
+import FullPageError from './components/FullPageError/FullPageError';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
   private _loader: ReactWidget;
+  private _fullPageError: ReactWidget;
   private _config: ReactWidget;
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
@@ -47,10 +49,13 @@ export class MountPlugin implements IMountPlugin {
       }
     });
 
-    // This is used to detect if the user becomes unauthenticated
+    // This is used to detect if the user becomes unauthenticated of there are errors on the server
     this._poller.statusSignal.connect((_, status) => {
-      //TODO: Error page for 500s from repo poll check made here
-      if (status === 401 && !this._showConfig) {
+      if (status.code === 500) {
+        this.setShowFullPageError(true);
+      }
+
+      if (status.code === 401 && !this._showConfig) {
         this.setShowConfig(true);
       }
     });
@@ -72,7 +77,9 @@ export class MountPlugin implements IMountPlugin {
                             showConfig ? showConfig : this._showConfig
                           }
                           setShowConfig={this.setShowConfig}
-                          reposStatus={status ? status : this._poller.status}
+                          reposStatus={
+                            status ? status.code : this._poller.status.code
+                          }
                           updateConfig={this.updateConfig}
                           authConfig={
                             authConfig ? authConfig : this._poller.config
@@ -103,7 +110,11 @@ export class MountPlugin implements IMountPlugin {
                 className="pachyderm-button-link"
                 onClick={() => this.setShowConfig(true)}
               >
-                Config <settingsIcon.react tag="span" />
+                Config{' '}
+                <settingsIcon.react
+                  tag="span"
+                  className="pachyderm-mount-icon-padding"
+                />
               </button>
             </div>
             <SortableList
@@ -142,6 +153,17 @@ export class MountPlugin implements IMountPlugin {
     );
     this._loader.addClass('pachyderm-mount-react-wrapper');
 
+    this._fullPageError = ReactWidget.create(
+      <UseSignal signal={this._poller.statusSignal}>
+        {(_, status) => (
+          <>
+            <FullPageError status={status ? status : this._poller.status} />
+          </>
+        )}
+      </UseSignal>,
+    );
+    this._fullPageError.addClass('pachyderm-mount-react-wrapper');
+
     this._mountBrowser = createCustomFileBrowser(app, manager, factory);
 
     this._panel = new SplitPanel();
@@ -159,10 +181,11 @@ export class MountPlugin implements IMountPlugin {
 
     this._panel.addWidget(this._loader);
     this._panel.addWidget(this._config);
+    this._panel.addWidget(this._fullPageError);
 
     //default view: hide all till ready
-    this._config.setHidden(false);
     this._config.setHidden(true);
+    this._fullPageError.setHidden(true);
     this._mountedList.setHidden(true);
     this._unmountedList.setHidden(true);
     this._mountBrowser.setHidden(true);
@@ -193,8 +216,25 @@ export class MountPlugin implements IMountPlugin {
       this._unmountedList.setHidden(false);
       this._mountBrowser.setHidden(false);
     }
+    this._fullPageError.setHidden(true);
     this._showConfig = shouldShow;
     this._showConfigSignal.emit(shouldShow);
+  };
+
+  setShowFullPageError = (shouldShow: boolean): void => {
+    if (shouldShow) {
+      this._fullPageError.setHidden(false);
+      this._config.setHidden(true);
+      this._mountedList.setHidden(true);
+      this._unmountedList.setHidden(true);
+      this._mountBrowser.setHidden(true);
+    } else {
+      this._fullPageError.setHidden(true);
+      this._config.setHidden(false);
+      this._mountedList.setHidden(false);
+      this._unmountedList.setHidden(false);
+      this._mountBrowser.setHidden(false);
+    }
   };
 
   updateConfig = (config: AuthConfig): void => {
@@ -203,10 +243,15 @@ export class MountPlugin implements IMountPlugin {
 
   setup = async (): Promise<void> => {
     await this._poller.refresh();
-    this.setShowConfig(
-      this._poller.config.cluster_status === 'INVALID' ||
-        this._poller.status !== 200,
-    );
+
+    if (this._poller.status.code === 500) {
+      this.setShowFullPageError(true);
+    } else {
+      this.setShowConfig(
+        this._poller.config.cluster_status === 'INVALID' ||
+          this._poller.status.code !== 200,
+      );
+    }
     this._loader.setHidden(true);
   };
 

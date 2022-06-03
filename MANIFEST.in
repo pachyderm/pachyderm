@@ -10,6 +10,7 @@ exclude cypress.json
 exclude Dockerfile
 exclude scripts/*
 exclude infra/*
+exclude svg-images/*
 
 include package.json
 include install.json

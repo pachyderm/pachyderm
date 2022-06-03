@@ -1,5 +1,9 @@
 /* === Button === */
 .pachyderm-button {
+  display: flex;
+  align-content: center;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   border-radius: 3px;
   text-decoration: none;
@@ -12,8 +16,9 @@
 
   border: 1px solid rgba(255, 255, 255, 0);
   background-color: var(--pachyderm-plum);
-  color: var(--white);
+  color: var(--pachyderm-white);
   font-size: 0.875rem;
+  padding: 4px;
 }
 
 .pachyderm-button:disabled {
@@ -24,17 +29,20 @@
 .pachyderm-button:not(:disabled):hover,
 .pachyderm-button:active,
 .pachyderm-button:focus {
-  background-color: var(--hover-plum);
+  background-color: var(--pachyderm-hover-plum);
 }
 
 /* === ButtonLink === */
 .pachyderm-button-link {
+  display: flex;
+  align-content: center;
+  align-items: center;
+  justify-content: center;
   font-weight: 600;
   font-size: inherit;
   cursor: pointer;
   color: var(--jp-brand-color1);
   user-select: none;
-  display: inline-block;
   font-family: 'Montserrat', sans-serif;
   box-shadow: none;
   border: none;

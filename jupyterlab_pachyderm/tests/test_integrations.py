@@ -119,6 +119,7 @@ def test_list_repos(pachyderm_resources, dev_server):
 
     assert r.status_code == 200
     for _repo in r.json():
+        assert _repo.keys() == {"authorization", "branches", "repo"}
         assert _repo["repo"] in repos
         for _branch in _repo["branches"]:
             assert _branch.keys() == {"branch", "mount"}

@@ -1,13 +1,11 @@
 import React from 'react';
-import {
-  KubernetesElephantSVG,
-  LoadingDots,
-  Tooltip,
-} from '@pachyderm/components';
 import {AuthConfig} from 'plugins/mount/types';
 import {useConfig} from './hooks/useConfig';
 import {infoIcon} from '../../../../utils/icons';
+
 import {closeIcon} from '@jupyterlab/ui-components';
+import LoadingDots from '../../../../utils/components/LoadingDots/LoadingDots';
+import {KubernetesElephant} from '../../../../utils/components/Svgs';
 
 type ConfigProps = {
   showConfig: boolean;
@@ -61,7 +59,11 @@ const Config: React.FC<ConfigProps> = ({
               className="pachyderm-button-link"
               onClick={() => setShowConfig(false)}
             >
-              Back <closeIcon.react tag="span" />
+              Back{' '}
+              <closeIcon.react
+                tag="span"
+                className="pachyderm-mount-icon-padding"
+              />
             </button>
           </div>
         )}
@@ -164,18 +166,12 @@ const Config: React.FC<ConfigProps> = ({
                     style={{display: 'flex'}}
                   >
                     Server CAs
-                    <Tooltip
-                      tooltipKey="branch-status"
-                      tooltipText="Optional, include if you manage your own certificates."
-                      placement="right"
+                    <div
+                      className="pachyderm-mount-list-item-status-icon"
+                      title="Optional, include if you manage your own certificates."
                     >
-                      <div
-                        data-testid="ListItem__statusIcon"
-                        className="pachyderm-mount-list-item-status-icon"
-                      >
-                        <infoIcon.react tag="span" />
-                      </div>
-                    </Tooltip>
+                      <infoIcon.react tag="span" />
+                    </div>
                   </label>
                   <textarea
                     data-testid="Config__serverCaInput"
@@ -262,11 +258,7 @@ const Config: React.FC<ConfigProps> = ({
       </div>
       <div className="pachyderm-mount-config-graphic-base">
         <div className="pachyderm-mount-config-graphic-container">
-          <KubernetesElephantSVG
-            width="230px"
-            height="230px"
-            viewBox="170 0 400 400"
-          />
+          <KubernetesElephant width="230px" height="230px" />
         </div>
       </div>
     </>
