@@ -144,7 +144,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v9-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -153,7 +153,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v9-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
@@ -191,7 +191,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v9-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -200,7 +200,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v9-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
       - run:
@@ -224,7 +224,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v9-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -233,7 +233,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.9-cache-v8-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v9-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
       - run:
@@ -363,7 +363,7 @@ workflows:
       - test:
           matrix:
             parameters:
-              python-version: ['3.7', '3.8', '3.9']
+              python-version: ['3.7', '3.8', '3.9', '3.10']
           filters:
             tags:
               only: /.*/
@@ -437,7 +437,7 @@ workflows:
 executors:
   python:
     docker:
-      - image: cimg/python:3.9-node
+      - image: cimg/python:3.10-node
 
 commands:
   install-test-deps:
