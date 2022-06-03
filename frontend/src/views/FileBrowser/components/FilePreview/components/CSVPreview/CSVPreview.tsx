@@ -41,7 +41,16 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
       <div className={styles.content}>
         <header className={styles.header}>
           {headers.map((key) => (
-            <strong className={styles.cell} key={key}>
+            <strong
+              className={styles.cell}
+              key={key}
+              style={{
+                width: `${Math.max(
+                  ITEM_WIDTH,
+                  window.innerWidth / headers.length - 5,
+                )}px`,
+              }}
+            >
               {key}
             </strong>
           ))}
@@ -78,7 +87,10 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
         </DefaultDropdown>
       </div>
       <FixedSizeGrid
-        columnWidth={ITEM_WIDTH}
+        columnWidth={Math.max(
+          ITEM_WIDTH,
+          window.innerWidth / headers.length - 5,
+        )}
         columnCount={headers.length}
         rowCount={data.length}
         rowHeight={ITEM_HEIGHT}
