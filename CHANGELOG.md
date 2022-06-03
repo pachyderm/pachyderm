@@ -1,6 +1,12 @@
 # Changelog
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+# 0.5.1 
+d67cfc4 Auth fix - no longer crashes in the presence of inaccessible repos  (#134)
+a34ce1e remove pach theme from image (#131)
+0e2bc4c Add "safe to evict" to pachyderm pod (as it uses local storage) (#120)
+47eaf47 Bold headings (#128)
+
 # 0.5.0 
 b42eeed Adding advanced options to the ui for server CAs (#125)
 5720bb3 BE support for server cas (#124)
