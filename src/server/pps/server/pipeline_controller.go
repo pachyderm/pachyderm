@@ -572,7 +572,10 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			var nTasks int32
 			// TODO: should this run through internal PPS service?
 			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(info *task.TaskInfo) error {
-				nTasks++
+				switch info.State {
+				case task.State_CLAIMED, task.State_RUNNING:
+					nTasks++
+				}
 				return nil
 			})
 			// Set parallelism

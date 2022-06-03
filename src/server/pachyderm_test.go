@@ -9753,7 +9753,11 @@ func TestPipelineAutoscaling(t *testing.T) {
 		}
 		require.NoError(t, c.FinishCommit(dataRepo, "master", commit1.ID))
 		fileIndex += n
-		monitorReplicas(t, c, ns, pipeline, n, 4)
+		replicas := n
+		if replicas > 4 {
+			replicas = 4
+		}
+		monitorReplicas(t, c, ns, pipeline, replicas)
 	}
 	commitNFiles(1)
 	commitNFiles(3)
@@ -10176,20 +10180,11 @@ func TestDatumSetCache(t *testing.T) {
 	}
 }
 
-func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, tasks, parallelism int) {
+func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
-	// allow for one more task than expected, as datum set computation (which creates tasks) is itself a task
-	max := tasks + 1
-	if max > parallelism {
-		max = parallelism
-	}
-	expected := tasks
-	if expected > parallelism {
-		expected = parallelism
-	}
 	var maxSeen int
 	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
@@ -10198,10 +10193,10 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 				return errors.EnsureStack(err)
 			}
 			replicas := int(scale.Spec.Replicas)
-			if replicas >= expected {
+			if replicas >= n {
 				enoughReplicas = true
 			}
-			if replicas > max {
+			if replicas > n {
 				if replicas > maxSeen {
 					maxSeen = replicas
 				}
@@ -10215,8 +10210,8 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 			time.Sleep(time.Second * 2)
 		}
 	})
-	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", expected)
-	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, expected)
+	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
+	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, n)
 }
 
 func TestLoad(t *testing.T) {
