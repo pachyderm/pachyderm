@@ -202,6 +202,7 @@ nav:
             - Helm Deployment Principles: deploy-manage/deploy/helm-install.md
             - Local Deployment: getting-started/local-installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
+            - NEW - Deploy Pachyderm With Envoy: deploy-manage/deploy/envoy.md 
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md
@@ -212,7 +213,6 @@ nav:
                 - Deploy on GCP: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on premises: deploy-manage/deploy/on-premises.md
-                - Optional - All About Deploying With Envoy: deploy-manage/deploy/envoy.md 
             - Deploy Console: deploy-manage/deploy/console.md
             - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/#install-the-mount-extension
             - Additional Customizations:
