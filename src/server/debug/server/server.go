@@ -334,7 +334,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 			if !t.Stop() {
 				<-t.C
 			}
-			return ctx.Err()
+			return errors.EnsureStack(ctx.Err())
 		case <-t.C:
 			return nil
 		}
