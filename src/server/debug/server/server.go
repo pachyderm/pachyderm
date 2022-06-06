@@ -794,12 +794,11 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	// of providing lines in chronological order even when the app uses both stdout and stderr.
 	var result []lokiLog
 
-	// FIXME: run once without an end, then work backwards
-	end := time.Now().Add(time.Minute)            // Account for some clock skew between our node and the Loki node.
+	var end time.Time
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
-	for numLogs := 0; start.Before(end) && numLogs < maxLogs; {
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, time.Time{}, "BACKWARD", 0, 0, true)
+	for numLogs := 0; end.IsZero() || start.Before(end) && numLogs < maxLogs; {
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
 			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
@@ -817,7 +816,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 				entry := e
 				numLogs++
 				readThisIteration++
-				if entry.Timestamp.Before(end) {
+				if end.IsZero() || entry.Timestamp.Before(end) {
 					// Because end is an "exclusive" range, if we read any logs
 					// at all we are guaranteed to not read them in the next
 					// iteration.  (If all 5000 logs are at the same time, we
