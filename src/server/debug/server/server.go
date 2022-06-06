@@ -317,6 +317,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
 		}
+		defer pprof.StopCPUProfile()
 		duration := defaultDuration
 		if profile.Duration != nil {
 			var err error
@@ -325,16 +326,16 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 				return errors.EnsureStack(err)
 			}
 		}
-
-		// Wait for either the defined duration, or until the context is done.  We'll eat
-		// the context cancelled / deadline exceeded error here, but I think that's fine
-		// since we don't do any other IO in this function.  (The writer is going to be
-		// written to until StopCPUProfile anyway.)
-		tctx, c := context.WithTimeout(ctx, duration)
-		<-tctx.Done()
-		c()
-		pprof.StopCPUProfile()
-		return nil
+		// Wait for either the defined duration, or until the context is
+		// done.
+		t := time.NewTimer(duration)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return errors.EnsureStack(ctx.Err())
+		case <-t.C:
+			return nil
+		}
 	}
 	p := pprof.Lookup(profile.Name)
 	if p == nil {

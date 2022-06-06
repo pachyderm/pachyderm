@@ -100,7 +100,7 @@ func exposedServiceType() string {
 	os := runtime.GOOS
 	serviceType := ""
 	switch os {
-	case "darwin":
+	case "darwin", "windows":
 		serviceType = "LoadBalancer"
 	default:
 		serviceType = "NodePort"
