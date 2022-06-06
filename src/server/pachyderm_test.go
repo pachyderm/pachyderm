@@ -6958,7 +6958,7 @@ func TestServiceEnvVars(t *testing.T) {
 			Update: false,
 			Service: &pps.Service{
 				InternalPort: 8000,
-				ExternalPort: 31800,
+				ExternalPort: 31801,
 			},
 		})
 	require.NoError(t, err)
@@ -6969,7 +6969,7 @@ func TestServiceEnvVars(t *testing.T) {
 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
 			// Outside cluster: Re-use external IP and external port defined above
 			host := c.GetAddress().Host
-			return net.JoinHostPort(host, "31800")
+			return net.JoinHostPort(host, "31801")
 		}
 		// Get k8s service corresponding to pachyderm service above--must access
 		// via internal cluster IP, but we don't know what that is
