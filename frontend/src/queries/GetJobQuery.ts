@@ -12,6 +12,7 @@ export const JOB_QUERY = gql`
       outputCommit
       reason
       jsonDetails
+      transformString
       transform {
         cmdList
         image

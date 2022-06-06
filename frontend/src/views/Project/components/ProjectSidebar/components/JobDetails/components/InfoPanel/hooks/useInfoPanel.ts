@@ -174,7 +174,7 @@ const useInfoPanel = () => {
       delete transform.__typename;
       return {
         input: JSON.parse(job.inputString || '{}'),
-        transform,
+        transform: JSON.parse(job.transformString || '{}'),
         details: JSON.parse(job.jsonDetails),
       };
     }

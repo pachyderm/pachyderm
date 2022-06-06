@@ -215,6 +215,7 @@ type Job {
   finishedAt: Int
   state: JobState!
   pipelineName: String!
+  transformString: String
   transform: Transform
   inputString: String
   inputBranch: String

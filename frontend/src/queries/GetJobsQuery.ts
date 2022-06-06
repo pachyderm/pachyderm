@@ -8,6 +8,7 @@ export const JOBS_QUERY = gql`
       ...JobOverview
       inputString
       inputBranch
+      transformString
       transform {
         cmdList
         image

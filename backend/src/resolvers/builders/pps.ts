@@ -16,6 +16,7 @@ import {
   toGQLDatumState,
 } from '@dash-backend/lib/gqlEnumMappers';
 import omitByDeep from '@dash-backend/lib/omitByDeep';
+import removeGeneratedSuffixes from '@dash-backend/lib/removeGeneratedSuffixes';
 import sortJobInfos from '@dash-backend/lib/sortJobInfos';
 import {
   Job,
@@ -51,7 +52,7 @@ const deriveJSONJobDetails = (jobInfo: JobInfo.AsObject) => {
   };
 
   const simplifiedSpec = omitByDeep(
-    spec,
+    removeGeneratedSuffixes(spec),
     (val, _) => !val || (typeof val === 'object' && isEmpty(val)),
   );
 
@@ -75,7 +76,7 @@ const deriveJSONPipelineSpec = (pipelineInfo: PipelineInfo.AsObject) => {
   };
 
   const simplifiedSpec = omitByDeep(
-    spec,
+    removeGeneratedSuffixes(spec),
     (val, _) => !val || (typeof val === 'object' && isEmpty(val)),
   );
 
@@ -123,7 +124,14 @@ export const jobInfoToGQLJob = (jobInfo: JobInfo.AsObject): Job => {
     pipelineName: jobInfo.job?.pipeline?.name || '',
     transform: jobInfo.details?.transform,
     inputString: jobInfo.details?.input
-      ? JSON.stringify(jobInfo.details?.input, null, 2)
+      ? JSON.stringify(removeGeneratedSuffixes(jobInfo.details?.input), null, 2)
+      : undefined,
+    transformString: jobInfo.details?.transform
+      ? JSON.stringify(
+          removeGeneratedSuffixes(jobInfo.details?.transform),
+          null,
+          2,
+        )
       : undefined,
     inputBranch: jobInfo.details?.input?.pfs?.branch,
     outputBranch: jobInfo.outputCommit?.branch?.name,

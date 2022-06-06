@@ -192,7 +192,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     <span
                       class="hljs-attr"
                     >
-                      cmdList:
+                      cmd:
                     </span>
                   </div>
                 </div>
@@ -258,7 +258,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     <span
                       class="hljs-attr"
                     >
-                      stdinList:
+                      stdin:
                     </span>
                   </div>
                 </div>
@@ -377,7 +377,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     <span
                       class="hljs-attr"
                     >
-                      crossList:
+                      cross:
                     </span>
                   </div>
                 </div>
@@ -534,7 +534,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                     <span
                       class="hljs-attr"
                     >
-                      nodeSelectorMap:
+                      nodeSelector:
                     </span>
                   </div>
                 </div>

@@ -311,6 +311,7 @@ export type Job = {
   startedAt?: Maybe<Scalars['Int']>;
   state: JobState;
   transform?: Maybe<Transform>;
+  transformString?: Maybe<Scalars['String']>;
 };
 
 export type JobQueryArgs = {
@@ -1327,6 +1328,11 @@ export type JobResolvers<
     ParentType,
     ContextType
   >;
+  transformString?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1893,6 +1899,7 @@ export type JobSetFieldsFragment = {
     __typename?: 'Job';
     inputString?: string | null;
     inputBranch?: string | null;
+    transformString?: string | null;
     id: string;
     state: JobState;
     createdAt?: number | null;
@@ -2252,6 +2259,7 @@ export type JobQuery = {
     outputCommit?: string | null;
     reason?: string | null;
     jsonDetails: string;
+    transformString?: string | null;
     id: string;
     state: JobState;
     createdAt?: number | null;
@@ -2287,6 +2295,7 @@ export type JobSetsQuery = {
       __typename?: 'Job';
       inputString?: string | null;
       inputBranch?: string | null;
+      transformString?: string | null;
       id: string;
       state: JobState;
       createdAt?: number | null;
@@ -2319,6 +2328,7 @@ export type JobsQuery = {
     __typename?: 'Job';
     inputString?: string | null;
     inputBranch?: string | null;
+    transformString?: string | null;
     id: string;
     state: JobState;
     createdAt?: number | null;
@@ -2356,6 +2366,7 @@ export type JobSetQuery = {
       __typename?: 'Job';
       inputString?: string | null;
       inputBranch?: string | null;
+      transformString?: string | null;
       id: string;
       state: JobState;
       createdAt?: number | null;
@@ -2518,6 +2529,7 @@ export type ProjectDetailsQuery = {
         __typename?: 'Job';
         inputString?: string | null;
         inputBranch?: string | null;
+        transformString?: string | null;
         id: string;
         state: JobState;
         createdAt?: number | null;

@@ -150,14 +150,14 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                 <span
                   class="hljs-attr"
                 >
-                  joinList:
+                  join:
                 </span>
                  []
 
                 <span
                   class="hljs-attr"
                 >
-                  groupList:
+                  group:
                 </span>
                  []
 
@@ -194,7 +194,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                   <span
                     class="hljs-attr"
                   >
-                    crossList:
+                    cross:
                   </span>
                 </div>
               </div>
@@ -379,28 +379,28 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                     <span
                       class="hljs-attr"
                     >
-                      joinList:
+                      join:
                     </span>
                      []
   
                     <span
                       class="hljs-attr"
                     >
-                      groupList:
+                      group:
                     </span>
                      []
   
                     <span
                       class="hljs-attr"
                     >
-                      crossList:
+                      cross:
                     </span>
                      []
   
                     <span
                       class="hljs-attr"
                     >
-                      unionList:
+                      union:
                     </span>
                      []
 
@@ -576,28 +576,28 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
                     <span
                       class="hljs-attr"
                     >
-                      joinList:
+                      join:
                     </span>
                      []
   
                     <span
                       class="hljs-attr"
                     >
-                      groupList:
+                      group:
                     </span>
                      []
   
                     <span
                       class="hljs-attr"
                     >
-                      crossList:
+                      cross:
                     </span>
                      []
   
                     <span
                       class="hljs-attr"
                     >
-                      unionList:
+                      union:
                     </span>
                      []
 
@@ -611,7 +611,7 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
               <span
                 class="hljs-attr"
               >
-                unionList:
+                union:
               </span>
                []
 

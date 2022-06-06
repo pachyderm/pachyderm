@@ -63,6 +63,7 @@ export const JobSetFieldsFragmentDoc = gql`
       ...JobOverview
       inputString
       inputBranch
+      transformString
       transform {
         cmdList
         image
@@ -1188,6 +1189,7 @@ export const JobDocument = gql`
       outputCommit
       reason
       jsonDetails
+      transformString
       transform {
         cmdList
         image
@@ -1302,6 +1304,7 @@ export const JobsDocument = gql`
       ...JobOverview
       inputString
       inputBranch
+      transformString
       transform {
         cmdList
         image
