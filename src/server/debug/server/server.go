@@ -331,9 +331,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 		t := time.NewTimer(duration)
 		select {
 		case <-ctx.Done():
-			if !t.Stop() {
-				<-t.C
-			}
+			t.Stop()
 			return errors.EnsureStack(ctx.Err())
 		case <-t.C:
 			return nil
