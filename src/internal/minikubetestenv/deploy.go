@@ -113,12 +113,14 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.lokiDeploy":             "true",
+			"pachd.lokiLogging":            "true",
 			"loki-stack.loki.service.type": exposedServiceType(),
 			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "8000",
 			"loki-stack.loki.service.port":                                fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.service.nodePort":                            fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.config.server.http_listen_port":              fmt.Sprintf("%v", port+9),
-			"loki-stack.promtail.loki.servicePort":                        fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.serverPort":                       fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.lokiAddress":                      fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+9),
 		},
 		SetStrValues: map[string]string{
 			"loki-stack.promtail.initContainer.enabled": "true",
@@ -251,7 +253,7 @@ func union(a, b *helm.Options) *helm.Options {
 }
 
 func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
@@ -262,15 +264,19 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 			}
 		}
 		return errors.Errorf("deployment in progress")
-	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	})
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.Retry(func() error {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v", lokiHost, lokiPort), nil)
-		_, err := http.DefaultClient.Do(req)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return errors.Wrap(err, "loki not ready")
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return errors.Errorf("loki not ready")
 		}
 		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))

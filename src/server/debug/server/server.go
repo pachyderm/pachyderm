@@ -317,6 +317,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
 		}
+		defer pprof.StopCPUProfile()
 		duration := defaultDuration
 		if profile.Duration != nil {
 			var err error
@@ -325,16 +326,16 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 				return errors.EnsureStack(err)
 			}
 		}
-
-		// Wait for either the defined duration, or until the context is done.  We'll eat
-		// the context cancelled / deadline exceeded error here, but I think that's fine
-		// since we don't do any other IO in this function.  (The writer is going to be
-		// written to until StopCPUProfile anyway.)
-		tctx, c := context.WithTimeout(ctx, duration)
-		<-tctx.Done()
-		c()
-		pprof.StopCPUProfile()
-		return nil
+		// Wait for either the defined duration, or until the context is
+		// done.
+		t := time.NewTimer(duration)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return errors.EnsureStack(ctx.Err())
+		case <-t.C:
+			return nil
+		}
 	}
 	p := pprof.Lookup(profile.Name)
 	if p == nil {
@@ -794,10 +795,10 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	// of providing lines in chronological order even when the app uses both stdout and stderr.
 	var result []lokiLog
 
-	end := time.Now().Add(time.Minute)            // Account for some clock skew between our node and the Loki node.
+	var end time.Time
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
-	for numLogs := 0; start.Before(end) && numLogs < maxLogs; {
+	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
 		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
@@ -816,7 +817,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 				entry := e
 				numLogs++
 				readThisIteration++
-				if entry.Timestamp.Before(end) {
+				if end.IsZero() || entry.Timestamp.Before(end) {
 					// Because end is an "exclusive" range, if we read any logs
 					// at all we are guaranteed to not read them in the next
 					// iteration.  (If all 5000 logs are at the same time, we
