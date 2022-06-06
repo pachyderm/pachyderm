@@ -657,9 +657,8 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	}
 	trimmedFilePath := strings.TrimPrefix(ro.File.Path, "/")
 	filePath := pathpkg.Join(parts[1:]...)
-	if ro.File.Path != "" && strings.HasPrefix(trimmedFilePath, filePath) && trimmedFilePath != filePath {
-		parts := strings.Split(strings.TrimPrefix(trimmedFilePath, path), "/")
-		fi, err := n.c().InspectFile(ro.File.Commit, filepath.Join(path, parts[0]))
+	if ro.File.Path != "" && strings.HasPrefix(trimmedFilePath, filePath) {
+		fi, err := n.c().InspectFile(ro.File.Commit, strings.TrimPrefix(trimmedFilePath, path))
 		if err != nil {
 			return err
 		}
