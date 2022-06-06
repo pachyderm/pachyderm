@@ -13,8 +13,8 @@ import (
 
 // UnescapeHTML returns s with < and > unescaped.
 func UnescapeHTML(s string) string {
-	s = strings.Replace(s, "\\u003c", "<", -1)
-	s = strings.Replace(s, "\\u003e", ">", -1)
+	s = strings.ReplaceAll(s, "\\u003c", "<")
+	s = strings.ReplaceAll(s, "\\u003e", ">")
 	return s
 }
 

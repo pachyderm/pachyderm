@@ -7,7 +7,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"reflect"
 	"runtime/pprof"
+	"sort"
 	"strings"
 	"time"
 
@@ -56,10 +58,10 @@ func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *clien
 	}
 }
 
-type collectPipelineFunc func(*tar.Writer, *pps.PipelineInfo, ...string) error
-type collectWorkerFunc func(*tar.Writer, *v1.Pod, ...string) error
-type redirectFunc func(debug.DebugClient, *debug.Filter) (io.Reader, error)
-type collectFunc func(*tar.Writer, ...string) error
+type collectPipelineFunc func(context.Context, *tar.Writer, *client.APIClient, *pps.PipelineInfo, ...string) error
+type collectWorkerFunc func(context.Context, *tar.Writer, *v1.Pod, ...string) error
+type redirectFunc func(context.Context, debug.DebugClient, *debug.Filter) (io.Reader, error)
+type collectFunc func(context.Context, *tar.Writer, *client.APIClient, ...string) error
 
 func (s *debugServer) handleRedirect(
 	pachClient *client.APIClient,
@@ -70,7 +72,9 @@ func (s *debugServer) handleRedirect(
 	collectWorker collectWorkerFunc,
 	redirect redirectFunc,
 	collect collectFunc,
+	wantAppLogs bool,
 ) error {
+	ctx := pachClient.Ctx() // this context has authorization credentials we need
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
 		return withDebugWriter(w, func(tw *tar.Writer) error {
 			// Handle filter.
@@ -78,40 +82,40 @@ func (s *debugServer) handleRedirect(
 			if filter != nil {
 				switch f := filter.Filter.(type) {
 				case *debug.Filter_Pachd:
-					return collectPachd(tw, pachdContainerPrefix)
+					return collectPachd(ctx, tw, pachClient, pachdContainerPrefix)
 				case *debug.Filter_Pipeline:
 					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name, true)
 					if err != nil {
 						return err
 					}
-					return s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect)
+					return s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect)
 				case *debug.Filter_Worker:
 					if f.Worker.Redirected {
 						// Collect the storage container.
 						if s.sidecarClient == nil {
-							return collect(tw, client.PPSWorkerSidecarContainerName)
+							return collect(ctx, tw, pachClient, client.PPSWorkerSidecarContainerName)
 						}
 						// Collect the user container.
-						if err := collect(tw, client.PPSWorkerUserContainerName); err != nil {
+						if err := collect(ctx, tw, pachClient, client.PPSWorkerUserContainerName); err != nil {
 							return err
 						}
 						// Redirect to the storage container.
-						r, err := redirect(s.sidecarClient.DebugClient, filter)
+						r, err := redirect(ctx, s.sidecarClient.DebugClient, filter)
 						if err != nil {
 							return err
 						}
 						return collectDebugStream(tw, r)
 
 					}
-					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(pachClient.Ctx(), f.Worker.Pod, metav1.GetOptions{})
+					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(ctx, f.Worker.Pod, metav1.GetOptions{})
 					if err != nil {
 						return errors.EnsureStack(err)
 					}
-					return s.handleWorkerRedirect(tw, pod, collectWorker, redirect)
+					return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect)
 				}
 			}
 			// No filter, collect everything.
-			if err := collectPachd(tw, pachdContainerPrefix); err != nil {
+			if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
 				return err
 			}
 			pipelineInfos, err := pachClient.ListPipeline(true)
@@ -119,18 +123,23 @@ func (s *debugServer) handleRedirect(
 				return err
 			}
 			for _, pipelineInfo := range pipelineInfos {
-				if err := s.handlePipelineRedirect(tw, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+				if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
 					return err
 				}
 			}
-			// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
-			return s.appLogs(tw)
+			if wantAppLogs {
+				// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
+				if err := s.appLogs(ctx, tw); err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 	})
 }
 
-func (s *debugServer) appLogs(tw *tar.Writer) error {
-	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(s.env.Context(), metav1.ListOptions{
+func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) error {
+	pods, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
@@ -160,10 +169,10 @@ func (s *debugServer) appLogs(tw *tar.Writer) error {
 		}
 		for _, container := range pod.Spec.Containers {
 			prefix := join(podPrefix, container.Name)
-			if err := s.collectLogs(tw, pod.Name, container.Name, prefix); err != nil {
+			if err := s.collectLogs(ctx, tw, pod.Name, container.Name, prefix); err != nil {
 				return err
 			}
-			if err := s.collectLogsLoki(tw, pod.Name, container.Name, prefix); err != nil {
+			if err := s.collectLogsLoki(ctx, tw, pod.Name, container.Name, prefix); err != nil {
 				return err
 			}
 		}
@@ -172,7 +181,9 @@ func (s *debugServer) appLogs(tw *tar.Writer) error {
 }
 
 func (s *debugServer) handlePipelineRedirect(
+	ctx context.Context,
 	tw *tar.Writer,
+	pachClient *client.APIClient,
 	pipelineInfo *pps.PipelineInfo,
 	collectPipeline collectPipelineFunc,
 	collectWorker collectWorkerFunc,
@@ -185,17 +196,17 @@ func (s *debugServer) handlePipelineRedirect(
 		}
 	}()
 	if collectPipeline != nil {
-		if err := collectPipeline(tw, pipelineInfo, prefix); err != nil {
+		if err := collectPipeline(ctx, tw, pachClient, pipelineInfo, prefix); err != nil {
 			return err
 		}
 	}
-	return s.forEachWorker(pipelineInfo, func(pod *v1.Pod) error {
-		return s.handleWorkerRedirect(tw, pod, collectWorker, redirect, prefix)
+	return s.forEachWorker(ctx, pipelineInfo, func(pod *v1.Pod) error {
+		return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect, prefix)
 	})
 }
 
-func (s *debugServer) forEachWorker(pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
-	pods, err := s.getWorkerPods(pipelineInfo)
+func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.PipelineInfo, cb func(*v1.Pod) error) error {
+	pods, err := s.getWorkerPods(ctx, pipelineInfo)
 	if err != nil {
 		return err
 	}
@@ -210,9 +221,9 @@ func (s *debugServer) forEachWorker(pipelineInfo *pps.PipelineInfo, cb func(*v1.
 	return nil
 }
 
-func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
+func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
 	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
-		s.env.Context(),
+		ctx,
 		metav1.ListOptions{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "ListOptions",
@@ -233,7 +244,7 @@ func (s *debugServer) getWorkerPods(pipelineInfo *pps.PipelineInfo) ([]v1.Pod, e
 	return podList.Items, nil
 }
 
-func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectWorker collectWorkerFunc, cb redirectFunc, prefix ...string) (retErr error) {
+func (s *debugServer) handleWorkerRedirect(ctx context.Context, tw *tar.Writer, pod *v1.Pod, collectWorker collectWorkerFunc, cb redirectFunc, prefix ...string) (retErr error) {
 	workerPrefix := join(podPrefix, pod.Name)
 	if len(prefix) > 0 {
 		workerPrefix = join(prefix[0], workerPrefix)
@@ -244,7 +255,7 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 		}
 	}()
 	if collectWorker != nil {
-		if err := collectWorker(tw, pod, workerPrefix); err != nil {
+		if err := collectWorker(ctx, tw, pod, workerPrefix); err != nil {
 			return err
 		}
 	}
@@ -260,7 +271,7 @@ func (s *debugServer) handleWorkerRedirect(tw *tar.Writer, pod *v1.Pod, collectW
 			log.Errorf("errored closing worker client: %v", err)
 		}
 	}()
-	r, err := cb(c.DebugClient, &debug.Filter{
+	r, err := cb(ctx, c.DebugClient, &debug.Filter{
 		Filter: &debug.Filter_Worker{
 			Worker: &debug.Worker{
 				Pod:        pod.Name,
@@ -283,24 +294,25 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 		collectProfileFunc(request.Profile),
 		nil,
 		nil,
-		redirectProfileFunc(pachClient.Ctx(), request.Profile),
+		redirectProfileFunc(request.Profile),
 		collectProfileFunc(request.Profile),
+		false,
 	)
 }
 
 func collectProfileFunc(profile *debug.Profile) collectFunc {
-	return func(tw *tar.Writer, prefix ...string) error {
-		return collectProfile(tw, profile, prefix...)
+	return func(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+		return collectProfile(ctx, tw, profile, prefix...)
 	}
 }
 
-func collectProfile(tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
+func collectProfile(ctx context.Context, tw *tar.Writer, profile *debug.Profile, prefix ...string) error {
 	return collectDebugFile(tw, profile.Name, "", func(w io.Writer) error {
-		return writeProfile(w, profile)
+		return writeProfile(ctx, w, profile)
 	}, prefix...)
 }
 
-func writeProfile(w io.Writer, profile *debug.Profile) error {
+func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) error {
 	if profile.Name == "cpu" {
 		if err := pprof.StartCPUProfile(w); err != nil {
 			return errors.EnsureStack(err)
@@ -313,7 +325,14 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 				return errors.EnsureStack(err)
 			}
 		}
-		time.Sleep(duration)
+
+		// Wait for either the defined duration, or until the context is done.  We'll eat
+		// the context cancelled / deadline exceeded error here, but I think that's fine
+		// since we don't do any other IO in this function.  (The writer is going to be
+		// written to until StopCPUProfile anyway.)
+		tctx, c := context.WithTimeout(ctx, duration)
+		<-tctx.Done()
+		c()
 		pprof.StopCPUProfile()
 		return nil
 	}
@@ -324,8 +343,8 @@ func writeProfile(w io.Writer, profile *debug.Profile) error {
 	return errors.EnsureStack(p.WriteTo(w, 0))
 }
 
-func redirectProfileFunc(ctx context.Context, profile *debug.Profile) redirectFunc {
-	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+func redirectProfileFunc(profile *debug.Profile) redirectFunc {
+	return func(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
 		profileC, err := c.Profile(ctx, &debug.ProfileRequest{
 			Profile: profile,
 			Filter:  filter,
@@ -346,12 +365,13 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 		collectBinary,
 		nil,
 		nil,
-		redirectBinaryFunc(pachClient.Ctx()),
+		redirectBinary,
 		collectBinary,
+		false,
 	)
 }
 
-func collectBinary(tw *tar.Writer, prefix ...string) error {
+func collectBinary(_ context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
 	return collectDebugFile(tw, "binary", "", func(w io.Writer) (retErr error) {
 		f, err := os.Open(os.Args[0])
 		if err != nil {
@@ -367,14 +387,12 @@ func collectBinary(tw *tar.Writer, prefix ...string) error {
 	}, prefix...)
 }
 
-func redirectBinaryFunc(ctx context.Context) redirectFunc {
-	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
-		binaryC, err := c.Binary(ctx, &debug.BinaryRequest{Filter: filter})
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		return grpcutil.NewStreamingBytesReader(binaryC, nil), nil
+func redirectBinary(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+	binaryC, err := c.Binary(ctx, &debug.BinaryRequest{Filter: filter})
+	if err != nil {
+		return nil, errors.EnsureStack(err)
 	}
+	return grpcutil.NewStreamingBytesReader(binaryC, nil), nil
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
@@ -386,18 +404,19 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		pachClient,
 		server,
 		request.Filter,
-		s.collectPachdDumpFunc(pachClient, request.Limit),
-		s.collectPipelineDumpFunc(pachClient, request.Limit),
+		s.collectPachdDumpFunc(request.Limit),
+		s.collectPipelineDumpFunc(request.Limit),
 		s.collectWorkerDump,
-		redirectDumpFunc(pachClient.Ctx()),
+		redirectDump,
 		collectDump,
+		true,
 	)
 }
 
-func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit int64) collectFunc {
-	return func(tw *tar.Writer, prefix ...string) error {
+func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
+	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
 		// Collect input repos.
-		if err := s.collectInputRepos(tw, pachClient, limit); err != nil {
+		if err := s.collectInputRepos(ctx, tw, pachClient, limit); err != nil {
 			return err
 		}
 		// Collect the pachd version.
@@ -409,19 +428,19 @@ func (s *debugServer) collectPachdDumpFunc(pachClient *client.APIClient, limit i
 			return err
 		}
 		// Collect the pachd container logs.
-		if err := s.collectLogs(tw, s.name, "pachd", prefix...); err != nil {
+		if err := s.collectLogs(ctx, tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container logs from loki.
-		if err := s.collectLogsLoki(tw, s.name, "pachd", prefix...); err != nil {
+		if err := s.collectLogsLoki(ctx, tw, s.name, "pachd", prefix...); err != nil {
 			return err
 		}
 		// Collect the pachd container dump.
-		return collectDump(tw, prefix...)
+		return collectDump(ctx, tw, pachClient, prefix...)
 	}
 }
 
-func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APIClient, limit int64) error {
+func (s *debugServer) collectInputRepos(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, limit int64) error {
 	repoInfos, err := pachClient.ListRepo()
 	if err != nil {
 		return err
@@ -430,7 +449,7 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 		if _, err := pachClient.InspectPipeline(repoInfo.Repo.Name, true); err != nil {
 			if errutil.IsNotFoundError(err) {
 				repoPrefix := join("source-repos", repoInfo.Repo.Name)
-				return s.collectCommits(tw, pachClient, repoInfo.Repo, limit, repoPrefix)
+				return s.collectCommits(ctx, tw, pachClient, repoInfo.Repo, limit, repoPrefix)
 			}
 			return err
 		}
@@ -438,7 +457,7 @@ func (s *debugServer) collectInputRepos(tw *tar.Writer, pachClient *client.APICl
 	return nil
 }
 
-func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClient, repo *pfs.Repo, limit int64, prefix ...string) error {
+func (s *debugServer) collectCommits(rctx context.Context, tw *tar.Writer, pachClient *client.APIClient, repo *pfs.Repo, limit int64, prefix ...string) error {
 	compacting := chart.ContinuousSeries{
 		Name: "compacting",
 		Style: chart.Style{
@@ -461,7 +480,7 @@ func (s *debugServer) collectCommits(tw *tar.Writer, pachClient *client.APIClien
 		},
 	}
 	if err := collectDebugFile(tw, "commits", "json", func(w io.Writer) error {
-		ctx, cancel := context.WithCancel(pachClient.Ctx())
+		ctx, cancel := context.WithCancel(rctx)
 		defer cancel()
 		client, err := pachClient.PfsAPIClient.ListCommit(ctx, &pfs.ListCommitRequest{
 			Repo:   repo,
@@ -583,9 +602,9 @@ func (s *debugServer) collectDescribe(tw *tar.Writer, pod string, prefix ...stri
 	}, prefix...)
 }
 
-func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix ...string) error {
+func (s *debugServer) collectLogs(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
 	if err := collectDebugFile(tw, "logs", "txt", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(s.env.Context())
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -600,7 +619,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 		return err
 	}
 	return collectDebugFile(tw, "logs-previous", "txt", func(w io.Writer) (retErr error) {
-		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(s.env.Context())
+		stream, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).GetLogs(pod, &v1.PodLogOptions{Container: container, Previous: true}).Stream(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -614,7 +633,7 @@ func (s *debugServer) collectLogs(tw *tar.Writer, pod, container string, prefix 
 	}, prefix...)
 }
 
-func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, prefix ...string) error {
+func (s *debugServer) collectLogsLoki(ctx context.Context, tw *tar.Writer, pod, container string, prefix ...string) error {
 	if os.Getenv(s.env.Config().LokiHostVar) == "" {
 		return nil
 	}
@@ -624,22 +643,42 @@ func (s *debugServer) collectLogsLoki(tw *tar.Writer, pod, container string, pre
 			queryStr += `", container="` + container
 		}
 		queryStr += `"}`
-		return s.queryLoki(queryStr, func(_ loki.LabelSet, line string) error {
-			_, err := w.Write([]byte(line))
+		logs, err := s.queryLoki(ctx, queryStr)
+		if err != nil {
 			return errors.EnsureStack(err)
-		})
+		}
+
+		var cursor *loki.LabelSet
+		for _, entry := range logs {
+			// Print the stream labels in %v format whenever they are different from the
+			// previous line.  The pointer comparison is a fast path to avoid
+			// reflect.DeepEqual when both log lines are from the same chunk of logs
+			// returned by Loki.
+			if cursor != entry.Labels && !reflect.DeepEqual(cursor, entry.Labels) {
+				if _, err := fmt.Fprintf(w, "%v\n", entry.Labels); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			cursor = entry.Labels
+
+			// Then the line itself.
+			if _, err := fmt.Fprintf(w, "%s\n", entry.Entry.Line); err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
+		return nil
 	}, prefix...)
 }
 
-func collectDump(tw *tar.Writer, prefix ...string) error {
-	if err := collectProfile(tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
+func collectDump(ctx context.Context, tw *tar.Writer, _ *client.APIClient, prefix ...string) error {
+	if err := collectProfile(ctx, tw, &debug.Profile{Name: "goroutine"}, prefix...); err != nil {
 		return err
 	}
-	return collectProfile(tw, &debug.Profile{Name: "heap"}, prefix...)
+	return collectProfile(ctx, tw, &debug.Profile{Name: "heap"}, prefix...)
 }
 
-func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limit int64) collectPipelineFunc {
-	return func(tw *tar.Writer, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
+func (s *debugServer) collectPipelineDumpFunc(limit int64) collectPipelineFunc {
+	return func(ctx context.Context, tw *tar.Writer, pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prefix ...string) error {
 		if err := collectDebugFile(tw, "spec", "json", func(w io.Writer) error {
 			fullPipelineInfos, err := pachClient.ListPipelineHistory(pipelineInfo.Pipeline.Name, -1, true)
 			if err != nil {
@@ -654,24 +693,24 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 		}, prefix...); err != nil {
 			return err
 		}
-		if err := s.collectCommits(tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
+		if err := s.collectCommits(ctx, tw, pachClient, client.NewRepo(pipelineInfo.Pipeline.Name), limit, prefix...); err != nil {
 			return err
 		}
 		if err := s.collectJobs(tw, pachClient, pipelineInfo.Pipeline.Name, limit, prefix...); err != nil {
 			return err
 		}
 		if os.Getenv(s.env.Config().LokiHostVar) != "" {
-			if err := s.forEachWorkerLoki(pipelineInfo, func(pod string) error {
+			if err := s.forEachWorkerLoki(ctx, pipelineInfo, func(pod string) error {
 				workerPrefix := join(podPrefix, pod)
 				if len(prefix) > 0 {
 					workerPrefix = join(prefix[0], workerPrefix)
 				}
 				userPrefix := join(workerPrefix, client.PPSWorkerUserContainerName)
-				if err := s.collectLogsLoki(tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+				if err := s.collectLogsLoki(ctx, tw, pod, client.PPSWorkerUserContainerName, userPrefix); err != nil {
 					return err
 				}
 				sidecarPrefix := join(workerPrefix, client.PPSWorkerSidecarContainerName)
-				return s.collectLogsLoki(tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+				return s.collectLogsLoki(ctx, tw, pod, client.PPSWorkerSidecarContainerName, sidecarPrefix)
 			}); err != nil {
 				name := "loki"
 				if len(prefix) > 0 {
@@ -684,8 +723,8 @@ func (s *debugServer) collectPipelineDumpFunc(pachClient *client.APIClient, limi
 	}
 }
 
-func (s *debugServer) forEachWorkerLoki(pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
-	pods, err := s.getWorkerPodsLoki(pipelineInfo)
+func (s *debugServer) forEachWorkerLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo, cb func(string) error) error {
+	pods, err := s.getWorkerPodsLoki(ctx, pipelineInfo)
 	if err != nil {
 		return err
 	}
@@ -697,59 +736,108 @@ func (s *debugServer) forEachWorkerLoki(pipelineInfo *pps.PipelineInfo, cb func(
 	return nil
 }
 
-func (s *debugServer) getWorkerPodsLoki(pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+func (s *debugServer) getWorkerPodsLoki(ctx context.Context, pipelineInfo *pps.PipelineInfo) (map[string]struct{}, error) {
+	// This function uses the log querying API and not the label querying API, to bound the the
+	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
+	// logs for each pipeline, and return the names of the workers that contributed to those
+	// logs for further inspection.  The alternative would be to get every worker that existed
+	// in some time interval, but that results in too much data to inspect.
+
 	queryStr := `{pipelineName="` + pipelineInfo.Pipeline.Name + `"}`
 	pods := make(map[string]struct{})
-	if err := s.queryLoki(queryStr, func(labels loki.LabelSet, _ string) error {
+	logs, err := s.queryLoki(ctx, queryStr)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, l := range logs {
+		if l.Labels == nil {
+			continue
+		}
+		labels := *l.Labels
 		pod, ok := labels["pod"]
 		if !ok {
-			return errors.Errorf("pod label missing from loki label set")
+			return nil, errors.Errorf("pod label missing from loki label set")
 		}
 		pods[pod] = struct{}{}
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	return pods, nil
 }
 
-// TODO: Need to bump up this default on the server side, it is too low as is.
-const maxLogs = 5000
+// This used to be 5,000 but a comment said this was too few logs, so now it's 30,000.  If it still
+// seems too small, bump it up again.  5,000 remains the maximum value of "limit" in queries that
+// Loki seems to accept.
+const (
+	maxLogs       = 30000
+	serverMaxLogs = 5000
+)
 
-func (s *debugServer) queryLoki(queryStr string, cb func(loki.LabelSet, string) error) error {
+type lokiLog struct {
+	Labels *loki.LabelSet
+	Entry  *loki.Entry
+}
+
+func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog, error) {
 	c, err := s.env.GetLokiClient()
 	if err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(errors.Errorf("get loki client: %v", err))
 	}
-	start := time.Now().Add(-(30 * 24 * time.Hour))
-	end := time.Now()
-	for {
-		// TODO: Need a real context.
-		resp, err := c.QueryRange(s.env.Context(), queryStr, maxLogs, start, end, "FORWARD", 0, 0, true)
+
+	// We used to just stream the output, but that results in logs from different streams
+	// (stdout/stderr) being randomly interspersed with each other, which is hard to follow when
+	// written in text form.  We also used "FORWARD" and basically got the first 30,000 logs
+	// this month, instead of the most recent 30,000 logs.  To use "BACKWARD" to get chunks of
+	// logs starting with the most recent (whose start time we can't know without asking), we
+	// have to either output logs in reverse order, or collect them all and then reverse.  Thus,
+	// we just buffer.  30k logs * (200 bytes each + 16 bytes of pointers per line + 24 bytes of
+	// time.Time) = 6.8MiB.  That seems totally reasonable to keep in memory, with the benefit
+	// of providing lines in chronological order even when the app uses both stdout and stderr.
+	var result []lokiLog
+
+	end := time.Now().Add(time.Minute)            // Account for some clock skew between our node and the Loki node.
+	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
+
+	for numLogs := 0; start.Before(end) && numLogs < maxLogs; {
+		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
 		if err != nil {
-			return err
+			// Note: the error from QueryRange has a stack.
+			return nil, errors.Errorf("query range (query=%v, maxLogs=%v, start=%v, end=%v): %+v", queryStr, maxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
 		}
+
 		streams, ok := resp.Data.Result.(loki.Streams)
 		if !ok {
-			return errors.Errorf("resp.Data.Result must be of type loki.Streams")
+			return nil, errors.Errorf("resp.Data.Result must be of type loki.Streams")
 		}
-		var numLogs int
-		for _, stream := range streams {
-			for _, entry := range stream.Entries {
+
+		var readThisIteration int
+		for _, s := range streams {
+			stream := s // Alias for pointer later.
+			for _, e := range stream.Entries {
+				entry := e
 				numLogs++
-				if entry.Timestamp.After(start) {
-					start = entry.Timestamp
+				readThisIteration++
+				if entry.Timestamp.Before(end) {
+					// Because end is an "exclusive" range, if we read any logs
+					// at all we are guaranteed to not read them in the next
+					// iteration.  (If all 5000 logs are at the same time, we
+					// still advance past them on the next iteration, which is
+					// the best we can do under those circumstances.)
+					end = entry.Timestamp
 				}
-				if err := cb(stream.Labels, entry.Line); err != nil {
-					return err
-				}
+				result = append(result, lokiLog{
+					Labels: &stream.Labels,
+					Entry:  &entry,
+				})
 			}
 		}
-		if numLogs < maxLogs {
-			return nil
+		if readThisIteration == 0 {
+			break
 		}
-		start = start.Add(time.Nanosecond)
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Entry.Timestamp.Before(result[j].Entry.Timestamp)
+	})
+	return result, nil
 }
 
 func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, pipelineName string, limit int64, prefix ...string) error {
@@ -813,7 +901,7 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 	return collectGraph(tw, "jobs-chart.png", "number of jobs", []chart.Series{download, process, upload}, prefix...)
 }
 
-func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
+func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
 	// Collect the worker describe output.
 	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
 		return err
@@ -825,18 +913,16 @@ func (s *debugServer) collectWorkerDump(tw *tar.Writer, pod *v1.Pod, prefix ...s
 		userPrefix = join(prefix[0], userPrefix)
 		sidecarPrefix = join(prefix[0], sidecarPrefix)
 	}
-	if err := s.collectLogs(tw, pod.Name, client.PPSWorkerUserContainerName, userPrefix); err != nil {
+	if err := s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerUserContainerName, userPrefix); err != nil {
 		return err
 	}
-	return s.collectLogs(tw, pod.Name, client.PPSWorkerSidecarContainerName, sidecarPrefix)
+	return s.collectLogs(ctx, tw, pod.Name, client.PPSWorkerSidecarContainerName, sidecarPrefix)
 }
 
-func redirectDumpFunc(ctx context.Context) redirectFunc {
-	return func(c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
-		dumpC, err := c.Dump(ctx, &debug.DumpRequest{Filter: filter})
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
+func redirectDump(ctx context.Context, c debug.DebugClient, filter *debug.Filter) (io.Reader, error) {
+	dumpC, err := c.Dump(ctx, &debug.DumpRequest{Filter: filter})
+	if err != nil {
+		return nil, errors.EnsureStack(err)
 	}
+	return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
 }

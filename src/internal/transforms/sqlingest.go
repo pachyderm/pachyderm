@@ -24,9 +24,10 @@ type SQLIngestParams struct {
 	// PFS In/Out
 	InputDir, OutputDir string
 
-	URL      pachsql.URL
-	Password secrets.Secret
-	Format   string
+	URL       pachsql.URL
+	Password  secrets.Secret
+	Format    string
+	HasHeader bool
 }
 
 // SQLIngest connects to a SQL database at params.URL and runs queries
@@ -53,7 +54,7 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 		return err
 	}
 	log.Infof("Connected to DB")
-	writerFactory, err := makeWriterFactory(params.Format)
+	writerFactory, err := makeWriterFactory(params.Format, params.HasHeader)
 	if err != nil {
 		return err
 	}
@@ -91,21 +92,24 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 
 type writerFactory = func(w io.Writer, fieldNames []string) sdata.TupleWriter
 
-func makeWriterFactory(formatName string) (writerFactory, error) {
-	var factory writerFactory
+func makeWriterFactory(formatName string, hasHeader bool) (writerFactory, error) {
 	switch formatName {
 	case "json", "jsonlines":
-		factory = func(w io.Writer, fieldNames []string) sdata.TupleWriter {
+		return func(w io.Writer, fieldNames []string) sdata.TupleWriter {
 			return sdata.NewJSONWriter(w, fieldNames)
-		}
+		}, nil
 	case "csv":
-		factory = func(w io.Writer, fieldNames []string) sdata.TupleWriter {
-			return sdata.NewCSVWriter(w, nil)
+		if hasHeader {
+			return func(w io.Writer, fieldNames []string) sdata.TupleWriter {
+				return sdata.NewCSVWriter(w, fieldNames)
+			}, nil
 		}
+		return func(w io.Writer, fieldNames []string) sdata.TupleWriter {
+			return sdata.NewCSVWriter(w, nil)
+		}, nil
 	default:
 		return nil, errors.Errorf("unrecognized format %v", formatName)
 	}
-	return factory, nil
 }
 
 type SQLQueryGenerationParams struct {
