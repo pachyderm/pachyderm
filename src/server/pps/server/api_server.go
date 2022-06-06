@@ -1397,6 +1397,47 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	})
 }
 
+// parseNativeLine receives a raw chunk of JSON from Loki, which is our logged
+// pps.LogMessage object.
+func parseNativeLine(s string, msg *pps.LogMessage) error {
+	return errors.EnsureStack(jsonpb.UnmarshalString(s, msg))
+}
+
+// parseDockerLine receives the raw Docker log line, which is a JSON object
+// containing a time, stream, and log field.  The log contains what our program
+// actually logged, so we parse that with parseNative after extracting it.
+func parseDockerLine(s string, msg *pps.LogMessage) error {
+	var result struct{ Log string }
+	if err := json.Unmarshal([]byte(s), &result); err != nil {
+		return errors.Errorf("outer json: %v", err)
+	}
+	if result.Log == "" {
+		return errors.New("log field is empty")
+	}
+	if err := parseNativeLine(result.Log, msg); err != nil {
+		return errors.Errorf("native json (%q): %v", result.Log, err)
+	}
+	return nil
+}
+
+// parseCRILine receives the raw CRI-format (used by containerd and cri-o) log
+// line, which is a line of text formatted like: <RFC3339 time> <stream name>
+// <maybe flags> <log message>.  Because this format is not actually parseable
+// (the log message could start with a flag, but there are no flags), we just
+// seek to the first { and feed that to the native parser.
+func parseCRILine(s string, msg *pps.LogMessage) error {
+	b := []byte(s)
+	i := bytes.IndexByte(b, '{')
+	if i < 0 {
+		return errors.New("line does not contain {")
+	}
+	l := string(b[i:])
+	if err := parseNativeLine(l, msg); err != nil {
+		return errors.Errorf("native json (%q): %v", l, err)
+	}
+	return nil
+}
+
 func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
 	// There are three possible log formats in Loki, depending on the underlying formatting done
 	// by the container runtime.  Under ideal circumstances, the user of Loki has configured
@@ -1405,57 +1446,21 @@ func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
 	// https://grafana.com/docs/loki/latest/clients/promtail/stages/cri/ and
 	// https://grafana.com/docs/loki/latest/clients/promtail/stages/docker/)
 
-	// Receives a raw chunk of JSON from Loki, which is our logged pps.LogMessage object.
-	parseNative := func(line string) error {
-		return errors.EnsureStack(jsonpb.UnmarshalString(line, msg))
-	}
-
-	// Receives the raw Docker log line, which is a JSON object containing a time, stream, and
-	// log field.  The log contains what our program actually logged, so we parse that with
-	// parseNative after extracting it.
-	parseDocker := func(line string) error {
-		var result struct{ Log string }
-		if err := json.Unmarshal([]byte(line), &result); err != nil {
-			return errors.Errorf("outer json: %v", err)
-		}
-		if result.Log == "" {
-			return errors.New("log field is empty")
-		}
-		if err := parseNative(result.Log); err != nil {
-			return errors.Errorf("native json (%q): %v", result.Log, err)
-		}
-		return nil
-	}
-
-	// Receives the raw CRI-format (used by containerd and cri-o) log line, which is a line of
-	// text formatted like: <RFC3339 time> <stream name> <maybe flags> <log message>.  Because
-	// this format is not actually parseable (the log message could start with a flag, but there
-	// are no flags), we just seek to the first { and feed that to the native parser.
-	parseCRI := func(line string) error {
-		b := []byte(line)
-		i := bytes.IndexByte(b, '{')
-		if i < 0 {
-			return errors.New("line does not contain {")
-		}
-		l := string(b[i:])
-		if err := parseNative(l); err != nil {
-			return errors.Errorf("native json (%q): %v", l, err)
-		}
-		return nil
-	}
-
 	// Try each driver; if one results in a valid message, then we're done.
 	errs := make(map[string]error)
-	parsers := map[string]func(string) error{
+	parsers := []struct {
+		driver string
+		parser func(string, *pps.LogMessage) error
+	}{
 		// The order here is important, because native and docker messages are ambiguous.
 		// It is unfortunate that we can't happy-path native.
-		"cri":    parseCRI,
-		"docker": parseDocker,
-		"native": parseNative,
+		{"cri", parseCRILine},
+		{"docker", parseDockerLine},
+		{"native", parseNativeLine},
 	}
-	for driver, parser := range parsers {
-		if err := parser(inputLine); err != nil {
-			errs[driver] = err
+	for _, item := range parsers {
+		if err := item.parser(inputLine, msg); err != nil {
+			errs[item.driver] = err
 			continue
 		}
 		// This driver worked, so give up!
