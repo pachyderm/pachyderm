@@ -1364,7 +1364,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 		msg := new(pps.LogMessage)
 		if err := parseLokiLine(line, msg); err != nil {
 			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
