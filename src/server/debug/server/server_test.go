@@ -42,10 +42,24 @@ type fakeLoki struct {
 }
 
 func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var (
+		start, end time.Time
+		limit      int
+	)
 	direction := r.URL.Query().Get("direction")
-	start := time.Unix(0, mustParseQuerystringInt64(r, "start"))
-	end := time.Unix(0, mustParseQuerystringInt64(r, "end"))
-	limit := int(mustParseQuerystringInt64(r, "limit"))
+	if r.URL.Query().Get("start") != "" {
+		start = time.Unix(0, mustParseQuerystringInt64(r, "start"))
+	} else {
+		start = time.Now().Add(-1 * time.Hour)
+	}
+	if r.URL.Query().Get("end") != "" {
+		end = time.Unix(0, mustParseQuerystringInt64(r, "end"))
+	} else {
+		end = time.Now()
+	}
+	if r.URL.Query().Get("limit") != "" {
+		limit = int(mustParseQuerystringInt64(r, "limit"))
+	}
 
 	if end.Before(start) {
 		panic("end is before start")
