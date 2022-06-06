@@ -202,7 +202,7 @@ nav:
             - Helm Deployment Principles: deploy-manage/deploy/helm-install.md
             - Local Deployment: getting-started/local-installation.md
             - QUICK Cloud Deployment: deploy-manage/deploy/quickstart.md
-            - NEW - Deploy Pachyderm With Envoy: deploy-manage/deploy/envoy.md 
+            - NEW - Deploy Pachyderm With a Proxy: deploy-manage/deploy/deploy-w-proxy.md 
             - Production Deployment:       
                 - Load Balancer and Ingress Setup:
                     - Infrastructure Recommendations: deploy-manage/deploy/ingress/index.md

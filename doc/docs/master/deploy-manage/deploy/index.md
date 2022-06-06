@@ -73,8 +73,8 @@ deployment options and related topics:
           Deploy Console
           </a>
           </li>
-          <li><a href="envoy/" class="md-typeset md-link">
-          Optional: Deploy Pachyderm with Envoy
+          <li><a href="deploy-w-proxy/" class="md-typeset md-link">
+          Optional: Deploy Pachyderm with a Proxy
           </a>
           </li>
         </ul>

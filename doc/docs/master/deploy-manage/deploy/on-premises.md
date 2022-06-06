@@ -8,10 +8,10 @@ This page walks you through the fundamentals of what you need to know about Kube
     - Troubleshooting a deployment? Check out [Troubleshooting Deployments](../../troubleshooting/deploy-troubleshooting.md).
 
 !!! Attention 
-    We are now shipping Pachyderm with an **optional embedded proxy ([Envoy](https://www.envoyproxy.io/))** 
-    allowing your cluster to expose one single port to the Internet.
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    The deployment with Envoy is **optional**. If you choose to deploy with Envoy, check out our new recommended architecture and [deployment instructions](../envoy/). 
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
 ## Introduction
 
 Deploying Pachyderm successfully on-premises requires a few prerequisites.
