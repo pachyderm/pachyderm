@@ -1487,16 +1487,19 @@ func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
 
 	// Try each driver; if one results in a valid message, then we're done.
 	errs := make(map[string]error)
-	parsers := map[string]func(string, *pps.LogMessage) error{
+	parsers := []struct {
+		driver string
+		parser func(string, *pps.LogMessage) error
+	}{
 		// The order here is important, because native and docker messages are ambiguous.
 		// It is unfortunate that we can't happy-path native.
-		"cri":    parseCRILine,
-		"docker": parseDockerLine,
-		"native": parseNativeLine,
+		{"cri", parseCRILine},
+		{"docker", parseDockerLine},
+		{"native", parseNativeLine},
 	}
-	for driver, parser := range parsers {
-		if err := parser(inputLine, msg); err != nil {
-			errs[driver] = err
+	for _, item := range parsers {
+		if err := item.parser(inputLine, msg); err != nil {
+			errs[item.driver] = err
 			continue
 		}
 		// This driver worked, so give up!
