@@ -319,12 +319,14 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 			return err
 		}
 		// Delete the appropriate files.
-		pachClient := pachClient.WithCtx(ctx)
-		if err := pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
-			dit := datum.NewFileSetIterator(pachClient, deleteFileSetID)
-			return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
-				return deleter(meta)
-			}))
+		if err := pj.logger.LogStep("deleting old datum outputs", func() error {
+			pachClient := pachClient.WithCtx(ctx)
+			return pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
+				dit := datum.NewFileSetIterator(pachClient, deleteFileSetID)
+				return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
+					return deleter(meta)
+				}))
+			})
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}

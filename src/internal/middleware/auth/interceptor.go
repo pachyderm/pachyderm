@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -279,6 +280,13 @@ type Interceptor struct {
 	getAuthServer func() authserver.APIServer
 }
 
+func peerName(ctx context.Context) string {
+	if p, ok := peer.FromContext(ctx); ok {
+		return p.Addr.String()
+	}
+	return "<unknown ip>"
+}
+
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	a, ok := authHandlers[info.FullMethod]
@@ -290,7 +298,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("denied unary call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
+		logrus.WithError(err).Errorf("denied unary call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerName(ctx))
 		return nil, err
 	}
 
@@ -313,7 +321,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("denied streaming call %q to user %v\n", info.FullMethod, nameOrUnauthenticated(username))
+		logrus.WithError(err).Errorf("denied streaming call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerName(ctx))
 		return err
 	}
 

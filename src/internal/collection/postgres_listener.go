@@ -322,7 +322,7 @@ type postgresListener struct {
 
 func NewPostgresListener(dsn string) PostgresListener {
 	// Apparently this is very important for lib/pq to work
-	dsn = strings.Replace(dsn, "statement_cache_mode=describe", "", -1)
+	dsn = strings.ReplaceAll(dsn, "statement_cache_mode=describe", "")
 	eg, _ := errgroup.WithContext(context.Background())
 
 	l := &postgresListener{
