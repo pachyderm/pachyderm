@@ -24,13 +24,19 @@ type Client struct {
 	Address string
 }
 
-// QueryRange queries Loki in a given time range
+// QueryRange queries Loki in a given time range.
 func (c *Client) QueryRange(ctx context.Context, queryStr string, limit int, start, end time.Time, direction string, step, interval time.Duration, quiet bool) (*QueryResponse, error) {
 	params := newQueryStringBuilder()
 	params.SetString("query", queryStr)
-	params.SetInt32("limit", limit)
-	params.SetInt("start", start.UnixNano())
-	params.SetInt("end", end.UnixNano())
+	if limit > 0 {
+		params.SetInt32("limit", limit)
+	}
+	if !start.IsZero() {
+		params.SetInt("start", start.UnixNano())
+	}
+	if !end.IsZero() {
+		params.SetInt("end", end.UnixNano())
+	}
 	params.SetString("direction", direction)
 
 	// The step is optional, so we do set it only if provided,
