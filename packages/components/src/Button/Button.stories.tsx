@@ -27,29 +27,20 @@ const defaultArgTypes = {
       options: ['both', 'start', 'end'],
     },
   },
+  IconSVG: {control: {disable: true}},
 };
 
-export const Default = () => {
-  return <Button>Button Text</Button>;
-};
-
-export const TextButton = (args: ButtonProps) => {
+export const Default = (args: ButtonProps) => {
   return <Button {...args}>Button Text</Button>;
 };
 
-TextButton.argTypes = {
-  IconSVG: {control: {disable: true}},
-  ...defaultArgTypes,
-};
+Default.argTypes = defaultArgTypes;
 
 export const IconButton = (args: ButtonProps) => {
   return <Button {...args} IconSVG={UploadSVG} />;
 };
 
-IconButton.argTypes = {
-  IconSVG: {control: {disable: true}},
-  ...defaultArgTypes,
-};
+IconButton.argTypes = defaultArgTypes;
 
 export const TextIconButton = (args: ButtonProps) => {
   return (
@@ -59,18 +50,19 @@ export const TextIconButton = (args: ButtonProps) => {
   );
 };
 
-TextIconButton.argTypes = {
-  icon: {control: {disable: true}},
-  ...defaultArgTypes,
-};
+TextIconButton.argTypes = defaultArgTypes;
 
-export const Link = () => {
+export const Link = (args: ButtonProps) => {
   return (
     <BrowserRouter>
-      <Button to="/">Primary Link</Button>
+      <Button to="/" {...args}>
+        Primary Link
+      </Button>
     </BrowserRouter>
   );
 };
+
+Link.argTypes = defaultArgTypes;
 
 export const MultiButtonGroup = () => {
   return (

@@ -105,7 +105,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
     );
   }, [IconSVG, children, disabled, buttonType, color, iconPosition, iconOnly]);
 
-  if (href) {
+  if (!disabled && href) {
     return (
       <a
         className={classes}
@@ -120,7 +120,7 @@ export const Button: FunctionComponent<ButtonProps> = ({
     );
   }
 
-  if (to) {
+  if (!disabled && to) {
     return (
       <Link className={classes} to={to} {...props}>
         {buttonChildren}
