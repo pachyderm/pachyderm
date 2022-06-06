@@ -30,12 +30,12 @@ func New() string {
 
 // NewWithoutDashes returns a new uuid without no "-".
 func NewWithoutDashes() string {
-	return strings.Replace(New(), "-", "", -1)
+	return strings.ReplaceAll(New(), "-", "")
 }
 
 // NewWithoutUnderscores returns a new uuid without no "_".
 func NewWithoutUnderscores() string {
-	return strings.Replace(New(), "_", "", -1)
+	return strings.ReplaceAll(New(), "_", "")
 }
 
 // IsUUIDWithoutDashes checks whether a string is a UUID without dashes
