@@ -340,7 +340,7 @@ func writeProfile(ctx context.Context, w io.Writer, profile *debug.Profile) erro
 	if p == nil {
 		return errors.Errorf("unable to find profile %q", profile.Name)
 	}
-	blah := "blah"
+
 	return errors.EnsureStack(p.WriteTo(w, 0))
 }
 
