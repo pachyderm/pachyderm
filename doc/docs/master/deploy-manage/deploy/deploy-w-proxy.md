@@ -36,53 +36,18 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
         
     When a proxy is enabled with `type:LoadBalancer` (see the snippet of values.yaml enabling the proxy), Pachyderm creates a `pachyderm-proxy` service allowing your cloud platform (AWS, GKE...) to **provision a TCP Load Balancer automatically**.
         
-    To provision this external load balancer automatically (if supported) and attach any Load Balancer configuration information to the metadata of your servic, add the appropriate `annotations` in the `proxy.service` of your values.yaml (see below):
+   !!! Note 
+        - You can optionally attach any additional Load Balancer configuration information to the metadata of your service by adding the appropriate `annotations` in the `proxy. service` of your values.yaml.
+        - You can pre-create a static IP (For example, in GCP: `gcloud compute addresses create ADDRESS_NAME --global --IP-version IPV4)`, then pass this external IP to the `loadBalancerIP` in the `proxy.service` of your values.yaml.
 
     ```yaml
     proxy:
       enabled: true
       service:
         type: LoadBalancer
-        annotations: {see examples below}
+        annotations: {<add-optional-annotations-here}
+        loadBalancerIP: <insert-your-proxy-external-IP-address-here>
     ```
-
-
-    === "Example on AWS EKS"
-        In the following example, we deploy an NLB on AWS EKS:
-
-        ``` yaml
-        proxy:
-          enabled: true
-          service:
-            type: LoadBalancer
-            annotations: {see examples below}
-              service.beta.kubernetes.io/aws-load-balancer-type: "external"
-              service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-              service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
-              service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-aaaaa,subnet-bbbbb,subnet-ccccc"
-
-        ```
-
-    === "Example on GCP GKE"
-        In the following example, we pre-created a static IP by running `gcloud compute addresses create ADDRESS_NAME --global --ip-version IPV4`, then passed this external IP to the values.yaml as follow:
-
-        ``` yaml
-        proxy:
-          enabled: true
-          service:
-            type: LoadBalancer
-            loadBalancerIP: ${ADDRESS_NAME}
-        ```
-    === "Example on Azure AKS"
-        This example is identical to the example on Google GKE.
-
-        ``` yaml
-          proxy:
-            enabled: true
-            service:
-              type: LoadBalancer
-              loadBalancerIP: ${ADDRESS_NAME}
-        ```
 
 * **Use a secure connection**
 
