@@ -59,12 +59,12 @@ const SideNav: React.FC<Props> = ({
             data-testid="SideNav__toggle"
             aria-label={`${minimized ? 'Open' : 'Close'} navigation`}
           >
-            {!minimized && 'Collapse'}
             <div aria-hidden={true} className={styles.collapseIcon}>
               <ChevronDoubleRightSVG
                 className={!minimized ? styles.flipSVG : ''}
               />
             </div>
+            {!minimized && 'Collapse'}
           </button>
         )}
       </nav>

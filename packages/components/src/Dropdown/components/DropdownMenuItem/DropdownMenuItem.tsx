@@ -3,6 +3,8 @@ import noop from 'lodash/noop';
 import React, {ButtonHTMLAttributes, useRef} from 'react';
 
 import useDropdownMenuItem from 'Dropdown/hooks/useDropdownMenuItem';
+import {Group} from 'Group';
+import {Icon} from 'Icon';
 
 import styles from './DropdownMenuItem.module.css';
 
@@ -12,6 +14,8 @@ export interface DropdownMenuItemProps
   important?: boolean;
   closeOnClick?: boolean;
   value?: string;
+  buttonStyle?: 'default' | 'tertiary';
+  IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
 }
 
 export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
@@ -22,6 +26,8 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   onClick = noop,
   closeOnClick = false,
   value = '',
+  buttonStyle = 'default',
+  IconSVG,
   ...rest
 }) => {
   const ref = useRef<HTMLButtonElement>(null);
@@ -33,6 +39,7 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
     value,
   });
   const classes = classnames(styles.base, className, {
+    [styles.tertiary]: buttonStyle === 'tertiary',
     [styles.important]: important,
     [styles.selected]: isSelected,
   });
@@ -53,7 +60,14 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
       tabIndex={-1}
       {...rest}
     >
-      {children}
+      <Group spacing={IconSVG && 8} align="center">
+        {IconSVG && (
+          <Icon small color={buttonStyle !== 'tertiary' ? 'black' : 'white'}>
+            <IconSVG />
+          </Icon>
+        )}
+        {children}
+      </Group>
     </button>
   );
 };

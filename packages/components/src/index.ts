@@ -47,6 +47,7 @@ export * from './Select';
 export * from './SideNav';
 export * from './SkeletonBodyText';
 export * from './SkeletonDisplayText';
+export * from './StoryProgressDots';
 export * from './SuccessCheckmark';
 export * from './Svg';
 export * from './Switch';

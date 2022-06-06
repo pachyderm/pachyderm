@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 
-import {HamburgerSVG} from '../Svg';
+import {HamburgerSVG, EducationSVG, SupportSVG} from 'Svg';
 
 import {SearchableDropdown} from './Dropdown';
 
@@ -78,11 +78,26 @@ export const SideOpen = () => {
   );
 };
 
+const iconItems: DropdownItem[] = [
+  {
+    id: 'start',
+    content: 'Start Tutorial',
+    IconSVG: EducationSVG,
+    buttonStyle: 'tertiary',
+  },
+  {
+    id: 'support',
+    content: 'Contact Support',
+    IconSVG: SupportSVG,
+    buttonStyle: 'tertiary',
+  },
+];
+
 export const Icon = () => {
   return (
     <div style={{backgroundColor: 'black', padding: '1rem'}}>
       <DefaultDropdown
-        items={items}
+        items={iconItems}
         storeSelected
         buttonOpts={{
           hideChevron: true,

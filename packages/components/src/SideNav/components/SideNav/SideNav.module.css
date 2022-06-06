@@ -22,16 +22,18 @@
 }
 
 .collapse {
-  position: fixed;
-  bottom: 0;
   display: flex;
   border: none;
   color: var(--dropshadow-grey);
   background-color: transparent;
-  padding: 1.5rem 2rem;
+  padding: 0.5rem 1rem;
   overflow-x: hidden;
   white-space: nowrap;
   transition: color .2s;
+}
+
+.collapsed .collapse {
+  padding: 1rem 2rem;
 }
 
 .base.light .collapse{
@@ -51,7 +53,7 @@
 }
 
 .collapseIcon {
-  margin-left: 0.25rem;
+  margin-right: 0.5rem;
 }
 
 .collapseIcon svg > path {

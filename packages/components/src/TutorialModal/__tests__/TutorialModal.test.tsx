@@ -169,7 +169,7 @@ describe('TutorialModal', () => {
     });
     click(pipelineButton);
 
-    const minimizeButton = await findByRole('button', {name: 'Minimize'});
+    const minimizeButton = await findByRole('button', {name: 'minimize'});
     click(minimizeButton);
 
     const nextButtons = await findAllByRole('button', {
@@ -186,11 +186,11 @@ describe('TutorialModal', () => {
       <TutorialModal stories={stories} tutorialName="test" />,
     );
 
-    const minimizeButton = await findByRole('button', {name: 'Minimize'});
+    const minimizeButton = await findByRole('button', {name: 'minimize'});
 
     click(minimizeButton);
 
-    expect(await findByRole('button', {name: 'Maximize'})).toBeInTheDocument();
+    expect(await findByRole('button', {name: 'maximize'})).toBeInTheDocument();
   });
 
   it('should display info for the current task in the side bar', async () => {
@@ -206,7 +206,7 @@ describe('TutorialModal', () => {
       <TutorialModal stories={stories} tutorialName="test" />,
     );
 
-    const sizeButton = await findByRole('button', {name: 'Minimize'});
+    const sizeButton = await findByRole('button', {name: 'minimize'});
 
     click(sizeButton);
     click(sizeButton);
@@ -234,7 +234,7 @@ describe('TutorialModal', () => {
       <TutorialModal stories={stories} tutorialName="test" />,
     );
 
-    const minimizeButton = await findByRole('button', {name: 'Minimize'});
+    const minimizeButton = await findByRole('button', {name: 'minimize'});
     click(minimizeButton);
 
     const tasks = await findAllByLabelText(
@@ -253,7 +253,7 @@ describe('TutorialModal', () => {
     });
     click(pipelineButton);
 
-    const minimizeButton = await findByRole('button', {name: 'Minimize'});
+    const minimizeButton = await findByRole('button', {name: 'minimize'});
     click(minimizeButton);
 
     expect(

@@ -3,7 +3,16 @@ import noop from 'lodash/noop';
 import React, {ReactNode} from 'react';
 
 import {Button} from 'Button';
-import {ArrowRightSVG, ChevronUpSVG, ChevronDownSVG, MinimizeSVG} from 'Svg';
+import {Group} from 'Group';
+import {Icon} from 'Icon';
+import {StoryProgressDots} from 'StoryProgressDots';
+import {
+  ArrowRightSVG,
+  ChevronUpSVG,
+  ChevronDownSVG,
+  MinimizeSVG,
+  StatusPausedSVG,
+} from 'Svg';
 import {TaskCard} from 'TutorialModal';
 
 import {PureCheckbox} from '../../../Checkbox';
@@ -56,8 +65,8 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
   initialStory = 0,
   initialTask = 0,
   onTutorialComplete = noop,
-  onSkip = noop,
-  onClose = noop,
+  onSkip,
+  onClose,
 }) => {
   const {
     currentStory,
@@ -103,18 +112,27 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
           </div>
         ) : null}
         <div className={styles.header}>
-          <Button
-            className={styles.button}
-            onClick={handleNextStory}
-            disabled={
-              currentStory === stories.length - 1 ||
-              currentTask <= taskSections.length - 1
-            }
-            data-testid="TutorialModalBody__nextStory"
-          >
-            Next Story
-            <ArrowRightSVG />
-          </Button>
+          <Group spacing={16}>
+            <div className={styles.storyProgressWrapper}>
+              <StoryProgressDots
+                dotStyle="light"
+                stories={stories.length}
+                progress={currentStory}
+              />
+            </div>
+            <Button
+              className={styles.button}
+              onClick={handleNextStory}
+              disabled={
+                currentStory === stories.length - 1 ||
+                currentTask <= taskSections.length - 1
+              }
+              data-testid="TutorialModalBody__nextStory"
+            >
+              Next Story
+              <ArrowRightSVG />
+            </Button>
+          </Group>
           <div className={styles.rightButtons}>
             {onSkip && (
               <Button
@@ -133,7 +151,9 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                 onClick={onClose}
                 data-testid={'TutorialModalBody__closeTutorial'}
               >
-                Pause Tutorial
+                <Icon small color="plum" className={styles.pauseIcon}>
+                  <StatusPausedSVG />
+                </Icon>
               </Button>
             )}
             <Button
@@ -143,19 +163,9 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
               data-testid={`TutorialModalBody__${
                 minimized ? 'maximize' : 'minimize'
               }`}
-            >
-              {minimized ? (
-                <>
-                  Maximize
-                  <ChevronUpSVG />
-                </>
-              ) : (
-                <>
-                  Minimize
-                  <ChevronDownSVG />
-                </>
-              )}
-            </Button>
+              aria-label={minimized ? 'maximize' : 'minimize'}
+              IconSVG={minimized ? ChevronUpSVG : ChevronDownSVG}
+            />
           </div>
         </div>
         <div className={styles.body} ref={tutorialModalRef}>

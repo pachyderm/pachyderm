@@ -485,6 +485,8 @@ export const ConfigurationUpload = () => {
     <TutorialModal
       stories={configurationStories}
       tutorialName="configuration-upload"
+      onClose={() => null}
+      onSkip={() => null}
     />
   );
 };

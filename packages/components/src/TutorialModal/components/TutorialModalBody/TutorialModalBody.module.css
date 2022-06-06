@@ -84,10 +84,6 @@
   background-color: #fff;
 }
 
-.button svg {
-  margin-left: 1rem;
-}
-
 .body {
   border-radius: 3px;
   border: 1px solid var(--grey-4);
@@ -167,4 +163,18 @@
 
 .minimizeSVG {
   margin-right: 1rem;
+}
+
+.pauseIcon path:last-of-type {
+  fill: var(--pachyderm-plum)
+}
+
+.storyProgressWrapper {
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  z-index: 10;
+  padding: 0rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 3px;
 }
