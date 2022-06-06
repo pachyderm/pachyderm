@@ -143,23 +143,6 @@ jobs:
       - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
-  load-test:
-    resource_class: xlarge
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    environment:
-      GOOGLE_PROJECT_ID: build-release-001
-      GOOGLE_COMPUTE_ZONE: us-east1-b
-      GOOGLE_COMPUTE_REGION: us-east1
-    steps:
-      - checkout
-      - gcp-cli/initialize
-      - run: |
-          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/run_load_tests.sh
-      - store_artifacts:
-          path: /tmp/debug-dump
-          destination: debug-dump
   nightly-load:
     parameters:
       bucket:
@@ -406,12 +389,6 @@ workflows:
               ignore: /.*/
             tags:
               only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  load_tests:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - load-test
   nightly_load_tests:
     triggers:
       - schedule:
