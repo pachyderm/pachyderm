@@ -91,7 +91,9 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
-      - run: etc/testing/circle/upload_stats.sh
+      - run:
+          command: etc/testing/circle/upload_stats.sh
+          when: always
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -138,10 +140,10 @@ jobs:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
+      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
-  load_test:
+  load-test:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -154,19 +156,15 @@ jobs:
       - gcp-cli/initialize
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/launch.sh
       - run: etc/testing/circle/run_load_tests.sh
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
-  nightly_load:
+  nightly-load:
     parameters:
       bucket:
         type: string
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -179,10 +177,6 @@ jobs:
       - gcp-cli/initialize
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/start-minikube.sh
-      - run: etc/testing/circle/build.sh
-      - run: etc/testing/circle/launch.sh
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
@@ -203,10 +197,37 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/start-minikube.sh
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      # Note: This gets saves in the main test runs, no need to save here
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
       - run: etc/testing/circle/deploy_test.sh
+      - run:
+          command: etc/testing/circle/upload_stats.sh
+          when: always
+      - store_test_results:
+          path: /tmp/test-results
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build:
@@ -390,7 +411,7 @@ workflows:
       and:
         - not: << pipeline.parameters.RELEASE_PACH_CORE >>
     jobs:
-      - load_test
+      - load-test
   nightly_load_tests:
     triggers:
       - schedule:
@@ -402,7 +423,7 @@ workflows:
                 - 2.1.x
                 - 2.2.x
     jobs:
-      - nightly_load:
+      - nightly-load:
           matrix:
             parameters:
               bucket:

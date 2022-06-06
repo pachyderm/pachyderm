@@ -53,7 +53,7 @@ func PipelineRcName(name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
-	name = strings.Replace(name, "_", "-", -1)
+	name = strings.ReplaceAll(name, "_", "-")
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 

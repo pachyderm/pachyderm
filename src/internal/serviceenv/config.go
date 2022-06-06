@@ -5,7 +5,7 @@ type Configuration struct {
 	*GlobalConfiguration
 	*PachdSpecificConfiguration
 	*WorkerSpecificConfiguration
-	*EnterpriseSpecifcConfiguration
+	*EnterpriseSpecificConfiguration
 }
 
 // GlobalConfiguration contains the global configuration.
@@ -79,7 +79,7 @@ type GlobalConfiguration struct {
 type PachdFullConfiguration struct {
 	GlobalConfiguration
 	PachdSpecificConfiguration
-	EnterpriseSpecifcConfiguration
+	EnterpriseSpecificConfiguration
 }
 
 // PachdSpecificConfiguration contains the pachd specific configuration.
@@ -106,12 +106,14 @@ type PachdSpecificConfiguration struct {
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
 type EnterpriseServerConfiguration struct {
 	GlobalConfiguration
-	EnterpriseSpecifcConfiguration
+	EnterpriseSpecificConfiguration
 }
 
-// EnterpriseSpecifcConfiguration contains the configuration required for enterprise features
-type EnterpriseSpecifcConfiguration struct {
-	AuthRootToken string `env:"AUTH_ROOT_TOKEN,default="`
+// EnterpriseSpecificConfiguration contains the configuration required for enterprise features
+type EnterpriseSpecificConfiguration struct {
+	AuthRootToken    string `env:"AUTH_ROOT_TOKEN,default="`
+	LicenseKey       string `env:"LICENSE_KEY,default="`
+	EnterpriseSecret string `env:"ENTERPRISE_SECRET,default="`
 }
 
 // StorageConfiguration contains the storage configuration.
@@ -165,7 +167,7 @@ func NewConfiguration(config interface{}) *Configuration {
 	case *PachdFullConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
 		configuration.PachdSpecificConfiguration = &v.PachdSpecificConfiguration
-		configuration.EnterpriseSpecifcConfiguration = &v.EnterpriseSpecifcConfiguration
+		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	case *WorkerFullConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
@@ -173,7 +175,7 @@ func NewConfiguration(config interface{}) *Configuration {
 		return configuration
 	case *EnterpriseServerConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
-		configuration.EnterpriseSpecifcConfiguration = &v.EnterpriseSpecifcConfiguration
+		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	default:
 		return nil
