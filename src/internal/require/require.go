@@ -427,6 +427,9 @@ func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndA
 	var userError error
 	err := backoff.RetryUntilCancel(ctx, func() error {
 		userError = f()
+		if userError != nil {
+			tb.Logf("retryable: %v", userError)
+		}
 		return userError
 	}, backoff.NewExponentialBackOff(), nil)
 	if err != nil {
