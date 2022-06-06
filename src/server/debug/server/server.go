@@ -797,7 +797,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	var end time.Time
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
-	for numLogs := 0; end.IsZero() || start.Before(end) && numLogs < maxLogs; {
+	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
 		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
