@@ -459,6 +459,62 @@ func GetRobotTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
 }
 
+// RevokeCmd returns a cobra.Command that revokes a Pachyderm token.
+func RevokeCmd() *cobra.Command {
+	var enterprise bool
+	revoke := &cobra.Command{
+		Short: "Revoke a Pachyderm auth token",
+		Long:  "Revoke a Pachyderm auth token.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			token := args[0]
+
+			c, err := newClient(enterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			_, err = c.RevokeAuthToken(c.Ctx(), &auth.RevokeAuthTokenRequest{
+				Token: token,
+			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
+			}
+			return nil
+		}),
+	}
+	revoke.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Revoke an auth token on the enterprise server")
+	return cmdutil.CreateAlias(revoke, "auth revoke")
+}
+
+// RevokeAllCmd returns a cobra.Command that revokes a Pachyderm token.
+func RevokeAllCmd() *cobra.Command {
+	var enterprise bool
+	revokeall := &cobra.Command{
+		Short: "Revoke all Pachyderm auth tokens associated with the given user",
+		Long:  "Revoke a Pachyderm auth tokens associated with the given user.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			user := args[0]
+
+			c, err := newClient(enterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			_, err = c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{
+				Username: user,
+			})
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
+			}
+			return nil
+		}),
+	}
+	revokeall.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Revoke auth tokens on the enterprise server")
+	return cmdutil.CreateAlias(revokeall, "auth revoke-for-user")
+}
+
 func GetGroupsCmd() *cobra.Command {
 	var enterprise bool
 	getGroups := &cobra.Command{
