@@ -175,7 +175,7 @@ global:
     postgresqlDatabase: "pachyderm"
     postgresqlUsername: "${SQL_ADMIN}"
     postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
-    postgresqlSSL: "enable"
+    postgresqlSSL: "require"
 
 loki-stack:
   loki:
