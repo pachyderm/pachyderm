@@ -319,7 +319,17 @@ func (r *RepeatedStringArg) Type() string {
 // '{{alias}}' will be replaced with the full command path.  These commands can
 // later be merged into the final Command tree using 'MergeCommands' below.
 func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
+	return createAlias(cmd, invocation)
+}
 
+// CreateAliases is like CreateAlias, except it allows us to specify one or more synonyms for the
+// last argument in the command with the assumption that the last argument in the command is a resource
+// such as 'repo' or 'pipeline'.
+func CreateAliases(cmd *cobra.Command, invocation string, synonyms ...string) *cobra.Command {
+	return createAlias(cmd, invocation, synonyms...)
+}
+
+func createAlias(cmd *cobra.Command, invocation string, synonyms ...string) *cobra.Command {
 	// Create logical commands for each substring in each invocation
 	var root, prev *cobra.Command
 	args := strings.Split(invocation, " ")
@@ -337,6 +347,11 @@ func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
 				cur.Use = strings.ReplaceAll(cmd.Use, "{{alias}}", arg)
 			}
 			cur.Example = strings.ReplaceAll(cmd.Example, "{{alias}}", fmt.Sprintf("%s %s", os.Args[0], invocation))
+
+			if len(synonyms) != 0 {
+				cur.Aliases = append([]string{}, synonyms...)
+			}
+
 		} else {
 			cur.Use = arg
 		}
@@ -401,8 +416,20 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 // commands have no functionality except to output some docs and related
 // commands, and should not specify a 'Run' attribute.
 func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) *cobra.Command {
+	return createDocsAlias(command, invocation, pattern)
+}
+
+// CreateDocsAliases is like CreateDocsAlias, except it allows us to specify one or more synonyms for the
+// last argument in the command with the assumption that the last argument in the command is a resource
+// such as 'repo' or 'pipeline'.
+func CreateDocsAliases(command *cobra.Command, invocation string, pattern string,
+	synonyms ...string) *cobra.Command {
+	return createDocsAlias(command, invocation, pattern, synonyms...)
+}
+
+func createDocsAlias(command *cobra.Command, invocation string, pattern string, synonyms ...string) *cobra.Command {
 	// This should create a linked-list-shaped tree, follow it to the one leaf
-	root := CreateAlias(command, invocation)
+	root := CreateAliases(command, invocation, synonyms...)
 	command = root
 	for len(command.Commands()) != 0 {
 		command = command.Commands()[0]

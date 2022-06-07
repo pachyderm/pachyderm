@@ -280,7 +280,7 @@ type Interceptor struct {
 	getAuthServer func() authserver.APIServer
 }
 
-func peerName(ctx context.Context) string {
+func peerNameOrUnknown(ctx context.Context) string {
 	if p, ok := peer.FromContext(ctx); ok {
 		return p.Addr.String()
 	}
@@ -298,7 +298,7 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("denied unary call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerName(ctx))
+		logrus.WithError(err).Errorf("denied unary call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerNameOrUnknown(ctx))
 		return nil, err
 	}
 
@@ -321,7 +321,7 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 
 	if err != nil {
-		logrus.WithError(err).Errorf("denied streaming call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerName(ctx))
+		logrus.WithError(err).Errorf("denied streaming call %q to user %v@%v", info.FullMethod, nameOrUnauthenticated(username), peerNameOrUnknown(ctx))
 		return err
 	}
 
