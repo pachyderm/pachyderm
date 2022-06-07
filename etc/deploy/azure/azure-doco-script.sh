@@ -46,6 +46,7 @@ CLUSTER_NAME="${NAME}-aks"
 # globally unique.
 STORAGE_ACCOUNT_NAME=$(echo $NAME | tr -d "-" | tr '[:upper:]' '[:lower:]')storage
 CONTAINER_NAME="${NAME}-container"
+LOKI_CONTAINER_NAME="${NAME}-loki-container"
 SQL_INSTANCE_NAME="${NAME}-sql"
 STATIC_IP_NAME="${NAME}-ip"
 
@@ -78,6 +79,10 @@ STORAGE_KEY="$(az storage account keys list \
             )"
 
 az storage container create --name "${CONTAINER_NAME}" \
+   --account-name "${STORAGE_ACCOUNT_NAME}" \
+   --account-key "${STORAGE_KEY}"
+
+az storage container create --name "${LOKI_CONTAINER_NAME}" \
    --account-name "${STORAGE_ACCOUNT_NAME}" \
    --account-key "${STORAGE_KEY}"
 
@@ -149,7 +154,9 @@ pachd:
     annotations:
       service.beta.kubernetes.io/azure-load-balancer-resource-group: ${RESOURCE_GROUP}
   image:
-    tag: "2.1.1"
+    tag: "2.2.0"
+  lokiDeploy: true
+  lokiLogging: true
   storage:
     microsoft:
       container: "${CONTAINER_NAME}"
@@ -169,6 +176,31 @@ global:
     postgresqlUsername: "${SQL_ADMIN}"
     postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
     postgresqlSSL: "enable"
+
+loki-stack:
+  loki:
+    config:
+      schema_config:
+        configs:
+        - from: 1989-11-09
+          object_store: azure
+          store: boltdb
+          schema: v11
+          index:
+            prefix: loki_index_
+          chunks:
+            prefix: loki_chunks_
+      storage_config:
+        azure:
+          container_name: "${LOKI_CONTAINER_NAME}"
+          account_name: "${STORAGE_ACCOUNT_NAME}"
+          account_key: "${STORAGE_KEY}"
+        boltdb:
+          directory: /data/loki/indices
+    persistence:
+      storageClassName: default
+  grafana:
+    enabled: true
 EOF
 
 helm repo add pach https://helm.pachyderm.com
