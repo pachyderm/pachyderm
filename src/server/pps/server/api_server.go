@@ -18,7 +18,7 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
-	logrus "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -1067,8 +1067,9 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 			Job: meta.Job,
 			ID:  common.DatumID(meta.Inputs),
 		},
-		State: convertDatumState(meta.State),
-		Stats: meta.Stats,
+		State:   convertDatumState(meta.State),
+		Stats:   meta.Stats,
+		ImageId: meta.ImageId,
 	}
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
@@ -1837,7 +1838,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	if oldPipelineInfo != nil && !request.Update {
-		return errors.Errorf("pipeline %q already exists", pipelineName)
+		return ppsServer.ErrPipelineAlreadyExists{
+			Pipeline: request.Pipeline,
+		}
 	}
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)

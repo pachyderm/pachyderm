@@ -26,13 +26,14 @@ func NewMySQL(t testing.TB) *pachsql.DB {
 	return testutil.OpenDBURL(t, u, MySQLPassword)
 }
 
-func NewEphemeralMySQLDB(t testing.TB, name string) *pachsql.DB {
-	return testutil.OpenDBURL(t, newMySQLEphemeralURL(t, name), MySQLPassword)
+func NewEphemeralMySQLDB(t testing.TB) (*pachsql.DB, string) {
+	name := testutil.GenerateEphemeralDBName(t)
+	return testutil.OpenDBURL(t, newMySQLEphemeralURL(t, name), MySQLPassword), name
 }
 
 // NewMySQLURL returns a pachsql.URL to an ephemeral database.
 func NewMySQLURL(t testing.TB) pachsql.URL {
-	dbName := testutil.GenerateEphermeralDBName(t)
+	dbName := testutil.GenerateEphemeralDBName(t)
 	return newMySQLEphemeralURL(t, dbName)
 }
 
@@ -62,8 +63,8 @@ func newMySQLEphemeralURL(t testing.TB, name string) pachsql.URL {
 	ctx, cf := context.WithTimeout(ctx, 30*time.Second)
 	defer cf()
 	require.NoError(t, dbutil.WaitUntilReady(ctx, log, db))
-	dbName := testutil.CreateEphemeralDB(t, db, name)
+	testutil.CreateEphemeralDB(t, db, name)
 	u2 := u
-	u2.Database = dbName
+	u2.Database = name
 	return u2
 }

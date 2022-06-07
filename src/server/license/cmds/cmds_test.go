@@ -12,26 +12,22 @@ func TestActivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	code := tu.GetTestEnterpriseCode(t)
 
-	require.NoError(t, tu.BashCmd(`echo {{.license}} | pachctl license activate --no-register`,
+	require.NoError(t, tu.PachctlBashCmd(t, c, `echo {{.license}} | pachctl license activate --no-register`,
 		"license", code).Run())
 
-	require.NoError(t, tu.BashCmd(`pachctl license get-state | match ACTIVE`).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl license get-state | match ACTIVE`).Run())
 }
 
 func TestClusterCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
-	defer tu.DeleteAll(t)
-	require.NoError(t, tu.BashCmd(`
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl license add-cluster --id {{.id}} --address grpc://localhost:1653
 		pachctl license list-clusters \
                   | match 'id: {{.id}}' \

@@ -74,6 +74,7 @@ func (tester *ChannelWatchTester) nextEvent(timeout time.Duration) *watch.Event 
 }
 
 func (tester *ChannelWatchTester) Write(item *col.TestItem) {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return putItem(item)(rw)
 	})
@@ -81,6 +82,7 @@ func (tester *ChannelWatchTester) Write(item *col.TestItem) {
 }
 
 func (tester *ChannelWatchTester) Delete(id string) {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return errors.EnsureStack(rw.Delete(id))
 	})
@@ -88,6 +90,7 @@ func (tester *ChannelWatchTester) Delete(id string) {
 }
 
 func (tester *ChannelWatchTester) DeleteAll() {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return errors.EnsureStack(rw.DeleteAll())
 	})
@@ -99,6 +102,7 @@ func (tester *ChannelWatchTester) ExpectEvent(expected TestEvent) {
 }
 
 func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
+	tester.t.Helper()
 	actual := []TestEvent{}
 	for range expected {
 		ev := tester.nextEvent(5 * time.Second)
@@ -130,6 +134,7 @@ func (tester *ChannelWatchTester) ExpectError(err error) {
 }
 
 func (tester *ChannelWatchTester) ExpectNoEvents() {
+	tester.t.Helper()
 	require.Nil(tester.t, tester.nextEvent(100*time.Millisecond))
 }
 
@@ -243,9 +248,23 @@ func watchTests(
 				writer(context.Background(), putItem(makeProto(makeID(i))))
 			}
 
-			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader))
+			watcher := makeWatcher(ctx, t, reader)
+			tester := NewWatchTester(t, writer, watcher)
 			cancel()
-			tester.ExpectError(context.Canceled)
+			var canceled bool
+			for i := 0; i < 11; i++ {
+				// Consume events until we receive the cancellation event.  (Some
+				// events may have arrived before cancellation.)
+				ev := nextEvent(watcher.Watch(), time.Second)
+				require.NotNil(t, ev, "event %v should not be nil, since we haven't been canceled yet", i)
+				if ev.Err == nil {
+					continue
+				}
+				require.ErrorIs(t, ev.Err, context.Canceled)
+				canceled = true
+				break
+			}
+			require.True(t, canceled, "we should have gotten the cancellation event in the loop")
 			tester.ExpectNoEvents()
 		})
 

@@ -77,7 +77,9 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh
-      - run: etc/testing/circle/upload_stats.sh
+      - run:
+          command: etc/testing/circle/upload_stats.sh
+          when: always
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
@@ -124,7 +126,7 @@ jobs:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
+      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
   load_test:

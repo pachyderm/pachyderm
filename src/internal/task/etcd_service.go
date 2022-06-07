@@ -221,7 +221,15 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 
 func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, renewer *col.Renewer) error) error {
 	err := ed.groupCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {
-		if err := renewer.Put(ctx, path.Join(ed.group, uuid.NewWithoutDashes()), &Group{}); err != nil {
+		key := path.Join(ed.group, uuid.NewWithoutDashes())
+		defer func() {
+			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
+				return errors.EnsureStack(ed.groupCol.ReadWrite(stm).Delete(key))
+			}); err != nil {
+				fmt.Printf("errored deleting group key %v: %v\n", key, err)
+			}
+		}()
+		if err := renewer.Put(ctx, key, &Group{}); err != nil {
 			return err
 		}
 		err := ed.taskCol.WithRenewer(ctx, func(ctx context.Context, renewer *col.Renewer) error {

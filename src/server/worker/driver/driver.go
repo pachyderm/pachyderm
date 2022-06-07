@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO(2.0 optional):
@@ -97,6 +98,9 @@ type Driver interface {
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
 	NewSQLTx(func(*pachsql.Tx) error) error
+
+	// Returns the image ID associated with a container running in the worker pod
+	GetContainerImageID(context.Context, string) (string, error)
 }
 
 type driver struct {
@@ -532,4 +536,19 @@ func (d *driver) UserCodeEnv(
 	}
 
 	return result
+}
+
+func (d *driver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
+	pod, err := d.env.GetKubeClient().CoreV1().Pods(d.env.Config().Namespace).Get(
+		ctx,
+		d.env.Config().WorkerSpecificConfiguration.PodName,
+		metav1.GetOptions{})
+
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == containerName {
+			imageID := containerStatus.ImageID
+			return imageID, nil
+		}
+	}
+	return "", errors.Wrapf(err, "failed to get image id for container %s", containerName)
 }

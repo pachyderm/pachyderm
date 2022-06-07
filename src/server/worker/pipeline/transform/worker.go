@@ -340,16 +340,20 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	// The sets would just create a temporary directory under /tmp.
 	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	// Setup file operation client for output meta commit.
-	resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
-		// Setup file operation client for output PFS commit.
-		resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
-			opts := []datum.SetOption{
-				datum.WithMetaOutput(mfMeta),
-				datum.WithPFSOutput(mfPFS),
-				datum.WithStats(datumSet.Stats),
-			}
-			return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
+	if err != nil {
+		return errors.Wrap(err, "could not get user image ID")
+	}
+	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		// Setup file operation client for output meta commit.
+		resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
+			// Setup file operation client for output PFS commit.
+			resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
+				opts := []datum.SetOption{
+					datum.WithMetaOutput(mfMeta),
+					datum.WithPFSOutput(mfPFS),
+					datum.WithStats(datumSet.Stats),
+				}
 				pachClient := pachClient.WithCtx(ctx)
 				cacheClient := pfssync.NewCacheClient(pachClient, renewer)
 				// Setup datum set for processing.
@@ -358,6 +362,8 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					// Process each datum in the assigned datum set.
 					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()
+						meta = proto.Clone(meta).(*datum.Meta)
+						meta.ImageId = userImageID
 						inputs := meta.Inputs
 						logger = logger.WithData(inputs)
 						env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
@@ -395,18 +401,18 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 					return errors.EnsureStack(err)
 				}, opts...)
 			})
+			if err != nil {
+				return err
+			}
+			datumSet.OutputFileSetId = resp.FileSetId
+			return renewer.Add(ctx, datumSet.OutputFileSetId)
 		})
 		if err != nil {
 			return err
 		}
-		datumSet.OutputFileSetId = resp.FileSetId
-		return nil
+		datumSet.MetaFileSetId = resp.FileSetId
+		return renewer.Add(ctx, datumSet.MetaFileSetId)
 	})
-	if err != nil {
-		return err
-	}
-	datumSet.MetaFileSetId = resp.FileSetId
-	return nil
 }
 
 func deserializeUploadDatumsTask(taskAny *types.Any) (*UploadDatumsTask, error) {

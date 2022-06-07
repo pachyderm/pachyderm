@@ -3604,10 +3604,15 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "files", masterCommit, "files", client.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "file0", masterCommit, "files/0", client.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(otherCommit, "all", masterCommit, "/", client.WithAppendCopyFile()))
 		require.NoError(t, finishCommit(env.PachClient, repo, otherCommit.Branch.Name, otherCommit.ID))
 
 		for i := 0; i < numFiles; i++ {
 			_, err = env.PachClient.InspectFile(otherCommit, fmt.Sprintf("files/%d", i))
+			require.NoError(t, err)
+		}
+		for i := 0; i < numFiles; i++ {
+			_, err = env.PachClient.InspectFile(otherCommit, fmt.Sprintf("all/files/%d", i))
 			require.NoError(t, err)
 		}
 		_, err = env.PachClient.InspectFile(otherCommit, "files/0")
@@ -6196,7 +6201,7 @@ func TestPFS(suite *testing.T) {
 			_suite.Run(test.name, func(t *testing.T) {
 				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 				// setup target database
-				dbName := tu.GenerateEphermeralDBName(t)
+				dbName := tu.GenerateEphemeralDBName(t)
 				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
 				db := tu.OpenDB(t,
 					dbutil.WithMaxOpenConns(1),

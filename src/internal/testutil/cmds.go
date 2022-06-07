@@ -149,7 +149,7 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...strin
 		})
 		return BashCmd(`
 		export PACH_CONFIG={{.config}}
-		pachctl config set context  --overwrite testing <<EOF
+		pachctl config set context  --overwrite {{ .context }} <<EOF
 		{
 		  "source": 2,
 		  "session_token": "{{.token}}",
@@ -157,10 +157,11 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...strin
 		  "cluster_deployment_id": "dev"
 		}
 		EOF
-		pachctl config set active-context testing
+		pachctl config set active-context {{ .context }}
 		{{.cmd}}
 		`,
 			"config", config,
+			"context", t.Name(),
 			"token", c.AuthToken(),
 			"host", c.GetAddress().Host,
 			"port", fmt.Sprint(c.GetAddress().Port),
@@ -169,10 +170,11 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...strin
 	}
 	return BashCmd(`
 	export PACH_CONFIG={{.config}}
-	pachctl config set active-context testing
+	pachctl config set active-context {{ .context }}
 	{{.cmd}}
 	`,
 		"config", config,
+		"context", t.Name(),
 		"cmd", buf.String(),
 	)
 }
