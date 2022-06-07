@@ -271,8 +271,8 @@ jobs:
       - run:
           name: Build Docker
           command: |
-          source /home/circleci/project/etc/testing/circle/env.sh
-          make docker-build VERSION=$CIRCLE_SHA1
+            source /home/circleci/project/etc/testing/circle/env.sh
+            make docker-build VERSION=$CIRCLE_SHA1
       - run:
           name: Push docker
           command: make docker-push VERSION=$CIRCLE_SHA1
