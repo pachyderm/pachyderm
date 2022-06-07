@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -23,9 +24,9 @@ func TestDeployEnterprise(t *testing.T) {
 		"default",
 		k,
 		&minikubetestenv.DeployOpts{
-			AuthUser:     auth.RootUser,
-			Enterprise:   true,
-			CleanupAfter: true,
+			AuthUser:   auth.RootUser,
+			Enterprise: true,
+			// CleanupAfter: true,
 		})
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -58,6 +59,33 @@ func TestUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken(testutil.RootToken)
 	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.YesError(t, err)
+}
+
+func TestEnterpriseServerMember(t *testing.T) {
+	k := testutil.GetKubeClient(t)
+	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+		AuthUser:         auth.RootUser,
+		EnterpriseServer: true,
+		// CleanupAfter: true,
+	})
+	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	mockIDPLogin(t, ec)
+	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, &minikubetestenv.DeployOpts{
+		AuthUser:         auth.RootUser,
+		EnterpriseMember: true,
+		Enterprise:       true,
+		// CleanupAfter: true,
+	})
+	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	c.SetAuthToken("")
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+	require.NoError(t, err)
+	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
+	mockIDPLogin(t, c)
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
