@@ -263,29 +263,29 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-
       - run:
           name: pachydermbuildbot docker login
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run:
-          name: Build Docker
-          command: |
-            source /home/circleci/project/etc/testing/circle/env.sh
-            make docker-build VERSION=$CIRCLE_SHA1
-      - run:
-          name: Push docker
-          command: make docker-push VERSION=$CIRCLE_SHA1
-      - run:
-          name: Make release
-          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
-      - run:
-          name: Upload Pachctl Release
-          command: |
-            echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
-            cd /home/circleci/dist-pach/pachctl/
-            gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
-            rm /home/circleci/gcpcreds.json
+      - run: etc/testing/circle/build.sh
+      #- run:
+      #    name: Build Docker
+      #    command: |
+      #      source /home/circleci/project/etc/testing/circle/env.sh
+      #      make docker-build VERSION=$CIRCLE_SHA1
+      #- run:
+      #    name: Push docker
+      #    command: make docker-push VERSION=$CIRCLE_SHA1
+      #- run:
+      #    name: Make release
+      #    command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+      #- run:
+      #    name: Upload Pachctl Release
+      #    command: |
+      #      echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
+      #      cd /home/circleci/dist-pach/pachctl/
+      #      gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
+      #      rm /home/circleci/gcpcreds.json
   release_job:
     docker:
       - image: cimg/go:1.17.3
