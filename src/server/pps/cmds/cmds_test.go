@@ -73,7 +73,7 @@ const (
 	start   = "start"
 	stop    = "stop"
 	update  = "update"
-	wait    = "job"
+	wait    = "wait"
 )
 
 func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
