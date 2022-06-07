@@ -83,6 +83,7 @@ jobs:
       #          paths:
       #            - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
+      - run: sleep 60
       - run:
           name: Collect kube events
           command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
