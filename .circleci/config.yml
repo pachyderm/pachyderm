@@ -232,24 +232,29 @@ jobs:
   # Jupyter-Pachyderm extension
   build:
     resource_class: xlarge
-    docker:
-      - image: cimg/go:1.17.6
+    machine:
+      image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
-      - run:
-          name: Download utilities
-          command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
-            wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
-            tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
-            rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
-            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      #- setup_remote_docker:
+      #    docker_layer_caching: true
+      #    version: "20.10.12"
+      #- run:
+      #    name: Download utilities
+      #    command: |
+      #      mkdir -p /home/circleci/bin
+      #      wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+      #      tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+      #      rm -rf goreleaser_Linux_x86_64.tar.gz
+      #      wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
+      #      tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
+      #      rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
+      #      echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-
+      - run: etc/testing/circle/install.sh
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
