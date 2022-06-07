@@ -31,7 +31,7 @@ const (
 	start     = "start"
 	subscribe = "subscribe"
 	update    = "update"
-	wait      = "job"
+	wait      = "wait"
 )
 
 func TestCommit(t *testing.T) {
