@@ -17,12 +17,14 @@ metadata:
 spec:
   type: {{ .Values.proxy.service.type }}
   ports:
+    {{- if .Values.proxy.service.httpPort }}
     - name: http-port
       targetPort: http-port
       port: {{ .Values.proxy.service.httpPort }}
       {{- if eq .Values.proxy.service.type "NodePort" }}
       nodePort: {{ .Values.proxy.service.httpNodePort }}
       {{- end }}
+    {{- end }}
     {{- if .Values.proxy.tls.enabled }}
     - name: https-port
       targetPort: https-port

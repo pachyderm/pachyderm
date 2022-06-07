@@ -781,3 +781,5 @@ proxy:
     # --cert=tls.cert".  This format is compatible with the secrets produced by cert-manager, and
     # the proxy will pick up new data when cert-manager rotates the certificate.
     secretName: ""
+    # If set, generate the secret from values here.  This is intended only for unit tests.
+    secret: {}

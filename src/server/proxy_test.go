@@ -3,9 +3,16 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -25,15 +32,8 @@ import (
 	applymetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
-func get(t *testing.T, url string) error {
+func get(t *testing.T, hc *http.Client, url string) error {
 	t.Helper()
-	hc := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
 	ctx, c := context.WithTimeout(context.Background(), 5*time.Second)
 	defer c()
 
@@ -59,7 +59,7 @@ func get(t *testing.T, url string) error {
 	return nil
 }
 
-func proxyTest(t *testing.T, c *client.APIClient, secure bool) {
+func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secure bool) {
 	t.Helper()
 	httpPrefix := "http://"
 	if secure {
@@ -69,15 +69,15 @@ func proxyTest(t *testing.T, c *client.APIClient, secure bool) {
 
 	// Test console.
 	t.Run("TestConsole", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-			return get(t, httpPrefix+addr+"/")
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			return get(t, httpClient, httpPrefix+addr+"/")
 		}, "should be able to load console")
 	})
 
 	// Test OIDC.
 	t.Run("TestOIDC", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-			return get(t, httpPrefix+addr+"/dex/.well-known/openid-configuration")
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			return get(t, httpClient, httpPrefix+addr+"/dex/.well-known/openid-configuration")
 		}, "should be able to load openid config")
 	})
 
@@ -91,7 +91,7 @@ func proxyTest(t *testing.T, c *client.APIClient, secure bool) {
 
 	// Test GRPC API.
 	t.Run("TestGRPC", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 			if err := c.CreateRepo("test"); err != nil {
 				return errors.Errorf("create repo: %w", err)
 			}
@@ -104,7 +104,7 @@ func proxyTest(t *testing.T, c *client.APIClient, secure bool) {
 
 	// Test S3 API.
 	t.Run("TestS3", func(t *testing.T) {
-		require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 			s3v4, err := minio.NewV4(addr, c.AuthToken(), c.AuthToken(), secure)
 			if err != nil {
 				return errors.Errorf("get s3v4 client: %w", err)
@@ -116,7 +116,10 @@ func proxyTest(t *testing.T, c *client.APIClient, secure bool) {
 
 			for name, client := range map[string]interface {
 				GetObject(string, string, minio.GetObjectOptions) (*minio.Object, error)
+				SetCustomTransport(http.RoundTripper)
 			}{"v4": s3v4, "v2": s3v2} {
+				client.SetCustomTransport(httpClient.Transport)
+
 				obj, err := client.GetObject("master.test", "test.txt", minio.GetObjectOptions{})
 				if err != nil {
 					return errors.Errorf("s3%v: get object: %w", name, err)
@@ -195,25 +198,17 @@ func deployFakeConsole(t *testing.T, ns string) {
 	require.NoError(t, err, "should create a 'console' deployment")
 
 	t.Log("waiting for the console backend service to have endpoints")
-	var ok bool
-	for i := 0; i < 30; i++ {
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		ep, err := c.CoreV1().Endpoints(ns).Get(ctx, "console-proxy-backend", metav1.GetOptions{})
 		if err != nil {
-			t.Logf("get console service endpoints: %v", err)
-			time.Sleep(time.Second)
-			continue
+			return errors.Errorf("get console service endpoints: %v", err)
 		}
 		if ss := ep.Subsets; len(ss) > 0 {
 			t.Logf("console endpoints: %v", ss)
-			ok = true
-			break
+			return nil
 		}
-		t.Log("no endpoints yet")
-		time.Sleep(time.Second)
-	}
-	if !ok {
-		t.Fatal("never got console endpoints")
-	}
+		return errors.New("no endpoints yet")
+	}, "console-proxy-backend should have endpoints")
 }
 
 func TestTrafficThroughProxy(t *testing.T) {
@@ -225,5 +220,82 @@ func TestTrafficThroughProxy(t *testing.T) {
 	deployFakeConsole(t, ns)
 	testutil.ActivateAuthClient(t, c)
 	testutil.ConfigureOIDCProvider(t, c)
-	proxyTest(t, c, false)
+	proxyTest(t, http.DefaultClient, c, false)
+}
+
+func TestTrafficThroughProxyTLS(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	t.Parallel()
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		t.Fatalf("generate serial number: %v", err)
+	}
+	template := x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			Organization: []string{"Pachyderm tests"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(5 * time.Minute),
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	addr := minikubetestenv.GetPachAddress(t)
+	if ip := net.ParseIP(addr.Host); ip != nil {
+		template.IPAddresses = append(template.IPAddresses, ip)
+	} else {
+		template.DNSNames = append(template.DNSNames, addr.Host)
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, pub, priv)
+	if err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		t.Fatalf("marshal pkcs8 private key: %v", err)
+	}
+
+	cert, err := x509.ParseCertificate(derBytes)
+	if err != nil {
+		t.Fatalf("parse cert: %v", err)
+	}
+
+	values := map[string]string{
+		"proxy.tls.enabled":     "true",
+		"proxy.tls.secretName":  "pachyderm-proxy-tls",
+		"proxy.tls.secret.cert": string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})),
+		"proxy.tls.secret.key":  string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})),
+	}
+
+	certpool := x509.NewCertPool()
+	certpool.AddCert(cert)
+	tlsConfig := &tls.Config{
+		RootCAs: certpool,
+	}
+
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.WithTLS, minikubetestenv.WithCertPool(certpool), minikubetestenv.WithValueOverrides(values))
+	deployFakeConsole(t, ns)
+
+	testutil.ActivateAuthClient(t, c)
+	testutil.ConfigureOIDCProvider(t, c)
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig:   tlsConfig,
+			ForceAttemptHTTP2: true,
+		},
+	}
+
+	proxyTest(t, httpClient, c, true)
 }
