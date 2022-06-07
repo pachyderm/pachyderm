@@ -322,14 +322,14 @@ func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
 	return createAlias(cmd, invocation)
 }
 
-// CreateAliases is like CreateAlias, except it allows us to specify one or more plurals for the
+// CreateAliases is like CreateAlias, except it allows us to specify one or more synonyms for the
 // last argument in the command with the assumption that the last argument in the command is a resource
 // such as 'repo' or 'pipeline'.
-func CreateAliases(cmd *cobra.Command, invocation string, plurals ...string) *cobra.Command {
-	return createAlias(cmd, invocation, plurals...)
+func CreateAliases(cmd *cobra.Command, invocation string, synonyms ...string) *cobra.Command {
+	return createAlias(cmd, invocation, synonyms...)
 }
 
-func createAlias(cmd *cobra.Command, invocation string, plurals ...string) *cobra.Command {
+func createAlias(cmd *cobra.Command, invocation string, synonyms ...string) *cobra.Command {
 	// Create logical commands for each substring in each invocation
 	var root, prev *cobra.Command
 	args := strings.Split(invocation, " ")
@@ -348,8 +348,8 @@ func createAlias(cmd *cobra.Command, invocation string, plurals ...string) *cobr
 			}
 			cur.Example = strings.ReplaceAll(cmd.Example, "{{alias}}", fmt.Sprintf("%s %s", os.Args[0], invocation))
 
-			if len(plurals) != 0 {
-				cur.Aliases = append([]string{cur.Use}, plurals...)
+			if len(synonyms) != 0 {
+				cur.Aliases = append([]string{}, synonyms...)
 			}
 
 		} else {
@@ -419,17 +419,17 @@ func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) 
 	return createDocsAlias(command, invocation, pattern)
 }
 
-// CreateDocsAliases is like CreateDocsAlias, except it allows us to specify one or more plurals for the
+// CreateDocsAliases is like CreateDocsAlias, except it allows us to specify one or more synonyms for the
 // last argument in the command with the assumption that the last argument in the command is a resource
 // such as 'repo' or 'pipeline'.
 func CreateDocsAliases(command *cobra.Command, invocation string, pattern string,
-	plurals ...string) *cobra.Command {
-	return createDocsAlias(command, invocation, pattern, plurals...)
+	synonyms ...string) *cobra.Command {
+	return createDocsAlias(command, invocation, pattern, synonyms...)
 }
 
-func createDocsAlias(command *cobra.Command, invocation string, pattern string, plurals ...string) *cobra.Command {
+func createDocsAlias(command *cobra.Command, invocation string, pattern string, synonyms ...string) *cobra.Command {
 	// This should create a linked-list-shaped tree, follow it to the one leaf
-	root := CreateAliases(command, invocation, plurals...)
+	root := CreateAliases(command, invocation, synonyms...)
 	command = root
 	for len(command.Commands()) != 0 {
 		command = command.Commands()[0]

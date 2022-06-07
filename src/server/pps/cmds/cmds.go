@@ -45,29 +45,11 @@ import (
 )
 
 const (
-	// Singular variables are used for testing.
-	datum    = "datum"
-	job      = "job"
-	pipeline = "pipeline"
-	secret   = "secret"
-
 	// Plural variables are used below for user convenience.
 	datums    = "datums"
 	jobs      = "jobs"
 	pipelines = "pipelines"
 	secrets   = "secrets"
-
-	// Command 'verbs' are also used in testing.
-	create  = "create"
-	delete  = "delete"
-	edit    = "edit"
-	inspect = "inspect"
-	list    = "list"
-	restart = "restart"
-	start   = "start"
-	stop    = "stop"
-	update  = "update"
-	wait    = "job"
 )
 
 // Cmds returns a slice containing pps commands.

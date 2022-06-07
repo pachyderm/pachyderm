@@ -42,34 +42,11 @@ const (
 	// DefaultParallelism is the default parallelism used by 'get file' and 'put file'.
 	DefaultParallelism = 10
 
-	// Singular variables are used in testing.
-	branch = "branch"
-	commit = "commit"
-	file   = "file"
-	repo   = "repo"
-
 	// Plural variables are used below for user convenience.
 	branches = "branches"
 	commits  = "commits"
 	files    = "files"
 	repos    = "repos"
-
-	// Command 'verbs' are also used in testing.
-	copy      = "copy"
-	create    = "create"
-	delete    = "delete"
-	diff      = "diff"
-	finish    = "finish"
-	get       = "get"
-	glob      = "glob"
-	inspect   = "inspect"
-	list      = "list"
-	put       = "put"
-	squash    = "squash"
-	start     = "start"
-	subscribe = "subscribe"
-	update    = "update"
-	wait      = "job"
 )
 
 // Cmds returns a slice containing pfs commands.
