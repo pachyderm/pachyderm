@@ -841,7 +841,6 @@ func Server(sopts *ServerOptions, testClient *client.APIClient) error {
 		if mm.Client != nil {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
-			mm.Client.Close()
 		}
 		srv.Shutdown(context.Background())
 	}()
