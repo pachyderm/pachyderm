@@ -217,9 +217,9 @@ loki-stack:
       limits_config:
         retention_period: 24h
         retention_stream:
-        - selector: '{suite="pachd"}'
-          priority: 1
-          period: 168h # = 1 day
+          - selector: '{suite="pachd"}'
+            priority: 1
+            period: 168h # = 1 day
   grafana:
     enabled: false
   promtail:
