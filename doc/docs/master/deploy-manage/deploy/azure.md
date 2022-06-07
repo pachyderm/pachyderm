@@ -8,6 +8,12 @@ For a quick test installation of Pachyderm on Azure (suitable for development), 
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
       - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
 
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
+
 The following section walks you through deploying a Pachyderm cluster on Microsoft® Azure® Kubernetes
 Service environment (AKS). 
 
