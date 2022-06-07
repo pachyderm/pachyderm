@@ -278,7 +278,7 @@ jobs:
           command: |
             echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
             echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
-            echo 'export PATH=/home/circleci/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
       - run:
           name: Build
           command: |
