@@ -28,7 +28,7 @@ type acquireSettings struct {
 
 type Option func(*acquireSettings)
 
-var WaitForLokiOption = func(ds *acquireSettings) {
+var WaitForLokiOption Option = func(ds *acquireSettings) {
 	ds.WaitForLoki = true
 }
 

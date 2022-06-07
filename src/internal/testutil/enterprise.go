@@ -14,10 +14,9 @@ import (
 func GetTestEnterpriseCode(t testing.TB) string {
 	acode, exists := os.LookupEnv("ENT_ACT_CODE")
 	if !exists {
-		t.Error("Enterprise Activation code not found in Env Vars")
+		t.Error("Enterprise activation code not found in environment variable (ENT_ACT_CODE)")
 	}
 	return acode
-
 }
 
 // ActivateEnterprise activates enterprise in Pachyderm (if it's not on already.)
