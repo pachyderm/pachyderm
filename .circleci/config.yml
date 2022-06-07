@@ -48,6 +48,7 @@ jobs:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
             - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
+      - run: echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
       #- save_cache:
       #    key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
       #    paths:
@@ -83,7 +84,7 @@ jobs:
       #          paths:
       #            - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
-      - run: sleep 60
+      - run: sleep 80
       - run:
           name: Collect kube events
           command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
