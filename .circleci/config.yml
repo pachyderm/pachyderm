@@ -90,8 +90,8 @@ jobs:
       - run:
           name: Pull Images
           command: |
-            docker pull pachyderm/pachd:$(CIRCLE_SHA1)
-            docker pull pachyderm/worker:$(CIRCLE_SHA1)
+            docker pull pachyderm/pachd:$CIRCLE_SHA1
+            docker pull pachyderm/worker:$CIRCLE_SHA1
       #- run: etc/testing/circle/launch.sh
       - run: kubectl apply -f etc/testing/minio.yaml
       - run:
