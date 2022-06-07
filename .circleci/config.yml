@@ -231,7 +231,7 @@ jobs:
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build:
-    resource_class: large
+    resource_class: xlarge
     docker:
       - image: cimg/go:1.17.6
     steps:
