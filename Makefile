@@ -87,7 +87,7 @@ release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
+	DOCKER_BUILDKIT=1 goreleaser release --snapshot $(GORELDEBUG) --rm-dist -f goreleaser/docker.yml
 
 docker-build-proto:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
