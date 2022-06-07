@@ -98,6 +98,10 @@ func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
 }
 
 func exposedServiceType() string {
+	if *serviceTypeOverride != "" {
+		return *serviceTypeOverride
+	}
+
 	os := runtime.GOOS
 	serviceType := ""
 	switch os {

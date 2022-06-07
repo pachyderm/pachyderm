@@ -1,5 +1,6 @@
 #### VARIABLES
-# TESTFLAGS: flags for test
+# TESTFLAGS: flags for test.
+#   you can set -proxy.service.type to ether "LoadBalancer" or "NodePort" to override testing behavior
 # KUBECTLFLAGS: flags for kubectl
 # DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####

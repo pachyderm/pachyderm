@@ -39,9 +39,10 @@ var EnterpriseMemberOption = func(ds *acquireSettings) {
 var (
 	clusterFactory      *ClusterFactory
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
-	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
-	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
+	poolSize            *int    = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
+	useLeftoverClusters *bool   = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
+	cleanupDataAfter    *bool   = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
+	serviceTypeOverride *string = flag.String("proxy.service.type", "", "overrides the default service used, which is determined by your OS")
 )
 
 type ClusterFactory struct {
