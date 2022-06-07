@@ -2,28 +2,31 @@
 
 We are now shipping Pachyderm with an **optional embedded proxy** allowing Pachyderm to expose one single port externally (whether you access `pachd` over gRPC using `pachctl`, or `console` over HTTP, for example).
 
+See Pachyderm new high-level architecture diagram:
+![High level architecture](../../images/arch-diagram-high-level-with-proxy.png)
+
 This page is an add-on to existing installation instructions in the case where you chose to deploy Pachyderm with an embedded proxy. The steps below replace all or parts of the existing installation documentation. We will let you know when to use them and which section they overwrite.
 
 !!! Note "TL;DR" 
     - When the proxy option is activated, Pachyderm is reachable through **one TCP port for all incoming grpc (grpcs), console (HTTP/HTTPS), s3 gateway, OIDC, and dex traffic**, then routes each call to the appropriate backend microservice without any additional configuration.
     - Enable the proxy as follow:
 
-    ```yaml
-    proxy:
-      enabled: true
-      service:
-        type: LoadBalancer
-    ```
+      ```yaml
+      proxy:
+        enabled: true
+        service:
+          type: LoadBalancer
+      ```
 
 !!! Warning
     The deployment of Pachyderm with a proxy is optional at the moment and will become permanent in the next minor release of Pachyderm.
 
-The high-level architecture diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../../images/infra-recommendations-with-proxy.png)
+The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../../images/infra-recommendations-with-proxy.png)
 
 !!! Note 
-    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L649){target=_blank} for all available configurable fields of the proxy.
+    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L699){target=_blank} for all available configurable fields of the proxy.
 
-Before any deployment in production, we recommend reading the following recommendations section and [set up your production infrastructure](#deploy-pachyderm-in-production-with-a-proxy). 
+Before any deployment in production, we recommend reading the following section to [set up your production infrastructure](#deploy-pachyderm-in-production-with-a-proxy). 
 
 Alternatively, you can skip those infrastructure prerequisites and make a [quick cloud installation](#quick-cloud-deployment-with-a-proxy) or jump to our [local deployment](#deploy-pachyderm-locally-with-a-proxy) section for the first encounter with Pachyderm.
 
@@ -36,25 +39,25 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
         
     When a proxy is enabled with `type:LoadBalancer` (see the snippet of values.yaml enabling the proxy), Pachyderm creates a `pachyderm-proxy` service allowing your cloud platform (AWS, GKE...) to **provision a TCP Load Balancer automatically**.
         
-   !!! Note 
+    !!! Note 
         - You can optionally attach any additional Load Balancer configuration information to the metadata of your service by adding the appropriate `annotations` in the `proxy. service` of your values.yaml.
         - You can pre-create a static IP (For example, in GCP: `gcloud compute addresses create ADDRESS_NAME --global --IP-version IPV4)`, then pass this external IP to the `loadBalancerIP` in the `proxy.service` of your values.yaml.
 
-    ```yaml
-    proxy:
-      enabled: true
-      service:
-        type: LoadBalancer
-        annotations: {<add-optional-annotations-here}
-        loadBalancerIP: <insert-your-proxy-external-IP-address-here>
-    ```
+        ```yaml
+        proxy:
+          enabled: true
+          service:
+            type: LoadBalancer
+            annotations: {<add-optional-annotations-here}
+            loadBalancerIP: <insert-your-proxy-external-IP-address-here>
+        ```
 
 * **Use a secure connection**
 
-    Make sure that you have Transport Layer Security (TLS) is enabled for your incoming traffic. If required, you can deploy `pachd` and `console` with different certificates. Self-signed certificates might require additional configuration. For instructions on deployment with TLS, see [Deploy Pachyderm with TLS](../deploy-w-tls/).
-
-    !!! Note 
-        Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as Kubernetes secrets into your cluster for the TCP load balancer to use.
+    Make sure that you have Transport Layer Security (TLS) is enabled for your incoming traffic. 
+    
+    !!! Note
+        TLS Coming soon!
    
 * **Use Pachyderm authentication/authorization**
 
@@ -153,7 +156,10 @@ Run the following commands:
 Point your browser to `http://<external-IP-address-or-domain-name>`. No port number is needed. You will be prompted to log in to your Console.
 
 ### If you have installed **JupyterHub and the Mount Extension**
-The connection string to your Pachyderm cluster (check the login form accessible by clicking on the mount extension icon in the far left tab bar of your JupyterLab) is now `grpc://<external-IP-address-or-domain-name>:80`.
+The connection string to your Pachyderm cluster (check the login form accessible by clicking on the mount extension icon in the far left tab bar of your JupyterLab) now depends on whether you have deployed JupyterHub on:
+
+- The same cluster: `grpc://pachyderm-proxy.<namespace>.svc.cluster.local:80` or `grpc://pachd.<namespace>.svc.cluster.local:30650`
+- An external cluster: `grpc://<external-IP-address-or-domain-name>:80`.
 
 ## Quick Cloud Deployment With a Proxy
 
@@ -442,11 +448,18 @@ you can now connect `pachctl` to your local cluster.
 - To connect to your Console (Pachyderm UI), point your browser to **`localhost`** (no port number needed)
 and authenticate using the mock User (username: `admin`, password: `password`).
 
-- If you have installed JupyterHub and the Mount Extension, pass "grpc://127.0.0.1:80"
-
 - To use `pachctl`, run `pachctl auth login` then
 authenticate again (to Pachyderm this time) with the mock User (username: `admin`, password: `password`).
 
-- Notebook users, if you have installed [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank}, the connection url to your Pachyderm cluster in the login form (click on the mount extension icon in the far left tab ) is now 'grpc://<external-IP-address-or-domain-name>:80'.
+- Notebook users, if you have installed [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank}, the connection url to your Pachyderm cluster in the login form (click on the mount extension icon in the far left tab ) is now:
 
+    - If the deployment is on the same cluster: `grpc://pachyderm-proxy.<namespace>.svc.cluster.local:80` or `grpc://pachd.<namespace>.svc.cluster.local:30650`
+    - Else, for external clusters: `grpc://127.0.0.1:80`.
+
+## Changes to the S3 Gateway
+
+The `pachyderm-proxy` service also routes Pachyderm's [**S3 gateway**](../../manage/s3gateway/){target=_blank} (allowing you to
+**access Pachyderm's repo through the S3 protocol**) on port 80 (note the endpoint in the diagram below).
+
+![Global S3 Gateway with Proxy](../../images/main-s3-gateway-with-proxy.png)
   
