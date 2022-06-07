@@ -94,6 +94,10 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 					tr = sdata.NewCSVParser(r)
 				case pfs.SQLDatabaseEgress_FileFormat_JSON:
 					tr = sdata.NewJSONParser(r, fileFormat.Columns)
+				case pfs.SQLDatabaseEgress_FileFormat_HEADER_CSV:
+					tr = sdata.NewHeaderCSVParser(r, fileFormat.Columns)
+				default:
+					return errors.Errorf("unknown file format %v", fileFormat.Type)
 				}
 				tw := sdata.NewSQLTupleWriter(tx, tableInfo)
 				tuple, err := sdata.NewTupleFromTableInfo(tableInfo)

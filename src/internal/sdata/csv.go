@@ -174,3 +174,58 @@ func (p *CSVParser) Next(row Tuple) error {
 	}
 	return nil
 }
+
+type HeaderCSVParser struct {
+	CSVParser
+	fields       []string
+	headerRead   bool
+	fieldIndices map[int]int // maps read column to tuple column
+}
+
+func NewHeaderCSVParser(r io.Reader, fields []string) TupleReader {
+	return &HeaderCSVParser{
+		CSVParser: CSVParser{dec: csv.NewReader(r)},
+		fields:    fields,
+	}
+}
+
+func (p *HeaderCSVParser) Next(row Tuple) error {
+	if p.headerRead {
+		rec, err := p.dec.Read()
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		for i, v := range rec {
+			if err := convert(row[p.fieldIndices[i]], v); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	p.headerRead = true
+	header, err := p.CSVParser.dec.Read()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	if len(header) != len(p.fields) {
+		return errors.Errorf("header-csv parsing: wrong number of header fields to HAVE: %d; WANT %d", len(header), len(p.fields))
+	}
+
+	fields := make(map[string]int)
+	for i, field := range p.fields {
+		fields[field] = i
+	}
+	p.fieldIndices = make(map[int]int)
+	for i, col := range header {
+		if col == nil {
+			return errors.Errorf("header column %d is nil", i)
+		}
+		idx, ok := fields[*col]
+		if !ok {
+			return errors.Errorf("unexpected header column %q (%v)", *col, fields)
+		}
+		p.fieldIndices[i] = idx
+	}
+
+	return p.Next(row)
+}

@@ -25,6 +25,11 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 		pr.CloseWithError(err)
 		return errors.EnsureStack(err)
 	})
+	if err := eg.Wait(); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
+
 	return errors.EnsureStack(eg.Wait())
 }
 
