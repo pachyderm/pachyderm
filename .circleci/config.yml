@@ -38,7 +38,7 @@ jobs:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
-      - checkout
+      - run: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
       #- run:
       #    name: Collect node stats
       #    command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
