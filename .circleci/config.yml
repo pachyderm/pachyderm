@@ -235,7 +235,8 @@ jobs:
     machine:
       image: ubuntu-2004:202201-02
     steps:
-      - run: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH"
+      # Shallow clone
+      - run: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" project
       #- setup_remote_docker:
       #    docker_layer_caching: true
       #    version: "20.10.12"
