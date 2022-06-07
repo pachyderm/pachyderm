@@ -29,8 +29,6 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 		return errors.EnsureStack(err)
 	}
 	return nil
-
-	return errors.EnsureStack(eg.Wait())
 }
 
 // Iterator provides functionality for generic imperative iteration.
