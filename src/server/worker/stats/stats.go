@@ -201,7 +201,6 @@ var (
 // InitPrometheus sets up the default datum stats collectors for use by worker
 // code, and exposes the stats on an http endpoint.
 func InitPrometheus() {
-	logrus.Infof("registering prometheus collectors")
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	go func() {

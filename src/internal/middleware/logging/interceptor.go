@@ -112,6 +112,14 @@ var endpoints = map[string]logConfig{
 		},
 	},
 
+	"/enterprise_v2.API/GetState": {
+		transformResponse: func(r interface{}) interface{} {
+			copyResp := proto.Clone(r.(*enterprise.GetStateResponse)).(*enterprise.GetStateResponse)
+			copyResp.ActivationCode = ""
+			return copyResp
+		},
+	},
+
 	"/enterprise_v2.API/Activate": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*enterprise.ActivateRequest)).(*enterprise.ActivateRequest)
