@@ -1364,16 +1364,18 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		query += contains(filter)
 	}
 	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
-		msg := &pps.LogMessage{}
+		msg := new(pps.LogMessage)
+		if err := parseLokiLine(line, msg); err != nil {
+			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
+			return nil
+		}
+
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
 		// string matching so there technically could be some false
 		// positive matches (although it's pretty unlikely), checking here
 		// just makes sure we don't accidentally intersperse unrelated log
 		// messages.
-		if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
-			return nil
-		}
 		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 			return nil
 		}
@@ -1392,6 +1394,94 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
 		return errors.EnsureStack(apiGetLogsServer.Send(msg))
 	})
+}
+
+// parseNativeLine receives a raw chunk of JSON from Loki, which is our logged
+// pps.LogMessage object.
+func parseNativeLine(s string, msg *pps.LogMessage) error {
+	return errors.EnsureStack(jsonpb.UnmarshalString(s, msg))
+}
+
+// parseDockerLine receives the raw Docker log line, which is a JSON object
+// containing a time, stream, and log field.  The log contains what our program
+// actually logged, so we parse that with parseNative after extracting it.
+func parseDockerLine(s string, msg *pps.LogMessage) error {
+	var result struct{ Log string }
+	if err := json.Unmarshal([]byte(s), &result); err != nil {
+		return errors.Errorf("outer json: %v", err)
+	}
+	if result.Log == "" {
+		return errors.New("log field is empty")
+	}
+	if err := parseNativeLine(result.Log, msg); err != nil {
+		return errors.Errorf("native json (%q): %v", result.Log, err)
+	}
+	return nil
+}
+
+// parseCRILine receives the raw CRI-format (used by containerd and cri-o) log
+// line, which is a line of text formatted like: <RFC3339 time> <stream name>
+// <maybe flags> <log message>.  Because this format is not actually parseable
+// (the log message could start with a flag, but there are no flags), we just
+// seek to the first { and feed that to the native parser.
+func parseCRILine(s string, msg *pps.LogMessage) error {
+	b := []byte(s)
+	i := bytes.IndexByte(b, '{')
+	if i < 0 {
+		return errors.New("line does not contain {")
+	}
+	l := string(b[i:])
+	if err := parseNativeLine(l, msg); err != nil {
+		return errors.Errorf("native json (%q): %v", l, err)
+	}
+	return nil
+}
+
+func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
+	// There are three possible log formats in Loki, depending on the underlying formatting done
+	// by the container runtime.  Under ideal circumstances, the user of Loki has configured
+	// promtail to remove the runtime-specific logs, but it's quite easy to miss this
+	// configuration aspect, so we correct for it here.  (See:
+	// https://grafana.com/docs/loki/latest/clients/promtail/stages/cri/ and
+	// https://grafana.com/docs/loki/latest/clients/promtail/stages/docker/)
+
+	// Try each driver; if one results in a valid message, then we're done.
+	errs := make(map[string]error)
+	parsers := []struct {
+		driver string
+		parser func(string, *pps.LogMessage) error
+	}{
+		// The order here is important, because native and docker messages are ambiguous.
+		// It is unfortunate that we can't happy-path native.
+		{"cri", parseCRILine},
+		{"docker", parseDockerLine},
+		{"native", parseNativeLine},
+	}
+	for _, item := range parsers {
+		if err := item.parser(inputLine, msg); err != nil {
+			errs[item.driver] = err
+			continue
+		}
+		// This driver worked, so give up!
+		return nil
+	}
+
+	if len(errs) == 0 {
+		// This can't happen, because there are 3 iterations of the loop and each iteration
+		// either returns or populates errs.
+		return errors.EnsureStack(errors.New("impossible: did not succeed, but also did not error"))
+	}
+
+	// None of the drivers worked; explain why each failed.
+	errMsg := new(strings.Builder)
+	errMsg.WriteString("interpret loki line as json:")
+	for parser, err := range errs {
+		errMsg.WriteString("\n\t")
+		errMsg.WriteString(parser)
+		errMsg.WriteString(": ")
+		errMsg.WriteString(err.Error())
+	}
+	return errors.EnsureStack(errors.New(errMsg.String()))
 }
 
 func contains(s string) string {
@@ -2962,23 +3052,23 @@ fileSources:
   - name: "random"
     random:
       directory:
-        depth: 
+        depth:
           min: 0
           max: 3
         run: 3
       sizes:
         - min: 1000
           max: 10000
-          prob: 30 
+          prob: 30
         - min: 10000
           max: 100000
-          prob: 30 
+          prob: 30
         - min: 1000000
           max: 10000000
-          prob: 30 
+          prob: 30
         - min: 10000000
           max: 100000000
-          prob: 10 
+          prob: 10
 validator: {}
 `}
 
