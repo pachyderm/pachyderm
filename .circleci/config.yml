@@ -235,7 +235,7 @@ jobs:
     machine:
       image: ubuntu-2004:202201-02
     steps:
-      - checkout
+      - run: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH"
       #- setup_remote_docker:
       #    docker_layer_caching: true
       #    version: "20.10.12"
@@ -272,7 +272,20 @@ jobs:
           name: pachydermbuildbot docker login
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run: etc/testing/circle/build.sh
+      - run:
+          name: Setup Env
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+            echo 'export PATH=/home/circleci/cached-deps:$PATH' >> $BASH_ENV
+      - run:
+          name: Build
+          command: |
+            DOCKER_BUILDKIT=1 VERSION=$CIRCLE_SHA1 goreleaser release --snapshot -f goreleaser/docker.yml
+      - run:
+          name: Push docker
+          command: make docker-push VERSION=$CIRCLE_SHA1
+
       #- run:
       #    name: Build Docker
       #    command: |
