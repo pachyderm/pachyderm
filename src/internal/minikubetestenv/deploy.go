@@ -448,7 +448,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.Version = version
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
-	pachAddress := getPachAddress(t)
+	pachAddress := GetPachAddress(t)
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
 		pachAddress.Port = uint16(31650)
