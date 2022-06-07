@@ -306,7 +306,7 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	if enterpriseServer {
 		label = "app=pach-enterprise"
 	}
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
