@@ -279,6 +279,9 @@ jobs:
             echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
             echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo "export VERSION_ADDITIONAL=$(git log --pretty=format:%H | head -n 1)" >> $BASH_ENV
+            echo "export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion=$(VERSION_ADDITIONAL)" >> $BASH_ENV
+            echo "export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)" >> $BASH_ENV
       - run:
           name: Build
           command: |
