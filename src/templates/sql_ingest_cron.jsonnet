@@ -21,7 +21,7 @@ local pachtf(args, secretName="") = {
 	,
 };
 
-function (name, url, query, format, cronSpec, secretName)
+function (name, url, query, format, hasHeader, cronSpec, secretName)
 	local queryPipelineName = name + "_queries";
 	[
 	newPipeline(
@@ -44,7 +44,7 @@ function (name, url, query, format, cronSpec, secretName)
 				glob: "/*",
 			},
 		},
-		transform=pachtf(["sql-ingest", url, format], secretName),
+		transform=pachtf(["sql-ingest", url, format, hasHeader], secretName),
 	)
 	]
 

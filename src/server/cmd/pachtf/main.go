@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -52,10 +53,14 @@ var entrypoints = map[string]Entrypoint{
 
 func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
-	if len(args) < 2 {
-		return errors.Errorf("must provide db url and format")
+	if len(args) < 3 {
+		return errors.Errorf("must provide db url, format, and whether header should be included")
 	}
 	urlStr, formatName := args[0], args[1]
+	var hasHeader bool
+	if strings.ToLower(args[2]) == "true" {
+		hasHeader = true
+	}
 	password, ok := os.LookupEnv(passwordEnvar)
 	if !ok {
 		return errors.Errorf("must set %v", passwordEnvar)
@@ -79,9 +84,10 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 
-		URL:      *u,
-		Password: secrets.Secret(password),
-		Format:   formatName,
+		URL:       *u,
+		Password:  secrets.Secret(password),
+		Format:    formatName,
+		HasHeader: hasHeader,
 	})
 }
 
