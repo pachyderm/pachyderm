@@ -351,7 +351,13 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
-	version := localImage
+	version := ""
+	sha := os.Getenv("CIRCLE_SHA1")
+	if sha != "" {
+		version = sha
+	} else {
+		version = localImage
+	}
 	chartPath := helmChartLocalPath(t)
 	// TODO(acohen4): apply minio deployment to this namespace
 	helmOpts := localDeploymentWithMinioOptions(namespace, version)
