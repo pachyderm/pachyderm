@@ -47,11 +47,11 @@ global:
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
+  # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
   securityContexts:
     enabled: true
     runAsUser: 101
     runAsGroup: 101
-
 
 console:
   # enabled controls whether the console manifests are created or not.
@@ -143,8 +143,6 @@ etcd:
     labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
-  securityContext:
-    enabled: true
   tolerations: []
 
 enterpriseServer:
@@ -260,8 +258,6 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
-  securityContext:
-    enabled: true
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
