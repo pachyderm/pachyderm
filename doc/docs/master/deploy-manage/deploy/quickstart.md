@@ -1,8 +1,6 @@
 # Quickstart
 
- 
 On this page, you will find simplified deployment instructions and Helm values to get you started with the latest release of Pachyderm on the Kubernetes Engine of your choice (AWS (EKS), Google (GKS), and Azure (AKS)).
-
 
 For each cloud provider, we will give you the option to "quick deploy" Pachyderm with or without Console (Pachyderm UI available with Enterprise).
 
@@ -15,6 +13,18 @@ For each cloud provider, we will give you the option to "quick deploy" Pachyderm
 
     Then find your targeted Cloud provider in the [Deploy and Manage](../) ection of this documentation.
 
+!!! Attention "Interested in deploying with an embedded proxy and expose one single external port?"
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
+
+    Deploying with a proxy presents a couple of advantages:
+
+    - You only need to set up one TCP Load Balancer (No more Ingress in front of Console).
+    - You will need one DNS only.
+    - It simplifies the deployment of Console.
+    - No more port-forward.
 
 ## 1. Prerequisites
 
