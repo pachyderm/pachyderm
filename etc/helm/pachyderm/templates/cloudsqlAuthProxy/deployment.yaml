@@ -39,19 +39,20 @@ spec:
           - "-instances={{ .Values.cloudsqlAuthProxy.connectionName }}=tcp:0.0.0.0:{{ .Values.cloudsqlAuthProxy.port }}"
         ports:
         - containerPort: {{ .Values.cloudsqlAuthProxy.port }}
-        {{- if .Values.global.securityContexts.enabled }}
+        resources: {{ toYaml .Values.cloudsqlAuthProxy.resources | nindent 10 }}
+      {{- if .Values.global.securityContexts.enabled }}
         securityContext:
-          runAsUser: {{ .Values.global.securityContexts.runAsUser }}
-          runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
-          fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
-          runAsNonRoot: true
           capabilities:
               drop:
               - all
-        {{- end }}
-        resources: {{ toYaml .Values.cloudsqlAuthProxy.resources | nindent 10 }}
+      securityContext:
+        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
+        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsNonRoot: true
+      {{- end }}
       {{- if .Values.cloudsqlAuthProxy.nodeSelector }}
       nodeSelector: {{ toYaml .Values.cloudsqlAuthProxy.nodeSelector | nindent 8 }}
       {{- end }}
