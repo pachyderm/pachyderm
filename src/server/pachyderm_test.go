@@ -10670,10 +10670,10 @@ func TestZombieCheck(t *testing.T) {
 	require.NoError(t, c.StopPipeline(pipeline))
 	// create new commits on output and meta
 	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
-		if _, err := c.StartCommit(repo, "master"); err != nil {
+		if _, err := c.StartCommit(pipeline, "master"); err != nil {
 			return err
 		}
-		metaBranch := client.NewSystemRepo(repo, pfs.MetaRepoType).NewBranch("master")
+		metaBranch := client.NewSystemRepo(pipeline, pfs.MetaRepoType).NewBranch("master")
 		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
 			return err
 		}
@@ -10684,7 +10684,7 @@ func TestZombieCheck(t *testing.T) {
 	// add a file to the output with a datum that doesn't exist
 	require.NoError(t, c.PutFile(client.NewCommit(pipeline, "master", ""),
 		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
-	require.NoError(t, c.FinishCommit(repo, "master", ""))
+	require.NoError(t, c.FinishCommit(pipeline, "master", ""))
 
 	// start again, put new data in, and run fsck again to see if it picks up our "zombie" file
 	require.NoError(t, c.StartPipeline(pipeline))
