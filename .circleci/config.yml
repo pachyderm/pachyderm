@@ -48,7 +48,13 @@ jobs:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
             - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
-      - run: echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+      - run:
+          name: Setup Env
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=/home/circleci/.go_workspace/bin:$PATH' >> $BASH_ENV
       #- save_cache:
       #    key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
       #    paths:
@@ -103,6 +109,8 @@ jobs:
             docker pull pachyderm/worker:$CIRCLE_SHA1
       #- run: etc/testing/circle/launch.sh
       - run: kubectl apply -f etc/testing/minio.yaml
+      - run: make install
+      - run: pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
