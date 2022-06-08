@@ -242,7 +242,7 @@ enterprise-code-checkin-test:
 test-pfs-server:
 	./etc/testing/pfs_server.sh $(TIMEOUT) $(TESTFLAGS)
 
-test-pps: launch-stats docker-build-spout-test
+test-pps: launch-stats
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)

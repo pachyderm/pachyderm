@@ -295,9 +295,9 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
 	require.NoError(t, backoff.Retry(func() error {
-		t.Logf("Connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
+		t.Logf("Connecting to pachd host: %s on port: %v, in namespace: %s", pachAddress.Host, pachAddress.Port, namespace)
 		var err error
-		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
+		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(30*time.Second))
 		if err != nil {
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
@@ -351,7 +351,13 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
-	version := localImage
+	version := ""
+	sha := os.Getenv("CIRCLE_SHA1")
+	if sha != "" {
+		version = sha
+	} else {
+		version = localImage
+	}
 	chartPath := helmChartLocalPath(t)
 	// TODO(acohen4): apply minio deployment to this namespace
 	helmOpts := localDeploymentWithMinioOptions(namespace, version)
