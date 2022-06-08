@@ -469,6 +469,8 @@ func (mm *MountManager) FinishAll() (retErr error) {
 func Server(sopts *ServerOptions, testClient *client.APIClient) error {
 	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
+	// This variable points to the MountManager for each connected cluster.
+	// Updated when the config is updated.
 	var mm *MountManager = &MountManager{}
 	if testClient != nil {
 		var err error
@@ -850,7 +852,7 @@ func Server(sopts *ServerOptions, testClient *client.APIClient) error {
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
 	if mm.Client == nil {
-		return "not connected to a cluster", http.StatusMethodNotAllowed
+		return "not connected to a cluster", http.StatusNotFound
 	}
 	if authCheck && isAuthOnAndUserUnauthenticated(mm.Client) {
 		return "user unauthenticated", http.StatusUnauthorized
