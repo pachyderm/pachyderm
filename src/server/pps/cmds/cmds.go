@@ -44,6 +44,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	// Plural variables are used below for user convenience.
+	datums    = "datums"
+	jobs      = "jobs"
+	pipelines = "pipelines"
+	secrets   = "secrets"
+)
+
 // Cmds returns a slice containing pps commands.
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
@@ -69,7 +77,7 @@ results will be merged together at the end.
 
 If the job fails, the output commit will not be populated with data.`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(jobDocs, "job", " job$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(jobDocs, "job", " job$", jobs))
 
 	inspectJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
@@ -106,7 +114,7 @@ If the job fails, the output commit will not be populated with data.`,
 	inspectJob.Flags().AddFlagSet(outputFlags)
 	inspectJob.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectJob, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
+	commands = append(commands, cmdutil.CreateAliases(inspectJob, "inspect job", jobs))
 
 	writeJobInfos := func(out io.Writer, jobInfos []*pps.JobInfo) error {
 		if raw {
@@ -165,7 +173,7 @@ If the job fails, the output commit will not be populated with data.`,
 	waitJob.Flags().AddFlagSet(outputFlags)
 	waitJob.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(waitJob, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(waitJob, "wait job"))
+	commands = append(commands, cmdutil.CreateAliases(waitJob, "wait job", jobs))
 
 	var pipelineName string
 	var inputCommitStrs []string
@@ -317,7 +325,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			return shell.JobSetCompletion(flag, text, maxCompletions)
 		})
-	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
+	commands = append(commands, cmdutil.CreateAliases(listJob, "list job", jobs))
 
 	deleteJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
@@ -340,7 +348,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteJob, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
+	commands = append(commands, cmdutil.CreateAliases(deleteJob, "delete job", jobs))
 
 	stopJob := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job>",
@@ -382,7 +390,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	shell.RegisterCompletionFunc(stopJob, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(stopJob, "stop job"))
+	commands = append(commands, cmdutil.CreateAliases(stopJob, "stop job", jobs))
 
 	datumDocs := &cobra.Command{
 		Short: "Docs for datums.",
@@ -395,7 +403,7 @@ Datums within a job will be processed independently, sometimes distributed
 across separate workers.  A separate execution of user code will be run for
 each datum.`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(datumDocs, "datum", " datum$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(datumDocs, "datum", " datum$", datums))
 
 	restartDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum-path1>,<datum-path2>,...",
@@ -425,7 +433,7 @@ each datum.`,
 			return client.RestartDatum(job.Pipeline.Name, job.ID, datumFilter)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
+	commands = append(commands, cmdutil.CreateAliases(restartDatum, "restart datum", datums))
 
 	var pipelineInputPath string
 	listDatum := &cobra.Command{
@@ -489,7 +497,7 @@ each datum.`,
 	listDatum.Flags().StringVarP(&pipelineInputPath, "file", "f", "", "The JSON file containing the pipeline to list datums from, the pipeline need not exist")
 	listDatum.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listDatum, shell.JobCompletion)
-	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
+	commands = append(commands, cmdutil.CreateAliases(listDatum, "list datum", datums))
 
 	inspectDatum := &cobra.Command{
 		Use:   "{{alias}} <pipeline>@<job> <datum>",
@@ -519,7 +527,7 @@ each datum.`,
 		}),
 	}
 	inspectDatum.Flags().AddFlagSet(outputFlags)
-	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
+	commands = append(commands, cmdutil.CreateAliases(inspectDatum, "inspect datum", datums))
 
 	var (
 		jobStr      string
@@ -674,7 +682,7 @@ and launch a job to process each incoming commit.
 
 All jobs created by a pipeline will create commits in the pipeline's output repo.`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(pipelineDocs, "pipeline", " pipeline$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(pipelineDocs, "pipeline", " pipeline$", pipelines))
 
 	var pushImages bool
 	var registry string
@@ -695,7 +703,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
-	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(createPipeline, "create pipeline", pipelines))
 
 	var reprocess bool
 	updatePipeline := &cobra.Command{
@@ -712,7 +720,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "index.docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
-	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(updatePipeline, "update pipeline", pipelines))
 
 	runCron := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
@@ -764,7 +772,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
-	commands = append(commands, cmdutil.CreateAlias(inspectPipeline, "inspect pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string
 	var editorArgs []string
@@ -842,7 +850,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
 	editPipeline.Flags().StringVarP(&output, "output", "o", "", "Output format: \"json\" or \"yaml\" (default \"json\")")
-	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(editPipeline, "edit pipeline", pipelines))
 
 	var spec bool
 	listPipeline := &cobra.Command{
@@ -924,7 +932,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(timestampFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
-	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var (
 		all      bool
@@ -964,7 +972,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
-	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
@@ -982,7 +990,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(startPipeline, "start pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(startPipeline, "start pipeline", pipelines))
 
 	stopPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
@@ -1000,7 +1008,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(stopPipeline, "stop pipeline"))
+	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
 	var file string
 	createSecret := &cobra.Command{
@@ -1030,7 +1038,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	createSecret.Flags().StringVarP(&file, "file", "f", "", "File containing Kubernetes secret.")
-	commands = append(commands, cmdutil.CreateAlias(createSecret, "create secret"))
+	commands = append(commands, cmdutil.CreateAliases(createSecret, "create secret", secrets))
 
 	deleteSecret := &cobra.Command{
 		Short: "Delete a secret from the cluster.",
@@ -1056,7 +1064,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(deleteSecret, "delete secret"))
+	commands = append(commands, cmdutil.CreateAliases(deleteSecret, "delete secret", secrets))
 
 	inspectSecret := &cobra.Command{
 		Short: "Inspect a secret from the cluster.",
@@ -1084,7 +1092,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return writer.Flush()
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(inspectSecret, "inspect secret"))
+	commands = append(commands, cmdutil.CreateAliases(inspectSecret, "inspect secret", secrets))
 
 	listSecret := &cobra.Command{
 		Short: "List all secrets from a namespace in the cluster.",
@@ -1111,7 +1119,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return writer.Flush()
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
+	commands = append(commands, cmdutil.CreateAliases(listSecret, "list secret", secrets))
 
 	var seed int64
 	runLoadTest := &cobra.Command{
