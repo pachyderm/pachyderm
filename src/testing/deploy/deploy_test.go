@@ -12,6 +12,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDeployEnterprise(t *testing.T) {
@@ -60,6 +62,14 @@ func TestUpgradeEnterpriseWithEnv(t *testing.T) {
 
 func TestEnterpriseServerMember(t *testing.T) {
 	k := testutil.GetKubeClient(t)
+	_, err := k.CoreV1().Namespaces().Create(context.Background(),
+		&v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "enterprise",
+			},
+		},
+		metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
