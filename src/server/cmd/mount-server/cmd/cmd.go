@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
@@ -22,17 +21,11 @@ func MountServerCmd() *cobra.Command {
 			// Show info messages to user by default
 			logrus.SetLevel(logrus.InfoLevel)
 
-			c, err := client.NewOnUserMachine("fuse")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
 			serverOpts := &fuse.ServerOptions{
 				MountDir: mountDir,
 			}
 			pfscmds.PrintWarning()
-			return fuse.Server(c, serverOpts)
+			return fuse.Server(serverOpts, nil)
 		}),
 	}
 	rootCmd.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
