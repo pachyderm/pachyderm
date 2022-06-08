@@ -148,6 +148,7 @@ func (m *CSVWriter) Flush() error {
 	return errors.EnsureStack(m.cw.Error())
 }
 
+// A CSVParser reads rows from a CSV-formatted io.Reader into tuples.
 type CSVParser struct {
 	dec          *csv.Reader
 	fields       []string
@@ -155,18 +156,24 @@ type CSVParser struct {
 	fieldIndices map[int]int
 }
 
+// NewCSVParser returns a new CSV parser which reads from r.
 func NewCSVParser(r io.Reader) *CSVParser {
 	return &CSVParser{
 		dec: csv.NewReader(r),
 	}
 }
 
-func (p *CSVParser) WithFields(fields []string) *CSVParser {
+// WithHeaderFields updates the CSV parser to expect a header with the indicated
+// fields.  It must called prior to any call to Next.  As a special case, if no
+// fields are passed then the parser will expect no header.
+func (p *CSVParser) WithHeaderFields(fields []string) *CSVParser {
 	p.fields = fields
-	p.needHeader = true
+	p.needHeader = len(fields) != 0
 	return p
 }
 
+// Next reads one data row from the underlying io.Reader into the Tuple.  If a
+// header is expected, it will read the header row, then the first data row.
 func (p *CSVParser) Next(row Tuple) error {
 	switch {
 	case len(p.fields) == 0:

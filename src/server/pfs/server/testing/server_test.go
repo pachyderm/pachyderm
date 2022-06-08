@@ -6213,7 +6213,7 @@ func TestPFS(suite *testing.T) {
 				},
 				options: &pfs.SQLDatabaseEgress{
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
-						Type:    pfs.SQLDatabaseEgress_FileFormat_HEADER_CSV,
+						Type:    pfs.SQLDatabaseEgress_FileFormat_CSV,
 						Columns: []string{"ID", "A", "DATUM"},
 					},
 				},
@@ -6230,7 +6230,7 @@ func TestPFS(suite *testing.T) {
 				},
 				options: &pfs.SQLDatabaseEgress{
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
-						Type:    pfs.SQLDatabaseEgress_FileFormat_HEADER_CSV,
+						Type:    pfs.SQLDatabaseEgress_FileFormat_CSV,
 						Columns: []string{"ID", "A", "DATUM"},
 					},
 				},

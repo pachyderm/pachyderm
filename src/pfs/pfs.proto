@@ -472,7 +472,6 @@ message SQLDatabaseEgress {
         CSV = 1;
         JSON = 2;
         PARQUET = 3;
-        HEADER_CSV = 4;
     }
     Type type = 1;
     repeated string columns = 2;
