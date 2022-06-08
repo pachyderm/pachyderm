@@ -148,17 +148,40 @@ func (m *CSVWriter) Flush() error {
 	return errors.EnsureStack(m.cw.Error())
 }
 
+// A CSVParser reads rows from a CSV-formatted io.Reader into tuples.
 type CSVParser struct {
-	dec *csv.Reader
+	dec          *csv.Reader
+	fields       []string
+	needHeader   bool
+	fieldIndices map[int]int
 }
 
-func NewCSVParser(r io.Reader) TupleReader {
+// NewCSVParser returns a new CSV parser which reads from r.
+func NewCSVParser(r io.Reader) *CSVParser {
 	return &CSVParser{
 		dec: csv.NewReader(r),
 	}
 }
 
+// WithHeaderFields updates the CSV parser to expect a header with the indicated
+// fields.  It must called prior to any call to Next.  As a special case, if no
+// fields are passed then the parser will expect no header.
+func (p *CSVParser) WithHeaderFields(fields []string) *CSVParser {
+	p.fields = fields
+	p.needHeader = len(fields) != 0
+	return p
+}
+
+// Next reads one data row from the underlying io.Reader into the Tuple.  If a
+// header is expected, it will read the header row, then the first data row.
 func (p *CSVParser) Next(row Tuple) error {
+	if len(p.fields) > 0 {
+		return p.readHeaderedRow(row)
+	}
+	return p.readHeaderlessRow(row)
+}
+
+func (p *CSVParser) readHeaderlessRow(row Tuple) error {
 	rec, err := p.dec.Read()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -169,6 +192,52 @@ func (p *CSVParser) Next(row Tuple) error {
 	for i := range row {
 		// row[i] will be a pointer to something. See Tuple comments
 		if err := convert(row[i], rec[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *CSVParser) readHeaderRow() error {
+	header, err := p.dec.Read()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	if len(header) != len(p.fields) {
+		return errors.Errorf("header-csv parsing: wrong number of header fields to HAVE: %d; WANT %d", len(header), len(p.fields))
+	}
+
+	fields := make(map[string]int)
+	for i, field := range p.fields {
+		fields[field] = i
+	}
+	p.fieldIndices = make(map[int]int)
+	for i, col := range header {
+		if col == nil {
+			return errors.Errorf("header column %d is nil", i)
+		}
+		idx, ok := fields[*col]
+		if !ok {
+			return errors.Errorf("unexpected header column %q (%v)", *col, fields)
+		}
+		p.fieldIndices[i] = idx
+	}
+	p.needHeader = false
+	return nil
+}
+
+func (p *CSVParser) readHeaderedRow(row Tuple) error {
+	if p.needHeader {
+		if err := p.readHeaderRow(); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	rec, err := p.dec.Read()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	for i, v := range rec {
+		if err := convert(row[p.fieldIndices[i]], v); err != nil {
 			return err
 		}
 	}
