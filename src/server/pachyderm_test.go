@@ -10686,15 +10686,6 @@ func TestZombieCheck(t *testing.T) {
 		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
 	require.NoError(t, c.FinishCommit(pipeline, "master", ""))
 
-	// start again, put new data in, and run fsck again to see if it picks up our "zombie" file
-	require.NoError(t, c.StartPipeline(pipeline))
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
-		"bar", strings.NewReader("baz")))
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err := c.WaitCommit(pipeline, "master", "")
-		return err
-	})
-
 	var messages []string
 	// fsck should notice the zombie file
 	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {

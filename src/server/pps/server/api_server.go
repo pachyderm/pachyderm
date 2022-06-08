@@ -1108,7 +1108,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
 			Commit: metaCommit,
-			Path:   "/" + path.Join(datum.PFSPrefix, common.DatumID(meta.Inputs)),
+			Path:   "/" + path.Join(common.PFSPrefix, common.DatumID(meta.Inputs)),
 		}
 		return cb(meta, pfsState)
 	})

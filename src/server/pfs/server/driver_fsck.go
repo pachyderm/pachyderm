@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -22,7 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -352,8 +351,7 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 		return fs.Iterate(ctx, func(f fileset.File) error {
 			id := f.Index().GetFile().GetDatum()
 			// write to same path as meta commit
-			metaPath := path.Join(datum.MetaPrefix, id, datum.MetaFileName)
-			return mf.PutFile(metaPath, strings.NewReader(f.Index().Path+"\n"),
+			return mf.PutFile(common.MetaFilePath(id), strings.NewReader(f.Index().Path+"\n"),
 				client.WithAppendPutFile(), client.WithDatumPutFile(id))
 		})
 	})
