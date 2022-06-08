@@ -22,13 +22,18 @@ const (
 )
 
 type acquireSettings struct {
-	WaitForLoki bool
+	WaitForLoki      bool
+	EnterpriseMember bool
 }
 
 type Option func(*acquireSettings)
 
 var WaitForLokiOption = func(ds *acquireSettings) {
 	ds.WaitForLoki = true
+}
+
+var EnterpriseMemberOption = func(ds *acquireSettings) {
+	ds.EnterpriseMember = true
 }
 
 var (
