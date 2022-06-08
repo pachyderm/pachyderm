@@ -401,7 +401,7 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 			"enterprise-license-key": testutil.GetTestEnterpriseCode(t),
 		},
 	}, metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), err.Error())
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error %v does not contain 'already exists'", err.Error())
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
