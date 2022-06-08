@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/metrics"
@@ -664,7 +663,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		if output == nil {
 			return nil
 		}
-		return a.driver.detectZombie(ctx, a.env.GetPachClient(ctx), output, ppsutil.MetaCommit(output), fsckServer.Send)
+		return a.driver.detectZombie(a.env.GetPachClient(ctx), output, fsckServer.Send)
 	})
 	return nil
 }

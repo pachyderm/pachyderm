@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"path"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -11,11 +14,14 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
@@ -316,26 +322,91 @@ func (e ErrZombieData) Error() string {
 	return fmt.Sprintf("commit %v contains output from datum %s which should have been deleted", e.Commit, e.ID)
 }
 
-func (d *driver) detectZombie(ctx context.Context, c *client.APIClient, outputCommit, metaCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
-	knownDatums := make(map[string]struct{})
-	iter := datum.NewCommitIterator(c, metaCommit)
-	iter.Iterate(func(meta *datum.Meta) error {
-		knownDatums[common.DatumID(meta.Inputs)] = struct{}{}
-		return nil
+type fileStream struct {
+	iterator   *fileset.Iterator
+	file       fileset.File
+	fromOutput bool
+}
+
+func (fs *fileStream) Next() error {
+	var err error
+	fs.file, err = fs.iterator.Next()
+	return err
+}
+
+// just match on path, we don't care about datum here
+func compare(s1, s2 stream.Stream) int {
+	idx1 := s1.(*fileStream).file.Index()
+	idx2 := s2.(*fileStream).file.Index()
+	return strings.Compare(idx1.Path, idx2.Path)
+}
+
+func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+	// generate fileset that groups output files by datum
+	resp, err := c.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+		ctx := c.Ctx()
+		_, fs, err := d.openCommit(ctx, outputCommit)
+		if err != nil {
+			return err
+		}
+		return fs.Iterate(ctx, func(f fileset.File) error {
+			id := f.Index().GetFile().GetDatum()
+			// write to same path as meta commit
+			metaPath := path.Join(datum.MetaPrefix, id, datum.MetaFileName)
+			return mf.PutFile(metaPath, strings.NewReader(f.Index().Path+"\n"),
+				client.WithAppendPutFile(), client.WithDatumPutFile(id))
+		})
 	})
-	_, fs, err := d.openCommit(ctx, outputCommit)
 	if err != nil {
 		return err
 	}
-	fs.Iterate(ctx, func(f fileset.File) error {
-		id := f.Index().GetFile().GetDatum()
-		if _, ok := knownDatums[id]; id != "" && !ok {
-			return cb(&pfs.FsckResponse{Error: ErrZombieData{
-				Commit: outputCommit,
-				ID:     id,
-			}.Error()})
+	// now merge with the meta commit to look for extra datums in the output commit
+	return c.WithRenewer(func(ctx context.Context, r *renew.StringSet) error {
+		r.Add(ctx, resp.FileSetId)
+		id, err := fileset.ParseID(resp.FileSetId)
+		if err != nil {
+			return err
 		}
-		return nil
+		datumsFS, err := d.storage.Open(ctx, []fileset.ID{*id})
+		if err != nil {
+			return err
+		}
+		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
+		if err != nil {
+			return err
+		}
+		var streams []stream.Stream
+		streams = append(streams, &fileStream{
+			iterator:   fileset.NewIterator(ctx, datumsFS),
+			fromOutput: true,
+		}, &fileStream{
+			iterator: fileset.NewIterator(ctx, metaFS),
+		})
+		pq := stream.NewPriorityQueue(streams, compare)
+		return pq.Iterate(func(ss []stream.Stream) error {
+			if len(ss) == 2 {
+				return nil // datum is present both in output and meta, as expected
+			}
+			s := ss[0].(*fileStream)
+			if !s.fromOutput {
+				return nil // datum doesn't have any output, not an error
+			}
+			// this is zombie data: output files not associated with any current datum
+			// report each file back as an error
+			id := s.file.Index().File.Datum
+			return miscutil.WithPipe(func(w io.Writer) error {
+				return s.file.Content(ctx, w)
+			}, func(r io.Reader) error {
+				sc := bufio.NewScanner(r)
+				for sc.Scan() {
+					if err := cb(&pfs.FsckResponse{
+						Error: fmt.Sprintf("stale datum %s had file %s", id, sc.Text()),
+					}); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		})
 	})
-	return nil
 }

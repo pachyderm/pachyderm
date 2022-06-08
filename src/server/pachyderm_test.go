@@ -50,7 +50,6 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
 	"golang.org/x/sync/errgroup"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -10639,4 +10638,69 @@ func TestDatabaseStats(t *testing.T) {
 
 		return nil
 	}))
+}
+
+func TestZombieCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name() + "-data")
+	pipeline := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
+		"foo", strings.NewReader("baz")))
+
+	req := basicPipelineReq(pipeline, repo)
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := c.WaitCommit(pipeline, "master", "")
+		return err
+	})
+	// fsck should succeed (including zombie check, on by default)
+	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
+		return errors.Errorf("got fsck error: %s", response.Error)
+	}))
+
+	// stop pipeline so we can modify
+	require.NoError(t, c.StopPipeline(pipeline))
+	// create new commits on output and meta
+	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
+		if _, err := c.StartCommit(repo, "master"); err != nil {
+			return err
+		}
+		metaBranch := client.NewSystemRepo(repo, pfs.MetaRepoType).NewBranch("master")
+		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
+			return err
+		}
+		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{Commit: metaBranch.NewCommit("")})
+		return err
+	})
+	require.NoError(t, err)
+	// add a file to the output with a datum that doesn't exist
+	require.NoError(t, c.PutFile(client.NewCommit(pipeline, "master", ""),
+		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
+	require.NoError(t, c.FinishCommit(repo, "master", ""))
+
+	// start again, put new data in, and run fsck again to see if it picks up our "zombie" file
+	require.NoError(t, c.StartPipeline(pipeline))
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
+		"bar", strings.NewReader("baz")))
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := c.WaitCommit(pipeline, "master", "")
+		return err
+	})
+
+	var messages []string
+	// fsck should notice the zombie file
+	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
+		messages = append(messages, response.Error)
+		return nil
+	}))
+	require.Equal(t, 1, len(messages))
+	require.Matches(t, "zombie", messages[0])
 }
