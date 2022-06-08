@@ -10685,7 +10685,8 @@ func TestZombieCheck(t *testing.T) {
 	require.NoError(t, c.PutFile(client.NewCommit(pipeline, "master", ""),
 		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
 	require.NoError(t, c.FinishCommit(pipeline, "master", ""))
-
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
 	var messages []string
 	// fsck should notice the zombie file
 	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
