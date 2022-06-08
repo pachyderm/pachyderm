@@ -351,12 +351,12 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 		if err != nil {
 			return err
 		}
-		return fs.Iterate(ctx, func(f fileset.File) error {
+		return errors.EnsureStack(fs.Iterate(ctx, func(f fileset.File) error {
 			id := f.Index().GetFile().GetDatum()
-			// write to same path as meta commit
-			return mf.PutFile(common.MetaFilePath(id), strings.NewReader(f.Index().Path+"\n"),
-				client.WithAppendPutFile(), client.WithDatumPutFile(id))
-		})
+			// write to same path as meta commit, one line per file
+			return errors.EnsureStack(mf.PutFile(common.MetaFilePath(id), strings.NewReader(f.Index().Path+"\n"),
+				client.WithAppendPutFile(), client.WithDatumPutFile(id)))
+		}))
 	})
 	if err != nil {
 		return err

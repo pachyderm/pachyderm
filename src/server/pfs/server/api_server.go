@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -33,7 +32,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 )
@@ -637,18 +635,10 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}); err != nil {
 		return err
 	}
-	a.driver.listRepo(ctx, false, pfs.UserRepoType, func(info *pfs.RepoInfo) error {
-		pipeline, err := a.env.GetPPSServer().InspectPipeline(ctx, &pps.InspectPipelineRequest{
-			Pipeline: client.NewPipeline(info.Repo.Name),
-			Details:  true,
-		})
-		if err != nil {
-			if errutil.IsNotFoundError(err) {
-				return nil // this shouldn't happen, but really just means some previous deletion failed
-			}
-			return err
-		}
-		output := info.Repo.NewCommit(pipeline.Details.OutputBranch, "")
+	// list meta repos as a proxy for finding pipelines
+	a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+		// strictly we should be checking the pipeline info for the output branch
+		output := client.NewCommit(info.Repo.Name, "master", "")
 		for output != nil {
 			info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 			if err != nil {
