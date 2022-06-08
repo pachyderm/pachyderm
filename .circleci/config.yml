@@ -97,7 +97,6 @@ jobs:
           key: minikube-v2
           paths:
             - /home/circleci/.minikube/cache
-      - run: sleep 80
       - run:
           name: Collect kube events
           command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
@@ -439,6 +438,8 @@ workflows:
   #    - check-prettier
   #    - test-envoy
       - circleci:
+          requires:
+            - build
           matrix:
             parameters:
               bucket:
