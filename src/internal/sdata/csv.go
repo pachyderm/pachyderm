@@ -149,16 +149,40 @@ func (m *CSVWriter) Flush() error {
 }
 
 type CSVParser struct {
-	dec *csv.Reader
+	dec          *csv.Reader
+	fields       []string
+	needHeader   bool
+	fieldIndices map[int]int
 }
 
-func NewCSVParser(r io.Reader) TupleReader {
+func NewCSVParser(r io.Reader) *CSVParser {
 	return &CSVParser{
 		dec: csv.NewReader(r),
 	}
 }
 
+func (p *CSVParser) WithFields(fields []string) *CSVParser {
+	p.fields = fields
+	p.needHeader = true
+	return p
+}
+
 func (p *CSVParser) Next(row Tuple) error {
+	switch {
+	case len(p.fields) == 0:
+		return p.readHeaderlessRow(row)
+	case p.needHeader:
+		if err := p.readHeaderRow(); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return p.readHeaderedRow(row)
+	default:
+		return p.readHeaderedRow(row)
+		return nil
+	}
+}
+
+func (p *CSVParser) readHeaderlessRow(row Tuple) error {
 	rec, err := p.dec.Read()
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -175,35 +199,8 @@ func (p *CSVParser) Next(row Tuple) error {
 	return nil
 }
 
-type HeaderCSVParser struct {
-	CSVParser
-	fields       []string
-	headerRead   bool
-	fieldIndices map[int]int // maps read column to tuple column
-}
-
-func NewHeaderCSVParser(r io.Reader, fields []string) TupleReader {
-	return &HeaderCSVParser{
-		CSVParser: CSVParser{dec: csv.NewReader(r)},
-		fields:    fields,
-	}
-}
-
-func (p *HeaderCSVParser) Next(row Tuple) error {
-	if p.headerRead {
-		rec, err := p.dec.Read()
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		for i, v := range rec {
-			if err := convert(row[p.fieldIndices[i]], v); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	p.headerRead = true
-	header, err := p.CSVParser.dec.Read()
+func (p *CSVParser) readHeaderRow() error {
+	header, err := p.dec.Read()
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -226,6 +223,19 @@ func (p *HeaderCSVParser) Next(row Tuple) error {
 		}
 		p.fieldIndices[i] = idx
 	}
+	p.needHeader = false
+	return nil
+}
 
-	return p.Next(row)
+func (p *CSVParser) readHeaderedRow(row Tuple) error {
+	rec, err := p.dec.Read()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	for i, v := range rec {
+		if err := convert(row[p.fieldIndices[i]], v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
