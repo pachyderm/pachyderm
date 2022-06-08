@@ -175,17 +175,10 @@ func (p *CSVParser) WithHeaderFields(fields []string) *CSVParser {
 // Next reads one data row from the underlying io.Reader into the Tuple.  If a
 // header is expected, it will read the header row, then the first data row.
 func (p *CSVParser) Next(row Tuple) error {
-	switch {
-	case len(p.fields) == 0:
-		return p.readHeaderlessRow(row)
-	case p.needHeader:
-		if err := p.readHeaderRow(); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return p.readHeaderedRow(row)
-	default:
+	if len(p.fields) > 0 {
 		return p.readHeaderedRow(row)
 	}
+	return p.readHeaderlessRow(row)
 }
 
 func (p *CSVParser) readHeaderlessRow(row Tuple) error {
@@ -234,6 +227,11 @@ func (p *CSVParser) readHeaderRow() error {
 }
 
 func (p *CSVParser) readHeaderedRow(row Tuple) error {
+	if p.needHeader {
+		if err := p.readHeaderRow(); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
 	rec, err := p.dec.Read()
 	if err != nil {
 		return errors.EnsureStack(err)
