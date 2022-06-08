@@ -25,7 +25,10 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 		pr.CloseWithError(err)
 		return errors.EnsureStack(err)
 	})
-	return errors.EnsureStack(eg.Wait())
+	if err := eg.Wait(); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }
 
 // Iterator provides functionality for generic imperative iteration.
