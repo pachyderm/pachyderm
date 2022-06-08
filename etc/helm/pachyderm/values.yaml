@@ -47,6 +47,11 @@ global:
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
+  securityContexts:
+    enabled: true
+    runAsUser: 101
+    runAsGroup: 101
+
 
 console:
   # enabled controls whether the console manifests are created or not.

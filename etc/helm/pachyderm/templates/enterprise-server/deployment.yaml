@@ -138,10 +138,25 @@ spec:
         resources: {{ toYaml .Values.enterpriseServer.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
+        - mountPath: /tmp
+          name: tmp
         {{- if .Values.enterpriseServer.tls.enabled }}
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+      {{- if .Values.global.securityContexts.enabled }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
+        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsNonRoot: true
+      {{- end }}
       {{- if .Values.enterpriseServer.nodeSelector }}
       nodeSelector: {{ toYaml .Values.enterpriseServer.nodeSelector | nindent 8 }}
       {{- end }}
@@ -149,14 +164,11 @@ spec:
       tolerations: {{ toYaml .Values.enterpriseServer.tolerations | nindent 8 }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       {{- if .Values.enterpriseServer.tls.enabled }}
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If enterpriseServer.tls.enabled, you must set enterpriseServer.tls.secretName" .Values.enterpriseServer.tls.secretName | quote }}
-      {{- end }}
-      {{- if .Values.pachd.securityContext.enabled }}
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
       {{- end }}
 {{- end }}

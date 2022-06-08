@@ -39,10 +39,18 @@ spec:
           - "-instances={{ .Values.cloudsqlAuthProxy.connectionName }}=tcp:0.0.0.0:{{ .Values.cloudsqlAuthProxy.port }}"
         ports:
         - containerPort: {{ .Values.cloudsqlAuthProxy.port }}
+        {{- if .Values.global.securityContexts.enabled }}
         securityContext:
-          # The default Cloud SQL proxy image runs as the
-          # "nonroot" user and group (uid: 65532) by default.
+          runAsUser: {{ .Values.global.securityContexts.runAsUser }}
+          runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+          fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           runAsNonRoot: true
+          capabilities:
+              drop:
+              - all
+        {{- end }}
         resources: {{ toYaml .Values.cloudsqlAuthProxy.resources | nindent 10 }}
       {{- if .Values.cloudsqlAuthProxy.nodeSelector }}
       nodeSelector: {{ toYaml .Values.cloudsqlAuthProxy.nodeSelector | nindent 8 }}

@@ -96,12 +96,22 @@ spec:
           {{- if .Values.proxy.resources }}
           resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsUser: 101
-            runAsGroup: 101
           volumeMounts:
             - name: envoy-config
               mountPath: /etc/envoy
+      {{- if .Values.global.securityContexts.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+                drop:
+                - all
+      securityContext:
+        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
+        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsNonRoot: true
+      {{- end }}
       volumes:
         - name: envoy-config
           configMap:

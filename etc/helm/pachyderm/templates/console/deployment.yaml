@@ -93,6 +93,19 @@ spec:
         - mountPath: /pach-tls/certs
           name: pachd-tls-cert
         {{- end }}
+      {{- if .Values.global.securityContexts.enabled }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
+        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsNonRoot: true
+      {{- end }}
       {{- if .Values.console.nodeSelector }}
       nodeSelector: {{ toYaml .Values.console.nodeSelector | nindent 8 }}
       {{- end }}
