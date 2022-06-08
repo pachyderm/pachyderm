@@ -178,7 +178,6 @@ func (p *CSVParser) Next(row Tuple) error {
 		return p.readHeaderedRow(row)
 	default:
 		return p.readHeaderedRow(row)
-		return nil
 	}
 }
 
