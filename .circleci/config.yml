@@ -79,7 +79,7 @@ jobs:
       #- restore_cache:
       #    keys:
       #      - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      #- run: etc/testing/circle/build.sh
+      - run: etc/testing/circle/build.sh
       #- when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
       #    condition:
       #      equal: [MISC, <<parameters.bucket>>]
@@ -114,12 +114,13 @@ jobs:
       - run: make install
       - run: pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
       
+      # TODO FIX
       # Need to build test image TODO: Serve test image from dockerhub and pull instead
-      - run: 
-          name: Build test image
-          command:
-            eval "$(minikube docker-env)" 
-            docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+      # - run: 
+      #     name: Build test image
+      #     command:
+      #       eval "$(minikube docker-env)" 
+      #       docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
   
       - run:
           no_output_timeout: 20m
