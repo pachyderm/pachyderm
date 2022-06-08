@@ -94,7 +94,7 @@ jobs:
       #            - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
       - save_cache:
-          key: minikube-v2
+          key: minikube-v3
           paths:
             - /home/circleci/.minikube
       - run:
