@@ -2993,25 +2993,28 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		return nil, err
 	}
 	pipeline := tu.UniqueString("TestLoadPipeline")
-	if err := pachClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 5,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Repo:   repo,
-				Branch: branch,
-				Glob:   "/*",
+	if _, err := pachClient.PpsAPIClient.CreatePipeline(
+		pachClient.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
+				},
 			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Repo:   repo,
+					Branch: branch,
+					Glob:   "/*",
+				},
+			},
+			PodPatch: req.PodPatch,
 		},
-		"",
-		false,
 	); err != nil {
 		return nil, err
 	}

@@ -1114,6 +1114,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(listSecret, "list secret"))
 
 	var seed int64
+	var podPatchFile string
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
 		Short: "Run a PPS load test.",
@@ -1140,6 +1141,13 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				fmt.Println()
 				return nil
 			}
+			var podPatch []byte
+			if podPatchFile != "" {
+				podPatch, err = ioutil.ReadFile(podPatchFile)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
 			err = filepath.Walk(args[0], func(file string, fi os.FileInfo, err error) error {
 				if err != nil {
 					return err
@@ -1152,8 +1160,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					return errors.EnsureStack(err)
 				}
 				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
-					Spec: string(spec),
-					Seed: seed,
+					Spec:     string(spec),
+					Seed:     seed,
+					PodPatch: string(podPatch),
 				})
 				if err != nil {
 					return errors.EnsureStack(err)
@@ -1169,6 +1178,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
+	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "p", "", "The pod patch file to use for the pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands
