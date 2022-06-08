@@ -55,15 +55,11 @@ jobs:
       #      - cached-deps/
       - restore_cache:
           keys:
-            - minikube-v1
+            - minikube-v2
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
           background: true
-      - save_cache:
-          key: minikube-v1
-          paths:
-            - /home/circleci/.minikube/cache
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       #- run: "echo $(($(date +%s)/604800)) > current_week"
@@ -91,6 +87,10 @@ jobs:
       #          paths:
       #            - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
+      - save_cache:
+          key: minikube-v2
+          paths:
+            - /home/circleci/.minikube/cache
       - run: sleep 80
       - run:
           name: Collect kube events
