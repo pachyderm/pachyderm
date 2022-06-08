@@ -1,3 +1,4 @@
+import {RepoQuery} from '@graphqlTypes';
 import {
   LoadingDots,
   Button,
@@ -20,10 +21,11 @@ import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 import styles from './CommitDetails.module.css';
 
 type CommitDetailsProps = {
+  repo?: RepoQuery['repo'];
   commitId: string;
 };
 
-const CommitDetails: React.FC<CommitDetailsProps> = ({commitId}) => {
+const CommitDetails: React.FC<CommitDetailsProps> = ({commitId, repo}) => {
   const browserHistory = useHistory();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
   const {branchId, projectId, repoId} = useUrlState();
@@ -141,6 +143,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId}) => {
               }),
             )
           }
+          disabled={!!repo?.linkedPipeline && commit.finished === -1}
         >
           View Files
         </Button>

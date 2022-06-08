@@ -152,6 +152,9 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                               repoId: repoId,
                               commitId: commit.id,
                             })}
+                            disabled={
+                              !!repo?.linkedPipeline && commit.finished === -1
+                            }
                           >
                             View Files
                           </Button>

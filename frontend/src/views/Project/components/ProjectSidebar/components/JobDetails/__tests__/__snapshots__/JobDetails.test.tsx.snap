@@ -61,31 +61,49 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
           role="menu"
         >
           <button
-            class="_base_1sr2r_1"
+            class="_base_3qhsf_1"
             data-testid="DropdownMenuItem__button"
             role="menuitem"
             tabindex="-1"
             type="button"
           >
-            Copy
+            <div
+              class="_base_1p360_1 _horizontal_1p360_45 _alignCenter_1p360_129"
+            >
+              <div>
+                Copy
+              </div>
+            </div>
           </button>
           <button
-            class="_base_1sr2r_1"
+            class="_base_3qhsf_1"
             data-testid="DropdownMenuItem__button"
             role="menuitem"
             tabindex="-1"
             type="button"
           >
-            Download JSON
+            <div
+              class="_base_1p360_1 _horizontal_1p360_45 _alignCenter_1p360_129"
+            >
+              <div>
+                Download JSON
+              </div>
+            </div>
           </button>
           <button
-            class="_base_1sr2r_1"
+            class="_base_3qhsf_1"
             data-testid="DropdownMenuItem__button"
             role="menuitem"
             tabindex="-1"
             type="button"
           >
-            Download YAML
+            <div
+              class="_base_1p360_1 _horizontal_1p360_45 _alignCenter_1p360_129"
+            >
+              <div>
+                Download YAML
+              </div>
+            </div>
           </button>
         </div>
       </div>

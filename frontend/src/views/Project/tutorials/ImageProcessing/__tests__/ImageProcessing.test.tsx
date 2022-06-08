@@ -41,9 +41,9 @@ describe('Image Processing', () => {
   });
 
   it('should allow the user to pause the tutorial', async () => {
-    const {findByText, container} = render(<Tutorial />);
+    const {findByTestId, container} = render(<Tutorial />);
 
-    await click(await findByText('Pause Tutorial'));
+    await click(await findByTestId('TutorialModalBody__closeTutorial'));
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
@@ -59,21 +59,13 @@ describe('Image Processing', () => {
     } = render(<Tutorial />);
 
     const minimize = async () => {
-      const minimizeButton = (
-        await findAllByRole('button', {
-          name: 'Minimize',
-        })
-      )[0];
+      const minimizeButton = await findByTestId('TutorialModalBody__minimize');
 
       click(minimizeButton);
     };
 
     const maximize = async () => {
-      const maximizeButton = (
-        await findAllByRole('button', {
-          name: 'Maximize',
-        })
-      )[0];
+      const maximizeButton = await findByTestId('TutorialModalBody__maximize');
       click(maximizeButton);
     };
 

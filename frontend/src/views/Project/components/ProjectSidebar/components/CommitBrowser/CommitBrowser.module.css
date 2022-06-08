@@ -1,9 +1,10 @@
 .commit {
   transition: all 400ms ease-in;
+  overflow-y: hidden;
 }
 
 .commit, .empty {
-  padding: 0 1.5625rem;
+  padding: 0 0.75rem;
 }
 
 .commitInfo {
@@ -17,14 +18,19 @@
 
 .commits {
   margin-top: 0.625rem;
+  padding: 0 0.75rem;
   overflow-y: scroll;
   height: calc(100vh - 22.5rem);
 }
 
 .autoCommits {
-  padding: 0rem 1.5625rem;
+  padding: 0rem 1.5rem;
   margin-bottom: 1.25rem;
   border-bottom: 1px dashed var(--line-grey);
+}
+
+.loadingDots {
+  margin-top: 6rem;
 }
 
 /* Transition group styles */
@@ -38,10 +44,6 @@
   opacity: 1;
 }
 
-.commitEnterActive .commitInfo, .commitEnterDone .commitInfo {
+.commitEnterActive.commit, .commitEnterDone.commit {
   border-left: 1px dashed var(--banner-green);
-}
-
-.loadingDots {
-  margin-top: 6rem;
 }
