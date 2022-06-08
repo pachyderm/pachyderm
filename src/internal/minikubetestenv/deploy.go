@@ -412,11 +412,13 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	version := localImage
 	chartPath := helmChartLocalPath(t)
+	helmOpts := withBase(namespace)
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
+		helmOpts.Version = version
+		helmOpts.SetValues["pachd.image.tag"] = version
 	}
-	helmOpts := withBase(namespace)
 	pachAddress := getPachAddress(t)
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
