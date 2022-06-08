@@ -75,7 +75,10 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			fi.Hash = computedFi.Hash
 		}
 		// TODO: Figure out how to remove directory infos from cache when they are no longer needed.
-		return cb(fi, f)
+		if err := cb(fi, f); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
 	})
 	return errors.EnsureStack(err)
 }

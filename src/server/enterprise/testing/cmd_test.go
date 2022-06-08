@@ -40,7 +40,7 @@ func resetClusterState(t *testing.T, c *client.APIClient) {
 
 // TestRegisterPachd tests registering a pachd with the enterprise server when auth is disabled
 func TestRegisterPachd(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -60,7 +60,7 @@ func TestRegisterPachd(t *testing.T) {
 
 // TestRegisterAuthenticated tests registering a pachd with the enterprise server when auth is enabled
 func TestRegisterAuthenticated(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	cluster := tu.UniqueString("cluster")
@@ -86,7 +86,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 
 // TestEnterpriseRoleBindings tests configuring role bindings for the enterprise server
 func TestEnterpriseRoleBindings(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -109,7 +109,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 
 // TestGetAndUseRobotToken tests getting a robot token for the enterprise server
 func TestGetAndUseRobotToken(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -135,7 +135,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 
 // TestConfig tests getting and setting OIDC configuration for the identity server
 func TestConfig(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	pachAddress := fmt.Sprintf("grpc://pachd.%s:%v", ns, c.GetAddress().Port)
@@ -175,7 +175,7 @@ EOF
 
 // TestLoginEnterprise tests logging in to the enterprise server
 func TestLoginEnterprise(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	ec, err := client.NewEnterpriseClientForTest()
@@ -218,7 +218,7 @@ func TestLoginEnterprise(t *testing.T) {
 
 // TestLoginPachd tests logging in to pachd
 func TestLoginPachd(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 
@@ -262,7 +262,7 @@ func TestLoginPachd(t *testing.T) {
 
 // Tests synching contexts from the enterprise server
 func TestSyncContexts(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	id := tu.UniqueString("cluster")
@@ -338,7 +338,7 @@ func TestSyncContexts(t *testing.T) {
 
 // Tests RegisterCluster command's derived argument values if not provided
 func TestRegisterDefaultArgs(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 
@@ -375,7 +375,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 
 // tests that Cluster Registration is undone when enterprise service fails to activate in the `enterprise register` subcommand
 func TestRegisterRollback(t *testing.T) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(t, c)
 	defer resetClusterState(t, c)
 	id := tu.UniqueString("cluster")
