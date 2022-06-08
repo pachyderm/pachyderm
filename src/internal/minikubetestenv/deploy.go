@@ -231,14 +231,14 @@ func withEnterpriseServer(image, host string) *helm.Options {
 	}}
 }
 
-func withEnterpriseMember(grpcPort int) *helm.Options {
+func withEnterpriseMember(host string, grpcPort int) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
 		"pachd.activateEnterpriseMember":     "true",
 		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
 		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
 		"pachd.enterpriseRootToken":          testutil.RootToken,
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost": "localhost:31658",
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 	}}
 }
 
@@ -439,7 +439,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
 	}
 	if opts.EnterpriseMember {
-		helmOpts = union(helmOpts, withEnterpriseMember(int(pachAddress.Port)))
+		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
 	}
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
