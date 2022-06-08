@@ -297,7 +297,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 	require.NoError(t, backoff.Retry(func() error {
 		t.Logf("Connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
 		var err error
-		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
+		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(30*time.Second))
 		if err != nil {
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
