@@ -176,6 +176,8 @@ global:
     postgresqlUsername: "${SQL_ADMIN}"
     postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
     postgresqlSSL: "verify-full"
+    # Below is the CA certificate which signs Azure Database for PostgreSQL
+    # server certificates.  For more information, see: https://docs.microsoft.com/en-us/azure/postgresql/single-server/concepts-ssl-connection-security#applications-that-require-certificate-verification-for-tls-connectivity
     postgresqlSSLCACert: |
       -----BEGIN CERTIFICATE-----
       MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ

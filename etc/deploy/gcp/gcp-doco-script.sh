@@ -33,7 +33,7 @@ ROLE1="roles/cloudsql.client"
 ROLE2="roles/storage.admin"
 
 SERVICE_ACCOUNT="${GSA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
-LOKI_SERVICE_ACCOUNT="${GSA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+LOKI_SERVICE_ACCOUNT="${LOKI_GSA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 PACH_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/pachyderm]"
 SIDECAR_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/pachyderm-worker]"
 CLOUDSQLAUTHPROXY_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/k8s-cloudsql-auth-proxy]"
@@ -52,6 +52,10 @@ gcloud config set project ${PROJECT_ID}
 gcloud config set compute/zone ${GCP_ZONE}
 
 gcloud config set container/cluster ${CLUSTER_NAME}
+
+gcloud services enable container.googleapis.com
+
+gcloud services enable sqladmin.googleapis.com
 
 gcloud container clusters create ${CLUSTER_NAME} \
  --machine-type=${CLUSTER_MACHINE_TYPE} \
@@ -112,11 +116,11 @@ gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
 
 gcloud iam service-accounts create ${LOKI_GSA_NAME}
 
+gcloud iam service-accounts keys create "${LOKI_GSA_NAME}-key.json" --iam-account="$LOKI_SERVICE_ACCOUNT"
+
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${LOKI_SERVICE_ACCOUNT}" \
     --role="${ROLE2}"
-
-gcloud iam service-accounts keys create "${LOKI_GSA_NAME}-key.json" --iam-account="$LOKI_SERVICE_ACCOUNT"
 
 kubectl create secret generic loki-service-account --from-file="${LOKI_GSA_NAME}-key.json"
 
