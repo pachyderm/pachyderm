@@ -48,10 +48,11 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset     uint16
-	Loki           bool
-	WaitSeconds    int
-	ValueOverrides map[string]string
+	PortOffset       uint16
+	Loki             bool
+	WaitSeconds      int
+	EnterpriseMember bool
+	ValueOverrides   map[string]string
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -375,6 +376,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		helmOpts = union(helmOpts, withEnterprise(namespace, pachAddress))
+	}
+	if opts.EnterpriseMember {
+		helmOpts = union(helmOpts, &helm.Options{SetValues: map[string]string{"pachd.enterpriseMember": "true"}})
 	}
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
