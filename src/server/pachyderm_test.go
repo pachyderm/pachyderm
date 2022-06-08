@@ -10671,14 +10671,14 @@ func TestZombieCheck(t *testing.T) {
 	// create new commits on output and meta
 	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
 		if _, err := c.StartCommit(pipeline, "master"); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		metaBranch := client.NewSystemRepo(pipeline, pfs.MetaRepoType).NewBranch("master")
 		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{Commit: metaBranch.NewCommit("")})
-		return err
+		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 	// add a file to the output with a datum that doesn't exist

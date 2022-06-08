@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -18,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -341,6 +343,7 @@ func compare(s1, s2 stream.Stream) int {
 }
 
 func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+	log.Infof("checking for zombie data in %s", outputCommit)
 	// generate fileset that groups output files by datum
 	resp, err := c.WithCreateFileSetClient(func(mf client.ModifyFile) error {
 		ctx := c.Ctx()
@@ -369,7 +372,7 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
+		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit), index.WithPrefix("/"+common.MetaPrefix))
 		if err != nil {
 			return err
 		}
@@ -381,7 +384,7 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 			iterator: fileset.NewIterator(ctx, metaFS),
 		})
 		pq := stream.NewPriorityQueue(streams, compare)
-		return pq.Iterate(func(ss []stream.Stream) error {
+		return errors.EnsureStack(pq.Iterate(func(ss []stream.Stream) error {
 			if len(ss) == 2 {
 				return nil // datum is present both in output and meta, as expected
 			}
@@ -393,7 +396,7 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 			// report each file back as an error
 			id := s.file.Index().File.Datum
 			return miscutil.WithPipe(func(w io.Writer) error {
-				return s.file.Content(ctx, w)
+				return errors.EnsureStack(s.file.Content(ctx, w))
 			}, func(r io.Reader) error {
 				sc := bufio.NewScanner(r)
 				for sc.Scan() {
@@ -405,6 +408,6 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 				}
 				return nil
 			})
-		})
+		}))
 	})
 }

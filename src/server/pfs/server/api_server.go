@@ -637,7 +637,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}); err != nil {
 		return err
 	}
-	a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+	a.driver.listRepo(ctx, false, pfs.UserRepoType, func(info *pfs.RepoInfo) error {
 		pipeline, err := a.env.GetPPSServer().InspectPipeline(ctx, &pps.InspectPipelineRequest{
 			Pipeline: client.NewPipeline(info.Repo.Name),
 			Details:  true,
