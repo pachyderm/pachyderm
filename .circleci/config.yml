@@ -109,8 +109,18 @@ jobs:
             docker pull pachyderm/worker:$CIRCLE_SHA1
       #- run: etc/testing/circle/launch.sh
       - run: kubectl apply -f etc/testing/minio.yaml
+
+      # Need to install pachctl and set context so minikubetestenv can pick up on IP: TODO Change minikubetestenv to get IP from ENV
       - run: make install
       - run: pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
+      
+      # Need to build test image TODO: Serve test image from dockerhub and pull instead
+      - run: 
+          name: Build test image
+          command:
+            eval "$(minikube docker-env)" 
+            docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+  
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
