@@ -6,6 +6,7 @@
   width: var(--width-sidenav);
   transition: width 0.1s ease-out;
   z-index: var(--z-index-sidenav);
+  height: 100%;
 }
 
 .base.dark {
