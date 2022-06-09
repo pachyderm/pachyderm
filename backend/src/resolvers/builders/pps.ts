@@ -68,6 +68,7 @@ const deriveJSONPipelineSpec = (pipelineInfo: PipelineInfo.AsObject) => {
     resourceLimits: pipelineInfo.details?.resourceLimits,
     sidecarResourceLimits: pipelineInfo.details?.sidecarResourceLimits,
     input: pipelineInfo.details?.input,
+    service: pipelineInfo.details?.service,
     autoscaling: pipelineInfo.details?.autoscaling,
     reprocessSpec: pipelineInfo.details?.reprocessSpec,
     schedulingSpec: pipelineInfo.details?.schedulingSpec,
