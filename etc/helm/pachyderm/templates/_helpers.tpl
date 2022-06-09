@@ -162,3 +162,11 @@ pachyderm-license
 pachyderm-enterprise
 {{- end }}
 {{- end }}
+
+{{- define "pachyderm.upstreamIDPsSecretName" -}}
+{{- if .Values.oidc.upstreamIDPsSecretName }}
+{{ .Values.oidc.upstreamIDPsSecretName }}
+{{- else if or .Values.oidc.upstreamIDPs .Values.oidc.mockIDP }}
+pachyderm-identity
+{{- end }}
+{{- end }}
