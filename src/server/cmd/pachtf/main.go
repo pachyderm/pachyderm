@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -56,6 +57,14 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 		return errors.Errorf("must provide db url and format")
 	}
 	urlStr, formatName := args[0], args[1]
+	var hasHeader bool
+	if len(args) > 2 {
+		var err error
+		hasHeader, err = strconv.ParseBool(args[2])
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
 	password, ok := os.LookupEnv(passwordEnvar)
 	if !ok {
 		return errors.Errorf("must set %v", passwordEnvar)
@@ -79,9 +88,10 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 		InputDir:  inputDir,
 		OutputDir: outputDir,
 
-		URL:      *u,
-		Password: secrets.Secret(password),
-		Format:   formatName,
+		URL:       *u,
+		Password:  secrets.Secret(password),
+		Format:    formatName,
+		HasHeader: hasHeader,
 	})
 }
 

@@ -48,10 +48,12 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset     uint16
-	Loki           bool
-	WaitSeconds    int
-	ValueOverrides map[string]string
+	PortOffset       uint16
+	Loki             bool
+	WaitSeconds      int
+	EnterpriseMember bool
+	EnterpriseServer bool
+	ValueOverrides   map[string]string
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -100,7 +102,7 @@ func exposedServiceType() string {
 	os := runtime.GOOS
 	serviceType := ""
 	switch os {
-	case "darwin":
+	case "darwin", "windows":
 		serviceType = "LoadBalancer"
 	default:
 		serviceType = "NodePort"
@@ -113,12 +115,14 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.lokiDeploy":             "true",
+			"pachd.lokiLogging":            "true",
 			"loki-stack.loki.service.type": exposedServiceType(),
 			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "8000",
 			"loki-stack.loki.service.port":                                fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.service.nodePort":                            fmt.Sprintf("%v", port+9),
 			"loki-stack.loki.config.server.http_listen_port":              fmt.Sprintf("%v", port+9),
-			"loki-stack.promtail.loki.servicePort":                        fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.serverPort":                       fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.lokiAddress":                      fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+9),
 		},
 		SetStrValues: map[string]string{
 			"loki-stack.promtail.initContainer.enabled": "true",
@@ -126,30 +130,26 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 	}
 }
 
-func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
+func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"deployTarget": "custom",
-
-			"pachd.service.type":        "ClusterIP",
-			"pachd.image.tag":           image,
-			"pachd.clusterDeploymentID": "dev",
-
-			"pachd.storage.backend":        "MINIO",
-			"pachd.storage.minio.bucket":   "pachyderm-test",
-			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
-			"pachd.storage.minio.id":       "minioadmin",
-			"pachd.storage.minio.secret":   "minioadmin",
-
-			"pachd.resources.requests.cpu":    "250m",
-			"pachd.resources.requests.memory": "512M",
-			"etcd.resources.requests.cpu":     "250m",
-			"etcd.resources.requests.memory":  "512M",
-
+			"pachd.clusterDeploymentID":                    "dev",
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
+			"pachd.resources.requests.cpu":                 "250m",
+			"pachd.resources.requests.memory":              "512M",
+			"etcd.resources.requests.cpu":                  "250m",
+			"etcd.resources.requests.memory":               "512M",
+		},
+	}
+}
 
+func withPachd(image string) *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"pachd.image.tag":    image,
+			"pachd.service.type": "ClusterIP",
 			// For tests, traffic from outside the cluster is routed through the proxy,
 			// but we bind the internal k8s service ports to the same numbers for
 			// in-cluster traffic, like enterprise registration.
@@ -167,6 +167,19 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"proxy.service.legacyPorts.metrics":   "30656",
 			"pachd.service.prometheusPort":        "30656",
 		},
+	}
+}
+
+func withMinio() *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"deployTarget":                 "custom",
+			"pachd.storage.backend":        "MINIO",
+			"pachd.storage.minio.bucket":   "pachyderm-test",
+			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
+			"pachd.storage.minio.id":       "minioadmin",
+			"pachd.storage.minio.secret":   "minioadmin",
+		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
 			"pachd.storage.minio.secure":    "false",
@@ -174,20 +187,59 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(namespace string, address *grpcutil.PachdAddress) *helm.Options {
+func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Options {
 	return &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
-			"pachd.rootToken":                      testutil.RootToken,
+			"pachd.rootToken":                      rootToken,
 			"pachd.oauthClientSecret":              "oidc-client-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
-			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
-			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
+			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
+			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
 	}
+}
+
+func withEnterpriseServer(image, host string) *helm.Options {
+	return &helm.Options{SetValues: map[string]string{
+		"pachd.enabled":                      "false",
+		"enterpriseServer.enabled":           "true",
+		"enterpriseServer.image.tag":         image,
+		"oidc.mockIDP":                       "true",
+		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
+		"pachd.oauthClientID":                "enterprise-pach",
+		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
+
+		"enterpriseServer.service.type": "ClusterIP",
+		// For tests, traffic from outside the cluster is routed through the proxy,
+		// but we bind the internal k8s service ports to the same numbers for
+		// in-cluster traffic, like enterprise registration.
+		"proxy.enabled":                      "true",
+		"proxy.service.type":                 exposedServiceType(),
+		"proxy.service.httpPort":             "31650",
+		"proxy.service.httpNodePort":         "31650",
+		"pachd.service.apiGRPCPort":          "31650",
+		"proxy.service.legacyPorts.oidc":     "31657",
+		"pachd.service.oidcPort":             "31657",
+		"proxy.service.legacyPorts.identity": "31658",
+		"pachd.service.identityPort":         "31658",
+		"proxy.service.legacyPorts.metrics":  "31656",
+		"pachd.service.prometheusPort":       "31656",
+	}}
+}
+
+func withEnterpriseMember(host string, grpcPort int) *helm.Options {
+	return &helm.Options{SetValues: map[string]string{
+		"pachd.activateEnterpriseMember":     "true",
+		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
+		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
+		"pachd.enterpriseRootToken":          testutil.RootToken,
+		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
+	}}
 }
 
 func withPort(namespace string, port uint16) *helm.Options {
@@ -197,7 +249,6 @@ func withPort(namespace string, port uint16) *helm.Options {
 			// Run gRPC traffic through the full router.
 			"proxy.service.httpPort":     fmt.Sprintf("%v", port),
 			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
-
 			// Let everything else use the legacy way.  We use the same mapping for
 			// internal ports, so in-cluster traffic doesn't go through the proxy, but
 			// doesn't need to confusingly use a different port number.
@@ -250,9 +301,13 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
-func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
-	require.NoError(t, backoff.Retry(func() error {
-		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
+func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string, enterpriseServer bool) {
+	label := "app=pachd"
+	if enterpriseServer {
+		label = "app=pach-enterprise"
+	}
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
@@ -262,15 +317,19 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 			}
 		}
 		return errors.Errorf("deployment in progress")
-	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
+	})
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.Retry(func() error {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v", lokiHost, lokiPort), nil)
-		_, err := http.DefaultClient.Do(req)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:%v/ready", lokiHost, lokiPort), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return errors.Wrap(err, "loki not ready")
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return errors.Errorf("loki not ready")
 		}
 		return nil
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
@@ -342,7 +401,7 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 			"enterprise-license-key": testutil.GetTestEnterpriseCode(t),
 		},
 	}, metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"))
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
@@ -353,8 +412,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	version := localImage
 	chartPath := helmChartLocalPath(t)
-	// TODO(acohen4): apply minio deployment to this namespace
-	helmOpts := localDeploymentWithMinioOptions(namespace, version)
+	helmOpts := withBase(namespace)
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
@@ -362,13 +420,28 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := getPachAddress(t)
+	if opts.EnterpriseServer {
+		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
+		pachAddress.Port = uint16(31650)
+	} else {
+		helmOpts = union(helmOpts, withPachd(version))
+		// TODO(acohen4): apply minio deployment to this namespace
+		helmOpts = union(helmOpts, withMinio())
+	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port))
 	}
-	if opts.Enterprise {
+	if opts.Enterprise || opts.EnterpriseServer {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		helmOpts = union(helmOpts, withEnterprise(namespace, pachAddress))
+		issuerPort := int(pachAddress.Port) + 8
+		if opts.EnterpriseMember {
+			issuerPort = 31658
+		}
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
+	}
+	if opts.EnterpriseMember {
+		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
 	}
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
@@ -389,7 +462,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		// successful.
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
-	waitForPachd(t, ctx, kubeClient, namespace, version)
+	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 	if opts.Loki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
