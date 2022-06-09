@@ -1,3 +1,5 @@
+//go:build livek8s
+
 package minikubetestenv
 
 import (

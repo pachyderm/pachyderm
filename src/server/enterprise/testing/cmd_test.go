@@ -1,3 +1,5 @@
+//go:build k8s
+
 // testing contains integration tests which run against two servers: a pachd, and an enterprise server.
 // By contrast, the tests in the server package run against a single pachd.
 package testing
