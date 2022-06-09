@@ -11,7 +11,7 @@ Our **SQL ingest** tool provides a seamless connection between databases and Pac
 Specifically, we help you connect to a remote database of your choice and pull the result of a given query at regular intervals in the form of a CSV or a JSON file.  
 
 ## Use SQL Ingest
-Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/jsonnet-pipeline-specs) with the following parameters to automatically create the pipelines that access, query, and materialize the results of a SQL query to a data warehouse. The outputted results can take the form of CSV or JSON files.
+Pachyderm's SQL Ingest uses [jsonnet pipeline specs](../../pipeline-operations/jsonnet-pipeline-specs) with the following parameters to automatically create the pipelines that access, query, and materialize the results of a SQL query to a data warehouse. The outputted results can take the form of CSV or JSON files. Check the [Formatting section](#formats-and-sql-datatypes) at the bottom of the page for specific details on formats and SQL Datatypes.
 
 Pass in the following parameters and get your results committed to an output repo, ready for the following downstream pipeline:
 ```shell
@@ -19,6 +19,7 @@ pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pa
   --arg name=myingest \
   --arg url="mysql://root@mysql:3306/test_db" \
   --arg query="SELECT * FROM test_data" \
+  --arg hasHeader=false \
   --arg cronSpec="@every 30s" \
   --arg secretName="mysql-creds" \
   --arg format=json
@@ -26,13 +27,14 @@ pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pa
 
 Where the parameters passed to the jsonnet pipeline spec are:
 
-| Parameter     | Description | 
+| Parameter &nbsp; &nbsp; &nbsp;   | Description | 
 | ------------- |-------------| 
 | `name`        | The name of output repo in which your query results will materialize.|
 | `url`         | The [connection string to the database](#database-connection-url).|  
 | `query`       | The SQL query that will be run against your database. |
+| `hasHeader`   | Adds a header to your CSV file if set to `true`. Ignored if `format="json"` (JSON files always display (header,value) pairs for each returned row). Defaults to `false`. <br><br>Pachyderm creates the header after each element of the comma separated list of your SELECT clause or their aliases (if any). <br>For example `country.country_name_eng` will have `country.country_name_eng` as header while `country.country_name_eng as country_name` will have `country_name`. |
 | `cronSpec`    | How often to run the query. For example `"@every 60s"`.|
-| `format`      | The type of your output file containing the results of your query (either `json` or `yaml`).|
+| `format`      | The type of your output file containing the results of your query (either `json` or `csv`).|
 | `secretName`  | The kubernetes secret name that contains the [password to the database](#database-secret).|
 
 !!! Example 
@@ -50,6 +52,7 @@ Where the parameters passed to the jsonnet pipeline spec are:
           --arg name=mysnowflakeingest \
           --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" \
           --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" \
+          --arg hasHeader=true \
           --arg cronSpec="@every 30s" \
           --arg secretName="snowflakesecret" \
           --arg format=json
