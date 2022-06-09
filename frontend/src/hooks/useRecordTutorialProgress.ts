@@ -7,14 +7,19 @@ const useRecordTutorialProgress = (
   task: number,
 ) => {
   const {projectId} = useUrlState();
-  const [, setTutorialsProgress] = useLocalProjectSettings({
+  const [tutorialId] = useLocalProjectSettings({
+    projectId: 'account-data',
+    key: 'tutorial_id',
+  });
+  const [tutorialProgress, setTutorialsProgress] = useLocalProjectSettings({
     projectId,
     key: 'tutorial_progress',
   });
 
   return () => {
     setTutorialsProgress({
-      [tutorialName]: {story, task},
+      ...tutorialProgress,
+      [tutorialName]: {story, task, tutorialId},
     });
   };
 };

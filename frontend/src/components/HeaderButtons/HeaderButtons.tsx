@@ -5,13 +5,14 @@ import {
   HamburgerSVG,
   DropdownItem,
   SupportSVG,
+  EducationSVG,
 } from '@pachyderm/components';
-import React from 'react';
+import React, {useState} from 'react';
 
-import RunTutorialButton from '@dash-frontend/components/RunTutorialButton';
-import useRunTutorialButton from '@dash-frontend/components/RunTutorialButton/hooks/useRunTutorialButton';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 
 import Account from './components/Account';
+import TutorialsMenu from './components/TutorialsMenu';
 import styles from './HeaderButtons.module.css';
 
 type HeaderButtonsProps = {
@@ -25,14 +26,19 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   showSupport = false,
   showAccount = false,
 }) => {
-  const {startTutorial, tutorialProgress} = useRunTutorialButton(projectId);
+  const [tutorialsMenuVisible, setTutorialsMenu] = useState(false);
+  const [stickTutorialsMenu, setStickTutorialsMenu] = useState(false);
+  const [activeTutorial] = useLocalProjectSettings({
+    projectId: projectId || 'default',
+    key: 'active_tutorial',
+  });
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
       case 'support':
         return window.open('mailto:support@pachyderm.com');
       case 'tutorial':
-        return startTutorial();
+        return setTutorialsMenu(true);
       default:
         return null;
     }
@@ -41,22 +47,39 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   let menuItems: DropdownItem[] = [
     {
       id: 'tutorial',
-      content: tutorialProgress ? 'Resume Tutorial' : 'Run Tutorial',
+      content: 'Learn Pachyderm',
       closeOnClick: true,
+      buttonStyle: 'tertiary',
+      IconSVG: EducationSVG,
     },
   ];
 
   if (showSupport) {
     menuItems = [
-      {id: 'support', content: 'Contact Support', closeOnClick: true},
       ...menuItems,
+      {
+        id: 'support',
+        content: 'Contact Support',
+        closeOnClick: true,
+        buttonStyle: 'tertiary',
+        IconSVG: SupportSVG,
+      },
     ];
   }
 
   return (
     <>
       <Group spacing={16} align="center" className={styles.responsiveHide}>
-        <RunTutorialButton projectId={projectId} />
+        {!activeTutorial && (
+          <Button
+            onClick={() => setTutorialsMenu(true)}
+            buttonType="tertiary"
+            IconSVG={EducationSVG}
+            iconPosition="start"
+          >
+            Learn Pachyderm
+          </Button>
+        )}
         {showSupport && (
           <Button
             buttonType="tertiary"
@@ -92,6 +115,14 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
           menuOpts={{pin: 'right'}}
         />
       </Group>
+      {tutorialsMenuVisible && (
+        <TutorialsMenu
+          projectId={projectId}
+          setTutorialsMenu={setTutorialsMenu}
+          stickTutorialsMenu={stickTutorialsMenu}
+          setStickTutorialsMenu={setStickTutorialsMenu}
+        />
+      )}
     </>
   );
 };

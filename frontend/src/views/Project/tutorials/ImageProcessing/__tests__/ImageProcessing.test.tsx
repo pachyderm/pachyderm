@@ -15,9 +15,10 @@ describe('Image Processing', () => {
     window.history.replaceState(
       {},
       '',
-      `/project/6?view=${generateTutorialView('image-processing')}`,
+      `/lineage/6?view=${generateTutorialView('image-processing')}`,
     );
   });
+
   const Tutorial = withContextProviders(() => {
     return <ProjectTutorial />;
   });
@@ -26,18 +27,6 @@ describe('Image Processing', () => {
     const {findByText} = render(<Tutorial />);
     const tutorialTitle = await findByText('Create a pipeline');
     expect(tutorialTitle).toBeInTheDocument();
-  });
-
-  it('should allow the user to skip the tutorial', async () => {
-    const {findByText, findByTestId, container} = render(<Tutorial />);
-
-    await click(await findByText('End Tutorial'));
-
-    await click(await findByText('Finish Tutorial'));
-
-    await click(await findByTestId('ModalFooter__cancel'));
-
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it('should allow the user to pause the tutorial', async () => {

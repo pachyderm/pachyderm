@@ -1,36 +1,16 @@
-import {Vertex} from '@graphqlTypes';
 import {useMemo, useState} from 'react';
 
-import {
-  useGetDagQuery,
-  useDeleteRepoMutation,
-} from '@dash-frontend/generated/hooks';
+import {useGetDagQuery} from '@dash-frontend/generated/hooks';
+import {useDeleteRepo} from '@dash-frontend/hooks/useDeleteRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {GET_DAG_QUERY} from '@dash-frontend/queries/GetDagQuery';
 
 const useDeleteRepoButton = () => {
   const {projectId, repoId} = useUrlState();
-  const {data: dagData} = useGetDagQuery({variables: {args: {projectId}}});
-  const [deleteRepo, {loading: updating}] = useDeleteRepoMutation({
-    refetchQueries: [{query: GET_DAG_QUERY, variables: {args: {projectId}}}],
-    awaitRefetchQueries: true,
-    update(cache, {data}) {
-      if (data?.deleteRepo) {
-        cache.modify({
-          fields: {
-            dag(existingVertices: Vertex[]) {
-              return existingVertices.filter(
-                (vertex) => vertex.name !== `${repoId}_repo`,
-              );
-            },
-          },
-        });
-        setModalOpen(false);
-      }
-    },
-  });
-
   const [modalOpen, setModalOpen] = useState(false);
+  const {data: dagData} = useGetDagQuery({variables: {args: {projectId}}});
+  const {deleteRepo, loading: updating} = useDeleteRepo(repoId, () =>
+    setModalOpen(false),
+  );
 
   const canDelete = useMemo(() => {
     return (

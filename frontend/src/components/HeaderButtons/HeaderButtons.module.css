@@ -17,7 +17,3 @@
     display: none;
   }
 }
-  
-.dropdown svg, .dropwn:hover svg {
-  color: var(--white);
-}

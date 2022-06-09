@@ -1,9 +1,10 @@
-import React, {useCallback, useEffect} from 'react';
+import React, {useEffect} from 'react';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
+import useOnCloseTutorial from './hooks/useCloseTutorial';
 import ImageProcessing from './ImageProcessing';
 
 export type TutorialProps = {
@@ -20,31 +21,13 @@ const TUTORIALS: TutorialMap = {
 
 const ProjectTutorial: React.FC = () => {
   const {projectId} = useUrlState();
-  const {viewState, updateViewState} = useUrlQueryState();
-  const [, setTutorialData] = useLocalProjectSettings({
-    projectId: 'account-data',
-    key: 'tutorial_id',
-  });
-  const [, setTutorialProgress] = useLocalProjectSettings({
-    projectId,
-    key: 'tutorial_progress',
-  });
+  const {viewState} = useUrlQueryState();
   const [id, setActiveTutorial] = useLocalProjectSettings({
     projectId,
     key: 'active_tutorial',
   });
 
-  const onClose = useCallback(() => {
-    updateViewState({tutorialId: undefined});
-    setActiveTutorial(null);
-    setTutorialData(null);
-    setTutorialProgress(null);
-  }, [
-    updateViewState,
-    setActiveTutorial,
-    setTutorialData,
-    setTutorialProgress,
-  ]);
+  const onCloseTutorial = useOnCloseTutorial({});
 
   useEffect(() => {
     if (viewState.tutorialId && viewState.tutorialId !== id) {
@@ -55,7 +38,7 @@ const ProjectTutorial: React.FC = () => {
   if (id) {
     const Tutorial = TUTORIALS[id];
     if (Tutorial) {
-      return <Tutorial onClose={onClose} />;
+      return <Tutorial onClose={() => onCloseTutorial(id)} />;
     }
   }
   return null;

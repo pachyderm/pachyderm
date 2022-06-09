@@ -20,16 +20,6 @@ const useImageProcessing = () => {
   });
 
   const {openModal: openExitSurvey, isOpen: isExitSurveyOpen} = useModal(false);
-  const {
-    openModal: openConfirmationModal,
-    isOpen: isConfirmationModalOpen,
-    closeModal: closeConfirmationModal,
-  } = useModal(false);
-
-  const handleSkipTutorial = useCallback(() => {
-    closeConfirmationModal();
-    openExitSurvey();
-  }, [closeConfirmationModal, openExitSurvey]);
 
   const closeTutorial = useCallback(() => {
     updateViewState({tutorialId: undefined});
@@ -37,15 +27,20 @@ const useImageProcessing = () => {
   }, [setActiveTutorial, updateViewState]);
 
   const initialProgress = useMemo(() => {
-    const {story: currentStory, task: completedTask} = tutorialProgress
-      ? tutorialProgress['image-processing']
-      : {story: 0, task: -1};
+    const currentStory =
+      tutorialProgress && tutorialProgress['image-processing']
+        ? tutorialProgress['image-processing'].story
+        : 0;
+    const completedTask =
+      tutorialProgress && tutorialProgress['image-processing']
+        ? tutorialProgress['image-processing'].task
+        : -1;
 
     let initialTask = 0;
     let initialStory = 0;
 
     if (
-      stories[currentStory].sections.filter((s) => !!s.Task).length ===
+      stories[currentStory]?.sections.filter((s) => !!s.Task).length ===
       completedTask + 1
     ) {
       if (currentStory + 1 <= stories.length - 1) {
@@ -64,10 +59,6 @@ const useImageProcessing = () => {
   return {
     isExitSurveyOpen,
     openExitSurvey,
-    openConfirmationModal,
-    isConfirmationModalOpen,
-    closeConfirmationModal,
-    handleSkipTutorial,
     closeTutorial,
     initialProgress,
   };

@@ -10,8 +10,8 @@ import React, {useCallback, useState} from 'react';
 import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import Header from '@dash-frontend/components/Header';
 import HeaderButtons from '@dash-frontend/components/HeaderButtons';
-import useRunTutorialButton from '@dash-frontend/components/RunTutorialButton/hooks/useRunTutorialButton';
 import Search from '@dash-frontend/components/Search';
+import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import useProjectHeader from './hooks/useProjectHeader';
@@ -21,7 +21,10 @@ const ProjectHeader = () => {
   const {projectName, loading} = useProjectHeader();
   const {projectId} = useUrlState();
   const [showTooltip, setShowTooltip] = useState(false);
-  const {activeTutorial} = useRunTutorialButton(projectId);
+  const [activeTutorial] = useLocalProjectSettings({
+    projectId: projectId || 'default',
+    key: 'active_tutorial',
+  });
 
   const setProjectNameRef: React.RefCallback<HTMLHeadingElement> = useCallback(
     (element: HTMLHeadingElement | null) => {
