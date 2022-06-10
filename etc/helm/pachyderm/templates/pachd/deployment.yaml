@@ -125,6 +125,8 @@ spec:
         - name: GOMAXPROCS # Needs to be PR'd to 2.0
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
+        - name: LOG_FORMAT
+          value: {{ .Values.pachd.logFormat }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
         - name: PACH_NAMESPACE
