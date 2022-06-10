@@ -254,25 +254,25 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS) -tags=k8s
 
 test-cmds:
 	go install -v ./src/testing/match
 	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
+	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
+	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS) -tags=k8s
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
+	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
+	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
+	go test -v -count=1 ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
 
 test-transaction:
-	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS) -tags=k8s
 
 test-client:
-	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
+	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS) -tags=k8s
 
 test-s3gateway-conformance:
 	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
@@ -289,33 +289,33 @@ test-s3gateway-integration:
 	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
 test-s3gateway-unit:
-	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS) -tags=k8s
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
+	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS) -tags=k8s
 
 test-local:
-	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
+	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS) -tags=k8s
 
 test-auth:
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS) -tags=k8s
 
 test-identity:
 	etc/testing/forward-postgres.sh
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS) -tags=k8s
 
 test-license:
-	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS) -tags=k8s
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS) -tags=k8s
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS) -tags=k8s
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS) -tags=k8s
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -324,7 +324,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
+	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS) -tags=k8s
 
 clean: clean-launch clean-launch-kube
 
