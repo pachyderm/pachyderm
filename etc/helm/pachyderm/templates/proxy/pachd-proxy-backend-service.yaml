@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if and .Values.proxy.enabled .Values.pachd.enabled -}}
+{{- if and .Values.proxy.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -30,7 +30,11 @@ spec:
     protocol: TCP
     targetPort: prom-metrics
   selector:
+    {{- if .Values.enterpriseServer.enabled }}
+    app: pach-enterprise
+    {{- else }}
     app: pachd
+    {{- end }}
     suite: pachyderm
   type: ClusterIP
   clusterIP: None
