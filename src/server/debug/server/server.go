@@ -3,7 +3,9 @@ package server
 import (
 	"archive/tar"
 	"context"
+	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"io"
 	"math"
 	"os"
@@ -39,6 +41,7 @@ const (
 	pachdPrefix     = "pachd"
 	pipelinePrefix  = "pipelines"
 	podPrefix       = "pods"
+	postgresPrefix  = "postgres"
 )
 
 type debugServer struct {
@@ -105,37 +108,61 @@ func (s *debugServer) handleRedirect(
 							return err
 						}
 						return collectDebugStream(tw, r)
-
 					}
 					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(ctx, f.Worker.Pod, metav1.GetOptions{})
 					if err != nil {
 						return errors.EnsureStack(err)
 					}
 					return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect)
+				case *debug.Filter_Postgres:
+					if err := s.collectDatabaseStats(ctx, tw, postgresPrefix); err != nil {
+						return err
+					}
 				}
 			}
-			// No filter, collect everything.
-			if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
-				return err
-			}
-			pipelineInfos, err := pachClient.ListPipeline(true)
-			if err != nil {
-				return err
-			}
-			for _, pipelineInfo := range pipelineInfos {
-				if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
-					return err
-				}
-			}
-			if wantAppLogs {
-				// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
-				if err := s.appLogs(ctx, tw); err != nil {
-					return err
-				}
-			}
-			return nil
+
+			return s.collectEverything(pachClient, collectPachd, collectPipeline, collectWorker, redirect, wantAppLogs,
+				ctx, tw, pachdContainerPrefix)
 		})
 	})
+}
+
+func (s *debugServer) collectEverything(
+	pachClient *client.APIClient,
+	collectPachd collectFunc,
+	collectPipeline collectPipelineFunc,
+	collectWorker collectWorkerFunc,
+	redirect redirectFunc,
+	wantAppLogs bool,
+	ctx context.Context,
+	tw *tar.Writer,
+	pachdContainerPrefix string,
+) error {
+	if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
+		return err
+	}
+	pipelineInfos, err := pachClient.ListPipeline(true)
+	if err != nil {
+		return err
+	}
+	for _, pipelineInfo := range pipelineInfos {
+		if err := s.handlePipelineRedirect(ctx, tw, pachClient, pipelineInfo, collectPipeline, collectWorker, redirect); err != nil {
+			return err
+		}
+	}
+	if wantAppLogs {
+		// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
+		if err := s.appLogs(ctx, tw); err != nil {
+			return err
+		}
+	}
+
+	err = s.collectDatabaseStats(ctx, tw, postgresPrefix)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *debugServer) appLogs(ctx context.Context, tw *tar.Writer) error {
@@ -401,6 +428,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		request.Limit = math.MaxInt64
 	}
 	pachClient := s.env.GetPachClient(server.Context())
+
 	return s.handleRedirect(
 		pachClient,
 		server,
@@ -926,4 +954,151 @@ func redirectDump(ctx context.Context, c debug.DebugClient, filter *debug.Filter
 		return nil, errors.EnsureStack(err)
 	}
 	return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
+}
+
+func (s *debugServer) collectDatabaseStats(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	if err := s.collectDatabaseActivities(ctx, tw, prefix...); err != nil {
+		return err
+	}
+	if err := s.collectDatabaseRowCount(ctx, tw, prefix...); err != nil {
+		return err
+	}
+	if err := s.collectDatabaseTableSizes(ctx, tw, prefix...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *debugServer) collectDatabaseActivities(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	return s.collectDatabaseQuery(ctx, tw, "activities", queryDatabaseActivities, prefix...)
+}
+
+func (s *debugServer) collectDatabaseRowCount(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	return s.collectDatabaseQuery(ctx, tw, "row-counts", queryDatabaseRowCounts, prefix...)
+}
+
+func (s *debugServer) collectDatabaseTableSizes(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	return s.collectDatabaseQuery(ctx, tw, "table-sizes", queryDatabaseTableSizes, prefix...)
+}
+
+func (s *debugServer) collectDatabaseQuery(ctx context.Context, tw *tar.Writer, fileName string, queryFunc func(conn *sql.Conn, w io.Writer) error, prefix ...string) error {
+	return collectDebugFile(tw, fileName, "txt", func(w io.Writer) error {
+		conn, err := s.env.GetDBClient().Conn(ctx)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		defer conn.Close()
+
+		err = queryFunc(conn, w)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		return errors.EnsureStack(err)
+	}, prefix...)
+}
+
+func queryDatabaseRowCounts(conn *sql.Conn, w io.Writer) error {
+	query := `
+		SELECT schemaname,relname,n_live_tup 
+		  FROM pg_stat_user_tables 
+		ORDER BY n_live_tup DESC;
+	`
+
+	return queryDatabase(conn, query, w)
+}
+
+func queryDatabaseActivities(conn *sql.Conn, w io.Writer) error {
+	query := `
+		SELECT current_timestamp - query_start as runtime, datname, usename
+		FROM pg_stat_activity
+		WHERE state != 'idle'
+		ORDER by runtime desc
+		LIMIT 100;
+	`
+
+	return queryDatabase(conn, query, w)
+}
+
+func queryDatabaseTableSizes(conn *sql.Conn, w io.Writer) error {
+	query := `
+		SELECT nspname || '.' || relname AS "relation",
+		pg_size_pretty(pg_total_relation_size(C.oid)) AS "total_size"
+		FROM pg_class C
+		LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
+		WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+		AND C.relkind <> 'i'
+		AND nspname !~ '^pg_toast'
+		ORDER BY pg_total_relation_size(C.oid) DESC
+		LIMIT 5;
+	`
+
+	return queryDatabase(conn, query, w)
+}
+
+func queryDatabase(conn *sql.Conn, query string, w io.Writer) error {
+	rows, err := conn.QueryContext(context.Background(), query)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	return writeRows(rows, w)
+}
+
+func writeRows(rows *sql.Rows, w io.Writer) error {
+	cols, err := rows.Columns()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	header := strings.Join(cols, "\t") + "\n"
+	tabWriter := tabwriter.NewWriter(w, header)
+
+	pointers := make([]interface{}, len(cols))
+	buffers := make([]*string, len(cols))
+
+	for i := range pointers {
+		pointers[i] = &buffers[i]
+	}
+
+	for rows.Next() {
+		err = writeRowToTabWriter(rows, pointers, buffers, tabWriter)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+
+	err = tabWriter.Flush()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	return nil
+}
+
+func writeRowToTabWriter(rows *sql.Rows, pointers []interface{}, buffers []*string, tabWriter *tabwriter.Writer) error {
+	err := rows.Scan(pointers...)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	row := ""
+	for i, value := range buffers {
+		if value != nil {
+			row += *value
+		} else {
+			row += "NULL"
+		}
+
+		if i < len(buffers)-1 {
+			row += "\t"
+		}
+	}
+
+	_, err = fmt.Fprintln(tabWriter, row)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	return nil
 }
