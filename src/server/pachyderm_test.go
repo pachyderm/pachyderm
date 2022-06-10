@@ -9889,6 +9889,7 @@ func TestNonrootPipeline(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+				User:  "65534", // This is "nobody" on the default ubuntu:20.04 container, but it works.
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
@@ -9898,7 +9899,7 @@ func TestNonrootPipeline(t *testing.T) {
 			Update:       false,
 			PodPatch: `[
 				{"op": "add",  "path": "/securityContext",  "value": {}},
-				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}
+				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 65534}
 			]`,
 			Autoscaling: false,
 		},
