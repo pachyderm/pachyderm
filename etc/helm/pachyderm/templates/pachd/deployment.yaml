@@ -169,6 +169,18 @@ spec:
             secretKeyRef:
               name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
               key: "enterprise-license-key"
+          {{- if (include "pachyderm.upstreamIDPsSecretName" .) }}
+        - name: IDP_CONNECTORS
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
+              key: "idps"
+        - name: IDP_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "identity-config"
+          {{- end }} 
         {{- end }}
         {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
         - name: ENTERPRISE_SECRET
@@ -187,19 +199,7 @@ spec:
           {{- else }}
           value: {{ .Values.pachd.rootToken | quote }}
           {{- end }}
-        {{- end }}
-        {{- if (include "pachyderm.upstreamIDPsSecretName" .) }}
-        - name: IDP_CONNECTORS
-          valueFrom:
-            secretKeyRef:
-              name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
-              key: "idps"
-        - name: IDP_CONFIG
-          valueFrom:
-            configMapKeyRef:
-              name: "pachyderm-identity-config"
-              key: "identity-config"
-        {{- end }}              
+        {{- end }}             
         {{ if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
