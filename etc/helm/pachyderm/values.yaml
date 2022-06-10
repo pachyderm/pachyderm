@@ -202,13 +202,69 @@ loki-stack:
       enabled: true
       accessModes:
         - ReadWriteOnce
-      size: 5Gi
+      size: 10Gi
       storageClassName: standard
       annotations: {}
       nodeSelector: {}
       tolerations: []
+    config:
+      limits_config:
+        retention_period: 24h
+        retention_stream:
+          - selector: '{suite="pachyderm"}'
+            priority: 1
+            period: 168h # = 1 week
   grafana:
     enabled: false
+  promtail:
+    config:
+      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
+      snippets:
+        common:
+          # This is copy and paste of existing actions, so we don't lose them.
+          # Cf. https://github.com/grafana/loki/issues/3519#issuecomment-1125998705
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_node_name
+            target_label: node_name
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - action: replace
+            replacement: $1
+            separator: /
+            source_labels:
+              - namespace
+              - app
+            target_label: job
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_container_name
+            target_label: container
+          - action: replace
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+          - action: replace
+            regex: true/(.*)
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_annotationpresent_kubernetes_io_config_hash
+              - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+          # this gets all kubernetes labels as well
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
 
 pachd:
   enabled: true
