@@ -43,16 +43,16 @@ func NewIdentityServer(env Env, public bool) (identity.APIServer, func(context.C
 
 func (a *apiServer) envBootstrap(ctx context.Context) error {
 	if a.env.Config.IdentityConfig != "" {
-		logrus.Info("Started to configure identity server config via environment")
+		a.env.Logger.Info("Started to configure identity server config via environment")
 		var config identity.IdentityServerConfig
 		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConfig), &config); err != nil {
 			return errors.Wrapf(err, "failed to unmarshal IdentityConfig with value: %s.", a.env.Config.IdentityConfig)
 		}
 		a.setIdentityServerConfig(ctx, &identity.SetIdentityServerConfigRequest{Config: &config})
-		logrus.Info("Successfully configured identity server config via environment")
+		a.env.Logger.Info("Successfully configured identity server config via environment")
 	}
 	if a.env.Config.IdentityConnectors != "" {
-		logrus.Info("Started to configure identity connectors via environment")
+		a.env.Logger.Info("Started to configure identity connectors via environment")
 		var connectors []identity.IDPConnector
 		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConnectors), &connectors); err != nil {
 			return errors.Wrapf(err, "failed to unmarshal IdentityConfig with value: %s.", a.env.Config.IdentityConfig)
@@ -80,7 +80,7 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		for e := range exIds {
 			a.deleteIDPConnector(ctx, &identity.DeleteIDPConnectorRequest{Id: e})
 		}
-		logrus.Info("Successfully configured identity connectors via environment")
+		a.env.Logger.Info("Successfully configured identity connectors via environment")
 	}
 	return nil
 }

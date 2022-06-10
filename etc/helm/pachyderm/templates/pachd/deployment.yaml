@@ -199,7 +199,7 @@ spec:
           {{- else }}
           value: {{ .Values.pachd.rootToken | quote }}
           {{- end }}
-        {{- end }}             
+        {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
