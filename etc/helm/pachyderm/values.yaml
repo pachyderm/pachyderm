@@ -208,15 +208,23 @@ loki-stack:
       enabled: true
       accessModes:
         - ReadWriteOnce
-      size: 5Gi
+      size: 10Gi
       storageClassName: standard
       annotations: {}
       nodeSelector: {}
       tolerations: []
+    config:
+      limits_config:
+        retention_period: 24h
+        retention_stream:
+          - selector: '{suite="pachyderm"}'
+            priority: 1
+            period: 168h # = 1 week
   grafana:
     enabled: false
   promtail:
     config:
+      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
       snippets:
         common:
           # This is copy and paste of existing actions, so we don't lose them.
@@ -280,6 +288,7 @@ pachd:
     # tag defaults to the chart’s specified appVersion.
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
+  logFormat: "json"
   logLevel: "info"
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.

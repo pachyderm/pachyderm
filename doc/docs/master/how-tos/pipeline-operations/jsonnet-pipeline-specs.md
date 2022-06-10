@@ -52,7 +52,7 @@ See the full `edges.jsonnet` here:
 {{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', 'master') }}
 ```
 
-Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv/jsonnet/README){target=_blank}.
+Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv/jsonnet){target=_blank}.
 
 To create or update a pipeline using a jsonnet pipeline specification file:
 
