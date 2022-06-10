@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 /*
@@ -924,15 +923,21 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	logrus.Infof("starting RefreshMountState")
+
 	if m.State != "mounted" {
 		return nil
 	}
 
-	if m.ActualMountedCommit == "" {
+	// get commit from loopbackRoot
+	commit, ok := m.manager.root.commits[m.Name]
+	if !ok {
 		// Don't have anything to calculate HowManyCommitsBehind from
-		m.Status = "actual mounted commit unknown, unable to calculate how many commits behind; not setting latest commit"
+		m.Status = "unable to load current commit"
 		return nil
 	}
+
+	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
 	branchInfo, err := m.manager.Client.InspectBranch(m.MountKey.Repo, m.MountKey.Branch)
@@ -944,29 +949,66 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.LatestCommit = branchInfo.Head.ID
 
 	// calculate how many commits behind LatestCommit ActualMountedCommit is
-
-	// list commits in branch
-	repo := pfs.Repo{
-		Name: m.MountKey.Repo,
-		Type: pfs.UserRepoType,
-	}
-	latest := repo.NewCommit(m.MountKey.Branch, "")
-
-	commitInfos, err := m.manager.Client.ListCommit(&repo, latest, nil, 0)
+	commitInfos, err := m.manager.Client.ListCommit(branchInfo.Branch.Repo, branchInfo.Head, nil, 0)
 	if err != nil {
 		return err
 	}
+	// reverse slice
+	for i, j := 0, len(commitInfos)-1; i < j; i, j = i+1, j-1 {
+		commitInfos[i], commitInfos[j] = commitInfos[j], commitInfos[i]
+	}
+
 	// iterate over commits in branch, counting how many are behind LatestCommit
-	indexOfCurrentCommit := 0
+	indexOfCurrentCommit := -1
 	for i, commitInfo := range commitInfos {
+		logrus.Infof("%d: commitInfo.Commit.ID: %s, m.ActualMountedCommit: %s", i, commitInfo.Commit.ID, m.ActualMountedCommit)
 		if commitInfo.Commit.ID == m.ActualMountedCommit {
-			indexOfCurrentCommit = i
+			indexOfCurrentCommit = i - 1
 			break
 		}
 	}
-	m.HowManyCommitsBehind = len(commitInfos) - indexOfCurrentCommit - 1
-	return nil
+	indexOfLatestCommit := len(commitInfos) - 1
 
+	/*
+
+		Example:
+
+		0
+		1
+		2
+		3 <- current
+		4
+		5 <- latest
+
+		indexOfCurrentCommit = 3
+		indexOfLatestCommit = 5
+		indexOfLatestCommit - indexOfCurrentCommit = 2
+
+	*/
+
+	m.HowManyCommitsBehind = indexOfLatestCommit - indexOfCurrentCommit
+
+	first8chars := func(s string) string {
+		if len(s) < 8 {
+			return s
+		}
+		return s[:8]
+	}
+	if m.HowManyCommitsBehind > 0 {
+		m.Status = fmt.Sprintf(
+			"%d commits behind latest; current = %s, latest = %s",
+			m.HowManyCommitsBehind,
+			first8chars(m.ActualMountedCommit),
+			first8chars(m.LatestCommit),
+		)
+	} else {
+		m.Status = fmt.Sprintf(
+			"up to date on latest commit %s",
+			first8chars(m.LatestCommit),
+		)
+	}
+
+	return nil
 }
 
 // TODO: switch to pach internal types if appropriate?
