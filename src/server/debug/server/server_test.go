@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -298,4 +301,51 @@ slice samples:
 			}
 		})
 	}
+}
+
+func TestPostgres(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	numCommits := 5
+
+	// Load some very basic dummy data into the database.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+
+		# Create a commit and put some data in it
+		for i in $(seq 1 {{.commits}}); do
+			commit=$(pachctl start commit {{.repo}}@master)
+			echo "file contents" | pachctl put file {{.repo}}@${commit}:/file -f -
+			pachctl finish commit {{.repo}}@${commit}
+		done;
+	`, "repo", tu.UniqueString("TestCommit-repo"), "commits", strconv.Itoa(numCommits),
+	).Run())
+
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		returnCode=0
+
+		pachctl debug dump /tmp/{{.dumpfile}}
+		cd /tmp
+		tar -xf {{.dumpfile}} postgres
+
+		# ls should return here with a return code of 0 if all the files are found 
+		cd postgres
+		ls activities.txt  row-counts.txt table-sizes.txt
+
+		# compare commits in database to what we committed
+		rowCountCommits=$(cat row-counts.txt | grep commits | tr -s " " | cut -d " " -f 3)
+		if [[ "${rowCountCommits}" -ne "{{.commits}}" ]]; then
+			returnCode=1 #return at the end to ensure we can cleanup temp files
+		fi	
+
+		cd ..
+		rm -rf {{.dumpfile}} postgres
+
+		exit ${returnCode}
+	`, "dumpfile", tu.UniqueString("out.tar.gz"), "commits", strconv.Itoa(numCommits),
+	).Run())
 }
