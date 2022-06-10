@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 /*
@@ -208,6 +209,10 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 				// Add all mounts associated with a repo/branch
 				for _, msm := range mm.States {
 					if msm.MountKey == k && msm.State != "unmounted" {
+						err := msm.RefreshMountState()
+						if err != nil {
+							return lr, err
+						}
 						br.Mount = append(br.Mount, msm.MountState)
 					}
 				}
@@ -244,7 +249,11 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 	}
 	seen := map[MountKey]bool{}
 	for name, msm := range mm.States {
-		if msm.State == "mounted" || msm.State == "unmouting" {
+		if msm.State == "mounted" || msm.State == "unmounting" {
+			err := msm.RefreshMountState()
+			if err != nil {
+				return mr, err
+			}
 			mr.Mounted[name] = msm.MountState
 			seen[msm.MountKey] = true
 		}
@@ -897,6 +906,10 @@ type MountState struct {
 	State      string   `json:"state"`      // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error". written by fsm
 	Status     string   `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state. written by fsm
 	Mountpoint string   `json:"mountpoint"` // where on the filesystem it's mounted. written by fsm. can also be derived from {MountDir}/{Name}
+	// the following are used by the "refresh" button feature in the jupyter plugin
+	ActualMountedCommit  string `json:"actual_mounted_commit"`   // the actual commit that was mounted at mount time. written by fsm
+	LatestCommit         string `json:"latest_commit"`           // the latest available commit on the branch, last time RefreshMountState() was called. written by fsm
+	HowManyCommitsBehind int    `json:"how_many_commits_behind"` // how many commits are behind the latest commit on the branch. written by fsm
 }
 
 type MountStateMachine struct {
@@ -905,6 +918,55 @@ type MountStateMachine struct {
 	mu        sync.Mutex
 	requests  chan Request
 	responses chan Response
+}
+
+func (m *MountStateMachine) RefreshMountState() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.State != "mounted" {
+		return nil
+	}
+
+	if m.ActualMountedCommit == "" {
+		// Don't have anything to calculate HowManyCommitsBehind from
+		m.Status = "actual mounted commit unknown, unable to calculate how many commits behind; not setting latest commit"
+		return nil
+	}
+
+	// Get the latest commit on the branch
+	branchInfo, err := m.manager.Client.InspectBranch(m.MountKey.Repo, m.MountKey.Branch)
+	if err != nil {
+		return err
+	}
+
+	// set the latest commit on the branch in our LatestCommit
+	m.LatestCommit = branchInfo.Head.ID
+
+	// calculate how many commits behind LatestCommit ActualMountedCommit is
+
+	// list commits in branch
+	repo := pfs.Repo{
+		Name: m.MountKey.Repo,
+		Type: pfs.UserRepoType,
+	}
+	latest := repo.NewCommit(m.MountKey.Branch, "")
+
+	commitInfos, err := m.manager.Client.ListCommit(&repo, latest, nil, 0)
+	if err != nil {
+		return err
+	}
+	// iterate over commits in branch, counting how many are behind LatestCommit
+	indexOfCurrentCommit := 0
+	for i, commitInfo := range commitInfos {
+		if commitInfo.Commit.ID == m.ActualMountedCommit {
+			indexOfCurrentCommit = i
+			break
+		}
+	}
+	m.HowManyCommitsBehind = len(commitInfos) - indexOfCurrentCommit - 1
+	return nil
+
 }
 
 // TODO: switch to pach internal types if appropriate?
