@@ -479,6 +479,9 @@
                         "config": {
                             "type": "object",
                             "properties": {
+                                "lokiAddress": {
+                                    "type": "string"
+                                },
                                 "snippets": {
                                     "type": "object",
                                     "properties": {
