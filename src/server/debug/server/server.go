@@ -795,10 +795,10 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 	// of providing lines in chronological order even when the app uses both stdout and stderr.
 	var result []lokiLog
 
-	end := time.Now().Add(time.Minute)            // Account for some clock skew between our node and the Loki node.
+	var end time.Time
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
-	for numLogs := 0; start.Before(end) && numLogs < maxLogs; {
+	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
 		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0, 0, true)
 		if err != nil {
 			// Note: the error from QueryRange has a stack.
@@ -817,7 +817,7 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) ([]lokiLog
 				entry := e
 				numLogs++
 				readThisIteration++
-				if entry.Timestamp.Before(end) {
+				if end.IsZero() || entry.Timestamp.Before(end) {
 					// Because end is an "exclusive" range, if we read any logs
 					// at all we are guaranteed to not read them in the next
 					// iteration.  (If all 5000 logs are at the same time, we
