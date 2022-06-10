@@ -201,7 +201,7 @@ Jump to [Helm install](#3-helm-install)
 
     Once the pods are up, you should see a pod for `pachd` running 
     (alongside etcd, pg-bouncer or postgres, console, depending on your installation). 
-    If you are curious about the architecture of Pachyderm, take a look at our high-level diagram(../../).
+    If you are curious about the architecture of Pachyderm, take a look at our [high-level architecture diagram](../../).
     
     **System Response:**
 
