@@ -409,6 +409,36 @@
                 "loki": {
                     "type": "object",
                     "properties": {
+                        "config": {
+                            "type": "object",
+                            "properties": {
+                                "limits_config": {
+                                    "type": "object",
+                                    "properties": {
+                                        "retention_period": {
+                                            "type": "string"
+                                        },
+                                        "retention_stream": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "period": {
+                                                        "type": "string"
+                                                    },
+                                                    "priority": {
+                                                        "type": "integer"
+                                                    },
+                                                    "selector": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         "persistence": {
                             "type": "object",
                             "properties": {
@@ -435,6 +465,44 @@
                                 },
                                 "tolerations": {
                                     "type": "array"
+                                }
+                            }
+                        }
+                    }
+                },
+                "promtail": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "properties": {
+                                "lokiAddress": {
+                                    "type": "string"
+                                },
+                                "snippets": {
+                                    "type": "object",
+                                    "properties": {
+                                        "common": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "action": {
+                                                        "type": "string"
+                                                    },
+                                                    "source_labels": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "target_label": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

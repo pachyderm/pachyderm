@@ -46,6 +46,7 @@ CLUSTER_NAME="${NAME}-aks"
 # globally unique.
 STORAGE_ACCOUNT_NAME=$(echo $NAME | tr -d "-" | tr '[:upper:]' '[:lower:]')storage
 CONTAINER_NAME="${NAME}-container"
+LOKI_CONTAINER_NAME="${NAME}-loki-container"
 SQL_INSTANCE_NAME="${NAME}-sql"
 STATIC_IP_NAME="${NAME}-ip"
 
@@ -78,6 +79,10 @@ STORAGE_KEY="$(az storage account keys list \
             )"
 
 az storage container create --name "${CONTAINER_NAME}" \
+   --account-name "${STORAGE_ACCOUNT_NAME}" \
+   --account-key "${STORAGE_KEY}"
+
+az storage container create --name "${LOKI_CONTAINER_NAME}" \
    --account-name "${STORAGE_ACCOUNT_NAME}" \
    --account-key "${STORAGE_KEY}"
 
@@ -149,7 +154,9 @@ pachd:
     annotations:
       service.beta.kubernetes.io/azure-load-balancer-resource-group: ${RESOURCE_GROUP}
   image:
-    tag: "2.1.1"
+    tag: "2.2.0"
+  lokiDeploy: true
+  lokiLogging: true
   storage:
     microsoft:
       container: "${CONTAINER_NAME}"
@@ -168,7 +175,56 @@ global:
     postgresqlDatabase: "pachyderm"
     postgresqlUsername: "${SQL_ADMIN}"
     postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
-    postgresqlSSL: "enable"
+    postgresqlSSL: "verify-full"
+    # Below is the CA certificate which signs Azure Database for PostgreSQL
+    # server certificates.  For more information, see: https://docs.microsoft.com/en-us/azure/postgresql/single-server/concepts-ssl-connection-security#applications-that-require-certificate-verification-for-tls-connectivity
+    postgresqlSSLCACert: |
+      -----BEGIN CERTIFICATE-----
+      MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ
+      RTESMBAGA1UEChMJQmFsdGltb3JlMRMwEQYDVQQLEwpDeWJlclRydXN0MSIwIAYD
+      VQQDExlCYWx0aW1vcmUgQ3liZXJUcnVzdCBSb290MB4XDTAwMDUxMjE4NDYwMFoX
+      DTI1MDUxMjIzNTkwMFowWjELMAkGA1UEBhMCSUUxEjAQBgNVBAoTCUJhbHRpbW9y
+      ZTETMBEGA1UECxMKQ3liZXJUcnVzdDEiMCAGA1UEAxMZQmFsdGltb3JlIEN5YmVy
+      VHJ1c3QgUm9vdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKMEuyKr
+      mD1X6CZymrV51Cni4eiVgLGw41uOKymaZN+hXe2wCQVt2yguzmKiYv60iNoS6zjr
+      IZ3AQSsBUnuId9Mcj8e6uYi1agnnc+gRQKfRzMpijS3ljwumUNKoUMMo6vWrJYeK
+      mpYcqWe4PwzV9/lSEy/CG9VwcPCPwBLKBsua4dnKM3p31vjsufFoREJIE9LAwqSu
+      XmD+tqYF/LTdB1kC1FkYmGP1pWPgkAx9XbIGevOF6uvUA65ehD5f/xXtabz5OTZy
+      dc93Uk3zyZAsuT3lySNTPx8kmCFcB5kpvcY67Oduhjprl3RjM71oGDHweI12v/ye
+      jl0qhqdNkNwnGjkCAwEAAaNFMEMwHQYDVR0OBBYEFOWdWTCCR1jMrPoIVDaGezq1
+      BE3wMBIGA1UdEwEB/wQIMAYBAf8CAQMwDgYDVR0PAQH/BAQDAgEGMA0GCSqGSIb3
+      DQEBBQUAA4IBAQCFDF2O5G9RaEIFoN27TyclhAO992T9Ldcw46QQF+vaKSm2eT92
+      9hkTI7gQCvlYpNRhcL0EYWoSihfVCr3FvDB81ukMJY2GQE/szKN+OMY3EU/t3Wgx
+      jkzSswF07r51XgdIGn9w/xZchMB5hbgF/X++ZRGjD8ACtPhSNzkE1akxehi/oCr0
+      Epn3o0WC4zxe9Z2etciefC7IpJ5OCBRLbf1wbWsaY71k5h+3zvDyny67G7fyUIhz
+      ksLi4xaNmjICq44Y3ekQEe5+NauQrz4wlHrQMz2nZQ/1/I6eYs9HRCwBXbsdtTLS
+      R9I4LtD+gdwyah617jzV/OeBHRnDJELqYzmp
+      -----END CERTIFICATE-----
+
+loki-stack:
+  loki:
+    config:
+      schema_config:
+        configs:
+        - from: 1989-11-09
+          object_store: azure
+          store: boltdb
+          schema: v11
+          index:
+            prefix: loki_index_
+          chunks:
+            prefix: loki_chunks_
+      storage_config:
+        azure:
+          container_name: "${LOKI_CONTAINER_NAME}"
+          account_name: "${STORAGE_ACCOUNT_NAME}"
+          account_key: "${STORAGE_KEY}"
+        boltdb:
+          directory: /data/loki/indices
+    persistence:
+      storageClassName: default
+  grafana:
+    enabled: true
 EOF
 
 helm repo add pach https://helm.pachyderm.com
