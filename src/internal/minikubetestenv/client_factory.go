@@ -1,4 +1,4 @@
-//go:build livek8s
+//go:build k8s
 
 package minikubetestenv
 
