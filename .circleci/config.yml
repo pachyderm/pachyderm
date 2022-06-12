@@ -43,7 +43,7 @@ jobs:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
       - run: |-
-          GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null NO_DOCKER=1 \
+          GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
           gotestsum \
           --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
           --rerun-fails \
