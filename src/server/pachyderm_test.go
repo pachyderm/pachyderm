@@ -9743,6 +9743,20 @@ func TestPipelineAutoscaling(t *testing.T) {
 	_, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
+	go func() {
+		iter := c.GetLogs(pipeline, "", nil, "", false, true, time.Second)
+		for iter.Next() {
+			if iter.Err() != nil {
+				t.Log(iter.Err())
+				break
+			}
+			text := iter.Message().Message
+			if strings.Contains(text, "errored clearing job cache") || strings.Contains(text, "errored deleting tasks with the prefix") {
+				t.Logf("%s error: %s", iter.Message().JobID, text)
+			}
+		}
+	}()
+
 	fileIndex := 0
 	commitNFiles := func(n int) {
 		commit1, err := c.StartCommit(dataRepo, "master")
