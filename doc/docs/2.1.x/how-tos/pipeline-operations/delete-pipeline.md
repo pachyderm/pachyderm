@@ -1,5 +1,5 @@
 # Delete a Pipeline
-You can delete it by running:
+You can delete a pipeline by running:
 
 ```shell
 pachctl delete pipeline <pipeline_name>

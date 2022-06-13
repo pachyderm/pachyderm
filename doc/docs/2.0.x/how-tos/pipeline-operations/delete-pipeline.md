@@ -1,12 +1,5 @@
 # Delete a Pipeline
-
-When you no longer need a pipeline, you can delete it by using the
-`pachctl delete pipeline` command or in the UI. When
-you delete a pipeline, Pachyderm destroys the following components:
-
-* The pipeline Kubernetes pod
-* The output repository **with all data**# Delete a Pipeline
-You can delete it by running:
+You can delete a pipeline by running:
 
 ```shell
 pachctl delete pipeline <pipeline_name>
