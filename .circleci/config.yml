@@ -432,6 +432,7 @@ workflows:
               only:
                 - 2.1.x
                 - 2.2.x
+                - bosterbuhr/test-envoy-deploy
   red_hat:
     jobs:
       - push_redhat:
