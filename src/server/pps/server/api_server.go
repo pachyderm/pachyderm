@@ -2233,7 +2233,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			if input.Pfs.RepoType == "" {
 				input.Pfs.RepoType = pfs.UserRepoType
 			}
-			input.Pfs.Glob = pfsfile.CleanPath(input.Pfs.Glob)
+			if input.Pfs.Glob != "" {
+				input.Pfs.Glob = pfsfile.CleanPath(input.Pfs.Glob)
+			}
 		}
 		if input.Cron != nil {
 			if input.Cron.Start == nil {
