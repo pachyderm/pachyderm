@@ -1,10 +1,5 @@
 # Deploy Console
 
-!!! Important  
-    To deploy Pachyderm's Console,
-    an [***Enterprise License***](../../../enterprise/) is required. 
-
-
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
@@ -17,13 +12,13 @@ It details the additional steps required to install and access your Console.
       A local installation helps you learn
       some of the Pachyderm basics and experiment with the product. It is not designed to be a production environment.
 
-We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is your enterprise token and [a Kubernetes cluster running on your local environment](../../../getting-started/local-installation/#prerequisites).
+We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is [a Kubernetes cluster running locally](../../../getting-started/local-installation/#prerequisites).
 
 Follow the deployment instructions in our [Local Installation](../../../getting-started/local-installation/#deploy-pachyderm-community-edition-or-enterprise-with-console) page.
 You are all set!
 
 !!! Note
-    When installing, we create a default mock user (username:`admin`, password: `password`) to authenticate to Console without the hassle of connecting your Identity Provider.
+    Pachyderm local deployment comes with Console by default. To prevent Console from being installed, pass the following parameter to your helm install one line command `--set console.enabled=false`.
 
 ## Deploy In The Cloud
 

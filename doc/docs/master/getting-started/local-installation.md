@@ -3,15 +3,15 @@
   
 This guide covers how you can quickly get started using Pachyderm locally on macOS®, Linux®, or Microsoft® Windows®. To install Pachyderm on Windows, first look at [Deploy Pachyderm on Windows](../wsl-deploy){target=_blank}.
 
-Pachyderm is an application written in go that runs on top of a Kubernetes cluster. 
+Pachyderm is a data-centric pipeline and data versioning application written in go that runs on top of a Kubernetes cluster. 
 A common way to interact with Pachyderm is by using Pachyderm command-line tool `pachctl`, from a terminal window. To check the state of your deployment, you will also need to install `kubectl`, Kubernetes command-line tool. 
 
-Additionally, we will show you how to deploy Pachyderm UIs **[JupyterLab Mount Extension](../../how-tos/jupyterlab-extension/){target=_blank}** and **[Console](../../deploy-manage/deploy/console){target=_blank}** on your local cluster. 
+Additionally, we will show you how to deploy and access Pachyderm UIs **[JupyterLab Mount Extension](../../how-tos/jupyterlab-extension/){target=_blank}** and **[Console](../../deploy-manage/deploy/console){target=_blank}** on your local cluster. 
 
 Note that each web UI addresses different use cases:
 
-- **JupyterLab Mount Extension** will allow you to experiment, explore your data, and build your pipelines' code from your familiar Notebooks
-- **Console** will help you visualize your DAGs (Directed Acyclic Graphs), monitor your pipeline executions, access your logs, and troubleshoot while your pipelines are running.
+- **JupyterLab Mount Extension** allows you to experiment and explore your data, then build your pipelines' code from your familiar Notebooks.
+- **Console** helps you visualize your DAGs (Directed Acyclic Graphs), monitor your pipeline executions, access your logs, and troubleshoot while your pipelines are running.
   
 !!! Warning  
       - A local installation is **not designed to be a production  
@@ -32,9 +32,7 @@ Pachyderm uses `Helm` for all deployments.
     
     If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/).  
 
-    
 ## Prerequisites  
-
 
 For a successful local deployment of Pachyderm, you will need:  
   
@@ -46,7 +44,6 @@ For a successful local deployment of Pachyderm, you will need:
 - [Helm](#install-helm) to deploy Pachyderm on your Kubernetes cluster.  
 - [Pachyderm Command Line Interface (`pachctl`)](#install-pachctl) to interact with your Pachyderm cluster.
 - [Kubernetes Command Line Interface `kubectl`](https://kubernetes.io/docs/tasks/tools/){target=_blank} to interact with your underlying Kubernetes cluster.
-
 
 ### Setup A Local Kubernetes Cluster
 
@@ -162,11 +159,11 @@ with a Pachyderm cluster in your terminal.
   
 Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_blank}.  
   
-## Deploy Pachyderm Community Edition Or Enterprise with Console  
+## Deploy Pachyderm Community Edition
   
-When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps.
+When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps. Your default installation comes with Console unless specified otherwise.
 
-JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
+Additionally, for JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
 Note that you can run both Console and JupyterLab on your local installation.
 
@@ -182,23 +179,26 @@ Note that you can run both Console and JupyterLab on your local installation.
 
 * Install Pachyderm:  
 
-=== "Latest CE"
-      This command will install Pachyderm's latest available GA version.
+=== "Latest CE (Includes Console)"
+      This command will install Pachyderm's latest available GA version with Console CE.
 
        ```shell  
        helm install pachd pach/pachyderm --set deployTarget=LOCAL  
        ```    
-=== "Enterprise (Console)"
+
+       Set the following `--set console.enabled=false` in your command above to install without Console.
+=== "Enterprise"
+      This command will unlock your enterprise features and install Console Enterprise.
        - Create a `license.txt` file in which you paste your [Enterprise Key](../../enterprise){target=_blank}.
-       - Then, run the following helm command to **install Pachyderm's latest version with Console**: 
+       - Then, run the following helm command to **install Pachyderm's latest Enterprise Edition**: 
       
         ```shell  
         helm install pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
         ``` 
 
-!!! Warning  "Deploying locally with Console requires an **Enterprise Key**"
+!!! Attention  "Request an **Enterprise Key**"
      * To request a FREE trial enterprise license key, [click here](../../enterprise){target=_blank}. 
-     * We create a default mock user (username:`admin`, password: `password`) to [authenticate to Console](../../deploy-manage/deploy/console/#connect-to-console){target=_blank} without having to connect your Identity Provider. 
+     * We create a default mock user (username:`admin`, password: `password`) to [authenticate to Console](../../deploy-manage/deploy/console/#connect-to-console){target=_blank} without having to connect your Identity Provider. ????????????????????? Is it true with enterprise still?
 
 !!! Tip "To uninstall Pachyderm fully"
       Running `helm uninstall pachd` leaves persistent volume claims behind. To wipe your instance clean, run:
