@@ -4,16 +4,16 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/sync/errgroup"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDeployEnterprise(t *testing.T) {
@@ -60,6 +60,41 @@ func TestUpgradeEnterpriseWithEnv(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestEnterpriseServerMember(t *testing.T) {
+	k := testutil.GetKubeClient(t)
+	_, err := k.CoreV1().Namespaces().Create(context.Background(),
+		&v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "enterprise",
+			},
+		},
+		metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
+	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+		AuthUser:         auth.RootUser,
+		EnterpriseServer: true,
+		CleanupAfter:     true,
+	})
+	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	mockIDPLogin(t, ec)
+	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, &minikubetestenv.DeployOpts{
+		AuthUser:         auth.RootUser,
+		EnterpriseMember: true,
+		Enterprise:       true,
+		CleanupAfter:     true,
+	})
+	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	c.SetAuthToken("")
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+	require.NoError(t, err)
+	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
+	mockIDPLogin(t, c)
+}
+
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	// login using mock IDP admin
 	hc := &http.Client{}
@@ -85,31 +120,4 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "user:"+testutil.DexMockConnectorEmail, whoami.Username)
-}
-
-func TestParallelDeployments(t *testing.T) {
-	eg, _ := errgroup.WithContext(context.Background())
-	var c1 *client.APIClient
-	var c2 *client.APIClient
-	eg.Go(func() error {
-		c1, _ = minikubetestenv.AcquireCluster(t)
-		_, err := c1.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{Repo: client.NewRepo("c1")})
-		return errors.Wrap(err, "CreateRepo error")
-	})
-	eg.Go(func() error {
-		c2, _ = minikubetestenv.AcquireCluster(t)
-		_, err := c2.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{Repo: client.NewRepo("c2")})
-		return errors.Wrap(err, "CreateRepo error")
-	})
-	require.NoError(t, eg.Wait())
-
-	c1List, err := c1.ListRepo()
-	require.NoError(t, err)
-	require.Equal(t, 1, len(c1List))
-	require.Equal(t, c1List[0].Repo.Name, "c1")
-
-	c2List, err := c2.ListRepo()
-	require.NoError(t, err)
-	require.Equal(t, 1, len(c2List))
-	require.Equal(t, c2List[0].Repo.Name, "c2")
 }

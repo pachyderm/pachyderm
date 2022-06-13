@@ -9740,6 +9740,8 @@ func TestPipelineAutoscaling(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
 
 	fileIndex := 0
 	commitNFiles := func(n int) {
@@ -9887,6 +9889,7 @@ func TestNonrootPipeline(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+				User:  "65534", // This is "nobody" on the default ubuntu:20.04 container, but it works.
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
@@ -9896,7 +9899,7 @@ func TestNonrootPipeline(t *testing.T) {
 			Update:       false,
 			PodPatch: `[
 				{"op": "add",  "path": "/securityContext",  "value": {}},
-				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}
+				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 65534}
 			]`,
 			Autoscaling: false,
 		},
@@ -10183,16 +10186,21 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 	rcName := ppsutil.PipelineRcName(pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
+	var maxSeen int
 	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
 		for {
 			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if int(scale.Spec.Replicas) >= n {
+			replicas := int(scale.Spec.Replicas)
+			if replicas >= n {
 				enoughReplicas = true
 			}
-			if int(scale.Spec.Replicas) > n {
+			if replicas > n {
+				if replicas > maxSeen {
+					maxSeen = replicas
+				}
 				tooManyReplicas = true
 			}
 			ci, err := c.InspectCommit(pipeline, "master", "")
@@ -10204,7 +10212,7 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 		}
 	})
 	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
-	require.False(t, tooManyReplicas, "got too many replicas, looking for: %d", n)
+	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, n)
 }
 
 func TestLoad(t *testing.T) {
