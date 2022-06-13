@@ -745,10 +745,10 @@ proxy:
     # The port to serve plain HTTP traffic on.
     httpPort: 80
     # The port to serve HTTPS traffic on, if enabled below.
-    httpsPort: 443 # Not implemented yet.
+    httpsPort: 443
     # If the service is a NodePort, you can specify the port to receive HTTP traffic on.
     httpNodePort: 30080
-    httpsNodePort: 30443 # Not implemented yet.
+    httpsNodePort: 30443
     # Any additional annotations to add.
     annotations: {}
     # Any additional labels to add to the service itself (not the selector!).
@@ -763,4 +763,23 @@ proxy:
       oidc: 0 # legacy 30657
       identity: 0 # legacy 30658
       metrics: 0 # legacy 30656
-  tls: {} # Not implemented yet.
+  # Configuration for TLS (SSL, HTTPS).
+  tls:
+    # If true, enable TLS serving.  Enabling TLS is incompatible with support for legacy ports (you
+    # can't get a generally-trusted certificate for port numbers), and disables support for
+    # cleartext communication (cleartext requests will redirect to the secure server, and HSTS
+    # headers are set to prevent downgrade attacks).
+    #
+    # Note that if you are planning on putting the proxy behind an ingress controller, you probably
+    # want to configure TLS for the ingress controller, not the proxy.  This is intended for the
+    # case where the proxy is exposed directly to the Internet.  (It is possible to have your
+    # ingress controller talk to the proxy over TLS, in which case, it's fine to enable TLS here in
+    # addition to in the ingress section above.)
+    enabled: false
+    # The secret containing "tls.key" and "tls.crt" keys that contain PEM-encoded private key and
+    # certificate material.  Generate one with "kubectl create secret tls <name> --key=tls.key
+    # --cert=tls.cert".  This format is compatible with the secrets produced by cert-manager, and
+    # the proxy will pick up new data when cert-manager rotates the certificate.
+    secretName: ""
+    # If set, generate the secret from values here.  This is intended only for unit tests.
+    secret: {}
