@@ -262,7 +262,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
 			)
@@ -373,11 +373,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, bootstrap := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -665,7 +666,7 @@ func doFullMode(config interface{}) (retErr error) {
 		txnEnv := txnenv.New()
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, _ := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					true,
 				)
@@ -862,11 +863,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, bootstrap := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					false,
 				)
 				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+				bootstrappers = append(bootstrappers, bootstrap)
 				return nil
 			}); err != nil {
 				return err
@@ -1150,7 +1152,7 @@ func doPausedMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
 			)
@@ -1280,7 +1282,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		}
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, _ := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					false,
 				)
