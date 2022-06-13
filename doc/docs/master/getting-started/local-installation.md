@@ -25,6 +25,14 @@ Note that each web UI addresses different use cases:
   
   
 Pachyderm uses `Helm` for all deployments.  
+
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/).  
+
+    
 ## Prerequisites  
 
 

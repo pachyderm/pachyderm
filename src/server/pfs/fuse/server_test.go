@@ -259,21 +259,9 @@ func TestConfig(t *testing.T) {
 		b := new(bytes.Buffer)
 		json.NewEncoder(b).Encode(m)
 
-		// This put call takes 30 seconds since the client attempts to connect to an
-		// endpoint for 30 seconds before timing out if it can't.
 		putResp, err := put("config", b)
 		require.NoError(t, err)
-		defer putResp.Body.Close()
-
-		putConfig := &Config{}
-		json.NewDecoder(putResp.Body).Decode(putConfig)
-
-		invalidCfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(invalidCfg.PachdAddress)
-		require.NoError(t, err)
-
-		require.Equal(t, invalidCfg.ClusterStatus, putConfig.ClusterStatus)
-		require.Equal(t, invalidCfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.NotEqual(t, invalidCfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
+		require.Equal(t, 500, putResp.StatusCode)
 
 		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
 		m = map[string]string{"pachd_address": cfg.PachdAddress}
@@ -284,7 +272,7 @@ func TestConfig(t *testing.T) {
 		require.NoError(t, err)
 		defer putResp.Body.Close()
 
-		putConfig = &Config{}
+		putConfig := &Config{}
 		json.NewDecoder(putResp.Body).Decode(putConfig)
 
 		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
@@ -443,7 +431,7 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 		}
 	}()
 	go func() {
-		mountErr = Server(c, sopts)
+		mountErr = Server(sopts, c)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.

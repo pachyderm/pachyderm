@@ -2,12 +2,36 @@ package cmds
 
 import (
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+)
+
+const (
+	branch = "branch"
+	commit = "commit"
+	file   = "file"
+	repo   = "repo"
+
+	copy      = "copy"
+	create    = "create"
+	delete    = "delete"
+	diff      = "diff"
+	finish    = "finish"
+	get       = "get"
+	glob      = "glob"
+	inspect   = "inspect"
+	list      = "list"
+	put       = "put"
+	squash    = "squash"
+	start     = "start"
+	subscribe = "subscribe"
+	update    = "update"
+	wait      = "wait"
 )
 
 func TestCommit(t *testing.T) {
@@ -148,4 +172,77 @@ func TestDiffFile(t *testing.T) {
 		`,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 	).Run())
+}
+
+// TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
+// A template is filled in that calls the help flag and the output is compared. It seems like 'match'
+// is unable to compare the outputs correctly, but we can use diff here which returns an exit code of 0
+// if there is no difference.
+func TestSynonyms(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	synonymCheckTemplate := `
+		pachctl {{VERB}} {{RESOURCE_SYNONYM}} -h > synonym.txt
+		pachctl {{VERB}} {{RESOURCE}} -h > singular.txt
+		diff synonym.txt singular.txt
+		rm synonym.txt singular.txt
+	`
+
+	resources := resourcesMap()
+	synonyms := synonymsMap()
+
+	for resource, verbs := range resources {
+		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
+		withResources := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
+
+		for _, verb := range verbs {
+			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
+			t.Logf("Testing %s %s -h\n", verb, resource)
+			require.NoError(t, tu.BashCmd(synonymCommand).Run())
+		}
+	}
+}
+
+// TestSynonymsDocs is like TestSynonyms except it only tests commands registered by CreateDocsAliases.
+func TestSynonymsDocs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	synonymCheckTemplate := `
+		pachctl {{RESOURCE_SYNONYM}} -h > synonym.txt
+		pachctl {{RESOURCE}} -h > singular.txt
+		diff synonym.txt singular.txt
+		rm synonym.txt singular.txt
+	`
+
+	synonyms := synonymsMap()
+
+	for resource := range synonyms {
+		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
+		synonymCommand := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
+
+		t.Logf("Testing %s -h\n", resource)
+		require.NoError(t, tu.BashCmd(synonymCommand).Run())
+	}
+}
+
+func resourcesMap() map[string][]string {
+	return map[string][]string{
+		branch: {create, delete, inspect, list},
+		commit: {delete, finish, inspect, list, squash, start, subscribe, wait},
+		file:   {copy, delete, diff, get, glob, inspect, list, put},
+		repo:   {create, delete, inspect, list, update},
+	}
+}
+
+func synonymsMap() map[string]string {
+	return map[string]string{
+		branch: branches,
+		commit: commits,
+		file:   files,
+		repo:   repos,
+	}
 }

@@ -1,5 +1,18 @@
 
 # Changelog
+## 2.2.2
+- Add Support for Plurals in Pachctl - #7751
+- egress of CSVs with headers	- #7746
+- Various Loki improvements	- #7733
+- avoid using 31800 for all nodeports, give each test a unique port - #7735
+- Use a unique serve mux per port, allow health checks on OIDC/Identity ports - #7730
+- CSV header - #7721
+- Match helm appVersion to version. - #7715
+- Always prep test results for upload to circle - #7711
+- Enterprise Server Cmd Tests against test cluster pachd instances - #7705
+- Make deletion progress more visible. - #7706
+- Fuse Tests shouldn't depend on 'default' pachd instance - #7700
+- Deploy Loki  in test clusters - #7699
 
 ## 2.2.1
 

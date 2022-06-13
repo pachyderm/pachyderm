@@ -48,6 +48,20 @@ Append an egress section to your pipeline specification file, then fill in:
 - the `url`: the connection string to your database. Its format is identical to the [url in the SQL Ingest](../../sql-ingest/#database-connection-url){target=_blank}.
 - the `file_format` type: CSV for now.
 - the `name`: the Kubernetes secret name.
+- the `columns`: Optional array for egress of **CSV files with headers only**. The order of the columns in this array must match the order of the schema columns; however, the CSV columns can be any order. So if the array is ["foo", "bar"] and the CSV file is:
+
+    ``` 
+    bar,foo
+    1,"string"
+    2,"text!"
+    ```
+    The following table will be written to the database:
+    ```
+    foo   |  bar
+    ===============
+    string | 1
+    text!  | 2
+  
 
 !!! Example
         ```json
@@ -71,6 +85,7 @@ Append an egress section to your pipeline specification file, then fill in:
                 "file_format": {
                     "type": "CSV"
                 },
+                "columns": ["foo", "bar"],
                 "secret": {
                     "name": "snowflakesecret",
                     "key": "PACHYDERM_SQL_PASSWORD"
@@ -91,7 +106,7 @@ Data (in the form of CSV files) that the pipeline writes to the output repo is i
      - All interface tables must pre-exist before an insertion.
      - Files in the root produce an error as they do not correspond to a table.
      - The directory structure below the top level does not matter.  The first directory in the path is the table; everything else is walked until a file is found.  All the data in those files is inserted into the table.
-     - The order of the values in each line of a CSV must match the order of the columns in the schema of your interface table.
+     - The order of the values in each line of a CSV must match the order of the columns in the schema of your interface table unless you were using headers AND specified the `"columns": ["foo", "bar"],` field in your pipeline specification file.
 
    
 !!! Example 

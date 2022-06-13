@@ -6151,8 +6151,9 @@ func TestPFS(suite *testing.T) {
 		os.Setenv("PACHYDERM_SQL_PASSWORD", tu.DefaultPostgresPassword)
 
 		type Schema struct {
-			Id int    `column:"ID" dtype:"INT"`
-			A  string `column:"A" dtype:"VARCHAR(100)"`
+			Id    int    `column:"ID" dtype:"INT"`
+			A     string `column:"A" dtype:"VARCHAR(100)"`
+			Datum string `column:"DATUM" dtype:"INT"`
 		}
 
 		type File struct {
@@ -6170,29 +6171,69 @@ func TestPFS(suite *testing.T) {
 			{
 				name: "CSV",
 				files: []File{
-					{"1,Foo\n2,Bar", "/test_table/0000"},
-					{"3,Hello\n4,World", "/test_table/subdir/0001"},
-					{"1,this is in test_table2", "/test_table2/0000"},
+					{"1,Foo,101\n2,Bar,102", "/test_table/0000"},
+					{"3,Hello,103\n4,World,104", "/test_table/subdir/0001"},
+					{"1,this is in test_table2,201", "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
-				options:        &pfs.SQLDatabaseEgress{FileFormat: &pfs.SQLDatabaseEgress_FileFormat{Type: pfs.SQLDatabaseEgress_FileFormat_CSV}},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
+					},
+				},
 				tables:         []string{"test_table", "test_table2", "empty_table"},
 				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},
 			{
 				name: "JSON",
 				files: []File{
-					{`{"ID":1,"A":"Foo"}
-					  {"ID":2,"A":"Bar"}`, "/test_table/0000"},
-					{`{"ID":3,"A":"Hello"}
-					  {"ID":4,"A":"World"}`, "/test_table/subdir/0001"},
-					{`{"ID":1,"A":"Foo"}`, "/test_table2/0000"},
+					{`{"ID":1,"A":"Foo","DATUM":101}
+					  {"ID":2,"A":"Bar","DATUM":102}`, "/test_table/0000"},
+					{`{"ID":3,"A":"Hello","DATUM":103}
+					  {"ID":4,"A":"World","DATUM":104}`, "/test_table/subdir/0001"},
+					{`{"ID":1,"A":"Foo","DATUM":201}`, "/test_table2/0000"},
 					{"", "/empty_table/0000"},
 				},
 				options: &pfs.SQLDatabaseEgress{
 					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
 						Type:    pfs.SQLDatabaseEgress_FileFormat_JSON,
-						Columns: []string{"ID", "A"}}},
+						Columns: []string{"ID", "A", "DATUM"},
+					},
+				},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+			{
+				name: "HEADER_CSV",
+				files: []File{
+					{"ID,A,DATUM\n1,Foo,101\n2,Bar,102", "/test_table/0000"},
+					{"ID,A,DATUM\n3,Hello,103\n4,World,104", "/test_table/subdir/0001"},
+					{"ID,A,DATUM\n1,this is in test_table2,201", "/test_table2/0000"},
+					{"ID,A,DATUM", "/empty_table/0000"},
+				},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type:    pfs.SQLDatabaseEgress_FileFormat_CSV,
+						Columns: []string{"ID", "A", "DATUM"},
+					},
+				},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+			{
+				name: "HEADER_CSV_JUMBLED",
+				files: []File{
+					{"A,ID,DATUM\nFoo,1,101\nBar,2,102", "/test_table/0000"},
+					{"A,DATUM,ID\nHello,103,3\nWorld,104,4", "/test_table/subdir/0001"},
+					{"DATUM,A,ID\n201,this is in test_table2,1", "/test_table2/0000"},
+					{"DATUM,ID,A", "/empty_table/0000"},
+				},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type:    pfs.SQLDatabaseEgress_FileFormat_CSV,
+						Columns: []string{"ID", "A", "DATUM"},
+					},
+				},
 				tables:         []string{"test_table", "test_table2", "empty_table"},
 				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
 			},

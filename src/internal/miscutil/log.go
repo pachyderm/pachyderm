@@ -13,9 +13,12 @@ func LogStep(name string, cb func() error) (retErr error) {
 	defer func() {
 		duration := time.Since(start)
 		if retErr != nil {
-			log.Errorf("errored %v: %v (duration: %v)", name, retErr, duration)
+			log.WithFields(log.Fields{
+				"duration": duration,
+				"error":    retErr,
+			}).Errorf("errored %v", name)
 		} else {
-			log.Infof("finished %v (duration: %v)", name, duration)
+			log.WithField("duration", duration).Infof("finished %v", name)
 		}
 	}()
 	return cb()
