@@ -9,7 +9,9 @@ To delete all of your pipelines (be careful with this feature), use the addition
 When you delete a pipeline: 
 
 * Kubernetes deletes all resources associated with the pipeline - pods (if any), services, and replication controllers.
-* Pachyderm deletes the user output repository **with all its data** as well as the system `meta` (stats) and `spec` (historical versions of the pipeline spec) repositories (Check our [Repositories concept page](../../../concepts/data-concepts/repo/#definition) for more details on those repositories types).
+* Pachyderm deletes the user output repository **with all its data** as well as the system `meta` (stats) and `spec` (historical versions of the pipeline specification file) repositories.
+
+(Check our [Repositories concept page](../../../concepts/data-concepts/repo/#definition) for more details on repositories types).
 
 
 !!! Note
