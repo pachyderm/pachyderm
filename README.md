@@ -53,10 +53,6 @@ This feature is still under development, and will likely change.
 1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version 2.0.0 pachyderm/pachyderm`
 1. Delete your existing pre-2.0 pachctl config file: `rm ~/.pachyderm/config.json`
 
-#### Community Edition
-
-Community edition console can be accessed without authentication+enterprise, skip to Accessing Console
-
 #### Configuring Auth
 
 <a name="auth0-config"></a>
