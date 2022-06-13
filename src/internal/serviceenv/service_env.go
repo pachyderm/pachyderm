@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -237,6 +239,18 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 	opts = append(opts,
 		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
 		grpc.WithChainStreamInterceptor(grpc_prometheus.StreamClientInterceptor))
+
+	// Configure the etcd client logger to match Pachyderm's logging conventions
+	// as closely as possible (see src/internal/log/log.go)
+	logConfig := zap.NewProductionConfig()
+	logConfig.EncoderConfig.MessageKey = "message"
+	logConfig.EncoderConfig.LevelKey = "severity"
+	logConfig.EncoderConfig.TimeKey = "time"
+	logConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	logConfig.EncoderConfig.LineEnding = zapcore.DefaultLineEnding
+	logConfig.EncoderConfig.EncodeLevel = zapcore.LowercaseLevelEncoder
+	logConfig.EncoderConfig.EncodeDuration = zapcore.SecondsDurationEncoder
+
 	return backoff.Retry(func() error {
 		var err error
 		env.etcdClient, err = etcd.New(etcd.Config{
@@ -247,6 +261,7 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 			DialOptions:        opts,
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
+			LogConfig:          &logConfig,
 		})
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize etcd client")

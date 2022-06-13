@@ -12,6 +12,7 @@ type Env struct {
 	DB         *pachsql.DB
 	DexStorage storage.Storage
 	Logger     *logrus.Logger
+	Config     *serviceenv.Configuration
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
@@ -19,5 +20,6 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
 		DB:         senv.GetDBClient(),
 		DexStorage: senv.GetDexDB(),
 		Logger:     senv.Logger(),
+		Config:     senv.Config(),
 	}
 }

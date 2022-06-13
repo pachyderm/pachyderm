@@ -412,6 +412,36 @@
                 "loki": {
                     "type": "object",
                     "properties": {
+                        "config": {
+                            "type": "object",
+                            "properties": {
+                                "limits_config": {
+                                    "type": "object",
+                                    "properties": {
+                                        "retention_period": {
+                                            "type": "string"
+                                        },
+                                        "retention_stream": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "period": {
+                                                        "type": "string"
+                                                    },
+                                                    "priority": {
+                                                        "type": "integer"
+                                                    },
+                                                    "selector": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         "persistence": {
                             "type": "object",
                             "properties": {
@@ -609,6 +639,9 @@
                     }
                 },
                 "localhostIssuer": {
+                    "type": "string"
+                },
+                "logFormat": {
                     "type": "string"
                 },
                 "logLevel": {

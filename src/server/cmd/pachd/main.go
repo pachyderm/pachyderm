@@ -79,7 +79,8 @@ func init() {
 }
 
 func main() {
-	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
@@ -138,6 +139,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
 
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
@@ -157,7 +162,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -257,7 +262,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
 			)
@@ -368,11 +373,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, bootstrap := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -433,6 +439,11 @@ func doSidecarMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-sidecar", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -591,6 +602,11 @@ func doFullMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -650,7 +666,7 @@ func doFullMode(config interface{}) (retErr error) {
 		txnEnv := txnenv.New()
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, _ := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					true,
 				)
@@ -847,11 +863,12 @@ func doFullMode(config interface{}) (retErr error) {
 		}
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, bootstrap := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					false,
 				)
 				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+				bootstrappers = append(bootstrappers, bootstrap)
 				return nil
 			}); err != nil {
 				return err
@@ -1135,7 +1152,7 @@ func doPausedMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
 			)
@@ -1265,7 +1282,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		}
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, _ := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					false,
 				)

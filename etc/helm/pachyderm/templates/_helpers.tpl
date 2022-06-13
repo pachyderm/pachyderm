@@ -135,13 +135,13 @@ localhost:30658
 {{- end }}
 
 {{- define "pachyderm.idps" -}}
-{{- if .Values.oidc.upstreamIDPs }}
-{{ toYaml .Values.oidc.upstreamIDPs | indent 4 }}
-{{- else if .Values.oidc.mockIDP }}
-    - id: test
-      name: test
-      type: mockPassword
-      jsonConfig: '{"username": "admin", "password": "password"}'
+{{- if .Values.oidc.upstreamIDPs -}}
+{{ toYaml .Values.oidc.upstreamIDPs }}
+{{- else if .Values.oidc.mockIDP -}}
+- id: test
+  name: test
+  type: mockPassword
+  jsonConfig: '{"username": "admin", "password": "password"}'
 {{- else }}
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}
@@ -160,5 +160,13 @@ pachyderm-license
 {{ .Values.pachd.enterpriseSecretSecretName }}
 {{- else if or .Values.pachd.enterpriseSecret (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
 pachyderm-enterprise
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.upstreamIDPsSecretName" -}}
+{{- if .Values.oidc.upstreamIDPsSecretName }}
+{{ .Values.oidc.upstreamIDPsSecretName }}
+{{- else if or .Values.oidc.upstreamIDPs .Values.oidc.mockIDP }}
+pachyderm-identity
 {{- end }}
 {{- end }}
