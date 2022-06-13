@@ -1,13 +1,14 @@
 describe('Access', () => {
   before(() => {
-    cy.setupProject()
+    cy.authenticatePachctl()
+      .setupProject()
       .exec('pachctl auth set repo images repoReader user:john-doe@pachyderm.io')
       .logout()
       .login('john-doe@pachyderm.io')
   });
 
   after(() => {
-    cy.deleteReposAndPipelines().logout();
+    cy.deleteReposAndPipelines();
   })
 
   afterEach(() => {

@@ -10,7 +10,7 @@ describe('Dag', () => {
     cy.visit('/')
   });
   after(() => {
-    cy.deleteReposAndPipelines().logout();
+    cy.deleteReposAndPipelines();
   });
 
   it('should render the entire dag', () => {

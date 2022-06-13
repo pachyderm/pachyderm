@@ -20,7 +20,7 @@
   margin-top: 0.625rem;
   padding: 0 0.75rem;
   overflow-y: scroll;
-  height: calc(100vh - 22.5rem);
+  flex: 1;
 }
 
 .autoCommits {

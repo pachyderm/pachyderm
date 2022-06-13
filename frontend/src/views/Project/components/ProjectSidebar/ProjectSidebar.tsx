@@ -59,7 +59,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     : {};
 
   return (
-    <div className={classnames({[styles.fixed]: !resizable})}>
+    <div className={classnames(styles.base, {[styles.fixed]: !resizable})}>
       <Route
         path={[
           PROJECT_JOBS_PATH,

@@ -1,8 +1,13 @@
+.container {
+  height: 100%;
+  overflow: hidden;
+}
+
 .base {
   background-color: var(--white);
   width: 100%;
   display: flex;
-  height: calc(100vh - var(--header-height));
+  height: 100%;
   flex-direction: column;
   border-left: solid 1px var(--line-grey);
   pointer-events: all;

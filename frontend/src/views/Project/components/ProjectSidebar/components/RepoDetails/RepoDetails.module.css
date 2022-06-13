@@ -2,10 +2,16 @@
   height: 100vh;
   scrollbar-width: none;
   padding-top: 2rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .base section {
-  height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .tabsHeader,
@@ -28,4 +34,9 @@
 .pipelineGroup {
   border: solid 1px var(--line-grey);
   border-radius: 4px;
+}
+
+.commitsTab {
+  flex: 1;
+  overflow: hidden;
 }

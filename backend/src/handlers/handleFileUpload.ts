@@ -1,10 +1,12 @@
 import {ServiceError} from '@grpc/grpc-js';
+import {Status} from '@grpc/grpc-js/build/src/constants';
 import {
   Commit,
   pachydermClient,
   STREAM_OVERHEAD_LENGTH,
 } from '@pachyderm/node-pachyderm';
 import {FileSet} from '@pachyderm/node-pachyderm/dist/services/pfs/clients/FileSet';
+import {ApolloError} from 'apollo-server-errors';
 import busboy from 'busboy';
 import cors from 'cors';
 import {NextFunction, Request, Response, Router} from 'express';
@@ -14,6 +16,7 @@ import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
 import isServiceError from '@dash-backend/grpc/utils/isServiceError';
 import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
 import FileUploads, {upload} from '@dash-backend/lib/FileUploads';
+import getPachClient from '@dash-backend/lib/getPachClient';
 import baseLogger from '@dash-backend/lib/log';
 
 const {GRPC_SSL, PACHD_ADDRESS} = process.env;
@@ -34,6 +37,8 @@ type FileUploadStartBody = {
 
 const BUSBOY_CHUNK_SIZE = 1024 * 64; // 64 KiB
 
+const isTest = process.env.NODE_ENV === 'test';
+
 const logError = (error: unknown, requestName: string) => {
   if (isServiceError(error)) {
     baseLogger.error({error: error.details}, `${requestName} request failed`);
@@ -50,9 +55,21 @@ const uploadStart = async (
   const authToken = req.cookies.dashAuthToken;
   const {path, branch, repo} = req.body;
 
-  if (!authToken || !PACHD_ADDRESS) {
+  if (!PACHD_ADDRESS) {
     res.status(401);
     next('You do not have permission to upload files');
+  }
+
+  if (!isTest && !authToken && PACHD_ADDRESS) {
+    try {
+      await getPachClient(PACHD_ADDRESS, authToken).auth().whoAmI();
+    } catch (e) {
+      const {code} = (e as ApolloError).extensions;
+      if (code !== 'UNIMPLEMENTED') {
+        res.status(401);
+        next('You do not have permission to upload files');
+      }
+    }
   }
 
   if (!repo) {
@@ -82,7 +99,7 @@ const uploadFinish = async (
 ) => {
   const authToken = req.cookies.dashAuthToken;
 
-  if (!authToken || !PACHD_ADDRESS) {
+  if (!PACHD_ADDRESS) {
     res.status(401);
     next('You do not have permission to upload files');
   }
@@ -93,6 +110,19 @@ const uploadFinish = async (
     plugins: [loggingPlugin()],
     ssl: GRPC_SSL === 'true',
   });
+
+  if (!isTest && !authToken) {
+    try {
+      await pachClient.auth().whoAmI();
+    } catch (e) {
+      const {code} = e as ServiceError;
+      if (code !== Status.UNIMPLEMENTED) {
+        res.status(401);
+        next('You do not have permission to upload files');
+      }
+    }
+  }
+
   let commit: Commit.AsObject | undefined;
   const upload = FileUploads.getUpload(req.body.uploadId);
   if (upload) {
@@ -172,7 +202,7 @@ const uploadChunk = async (
 
   const authToken = req.cookies.dashAuthToken;
 
-  if (!authToken || !PACHD_ADDRESS) {
+  if (!PACHD_ADDRESS) {
     return res.status(401).send('You do not have permission to upload files');
   }
 
@@ -182,6 +212,19 @@ const uploadChunk = async (
     plugins: [loggingPlugin()],
     ssl: GRPC_SSL === 'true',
   });
+
+  if (!isTest && !authToken) {
+    try {
+      await pachClient.auth().whoAmI();
+    } catch (e) {
+      const {code} = e as ServiceError;
+      if (code !== Status.UNIMPLEMENTED) {
+        return res
+          .status(401)
+          .send('You do not have permission to upload files');
+      }
+    }
+  }
 
   const bb = busboy({headers: req.headers});
   const workQueue = new PQueue({concurrency: 1});

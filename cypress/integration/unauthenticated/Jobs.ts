@@ -13,14 +13,14 @@ describe('Jobs', () => {
     })
   
     after(() => {
-      cy.deleteReposAndPipelines().logout();
+      cy.deleteReposAndPipelines();
     })
   
     it('should show jobset details', () => {
       cy.findByText('Jobs', {timeout: 12000}).click();
       cy.findByText('See Details').click();
       cy.findByTestId('InfoPanel__commitLink', {timeout: 12000}).should('contain', /^[a-zA-Z0-9_-]{32}/);
-      cy.findByTestId('InfoPanel__pipeline').should('have.text', 'edges');
+      cy.findByTestId('InfoPanel__pipeline', {timeout: 12000}).should('have.text', 'edges');
       // wait for job to finish
       cy.findByTestId('InfoPanel__state', {timeout: 12000}).should('have.text', 'Success');
       cy.findByTestId('InfoPanel__started').should('include.text', 'ago');

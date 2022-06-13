@@ -1,3 +1,4 @@
+import {ApolloError} from 'apollo-server-errors';
 import {v4 as uuid} from 'uuid';
 
 import baseLogger from '@dash-backend/lib/log';
@@ -21,8 +22,26 @@ const createContext = async ({
 }: createContextProps) => {
   let account: Account | undefined;
 
+  const pachClient = getPachClient(projectId, authToken);
+
   if (idToken) {
+    account = undefined;
     account = await getAccountFromIdToken(idToken);
+  } else {
+    try {
+      await pachClient.auth().whoAmI();
+    } catch (e) {
+      const {code} = (e as ApolloError).extensions;
+      if (code === 'UNIMPLEMENTED') {
+        account = {
+          id: 'unauthenticated',
+          email: '',
+          name: 'User',
+        };
+      } else if (code !== 'UNAUTHENTICATED') {
+        throw e;
+      }
+    }
   }
 
   const pachdAddress = process.env.PACHD_ADDRESS;
@@ -35,8 +54,6 @@ const createContext = async ({
     },
     projectId,
   });
-
-  const pachClient = getPachClient(projectId, authToken);
 
   return {
     account,

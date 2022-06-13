@@ -2,7 +2,7 @@ import {ApolloError} from '@apollo/client';
 import {MutationExchangeCodeArgs} from '@graphqlTypes';
 import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
-import {useCallback, useEffect} from 'react';
+import {useCallback, useEffect, useMemo} from 'react';
 
 import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
 import useAuthConfig from '@dash-frontend/hooks/useAuthConfig';
@@ -23,6 +23,14 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   });
   const [exchangeCodeMutation, {data: codeMutationData, error, loading}] =
     useExchangeCodeMutation({onError});
+
+  const unauthenticated = useMemo(() => {
+    if (authConfig) {
+      return Object.values(authConfig)
+        .filter((val) => val !== 'AuthConfig')
+        .every((val) => val === '');
+    } else return false;
+  }, [authConfig]);
 
   const exchangeCode = useCallback(
     (code: MutationExchangeCodeArgs['code']) => {
@@ -59,12 +67,33 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
 
       setLoggedIn(
         Boolean(
-          window.localStorage.getItem('auth-token') &&
-            window.localStorage.getItem('id-token'),
+          window.localStorage.getItem('auth-token') !== null &&
+            window.localStorage.getItem('id-token') !== null,
+        ),
+      );
+    } else if (authConfig && unauthenticated) {
+      window.localStorage.setItem('auth-token', '');
+      window.localStorage.setItem('id-token', '');
+
+      // We need these cookies to enable file downloads and previews
+      Cookies.set(
+        'dashAuthToken',
+        window.localStorage.getItem('auth-token') || '',
+        {
+          expires: COOKIE_EXPIRES,
+          sameSite: IS_DEV ? 'lax' : 'strict',
+          secure: window.location.protocol === 'https:',
+        },
+      );
+
+      setLoggedIn(
+        Boolean(
+          window.localStorage.getItem('auth-token') !== null &&
+            window.localStorage.getItem('id-token') !== null,
         ),
       );
     }
-  }, [codeMutationData, setLoggedIn]);
+  }, [codeMutationData, setLoggedIn, authConfig, unauthenticated]);
 
   return {
     exchangeCode,
@@ -73,6 +102,7 @@ const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
     loggedIn,
     authConfig,
     authConfigError,
+    unauthenticated,
   };
 };
 

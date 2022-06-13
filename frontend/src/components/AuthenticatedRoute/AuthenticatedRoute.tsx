@@ -1,5 +1,6 @@
 import React from 'react';
 
+import CommunityEditionBannerProvider from '@dash-frontend/components/CommunityEditionBanner/CommunityEditionBannerProvider';
 import ErrorView from '@dash-frontend/views/ErrorView';
 
 import useAuthenticatedRoute from './hooks/useAuthenticatedRoute';
@@ -15,7 +16,12 @@ const AuthenticatedRoute = <T,>(
     }
 
     if (loggedIn) {
-      return <Component {...props} />;
+      return (
+        <>
+          <Component {...props} />
+          <CommunityEditionBannerProvider />
+        </>
+      );
     }
 
     return null;

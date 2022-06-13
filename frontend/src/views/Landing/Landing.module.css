@@ -2,6 +2,7 @@
   background-color: var(--background-grey);
   display: flex;
   flex: 1;
+  overflow: hidden;
 }
 
 .table {

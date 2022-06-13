@@ -4,13 +4,11 @@ import path from 'path';
 
 import {makeExecutableSchema} from '@graphql-tools/schema';
 import * as Sentry from '@sentry/node';
-import {AuthenticationError} from 'apollo-server-errors';
 import {useServer as createServer} from 'graphql-ws/lib/use/ws';
 import {Server as wsServer} from 'ws';
 
 import log from '@dash-backend/lib/log';
 
-import {getAccountFromIdToken} from './lib/auth';
 import createContext from './lib/createContext';
 import resolvers from './resolvers';
 
@@ -48,16 +46,6 @@ const createWebsocketServer = (server: Server) => {
             type: msg.type,
           },
         });
-
-        // Auth on every subscribe
-        const account = await getAccountFromIdToken(
-          ctx.connectionParams
-            ? (ctx.connectionParams['id-token'] as string)
-            : '',
-        );
-
-        if (!account)
-          throw new AuthenticationError('User is not authenticated');
       },
       onNext: (_ctx, msg) => {
         log.info({

@@ -52,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       onMouseMove={throttleMouseEvent(applyMousePosition, 50)}
       onMouseUp={onDragEnd}
       onMouseLeave={onDragEnd}
-      className={classnames({
+      className={classnames(styles.container, {
         [styles.resizable]: resizable,
         [styles.active]: dragging,
       })}

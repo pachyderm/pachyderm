@@ -13,7 +13,7 @@ describe('Project', () => {
   })
 
   after(() => {
-    cy.deleteReposAndPipelines().logout();
+    cy.deleteReposAndPipelines();
   })
 
   it('should enable the pipeline and repo deletion buttons when all downstream pipelines and repos are deleted', () => {

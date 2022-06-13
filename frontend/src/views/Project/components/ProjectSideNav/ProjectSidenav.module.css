@@ -20,3 +20,16 @@
   color: var(--white);
   text-align: center;
 }
+
+.base {
+  height: 100%;
+  overflow: hidden;
+}
+
+.base nav {
+  height: 100%;
+}
+
+.base ul {
+  position: inherit;
+}

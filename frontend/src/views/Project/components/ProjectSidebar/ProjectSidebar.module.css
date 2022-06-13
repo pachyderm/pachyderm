@@ -1,3 +1,7 @@
 .fixed {
   flex: 1;
 }
+
+.base {
+  height: 100%;
+}

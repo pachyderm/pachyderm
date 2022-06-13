@@ -13,6 +13,7 @@ const useAuthenticatedRoute = () => {
     exchangeCode,
     authConfig,
     authConfigError,
+    unauthenticated,
   } = useAuth();
   const {initiateOauthFlow, loginWindowError, loginWindowSucceeded} =
     useLoginWindow({
@@ -33,7 +34,13 @@ const useAuthenticatedRoute = () => {
   const redirectSearchString = `?${params.toString()}`;
 
   useEffect(() => {
-    if (!error && !loggedIn && !loginWindowSucceeded && authConfig) {
+    if (
+      !error &&
+      !loggedIn &&
+      !loginWindowSucceeded &&
+      authConfig &&
+      !unauthenticated
+    ) {
       const issuerUri = getIssuerUri();
 
       let connection = undefined;
@@ -78,6 +85,7 @@ const useAuthenticatedRoute = () => {
     authConfig,
     loginHintParam,
     connectionParam,
+    unauthenticated,
   ]);
 
   return {

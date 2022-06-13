@@ -1,8 +1,10 @@
 import {pachydermClient} from '@pachyderm/node-pachyderm';
+import {ApolloError} from 'apollo-server-errors';
 import {Request, Response} from 'express';
 import {lookup} from 'mime-types';
 
 import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
+import getPachClient from '@dash-backend/lib/getPachClient';
 import log from '@dash-backend/lib/log';
 const {GRPC_SSL} = process.env;
 
@@ -15,10 +17,23 @@ const handleFileDownload = async (req: Request, res: Response) => {
     process.env.NODE_ENV === 'development' ||
     isTest;
 
-  if (!isTest && (!sameOrigin || !authToken || !pachdAddress)) {
+  if (!isTest && (!sameOrigin || !pachdAddress)) {
     return res
       .send('You do not have permission to access this file.')
       .status(401);
+  }
+
+  if (!isTest && !authToken && pachdAddress) {
+    try {
+      await getPachClient(pachdAddress, authToken).auth().whoAmI();
+    } catch (e) {
+      const {code} = (e as ApolloError).extensions;
+      if (code !== 'UNIMPLEMENTED') {
+        return res
+          .send('You do not have permission to access this file.')
+          .status(401);
+      }
+    }
   }
 
   const {commitId, repoName, branchName} = req.params;

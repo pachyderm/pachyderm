@@ -98,15 +98,17 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
             </Description>
           </dl>
         </Tabs.TabPanel>
-        <Tabs.TabPanel id={TAB_ID.COMMITS} className={styles.commitsTab}>
-          {viewState.globalIdFilter ? (
-            !dagsLoading && (
-              <CommitDetails repo={repo} commitId={viewState.globalIdFilter} />
-            )
-          ) : (
-            <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
-          )}
-        </Tabs.TabPanel>
+        <div className={styles.commitsTab}>
+          <Tabs.TabPanel id={TAB_ID.COMMITS}>
+            {viewState.globalIdFilter ? (
+              !dagsLoading && (
+                <CommitDetails commitId={viewState.globalIdFilter} />
+              )
+            ) : (
+              <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
+            )}
+          </Tabs.TabPanel>
+        </div>
       </Tabs.RouterTabs>
     </div>
   );

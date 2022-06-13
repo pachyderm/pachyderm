@@ -7,6 +7,7 @@ import isServiceError from '../utils/isServiceError';
 
 const TOKEN_EXPIRED_MESSAGE = 'token expiration';
 const NO_AUTHENTICATION_METADATA_MESSAGE = 'no authentication metadata';
+const INACTIVE_AUTH_MESSAGE = 'the auth service is not activated';
 
 // The pach error implementation is unstructured due to
 // issues with sending structured errors across rpc boundaries.
@@ -61,6 +62,16 @@ const errorPlugin: GRPCPlugin = {
 
       if (error.code === Status.ALREADY_EXISTS) {
         throw new ApolloError(error.details, 'INVALID_REQUEST', {
+          ...error,
+          grpcCode: error.code,
+        });
+      }
+
+      if (
+        error.code === Status.UNIMPLEMENTED &&
+        error.details.includes(INACTIVE_AUTH_MESSAGE)
+      ) {
+        throw new ApolloError(error.details, 'UNIMPLEMENTED', {
           ...error,
           grpcCode: error.code,
         });

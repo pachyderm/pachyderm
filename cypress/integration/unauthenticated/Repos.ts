@@ -13,13 +13,13 @@ describe('Repos', () => {
   })
 
   after(() => {
-    cy.deleteReposAndPipelines().logout();
+    cy.deleteReposAndPipelines();
   })
 
   it('should allow a user to create a repo', () => {
     cy.findByText('Create Repo', {timeout: 12000}).click();
 
-    cy.findByLabelText('Repo Name', {exact: false}).type("NewRepo")
+    cy.findByLabelText('Repo Name', {exact: false, timeout: 12000}).type("NewRepo")
     cy.findByLabelText('Description', {exact: false}).type("New repo description")
     cy.findByText('Create').click();
 

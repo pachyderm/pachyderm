@@ -12,7 +12,7 @@ describe('Landing', () => {
   });
 
   after(() => {
-    cy.deleteReposAndPipelines().logout();
+    cy.deleteReposAndPipelines();
   })
 
   it('should show deafult project info', () => {

@@ -1,7 +1,9 @@
 .view {
   overflow: visible;
   display: flex;
-  height: 100%;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
 }
 
 .loadingContainer {

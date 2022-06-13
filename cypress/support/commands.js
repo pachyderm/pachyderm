@@ -32,7 +32,7 @@ Cypress.Commands.add('login', (
   password=Cypress.env('AUTH_PASSWORD')
 ) => {
   cy.visit('/');
-  cy.findByLabelText('Email').type(email);
+  cy.findByLabelText("Email", { timeout: 12000 }).type(email);
   cy.findByLabelText('Password').type(password);
 
   return cy.findByLabelText('Log In').click()
@@ -60,7 +60,6 @@ Cypress.Commands.add('authenticatePachctl', () => {
 Cypress.Commands.add("setupProject", (projectTemplate) => {
   if (projectTemplate === "error-opencv") {
     return cy
-      .authenticatePachctl()
       .exec("jq -r .pachyderm version.json")
       .then((res) => {
         cy.exec("pachctl create repo images")
@@ -109,8 +108,7 @@ Cypress.Commands.add("setupProject", (projectTemplate) => {
       });
   }
 
-  return cy.authenticatePachctl()
-      .exec('jq -r .pachyderm version.json').then(res => {
+  return cy.exec('jq -r .pachyderm version.json').then(res => {
         cy.exec('pachctl create repo images')
           .exec('pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png')
           .exec(`pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v${res.stdout}/examples/opencv/edges.json`);

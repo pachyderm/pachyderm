@@ -10,12 +10,14 @@ import {
   Projects,
   ModifyFileRequest,
   DiffFileResponse,
+  GetStateResponse,
 } from '@pachyderm/node-pachyderm';
 import cloneDeep from 'lodash/cloneDeep';
 
 import commits from '@dash-backend/mock/fixtures/commits';
 import datums from '@dash-backend/mock/fixtures/datums';
 import diffResponses from '@dash-backend/mock/fixtures/diffResponses';
+import enterpriseStates from '@dash-backend/mock/fixtures/enterprise';
 import files, {Files} from '@dash-backend/mock/fixtures/files';
 import jobs from '@dash-backend/mock/fixtures/jobs';
 import pipelines from '@dash-backend/mock/fixtures/pipelines';
@@ -57,6 +59,7 @@ export type StateType = {
   datums: {
     [projectId: string]: {[pipelineId: string]: {[jobId: string]: DatumInfo[]}};
   };
+  enterprise: GetStateResponse;
 };
 
 const defaultState: StateType = {
@@ -74,6 +77,7 @@ const defaultState: StateType = {
   projects,
   projectInfo,
   datums,
+  enterprise: enterpriseStates.active,
 };
 
 class MockState {

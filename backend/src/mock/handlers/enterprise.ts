@@ -1,13 +1,13 @@
 import {EnterpriseIAPIServer} from '@pachyderm/node-pachyderm';
 
-import enterpriseStates from '../fixtures/enterprise';
+import MockState from './MockState';
 
 const enterprise = () => {
   return {
     getService: (): Pick<EnterpriseIAPIServer, 'getState'> => {
       return {
         getState: (_call, callback) => {
-          callback(null, enterpriseStates.active);
+          callback(null, MockState.state.enterprise);
         },
       };
     },

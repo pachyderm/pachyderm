@@ -38,7 +38,7 @@ jobs:
     e2e-test:
         resource_class: xlarge
         machine:
-            image: ubuntu-2004:202111-01
+            image: ubuntu-2004:202201-02
         steps:
             - checkout
             - run: sudo sysctl fs.inotify.max_user_watches=524288
@@ -52,6 +52,12 @@ jobs:
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
+            - run: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+            - run: touch .env.development.local
+            - run: make setup-ci-auth
+            - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
+            - run: (yes || true) | pachctl auth deactivate
+            - run: pachctl enterprise deactivate
             - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
     load-test:
         resource_class: xlarge

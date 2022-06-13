@@ -14,14 +14,14 @@ describe('Project List', () => {
   })
 
   after(() => {
-    cy.deleteReposAndPipelines().logout();
+    cy.deleteReposAndPipelines();
   })
 
   it('should show the correct number of commits', () => {
     cy.findByText('images').click();
     cy.findByText('Commits').click();
     cy.findAllByTestId('CommitBrowser__commit').should('have.length', 3);
-    cy.findAllByText('10 B', {exact: false}).should('have.length', 3);
+    cy.findAllByText('10 B', {exact: false}).should('have.length', 4);
     cy.findAllByText('edges').eq(0).click();
     cy.findByText('Commits').click();
     cy.findAllByTestId('CommitBrowser__commit').should('have.length', 2);

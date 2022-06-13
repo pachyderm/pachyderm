@@ -3,7 +3,6 @@ import {AuthenticationError} from 'apollo-server-express';
 import {getOIDCClient, getTokenIssuer} from '@dash-backend/lib/auth';
 import {UnauthenticatedContext} from '@dash-backend/lib/types';
 import {AuthConfig, MutationResolvers, QueryResolvers} from '@graphqlTypes';
-
 interface AuthResolver {
   Query: {
     account: QueryResolvers['account'];
@@ -19,7 +18,11 @@ const authResolver: AuthResolver = {
     account: async (_field, _args, {account}) => {
       return account;
     },
-    authConfig: async (_field, _args, {log}) => {
+    authConfig: async (_field, _args, {log, account}) => {
+      if (account && account.id === 'unauthenticated') {
+        return {authEndpoint: '', clientId: '', pachdClientId: ''};
+      }
+
       let issuer;
       try {
         issuer = await getTokenIssuer();

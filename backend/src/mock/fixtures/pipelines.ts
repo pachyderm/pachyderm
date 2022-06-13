@@ -9,6 +9,7 @@ import {
   SchedulingSpec,
   Transform,
   JobState,
+  ParallelismSpec,
 } from '@pachyderm/node-pachyderm';
 
 import {DAGS} from './loadLimits';
@@ -26,6 +27,7 @@ const tutorial = [
     .setLastJobState(JobState.JOB_CREATED)
     .setDetails(
       new PipelineInfo.Details()
+        .setParallelismSpec(new ParallelismSpec().setConstant(8))
         .setInput(
           new Input().setCrossList([
             new Input().setPfs(new PFSInput().setRepo('edges')),
