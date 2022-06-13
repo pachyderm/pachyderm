@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,8 +24,10 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -46,8 +49,8 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -79,6 +82,21 @@ func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 			Constant: 1,
 		},
 		Input: client.NewPFSInput(input, "/*"),
+	}
+}
+
+func createTestCommits(t *testing.T, repoName, branchName string, numCommits int, c *client.APIClient) {
+	require.NoError(t, c.CreateRepo(repoName), "pods should be available to create a repo against")
+
+	for i := 0; i < numCommits; i++ {
+		commit, err := c.StartCommit(repoName, branchName)
+		require.NoError(t, err, "creating a test commit should succeed")
+
+		err = c.PutFile(commit, "/file", bytes.NewBufferString("file contents"))
+		require.NoError(t, err, "should be able to add a file to a commit")
+
+		err = c.FinishCommit(repoName, branchName, commit.ID)
+		require.NoError(t, err, "finishing a commit should succeed")
 	}
 }
 
@@ -10533,4 +10551,64 @@ func TestMissingSecretFailure(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestDatabaseStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	type rowCountResults struct {
+		IdxScan    int    `json:"idx_scan"`
+		NLiveTup   int    `json:"n_live_tup"`
+		RelName    string `json:"relname"`
+		SchemaName string `json:"schemaname"`
+		SeqScan    int    `json:"seq_scan"`
+	}
+
+	repoName := tu.UniqueString("TestDatabaseStats-repo")
+	branchName := "master"
+	numCommits := 5
+	buf := &bytes.Buffer{}
+	filter := &debug.Filter{
+		Filter: &debug.Filter_Database{Database: true},
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	createTestCommits(t, repoName, branchName, numCommits, c)
+	time.Sleep(5 * time.Second) // give some time for the stats collector to run.
+	require.NoError(t, c.Dump(filter, 100, buf), "dumping database files should succeed")
+
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+
+	require.NoError(t, tarutil.Iterate(gr, func(f tarutil.File) error {
+		fileContents := &bytes.Buffer{}
+		if err := f.Content(fileContents); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		hdr, err := f.Header()
+		require.NoError(t, err, "getting database tar file header should succeed")
+		require.NotMatch(t, "^[a-zA-Z0-9_\\-\\/]+\\.error$", hdr.Name)
+
+		if hdr.Name == "database/row-counts.json" {
+			var rows []rowCountResults
+			commitsFound := false
+			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows), "unmarshalling row-counts.json should succeed")
+
+			for _, row := range rows {
+				if row.RelName == "commits" {
+					require.NotEqual(t, 0, row.NLiveTup,
+						"some commits from createTestCommits should be accounted for")
+					commitsFound = true
+				}
+			}
+
+			require.Equal(t, true, commitsFound, "we should have an entry in row-counts.json for commits")
+		}
+
+		return nil
+	}))
 }
