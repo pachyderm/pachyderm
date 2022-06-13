@@ -1,6 +1,7 @@
 package pachsql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"reflect"
@@ -98,4 +99,40 @@ func CreateTestTable(db *DB, name string, schema interface{}) error {
 	q := fmt.Sprintf(`CREATE TABLE %s (%s)`, name, strings.Join(processFields(t), ", "))
 	_, err := db.Exec(q)
 	return errors.EnsureStack(err)
+}
+
+// SchemaTable lists the schemaname and tablename for a given entry in pg_catalog.
+type SchemaTable struct {
+	SchemaName string
+	TableName  string
+}
+
+// GetSchemaTables queries pg_catalog and returns an array of all SchemaTable objects found.
+func GetSchemaTables(conn *sql.Conn, ctx context.Context) ([]SchemaTable, error) {
+	query := `
+	SELECT schemaname, tablename
+	FROM pg_catalog.pg_tables
+	WHERE schemaname != 'pg_catalog'
+	  AND schemaname != 'information_schema'
+	  AND tableowner = 'pachyderm';
+	`
+
+	rows, err := conn.QueryContext(ctx, query)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
+	tables := make([]SchemaTable, 0)
+
+	for rows.Next() {
+		currentTable := SchemaTable{}
+		err := rows.Scan(&currentTable.SchemaName, &currentTable.TableName)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+
+		tables = append(tables, currentTable)
+	}
+
+	return tables, nil
 }
