@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -90,13 +91,16 @@ func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	if *hostOverride != "" {
 		addr.Host = *hostOverride
 	} else if exposedServiceType() == "NodePort" {
-		buf := new(bytes.Buffer)
-		cmd := testutil.BashCmd("minikube ip")
-		cmd.Stdout = buf
+		in := new(bytes.Buffer)
+		in.WriteString("minikube ip")
+		out := new(bytes.Buffer)
+		cmd := exec.Command("/bin/bash")
+		cmd.Stdin = in
+		cmd.Stdout = out
 		if err := cmd.Run(); err != nil {
 			t.Errorf("'minikube ip': %v. Try running tests with the 'testenv.host' argument", err)
 		}
-		addr.Host = strings.TrimSpace(buf.String())
+		addr.Host = strings.TrimSpace(out.String())
 	}
 	if *basePort != 0 {
 		addr.Port = uint16(*basePort)
