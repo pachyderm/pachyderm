@@ -61,7 +61,7 @@ console:
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
     tag: "2.1.0-1"
-  podPriorityClass: ""
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   # podLabels specifies labels to add to the console pod.
@@ -107,7 +107,7 @@ etcd:
     pullPolicy: "IfNotPresent"
   # maxTxnOps sets the --max-txn-ops in the container args
   maxTxnOps: 10000
-  podPriorityClass: ""
+  priorityClassName: ""
   nodeSelector: {}
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
@@ -149,7 +149,7 @@ enterpriseServer:
   affinity: {}
   annotations: {}
   tolerations: []
-  podPriorityClass: ""
+  priorityClassName: ""
   nodeSelector: {}
   service:
     type: ClusterIP
@@ -214,7 +214,7 @@ loki-stack:
       size: 10Gi
       storageClassName: standard
       annotations: {}
-      podPriorityClass: ""
+      priorityClassName: ""
       nodeSelector: {}
       tolerations: []
     config:
@@ -304,7 +304,7 @@ pachd:
     enabled: true
     # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
-  podPriorityClass: ""
+  priorityClassName: ""
   nodeSelector: {}
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
@@ -563,7 +563,7 @@ pgbouncer:
   service:
     type: ClusterIP
   annotations: {}
-  podPriorityClass: ""
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   resources:
@@ -639,7 +639,7 @@ cloudsqlAuthProxy:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "1.23.0"
-  podPriorityClass: ""
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   # podLabels specifies labels to add to the dash pod.

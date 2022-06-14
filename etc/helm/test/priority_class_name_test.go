@@ -41,6 +41,6 @@ func TestSetEtcdPriorityClass(t *testing.T) {
 	helm.UnmarshalK8SYaml(t, output, &etcd)
 
 	if etcd.Spec.Template.Spec.PriorityClassName != "lowest" {
-		t.Fatalf("Priority Class Name of Etcd statefulset not expected. got: %v, want: %s", deployment.Spec.Template.Spec.PriorityClassName, "lowest")
+		t.Fatalf("Priority Class Name of Etcd statefulset not expected. got: %v, want: %s", etcd.Spec.Template.Spec.PriorityClassName, "lowest")
 	}
 }
