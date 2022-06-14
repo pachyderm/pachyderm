@@ -31,6 +31,9 @@ spec:
       annotations: {{ toYaml .Values.console.annotations | nindent 4 }}
       {{- end }}
     spec:
+      {{- if .Values.console.priorityClassName }}
+      priorityClassName: {{ .Values.console.priorityClassName }}
+      {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"

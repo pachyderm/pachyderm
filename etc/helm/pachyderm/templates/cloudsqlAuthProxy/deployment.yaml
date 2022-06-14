@@ -28,6 +28,9 @@ spec:
       name: cloudsql-auth-proxy
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if .Values.cloudsqlAuthProxy.priorityClassName }}
+      priorityClassName: {{ .Values.cloudsqlAuthProxy.priorityClassName }}
+      {{- end }}
       serviceAccountName: k8s-cloudsql-auth-proxy
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
