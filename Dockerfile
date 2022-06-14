@@ -2,17 +2,27 @@ FROM node:16.15.0-buster-slim
 
 WORKDIR /usr/src/app
 
+RUN apt-get update && apt-get install -y \
+    # required for frontend dependency canvas
+    build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \ 
+    && rm -rf /var/lib/apt/lists/*
+
 ADD . .
 
-RUN apt-get update && apt-get install -y python3 make pkg-config \
-    build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
-    # required for frontend dependency canvas@2.9.1
+RUN make docker-ci \
+    && make build \
+    && make clean-deps
 
-RUN make ci
+WORKDIR /usr/src/app/backend
+# needed to run npm start
+RUN npm i module-alias
 
-RUN make build
 
-RUN make prune-deps
+FROM node:16.15.0-buster-slim
+
+WORKDIR /usr/src/app
+
+COPY --from=0 /usr /usr
 
 CMD ["npm", "start", "--prefix", "./backend"]
 EXPOSE 4000

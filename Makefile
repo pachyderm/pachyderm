@@ -45,6 +45,12 @@ ci:
 prune-deps:
 	rm -rf ./frontend/node_modules && npm ci --prefix ./backend --only=production
 
+docker-ci:
+	npm ci --prefix ./backend && npm ci --prefix ./frontend
+
+clean-deps:
+	rm -rf ./node_modules && rm -rf ./frontend/node_modules && rm -rf ./backend/node_modules
+
 build:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend
 
