@@ -6,8 +6,8 @@
 # Inner and Outer Join Inputs
 > The *outer join* input is available in version **1.12 and higher**.
 
-- In our first example, we will create a pipeline whose input datums result from a simple `inner join` between 2 repos.
-- In our second example, we will showcase three variations of `outer join` pipelines between 2 repos and outline how they differ from an inner join and each other.
+- In a first example, we will create a pipeline whose input datums result from a simple `inner join` between 2 repos.
+- In a second example, we will showcase three variations of `outer join` pipelines between 2 repos and outline how they differ from an inner join and each other.
 
 At the end of this page, you will understand the fundamental difference between the datums produced by an inner join and those created by an outer join.
 
