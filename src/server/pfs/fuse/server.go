@@ -408,9 +408,10 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: gofuse.MountOptions{
-				Debug:  false,
-				FsName: "pfs",
-				Name:   "pfs",
+				Debug:      false,
+				FsName:     "pfs",
+				Name:       "pfs",
+				AllowOther: true,
 			},
 		},
 		RepoOptions: make(map[string]*RepoOptions),
