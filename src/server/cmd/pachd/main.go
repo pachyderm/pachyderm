@@ -553,6 +553,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env,
 			env.Config().PachdPodName,
 			nil,
+			env.GetDBClient(),
 		))
 		return nil
 	}); err != nil {
@@ -783,6 +784,7 @@ func doFullMode(config interface{}) (retErr error) {
 				env,
 				env.Config().PachdPodName,
 				nil,
+				env.GetDBClient(),
 			))
 			return nil
 		}); err != nil {
