@@ -38,10 +38,8 @@ const useImageProcessingCleanup = () => {
   } = useDeleteRepo(`images_${tutorialId}`);
 
   const cleanupImageProcessing = useCallback(async () => {
-    if (
-      pipelines?.find((pipeline) => `montage_${tutorialId}` === pipeline?.name)
-    ) {
-      await deletePipelineMontage({
+    const callDeletePipelineMontage = () =>
+      deletePipelineMontage({
         variables: {
           args: {
             name: `montage_${tutorialId}`,
@@ -49,11 +47,9 @@ const useImageProcessingCleanup = () => {
           },
         },
       });
-    }
-    if (
-      pipelines?.find((pipeline) => `edges_${tutorialId}` === pipeline?.name)
-    ) {
-      await deletePipelineEdges({
+
+    const callDeletePipelineEdges = () =>
+      deletePipelineEdges({
         variables: {
           args: {
             name: `edges_${tutorialId}`,
@@ -61,9 +57,9 @@ const useImageProcessingCleanup = () => {
           },
         },
       });
-    }
-    if (repos?.find((repo) => `images_${tutorialId}` === repo?.name)) {
-      await deleteRepoImages({
+
+    const callDeleteRepoImages = () =>
+      deleteRepoImages({
         variables: {
           args: {
             repo: {name: `images_${tutorialId}`},
@@ -71,6 +67,19 @@ const useImageProcessingCleanup = () => {
           },
         },
       });
+
+    if (
+      pipelines?.find((pipeline) => `montage_${tutorialId}` === pipeline?.name)
+    ) {
+      callDeletePipelineMontage()
+        .then(callDeletePipelineEdges)
+        .then(callDeleteRepoImages);
+    } else if (
+      pipelines?.find((pipeline) => `edges_${tutorialId}` === pipeline?.name)
+    ) {
+      callDeletePipelineEdges().then(callDeleteRepoImages);
+    } else if (repos?.find((repo) => `images_${tutorialId}` === repo?.name)) {
+      callDeleteRepoImages();
     }
     onCloseTutorial('image-processing');
   }, [
