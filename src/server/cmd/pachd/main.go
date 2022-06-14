@@ -214,8 +214,8 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(externalServer.Server, authAPIServer.APIServer)
+			env.SetAuthServer(authAPIServer.APIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -323,8 +323,9 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer.APIServer)
+			env.SetAuthServer(authAPIServer.APIServer)
+			bootstrappers = append(bootstrappers, authAPIServer.EnvBootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -475,8 +476,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 		if err != nil {
 			return err
 		}
-		authclient.RegisterAPIServer(server.Server, authAPIServer)
-		env.SetAuthServer(authAPIServer)
+		authclient.RegisterAPIServer(server.Server, authAPIServer.APIServer)
+		env.SetAuthServer(authAPIServer.APIServer)
 		return nil
 	}); err != nil {
 		return err
@@ -679,8 +680,8 @@ func doFullMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(externalServer.Server, authAPIServer.APIServer)
+			env.SetAuthServer(authAPIServer.APIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -880,8 +881,9 @@ func doFullMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer.APIServer)
+			env.SetAuthServer(authAPIServer.APIServer)
+			bootstrappers = append(bootstrappers, authAPIServer.EnvBootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -898,6 +900,11 @@ func doFullMode(config interface{}) (retErr error) {
 			}); err != nil {
 				return err
 			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
+			return nil
+		}); err != nil {
+			return err
 		}
 		var transactionAPIServer txnserver.APIServer
 		if err := logGRPCServerSetup("Transaction API", func() error {
@@ -1113,8 +1120,8 @@ func doPausedMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(externalServer.Server, authAPIServer.APIServer)
+			env.SetAuthServer(authAPIServer.APIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -1224,8 +1231,8 @@ func doPausedMode(config interface{}) (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(internalServer.Server, authAPIServer.APIServer)
+			env.SetAuthServer(authAPIServer.APIServer)
 			return nil
 		}); err != nil {
 			return err

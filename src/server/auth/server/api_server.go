@@ -83,8 +83,13 @@ type apiServer struct {
 	watchesEnabled bool
 }
 
+type InternalAuthServer struct {
+	APIServer    authiface.APIServer
+	EnvBootstrap func(context.Context) error
+}
+
 // NewAuthServer returns an implementation of auth.APIServer.
-func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bool) (authiface.APIServer, error) {
+func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bool) (InternalAuthServer, error) {
 	oidcStates := col.NewEtcdCollection(
 		env.EtcdClient,
 		path.Join(oidcAuthnPrefix),
@@ -124,15 +129,18 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 
 	s.deleteExpiredTokensRoutine()
 
-	return s, nil
+	return InternalAuthServer{
+		APIServer:    s,
+		EnvBootstrap: s.envBootstrap,
+	}, nil
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) {
+func (a *apiServer) envBootstrap(ctx context.Context) error {
 	if a.env.Config.AuthRootToken == "" {
-		return
+		return nil
 	}
 	a.env.Logger.Info("Started to configure auth server via environment")
-	if err := backoff.RetryUntilCancel(ctx, func() error {
+	if err := func() error {
 		if _, err := a.Activate(ctx, &auth.ActivateRequest{
 			RootToken: a.env.Config.AuthRootToken,
 		}); err != nil {
@@ -155,10 +163,11 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 			}
 			return nil
 		}
-	}, backoff.RetryEvery(5*time.Second).For(3*time.Minute), nil); err != nil {
-		panic(fmt.Errorf("Failed to configure the auth server via environment: %v", errors.EnsureStack(err)))
+	}(); err != nil {
+		return errors.Errorf("configure the auth server via environment: %v", errors.EnsureStack(err))
 	}
 	a.env.Logger.Info("Successfully configured auth server via environment")
+	return nil
 }
 
 func waitForError(name string, required bool, cb func() error) {

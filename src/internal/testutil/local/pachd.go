@@ -172,14 +172,14 @@ func RunLocal() (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err := authserver.NewAuthServer(
+			authServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
 				true, requireNoncriticalServers, true)
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
+			authclient.RegisterAPIServer(externalServer.Server, authServer.APIServer)
+			env.SetAuthServer(authServer.APIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -302,7 +302,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err := authserver.NewAuthServer(
+			authServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
 				false,
 				requireNoncriticalServers,
@@ -311,7 +311,7 @@ func RunLocal() (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
+			authclient.RegisterAPIServer(internalServer.Server, authServer.APIServer)
 			return nil
 		}); err != nil {
 			return err
