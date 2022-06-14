@@ -1,8 +1,10 @@
 package minikubetestenv
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,7 +20,6 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -35,9 +36,9 @@ const (
 )
 
 var (
-	mu sync.Mutex // defensively lock around helm calls
-
-	computedPachAddress *grpcutil.PachdAddress
+	mu           sync.Mutex // defensively lock around helm calls
+	hostOverride *string    = flag.String("testenv.host", "", "override the default host used for testenv clusters")
+	basePort     *int       = flag.Int("testenv.baseport", 0, "alternative base port for testenv to begin assigning clusters from")
 )
 
 type DeployOpts struct {
@@ -85,20 +86,22 @@ func helmChartLocalPath(t testing.TB) string {
 }
 
 func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
-	if computedPachAddress == nil {
-		cfg, err := config.Read(true, true)
-		require.NoError(t, err)
-		_, context, err := cfg.ActiveContext(false)
-		require.NoError(t, err)
-		computedPachAddress, err = client.GetUserMachineAddr(context)
-		require.NoError(t, err)
-		if computedPachAddress == nil {
-			copy := grpcutil.DefaultPachdAddress
-			computedPachAddress = &copy
+	addr := grpcutil.DefaultPachdAddress
+	if *hostOverride != "" {
+		addr.Host = *hostOverride
+	} else if exposedServiceType() == "NodePort" {
+		buf := new(bytes.Buffer)
+		cmd := testutil.BashCmd("minikube ip")
+		cmd.Stdout = buf
+		if err := cmd.Run(); err != nil {
+			t.Errorf("'minikube ip': %v. Try running tests with the 'testenv.host' argument", err)
 		}
+		addr.Host = buf.String()
 	}
-	copy := *computedPachAddress
-	return &copy
+	if *basePort != 0 {
+		addr.Port = uint16(*basePort)
+	}
+	return &addr
 }
 
 func exposedServiceType() string {
