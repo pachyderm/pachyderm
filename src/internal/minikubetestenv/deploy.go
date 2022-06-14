@@ -96,7 +96,7 @@ func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
 		if err := cmd.Run(); err != nil {
 			t.Errorf("'minikube ip': %v. Try running tests with the 'testenv.host' argument", err)
 		}
-		addr.Host = buf.String()
+		addr.Host = strings.TrimSpace(buf.String())
 	}
 	if *basePort != 0 {
 		addr.Port = uint16(*basePort)
