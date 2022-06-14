@@ -1,0 +1,4 @@
+pachd:
+  podPriorityClass: "highest"
+etcd:
+  podPriorityClass: "lowest"
