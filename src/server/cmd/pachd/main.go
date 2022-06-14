@@ -900,11 +900,6 @@ func doFullMode(config interface{}) (retErr error) {
 			}); err != nil {
 				return err
 			}
-			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
-			bootstrappers = append(bootstrappers, bootstrap)
-			return nil
-		}); err != nil {
-			return err
 		}
 		var transactionAPIServer txnserver.APIServer
 		if err := logGRPCServerSetup("Transaction API", func() error {
