@@ -194,6 +194,16 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := txnenv.New()
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -210,18 +220,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
@@ -304,6 +302,17 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	var bootstrappers []bootstrapFunc
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
 		txnEnv := txnenv.New()
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -320,19 +329,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
-			bootstrappers = append(bootstrappers, bootstrap)
-			return nil
-		}); err != nil {
-			return err
-		}
-
 		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
@@ -664,18 +660,15 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
-		if !env.Config().EnterpriseMember {
-			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer, _ := identity_server.NewIdentityServer(
-					identity_server.EnvFromServiceEnv(env),
-					true,
-				)
-				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-				return nil
-			}); err != nil {
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
 				return err
 			}
-
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
@@ -690,6 +683,19 @@ func doFullMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
+		}
+		if !env.Config().EnterpriseMember {
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer, _ := identity_server.NewIdentityServer(
+					identity_server.EnvFromServiceEnv(env),
+					true,
+				)
+				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+				return nil
+			}); err != nil {
+				return err
+			}
+
 		}
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
@@ -748,16 +754,6 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
 			env.SetEnterpriseServer(enterpriseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -861,18 +857,16 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if !env.Config().EnterpriseMember {
-			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer, bootstrap := identity_server.NewIdentityServer(
-					identity_server.EnvFromServiceEnv(env),
-					false,
-				)
-				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
-				bootstrappers = append(bootstrappers, bootstrap)
-				return nil
-			}); err != nil {
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
 				return err
 			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
+			return nil
+		}); err != nil {
+			return err
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
@@ -890,6 +884,19 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if !env.Config().EnterpriseMember {
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer, bootstrap := identity_server.NewIdentityServer(
+					identity_server.EnvFromServiceEnv(env),
+					false,
+				)
+				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+				bootstrappers = append(bootstrappers, bootstrap)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
 		var transactionAPIServer txnserver.APIServer
 		if err := logGRPCServerSetup("Transaction API", func() error {
 			transactionAPIServer, err = txnserver.NewAPIServer(
@@ -900,17 +907,6 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
-			bootstrappers = append(bootstrappers, bootstrap)
 			return nil
 		}); err != nil {
 			return err
