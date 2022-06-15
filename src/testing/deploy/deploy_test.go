@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func FailTestOnPurpose(t *testing.T) {
+func TestFailOnPurpose(t *testing.T) {
 	t.Logf("Testing fail")
 	t.Fail()
 }
