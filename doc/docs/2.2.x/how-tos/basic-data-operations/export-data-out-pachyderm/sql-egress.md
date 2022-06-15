@@ -85,7 +85,7 @@ Append an egress section to your pipeline specification file, then fill in:
                 "url": "snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH",
                 "file_format": {
                     "type": "CSV",
-                    "columns": ["foo", "bar"]å
+                    "columns": ["foo", "bar"]
                 },
                 "secret": {
                     "name": "snowflakesecret",
