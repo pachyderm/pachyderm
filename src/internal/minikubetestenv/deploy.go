@@ -91,8 +91,7 @@ func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
 	if *hostOverride != "" {
 		addr.Host = *hostOverride
 	} else if exposedServiceType() == "NodePort" {
-		in := new(bytes.Buffer)
-		in.WriteString("minikube ip")
+		in := strings.NewReader("minikube ip")
 		out := new(bytes.Buffer)
 		cmd := exec.Command("/bin/bash")
 		cmd.Stdin = in
