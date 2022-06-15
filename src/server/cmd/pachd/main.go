@@ -79,6 +79,7 @@ func init() {
 
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
@@ -137,6 +138,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
 
+	if env.Config().LogFormat == "json" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	}
+
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
@@ -155,7 +160,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -424,6 +429,11 @@ func doSidecarMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-sidecar", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "json" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -582,6 +592,11 @@ func doFullMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "json" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}

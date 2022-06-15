@@ -27,6 +27,7 @@ package cmds
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,6 +53,24 @@ const badJSON2 = `{
     "d": 3452.36456,
 }
 `
+
+const (
+	datum    = "datum"
+	job      = "job"
+	pipeline = "pipeline"
+	secret   = "secret"
+
+	create  = "create"
+	delete  = "delete"
+	edit    = "edit"
+	inspect = "inspect"
+	list    = "list"
+	restart = "restart"
+	start   = "start"
+	stop    = "stop"
+	update  = "update"
+	wait    = "wait"
+)
 
 func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 	if testing.Short() {
@@ -826,4 +845,82 @@ func TestJsonnetPipelineTemplateError(t *testing.T) {
 		echo "${createpipeline_stderr}" | match 'NaN is not a base 10 integer'
 		pachctl list pipeline | match -v foo-pipeline
 		`).Run())
+}
+
+// TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
+// A template is filled in that calls the help flag and the output is compared. It seems like 'match'
+// is unable to compare the outputs correctly, but we can use diff here which returns an exit code of 0
+// if there is no difference.
+func TestSynonyms(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	synonymCheckTemplate := `
+		pachctl {{VERB}} {{RESOURCE_SYNONYM}} -h > synonym.txt
+		pachctl {{VERB}} {{RESOURCE}} -h > singular.txt
+		diff synonym.txt singular.txt
+		rm synonym.txt singular.txt
+	`
+
+	resources := resourcesMap()
+	synonyms := synonymsMap()
+
+	for resource, verbs := range resources {
+		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
+		withResources := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
+
+		for _, verb := range verbs {
+			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
+			t.Logf("Testing %s %s -h\n", verb, resource)
+			require.NoError(t, tu.BashCmd(synonymCommand).Run())
+		}
+	}
+}
+
+// TestSynonymsDocs is like TestSynonyms except it only tests commands registered by CreateDocsAliases.
+func TestSynonymsDocs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	synonymCheckTemplate := `
+		pachctl {{RESOURCE_SYNONYM}} -h > synonym.txt
+		pachctl {{RESOURCE}} -h > singular.txt
+		diff synonym.txt singular.txt
+		rm synonym.txt singular.txt
+	`
+
+	synonyms := synonymsMap()
+
+	for resource := range synonyms {
+		if resource == "secret" {
+			// no help doc defined for secret yet.
+			continue
+		}
+
+		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
+		synonymCommand := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
+
+		t.Logf("Testing %s -h\n", resource)
+		require.NoError(t, tu.BashCmd(synonymCommand).Run())
+	}
+}
+
+func resourcesMap() map[string][]string {
+	return map[string][]string{
+		datum:    {inspect, list, restart},
+		job:      {delete, inspect, list, stop, wait},
+		pipeline: {create, delete, edit, inspect, list, start, stop, update},
+		secret:   {create, delete, inspect, list},
+	}
+}
+
+func synonymsMap() map[string]string {
+	return map[string]string{
+		datum:    datums,
+		job:      jobs,
+		pipeline: pipelines,
+		secret:   secrets,
+	}
 }

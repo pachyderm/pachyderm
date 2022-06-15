@@ -26,11 +26,8 @@ import (
 )
 
 func main() {
-	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
-
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
 }
 
@@ -38,6 +35,11 @@ func do(config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+
+	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	if env.Config().LogFormat == "json" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	}
 
 	// Enable cloud profilers if the configuration allows.
 	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
