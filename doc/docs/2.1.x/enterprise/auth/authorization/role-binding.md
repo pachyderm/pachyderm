@@ -41,14 +41,14 @@ This chapter will detail how to:
     For example, grant reader access to all repos to a specific group:
     ```yaml
      pachd:
-        pachAuthClusterRoleBindings: |
+        pachAuthClusterRoleBindings:
             group:data-scientists:
             - repoReader
     ```
     Or, give the user `paul@company.com` the clusterAdmin role, and the robot user `wallie` logReader rights on the cluster. 
     ```yaml
      pachd:
-        pachAuthClusterRoleBindings: |
+        pachAuthClusterRoleBindings:
             user: paul@company.com:
             - clusterAdmin
             robot:wallie:

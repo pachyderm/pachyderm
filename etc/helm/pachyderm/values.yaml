@@ -384,7 +384,7 @@ pachd:
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   # set the initial pachyderm cluster role bindings, mapping a user to their list of roles
   # ex.
-  # pachAuthClusterRoleBindings: |
+  # pachAuthClusterRoleBindings:
   #   robot:wallie:
   #   - repoReader
   #   robot:eve:
