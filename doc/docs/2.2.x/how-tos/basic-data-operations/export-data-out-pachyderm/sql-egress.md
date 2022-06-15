@@ -62,7 +62,7 @@ Append an egress section to your pipeline specification file, then fill in:
     ===============
     string | 1
     text!  | 2
-  
+    ```
 
 !!! Example
         ```json
