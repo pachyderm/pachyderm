@@ -1,9 +1,9 @@
-FROM golang:1.17.3
+FROM golang:1.17.6
 
 WORKDIR /go/src/app
 COPY src/map.go .
 
-RUN go get -d -v ./...
-RUN go install -v ./...
+RUN go build map.go
+RUN chmod +x map && mv map /go/bin/app
 
 CMD ["app"]

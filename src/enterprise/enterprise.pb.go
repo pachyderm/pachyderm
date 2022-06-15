@@ -58,6 +58,34 @@ func (State) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_33f079c38c86fe97, []int{0}
 }
 
+type PauseStatusResponse_PauseStatus int32
+
+const (
+	PauseStatusResponse_UNPAUSED         PauseStatusResponse_PauseStatus = 0
+	PauseStatusResponse_PARTIALLY_PAUSED PauseStatusResponse_PauseStatus = 1
+	PauseStatusResponse_PAUSED           PauseStatusResponse_PauseStatus = 2
+)
+
+var PauseStatusResponse_PauseStatus_name = map[int32]string{
+	0: "UNPAUSED",
+	1: "PARTIALLY_PAUSED",
+	2: "PAUSED",
+}
+
+var PauseStatusResponse_PauseStatus_value = map[string]int32{
+	"UNPAUSED":         0,
+	"PARTIALLY_PAUSED": 1,
+	"PAUSED":           2,
+}
+
+func (x PauseStatusResponse_PauseStatus) String() string {
+	return proto.EnumName(PauseStatusResponse_PauseStatus_name, int32(x))
+}
+
+func (PauseStatusResponse_PauseStatus) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{19, 0}
+}
+
 // LicenseRecord is the record we store in etcd for a Pachyderm enterprise
 // token that has been provided to a Pachyderm license server
 type LicenseRecord struct {
@@ -774,8 +802,251 @@ func (m *DeactivateResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_DeactivateResponse proto.InternalMessageInfo
 
+type PauseRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PauseRequest) Reset()         { *m = PauseRequest{} }
+func (m *PauseRequest) String() string { return proto.CompactTextString(m) }
+func (*PauseRequest) ProtoMessage()    {}
+func (*PauseRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{14}
+}
+func (m *PauseRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PauseRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PauseRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PauseRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PauseRequest.Merge(m, src)
+}
+func (m *PauseRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *PauseRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_PauseRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PauseRequest proto.InternalMessageInfo
+
+type PauseResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PauseResponse) Reset()         { *m = PauseResponse{} }
+func (m *PauseResponse) String() string { return proto.CompactTextString(m) }
+func (*PauseResponse) ProtoMessage()    {}
+func (*PauseResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{15}
+}
+func (m *PauseResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PauseResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PauseResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PauseResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PauseResponse.Merge(m, src)
+}
+func (m *PauseResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *PauseResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_PauseResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PauseResponse proto.InternalMessageInfo
+
+type UnpauseRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UnpauseRequest) Reset()         { *m = UnpauseRequest{} }
+func (m *UnpauseRequest) String() string { return proto.CompactTextString(m) }
+func (*UnpauseRequest) ProtoMessage()    {}
+func (*UnpauseRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{16}
+}
+func (m *UnpauseRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UnpauseRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UnpauseRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UnpauseRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnpauseRequest.Merge(m, src)
+}
+func (m *UnpauseRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *UnpauseRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnpauseRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnpauseRequest proto.InternalMessageInfo
+
+type UnpauseResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *UnpauseResponse) Reset()         { *m = UnpauseResponse{} }
+func (m *UnpauseResponse) String() string { return proto.CompactTextString(m) }
+func (*UnpauseResponse) ProtoMessage()    {}
+func (*UnpauseResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{17}
+}
+func (m *UnpauseResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UnpauseResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UnpauseResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *UnpauseResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UnpauseResponse.Merge(m, src)
+}
+func (m *UnpauseResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *UnpauseResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_UnpauseResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UnpauseResponse proto.InternalMessageInfo
+
+type PauseStatusRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PauseStatusRequest) Reset()         { *m = PauseStatusRequest{} }
+func (m *PauseStatusRequest) String() string { return proto.CompactTextString(m) }
+func (*PauseStatusRequest) ProtoMessage()    {}
+func (*PauseStatusRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{18}
+}
+func (m *PauseStatusRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PauseStatusRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PauseStatusRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PauseStatusRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PauseStatusRequest.Merge(m, src)
+}
+func (m *PauseStatusRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *PauseStatusRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_PauseStatusRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PauseStatusRequest proto.InternalMessageInfo
+
+type PauseStatusResponse struct {
+	Status               PauseStatusResponse_PauseStatus `protobuf:"varint,1,opt,name=status,proto3,enum=enterprise_v2.PauseStatusResponse_PauseStatus" json:"status,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
+}
+
+func (m *PauseStatusResponse) Reset()         { *m = PauseStatusResponse{} }
+func (m *PauseStatusResponse) String() string { return proto.CompactTextString(m) }
+func (*PauseStatusResponse) ProtoMessage()    {}
+func (*PauseStatusResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_33f079c38c86fe97, []int{19}
+}
+func (m *PauseStatusResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *PauseStatusResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_PauseStatusResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *PauseStatusResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PauseStatusResponse.Merge(m, src)
+}
+func (m *PauseStatusResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *PauseStatusResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_PauseStatusResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PauseStatusResponse proto.InternalMessageInfo
+
+func (m *PauseStatusResponse) GetStatus() PauseStatusResponse_PauseStatus {
+	if m != nil {
+		return m.Status
+	}
+	return PauseStatusResponse_UNPAUSED
+}
+
 func init() {
 	proto.RegisterEnum("enterprise_v2.State", State_name, State_value)
+	proto.RegisterEnum("enterprise_v2.PauseStatusResponse_PauseStatus", PauseStatusResponse_PauseStatus_name, PauseStatusResponse_PauseStatus_value)
 	proto.RegisterType((*LicenseRecord)(nil), "enterprise_v2.LicenseRecord")
 	proto.RegisterType((*EnterpriseConfig)(nil), "enterprise_v2.EnterpriseConfig")
 	proto.RegisterType((*EnterpriseRecord)(nil), "enterprise_v2.EnterpriseRecord")
@@ -790,52 +1061,67 @@ func init() {
 	proto.RegisterType((*HeartbeatResponse)(nil), "enterprise_v2.HeartbeatResponse")
 	proto.RegisterType((*DeactivateRequest)(nil), "enterprise_v2.DeactivateRequest")
 	proto.RegisterType((*DeactivateResponse)(nil), "enterprise_v2.DeactivateResponse")
+	proto.RegisterType((*PauseRequest)(nil), "enterprise_v2.PauseRequest")
+	proto.RegisterType((*PauseResponse)(nil), "enterprise_v2.PauseResponse")
+	proto.RegisterType((*UnpauseRequest)(nil), "enterprise_v2.UnpauseRequest")
+	proto.RegisterType((*UnpauseResponse)(nil), "enterprise_v2.UnpauseResponse")
+	proto.RegisterType((*PauseStatusRequest)(nil), "enterprise_v2.PauseStatusRequest")
+	proto.RegisterType((*PauseStatusResponse)(nil), "enterprise_v2.PauseStatusResponse")
 }
 
 func init() { proto.RegisterFile("enterprise/enterprise.proto", fileDescriptor_33f079c38c86fe97) }
 
 var fileDescriptor_33f079c38c86fe97 = []byte{
-	// 636 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x55, 0xcb, 0x6e, 0xd3, 0x40,
-	0x14, 0xad, 0x93, 0xbe, 0x72, 0xab, 0x24, 0xce, 0xb4, 0x42, 0xc1, 0xa0, 0xb4, 0x58, 0x42, 0x2d,
-	0x15, 0x72, 0x50, 0x40, 0x2c, 0x11, 0x6e, 0xeb, 0xb6, 0x91, 0x4a, 0xa9, 0xdc, 0x08, 0x21, 0x36,
-	0xc6, 0xb1, 0x6f, 0x92, 0x11, 0xa9, 0xc7, 0x78, 0xa6, 0x11, 0x7c, 0x08, 0x5b, 0xbe, 0x82, 0x05,
-	0x9f, 0xc0, 0x92, 0x4f, 0x40, 0xfd, 0x12, 0x54, 0xbf, 0xe3, 0xa4, 0xd0, 0x05, 0x0b, 0x76, 0x93,
-	0x33, 0xe7, 0xde, 0x73, 0xe6, 0xde, 0x93, 0x04, 0xee, 0xa1, 0x27, 0x30, 0xf0, 0x03, 0xca, 0xb1,
-	0x9d, 0x1d, 0x35, 0x3f, 0x60, 0x82, 0x91, 0x6a, 0x86, 0x58, 0x93, 0x8e, 0xb2, 0x39, 0x64, 0x6c,
-	0x38, 0xc6, 0x76, 0x78, 0xd9, 0xbf, 0x1c, 0xb4, 0x05, 0xbd, 0x40, 0x2e, 0xec, 0x0b, 0x3f, 0xe2,
-	0xab, 0x1e, 0x54, 0x4f, 0xa8, 0x83, 0x1e, 0x47, 0x13, 0x1d, 0x16, 0xb8, 0x64, 0x1b, 0xea, 0xb6,
-	0x23, 0xe8, 0xc4, 0x16, 0x94, 0x79, 0x96, 0xc3, 0x5c, 0x6c, 0x4a, 0x5b, 0xd2, 0x4e, 0xc5, 0xac,
-	0x65, 0xf0, 0x3e, 0x73, 0x91, 0x3c, 0x83, 0x15, 0xfc, 0xe4, 0xd3, 0x00, 0x79, 0xb3, 0xb4, 0x25,
-	0xed, 0xac, 0x75, 0x14, 0x2d, 0x12, 0xd3, 0x12, 0x31, 0xad, 0x97, 0x88, 0x99, 0x09, 0x55, 0xb5,
-	0x41, 0x36, 0x52, 0x87, 0xfb, 0xcc, 0x1b, 0xd0, 0x21, 0x79, 0x08, 0xb5, 0x71, 0xe4, 0xc1, 0xe2,
-	0x18, 0x4c, 0x30, 0x88, 0x15, 0xab, 0x31, 0x7a, 0x1e, 0x82, 0xa4, 0x06, 0x25, 0xea, 0x86, 0x5a,
-	0x15, 0xb3, 0x44, 0x5d, 0x72, 0x07, 0x96, 0x39, 0x3a, 0x01, 0x8a, 0x66, 0x39, 0xc4, 0xe2, 0x4f,
-	0xea, 0x77, 0x29, 0xaf, 0x11, 0x3f, 0xeb, 0x39, 0xac, 0xc4, 0xdd, 0xc2, 0xe6, 0x6b, 0x9d, 0xfb,
-	0xda, 0xd4, 0xa4, 0xb4, 0xa9, 0x29, 0x98, 0x09, 0x99, 0xe8, 0x50, 0x1b, 0xdb, 0x5c, 0x58, 0x23,
-	0xb4, 0x03, 0xd1, 0x47, 0x5b, 0xdc, 0xe2, 0xb1, 0xd5, 0xeb, 0x8a, 0xe3, 0xa4, 0x80, 0x3c, 0x02,
-	0x39, 0xad, 0xb6, 0x06, 0x36, 0x1d, 0xa3, 0x1b, 0x3a, 0x5e, 0x35, 0xeb, 0x29, 0x7e, 0x18, 0xc2,
-	0xaa, 0x0e, 0x95, 0x1e, 0xfb, 0x80, 0x5e, 0xd7, 0x1b, 0xb0, 0xfc, 0x80, 0xa5, 0xdb, 0x0f, 0xf8,
-	0x3d, 0xd4, 0xf5, 0x68, 0x51, 0x68, 0xe2, 0xc7, 0x4b, 0xe4, 0xe2, 0x5f, 0xcf, 0x97, 0x80, 0x9c,
-	0x29, 0x70, 0x9f, 0x79, 0x1c, 0xd5, 0x06, 0xd4, 0x8f, 0x50, 0x9c, 0x8b, 0x4c, 0x55, 0xfd, 0x22,
-	0x81, 0x9c, 0x61, 0x11, 0x8f, 0xec, 0xc2, 0x12, 0xbf, 0x06, 0x42, 0x07, 0xb5, 0xce, 0x46, 0x61,
-	0x09, 0x11, 0x39, 0xa2, 0x90, 0xc7, 0xb0, 0x48, 0xbd, 0x01, 0x8b, 0x07, 0xde, 0x2c, 0x50, 0xd3,
-	0x39, 0x99, 0x21, 0x6b, 0x5e, 0x6e, 0xcb, 0xf3, 0x72, 0xab, 0x2a, 0xd0, 0x3c, 0x42, 0xa1, 0x4f,
-	0x81, 0x89, 0xe7, 0xaf, 0x12, 0xdc, 0x9d, 0x73, 0xf9, 0xff, 0x98, 0x27, 0x20, 0xa7, 0xc1, 0x4a,
-	0x4c, 0xaf, 0x43, 0x23, 0x87, 0xc5, 0x0b, 0x59, 0x87, 0xc6, 0x01, 0xda, 0xd3, 0x41, 0x50, 0x37,
-	0x80, 0xe4, 0xc1, 0x88, 0xba, 0xfb, 0x12, 0x96, 0x42, 0xeb, 0x64, 0x15, 0x16, 0x4f, 0x5f, 0x9f,
-	0x1a, 0xf2, 0x02, 0x01, 0x58, 0xd6, 0xf7, 0x7b, 0xdd, 0x37, 0x86, 0x2c, 0x91, 0x35, 0x58, 0x31,
-	0xde, 0x9e, 0x75, 0x4d, 0xe3, 0x40, 0x2e, 0x91, 0x0d, 0x90, 0x8f, 0x0d, 0xdd, 0xec, 0xed, 0x19,
-	0x7a, 0xcf, 0x3a, 0xd4, 0xbb, 0x27, 0xc6, 0x81, 0x5c, 0xee, 0x7c, 0x2b, 0x43, 0x59, 0x3f, 0xeb,
-	0x92, 0x57, 0xb0, 0x9a, 0x24, 0x83, 0xb4, 0x0a, 0x4f, 0x2e, 0x84, 0x52, 0xd9, 0xbc, 0xf1, 0x3e,
-	0x7e, 0xc1, 0xc2, 0x75, 0xbb, 0x24, 0x40, 0x33, 0xed, 0x0a, 0x69, 0x9b, 0x69, 0x57, 0x4c, 0x9e,
-	0xba, 0x40, 0x46, 0xd0, 0x98, 0xd9, 0x2d, 0xd9, 0x9e, 0xad, 0x9b, 0x1b, 0x0d, 0x65, 0xe7, 0xef,
-	0xc4, 0x54, 0xe9, 0x0c, 0x2a, 0xd9, 0xd7, 0xbf, 0xe8, 0xac, 0xb8, 0x3f, 0x65, 0xeb, 0x66, 0x42,
-	0xda, 0xf1, 0x1c, 0x20, 0xdb, 0x1c, 0x29, 0x56, 0xcc, 0x6c, 0x5a, 0x79, 0xf0, 0x07, 0x46, 0xd2,
-	0x74, 0xef, 0xc5, 0x8f, 0xab, 0x96, 0xf4, 0xf3, 0xaa, 0x25, 0xfd, 0xba, 0x6a, 0x49, 0xef, 0x9e,
-	0x0c, 0xa9, 0x18, 0x5d, 0xf6, 0x35, 0x87, 0x5d, 0xb4, 0x7d, 0xdb, 0x19, 0x7d, 0x76, 0x31, 0xc8,
-	0x9f, 0x26, 0x9d, 0x36, 0x0f, 0x9c, 0xdc, 0x3f, 0x4e, 0x7f, 0x39, 0xfc, 0x1d, 0x7a, 0xfa, 0x3b,
-	0x00, 0x00, 0xff, 0xff, 0xe2, 0xc0, 0x4b, 0x59, 0x91, 0x06, 0x00, 0x00,
+	// 777 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x56, 0xcd, 0x6e, 0xda, 0x4c,
+	0x14, 0xc5, 0x10, 0xfe, 0x2e, 0x01, 0xcc, 0x04, 0x7d, 0xe2, 0x73, 0x52, 0x92, 0x58, 0xaa, 0x92,
+	0x46, 0x95, 0xa9, 0x68, 0xd5, 0x5d, 0xab, 0x3a, 0xc1, 0x49, 0xa8, 0x68, 0x8a, 0x0c, 0x89, 0xda,
+	0x6e, 0xa8, 0x31, 0x03, 0x58, 0x25, 0x36, 0xb5, 0x07, 0xd4, 0x3e, 0x48, 0x77, 0x55, 0x9e, 0xa3,
+	0x8f, 0xd0, 0x65, 0x1f, 0xa1, 0xca, 0x93, 0x54, 0xd8, 0xe3, 0x5f, 0xc8, 0xcf, 0xa2, 0x8b, 0xee,
+	0xc6, 0xe7, 0x9e, 0x7b, 0xee, 0x9d, 0x33, 0xf7, 0x26, 0xc0, 0x26, 0xd6, 0x09, 0x36, 0xa7, 0xa6,
+	0x66, 0xe1, 0x9a, 0x7f, 0x14, 0xa6, 0xa6, 0x41, 0x0c, 0x94, 0xf7, 0x91, 0xde, 0xbc, 0xce, 0x6d,
+	0x8f, 0x0c, 0x63, 0x34, 0xc1, 0x35, 0x3b, 0xd8, 0x9f, 0x0d, 0x6b, 0x44, 0xbb, 0xc4, 0x16, 0x51,
+	0x2e, 0xa7, 0x0e, 0x9f, 0xd7, 0x21, 0xdf, 0xd2, 0x54, 0xac, 0x5b, 0x58, 0xc6, 0xaa, 0x61, 0x0e,
+	0xd0, 0x1e, 0x14, 0x15, 0x95, 0x68, 0x73, 0x85, 0x68, 0x86, 0xde, 0x53, 0x8d, 0x01, 0xae, 0x30,
+	0x3b, 0xcc, 0x7e, 0x56, 0x2e, 0xf8, 0xf0, 0x91, 0x31, 0xc0, 0xe8, 0x19, 0xa4, 0xf1, 0x97, 0xa9,
+	0x66, 0x62, 0xab, 0x12, 0xdf, 0x61, 0xf6, 0x73, 0x75, 0x4e, 0x70, 0x8a, 0x09, 0x6e, 0x31, 0xa1,
+	0xeb, 0x16, 0x93, 0x5d, 0x2a, 0xaf, 0x00, 0x2b, 0x79, 0x1d, 0x1e, 0x19, 0xfa, 0x50, 0x1b, 0xa1,
+	0x87, 0x50, 0x98, 0x38, 0x3d, 0xf4, 0x2c, 0x6c, 0xce, 0xb1, 0x49, 0x2b, 0xe6, 0x29, 0xda, 0xb1,
+	0x41, 0x54, 0x80, 0xb8, 0x36, 0xb0, 0x6b, 0x65, 0xe5, 0xb8, 0x36, 0x40, 0xff, 0x41, 0xca, 0xc2,
+	0xaa, 0x89, 0x49, 0x25, 0x61, 0x63, 0xf4, 0x8b, 0xff, 0xc1, 0x04, 0x6b, 0xd0, 0x6b, 0x3d, 0x87,
+	0x34, 0x55, 0xb3, 0xc5, 0x73, 0xf5, 0x2d, 0x21, 0xe4, 0x94, 0x10, 0x72, 0x41, 0x76, 0xc9, 0x48,
+	0x84, 0xc2, 0x44, 0xb1, 0x48, 0x6f, 0x8c, 0x15, 0x93, 0xf4, 0xb1, 0x42, 0xee, 0x71, 0xd9, 0xfc,
+	0x22, 0xe3, 0xd4, 0x4d, 0x40, 0x8f, 0x80, 0xf5, 0xb2, 0x7b, 0x43, 0x45, 0x9b, 0xe0, 0x81, 0xdd,
+	0x71, 0x46, 0x2e, 0x7a, 0xf8, 0xb1, 0x0d, 0xf3, 0x22, 0x64, 0xbb, 0xc6, 0x27, 0xac, 0x37, 0xf5,
+	0xa1, 0x11, 0x34, 0x98, 0xb9, 0xbf, 0xc1, 0x1f, 0xa1, 0x28, 0x3a, 0x0f, 0x85, 0x65, 0xfc, 0x79,
+	0x86, 0x2d, 0xf2, 0xb7, 0xfd, 0x45, 0xc0, 0xfa, 0x15, 0xac, 0xa9, 0xa1, 0x5b, 0x98, 0x2f, 0x41,
+	0xf1, 0x04, 0x93, 0x0e, 0xf1, 0xab, 0xf2, 0xdf, 0x18, 0x60, 0x7d, 0xcc, 0xe1, 0xa1, 0x03, 0x48,
+	0x5a, 0x0b, 0xc0, 0xee, 0xa0, 0x50, 0x2f, 0x47, 0x1e, 0xc1, 0x21, 0x3b, 0x14, 0xf4, 0x18, 0xd6,
+	0x34, 0x7d, 0x68, 0x50, 0xc3, 0x2b, 0x11, 0xaa, 0xe7, 0x93, 0x6c, 0xb3, 0x56, 0xcd, 0x6d, 0x62,
+	0xd5, 0xdc, 0xf2, 0x1c, 0x54, 0x4e, 0x30, 0x11, 0x43, 0xa0, 0xdb, 0xf3, 0x15, 0x03, 0xff, 0xaf,
+	0x08, 0xfe, 0x3b, 0xcd, 0x23, 0x60, 0xbd, 0xc1, 0x72, 0x9b, 0xde, 0x80, 0x52, 0x00, 0xa3, 0x0f,
+	0xb2, 0x01, 0xa5, 0x06, 0x56, 0xc2, 0x83, 0xc0, 0x97, 0x01, 0x05, 0x41, 0x4a, 0x2d, 0xc0, 0x7a,
+	0x5b, 0x99, 0x59, 0x1e, 0xab, 0x08, 0x79, 0xfa, 0x4d, 0x09, 0x2c, 0x14, 0xce, 0xf5, 0x69, 0x90,
+	0x52, 0x82, 0xa2, 0x87, 0x50, 0x52, 0x19, 0x90, 0x9d, 0xb5, 0x70, 0x61, 0x66, 0xb9, 0xc4, 0xef,
+	0x0c, 0x6c, 0x84, 0x60, 0x6a, 0xe5, 0x31, 0xa4, 0x2c, 0x1b, 0xa1, 0x5e, 0x0a, 0x11, 0x83, 0x56,
+	0xe4, 0x84, 0x30, 0x9a, 0xcd, 0xbf, 0x80, 0x5c, 0x00, 0x46, 0xeb, 0x90, 0x39, 0x3f, 0x6b, 0x8b,
+	0xe7, 0x1d, 0xa9, 0xc1, 0xc6, 0x50, 0x19, 0xd8, 0xb6, 0x28, 0x77, 0x9b, 0x62, 0xab, 0xf5, 0xbe,
+	0x47, 0x51, 0x06, 0x01, 0xa4, 0xe8, 0x39, 0x7e, 0xf0, 0x0a, 0x92, 0xf6, 0xab, 0xa1, 0x0c, 0xac,
+	0x9d, 0xbd, 0x3d, 0x93, 0xd8, 0xd8, 0x22, 0x2c, 0x1e, 0x75, 0x9b, 0x17, 0x12, 0xcb, 0xa0, 0x1c,
+	0xa4, 0xa5, 0x77, 0xed, 0xa6, 0xbc, 0xe0, 0x2e, 0xd4, 0x4e, 0x25, 0x51, 0xee, 0x1e, 0x4a, 0x62,
+	0xb7, 0x77, 0x2c, 0x36, 0x5b, 0x52, 0x83, 0x4d, 0xd4, 0xaf, 0x92, 0x90, 0x10, 0xdb, 0x4d, 0xf4,
+	0x06, 0x32, 0xee, 0x52, 0xa0, 0x6a, 0xe4, 0x32, 0x91, 0x7d, 0xe4, 0xb6, 0x6f, 0x8c, 0x53, 0x2f,
+	0x63, 0x0b, 0x39, 0x77, 0x77, 0x96, 0xe4, 0x22, 0x8b, 0xb6, 0x24, 0x17, 0x5d, 0x3a, 0x3e, 0x86,
+	0xc6, 0x50, 0x5a, 0x1a, 0x6b, 0xb4, 0xb7, 0x9c, 0xb7, 0x72, 0x2b, 0xb8, 0xfd, 0xbb, 0x89, 0x5e,
+	0xa5, 0x36, 0x64, 0xfd, 0xbf, 0x7c, 0xd1, 0xce, 0xa2, 0xa3, 0xcb, 0xed, 0xdc, 0x4c, 0xf0, 0x14,
+	0x3b, 0x00, 0xfe, 0xd0, 0xa2, 0x68, 0xc6, 0xd2, 0x90, 0x73, 0xbb, 0xb7, 0x30, 0x3c, 0xd1, 0x06,
+	0x24, 0xed, 0xb9, 0x41, 0x9b, 0xab, 0x06, 0xcf, 0x95, 0xda, 0x5a, 0x1d, 0xf4, 0x54, 0x5e, 0x43,
+	0x9a, 0xae, 0x01, 0x7a, 0x10, 0xa1, 0x86, 0x17, 0x86, 0xab, 0xde, 0x14, 0xf6, 0xb4, 0x2e, 0xc2,
+	0x93, 0xbc, 0x7b, 0xdb, 0x42, 0x38, 0x9a, 0xfc, 0xdd, 0x3b, 0xc3, 0xc7, 0x0e, 0x5f, 0xfe, 0xbc,
+	0xae, 0x32, 0xbf, 0xae, 0xab, 0xcc, 0xef, 0xeb, 0x2a, 0xf3, 0xe1, 0xc9, 0x48, 0x23, 0xe3, 0x59,
+	0x5f, 0x50, 0x8d, 0xcb, 0xda, 0x54, 0x51, 0xc7, 0x5f, 0x07, 0xd8, 0x0c, 0x9e, 0xe6, 0xf5, 0x9a,
+	0x65, 0xaa, 0x81, 0x9f, 0x15, 0xfd, 0x94, 0xfd, 0xcf, 0xe6, 0xe9, 0x9f, 0x00, 0x00, 0x00, 0xff,
+	0xff, 0xa8, 0x80, 0x9b, 0x1e, 0x76, 0x08, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -861,6 +1147,11 @@ type APIClient interface {
 	// Deactivate removes a cluster's enterprise activation
 	// token and sets its enterprise state to NONE.
 	Deactivate(ctx context.Context, in *DeactivateRequest, opts ...grpc.CallOption) (*DeactivateResponse, error)
+	// Pause pauses the cluster.
+	Pause(ctx context.Context, in *PauseRequest, opts ...grpc.CallOption) (*PauseResponse, error)
+	// Unpause unpauses the cluser.
+	Unpause(ctx context.Context, in *UnpauseRequest, opts ...grpc.CallOption) (*UnpauseResponse, error)
+	PauseStatus(ctx context.Context, in *PauseStatusRequest, opts ...grpc.CallOption) (*PauseStatusResponse, error)
 }
 
 type aPIClient struct {
@@ -916,6 +1207,33 @@ func (c *aPIClient) Deactivate(ctx context.Context, in *DeactivateRequest, opts 
 	return out, nil
 }
 
+func (c *aPIClient) Pause(ctx context.Context, in *PauseRequest, opts ...grpc.CallOption) (*PauseResponse, error) {
+	out := new(PauseResponse)
+	err := c.cc.Invoke(ctx, "/enterprise_v2.API/Pause", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) Unpause(ctx context.Context, in *UnpauseRequest, opts ...grpc.CallOption) (*UnpauseResponse, error) {
+	out := new(UnpauseResponse)
+	err := c.cc.Invoke(ctx, "/enterprise_v2.API/Unpause", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) PauseStatus(ctx context.Context, in *PauseStatusRequest, opts ...grpc.CallOption) (*PauseStatusResponse, error) {
+	out := new(PauseStatusResponse)
+	err := c.cc.Invoke(ctx, "/enterprise_v2.API/PauseStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 type APIServer interface {
 	// Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
@@ -929,6 +1247,11 @@ type APIServer interface {
 	// Deactivate removes a cluster's enterprise activation
 	// token and sets its enterprise state to NONE.
 	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
+	// Pause pauses the cluster.
+	Pause(context.Context, *PauseRequest) (*PauseResponse, error)
+	// Unpause unpauses the cluser.
+	Unpause(context.Context, *UnpauseRequest) (*UnpauseResponse, error)
+	PauseStatus(context.Context, *PauseStatusRequest) (*PauseStatusResponse, error)
 }
 
 // UnimplementedAPIServer can be embedded to have forward compatible implementations.
@@ -949,6 +1272,15 @@ func (*UnimplementedAPIServer) Heartbeat(ctx context.Context, req *HeartbeatRequ
 }
 func (*UnimplementedAPIServer) Deactivate(ctx context.Context, req *DeactivateRequest) (*DeactivateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deactivate not implemented")
+}
+func (*UnimplementedAPIServer) Pause(ctx context.Context, req *PauseRequest) (*PauseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Pause not implemented")
+}
+func (*UnimplementedAPIServer) Unpause(ctx context.Context, req *UnpauseRequest) (*UnpauseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Unpause not implemented")
+}
+func (*UnimplementedAPIServer) PauseStatus(ctx context.Context, req *PauseStatusRequest) (*PauseStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PauseStatus not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1045,6 +1377,60 @@ func _API_Deactivate_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_Pause_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).Pause(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/enterprise_v2.API/Pause",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).Pause(ctx, req.(*PauseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_Unpause_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnpauseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).Unpause(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/enterprise_v2.API/Unpause",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).Unpause(ctx, req.(*UnpauseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_PauseStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).PauseStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/enterprise_v2.API/PauseStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).PauseStatus(ctx, req.(*PauseStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "enterprise_v2.API",
 	HandlerType: (*APIServer)(nil),
@@ -1068,6 +1454,18 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Deactivate",
 			Handler:    _API_Deactivate_Handler,
+		},
+		{
+			MethodName: "Pause",
+			Handler:    _API_Pause_Handler,
+		},
+		{
+			MethodName: "Unpause",
+			Handler:    _API_Unpause_Handler,
+		},
+		{
+			MethodName: "PauseStatus",
+			Handler:    _API_PauseStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1607,6 +2005,173 @@ func (m *DeactivateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *PauseRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PauseRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PauseRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PauseResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PauseResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PauseResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *UnpauseRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UnpauseRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnpauseRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *UnpauseResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UnpauseResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UnpauseResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PauseStatusRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PauseStatusRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PauseStatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PauseStatusResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PauseStatusResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PauseStatusResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Status != 0 {
+		i = encodeVarintEnterprise(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintEnterprise(dAtA []byte, offset int, v uint64) int {
 	offset -= sovEnterprise(v)
 	base := offset
@@ -1849,6 +2414,81 @@ func (m *DeactivateResponse) Size() (n int) {
 	}
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *PauseRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *PauseResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UnpauseRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *UnpauseResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *PauseStatusRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *PauseStatusResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Status != 0 {
+		n += 1 + sovEnterprise(uint64(m.Status))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -3115,6 +3755,331 @@ func (m *DeactivateResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: DeactivateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *PauseRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PauseRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PauseRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *PauseResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PauseResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PauseResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UnpauseRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UnpauseRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UnpauseRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UnpauseResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UnpauseResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UnpauseResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *PauseStatusRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PauseStatusRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PauseStatusRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipEnterprise(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *PauseStatusResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowEnterprise
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: PauseStatusResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: PauseStatusResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Status", wireType)
+			}
+			m.Status = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowEnterprise
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Status |= PauseStatusResponse_PauseStatus(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipEnterprise(dAtA[iNdEx:])

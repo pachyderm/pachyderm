@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -20,16 +21,14 @@ func TestSetGetConfigBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	tu.ConfigureOIDCProvider(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
-
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	// Configure OIDC login
+	tu.ConfigureOIDCProvider(t, c)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -51,24 +50,23 @@ func TestIssuerNotLocalhost(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	tu.ConfigureOIDCProvider(t, c)
 
-	tu.ConfigureOIDCProvider(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// set the issuer to locahost:1658 so we don't need to set LocalhostIssuer = true
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:1658/",
+			Issuer: "http://localhost:1658/dex",
 		},
 	})
 	require.NoError(t, err)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://localhost:1658/",
+		Issuer:          "http://localhost:1658/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://localhost:1657/authorization-code/test",
@@ -91,10 +89,10 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
@@ -103,11 +101,11 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.GetConfiguration()))
 
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -128,7 +126,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.Configuration))
 
-	tu.ConfigureOIDCProvider(t)
+	tu.ConfigureOIDCProvider(t, c)
 
 	// Modify the configuration and make sure alice can't read it, but admin can
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -157,16 +155,15 @@ func TestConfigRestartAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	tu.ConfigureOIDCProvider(t, c)
 
-	tu.ConfigureOIDCProvider(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -234,7 +231,6 @@ func TestConfigRestartAuth(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	require.Equal(t, true, proto.Equal(conf, configResp.Configuration))
-	tu.DeleteAll(t)
 }
 
 // TestSetGetNilConfig tests that setting an empty config and setting a nil
@@ -243,16 +239,15 @@ func TestSetGetNilConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	tu.ConfigureOIDCProvider(t, c)
 
-	tu.ConfigureOIDCProvider(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Set a configuration
 	conf := &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "configtest",
 		ClientSecret:    "newsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/test",
@@ -278,5 +273,4 @@ func TestSetGetNilConfig(t *testing.T) {
 	require.NoError(t, err)
 	conf = proto.Clone(&authserver.DefaultOIDCConfig).(*auth.OIDCConfig)
 	require.Equal(t, true, proto.Equal(conf, configResp.Configuration))
-	tu.DeleteAll(t)
 }

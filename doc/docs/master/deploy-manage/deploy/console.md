@@ -8,7 +8,7 @@
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
-- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google_cloud_platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation).
+- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google-cloud-platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation).
 - To deploy locally, follow the instructions below.
 
 ## Deploy Locally
@@ -17,9 +17,9 @@ It details the additional steps required to install and access your Console.
       A local installation helps you learn
       some of the Pachyderm basics and experiment with the product. It is not designed to be a production environment.
 
-We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is your enterprise token and [a Kubernetes cluster running on your local environment](../../../getting_started/local_installation/#prerequisites).
+We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is your enterprise token and [a Kubernetes cluster running on your local environment](../../../getting-started/local-installation/#prerequisites).
 
-Follow the deployment instructions in our [Local Installation](../../../getting_started/local_installation/#deploy-pachyderms-latest-version-option-deploy-pachyderm-with-console) page.
+Follow the deployment instructions in our [Local Installation](../../../getting-started/local-installation/#deploy-pachyderm-community-edition-or-enterprise-with-console) page.
 You are all set!
 
 !!! Note
@@ -79,5 +79,5 @@ The deployment of Console in your favorite Cloud usually requires, at a minimum,
 You are all set! 
 You should land on the Projects page of Console.
 
-![Console Landing Page](../../../getting_started/images/console_landing_page.png)
+![Console Landing Page](../../../getting-started/images/console_landing_page.png)
 

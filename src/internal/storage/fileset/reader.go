@@ -78,5 +78,9 @@ func (fr *FileReader) Content(ctx context.Context, w io.Writer, opts ...chunk.Re
 
 // Hash returns the hash of the file.
 func (fr *FileReader) Hash(_ context.Context) ([]byte, error) {
-	return hashDataRefs(fr.idx.File.DataRefs)
+	var hashes [][]byte
+	for _, dataRef := range fr.idx.File.DataRefs {
+		hashes = append(hashes, dataRef.Hash)
+	}
+	return computeFileHash(hashes)
 }

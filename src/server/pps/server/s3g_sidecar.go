@@ -185,9 +185,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
-	router := s3.Router(driver, func() (*client.APIClient, error) {
-		return s.s.apiServer.env.GetPachClient(s.s.pachClient.Ctx()), nil // clones s.pachClient
-	})
+	router := s3.Router(driver, s.s.apiServer.env.GetPachClient)
 	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID), router)
 }
 

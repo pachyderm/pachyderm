@@ -57,7 +57,6 @@ func Check(t *testing.T, permString string) {
 	tr := track.NewTestTracker(t, db)
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	fileNames := Generate(permString)
-	averageBits = 12
 	topIdx := write(t, chunks, fileNames)
 	t.Run("Full", func(t *testing.T) {
 		expected := fileNames

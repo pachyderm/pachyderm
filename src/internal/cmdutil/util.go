@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mattn/go-isatty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/spf13/pflag"
@@ -80,4 +81,12 @@ func InteractiveConfirm() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// PrintStdinReminder will print a reminder if pachctl expects input on stdin, and stdin is a
+// terminal (and not a pipe from another command or file).
+func PrintStdinReminder() {
+	if fd := os.Stdin.Fd(); isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd) {
+		fmt.Fprintln(os.Stderr, "Reading from stdin.")
+	}
 }

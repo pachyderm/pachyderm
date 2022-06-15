@@ -546,7 +546,7 @@ func CheckRepoCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(check, "auth check repo")
+	return cmdutil.CreateAliases(check, "auth check repo", "repos")
 }
 
 // SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
@@ -573,7 +573,7 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAlias(setScope, "auth set repo")
+	return cmdutil.CreateAliases(setScope, "auth set repo", "repos")
 }
 
 // GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a resource
@@ -597,7 +597,7 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(get, "auth get repo")
+	return cmdutil.CreateAliases(get, "auth get repo", "repos")
 }
 
 // SetClusterRoleBindingCmd returns a cobra command that sets the roles for a user on a resource

@@ -120,6 +120,9 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
                         "labels": {
                             "type": "object"
                         },
@@ -177,6 +180,21 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "apiGRPCPort": {
+                            "type": "integer"
+                        },
+                        "identityPort": {
+                            "type": "integer"
+                        },
+                        "oidcPort": {
+                            "type": "integer"
+                        },
+                        "prometheusPort": {
+                            "type": "integer"
+                        },
+                        "s3GatewayPort": {
+                            "type": "integer"
+                        },
                         "type": {
                             "type": "string"
                         }
@@ -298,6 +316,9 @@
                 "postgresql": {
                     "type": "object",
                     "properties": {
+                        "identityDatabaseFullNameOverride": {
+                            "type": "string"
+                        },
                         "postgresqlDatabase": {
                             "type": "string"
                         },
@@ -317,6 +338,12 @@
                             "type": "string"
                         },
                         "postgresqlSSL": {
+                            "type": "string"
+                        },
+                        "postgresqlSSLCACert": {
+                            "type": "string"
+                        },
+                        "postgresqlSSLSecret": {
                             "type": "string"
                         },
                         "postgresqlUsername": {
@@ -385,6 +412,36 @@
                 "loki": {
                     "type": "object",
                     "properties": {
+                        "config": {
+                            "type": "object",
+                            "properties": {
+                                "limits_config": {
+                                    "type": "object",
+                                    "properties": {
+                                        "retention_period": {
+                                            "type": "string"
+                                        },
+                                        "retention_stream": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "period": {
+                                                        "type": "string"
+                                                    },
+                                                    "priority": {
+                                                        "type": "integer"
+                                                    },
+                                                    "selector": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         "persistence": {
                             "type": "object",
                             "properties": {
@@ -415,6 +472,44 @@
                             }
                         }
                     }
+                },
+                "promtail": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "object",
+                            "properties": {
+                                "lokiAddress": {
+                                    "type": "string"
+                                },
+                                "snippets": {
+                                    "type": "object",
+                                    "properties": {
+                                        "common": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "action": {
+                                                        "type": "string"
+                                                    },
+                                                    "source_labels": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "target_label": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -425,6 +520,9 @@
                     "type": "string"
                 },
                 "RotationTokenExpiry": {
+                    "type": "string"
+                },
+                "dexCredentialSecretName": {
                     "type": "string"
                 },
                 "issuerURI": {
@@ -543,6 +641,9 @@
                 "localhostIssuer": {
                     "type": "string"
                 },
+                "logFormat": {
+                    "type": "string"
+                },
                 "logLevel": {
                     "type": "string"
                 },
@@ -621,8 +722,26 @@
                 "service": {
                     "type": "object",
                     "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
+                        "apiGRPCPort": {
+                            "type": "integer"
+                        },
+                        "identityPort": {
+                            "type": "integer"
+                        },
                         "labels": {
                             "type": "object"
+                        },
+                        "oidcPort": {
+                            "type": "integer"
+                        },
+                        "prometheusPort": {
+                            "type": "integer"
+                        },
+                        "s3GatewayPort": {
+                            "type": "integer"
                         },
                         "type": {
                             "type": "string"
@@ -701,6 +820,12 @@
                         },
                         "backend": {
                             "type": "string"
+                        },
+                        "compactionShardCountThreshold": {
+                            "type": "integer"
+                        },
+                        "compactionShardSizeThreshold": {
+                            "type": "integer"
                         },
                         "google": {
                             "type": "object",
@@ -841,6 +966,9 @@
                 "annotations": {
                     "type": "object"
                 },
+                "defaultPoolSize": {
+                    "type": "integer"
+                },
                 "maxConnections": {
                     "type": "integer"
                 },
@@ -928,6 +1056,116 @@
                             "type": "array"
                         }
                     }
+                }
+            }
+        },
+        "proxy": {
+            "type": "object",
+            "properties": {
+                "annotations": {
+                    "type": "object"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "labels": {
+                    "type": "object"
+                },
+                "replicas": {
+                    "type": "integer"
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "service": {
+                    "type": "object",
+                    "properties": {
+                        "annotations": {
+                            "type": "object"
+                        },
+                        "httpNodePort": {
+                            "type": "integer"
+                        },
+                        "httpPort": {
+                            "type": "integer"
+                        },
+                        "httpsNodePort": {
+                            "type": "integer"
+                        },
+                        "httpsPort": {
+                            "type": "integer"
+                        },
+                        "labels": {
+                            "type": "object"
+                        },
+                        "legacyPorts": {
+                            "type": "object",
+                            "properties": {
+                                "console": {
+                                    "type": "integer"
+                                },
+                                "grpc": {
+                                    "type": "integer"
+                                },
+                                "identity": {
+                                    "type": "integer"
+                                },
+                                "metrics": {
+                                    "type": "integer"
+                                },
+                                "oidc": {
+                                    "type": "integer"
+                                },
+                                "s3Gateway": {
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "loadBalancerIP": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "tls": {
+                    "type": "object"
                 }
             }
         }

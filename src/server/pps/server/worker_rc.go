@@ -88,8 +88,24 @@ func getPachctlSecretVolumeAndMount(secret string) (v1.Volume, v1.VolumeMount) {
 		}
 }
 
-func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
-	pullPolicy := pc.env.Config.WorkerImagePullPolicy
+// getTLSCertSecretVolumeAndMount returns a Volume and VolumeMount object
+// configured for the pach-tls secret to be stored in pipeline side-cars.
+func getTLSCertSecretVolumeAndMount(secret, mountPath string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
+			Name: secret,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secret,
+				},
+			},
+		}, v1.VolumeMount{
+			Name:      secret,
+			MountPath: mountPath,
+		}
+}
+
+func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.PipelineInfo) (v1.PodSpec, error) {
+	pullPolicy := kd.config.WorkerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
@@ -97,16 +113,16 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	// Environment variables that are shared between both containers
 	commonEnv := []v1.EnvVar{{
 		Name:  "PACH_ROOT",
-		Value: pc.env.Config.StorageRoot,
+		Value: kd.config.StorageRoot,
 	}, {
 		Name:  "PACH_NAMESPACE",
-		Value: pc.namespace,
+		Value: kd.namespace,
 	}, {
 		Name:  "STORAGE_BACKEND",
-		Value: pc.env.Config.StorageBackend,
+		Value: kd.config.StorageBackend,
 	}, {
 		Name:  "POSTGRES_USER",
-		Value: pc.env.Config.PostgresUser,
+		Value: kd.config.PostgresUser,
 	}, {
 		Name: "POSTGRES_PASSWORD",
 		ValueFrom: &v1.EnvVarSource{
@@ -114,22 +130,28 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		},
 	}, {
 		Name:  "POSTGRES_DATABASE",
-		Value: pc.env.Config.PostgresDBName,
+		Value: kd.config.PostgresDBName,
 	}, {
 		Name:  "PG_BOUNCER_HOST",
-		Value: pc.env.Config.PGBouncerHost,
+		Value: kd.config.PGBouncerHost,
 	}, {
 		Name:  "PG_BOUNCER_PORT",
-		Value: strconv.FormatInt(int64(pc.env.Config.PGBouncerPort), 10),
+		Value: strconv.FormatInt(int64(kd.config.PGBouncerPort), 10),
 	}, {
 		Name:  client.PeerPortEnv,
-		Value: strconv.FormatUint(uint64(pc.env.Config.PeerPort), 10),
+		Value: strconv.FormatUint(uint64(kd.config.PeerPort), 10),
 	}, {
 		Name:  client.PPSSpecCommitEnv,
 		Value: options.specCommit,
 	}, {
 		Name:  client.PPSPipelineNameEnv,
 		Value: pipelineInfo.Pipeline.Name,
+	}, {
+		Name:  "LOKI_SERVICE_HOST_VAR",
+		Value: kd.config.LokiHostVar,
+	}, {
+		Name:  "LOKI_SERVICE_PORT_VAR",
+		Value: kd.config.LokiPortVar,
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{
@@ -144,7 +166,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{{
 		Name:  "PORT",
-		Value: strconv.FormatUint(uint64(pc.env.Config.Port), 10),
+		Value: strconv.FormatUint(uint64(kd.config.Port), 10),
 	}, {
 		Name: "PACHD_POD_NAME",
 		ValueFrom: &v1.EnvVarSource{
@@ -155,11 +177,12 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		},
 	}, {
 		Name:  "GC_PERCENT",
-		Value: strconv.FormatInt(int64(pc.env.Config.GCPercent), 10),
+		Value: strconv.FormatInt(int64(kd.config.GCPercent), 10),
 	}}
 
-	sidecarEnv = append(sidecarEnv, pc.getStorageEnvVars(pipelineInfo)...)
+	sidecarEnv = append(sidecarEnv, kd.getStorageEnvVars(pipelineInfo)...)
 	sidecarEnv = append(sidecarEnv, commonEnv...)
+	sidecarEnv = append(sidecarEnv, kd.getEgressSecretEnvVars(pipelineInfo)...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
@@ -183,7 +206,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		// Set the PPS env vars
 		{
 			Name:  client.PPSEtcdPrefixEnv,
-			Value: pc.etcdPrefix,
+			Value: kd.etcdPrefix,
 		},
 		{
 			Name: client.PPSPodNameEnv,
@@ -196,7 +219,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		},
 		{
 			Name:  client.PPSWorkerPortEnv,
-			Value: strconv.FormatUint(uint64(pc.env.Config.PPSWorkerPort), 10),
+			Value: strconv.FormatUint(uint64(kd.config.PPSWorkerPort), 10),
 		},
 	}...)
 	workerEnv = append(workerEnv, commonEnv...)
@@ -213,15 +236,15 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		})
 	}
 	// Propagate feature flags to worker and sidecar
-	if pc.env.Config.DisableCommitProgressCounter {
+	if kd.config.DisableCommitProgressCounter {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "DISABLE_COMMIT_PROGRESS_COUNTER", Value: "true"})
 	}
-	if pc.env.Config.LokiLogging {
+	if kd.config.LokiLogging {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "LOKI_LOGGING", Value: "true"})
 	}
-	if p := pc.env.Config.GoogleCloudProfilerProject; p != "" {
+	if p := kd.config.GoogleCloudProfilerProject; p != "" {
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 	}
@@ -232,18 +255,18 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	var sidecarVolumeMounts []v1.VolumeMount
 	userVolumeMounts := make([]v1.VolumeMount, len(options.volumeMounts))
 	copy(userVolumeMounts, options.volumeMounts)
-	if pc.env.Config.StorageHostPath != "" {
+	if kd.config.StorageHostPath != "" {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: storageVolumeName,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
-					Path: pc.env.Config.StorageHostPath,
+					Path: kd.config.StorageHostPath,
 				},
 			},
 		})
 		storageMount := v1.VolumeMount{
 			Name:      storageVolumeName,
-			MountPath: pc.env.Config.StorageRoot,
+			MountPath: kd.config.StorageRoot,
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
 		userVolumeMounts = append(userVolumeMounts, storageMount)
@@ -258,7 +281,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		})
 		emptyDirVolumeMount := v1.VolumeMount{
 			Name:      "pach-dir-volume",
-			MountPath: pc.env.Config.StorageRoot,
+			MountPath: kd.config.StorageRoot,
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
 		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
@@ -267,6 +290,14 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
+
+	// in the case the pachd is deployed with custom root certs, propagate them to the side-cars
+	if path, ok := os.LookupEnv("SSL_CERT_DIR"); ok {
+		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "SSL_CERT_DIR", Value: path})
+		certSecretVolume, certSecretMount := getTLSCertSecretVolumeAndMount(kd.config.TLSCertSecretName, path)
+		options.volumes = append(options.volumes, certSecretVolume)
+		sidecarVolumeMounts = append(sidecarVolumeMounts, certSecretMount)
+	}
 
 	// mount secret for spouts using pachctl
 	if pipelineInfo.Details.Spout != nil {
@@ -297,22 +328,22 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 		})
 	}
 
-	workerImage := pc.env.Config.WorkerImage
+	workerImage := kd.config.WorkerImage
 	pachSecurityCtx := &v1.SecurityContext{
 		RunAsUser:  int64Ptr(1000),
 		RunAsGroup: int64Ptr(1000),
 	}
 	var userSecurityCtx *v1.SecurityContext
 	userStr := pipelineInfo.Details.Transform.User
-	if !pc.env.Config.EnableWorkerSecurityContexts {
+	if !kd.config.EnableWorkerSecurityContexts {
 		pachSecurityCtx = nil
-	} else if pc.env.Config.WorkerUsesRoot {
+	} else if kd.config.WorkerUsesRoot {
 		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 	} else if userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
 		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
-			pc.env.Logger.Warnf("could not parse user %q into int: %v", userStr, err)
+			kd.logger.Warnf("could not parse user %q into int: %v", userStr, err)
 		} else {
 			userSecurityCtx = &v1.SecurityContext{
 				RunAsUser:  int64Ptr(i),
@@ -364,7 +395,7 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
-				Image:           pc.env.Config.WorkerSidecarImage,
+				Image:           kd.config.WorkerSidecarImage,
 				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
@@ -455,12 +486,30 @@ func (pc *pipelineController) workerPodSpec(options *workerOptions, pipelineInfo
 	return podSpec, nil
 }
 
-func (pc *pipelineController) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+func (kd *kubeDriver) getStorageEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
 	vars := []v1.EnvVar{
-		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(pc.env.Config.StorageUploadConcurrencyLimit)},
+		{Name: UploadConcurrencyLimitEnvVar, Value: strconv.Itoa(kd.config.StorageUploadConcurrencyLimit)},
 		{Name: client.PPSPipelineNameEnv, Value: pipelineInfo.Pipeline.Name},
 	}
 	return vars
+}
+
+func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+	result := []v1.EnvVar{}
+	egress := pipelineInfo.Details.Egress
+	if egress != nil && egress.GetSqlDatabase() != nil && egress.GetSqlDatabase().GetSecret() != nil {
+		secret := egress.GetSqlDatabase().GetSecret()
+		result = append(result, v1.EnvVar{
+			Name: "PACHYDERM_SQL_PASSWORD", // TODO avoid hardcoding this
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{Name: secret.Name},
+					Key:                  secret.Key,
+				},
+			},
+		})
+	}
+	return result
 }
 
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
@@ -474,7 +523,7 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
-func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -582,8 +631,8 @@ func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
 	}
-	if pc.env.Config.ImagePullSecrets != "" {
-		secrets := strings.Split(pc.env.Config.ImagePullSecrets, ",")
+	if kd.config.ImagePullSecrets != "" {
+		secrets := strings.Split(kd.config.ImagePullSecrets, ",")
 		for _, secret := range secrets {
 			imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
 		}
@@ -625,12 +674,12 @@ func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo
 	}
 	var s3GatewayPort int32
 	if ppsutil.ContainsS3Inputs(pipelineInfo.Details.Input) || pipelineInfo.Details.S3Out {
-		s3GatewayPort = int32(pc.env.Config.S3GatewayPort)
+		s3GatewayPort = int32(kd.config.S3GatewayPort)
 	}
 
 	// Get the reference to the postgres secret used by the current pod
-	podName := pc.env.Config.PachdPodName
-	selfPodInfo, err := pc.env.KubeClient.CoreV1().Pods(pc.namespace).Get(ctx, podName, metav1.GetOptions{})
+	podName := kd.config.PachdPodName
+	selfPodInfo, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -670,7 +719,7 @@ func (pc *pipelineController) getWorkerOptions(ctx context.Context, pipelineInfo
 	}, nil
 }
 
-func (pc *pipelineController) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	var cfg config.Config
 	err := cfg.InitV2()
 	if err != nil {
@@ -705,7 +754,7 @@ func (pc *pipelineController) createWorkerPachctlSecret(ctx context.Context, pip
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there
-	if _, err := pc.env.KubeClient.CoreV1().Secrets(pc.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
+	if _, err := kd.kubeClient.CoreV1().Secrets(kd.namespace).Create(ctx, &s, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
@@ -721,7 +770,7 @@ type noValidOptionsErr struct {
 	error
 }
 
-func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
+func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", // ctx never used, but we want the right one in scope for future uses
 		"pipeline", pipelineInfo.Pipeline.Name)
@@ -732,16 +781,16 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 
 	// create pachctl secret used in spouts
 	if pipelineInfo.Details.Spout != nil {
-		if err := pc.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
+		if err := kd.createWorkerPachctlSecret(ctx, pipelineInfo); err != nil {
 			return err
 		}
 	}
 
-	options, err := pc.getWorkerOptions(ctx, pipelineInfo)
+	options, err := kd.getWorkerOptions(ctx, pipelineInfo)
 	if err != nil {
 		return noValidOptionsErr{err}
 	}
-	podSpec, err := pc.workerPodSpec(options, pipelineInfo)
+	podSpec, err := kd.workerPodSpec(options, pipelineInfo)
 	if err != nil {
 		return err
 	}
@@ -768,7 +817,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 			},
 		},
 	}
-	if _, err := pc.env.KubeClient.CoreV1().ReplicationControllers(pc.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
+	if _, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
@@ -792,7 +841,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 			Selector: options.labels,
 			Ports: []v1.ServicePort{
 				{
-					Port: int32(pc.env.Config.PPSWorkerPort),
+					Port: int32(kd.config.PPSWorkerPort),
 					Name: "grpc-port",
 				},
 				{
@@ -802,7 +851,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 			},
 		},
 	}
-	if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
+	if _, err := kd.kubeClient.CoreV1().Services(kd.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
@@ -836,7 +885,7 @@ func (pc *pipelineController) createWorkerSvcAndRc(ctx context.Context, pipeline
 				Ports:    servicePort,
 			},
 		}
-		if _, err := pc.env.KubeClient.CoreV1().Services(pc.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
+		if _, err := kd.kubeClient.CoreV1().Services(kd.namespace).Create(ctx, service, metav1.CreateOptions{}); err != nil {
 			if !errutil.IsAlreadyExistError(err) {
 				return errors.EnsureStack(err)
 			}

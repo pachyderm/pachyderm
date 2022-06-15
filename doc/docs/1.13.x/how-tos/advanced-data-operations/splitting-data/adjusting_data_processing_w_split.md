@@ -4,7 +4,7 @@
     Before you read this section, make sure that you understand
     the concepts described in [File](../../../concepts/data-concepts/file.md),
     [Glob Pattern](../../../concepts/pipeline-concepts/datum/glob-pattern.md),
-    [Pipeline Specification](../../../reference/pipeline_spec.md), and
+    [Pipeline Specification](../../../reference/pipeline-spec.md), and
     [Developer Workflow](../../developer-workflow/index.md).
 
 Unlike source code version-control systems, such as Git, that mostly

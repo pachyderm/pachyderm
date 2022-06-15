@@ -36,8 +36,21 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 	k := testutil.GetKubeClient(suite)
 	for _, from := range fromVersions {
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
-			preUpgrade(t, minikubetestenv.InstallPublishedRelease(t, ctx, k, from, upgradeSubject, false))
-			postUpgrade(t, minikubetestenv.UpgradeRelease(t, ctx, k, upgradeSubject, true))
+			preUpgrade(t, minikubetestenv.InstallRelease(t,
+				context.Background(),
+				"default",
+				k,
+				&minikubetestenv.DeployOpts{
+					Version: from,
+				}))
+			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
+				context.Background(),
+				"default",
+				k,
+				&minikubetestenv.DeployOpts{
+					WaitSeconds:  10,
+					CleanupAfter: true,
+				}))
 		})
 	}
 }
@@ -51,6 +64,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 func TestUpgradeSimple(t *testing.T) {
 	upgradeTest(t, context.Background(),
 		func(t *testing.T, c *client.APIClient) {
+			c = testutil.AuthenticatedPachClient(t, c, upgradeSubject)
 			require.NoError(t, c.CreateRepo(inputRepo))
 			require.NoError(t,
 				c.CreatePipeline(outputRepo,
@@ -81,6 +95,7 @@ func TestUpgradeSimple(t *testing.T) {
 		},
 
 		func(t *testing.T, c *client.APIClient) {
+			c = testutil.AuthenticateClient(t, c, upgradeSubject)
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)

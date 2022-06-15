@@ -6,6 +6,7 @@ module github.com/pachyderm/helmtest
 go 1.14
 
 require (
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gruntwork-io/terratest v0.30.0
 	github.com/instrumenta/kubeval v0.0.0-20201118090229-529b532b1ea1
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c

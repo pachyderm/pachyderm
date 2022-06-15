@@ -22,7 +22,7 @@ is generated when you run `pachctl deploy` with the --dry-run`
 flag.
 
 !!! note "See Also:"
-    [Deploy Pachyderm](../../../getting_started/local_installation/#deploy-pachyderm)
+    [Deploy Pachyderm](../../../getting-started/local-installation/#deploy-pachyderm)
 
 ## `pachd` Environment Variables
 
@@ -152,4 +152,4 @@ little of the Pachyderm API is idempotent, but in some specific cases it can be
 a viable approach.
 
 !!! note "See Also"
-    - [transform.env](../../../reference/pipeline_spec/#transform-required)
+    - [transform.env](../../../reference/pipeline-spec/#transform-required)

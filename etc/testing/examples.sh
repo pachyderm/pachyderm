@@ -2,6 +2,20 @@
 
 set -ex
 
+helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
+
+kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+
+for i in $(seq 1 20); do
+    if pachctl version; then
+        echo "pachd ready after $i attempts"
+        break
+    else
+        sleep 5
+        continue
+    fi
+done
+
 # Runs various examples to ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
 
@@ -98,14 +112,14 @@ pachctl delete repo --all
 ##        pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
 ##
 ##        pushd parameters
-##            pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1 
+##            pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1
 ##            pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
 ##        popd
 ##    popd
 ##
-##    pachctl create pipeline -f split.json 
+##    pachctl create pipeline -f split.json
 ##    pachctl create pipeline -f model.json
-##    pachctl create pipeline -f test.json 
+##    pachctl create pipeline -f test.json
 ##    pachctl create pipeline -f select.json
 ##
 ##    pachctl wait commit "select@master"
@@ -121,29 +135,25 @@ pachctl delete repo --all
 ##pachctl delete pipeline --all
 ##pachctl delete repo --all
 
-pushd examples/ml/iris
-    pachctl create repo training
-    pachctl create repo attributes
+pushd examples/word_count/
+    pachctl create repo urls
 
     pushd data
-        pachctl put file training@master -f iris.csv
+        pachctl put file urls@master -f Wikipedia
     popd
 
-    pachctl create pipeline -f julia_train.json
-
-    pushd data/test
-        pachctl put file attributes@master -r -f .
+    pushd pipelines
+        pachctl create pipeline -f scraper.json
+        pachctl create pipeline -f map.json
+        pachctl create pipeline -f reduce.json
     popd
 
-    pachctl list file attributes@master
-    pachctl create pipeline -f julia_infer.json
+    pachctl wait commit "reduce@master"
 
-    pachctl wait commit "inference@master"
-
-    # just make sure we outputted some files
-    inference_file_count=$(pachctl list file inference@master | wc -l)
-    if [ "$inference_file_count" -ne 3 ]; then
-        echo "Unexpected file count in inference repo"
+    # just make sure we outputted some files that were right
+    license_word_count=$(pachctl get file reduce@master:/license)
+    if [ "$license_word_count" -ne 10 ]; then
+        echo "Unexpected word count in reduce repo"
         exit 1
     fi
 popd

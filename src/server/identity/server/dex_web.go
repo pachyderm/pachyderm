@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -254,7 +255,13 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/approval", w.interceptApproval(server))
-	mux.HandleFunc("/", server.ServeHTTP)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			fmt.Fprintf(w, "200 OK")
+			return
+		}
+		server.ServeHTTP(w, r)
+	})
 
 	instrumented := promhttp.InstrumentHandlerInFlight(dexRequestsInFlightMetric,
 		promhttp.InstrumentHandlerDuration(dexRequestsDurationMetric,

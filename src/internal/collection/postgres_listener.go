@@ -144,10 +144,12 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 	}
 }
 
-func (pw *postgresWatcher) sendInitial(event *watch.Event) error {
+func (pw *postgresWatcher) sendInitial(ctx context.Context, event *watch.Event) error {
 	select {
 	case pw.c <- event:
 		return nil
+	case <-ctx.Done():
+		return errors.EnsureStack(ctx.Err())
 	case <-pw.done:
 		return errors.New("failed to send initial event, watcher has been closed")
 	}
@@ -320,7 +322,7 @@ type postgresListener struct {
 
 func NewPostgresListener(dsn string) PostgresListener {
 	// Apparently this is very important for lib/pq to work
-	dsn = strings.Replace(dsn, "statement_cache_mode=describe", "", -1)
+	dsn = strings.ReplaceAll(dsn, "statement_cache_mode=describe", "")
 	eg, _ := errgroup.WithContext(context.Background())
 
 	l := &postgresListener{

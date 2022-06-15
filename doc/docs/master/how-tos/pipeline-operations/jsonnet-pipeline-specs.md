@@ -9,7 +9,7 @@ ignore_macros: true
 !!! Warning
     `Jsonnet pipeline specifications` is an [experimental feature](../../../contributing/supported-releases/#experimental).
 
-Pachyderm [pipeline's specification](../../../reference/pipeline_spec){target=_blank} files are intuitive, simple, and language agnostic.
+Pachyderm [pipeline's specification](../../../reference/pipeline-spec){target=_blank} files are intuitive, simple, and language agnostic.
 They are, however, very static.
 
 A **jsonnet pipeline specification file** is a thin wrapping layer atop of your JSON file, 
@@ -52,7 +52,7 @@ See the full `edges.jsonnet` here:
 {{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', 'master') }}
 ```
 
-Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv/jsonnet/README){target=_blank}.
+Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv/jsonnet){target=_blank}.
 
 To create or update a pipeline using a jsonnet pipeline specification file:
 

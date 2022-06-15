@@ -42,6 +42,33 @@ func OneOfMatches(tb testing.TB, expectedMatch string, actuals []string, msgAndA
 
 }
 
+// NoneMatch checks whether any element of a slice matches a regular-expression
+// and returns an error if a match is found.
+func NoneMatch(tb testing.TB, shouldNotMatch string, actuals []string, msgAndArgs ...interface{}) {
+	tb.Helper()
+	r, err := regexp.Compile(shouldNotMatch)
+	if err != nil {
+		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", shouldNotMatch)
+	}
+	for _, actual := range actuals {
+		if r.MatchString(actual) {
+			fatal(tb, msgAndArgs, "string (%v) should not match pattern (%v)", actual, shouldNotMatch)
+		}
+	}
+}
+
+// NotMatch checks whether actual matches a regular-expression and returns an error if a match is found.
+func NotMatch(tb testing.TB, shouldNotMatch string, actual string, msgAndArgs ...interface{}) {
+	tb.Helper()
+	r, err := regexp.Compile(shouldNotMatch)
+	if err != nil {
+		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", shouldNotMatch)
+	}
+	if r.MatchString(actual) {
+		fatal(tb, msgAndArgs, "string (%v) should not match pattern (%v)", actual, shouldNotMatch)
+	}
+}
+
 // Equal checks the equality of two values
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
@@ -424,9 +451,16 @@ func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndA
 	tb.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), t)
 	defer cancel()
-	err := backoff.RetryUntilCancel(ctx, f, backoff.NewExponentialBackOff(), nil)
+	var userError error
+	err := backoff.RetryUntilCancel(ctx, func() error {
+		userError = f()
+		if userError != nil {
+			tb.Logf("retryable: %v", userError)
+		}
+		return userError
+	}, backoff.NewExponentialBackOff(), nil)
 	if err != nil {
-		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), err)
+		fatal(tb, msgAndArgs, "operation did not finish within %s - last error: %v", t.String(), userError)
 	}
 }
 

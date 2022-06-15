@@ -3,6 +3,7 @@ package server
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -30,9 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
-
-	"golang.org/x/net/context"
-	"gopkg.in/yaml.v3"
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -755,6 +756,7 @@ func (a *apiServer) ClearCache(ctx context.Context, req *pfs.ClearCacheRequest) 
 // RunLoadTest implements the pfs.RunLoadTest RPC
 func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
+	taskService := a.env.TaskService
 	repo := "load_test"
 	if req.Branch != nil {
 		repo = req.Branch.Repo.Name
@@ -779,21 +781,23 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		Seed:   seed,
 	}
 	start := time.Now()
-	if err := a.runLoadTest(pachClient, resp.Branch, req.Spec, seed); err != nil {
+	if err := a.runLoadTest(pachClient, taskService, resp.Branch, req.Spec, seed); err != nil {
 		resp.Error = err.Error()
 	}
 	resp.Duration = types.DurationProto(time.Since(start))
 	return resp, nil
 }
 
-func (a *apiServer) runLoadTest(pachClient *client.APIClient, branch *pfs.Branch, specStr string, seed int64) error {
-	d := yaml.NewDecoder(strings.NewReader(specStr))
-	d.KnownFields(true)
-	spec := &pfsload.CommitsSpec{}
-	if err := d.Decode(spec); err != nil {
+func (a *apiServer) runLoadTest(pachClient *client.APIClient, taskService task.Service, branch *pfs.Branch, specStr string, seed int64) error {
+	jsonBytes, err := yaml.YAMLToJSON([]byte(specStr))
+	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return pfsload.Commits(pachClient, branch.Repo.Name, branch.Name, spec, seed)
+	spec := &pfsload.CommitSpec{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(jsonBytes), spec); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return pfsload.Commit(pachClient, taskService, branch.Repo.Name, branch.Name, spec, seed)
 }
 
 func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (resp *pfs.RunLoadTestResponse, retErr error) {
@@ -814,20 +818,11 @@ func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (res
 
 var defaultLoadSpecs = []string{`
 count: 3 
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 70 
-      - deleteFile:
-          count: 5
-          directoryProb: 20 
-        prob: 30 
+    putFile:
+      count: 5
+      source: "random"
 validator: {}
 fileSources:
   - name: "random"
@@ -837,7 +832,7 @@ fileSources:
           min: 0
           max: 3
         run: 3
-      size:
+      sizes:
         - min: 1000
           max: 10000
           prob: 30 
@@ -852,41 +847,31 @@ fileSources:
           prob: 10 
 `, `
 count: 3 
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 10000 
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100
+    putFile:
+      count: 10000
+      source: "random"
 validator: {}
 fileSources:
   - name: "random"
     random:
-      size:
+      sizes:
         - min: 100
           max: 1000
           prob: 100
 `, `
 count: 3 
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 1
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100
+    putFile:
+      count: 1
+      source: "random"
 validator: {}
 fileSources:
   - name: "random"
     random:
-      size:
+      sizes:
         - min: 10000000
           max: 100000000
           prob: 100 
@@ -907,4 +892,27 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	default:
 		return nil, errors.Errorf("first message must be a commit")
 	}
+}
+
+func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
+	if err != nil {
+		return nil, err
+	}
+	switch target := req.Target.(type) {
+	case *pfs.EgressRequest_ObjectStorage:
+		result, err := copyToObjectStorage(ctx, src, target.ObjectStorage.Url)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_ObjectStorage{ObjectStorage: result}}, nil
+
+	case *pfs.EgressRequest_SqlDatabase:
+		result, err := copyToSQLDB(ctx, src, target.SqlDatabase.Url, target.SqlDatabase.FileFormat)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_SqlDatabase{SqlDatabase: result}}, nil
+	}
+	return nil, errors.Errorf("egress failed")
 }

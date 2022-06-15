@@ -2,46 +2,47 @@ package pfsload
 
 import (
 	"math/rand"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 )
 
 type Env struct {
 	client      Client
+	taskDoer    task.Doer
+	fileSources map[string]*FileSourceSpec
 	validator   *Validator
-	fileSources map[string]FileSource
-	random      *rand.Rand
+	seed        int64
+	authToken   string
 }
 
-func NewEnv(client Client, spec *CommitsSpec, seed int64) (*Env, error) {
-	var err error
+func NewEnv(pachClient *client.APIClient, taskService task.Service, spec *CommitSpec, seed int64) (*Env, error) {
+	client := NewPachClient(pachClient)
 	random := rand.New(rand.NewSource(seed))
-	if spec.ThroughputSpec != nil {
-		client, err = NewThroughputLimitClient(client, spec.ThroughputSpec, random)
-	}
-	if err != nil {
-		return nil, err
+	fileSources := make(map[string]*FileSourceSpec)
+	for _, fileSource := range spec.FileSources {
+		fileSources[fileSource.Name] = fileSource
 	}
 	var validator *Validator
-	if spec.ValidatorSpec != nil {
-		client, validator, err = NewValidator(client, spec.ValidatorSpec, random)
+	var err error
+	if spec.Validator != nil {
+		validator, err = NewValidator(spec.Validator, random)
 	}
 	if err != nil {
 		return nil, err
 	}
-	if spec.CancelSpec != nil {
-		client, err = NewCancelClient(client, spec.CancelSpec, random)
-	}
-	if err != nil {
+	authToken, err := auth.GetAuthToken(pachClient.Ctx())
+	if err != nil && !auth.IsErrNotSignedIn(err) {
 		return nil, err
-	}
-	fileSources := make(map[string]FileSource)
-	for _, spec := range spec.FileSourceSpecs {
-		fileSources[spec.Name] = NewFileSource(spec, random)
 	}
 	return &Env{
 		client:      client,
-		validator:   validator,
+		taskDoer:    taskService.NewDoer(namespace, "", nil),
 		fileSources: fileSources,
-		random:      random,
+		validator:   validator,
+		seed:        seed,
+		authToken:   authToken,
 	}, nil
 }
 
@@ -49,14 +50,23 @@ func (e *Env) Client() Client {
 	return e.client
 }
 
+func (e *Env) AuthToken() string {
+	return e.authToken
+}
+
+func (e *Env) TaskDoer() task.Doer {
+	return e.taskDoer
+}
+
+func (e *Env) FileSource(name string) *FileSourceSpec {
+	return e.fileSources[name]
+}
+
 func (e *Env) Validator() *Validator {
 	return e.validator
 }
 
-func (e *Env) FileSource(name string) FileSource {
-	return e.fileSources[name]
-}
-
-func (e *Env) Rand() *rand.Rand {
-	return e.random
+func (e *Env) Seed() int64 {
+	e.seed++
+	return e.seed
 }

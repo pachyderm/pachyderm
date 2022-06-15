@@ -5,7 +5,7 @@ This document, when complete, will discuss common configurations for on-premises
 
 ## General information on non-cloud object stores
 
-Please see [the on-premises introduction to object stores](../on_premises/#deploying-an-object-store) for some general information on object stores and how they're used with Pachyderm.
+Please see [the on-premises introduction to object stores](../on-premises/#deploying-an-object-store) for some general information on object stores and how they're used with Pachyderm.
 
 ### EMC ECS
 Coming soon.
@@ -52,7 +52,7 @@ or by changing the region of your storage to `us-east-1`.
 You're not likely to run into this in an on-premises deployment
 unless your object store has deliberately been set up to use the deprecated `S3v2` signature or
 you are running your on-premises deployment against Google Cloud Storage,
-which is not recommended. See [Infrastructure in general](../on_premises/#infrastructure-in-general).
+which is not recommended. See [Infrastructure in general](../on-premises/#infrastructure-in-general).
 
 You'll need to determine what signature algorithm your object store uses in its S3-compatible API:  `S3v2` or `S3v4`.
 If it's `S3V2`,

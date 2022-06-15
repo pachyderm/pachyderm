@@ -87,7 +87,6 @@ func writeTarFile(tw *tar.Writer, name string, f *os.File) error {
 	return errors.EnsureStack(err)
 }
 
-// TODO: May want to add some buffering in case we error midstream.
 func collectDebugStream(tw *tar.Writer, r io.Reader, prefix ...string) (retErr error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
@@ -114,12 +113,22 @@ func copyTar(tw *tar.Writer, tr *tar.Reader, prefix ...string) error {
 		if len(prefix) > 0 {
 			hdr.Name = join(prefix[0], hdr.Name)
 		}
-		if err := tw.WriteHeader(hdr); err != nil {
+		if err := fsutil.WithTmpFile("pachyderm_debug_copy_tar", func(f *os.File) error {
+			_, err = io.Copy(f, tr)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			_, err = f.Seek(0, 0)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			if err := tw.WriteHeader(hdr); err != nil {
+				return errors.EnsureStack(err)
+			}
+			_, err = io.Copy(tw, f)
 			return errors.EnsureStack(err)
-		}
-		_, err = io.Copy(tw, tr)
-		if err != nil {
-			return errors.EnsureStack(err)
+		}); err != nil {
+			return err
 		}
 	}
 }

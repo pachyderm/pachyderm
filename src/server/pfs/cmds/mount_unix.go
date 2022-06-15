@@ -125,17 +125,11 @@ func mountCmds() []*cobra.Command {
 			// Show info messages to user by default
 			logrus.SetLevel(logrus.InfoLevel)
 
-			c, err := client.NewOnUserMachine("fuse")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
 			serverOpts := &fuse.ServerOptions{
 				MountDir: mountDir,
 			}
 			printWarning()
-			return fuse.Server(c, serverOpts)
+			return fuse.Server(serverOpts, nil)
 		}),
 	}
 	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
@@ -152,8 +146,9 @@ func mountCmds() []*cobra.Command {
 			}
 			if all {
 				stdin := strings.NewReader(fmt.Sprintf(`
-		mount | grep fuse.%s | cut -f 3 -d " "
-		`, name))
+					mount | grep -w %s | grep fuse | cut -f 3 -d " "`,
+					name,
+				))
 				var stdout bytes.Buffer
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,

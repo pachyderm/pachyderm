@@ -1,13 +1,24 @@
 # Job
 
-!!! Note "Attention"
-         Note that Pachyderm uses the term `job` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID) for more details) and jobs that are an execution of a particular pipeline. The following page details the latter.
+!!! Attention
+         Note that Pachyderm uses two different scopes when referring to a `job`. 
+
+         - A "global" scope tracking down your entire provenance chain. Refer to [GlobalID](../../advanced-concepts/globalID){target=_blank} for more details.
+         - And a "local" scope in which a job is an execution of one particular pipeline. 
+         
+         The following page details the latter. 
 
 ## Definition
 
 A Pachyderm job is an execution of a pipeline that triggers
-when new data is detected in an input repository. Each
-job runs your code against the current commit in a `<repo>@<branch>` and
+when new data is detected in an input repository. 
+
+!!! Note
+        When a commit is made to the input repo of a pipeline, jobs are created for all of the downstream pipelines of a DAG. 
+        Those jobs are not running yet; each one is **waiting** until the prior pipeline(s) that it depends on in your DAG produces their output, 
+        which then becomes the input for the waiting pipeline.
+
+Each job runs your code against the current commit in a `<repo>@<branch>` and
 then submits the results to the output repository of the pipeline as a single output commit. A pipeline
 triggers a new job every time you submit new changes, a commit, into your
 input source.
@@ -17,24 +28,28 @@ Each job has an alphanumeric identifier (ID) that you can reference in the `<pip
 You can obtain information about all jobs with a given ID by running `list job <jobID>` or restrict to a particular pipeline `list job -p <pipeline>`, or `inspect job <pipeline>@<jobID> --raw`.
 
 ## Job Statuses
-Each job has the following stages:
+Find a list of all possible job stages below and a state diagram detailing how a job transitions from one state to another.
 
 | Stage     | Description  |
 | --------- | ------------ |
-|CREATED| An output commit exists, but the job has not been started by a worker yet.|
+|CREATED| An input commit exists, but the job has not been started by a worker yet.|
 |STARTING| The worker has allocated resources for the job (that is, the job counts towards parallelism), but it is still waiting on the inputs to be ready.|
 |RUNNING|The worker is processing datums.|
-|EGRESS|The worker has completed all the datums but is uploading the output to the egress endpoint.|
-|FINISHING| After all of the datum processing and egress (if any) is done, the job transitions to a finishing state where all of the post-processing cleanup tasks such as garbage collection and compaction are performed.|
+|EGRESS|The worker has completed all the datums and is uploading the output to the egress endpoint.|
+|FINISHING| After all of the datum processing and egress (if any) is done, the job transitions to a finishing state where all of the post-processing tasks such as compaction are performed.|
 |FAILURE|The worker encountered too many errors when processing a datum.|
-|KILLED|The job timed out, the output commits were deleted, or a user otherwise called StopJob|
+|KILLED|The job timed out, or a user called StopJob|
 |SUCCESS| None of the bad stuff happened.|
+
+Below, the state transition diagram of a job:  
+
+![Job State Diagram](../../images/job-state-diagram.png)
 
 ## List Jobs
 
 - The `pachctl list job` command returns list of all global jobs. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs).
 
-- The `pachctl list job <jobID>` commands returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id). 
+- The `pachctl list job <jobID>` command returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id). 
 
 - Note that you can also track your jobs downstream as they complete by running `pachctl wait job <jobID>`. 
 
@@ -61,9 +76,9 @@ Each job has the following stages:
     For more information, see [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
 
 ## Inspect Job
-The `pachctl inspect job <pipeline>@<jobID>` command enables you to view detailed
-information about a specific job in a given pipeline (state, number of datums processed/failed/skipped, data downloaded, uploaded,
-process time, image used etc...).
+The `pachctl inspect jobs <pipeline>@<jobID>` command enables you to view detailed
+information about a specific (sub)job in a given pipeline (state, number of datums processed/failed/skipped, data downloaded, uploaded,
+process time, image:tag used to transform your data, etc...). Along with checking the logs, it is especially useful when troubleshooting a failed job.
 
 !!! example
     Add a `--raw` flag to output a detailed JSON version of the job.

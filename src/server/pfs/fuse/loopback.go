@@ -16,6 +16,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -33,6 +34,32 @@ const (
 	dirty                  // we have full content for this file and the user has written to it
 )
 
+func (l *loopbackRoot) setState(mountName, state string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.stateMap[mountName] = state
+}
+
+func (l *loopbackRoot) getState(mountName string) string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	s, ok := l.stateMap[mountName]
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+// func (l *loopbackRoot) deleteState(mountName string) {
+// 	l.mu.Lock()
+// 	defer l.mu.Unlock()
+// 	_, ok := l.stateMap[mountName]
+// 	if !ok {
+// 		return
+// 	}
+// 	delete(l.stateMap, mountName)
+// }
+
 type loopbackRoot struct {
 	loopbackNode
 
@@ -45,6 +72,7 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
+	stateMap map[string]string       // key is mount name, value is 'mounted', etc
 	repoOpts map[string]*RepoOptions // key is mount name
 	branches map[string]string       // key is mount name
 	commits  map[string]string       // key is mount name
@@ -516,6 +544,7 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 		branches:   opts.getBranches(),
 		commits:    make(map[string]string),
 		files:      make(map[string]fileState),
+		stateMap:   make(map[string]string),
 	}
 	return n, nil
 }
@@ -540,15 +569,15 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // download files into the loopback filesystem, if meta is true then only the
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
-func (n *loopbackNode) download(path string, state fileState) (retErr error) {
-	if n.getFileState(path) >= state {
+func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
+	if n.getFileState(origPath) >= state {
 		// Already got this file, so we can just return
 		return nil
 	}
 	if err := n.mkdirMountNames(); err != nil {
 		return err
 	}
-	path = n.trimPath(path)
+	path := n.trimPath(origPath)
 	parts := strings.Split(path, "/")
 	defer func() {
 		if retErr == nil {
@@ -561,6 +590,21 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		return nil // already downloaded in downloadRepos
 	}
 	name := parts[0]
+	st := n.root().getState(name)
+	// don't download while we're anything other than mounted
+	// TODO: we probably want some more locking/coordination (in the other
+	// direction) to stop the state machine changing state _during_ a download()
+	// NB: empty string case is to support pachctl mount as well as mount-server
+	if !(st == "" || st == "mounted") {
+		logrus.Infof(
+			"Skipping download('%s') because %s state was %s; "+
+				"getFileState(%s) -> %d, state=%d",
+			origPath, name, st, origPath, n.getFileState(origPath), state,
+		)
+		// return an error to stop an empty directory listing being cached by
+		// the OS
+		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
+	}
 	branch := n.root().branch(name)
 	commit, err := n.commit(name)
 	if err != nil {
@@ -579,6 +623,14 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
 		p := n.filePath(name, fi)
+		// If file manifestation is successful to the given state level, cache
+		// that we know about it, to avoid a subsequent stat() going back to
+		// Pachyderm over gRPC
+		defer func() {
+			if retErr == nil {
+				n.setFileState(p, state)
+			}
+		}()
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially

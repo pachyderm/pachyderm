@@ -78,6 +78,35 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        - name: IDENTITY_SERVER_DATABASE
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        {{ end }}
+        {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
+              key: "enterprise-license-key"
+        {{- end }}
+        {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
+        - name: ENTERPRISE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
+              key: "enterprise-secret"
+        {{- end }}
+        {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}
+        - name: AUTH_ROOT_TOKEN
+          {{- if .Values.pachd.rootTokenSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.rootTokenSecretName | quote }}
+              key: "root-token"
+          {{- else }}
+          value: {{ .Values.pachd.rootToken | quote }}
+          {{- end }}
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-deployment-id-secret
@@ -130,8 +159,4 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
       {{- end }}
-      initContainers:
-      - name: init-etcd
-        image: busybox:1.28
-        command: ['sh', '-c', "until wget -O- http://etcd:2379/version > /dev/null; do echo waiting for etcd; sleep 2; done"] 
 {{- end }}

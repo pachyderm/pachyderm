@@ -57,7 +57,7 @@ Sample:
 Before you can deploy this example you need to have the following components:
 
 1. A clone of this Pachyderm repository on your local computer. (could potentially include those instructions)
-2. A Pachyderm cluster - You can deploy a cluster on [PacHub](hub.pachyderm.com) or deploy locally as described [here](https://docs.pachyderm.com/latest/getting_started/).
+2. A Pachyderm cluster - You can deploy a cluster on [PacHub](hub.pachyderm.com) or deploy locally as described [here](https://docs.pachyderm.com/latest/getting-started/).
 
 Verify that your environment is accessible by running `pachctl version` which will show both the `pachctl` and `pachd` versions.
 ```shell

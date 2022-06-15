@@ -1,6 +1,6 @@
 # Jsonnet Pipeline Specs Applied To Pachyderm's openCV Beginner Tutorial
 
->![pach_logo](../../img/pach_logo.svg) COMING SOON! This example requires Pachyderm 2.1 or later versions.
+>![pach_logo](../../img/pach_logo.svg) This example requires Pachyderm 2.1 or later versions.
 
 We adapted our opencv tutorial to use jsonnet pipeline specs. In this adapted version, we use 2 jsonnet specs, `edges.jsonnet` and `montage.jsonnet`, to generate our opencv pipelines.
 We then extend the use case and re-apply the montage jsonnet specs a second time, creating another pipeline, identical to the first `montage-1` but different in name `montage-2` and input repositories.

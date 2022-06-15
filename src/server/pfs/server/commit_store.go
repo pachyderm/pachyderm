@@ -99,7 +99,7 @@ func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.
 
 func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Commit) (*fileset.ID, error) {
 	id, err := getTotal(tx, commit)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	if id == nil {
@@ -113,7 +113,7 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 	if err := dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
 		var err error
 		ids, err = getDiff(tx, commit)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
 		return nil

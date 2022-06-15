@@ -90,7 +90,7 @@ For more information, see [Datum Processing States](../../../concepts/pipeline-c
 
 !!! Note
      The global commit and global job above are the result of
-     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting_started/beginner_tutorial/).
+     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting-started/beginner-tutorial/).
 
 The following diagram illustrates the global commit and its various components:
     ![global_commit_after_putfile](../images/global_commit_after_putfile.png)
@@ -202,7 +202,7 @@ Change `commit` in `job` to list the jobs related to your global job as they fin
     Read about `pachctl squash commit <commitID>`
 ## Squash And Delete Commit
 
-See [`squash commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
+See [`squash commit`](../../../how-tos/basic-data-operations/removing-data-from-pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing-data-from-pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
 
 
 

@@ -9,7 +9,7 @@ metadata:
   name: pachyderm-config-{{ date "20060102150405" now }}
   namespace: {{ .Release.Namespace }}
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     app: pachd
@@ -37,13 +37,8 @@ spec:
               key: OAUTH_CLIENT_SECRET
         {{- end}}
         {{- if .Values.enterpriseServer.enabled }}
-        {{- if eq .Values.enterpriseServer.service.type "NodePort" }}
         - name: PACH_ADDR
-          value: "grpc://pach-enterprise:1650"
-        {{- else }}
-        - name: PACH_ADDR
-          value: "grpc://pach-enterprise:30650"        
-        {{- end }}
+          value: "grpc://pach-enterprise:{{ .Values.enterpriseServer.service.apiGRPCPort }}"    
         {{- end }}
         {{- if .Values.pachd.rootTokenSecretName }}    
         - name: ROOT_TOKEN

@@ -16,7 +16,7 @@ builds:
     ldflags:
       - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }}
     gcflags:
-      - all=-trimpath={{ .Env.PWD }}
+      - "all=-trimpath={{.Env.GOBIN}}"
     env:
       - CGO_ENABLED=0
     goos:

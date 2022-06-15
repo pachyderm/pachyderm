@@ -206,6 +206,7 @@ func init() {
 				auth.Permission_CLUSTER_ENTERPRISE_GET_CODE,
 				auth.Permission_CLUSTER_ENTERPRISE_DEACTIVATE,
 				auth.Permission_CLUSTER_DELETE_ALL,
+				auth.Permission_CLUSTER_ENTERPRISE_PAUSE,
 			}),
 	})
 }

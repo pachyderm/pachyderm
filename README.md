@@ -20,12 +20,12 @@ Pachyderm is the leader in data versioning and pipelines for MLOps.  We provide 
 - Data-Driven Pipelines — Pachyderm’s Containerized Pipelines speed data processing while lowering compute costs
 - Immutable Data Lineage — Pachyderm’s Data Lineage provides an immutable record for all activities and assets in the ML lifecycle
 - Console — The Pachyderm Console provides an intuitive visualization of your DAG (directed acyclic graph) and aids in reproducibility
-- Notebooks — Pachyderm Notebooks provide an easy way to interact with Pachyderm Data Versioning and Pipelines via Jupyter notebooks
+- Notebooks — Pachyderm’s JupyterLab Mount Extension provides a point-and-click interface to Pachyderm versioned data
 - Enterprise Administration — Pachyderm provides robust tools for deploying and administering Pachyderm at scale across different teams in your organization
 
 
 ## Getting Started
-To start deploying your end-to-end version-controlled data pipelines, try us for free on [Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) with little to no setup or run Pachyderm [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/). You can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
+To start deploying your end-to-end version-controlled data pipelines, run Pachyderm [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/) or you can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
 
 You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
@@ -68,4 +68,4 @@ We remain committed to the culture of open source, developing our product transp
 
 Under the Pachyderm Community License, you can access the source code and modify or redistribute it; there is only one thing you cannot do, and that is use it to make a competing offering. 
 
-Check out our [License FAQ Page](https://pachyderm.com/about/pachyderm-community-license-faq/) for more information.
+Check out our [License FAQ Page](https://www.pachyderm.com/community-license-faq/) for more information.

@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -23,7 +24,7 @@ const DexMockConnectorEmail = `kilgore@kilgore.trout`
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig() *auth.OIDCConfig {
 	return &auth.OIDCConfig{
-		Issuer:          "http://pachd:1658/",
+		Issuer:          "http://pachd:1658/dex",
 		ClientID:        "pachyderm",
 		ClientSecret:    "notsecret",
 		RedirectURI:     "http://pachd:1657/authorization-code/callback",
@@ -34,15 +35,15 @@ func OIDCOIDCConfig() *auth.OIDCConfig {
 
 // ConfigureOIDCProvider configures the identity service and the auth service to
 // use a mock connector.
-func ConfigureOIDCProvider(t *testing.T) error {
-	adminClient := GetAuthenticatedPachClient(t, auth.RootUser)
+func ConfigureOIDCProvider(t *testing.T, c *client.APIClient) error {
+	adminClient := AuthenticateClient(t, c, auth.RootUser)
 
 	_, err := adminClient.IdentityAPIClient.DeleteAll(adminClient.Ctx(), &identity.DeleteAllRequest{})
 	require.NoError(t, err)
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://pachd:1658/",
+			Issuer: "http://pachd:1658/dex",
 		},
 	})
 	require.NoError(t, err)
@@ -52,7 +53,7 @@ func ConfigureOIDCProvider(t *testing.T) error {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://pachd:1658/", resp.Config.Issuer,
+			"http://pachd:1658/dex", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 
@@ -132,7 +133,7 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	require.NoError(t, err)
 }
 
-func GetOIDCTokenForTrustedApp(t testing.TB) string {
+func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient) string {
 	// Create an HTTP client that doesn't follow redirects.
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
@@ -141,15 +142,14 @@ func GetOIDCTokenForTrustedApp(t testing.TB) string {
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	testClient := GetUnauthenticatedPachClient(t)
 
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
 		ClientSecret: "test",
 		RedirectURL:  "http://test.example.com:1657/authorization-code/callback",
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  RewriteURL(t, "http://pachd:30658/auth", DexHost(testClient)),
-			TokenURL: RewriteURL(t, "http://pachd:30658/token", DexHost(testClient)),
+			AuthURL:  RewriteURL(t, "http://pachd:30658/dex/auth", DexHost(testClient)),
+			TokenURL: RewriteURL(t, "http://pachd:30658/dex/token", DexHost(testClient)),
 		},
 		Scopes: []string{
 			"openid",
@@ -212,7 +212,10 @@ func DexHost(c *client.APIClient) string {
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31658"
 	}
-	return c.GetAddress().Host + ":30658"
+	// TODO(acohen4): revisit the way we are doing rewrites here
+	// NOTE: the identity port is dynamically allocated in
+	// src/internal/minikubetestenv/deploy.go
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+8)
 }
 
 func pachHost(c *client.APIClient) string {
@@ -222,5 +225,7 @@ func pachHost(c *client.APIClient) string {
 	if c.GetAddress().Port == 31650 {
 		return c.GetAddress().Host + ":31657"
 	}
-	return c.GetAddress().Host + ":30657"
+	// NOTE: the identity port is dynamically allocated in
+	// src/internal/minikubetestenv/deploy.go
+	return fmt.Sprintf("%v:%v", c.GetAddress().Host, c.GetAddress().Port+7)
 }

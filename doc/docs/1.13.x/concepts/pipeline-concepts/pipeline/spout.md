@@ -83,7 +83,7 @@ To create a spout pipeline, you will need:
 
 
 A minimum spout specification must include the following
-parameters in the [pipeline specification](../../../reference/pipeline_spec.md):
+parameters in the [pipeline specification](../../../reference/pipeline-spec.md):
 
 | Parameter   | Description |
 | ----------- | ----------- |

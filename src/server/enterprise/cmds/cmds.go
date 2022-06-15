@@ -262,8 +262,80 @@ func HeartbeatCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh it's state")
+	heartbeat.PersistentFlags().BoolVar(&isEnterprise, "enterprise", false, "Make the enterprise server refresh its state")
 	return cmdutil.CreateAlias(heartbeat, "enterprise heartbeat")
+}
+
+// PauseCmd pauses the cluster.
+func PauseCmd() *cobra.Command {
+	pause := &cobra.Command{
+		Short: "Pause the cluster.",
+		Long:  "Pause the cluster.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(true)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.Enterprise.Pause(c.Ctx(), &enterprise.PauseRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not pause cluster")
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(pause, "enterprise pause")
+}
+
+// UnpauseCmd pauses the cluster.
+func UnpauseCmd() *cobra.Command {
+	unpause := &cobra.Command{
+		Short: "Unpause the cluster.",
+		Long:  "Unpause the cluster.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(true)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			_, err = c.Enterprise.Unpause(c.Ctx(), &enterprise.UnpauseRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not unpause cluster")
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(unpause, "enterprise unpause")
+}
+
+// PauseStatusCmd returns the pause status of the cluster: unpaused; partially
+// paused; or completely paused.
+func PauseStatusCmd() *cobra.Command {
+	pauseStatus := &cobra.Command{
+		Short: "Get the pause status of the cluster.",
+		Long:  "Get the pause the cluster: normal, partially-paused or paused.",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := newClient(true)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+			resp, err := c.Enterprise.PauseStatus(c.Ctx(), &enterprise.PauseStatusRequest{})
+			if err != nil {
+				return errors.Wrapf(err, "could not get pause status")
+			}
+			switch resp.Status {
+			case enterprise.PauseStatusResponse_UNPAUSED:
+				fmt.Println("unpaused")
+			case enterprise.PauseStatusResponse_PARTIALLY_PAUSED:
+				fmt.Println("partially-paused")
+			case enterprise.PauseStatusResponse_PAUSED:
+				fmt.Println("paused")
+			}
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(pauseStatus, "enterprise pause-status")
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
@@ -281,6 +353,9 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetStateCmd())
 	commands = append(commands, SyncContextsCmd())
 	commands = append(commands, HeartbeatCmd())
+	commands = append(commands, PauseCmd())
+	commands = append(commands, UnpauseCmd())
+	commands = append(commands, PauseStatusCmd())
 
 	return commands
 }

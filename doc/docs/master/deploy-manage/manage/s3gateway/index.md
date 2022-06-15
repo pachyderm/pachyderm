@@ -24,7 +24,7 @@ Buckets are represented via `branch.repo` or (since 1.13.3) `commit.branch.repo`
 !!! Example
     - The `master.data` bucket corresponds
     to the `master` branch of the repo `data`.
-    - The `be97b64f110643389f171eb64697d4e1.master.data` bucket corresponds to the `be97b64f110643389f171eb64697d4e1` commit in the `data` repo.
+    - The `be97b64f110643389f171eb64697d4e1.master.data` bucket corresponds to the commit `be97b64f110643389f171eb64697d4e1` on the `master` branch of the `data` repo.
 
 The following diagram gives a quick overview of the two main aws commands
 that will let you put data into a repo or retrieve data from it via the S3 gateway. 

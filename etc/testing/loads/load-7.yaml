@@ -1,25 +1,22 @@
-# This workload tests a large number of commits with small / medium size files.
-count: 100
-operations:
-  - count: 1 
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100 
-validator:
-  frequency:
-    prob: 0 
+# This workload tests a lot of small files in a large number of directories.
+count: 5 
+modifications:
+  - count: 5
+    putFile:
+      count: 10000 
+      source: "random"
 fileSources:
   - name: "random"
     random:
-      size:
+      directory:
+        depth: 
+          min: 1 
+          max: 3
+        run: 100
+      sizes:
         - min: 1000
           max: 10000
-          prob: 90 
-        - min: 1000000
-          max: 10000000
-          prob: 10 
+          prob: 100 
+validator:
+  frequency:
+    prob: 0 

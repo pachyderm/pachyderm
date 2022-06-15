@@ -4,7 +4,7 @@ To use the advanced statistics features in Pachyderm, you need to:
 
 1. Run your pipelines on a Pachyderm cluster.
 2. Enable stats collection in your pipelines by including
-   `"enable_stats": true` in your [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/#enable-stats-optional).
+   `"enable_stats": true` in your [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline-spec/#enable-stats-optional).
 
 Advanced statistics provides the following information for any jobs
 corresponding to your pipelines:
@@ -33,7 +33,7 @@ commands or through their language client equivalents.
 
 As mentioned above, enabling stats collection for a pipeline is as simple as
 adding the `"enable_stats": true` field to a pipeline specification. For
-example, to enable stats collection for the [OpenCV demo pipeline](../getting_started/beginner_tutorial.md),
+example, to enable stats collection for the [OpenCV demo pipeline](../getting-started/beginner-tutorial.md),
 modify the pipeline specification as follows:
 
 !!! example

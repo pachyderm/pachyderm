@@ -5,6 +5,7 @@ type Configuration struct {
 	*GlobalConfiguration
 	*PachdSpecificConfiguration
 	*WorkerSpecificConfiguration
+	*EnterpriseSpecificConfiguration
 }
 
 // GlobalConfiguration contains the global configuration.
@@ -33,9 +34,9 @@ type GlobalConfiguration struct {
 	PostgresUser                   string `env:"POSTGRES_USER,required"`
 	PostgresPassword               string `env:"POSTGRES_PASSWORD"`
 	PostgresMaxOpenConns           int    `env:"POSTGRES_MAX_OPEN_CONNS,default=10"`
-	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=2"`
+	PostgresMaxIdleConns           int    `env:"POSTGRES_MAX_IDLE_CONNS,default=10"`
 	PGBouncerMaxOpenConns          int    `env:"PG_BOUNCER_MAX_OPEN_CONNS,default=10"`
-	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=2"`
+	PGBouncerMaxIdleConns          int    `env:"PG_BOUNCER_MAX_IDLE_CONNS,default=10"`
 	PostgresConnMaxLifetimeSeconds int    `env:"POSTGRES_CONN_MAX_LIFETIME_SECONDS,default=0"`
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
@@ -43,6 +44,7 @@ type GlobalConfiguration struct {
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
+	LogFormat            string `env:"LOG_FORMAT,default=json"`
 	LogLevel             string `env:"LOG_LEVEL,default=info"`
 	EnterpriseEtcdPrefix string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	Metrics              bool   `env:"METRICS,default=true"`
@@ -78,6 +80,7 @@ type GlobalConfiguration struct {
 type PachdFullConfiguration struct {
 	GlobalConfiguration
 	PachdSpecificConfiguration
+	EnterpriseSpecificConfiguration
 }
 
 // PachdSpecificConfiguration contains the pachd specific configuration.
@@ -98,21 +101,39 @@ type PachdSpecificConfiguration struct {
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
 	EnableWorkerSecurityContexts bool   `env:"ENABLE_WORKER_SECURITY_CONTEXTS,default=true"`
+	TLSCertSecretName            string `env:"TLS_CERT_SECRET_NAME,default="`
+}
+
+// EnterpriseServerConfiguration contains the full configuration for an enterprise server
+type EnterpriseServerConfiguration struct {
+	GlobalConfiguration
+	EnterpriseSpecificConfiguration
+}
+
+// EnterpriseSpecificConfiguration contains the configuration required for enterprise features
+type EnterpriseSpecificConfiguration struct {
+	AuthRootToken      string `env:"AUTH_ROOT_TOKEN,default="`
+	LicenseKey         string `env:"LICENSE_KEY,default="`
+	EnterpriseSecret   string `env:"ENTERPRISE_SECRET,default="`
+	EnterpriseMember   bool   `env:"ENTERPRISE_MEMBER,default=false"`
+	IdentityConfig     string `env:"IDP_CONFIG,default="`
+	IdentityConnectors string `env:"IDP_CONNECTORS,default="`
 }
 
 // StorageConfiguration contains the storage configuration.
 type StorageConfiguration struct {
-	StorageMemoryThreshold         int64 `env:"STORAGE_MEMORY_THRESHOLD"`
-	StorageShardThreshold          int64 `env:"STORAGE_SHARD_THRESHOLD"`
-	StorageLevelFactor             int64 `env:"STORAGE_LEVEL_FACTOR"`
-	StorageUploadConcurrencyLimit  int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
-	StoragePutFileConcurrencyLimit int   `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
-	StorageGCPeriod                int64 `env:"STORAGE_GC_PERIOD,default=60"`
-	StorageChunkGCPeriod           int64 `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`
-	StorageCompactionMaxFanIn      int   `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
-	StorageFileSetsMaxOpen         int   `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
-	StorageDiskCacheSize           int   `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
-	StorageMemoryCacheSize         int   `env:"STORAGE_MEMORY_CACHE_SIZE,default=100"`
+	StorageMemoryThreshold               int64 `env:"STORAGE_MEMORY_THRESHOLD"`
+	StorageCompactionShardSizeThreshold  int64 `env:"STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD"`
+	StorageCompactionShardCountThreshold int64 `env:"STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD"`
+	StorageLevelFactor                   int64 `env:"STORAGE_LEVEL_FACTOR"`
+	StorageUploadConcurrencyLimit        int   `env:"STORAGE_UPLOAD_CONCURRENCY_LIMIT,default=100"`
+	StoragePutFileConcurrencyLimit       int   `env:"STORAGE_PUT_FILE_CONCURRENCY_LIMIT,default=100"`
+	StorageGCPeriod                      int64 `env:"STORAGE_GC_PERIOD,default=60"`
+	StorageChunkGCPeriod                 int64 `env:"STORAGE_CHUNK_GC_PERIOD,default=60"`
+	StorageCompactionMaxFanIn            int   `env:"STORAGE_COMPACTION_MAX_FANIN,default=10"`
+	StorageFileSetsMaxOpen               int   `env:"STORAGE_FILESETS_MAX_OPEN,default=50"`
+	StorageDiskCacheSize                 int   `env:"STORAGE_DISK_CACHE_SIZE,default=100"`
+	StorageMemoryCacheSize               int   `env:"STORAGE_MEMORY_CACHE_SIZE,default=100"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.
@@ -150,10 +171,15 @@ func NewConfiguration(config interface{}) *Configuration {
 	case *PachdFullConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
 		configuration.PachdSpecificConfiguration = &v.PachdSpecificConfiguration
+		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	case *WorkerFullConfiguration:
 		configuration.GlobalConfiguration = &v.GlobalConfiguration
 		configuration.WorkerSpecificConfiguration = &v.WorkerSpecificConfiguration
+		return configuration
+	case *EnterpriseServerConfiguration:
+		configuration.GlobalConfiguration = &v.GlobalConfiguration
+		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	default:
 		return nil

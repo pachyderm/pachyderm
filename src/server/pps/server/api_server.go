@@ -18,11 +18,12 @@ import (
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
-	logrus "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -36,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -724,7 +726,7 @@ func (a *apiServer) listJob(
 		return fmt.Sprintf("%s-%v", name, version)
 	}
 	pipelineVersions := make(map[string]bool)
-	if err := a.listPipelineInfo(ctx, pipeline, history,
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
 		func(ptr *pps.PipelineInfo) error {
 			pipelineVersions[versionKey(ptr.Pipeline.Name, ptr.Version)] = true
 			return nil
@@ -1067,8 +1069,9 @@ func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo
 			Job: meta.Job,
 			ID:  common.DatumID(meta.Inputs),
 		},
-		State: convertDatumState(meta.State),
-		Stats: meta.Stats,
+		State:   convertDatumState(meta.State),
+		Stats:   meta.Stats,
+		ImageId: meta.ImageId,
 	}
 	for _, input := range meta.Inputs {
 		di.Data = append(di.Data, input.FileInfo)
@@ -1313,7 +1316,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err := a.env.AuthServer.CheckClusterIsAuthorized(apiGetLogsServer.Context(), auth.Permission_CLUSTER_GET_PACHD_LOGS); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, `{app="pachd"}`, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
+		return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, `{app="pachd"}`, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
 			return errors.EnsureStack(apiGetLogsServer.Send(&pps.LogMessage{
 				Message: strings.TrimSuffix(line, "\n"),
 			}))
@@ -1362,17 +1365,19 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	for _, filter := range request.DataFilters {
 		query += contains(filter)
 	}
-	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Now(), request.Follow, func(t time.Time, line string) error {
-		msg := &pps.LogMessage{}
+	return lokiutil.QueryRange(apiGetLogsServer.Context(), loki, query, time.Now().Add(-since), time.Time{}, request.Follow, func(t time.Time, line string) error {
+		msg := new(pps.LogMessage)
+		if err := parseLokiLine(line, msg); err != nil {
+			logrus.WithField("line", line).WithError(err).Debug("get logs (loki): unparseable log line")
+			return nil
+		}
+
 		// These filters are almost always unnecessary because we apply
 		// them in the Loki request, but many of them are just done with
 		// string matching so there technically could be some false
 		// positive matches (although it's pretty unlikely), checking here
 		// just makes sure we don't accidentally intersperse unrelated log
 		// messages.
-		if err := jsonpb.Unmarshal(strings.NewReader(line), msg); err != nil {
-			return nil
-		}
 		if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
 			return nil
 		}
@@ -1391,6 +1396,94 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		msg.Message = strings.TrimSuffix(msg.Message, "\n")
 		return errors.EnsureStack(apiGetLogsServer.Send(msg))
 	})
+}
+
+// parseNativeLine receives a raw chunk of JSON from Loki, which is our logged
+// pps.LogMessage object.
+func parseNativeLine(s string, msg *pps.LogMessage) error {
+	return errors.EnsureStack(jsonpb.UnmarshalString(s, msg))
+}
+
+// parseDockerLine receives the raw Docker log line, which is a JSON object
+// containing a time, stream, and log field.  The log contains what our program
+// actually logged, so we parse that with parseNative after extracting it.
+func parseDockerLine(s string, msg *pps.LogMessage) error {
+	var result struct{ Log string }
+	if err := json.Unmarshal([]byte(s), &result); err != nil {
+		return errors.Errorf("outer json: %v", err)
+	}
+	if result.Log == "" {
+		return errors.New("log field is empty")
+	}
+	if err := parseNativeLine(result.Log, msg); err != nil {
+		return errors.Errorf("native json (%q): %v", result.Log, err)
+	}
+	return nil
+}
+
+// parseCRILine receives the raw CRI-format (used by containerd and cri-o) log
+// line, which is a line of text formatted like: <RFC3339 time> <stream name>
+// <maybe flags> <log message>.  Because this format is not actually parseable
+// (the log message could start with a flag, but there are no flags), we just
+// seek to the first { and feed that to the native parser.
+func parseCRILine(s string, msg *pps.LogMessage) error {
+	b := []byte(s)
+	i := bytes.IndexByte(b, '{')
+	if i < 0 {
+		return errors.New("line does not contain {")
+	}
+	l := string(b[i:])
+	if err := parseNativeLine(l, msg); err != nil {
+		return errors.Errorf("native json (%q): %v", l, err)
+	}
+	return nil
+}
+
+func parseLokiLine(inputLine string, msg *pps.LogMessage) error {
+	// There are three possible log formats in Loki, depending on the underlying formatting done
+	// by the container runtime.  Under ideal circumstances, the user of Loki has configured
+	// promtail to remove the runtime-specific logs, but it's quite easy to miss this
+	// configuration aspect, so we correct for it here.  (See:
+	// https://grafana.com/docs/loki/latest/clients/promtail/stages/cri/ and
+	// https://grafana.com/docs/loki/latest/clients/promtail/stages/docker/)
+
+	// Try each driver; if one results in a valid message, then we're done.
+	errs := make(map[string]error)
+	parsers := []struct {
+		driver string
+		parser func(string, *pps.LogMessage) error
+	}{
+		// The order here is important, because native and docker messages are ambiguous.
+		// It is unfortunate that we can't happy-path native.
+		{"cri", parseCRILine},
+		{"docker", parseDockerLine},
+		{"native", parseNativeLine},
+	}
+	for _, item := range parsers {
+		if err := item.parser(inputLine, msg); err != nil {
+			errs[item.driver] = err
+			continue
+		}
+		// This driver worked, so give up!
+		return nil
+	}
+
+	if len(errs) == 0 {
+		// This can't happen, because there are 3 iterations of the loop and each iteration
+		// either returns or populates errs.
+		return errors.EnsureStack(errors.New("impossible: did not succeed, but also did not error"))
+	}
+
+	// None of the drivers worked; explain why each failed.
+	errMsg := new(strings.Builder)
+	errMsg.WriteString("interpret loki line as json:")
+	for parser, err := range errs {
+		errMsg.WriteString("\n\t")
+		errMsg.WriteString(parser)
+		errMsg.WriteString(": ")
+		errMsg.WriteString(err.Error())
+	}
+	return errors.EnsureStack(errors.New(errMsg.String()))
 }
 
 func contains(s string) string {
@@ -1493,6 +1586,36 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	return nil
 }
 
+func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineRequest) error {
+	for _, s := range req.GetTransform().GetSecrets() {
+		if s.EnvVar != "" && s.Key == "" {
+			return errors.Errorf("secret %s has env_var set but is missing key", s.Name)
+		}
+		ss, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Get(ctx, s.Name, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return errors.Errorf("missing Kubernetes secret %s", s.Name)
+			}
+			return errors.Wrapf(err, "could not get Kubernetes secret %s", s.Name)
+		}
+		if s.EnvVar == "" {
+			continue
+		}
+		if _, ok := ss.Data[s.Key]; !ok {
+			return errors.Errorf("Kubernetes secret %s missing key %s", s.Name, s.Key)
+		}
+	}
+	return nil
+}
+
+// validateEgress validates the egress field.
+func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
+	if egress == nil {
+		return nil
+	}
+	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
+}
+
 func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
@@ -1515,6 +1638,9 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 		return errors.Wrapf(err, "invalid transform")
 	}
 	if err := a.validateInput(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Input); err != nil {
+		return err
+	}
+	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
 		return err
 	}
 	if pipelineInfo.Details.ParallelismSpec != nil {
@@ -1739,6 +1865,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 
+	if err := a.validateSecret(ctx, request); err != nil {
+		return nil, err
+	}
+
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(request))
 	}, nil); err != nil {
@@ -1751,7 +1881,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
 	}
-
 	// Reprocess overrides the salt in the request
 	if request.Salt == "" || request.Reprocess {
 		request.Salt = uuid.NewWithoutDashes()
@@ -1826,7 +1955,9 @@ func (a *apiServer) CreatePipelineInTransaction(
 	}
 
 	if oldPipelineInfo != nil && !request.Update {
-		return errors.Errorf("pipeline %q already exists", pipelineName)
+		return ppsServer.ErrPipelineAlreadyExists{
+			Pipeline: request.Pipeline,
+		}
 	}
 
 	newPipelineInfo, err := a.initializePipelineInfo(request, oldPipelineInfo)
@@ -2102,6 +2233,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			if input.Pfs.RepoType == "" {
 				input.Pfs.RepoType = pfs.UserRepoType
 			}
+			if input.Pfs.Glob != "" {
+				input.Pfs.Glob = pfsfile.CleanPath(input.Pfs.Glob)
+			}
 		}
 		if input.Cron != nil {
 			if input.Cron.Start == nil {
@@ -2277,7 +2411,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	// get all pipelines at once to avoid holding the list query open
 	// this should be fine with numbers of pipelines pachyderm can actually run
 	var infos []*pps.PipelineInfo
-	if err := a.listPipelineInfo(ctx, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(ptr *pps.PipelineInfo) error {
 		infos = append(infos, proto.Clone(ptr).(*pps.PipelineInfo))
 		return nil
 	}); err != nil {
@@ -2311,53 +2445,6 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}
 	return nil
-}
-
-// listPipelineInfo enumerates all PPS pipelines in the database, filters them
-// based on 'request', and then calls 'f' on each value
-func (a *apiServer) listPipelineInfo(ctx context.Context,
-	pipeline *pps.Pipeline, history int64, f func(*pps.PipelineInfo) error) error {
-	p := &pps.PipelineInfo{}
-	versionMap := make(map[string]uint64)
-	checkPipelineVersion := func(_ string) error {
-		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
-		// won't use this function to get their auth token)
-		p.AuthToken = ""
-		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if last, ok := versionMap[p.Pipeline.Name]; ok {
-			if p.Version < last {
-				// don't send, exit early
-				return nil
-			}
-		} else {
-			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
-			var lastVersionToSend uint64
-			if history < 0 || uint64(history) >= p.Version {
-				lastVersionToSend = 1
-			} else {
-				lastVersionToSend = p.Version - uint64(history)
-			}
-			versionMap[p.Pipeline.Name] = lastVersionToSend
-		}
-
-		return f(p)
-	}
-	if pipeline != nil {
-		if err := a.pipelines.ReadOnly(ctx).GetByIndex(
-			ppsdb.PipelinesNameIndex,
-			pipeline.Name,
-			p,
-			col.DefaultOptions(),
-			checkPipelineVersion); err != nil {
-			return errors.EnsureStack(err)
-		}
-		if len(versionMap) == 0 {
-			// pipeline didn't exist after all
-			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
-		}
-		return nil
-	}
-	return errors.EnsureStack(a.pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
 }
 
 // DeletePipeline implements the protobuf pps.DeletePipeline RPC
@@ -2986,38 +3073,33 @@ func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *
 
 var defaultLoadSpecs = []string{`
 count: 5
-operations:
+modifications:
   - count: 5
-    operation:
-      - putFile:
-          files:
-            count: 5
-            file:
-              - source: "random"
-                prob: 100
-        prob: 100 
-validator: {}
+    putFile:
+      count: 5
+      source: "random"
 fileSources:
   - name: "random"
     random:
       directory:
-        depth: 
+        depth:
           min: 0
           max: 3
         run: 3
-      size:
+      sizes:
         - min: 1000
           max: 10000
-          prob: 30 
+          prob: 30
         - min: 10000
           max: 100000
-          prob: 30 
+          prob: 30
         - min: 1000000
           max: 10000000
-          prob: 30 
+          prob: 30
         - min: 10000000
           max: 100000000
-          prob: 10 
+          prob: 10
+validator: {}
 `}
 
 // RepoNameToEnvString is a helper which uppercases a repo name for

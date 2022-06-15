@@ -22,7 +22,7 @@ For more information about spout pipelines,
 we recommend reading the following pages:
 
 - [Spout](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/pipeline/spout/) concept.
-- [Spout](https://docs.pachyderm.com/latest/reference/pipeline_spec/#spout-optional) configuration 
+- [Spout](https://docs.pachyderm.com/latest/reference/pipeline-spec/#spout-optional) configuration 
 
 
 In this example, we have emulated the reception 
@@ -39,8 +39,8 @@ to analyze the polarity of its emails.
 
 ## Getting ready
 ***Prerequisite***
-- A workspace on [Pachyderm Hub](https://docs.pachyderm.com/latest/hub/hub_getting_started/) (recommended) or Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
+- A running workspace. Install Pachyderm[locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
 - Clone this repo.

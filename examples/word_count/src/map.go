@@ -78,7 +78,9 @@ func main() {
 	}
 
 	for word, count := range wordMap {
-		if err := ioutil.WriteFile(filepath.Join(outputDir, word), []byte(strconv.Itoa(count)+"\n"), 0644); err != nil {
+		newPath := filepath.Join(outputDir,os.Getenv("PACH_DATUM_ID"))
+		os.MkdirAll(newPath, os.ModePerm)
+		if err := ioutil.WriteFile(filepath.Join(newPath,word), []byte(strconv.Itoa(count)+"\n"), 0644); err != nil {
 			log.Fatal(err)
 		}
 	}

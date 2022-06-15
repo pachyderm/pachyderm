@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
@@ -11,6 +12,7 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 		return nil, err
 	}
 	go a.driver.master(env.BackgroundContext)
+	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }()
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 

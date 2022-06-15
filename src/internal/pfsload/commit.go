@@ -2,29 +2,21 @@ package pfsload
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 )
 
-type CommitsSpec struct {
-	Count           int               `yaml:"count,omitempty"`
-	OperationsSpecs []*OperationsSpec `yaml:"operations,omitempty"`
-	ThroughputSpec  *ThroughputSpec   `yaml:"throughput,omitempty"`
-	CancelSpec      *CancelSpec       `yaml:"cancel,omitempty"`
-	ValidatorSpec   *ValidatorSpec    `yaml:"validator,omitempty"`
-	FileSourceSpecs []*FileSourceSpec `yaml:"fileSources,omitempty"`
-}
-
-func Commits(pachClient *client.APIClient, repo, branch string, spec *CommitsSpec, seed int64) error {
-	env, err := NewEnv(NewPachClient(pachClient), spec, seed)
+func Commit(pachClient *client.APIClient, taskService task.Service, repo, branch string, spec *CommitSpec, seed int64) error {
+	env, err := NewEnv(pachClient, taskService, spec, seed)
 	if err != nil {
 		return err
 	}
-	for i := 0; i < spec.Count; i++ {
+	for i := 0; i < int(spec.Count); i++ {
 		commit, err := pachClient.StartCommit(repo, branch)
 		if err != nil {
 			return err
 		}
-		for _, operationsSpec := range spec.OperationsSpecs {
-			if err := Operations(env, repo, branch, commit.ID, operationsSpec); err != nil {
+		for _, mod := range spec.Modifications {
+			if err := Modification(env, repo, branch, commit.ID, mod); err != nil {
 				return err
 			}
 		}

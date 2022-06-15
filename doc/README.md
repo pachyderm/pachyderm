@@ -2,7 +2,7 @@
 
 These docs are rendered and searchable in our [Documentation Portal](https://docs.pachyderm.com). Here are a few section links for quick access:
 
-- [Getting Started](https://docs.pachyderm.com/latest/getting_started/) — includes local installation and Beginner Tutorial.
+- [Getting Started](https://docs.pachyderm.com/latest/getting-started/) — includes local installation and Beginner Tutorial.
 - [Concepts](https://docs.pachyderm.com/latest/concepts/) — provides an overview of the main Pachyderm concepts.
 - [How-Tos](https://docs.pachyderm.com/latest/how-tos/) — includes how-tos about that describe how you can load your data into Pachyderm, export it to external systems, split your data, and all the other data operaions and features available in Pachyderm. 
 - [Pachctl API Documentation](https://deploy-preview-4312--pachyderm-docs.netlify.com/latest/reference/pachctl/pachctl/) — provides an overview of all Pachyderm CLI tool commands.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -11,15 +12,86 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDeployEnterprise(t *testing.T) {
 	k := testutil.GetKubeClient(t)
-	c := minikubetestenv.InstallReleaseEnterprise(t, context.Background(), k, auth.RootUser, true)
+	c := minikubetestenv.InstallRelease(t,
+		context.Background(),
+		"default",
+		k,
+		&minikubetestenv.DeployOpts{
+			AuthUser:     auth.RootUser,
+			Enterprise:   true,
+			CleanupAfter: true,
+		})
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	c.SetAuthToken("")
+	mockIDPLogin(t, c)
+}
+
+func TestUpgradeEnterpriseWithEnv(t *testing.T) {
+	k := testutil.GetKubeClient(t)
+	opts := &minikubetestenv.DeployOpts{
+		AuthUser:     auth.RootUser,
+		Enterprise:   true,
+		CleanupAfter: true,
+	}
+	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, opts)
+	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	// set new root token via env
+	opts.AuthUser = ""
+	token := "new-root-token"
+	opts.ValueOverrides = map[string]string{"pachd.rootToken": token}
+	c = minikubetestenv.UpgradeRelease(t, context.Background(), "default", k, opts)
+	c.SetAuthToken(token)
+	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	// old token should no longer work
+	c.SetAuthToken(testutil.RootToken)
+	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
+}
+
+func TestEnterpriseServerMember(t *testing.T) {
+	k := testutil.GetKubeClient(t)
+	_, err := k.CoreV1().Namespaces().Create(context.Background(),
+		&v1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "enterprise",
+			},
+		},
+		metav1.CreateOptions{})
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
+	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+		AuthUser:         auth.RootUser,
+		EnterpriseServer: true,
+		CleanupAfter:     true,
+	})
+	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	mockIDPLogin(t, ec)
+	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, &minikubetestenv.DeployOpts{
+		AuthUser:         auth.RootUser,
+		EnterpriseMember: true,
+		Enterprise:       true,
+		CleanupAfter:     true,
+	})
+	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	c.SetAuthToken("")
+	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
+	require.NoError(t, err)
+	require.True(t, strings.Contains(loginInfo.LoginURL, ":31658"))
 	mockIDPLogin(t, c)
 }
 

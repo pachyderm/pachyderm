@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -309,11 +310,15 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	secureBool, err := strconv.ParseBool(secure)
+	if err != nil {
+		return nil, errors.Errorf("Failed to convert minio secure boolean setting")
+	}
 	isS3V2, err := readSecretFile(fmt.Sprintf("/%s", MinioSignatureEnvVar))
 	if err != nil {
 		return nil, err
 	}
-	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
+	return NewMinioClient(endpoint, bucket, id, secret, secureBool, isS3V2 == "1")
 }
 
 // NewMinioClientFromEnv creates a Minio client based on environment variables.
@@ -338,11 +343,15 @@ func NewMinioClientFromEnv() (Client, error) {
 	if !ok {
 		return nil, errors.Errorf("%s not found", MinioSecureEnvVar)
 	}
+	secureBool, err := strconv.ParseBool(secure)
+	if err != nil {
+		return nil, errors.Errorf("Failed to convert minio secure boolean setting")
+	}
 	isS3V2, ok := os.LookupEnv(MinioSignatureEnvVar)
 	if !ok {
 		return nil, errors.Errorf("%s not found", MinioSignatureEnvVar)
 	}
-	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
+	return NewMinioClient(endpoint, bucket, id, secret, secureBool, isS3V2 == "1")
 }
 
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
@@ -465,41 +474,43 @@ func (s ObjectStoreURL) String() string {
 
 // ParseURL parses an URL into ObjectStoreURL.
 func ParseURL(urlStr string) (*ObjectStoreURL, error) {
-	url, err := url.Parse(urlStr)
+	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error parsing url %v", urlStr)
 	}
-	switch url.Scheme {
+	switch u.Scheme {
 	case "s3", "gcs", "gs", "local":
 		return &ObjectStoreURL{
-			Scheme: url.Scheme,
-			Bucket: url.Host,
-			Object: strings.Trim(url.Path, "/"),
+			Scheme: u.Scheme,
+			Bucket: u.Host,
+			Object: strings.Trim(u.Path, "/"),
 		}, nil
 	case "as", "wasb":
 		// In Azure, the first part of the path is the container name.
-		parts := strings.Split(strings.Trim(url.Path, "/"), "/")
+		parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 		if len(parts) < 1 {
+			// return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
 			return nil, errors.Errorf("malformed Azure URI: %v", urlStr)
 		}
 		return &ObjectStoreURL{
-			Scheme: url.Scheme,
+			Scheme: u.Scheme,
 			Bucket: parts[0],
 			Object: strings.Trim(path.Join(parts[1:]...), "/"),
 		}, nil
 	case "minio", "test-minio":
-		parts := strings.SplitN(strings.Trim(url.Path, "/"), "/", 2)
+		parts := strings.SplitN(strings.Trim(u.Path, "/"), "/", 2)
 		var key string
 		if len(parts) == 2 {
 			key = parts[1]
 		}
 		return &ObjectStoreURL{
-			Scheme: url.Scheme,
-			Bucket: url.Host + "/" + parts[0],
+			Scheme: u.Scheme,
+			Bucket: u.Host + "/" + parts[0],
 			Object: key,
 		}, nil
 	}
-	return nil, errors.Errorf("unrecognized object store: %s", url.Scheme)
+	// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
+	return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 }
 
 // NewClientFromEnv creates a client based on environment variables.

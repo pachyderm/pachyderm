@@ -38,7 +38,7 @@ issues:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="general_troubleshooting/" class="md-typeset md-link">
+          <li><a href="general-troubleshooting/" class="md-typeset md-link">
           General Troubleshooting
           </a>
           </li>
@@ -57,7 +57,7 @@ issues:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="deploy_troubleshooting/" class="md-typeset md-link">
+          <li><a href="deploy-troubleshooting/" class="md-typeset md-link">
             Troubleshoot Deployments
           </a>
           </li>
@@ -78,7 +78,7 @@ issues:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="pipeline_troubleshooting/" class="md-typeset md-link">
+           <li><a href="pipeline-troubleshooting/" class="md-typeset md-link">
            Troubleshoot Pipelines
            </a>
            </li>

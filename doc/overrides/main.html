@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
+<meta name="google-site-verification" content="7rEzMy5G3gRKP8fGc44XdP3HDSgDZOi8K8GUaVSm9pY" />
+
   <script src="//d2wy8f7a9ursnm.cloudfront.net/v7/bugsnag.min.js"></script>
   <script>Bugsnag.start({ apiKey: '8f81cbe33181807ab3d63705fe0546db' })</script>
   <script> 
@@ -63,7 +65,7 @@
   </script>
   <script src="https://cdn.rudderlabs.com/sm/rudder-analytics.min.js"></script>
   
-  <link href=https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
 
   <!-- Determine title -->
   {% set title = config.site_name %}
@@ -157,12 +159,13 @@ body {
    <a href="https://github.com/pachyderm/pachyderm/releases/tag/v{{ config.pach_latest_version }}" class="md-announce md-link1">
      Pachyderm {{ config.pach_featured_version }} is out! Download <strong>here.</strong> 
    </a>
-   <a href="https://docs.pachyderm.com/2.1.x/getting_started/whats_new/" class="md-announce md-link1">
-      &nbsp; Check <strong>what's new!</strong> 
-  </a>
    <div class="tx-hero" style="float:right">
   
-  <!--a class="hub-button" href="https://hub.pachyderm.com">Try on Hub!
-    <span class="beta">Free</span></a>
-  </div-->
+   <!--a class="hub-button" href="https://hub.pachyderm.com">Try on Hub!
+   <span class="beta">Free</span></a-->
+
+   <a class="hub-button" href="https://www.pachyderm.com/get-started-with-oss/" target="_blank">
+    &nbsp;New? Register with us, get free swag!
+   </a>
+   </div>
 {% endblock %}

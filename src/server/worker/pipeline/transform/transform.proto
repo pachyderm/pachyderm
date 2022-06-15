@@ -27,6 +27,7 @@ message UploadDatumsTask {
 
 message UploadDatumsTaskResult {
   string file_set_id = 1;
+  int64 count = 2;
 } 
 
 message ComputeParallelDatumsTask {
