@@ -56,6 +56,7 @@ Append an egress section to your pipeline specification file, then fill in:
     2,"text!"
     ```
     The following table will be written to the database:
+
     ```
     foo   |  bar
     ===============
@@ -81,11 +82,11 @@ Append an egress section to your pipeline specification file, then fill in:
         },
         "egress": {
             "sql_database": {
-                "url": "snowflake://pachyderm@WASUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH",
+                "url": "snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH",
                 "file_format": {
-                    "type": "CSV"
+                    "type": "CSV",
+                    "columns": ["foo", "bar"]
                 },
-                "columns": ["foo", "bar"],
                 "secret": {
                     "name": "snowflakesecret",
                     "key": "PACHYDERM_SQL_PASSWORD"
