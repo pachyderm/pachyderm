@@ -651,3 +651,11 @@ async def test_auth_logout(mock_client, jp_fetch):
     )
 
     mock_client.auth_logout.assert_called()
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch("jupyterlab_pachyderm.handlers.HealthHandler.mount_client", spec=MountInterface)
+async def test_health(mock_client, jp_fetch):
+    mock_client.health.return_value = json.dumps({"status": "running"})
+    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/health")
+    assert json.loads(r.body) == {"status": "running"}

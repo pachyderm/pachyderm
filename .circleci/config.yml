@@ -8,8 +8,8 @@ parameters:
     type: string
     # update this to build a different e.g. branch build of pachctl based on the git hash
     # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
-    default: 46e73c10dbfd2492786fab0b88af0c0c5db42bb0
-    # Includes https://github.com/pachyderm/pachyderm/pull/7660
+    default: 117da9b0921d75b3f689d7710823afdc1490822e
+    # Includes https://github.com/pachyderm/pachyderm/pull/7767
 
 jobs:
   test:
@@ -20,7 +20,6 @@ jobs:
       - image: cimg/python:<< parameters.python-version >>-node
     steps:
       - checkout
-
       # Install and cache Python dependencies
       - restore_cache:
           key: pip<< parameters.python-version >>-cache-v8-{{ checksum "ci-requirements.txt" }}
@@ -126,7 +125,10 @@ jobs:
 
             tail -F /tmp/pachctl-mount-server.log &
             mkdir pfs
-            PFS_MOUNT_DIR=$(pwd)/pfs CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
+            export PFS_MOUNT_DIR=$(pwd)/pfs
+            pachctl mount-server --mount-dir $PFS_MOUNT_DIR &
+            curl -XPUT -d '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' http://localhost:9002/config
+            CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
   frontend-test:
     resource_class: xlarge

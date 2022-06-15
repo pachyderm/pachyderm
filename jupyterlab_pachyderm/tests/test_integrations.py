@@ -6,8 +6,6 @@ import json
 
 import pytest
 import requests
-import python_pachyderm
-from python_pachyderm.service import identity_proto, auth_proto
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
@@ -77,39 +75,6 @@ def dev_server():
 
     if not running:
         raise RuntimeError("mount server is having issues starting up")
-
-
-@pytest.fixture()
-def activate_auth():
-    print("activating auth...")
-    client = python_pachyderm.Client()
-    client.delete_all()
-
-    client.activate_license(os.environ.get("ENT_ACT_CODE"))
-    client.add_cluster("localhost", "localhost:1650", secret="secret")
-    client.activate_enterprise("localhost:1650", "localhost", "secret")
-
-    client.auth_token = ROOT_TOKEN
-    client.activate_auth(ROOT_TOKEN)
-    client.set_identity_server_config(
-        config=identity_proto.IdentityServerConfig(issuer="http://localhost:1658")
-    )
-    client.set_auth_configuration(
-        auth_proto.OIDCConfig(
-            issuer="http://localhost:1658",
-            client_id="client",
-            client_secret="secret",
-            redirect_uri="http://test.example.com",
-        )
-    )
-
-    yield
-
-    client.auth_token = ROOT_TOKEN
-    client.delete_all_identity()
-    client.deactivate_auth()
-    client.deactivate_enterprise()
-    client.delete_all_license()
 
 
 def test_list_repos(pachyderm_resources, dev_server):
@@ -217,43 +182,3 @@ def test_config(dev_server):
 
     assert r.status_code == 200
     assert r.json()["cluster_status"] != "INVALID"
-
-
-@pytest.mark.skipif(os.environ.get("ENT_ACT_CODE") is None, reason="No enterprise token at env var ENT_ACT_CODE")
-def test_auth(activate_auth, dev_server):
-    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
-    active_context = config["v2"]["active_context"]
-    config["v2"]["contexts"][active_context]["session_token"] = ROOT_TOKEN
-    json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
-
-    # Reload mount server so it sees auth token
-    subprocess.run(["bash", "-c", f"umount {PFS_MOUNT_DIR}"])
-
-    r = requests.put(f"{BASE_URL}/auth/_logout")
-    assert r.status_code == 200
-
-    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
-    active_context = config["v2"]["active_context"]
-    assert config["v2"]["contexts"][active_context].get("session_token") is None
-
-    # make login request and verify URL returned
-    r = requests.put(f"{BASE_URL}/auth/_login")
-    assert r.status_code == 200
-    assert r.json()["auth_url"] is not None
-
-
-@pytest.mark.skipif(os.environ.get("ENT_ACT_CODE") is None, reason="No enterprise token at env var ENT_ACT_CODE")
-def test_unauthenticated_web_code(activate_auth, dev_server):
-    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
-    active_context = config["v2"]["active_context"]
-    config["v2"]["contexts"][active_context]["session_token"] = ""
-    json.dump(config, open(os.path.expanduser(CONFIG_PATH), "w"))
-
-    # Reload mount server so it has no auth token
-    subprocess.run(["bash", "-c", f"umount {PFS_MOUNT_DIR}"])
-
-    r = requests.get(f"{BASE_URL}/repos")
-    assert r.status_code == 401
-
-    r = requests.put(f"{BASE_URL}/repos/_unmount")
-    assert r.status_code == 401

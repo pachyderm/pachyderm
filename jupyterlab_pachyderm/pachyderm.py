@@ -33,6 +33,9 @@ class MountInterface:
     async def auth_logout(self):
         pass
 
+    async def health(self):
+        pass
+
 
 class PythonPachydermClient:
     """Interface for interacting with real Pachyderm backend."""
@@ -198,4 +201,7 @@ class PythonPachydermMountClient(MountInterface):
         pass
 
     async def auth_logout(self):
+        pass
+
+    async def health(self):
         pass

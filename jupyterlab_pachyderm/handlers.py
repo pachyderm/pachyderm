@@ -291,6 +291,20 @@ class AuthLogoutHandler(BaseHandler):
             )
 
 
+class HealthHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        try:
+            response = await self.mount_client.health()
+            self.finish(response)
+        except Exception as e:
+            get_logger().error("Mount server not running.")
+            raise tornado.web.HTTPError(
+                status_code=500,
+                reason=f"Mount server not running."
+            )
+
+
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
@@ -322,6 +336,7 @@ def setup_handlers(web_app):
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
+        ("/health", HealthHandler),
     ]
 
     base_url = web_app.settings["base_url"]
