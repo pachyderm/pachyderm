@@ -61,23 +61,24 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to retrieve list of IDP connectors.")
 		}
-		exIds := make(map[string]struct{})
+		oldCons := make(map[string]*identity.IDPConnector)
 		for _, e := range existing.Connectors {
-			exIds[e.Id] = struct{}{}
+			oldCons[e.Id] = e
 		}
 		for _, c := range connectors {
-			if _, ok := exIds[c.Id]; ok {
+			if oc, ok := oldCons[c.Id]; ok {
+				c.ConfigVersion = oc.ConfigVersion + 1
 				if _, err := a.updateIDPConnector(ctx, &identity.UpdateIDPConnectorRequest{Connector: &c}); err != nil {
 					return errors.Wrapf(err, "update connector with ID: %q", c.Id)
 				}
-				delete(exIds, c.Id)
+				delete(oldCons, c.Id)
 			} else {
 				if _, err := a.createIDPConnector(ctx, &identity.CreateIDPConnectorRequest{Connector: &c}); err != nil {
 					return errors.Wrapf(err, "create connector with ID: %q", c.Id)
 				}
 			}
 		}
-		for e := range exIds {
+		for e := range oldCons {
 			if _, err = a.deleteIDPConnector(ctx, &identity.DeleteIDPConnectorRequest{Id: e}); err != nil {
 				a.env.Logger.Errorf(errors.Wrapf(err, "delete connector %q", e).Error())
 			}
