@@ -570,9 +570,7 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
-	fmt.Printf("download: %s, %d\n", origPath, state)
 	if n.getFileState(origPath) >= state {
-		fmt.Printf("bail\n")
 		// Already got this file, so we can just return
 		return nil
 	}
