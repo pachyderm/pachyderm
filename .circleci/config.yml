@@ -206,6 +206,11 @@ jobs:
           paths:
             - /home/circleci/.gocache
       - run: etc/testing/circle/deploy_test.sh
+      - run: 
+        name: go test
+        command: |
+          # -e
+          go test -v ./src/testing/deploy --timeout=3600s -v | stdbuf -i0 tee -a /tmp/results
       - run:
           command: etc/testing/circle/upload_stats.sh
       - store_test_results:
