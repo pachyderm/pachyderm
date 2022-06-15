@@ -436,21 +436,14 @@ func TestMountCommit(t *testing.T) {
 func TestMountFile(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	err := env.PachClient.WithModifyFileClient(client.NewCommit("repo", "master", ""), func(mf client.ModifyFile) error {
-		if err := mf.PutFile("foo", strings.NewReader("foo")); err != nil {
-			return err
-		}
-		if err := mf.PutFile("bar", strings.NewReader("bar")); err != nil {
-			return err
-		}
-		return nil
-	})
-	require.NoError(t, err)
+	require.NoError(t, env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "foo", strings.NewReader("foo")))
+	require.NoError(t, env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "bar", strings.NewReader("bar")))
+	require.NoError(t, env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "buzz", strings.NewReader("buzz")))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
 				Name: "repo",
-				File: client.NewFile("repo", "master", "", "/foo"),
+				File: client.NewFile("repo", "master", "master^", "/foo"),
 			},
 		},
 	}, func(mountPoint string) {
