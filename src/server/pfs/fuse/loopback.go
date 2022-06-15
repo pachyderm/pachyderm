@@ -570,7 +570,9 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
 func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
+	fmt.Printf("download: %s, %d\n", origPath, state)
 	if n.getFileState(origPath) >= state {
+		fmt.Printf("bail\n")
 		// Already got this file, so we can just return
 		return nil
 	}
@@ -619,6 +621,9 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	}
 	// Define the callback up front because we use it in two paths
 	createFile := func(fi *pfs.FileInfo) (retErr error) {
+		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
+			return nil
+		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
@@ -655,18 +660,7 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 		}
 		return nil
 	}
-	trimmedFilePath := strings.TrimPrefix(ro.File.Path, "/")
 	filePath := pathpkg.Join(parts[1:]...)
-	if ro.File.Path != "" && strings.HasPrefix(trimmedFilePath, filePath) {
-		fi, err := n.c().InspectFile(ro.File.Commit, strings.TrimPrefix(trimmedFilePath, path))
-		if err != nil {
-			return err
-		}
-		return createFile(fi)
-	}
-	if ro.File.Path != "" && !strings.HasPrefix(path, trimmedFilePath) {
-		return nil
-	}
 	repoName := ro.File.Commit.Branch.Repo.Name
 	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {

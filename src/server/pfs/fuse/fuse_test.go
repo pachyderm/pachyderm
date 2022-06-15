@@ -3,6 +3,7 @@ package fuse
 import (
 	"bytes"
 	"crypto/sha256"
+	iofs "io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -487,6 +488,108 @@ func TestMountFile(t *testing.T) {
 		require.Equal(t, "bar", filepath.Base(files[0].Name()))
 
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "bar"))
+		require.NoError(t, err)
+		require.Equal(t, "bar", string(data))
+	})
+}
+
+func TestMountDir(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	err := env.PachClient.WithModifyFileClient(client.NewCommit("repo", "master", ""), func(mf client.ModifyFile) error {
+		if err := mf.PutFile("dir/foo", strings.NewReader("foo")); err != nil {
+			return err
+		}
+		if err := mf.PutFile("dir/bar", strings.NewReader("bar")); err != nil {
+			return err
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name: "repo",
+				File: client.NewFile("repo", "master", "", "/dir/foo"),
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "foo", filepath.Base(files[0].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+	})
+
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name: "repo",
+				File: client.NewFile("repo", "master", "", "/dir/bar"),
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "bar", filepath.Base(files[0].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "bar"))
+		require.NoError(t, err)
+		require.Equal(t, "bar", string(data))
+	})
+
+	withMount(t, env.PachClient, &Options{
+		RepoOptions: map[string]*RepoOptions{
+			"repo": &RepoOptions{
+				Name: "repo",
+				File: client.NewFile("repo", "master", "", "/dir"),
+			},
+		},
+	}, func(mountPoint string) {
+		repos, err := ioutil.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.ElementsEqualUnderFn(t, []string{"foo", "bar"}, files, func(f interface{}) interface{} { return f.(iofs.FileInfo).Name() })
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "foo"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+
+		data, err = ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "bar"))
 		require.NoError(t, err)
 		require.Equal(t, "bar", string(data))
 	})
