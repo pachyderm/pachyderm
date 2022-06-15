@@ -107,10 +107,12 @@ spec:
                 drop:
                 - all
       securityContext:
-        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
-        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
-        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       {{- end }}
       volumes:
         - name: envoy-config

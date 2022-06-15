@@ -101,10 +101,12 @@ spec:
               drop:
               - all
       securityContext:
-        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
-        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
-        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       {{- end }}
       {{- if .Values.console.nodeSelector }}
       nodeSelector: {{ toYaml .Values.console.nodeSelector | nindent 8 }}

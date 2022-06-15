@@ -48,10 +48,12 @@ spec:
               drop:
               - all
       securityContext:
-        runAsUser: {{ .Values.global.securityContexts.runAsUser }}
-        runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
-        fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       {{- end }}
       {{- if .Values.cloudsqlAuthProxy.nodeSelector }}
       nodeSelector: {{ toYaml .Values.cloudsqlAuthProxy.nodeSelector | nindent 8 }}
