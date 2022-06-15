@@ -178,8 +178,8 @@ func RunLocal() (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(externalServer.Server, authServer.APIServer)
-			env.SetAuthServer(authServer.APIServer)
+			authclient.RegisterAPIServer(externalServer.Server, authServer)
+			env.SetAuthServer(authServer)
 			return nil
 		}); err != nil {
 			return err
@@ -311,7 +311,7 @@ func RunLocal() (retErr error) {
 			if err != nil {
 				return err
 			}
-			authclient.RegisterAPIServer(internalServer.Server, authServer.APIServer)
+			authclient.RegisterAPIServer(internalServer.Server, authServer)
 			return nil
 		}); err != nil {
 			return err
