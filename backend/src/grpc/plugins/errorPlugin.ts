@@ -8,6 +8,8 @@ import isServiceError from '../utils/isServiceError';
 const TOKEN_EXPIRED_MESSAGE = 'token expiration';
 const NO_AUTHENTICATION_METADATA_MESSAGE = 'no authentication metadata';
 const INACTIVE_AUTH_MESSAGE = 'the auth service is not activated';
+const ENTERPRISE_LIMIT =
+  'Pachyderm Community Edition requires an activation key';
 
 // The pach error implementation is unstructured due to
 // issues with sending structured errors across rpc boundaries.
@@ -72,6 +74,16 @@ const errorPlugin: GRPCPlugin = {
         error.details.includes(INACTIVE_AUTH_MESSAGE)
       ) {
         throw new ApolloError(error.details, 'UNIMPLEMENTED', {
+          ...error,
+          grpcCode: error.code,
+        });
+      }
+
+      if (
+        error.code === Status.UNKNOWN &&
+        error.details.includes(ENTERPRISE_LIMIT)
+      ) {
+        throw new ApolloError(error.details, 'ENTERPRISE_REQUIRED', {
           ...error,
           grpcCode: error.code,
         });

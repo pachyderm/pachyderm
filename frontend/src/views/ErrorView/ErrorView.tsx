@@ -39,8 +39,9 @@ const ErrorView: React.FC<ErrorViewProps> = ({graphQLError}) => {
               <StatusWarningSVG /> <h4>{errorMessage}</h4>
             </Group>
             <ErrorText>
-              {graphQLError?.extensions?.exception?.stacktrace &&
-                graphQLError?.extensions?.exception?.stacktrace[0]}
+              {graphQLError?.extensions?.exception?.stacktrace
+                ? graphQLError?.extensions?.exception?.stacktrace[0]
+                : String(graphQLError?.extensions?.details)}
             </ErrorText>
             {graphQLError?.source && (
               <>
