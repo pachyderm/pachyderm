@@ -200,13 +200,13 @@ func checkSingleFile(ctx context.Context, src Source) error {
 	var count int
 	err := src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
 		if finfo.FileType != pfs.FileType_FILE {
-			return errors.Errorf("cannot get non-regular file. Try GetFileTAR for directories")
+			return errors.Errorf("cannot get directory or non-regular file. Use GetFileTAR or the -r flag")
 		}
 		if count == 0 {
 			count++
 			return nil
 		}
-		return errors.Errorf("matched multiple files. Try GetFileTAR")
+		return errors.Errorf("matched multiple files. Use GetFileTAR or the -r flag")
 	})
 	return errors.EnsureStack(err)
 }
