@@ -1,0 +1,21 @@
+pachd:
+    resources:
+        requests:
+            cpu: 3750m
+            memory: 12Gi
+        limits:
+            cpu: 3750m
+            memory: 12Gi
+    nodeSelector:
+        loadtest: enabled
+
+etcd:
+    resources:
+        requests:
+            cpu: 1000m
+            memory: 1000M
+        limits:
+            cpu: 1000m
+            memory: 1000M
+    nodeSelector:
+        loadtest: enabled
