@@ -66,7 +66,7 @@ spec:
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
         {{- if .Values.global.postgresql.ssl }}
         - name: POSTGRES_SSL
-          value: {{ .Values.global.postgresql.ssl | quote }}
+          value: "require"
         {{- end }}
         {{- if .Values.cloudsqlAuthProxy.iamLogin }}
         - name: POSTGRES_PASSWORD
