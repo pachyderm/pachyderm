@@ -26,13 +26,13 @@ Pachyderm Enterprise unlocks a series of additional administrative and security 
 ### Tooling
 
 Pachyderm CE comes with an indispensable complementary tool 
-when designing and debugging pipelines: **Pachyderm Console**, 
+when designing and debugging pipelines: **Pachyderm Console**; 
 a full Web UI for visualizing pipelines and exploring data. 
 
 While Console is now part of Pachyderm Community Edition, 
 enabling Enterprise allows you to benefit 
-from the full Authentication and Role-Based Access Control capabilities, 
-restricting the access to specific resources to authorized users only. 
+from the full Authentication and Role-Based Access Control capabilities 
+by restricting the access to specific resources to authorized users only. 
 Unauthorized users will not be able to visualize the content 
 of given clusters, repo, and pipelines.
 

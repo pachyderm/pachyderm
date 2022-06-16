@@ -161,9 +161,9 @@ Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_
   
 ## Deploy Pachyderm Community Edition
   
-When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps. Your default installation comes with Console unless specified otherwise.
+When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps. Your default installation comes with Console (Pachyderm's Web UI).
 
-Additionally, for JupyterLab users, [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
+Additionally, for JupyterLab users,  you can [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
 Note that you can run both Console and JupyterLab on your local installation.
 
@@ -186,9 +186,10 @@ Note that you can run both Console and JupyterLab on your local installation.
        helm install pachd pach/pachyderm --set deployTarget=LOCAL  
        ```    
 
-       Set the following `--set console.enabled=false` in your command above to install without Console.
+       Add the following `--set console.enabled=false` to the command above to install without Console.
 === "Enterprise"
-      This command will unlock your enterprise features and install Console Enterprise.
+      This command will unlock your enterprise features and install Console Enterprise. Note that Console Enterprise requires authentication. By default, **we create a default mock user (username:`admin`, password: `password`)** to [authenticate to Console](../../deploy-manage/deploy/console/#connect-to-console){target=_blank} without having to connect your Identity Provider. 
+
        - Create a `license.txt` file in which you paste your [Enterprise Key](../../enterprise){target=_blank}.
        - Then, run the following helm command to **install Pachyderm's latest Enterprise Edition**: 
       
@@ -197,8 +198,7 @@ Note that you can run both Console and JupyterLab on your local installation.
         ``` 
 
 !!! Attention  "Request an **Enterprise Key**"
-     * To request a FREE trial enterprise license key, [click here](../../enterprise){target=_blank}. 
-     * We create a default mock user (username:`admin`, password: `password`) to [authenticate to Console](../../deploy-manage/deploy/console/#connect-to-console){target=_blank} without having to connect your Identity Provider. ????????????????????? Is it true with enterprise still?
+     To request a FREE trial enterprise license key, [click here](../../enterprise){target=_blank}. 
 
 !!! Tip "To uninstall Pachyderm fully"
       Running `helm uninstall pachd` leaves persistent volume claims behind. To wipe your instance clean, run:
@@ -210,14 +210,13 @@ Note that you can run both Console and JupyterLab on your local installation.
 !!! Info "See Also"
       More [details on Pachyderm's Helm installation](../../deploy-manage/deploy/helm-install/){target=_blank}.
 
-
 ## Check Your Install
 
 Check the status of the Pachyderm pods by periodically
 running `kubectl get pods`. When Pachyderm is ready for use,
 all Pachyderm pods must be in the **Running** status.
 
-Because Pachyderm needs to pull the Pachyderm Docker image
+Because Pachyderm needs to pull the Pachyderm Docker images
 from DockerHub, it might take a few minutes for the Pachyderm pods status
 to change to `Running`.
 
@@ -238,10 +237,9 @@ pod/postgres-0                                 1/1     Running     0          2m
 ```
 
 If you see a few restarts on the `pachd` nodes, that means that
-Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
+Kubernetes tried to bring up those pods before `etcd` or `postgres` were ready. Therefore,
 Kubernetes restarted those pods. Re-run `kubectl get pods`
  
-
 ## Connect 'pachctl' To Your Cluster
 
 Assuming your `pachd` is running as shown above,
@@ -261,18 +259,6 @@ the easiest way to connect `pachctl` to your local cluster is to use the `port-f
       ``` 
       **Background this process in a new tab of your terminal.**
 
-### You Have Deployed Enterprise/Console
-
-- To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`** 
-and authenticate using the mock User (username: `admin`, password: `password`).
-
-- Alternatively, you can connect to your Console (Pachyderm UI) directly by
-pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP **`http://<dockerDesktopIdaddress-or-minikube>:4000/`** 
-then authenticate using the mock User (username: `admin`, password: `password`).
-
-- To use `pachctl`, you need to run `pachctl auth login` then
-authenticate again (to Pachyderm this time) with the mock User (username: `admin`, password: `password`).
-
 ### Verify that `pachctl` and your cluster are connected. 
   
 ```shell  
@@ -288,6 +274,21 @@ pachd               {{ config.pach_latest_version }}
 ```  
 You are all set!  
 
+### If You Have Deployed Pachyderm Community Edition
+
+You are ready!
+To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`**.
+### If You Have Deployed Pachyderm Enterprise
+
+- To connect to your Console (Pachyderm UI), point your browser to **`localhost:4000`** 
+and authenticate using the mock User (username: `admin`, password: `password`).
+
+- Alternatively, you can connect to your Console (Pachyderm UI) directly by
+pointing your browser to port `4000` on your minikube IP (run `minikube ip` to retrieve minikube's external IP) or docker desktop IP **`http://<dockerDesktopIdaddress-or-minikube>:4000/`** 
+then authenticate using the mock User (username: `admin`, password: `password`).
+
+- To use `pachctl`, you need to run `pachctl auth login` then
+authenticate again (to Pachyderm this time) with the mock User (username: `admin`, password: `password`).
 ## NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
 
 !!! Note
