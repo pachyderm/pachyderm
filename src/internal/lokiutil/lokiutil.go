@@ -2,6 +2,7 @@ package lokiutil
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
@@ -57,7 +58,16 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 		if err := forEachLine(*resp, func(t time.Time, line string) error {
 			from = t
 			nMsgs++
-			return f(t, line)
+			var entry struct {
+				Log    string    `json:"log"`
+				Stream string    `json:"stream"`
+				Time   time.Time `json:"time"`
+			}
+			err := json.Unmarshal([]byte(line), &entry)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			return f(t, entry.Log)
 		}); err != nil {
 			return err
 		}

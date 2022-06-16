@@ -161,6 +161,8 @@ This section is to configure the pachd deployment.
 
 - `pachd.image` sets the image to use for pachd. This can be left at the defaults unless instructed.
 
+- `pachd.logFormat` sets the logging format (`text` or `json`). `text` is default.
+
 - `pachd.logLevel` sets the logging level. `info` is default.
 
 - `pachd.lokiLogging` enables Loki logging if set.

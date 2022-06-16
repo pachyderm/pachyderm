@@ -238,6 +238,15 @@ func WithRootCAs(path string) Option {
 	}
 }
 
+// WithCertPool instructs the New* functions to create a client that uses the provided cert pool to
+// validate the server's identity when connecting with TLS.
+func WithCertPool(pool *x509.CertPool) Option {
+	return func(settings *clientSettings) error {
+		settings.caCerts = pool
+		return nil
+	}
+}
+
 // WithAdditionalRootCAs instructs the New* functions to additionally trust the
 // given base64-encoded, signed x509 certificates as root certificates.
 // Introduced to pass certs in the Pachyderm config

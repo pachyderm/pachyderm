@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func TestIterators(t *testing.T) {
@@ -283,74 +284,71 @@ func TestIterators(t *testing.T) {
 
 // TestJoinOnTrailingSlash tests that the same glob pattern is used for
 // extracting JoinOn and GroupBy capture groups as is used to match paths. Tests
-// the fix for https://github.com/pachyderm/pachyderm/v2/issues/5365
-// TODO: The trailing slash glob replace is not capturing the right key and the PFS path stuff
-// might need some work because it does not seem to make sense that we return a file for a path that
-// ends in a trailing slash.
-//func TestJoinTrailingSlash(t *testing.T) {
-//	t.Parallel()
-//  env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-//
-//	c := env.PachClient
-//	repo := []string{ // singular name b/c we only refer to individual elements
-//		tu.UniqueString(t.Name() + "_0"),
-//		tu.UniqueString(t.Name() + "_1"),
-//	}
-//	input := []*pps.Input{ // singular name b/c only use individual elements
-//		client.NewPFSInputOpts("", repo[0],
-//			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
-//		client.NewPFSInputOpts("", repo[1],
-//			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
-//	}
-//	require.NoError(t, c.CreateRepo(repo[0]))
-//	require.NoError(t, c.CreateRepo(repo[1]))
-//
-//	// put files in structured in a way so that there are many ways to glob it
-//	for i := 0; i < 2; i++ {
-//		commit, err := c.StartCommit(repo[i], "master")
-//		require.NoError(t, err)
-//		for j := 0; j < 10; j++ {
-//			require.NoError(t, c.PutFile(repo[i], commit.ID, fmt.Sprintf("foo-%v", j), strings.NewReader("bar")))
-//		}
-//		require.NoError(t, c.FinishCommit(repo[i], commit.ID))
-//		input[i].Pfs.Commit = commit.ID
-//	}
-//
-//	// Test without trailing slashes
-//	input[0].Pfs.Glob = "/(*)"
-//	input[1].Pfs.Glob = "/(*)"
-//	itr, err := NewIterator(c, client.NewJoinInput(input...))
-//	require.NoError(t, err)
-//	validateDI(t, itr,
-//		"/foo-0/foo-0",
-//		"/foo-1/foo-1",
-//		"/foo-2/foo-2",
-//		"/foo-3/foo-3",
-//		"/foo-4/foo-4",
-//		"/foo-5/foo-5",
-//		"/foo-6/foo-6",
-//		"/foo-7/foo-7",
-//		"/foo-8/foo-8",
-//		"/foo-9/foo-9",
-//	)
-//	// Test with trailing slashes
-//	input[0].Pfs.Glob = "/(*)/"
-//	input[1].Pfs.Glob = "/(*)/"
-//	itr, err = NewIterator(c, client.NewJoinInput(input...))
-//	require.NoError(t, err)
-//	validateDI(t, itr,
-//		"/foo-0/foo-0",
-//		"/foo-1/foo-1",
-//		"/foo-2/foo-2",
-//		"/foo-3/foo-3",
-//		"/foo-4/foo-4",
-//		"/foo-5/foo-5",
-//		"/foo-6/foo-6",
-//		"/foo-7/foo-7",
-//		"/foo-8/foo-8",
-//		"/foo-9/foo-9",
-//	)
-//}
+// the fix for https://github.com/pachyderm/pachyderm/issues/5365
+func TestJoinTrailingSlash(t *testing.T) {
+	t.Parallel()
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+	c := env.PachClient
+	repo := []string{ // singular name b/c we only refer to individual elements
+		tu.UniqueString(t.Name() + "_0"),
+		tu.UniqueString(t.Name() + "_1"),
+	}
+	input := []*pps.Input{ // singular name b/c only use individual elements
+		client.NewPFSInputOpts("", repo[0],
+			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
+		client.NewPFSInputOpts("", repo[1],
+			/* commit--set below */ "", "/*", "$1", "", false, false, nil),
+	}
+	require.NoError(t, c.CreateRepo(repo[0]))
+	require.NoError(t, c.CreateRepo(repo[1]))
+
+	// put files in structured in a way so that there are many ways to glob it
+	for i := 0; i < 2; i++ {
+		commit, err := c.StartCommit(repo[i], "master")
+		require.NoError(t, err)
+		for j := 0; j < 10; j++ {
+			require.NoError(t, c.PutFile(commit, fmt.Sprintf("foo-%v", j), strings.NewReader("bar")))
+		}
+		require.NoError(t, c.FinishCommit(repo[i], "master", commit.ID))
+		input[i].Pfs.Commit = commit.ID
+	}
+
+	// Test without trailing slashes
+	input[0].Pfs.Glob = "/(*)"
+	input[1].Pfs.Glob = "/(*)"
+	itr, err := NewIterator(c, client.NewJoinInput(input...))
+	require.NoError(t, err)
+	validateDI(t, itr,
+		"/foo-0/foo-0",
+		"/foo-1/foo-1",
+		"/foo-2/foo-2",
+		"/foo-3/foo-3",
+		"/foo-4/foo-4",
+		"/foo-5/foo-5",
+		"/foo-6/foo-6",
+		"/foo-7/foo-7",
+		"/foo-8/foo-8",
+		"/foo-9/foo-9",
+	)
+	// Test with trailing slashes
+	input[0].Pfs.Glob = "/(*)/"
+	input[1].Pfs.Glob = "/(*)/"
+	itr, err = NewIterator(c, client.NewJoinInput(input...))
+	require.NoError(t, err)
+	validateDI(t, itr,
+		"/foo-0/foo-0",
+		"/foo-1/foo-1",
+		"/foo-2/foo-2",
+		"/foo-3/foo-3",
+		"/foo-4/foo-4",
+		"/foo-5/foo-5",
+		"/foo-6/foo-6",
+		"/foo-7/foo-7",
+		"/foo-8/foo-8",
+		"/foo-9/foo-9",
+	)
+}
 
 func validateDI(t testing.TB, di Iterator, datums ...string) {
 	t.Helper()

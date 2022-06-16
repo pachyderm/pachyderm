@@ -2,7 +2,8 @@
 SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
-{{- if and .Values.proxy.enabled .Values.console.enabled -}}
+{{- /* Deploy even if console is disabled, so the lack of endpoints is more easily apparent. */ -}}
+{{- if and .Values.proxy.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:

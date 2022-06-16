@@ -38,7 +38,7 @@ curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
 
-for _ in $(seq 54); do
+for _ in $(seq 108); do
   STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/commit-${CIRCLE_SHA1:0:7}-${JOB}" | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
