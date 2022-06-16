@@ -136,6 +136,13 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
+const GetFileTARSuggestion = "Use GetFileTAR instead"
+
+var (
+	ErrMatchedNonFile       = fmt.Errorf("cannot get directory or non-regular file. %s", GetFileTARSuggestion)
+	ErrMatchedMultipleFiles = fmt.Errorf("matched multiple files. %s", GetFileTARSuggestion)
+)
+
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
 }

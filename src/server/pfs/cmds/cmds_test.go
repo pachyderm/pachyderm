@@ -2,13 +2,13 @@ package cmds
 
 import (
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
 
 const (
@@ -172,6 +172,41 @@ func TestDiffFile(t *testing.T) {
 		`,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 	).Run())
+}
+
+func TestGetFileError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+
+		pachctl put file {{.repo}}@master:/dir/foo <<EOF
+		baz
+		EOF
+
+		pachctl put file {{.repo}}@master:/dir/bar <<EOF
+		baz
+		EOF
+		`,
+		"repo", repo,
+	).Run())
+
+	checkError := func(branch, path, message string) {
+		req := fmt.Sprintf("%s@%s:%s", repo, branch, path)
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		(pachctl get file "{{.req}}" 2>&1 || true) | match "{{.message}}"
+		`,
+			"req", req,
+			"message", message,
+		).Run())
+	}
+	checkError("bad", "/foo", "not found")
+	checkError("master", "/bad", "not found")
+	checkError("master", "/dir", "Try again with the -r flag")
+	checkError("master", "/dir/*", "Try again with the -r flag")
 }
 
 // TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
