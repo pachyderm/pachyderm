@@ -179,6 +179,7 @@ func TestGetFileError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl create repo {{.repo}}
 
@@ -187,20 +188,25 @@ func TestGetFileError(t *testing.T) {
 		EOF
 
 		pachctl put file {{.repo}}@master:/dir/bar <<EOF
-			baz
+		baz
 		EOF
-
-		pachctl get file "{{.repo}}@bad:/foo" 2>&1 \
-		  | match "not found"
-		pachctl get file "{{.repo}}@master:/bad" 2>&1 \
-		  | match "not found"
-		pachctl get file "{{.repo}}@master:/dir" 2>&1 \
-		  | match "Use -r instead"
-		pachctl get file "{{.repo}}@master:/dir/*" 2>&1 \
-		  | match "Use -r instead"
 		`,
-		"repo", tu.UniqueString(t.Name()),
+		"repo", repo,
 	).Run())
+
+	checkError := func(branch, path, message string) {
+		req := fmt.Sprintf("%s@%s:%s", repo, branch, path)
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		(pachctl get file "{{.req}}" 2>&1 || true) | match "{{.message}}"
+		`,
+			"req", req,
+			"message", message,
+		).Run())
+	}
+	checkError("bad", "/foo", "not found")
+	checkError("master", "/bad", "not found")
+	checkError("master", "/dir", "Use -r instead")
+	checkError("master", "/dir/*", "Use -r instead")
 }
 
 // TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
