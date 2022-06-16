@@ -2,13 +2,13 @@ package cmds
 
 import (
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
 
 const (
@@ -171,6 +171,35 @@ func TestDiffFile(t *testing.T) {
 			| match -- '-foo'
 		`,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
+	).Run())
+}
+
+func TestGetFileError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+
+		pachctl put file {{.repo}}@master:/dir/foo <<EOF
+		baz
+		EOF
+
+		pachctl put file {{.repo}}@master:/dir/bar <<EOF
+			baz
+		EOF
+
+		pachctl get file "{{.repo}}@bad:/foo" 2>&1 \
+		  | match "not found"
+		pachctl get file "{{.repo}}@master:/bad" 2>&1 \
+		  | match "not found"
+		pachctl get file "{{.repo}}@master:/dir" 2>&1 \
+		  | match "Use -r instead"
+		pachctl get file "{{.repo}}@master:/dir/*" 2>&1 \
+		  | match "Use -r instead"
+		`,
+		"repo", tu.UniqueString(t.Name()),
 	).Run())
 }
 

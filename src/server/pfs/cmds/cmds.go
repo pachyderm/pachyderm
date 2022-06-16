@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pager"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
@@ -1286,8 +1287,14 @@ $ {{alias}} foo@master:XXX -r
 				defer f.Close()
 				w = f
 			}
-			return errors.Wrapf(c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes)),
-				"couldn't download %s from %s", file.Path, file.Commit)
+			if err := c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes); err != nil {
+				msg := err.Error()
+				if strings.Contains(msg, pfsserver.GetFileTARString) {
+					err = errors.New(strings.ReplaceAll(msg, pfsserver.GetFileTARString, "Use the -r flag instead"))
+				}
+				return errors.Wrapf(err, "couldn't download %s from %s", file.Path, file.Commit)
+			}
+			return nil
 		}),
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Download multiple files, or recursively download a directory.")
