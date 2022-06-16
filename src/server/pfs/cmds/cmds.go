@@ -1290,7 +1290,7 @@ $ {{alias}} foo@master:XXX -r
 			if err := c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes)); err != nil {
 				msg := err.Error()
 				if strings.Contains(msg, pfsserver.GetFileTARSuggestion) {
-					err = errors.New(strings.ReplaceAll(msg, pfsserver.GetFileTARSuggestion, "Use the -r flag instead"))
+					err = errors.New(strings.ReplaceAll(msg, pfsserver.GetFileTARSuggestion, "Try again with the -r flag"))
 				}
 				return errors.Wrapf(err, "couldn't download %s from %s", file.Path, file.Commit)
 			}

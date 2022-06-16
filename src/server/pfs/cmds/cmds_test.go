@@ -205,8 +205,8 @@ func TestGetFileError(t *testing.T) {
 	}
 	checkError("bad", "/foo", "not found")
 	checkError("master", "/bad", "not found")
-	checkError("master", "/dir", "Use -r instead")
-	checkError("master", "/dir/*", "Use -r instead")
+	checkError("master", "/dir", "Try again with the -r flag")
+	checkError("master", "/dir/*", "Try again with the -r flag")
 }
 
 // TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
