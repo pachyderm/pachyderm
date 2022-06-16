@@ -40,7 +40,7 @@ func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 func TestLazyStartWebServer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	env := getTestEnv(t)
-	api := NewIdentityServer(EnvFromServiceEnv(env), false)
+	api, _ := NewIdentityServer(EnvFromServiceEnv(env), false)
 
 	// server is instantiated but hasn't started
 	server := newDexWeb(EnvFromServiceEnv(env), api)
@@ -84,7 +84,7 @@ func TestLazyStartWebServer(t *testing.T) {
 func TestConfigureIssuer(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	env := getTestEnv(t)
-	api := NewIdentityServer(EnvFromServiceEnv(env), false)
+	api, _ := NewIdentityServer(EnvFromServiceEnv(env), false)
 
 	server := newDexWeb(EnvFromServiceEnv(env), api)
 	defer server.stopWebServer()
@@ -120,7 +120,7 @@ func TestConfigureIssuer(t *testing.T) {
 func TestUpdateIDP(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	env := getTestEnv(t)
-	api := NewIdentityServer(EnvFromServiceEnv(env), false)
+	api, _ := NewIdentityServer(EnvFromServiceEnv(env), false)
 
 	server := newDexWeb(EnvFromServiceEnv(env), api)
 	defer server.stopWebServer()
@@ -163,7 +163,7 @@ func TestUpdateIDP(t *testing.T) {
 func TestLogApprovedUsers(t *testing.T) {
 	webDir = "../../../../dex-assets"
 	env := getTestEnv(t)
-	api := NewIdentityServer(EnvFromServiceEnv(env), false)
+	api, _ := NewIdentityServer(EnvFromServiceEnv(env), false)
 
 	server := newDexWeb(EnvFromServiceEnv(env), api)
 	defer server.stopWebServer()

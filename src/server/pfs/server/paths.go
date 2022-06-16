@@ -1,7 +1,6 @@
 package server
 
 import (
-	"path"
 	"regexp"
 	"strings"
 
@@ -43,20 +42,6 @@ func pathIsChild(parent, child string) bool {
 	rel := child[len(parent):]
 	rel = strings.Trim(rel, "/")
 	return !strings.Contains(rel, "/")
-}
-
-// cleanPath converts paths to a canonical form used in the driver
-// "" -> "/"
-// "abc" -> "/abc"
-// "/abc" -> "/abc"
-// "abc/" -> "/abc"
-// "/" -> "/"
-func cleanPath(p string) string {
-	p = path.Clean(p)
-	if p == "." {
-		return "/"
-	}
-	return "/" + strings.Trim(p, "/")
 }
 
 var validRangeRegex = regexp.MustCompile("^[ -~]+$")

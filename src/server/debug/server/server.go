@@ -3,6 +3,8 @@ package server
 import (
 	"archive/tar"
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
@@ -22,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -39,6 +43,7 @@ const (
 	pachdPrefix     = "pachd"
 	pipelinePrefix  = "pipelines"
 	podPrefix       = "pods"
+	databasePrefix  = "database"
 )
 
 type debugServer struct {
@@ -46,15 +51,17 @@ type debugServer struct {
 	name          string
 	sidecarClient *client.APIClient
 	marshaller    *jsonpb.Marshaler
+	database      *pachsql.DB
 }
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient) debug.DebugServer {
+func NewDebugServer(env serviceenv.ServiceEnv, name string, sidecarClient *client.APIClient, db *pachsql.DB) debug.DebugServer {
 	return &debugServer{
 		env:           env,
 		name:          name,
 		sidecarClient: sidecarClient,
 		marshaller:    &jsonpb.Marshaler{Indent: "  "},
+		database:      db,
 	}
 }
 
@@ -73,6 +80,7 @@ func (s *debugServer) handleRedirect(
 	redirect redirectFunc,
 	collect collectFunc,
 	wantAppLogs bool,
+	wantDatabase bool,
 ) error {
 	ctx := pachClient.Ctx() // this context has authorization credentials we need
 	return grpcutil.WithStreamingBytesWriter(server, func(w io.Writer) error {
@@ -82,7 +90,12 @@ func (s *debugServer) handleRedirect(
 			if filter != nil {
 				switch f := filter.Filter.(type) {
 				case *debug.Filter_Pachd:
-					return collectPachd(ctx, tw, pachClient, pachdContainerPrefix)
+					if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
+						return err
+					}
+					if wantDatabase {
+						return s.collectDatabaseStats(ctx, tw, databasePrefix)
+					}
 				case *debug.Filter_Pipeline:
 					pipelineInfo, err := pachClient.InspectPipeline(f.Pipeline.Name, true)
 					if err != nil {
@@ -105,16 +118,19 @@ func (s *debugServer) handleRedirect(
 							return err
 						}
 						return collectDebugStream(tw, r)
-
 					}
 					pod, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).Get(ctx, f.Worker.Pod, metav1.GetOptions{})
 					if err != nil {
 						return errors.EnsureStack(err)
 					}
 					return s.handleWorkerRedirect(ctx, tw, pod, collectWorker, redirect)
+				case *debug.Filter_Database:
+					if wantDatabase {
+						return s.collectDatabaseStats(ctx, tw, databasePrefix)
+					}
 				}
 			}
-			// No filter, collect everything.
+			// No filter, return everything
 			if err := collectPachd(ctx, tw, pachClient, pachdContainerPrefix); err != nil {
 				return err
 			}
@@ -130,6 +146,11 @@ func (s *debugServer) handleRedirect(
 			if wantAppLogs {
 				// All other pachyderm apps (console, pg-bouncer, etcd, etc.).
 				if err := s.appLogs(ctx, tw); err != nil {
+					return err
+				}
+			}
+			if wantDatabase {
+				if err := s.collectDatabaseStats(ctx, tw, databasePrefix); err != nil {
 					return err
 				}
 			}
@@ -297,6 +318,7 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 		redirectProfileFunc(request.Profile),
 		collectProfileFunc(request.Profile),
 		false,
+		false,
 	)
 }
 
@@ -369,6 +391,7 @@ func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_Bi
 		redirectBinary,
 		collectBinary,
 		false,
+		false,
 	)
 }
 
@@ -410,6 +433,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 		s.collectWorkerDump,
 		redirectDump,
 		collectDump,
+		true,
 		true,
 	)
 }
@@ -926,4 +950,104 @@ func redirectDump(ctx context.Context, c debug.DebugClient, filter *debug.Filter
 		return nil, errors.EnsureStack(err)
 	}
 	return grpcutil.NewStreamingBytesReader(dumpC, nil), nil
+}
+
+func (s *debugServer) collectDatabaseStats(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	if err := s.collectDatabaseActivities(ctx, tw, prefix...); err != nil {
+		return err
+	}
+	if err := s.collectDatabaseRowCount(ctx, tw, prefix...); err != nil {
+		return err
+	}
+	if err := s.collectDatabaseTableSizes(ctx, tw, prefix...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *debugServer) collectDatabaseActivities(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	return s.collectDatabaseQuery(ctx, tw, "activities", s.queryDatabaseActivities, prefix...)
+}
+
+func (s *debugServer) collectDatabaseRowCount(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	return s.collectDatabaseQuery(ctx, tw, "row-counts", s.queryDatabaseRowCounts, prefix...)
+}
+
+func (s *debugServer) collectDatabaseTableSizes(ctx context.Context, tw *tar.Writer, prefix ...string) error {
+	return s.collectDatabaseQuery(ctx, tw, "table-sizes", s.queryDatabaseTableSizes, prefix...)
+}
+
+func (s *debugServer) collectDatabaseQuery(ctx context.Context, tw *tar.Writer, fileName string,
+	queryFunc func(ctx context.Context, db *pachsql.DB, w io.Writer) error, prefix ...string) error {
+	return collectDebugFile(tw, fileName, "json", func(w io.Writer) error {
+		if err := queryFunc(ctx, s.database, w); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}, prefix...)
+}
+
+func (s *debugServer) queryDatabaseRowCounts(ctx context.Context, db *pachsql.DB, w io.Writer) error {
+	query := `
+		SELECT schemaname, relname, n_live_tup, seq_scan, idx_scan
+		FROM pg_stat_user_tables
+		ORDER BY schemaname, relname;
+	`
+	return s.queryDatabase(ctx, query, w)
+}
+
+func (s *debugServer) queryDatabaseActivities(ctx context.Context, db *pachsql.DB, w io.Writer) error {
+	query := `
+		SELECT current_timestamp - query_start as runtime, datname, usename, client_addr, query
+		FROM pg_stat_activity
+		WHERE state != 'idle'
+		ORDER by runtime DESC;
+	`
+	return s.queryDatabase(ctx, query, w)
+}
+
+func (s *debugServer) queryDatabaseTableSizes(ctx context.Context, db *pachsql.DB, w io.Writer) error {
+	query := `
+		SELECT nspname AS "schemaname", relname, pg_total_relation_size(C.oid) AS "total_size"
+		FROM pg_class C
+		  INNER JOIN pg_namespace N ON (N.oid = C.relnamespace)
+		WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+		  AND C.relkind <> 'i'
+		  AND nspname !~ '^pg_toast'
+		ORDER BY nspname, relname;
+	`
+	return s.queryDatabase(ctx, query, w)
+}
+
+func (s *debugServer) queryDatabase(ctx context.Context, query string, w io.Writer) error {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+	rows, err := s.database.QueryContext(ctxWithTimeout, query)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer rows.Close()
+
+	return writeRowsToJSON(rows, w)
+}
+
+func writeRowsToJSON(rows *sql.Rows, w io.Writer) error {
+	var processedRows []map[string]interface{}
+	for rows.Next() {
+		row := map[string]interface{}{}
+		if err := sqlx.MapScan(rows, row); err != nil {
+			return errors.EnsureStack(err)
+		}
+		processedRows = append(processedRows, row)
+	}
+	marshalledRows, err := json.Marshal(processedRows)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	formatter := strings.NewReplacer("[{", "[\n\t{", "}]", "}\n]", "},", "},\n\t")
+	formattedJson := []byte(formatter.Replace(string(marshalledRows)))
+	if _, err = w.Write(formattedJson); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
 }

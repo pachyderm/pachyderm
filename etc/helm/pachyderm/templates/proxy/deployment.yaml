@@ -71,8 +71,8 @@ spec:
               containerPort: 9901
             - name: http-port
               containerPort: 8080
-            # - name: https
-            #   containerPort: 8443
+            - name: https-port
+              containerPort: 8443
             - name: console-direct
               containerPort: 4000
             - name: s3-direct
@@ -102,8 +102,17 @@ spec:
           volumeMounts:
             - name: envoy-config
               mountPath: /etc/envoy
+            {{- if .Values.proxy.tls.enabled }}
+            - name: tls
+              mountPath: /tls
+            {{- end }}
       volumes:
         - name: envoy-config
           configMap:
             name: pachyderm-proxy-config
+        {{- if .Values.proxy.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ required "proxy.tls.secretName must be set when TLS is enabled on the proxy" .Values.proxy.tls.secretName }}
+        {{- end }}
 {{- end }}

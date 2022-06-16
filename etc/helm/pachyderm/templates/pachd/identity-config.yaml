@@ -1,0 +1,14 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pachyderm-identity-config
+  namespace: {{ .Release.Namespace }}
+data:
+  identity-config: |  
+    issuer: {{ include "pachyderm.issuerURI" . }}
+    id_token_expiry: {{ .Values.oidc.IDTokenExpiry }}
+    rotation_token_expiry: {{ .Values.oidc.RotationTokenExpiry }}
