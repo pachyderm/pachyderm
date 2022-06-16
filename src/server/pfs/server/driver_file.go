@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -153,8 +154,8 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		return err
 	}
 	srcCommit := srcCommitInfo.Commit
-	srcPath := cleanPath(src.Path)
-	dstPath := cleanPath(dst)
+	srcPath := pfsfile.CleanPath(src.Path)
+	dstPath := pfsfile.CleanPath(dst)
 	pathTransform := func(x string) string {
 		relPath, err := filepath.Rel(srcPath, x)
 		if err != nil {
@@ -179,7 +180,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 	commit := file.Commit
-	glob := cleanPath(file.Path)
+	glob := pfsfile.CleanPath(file.Path)
 	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)), index.WithDatum(file.Datum))
 	if err != nil {
 		return nil, err
@@ -200,7 +201,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
 }
 
 func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
-	p := cleanPath(file.Path)
+	p := pfsfile.CleanPath(file.Path)
 	if p == "/" {
 		p = ""
 	}
@@ -231,7 +232,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) error {
-	name := cleanPath(file.Path)
+	name := pfsfile.CleanPath(file.Path)
 	commitInfo, fs, err := d.openCommit(ctx, file.Commit, index.WithPrefix(name), index.WithDatum(file.Datum))
 	if err != nil {
 		return err
@@ -254,7 +255,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 	}
 	s := NewSource(commitInfo, fs, opts...)
 	err = s.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
-		if pathIsChild(name, cleanPath(fi.File.Path)) {
+		if pathIsChild(name, pfsfile.CleanPath(fi.File.Path)) {
 			return cb(fi)
 		}
 		return nil
@@ -263,7 +264,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.FileInfo) error) (retErr error) {
-	p := cleanPath(file.Path)
+	p := pfsfile.CleanPath(file.Path)
 	if p == "/" {
 		p = ""
 	}
@@ -290,7 +291,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) error {
-	glob = cleanPath(glob)
+	glob = pfsfile.CleanPath(glob)
 	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)))
 	if err != nil {
 		return err
@@ -354,11 +355,11 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	}
 	oldCommit := oldFile.Commit
 	newCommit := newFile.Commit
-	oldName := cleanPath(oldFile.Path)
+	oldName := pfsfile.CleanPath(oldFile.Path)
 	if oldName == "/" {
 		oldName = ""
 	}
-	newName := cleanPath(newFile.Path)
+	newName := pfsfile.CleanPath(newFile.Path)
 	if newName == "/" {
 		newName = ""
 	}

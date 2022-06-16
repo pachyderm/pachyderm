@@ -971,7 +971,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
-	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo around (the pipeline can be recreated later and use the same repo)")
+	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo data around (the pipeline cannot be recreated later with the same name unless the repo is deleted)")
 	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{

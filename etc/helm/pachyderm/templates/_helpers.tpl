@@ -37,7 +37,7 @@ imagePullSecrets:
 {{- end -}}
 
 {{- define "pachyderm.ingressproto" -}}
-{{- if or .Values.ingress.tls.enabled .Values.ingress.uriHttpsProtoOverride -}}
+{{- if or .Values.ingress.tls.enabled .Values.proxy.tls.enabled .Values.ingress.uriHttpsProtoOverride -}}
 https
 {{- else -}}
 http

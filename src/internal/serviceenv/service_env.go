@@ -385,6 +385,7 @@ func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
 		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
 		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+		dbutil.WithSSLMode(env.config.PostgresSSL),
 	)
 	// The postgres listener is lazily initialized to avoid consuming too many
 	// postgres resources by having idle client connections, so construction

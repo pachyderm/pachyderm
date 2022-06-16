@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
@@ -2231,6 +2232,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			}
 			if input.Pfs.RepoType == "" {
 				input.Pfs.RepoType = pfs.UserRepoType
+			}
+			if input.Pfs.Glob != "" {
+				input.Pfs.Glob = pfsfile.CleanPath(input.Pfs.Glob)
 			}
 		}
 		if input.Cron != nil {

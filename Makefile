@@ -91,8 +91,10 @@ docker-build:
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
+# You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
+# it's very slow and this is only going to run on your local machine anyway.
 docker-build-proto:
-	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
+	docker buildx build $(DOCKER_BUILD_FLAGS)  --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
 
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
@@ -214,7 +216,7 @@ clean-launch: check-kubectl
 	# These resources were not cleaned up by the old pachctl undeploy
 	kubectl delete roles.rbac.authorization.k8s.io,rolebindings.rbac.authorization.k8s.io -l suite=pachyderm
 	kubectl delete clusterroles.rbac.authorization.k8s.io,clusterrolebindings.rbac.authorization.k8s.io -l suite=pachyderm
-	# Helm won't clean statefulset PVCs by design	
+	# Helm won't clean statefulset PVCs by design
 	kubectl delete pvc -l suite=pachyderm
 	kubectl delete pvc -l suite=pachyderm -n enterprise
 	# cleanup minio
