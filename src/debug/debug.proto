@@ -23,6 +23,7 @@ message Filter {
     bool pachd = 1;	
     pps_v2.Pipeline pipeline = 2;	
     Worker worker = 3;
+    bool database = 4;
   }
 }
 

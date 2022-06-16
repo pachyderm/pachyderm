@@ -251,7 +251,7 @@ jobs:
           command: |
             echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
             cd /home/circleci/dist-pach/pachctl/
-            gcsupload -b pachyderm-builds -f `find * -name \*.tar.gz` -k /home/circleci/gcpcreds.json
+            gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
             rm /home/circleci/gcpcreds.json
   release_job:
     docker:

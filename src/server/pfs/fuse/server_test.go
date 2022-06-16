@@ -613,3 +613,14 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.Equal(t, len(commits), 2)
 	})
 }
+
+func TestHealth(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	_, err := get("health")
+	require.YesError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		_, err = get("health")
+		require.NoError(t, err)
+	})
+}

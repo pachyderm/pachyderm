@@ -827,6 +827,15 @@ func Server(sopts *ServerOptions, testClient *client.APIClient) error {
 		cfg.Write()
 		mm.Client.SetAuthToken("")
 	})
+	router.Methods("GET").Path("/health").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		r := map[string]string{"status": "running"}
+		marshalled, err := jsonMarshal(r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+	})
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
 	// TCP port (just for convenient manual testing with curl for now...)

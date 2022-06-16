@@ -1,7 +1,12 @@
 # Job
 
-!!! Note "Attention"
-         Note that Pachyderm uses the term `job` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID){target=_blank} for more details) and jobs that are an execution of a particular pipeline. The following page details the latter.
+!!! Attention
+         Note that Pachyderm uses two different scopes when referring to a `job`. 
+
+         - A "global" scope tracking down your entire provenance chain. Refer to [GlobalID](../../advanced-concepts/globalID){target=_blank} for more details.
+         - And a "local" scope in which a job (also referred to as sub job) is an execution of one particular pipeline. 
+         
+         The following page details the latter. 
 
 ## Definition
 
@@ -9,7 +14,9 @@ A Pachyderm job is an execution of a pipeline that triggers
 when new data is detected in an input repository. 
 
 !!! Note
-     When a commit is made to the input repo of a pipeline, jobs are created for all of the downstream pipelines of a DAG. Those jobs are not actually running yet; each one is in a waiting state until the prior pipeline(s) that it depends on in your DAG produce their output, which then become the input for the waiting pipeline.
+        When a commit is made to the input repo of a pipeline, jobs are created for all of the downstream pipelines of a DAG. 
+        Those jobs are not running yet; each one is **waiting** until the prior pipeline(s) that it depends on in your DAG produces their output, 
+        which then becomes the input for the waiting pipeline.
 
 Each job runs your code against the current [commit](../../data-concepts/commit/#commit) in a `<repo>@<branch>` and
 then submits the results to the output repository of the pipeline as a single output commit. 
@@ -18,10 +25,10 @@ input source.
 
 Each job has an alphanumeric identifier (ID) that you can reference in the `<pipeline>@<jobID>` format.
 
-You can obtain information about all jobs sharing the same ID (Global ID) by running `list job <jobID>` or restrict to a particular pipeline `list job -p <pipeline>`, or `inspect job <pipeline>@<jobID> --raw`.
+You can obtain information about all jobs sharing the same ID (Global ID) by running `list jobs <jobID>` or restrict to a particular pipeline `list jobs -p <pipeline>`, or `inspect jobs <pipeline>@<jobID> --raw`.
 
 ## Job Statuses
-Each job has the following stages:
+Find a list of all possible job stages below and a state diagram detailing how a job transitions from one state to another.
 
 | Stage     | Description  |
 | --------- | ------------ |
@@ -40,18 +47,19 @@ Below, the state transition diagram of a job:
 ![Job State Diagram](../../images/job-state-diagram.png)
 
 ## List Jobs
+They are various ways to list jobs in Pachyderm, depending on the expected outcome:
 
-- The `pachctl list job` command returns list of all global jobs. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs).
+- The `pachctl list jobs` command returns [the list of all global jobs](../../advanced-concepts/globalID/#list-all-global-commits-and-global-jobs){target=_blank}. 
 
-- The `pachctl list job <jobID>` commands returns the list of all jobs sharing the same `<jobID>`. This command is detailed in [this section of Global ID](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id). 
+- The `pachctl list jobs <jobID>` command returns [the list of all jobs sharing the same `<jobID>`](../../advanced-concepts/globalID/#list-all-commits-and-jobs-with-a-global-id){target=_blank}. 
 
-- Note that you can also track your jobs downstream as they complete by running `pachctl wait job <jobID>`. 
+- Note that you can also track your jobs downstream as they complete by running `pachctl wait jobs <jobID>`. 
 
-- The `pachctl list job -p <pipeline>` command returns the jobs in a given pipeline.
+- The `pachctl list jobs -p <pipeline>` command returns the list of all the jobs run in a given pipeline.
 
     !!! example
         ```shell
-        $ pachctl list job -p edges
+        $ pachctl list jobs -p edges
         ```
 
         **System Response:**
@@ -63,21 +71,23 @@ Below, the state transition diagram of a job:
         7dcd77a2f7f34ff384a6096d1139e922 edges    20 hours ago Less than a second 0       0 + 0 / 0 0B       0B       success
         ```
 
-    For each job, Pachyderm shows the time the pipeline started with its duration, data downloaded and uploaded, STATE of the pipeline execution, the number of datums in the **PROGRESS** section,  and other information.
+    For each (sub) job, Pachyderm shows the time the pipeline started, its duration, data downloaded and uploaded, the `STATE` of the pipeline execution, and the number of datums in the `PROGRESS` section.
     The format of the progress column is `DATUMS PROCESSED + DATUMS SKIPPED / TOTAL DATUMS`.
 
 
-    For more information, see [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/).
+    See [Datum Processing States](../../../concepts/pipeline-concepts/datum/datum-processing-states/) for details on Datum states.
 
 ## Inspect Job
-The `pachctl inspect job <pipeline>@<jobID>` command enables you to view detailed
-information about a specific job in a given pipeline (state, number of datums processed/failed/skipped, data downloaded, uploaded,
-process time, image used etc...).
+The `pachctl inspect jobs <pipeline>@<jobID>` command enables you to view detailed
+information about a specific (sub)job in a given pipeline (state, number of datums processed/failed/skipped, data downloaded, uploaded,
+process time, image:tag used to transform your data, etc...). Along with checking the logs, it is especially useful when troubleshooting a failed job.
+
 
 !!! example
     Add a `--raw` flag to output a detailed JSON version of the job.
+
     ```shell
-    $ pachctl inspect job edges@fd9454d06d8e4fa38a75c8cd20b39538 --raw
+    $ pachctl inspect jobs edges@fd9454d06d8e4fa38a75c8cd20b39538 --raw
     ```
 
     **System Response:**
@@ -117,7 +127,7 @@ process time, image used etc...).
         "finished": "2021-08-02T20:13:38.691891860Z",
         "details": {
             "transform": {
-            "image": "pachyderm/opencv",
+            "image": "pachyderm/opencv:1.0",
             "cmd": [
                 "python3",
                 "/edges.py"
