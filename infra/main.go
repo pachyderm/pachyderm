@@ -41,13 +41,15 @@ func main() {
 			return err
 		}
 
-		file, err := ioutil.ReadFile("./root.py")
+		//file, err := ioutil.ReadFile("./root.py")
+		volumeFile, err := ioutil.ReadFile("./volume.py")
 
 		if err != nil {
 			return err
 		}
-
-		fileStr := string(file)
+		volumeStr := string(volumeFile)
+		//fileStr := string(file)
+		nbUserImage := "pachyderm/notebooks-user" + ":" + sha
 		_, err = helm.NewRelease(ctx, "jh-release", &helm.ReleaseArgs{
 			Timeout:   pulumi.Int(600),
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -58,24 +60,68 @@ func main() {
 			Values: pulumi.Map{
 				"singleuser": pulumi.Map{
 					"defaultUrl": pulumi.String("/lab"),
-					"image": pulumi.Map{
-						"name": pulumi.String("pachyderm/notebooks-user"),
-						"tag":  pulumi.String(sha),
-					},
 					"cloudMetadata": pulumi.Map{
 						"blockWithIptables": pulumi.Bool(false),
 					},
-					"cmd":   pulumi.String("start-singleuser.sh"),
-					"uid":   pulumi.Int(0),
-					"fsGid": pulumi.Int(0),
-					"extraEnv": pulumi.Map{
-						"GRANT_SUDO":         pulumi.String("yes"),
-						"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
-						"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
-						"CHOWN_HOME":         pulumi.String("yes"),
-						"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+					"profileList": pulumi.MapArray{
+						pulumi.Map{
+							"display_name": pulumi.String("combined"),
+							"description":  pulumi.String("Run mount server in Jupyter container"),
+							"slug":         pulumi.String("combined"),
+							"default":      pulumi.Bool(true),
+							"kubespawner_override": pulumi.Map{
+								"image":  pulumi.String(nbUserImage),
+								"cmd":    pulumi.String("start-singleuser.sh"),
+								"uid":    pulumi.Int(0),
+								"fs_gid": pulumi.Int(0),
+								"environment": pulumi.Map{
+									"GRANT_SUDO":         pulumi.String("yes"),
+									"NOTEBOOK_ARGS":      pulumi.String("--allow-root"),
+									"JUPYTER_ENABLE_LAB": pulumi.String("yes"),
+									"CHOWN_HOME":         pulumi.String("yes"),
+									"CHOWN_HOME_OPTS":    pulumi.String("-R"),
+								},
+								"container_security_context": pulumi.Map{
+									"allowPrivilegeEscalation": pulumi.Bool(true),
+									"runAsUser":                pulumi.Int(0),
+									"privileged":               pulumi.Bool(true),
+									"capabilities": pulumi.Map{
+										"add": pulumi.StringArray{pulumi.String("SYS_ADMIN")},
+									},
+								},
+							},
+						},
+						pulumi.Map{
+
+							"display_name": pulumi.String("sidecar"),
+							"slug":         pulumi.String("sidecar"),
+							"description":  pulumi.String("Run mount server as a sidecar"),
+							"kubespawner_override": pulumi.Map{
+								"image": pulumi.String(nbUserImage),
+								"environment": pulumi.Map{
+									"ENSURE_MOUNT_SERVER": pulumi.String("false"),
+								},
+								"extra_containers": pulumi.MapArray{
+									pulumi.Map{
+										"name":    pulumi.String("mount-server-manager"),
+										"image":   pulumi.String("pachyderm/mount-server:384d350f9ed7aa827543b2ffaa21ca87bd9666d6"),
+										"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
+										"securityContext": pulumi.Map{
+											"privileged": pulumi.Bool(true),
+											"runAsUser":  pulumi.Int(0),
+										},
+										"volumeMounts": pulumi.MapArray{
+											pulumi.Map{
+												"name":             pulumi.String("shared-pfs"),
+												"mountPath":        pulumi.String("/pfs"),
+												"mountPropagation": pulumi.String("Bidirectional"),
+											},
+										},
+									},
+								},
+							},
+						},
 					},
-					//profileList
 				},
 				//cull
 				"ingress": pulumi.Map{
@@ -99,7 +145,8 @@ func main() {
 				},
 				"hub": pulumi.Map{
 					"extraConfig": pulumi.Map{
-						"podRoot": pulumi.String(fileStr),
+						//"podRoot": pulumi.String(fileStr),
+						"volume": pulumi.String(volumeStr),
 					},
 				},
 				"proxy": pulumi.Map{
