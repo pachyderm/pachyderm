@@ -28,10 +28,12 @@ spec:
             drop:
             - all
   securityContext:
-    runAsUser: {{ .Values.global.securityContexts.runAsUser }}
-    runAsGroup: {{ .Values.global.securityContexts.runAsGroup }}
-    fsGroup: {{ .Values.global.securityContexts.runAsGroup }}
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
     runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
   {{- end }}
   restartPolicy: Never
 {{- end }}

@@ -4,11 +4,12 @@ metadata:
   name: capabilities
 spec:
   match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
-    namespaces:
-      - "default"
   parameters:
     allowedCapabilities: [""]
     requiredDropCapabilities: ["all"]
@@ -19,6 +20,9 @@ metadata:
   name: psp-allow-privilege-escalation-container
 spec:
   match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
@@ -29,9 +33,13 @@ metadata:
   name: psp-readonlyrootfilesystem
 spec:
   match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
+
 ---
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: K8sPSPSeccomp
@@ -39,6 +47,9 @@ metadata:
   name: psp-seccomp
 spec:
   match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
@@ -53,6 +64,9 @@ metadata:
   name: psp-pods-allowed-user-ranges
 spec:
   match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
@@ -79,6 +93,9 @@ metadata:
   name: psp-volume-types
 spec:
   match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
     kinds:
       - apiGroups: [""]
         kinds: ["Pod"]
