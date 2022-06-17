@@ -3129,7 +3129,6 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
 	b := backoff.NewTestingBackOff()
-	b.MaxElapsedTime = 30 * time.Second
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		if err != nil {
