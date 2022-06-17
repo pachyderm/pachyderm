@@ -1226,11 +1226,18 @@ func TestPPSEgressURLOnly(t *testing.T) {
 
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), pipelineReq)
 	require.NoError(t, err)
-	commitInfo, err := c.WaitCommit(pipeline, "master", "")
-	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		commitInfo, err := c.WaitCommit(pipeline, "master", "")
+		if err != nil {
+			return err
+		}
+		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		if err != nil {
+			return err
+		}
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		return nil
+	})
 }
 
 func TestEgressFailure(t *testing.T) {
