@@ -478,9 +478,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.EnterpriseMember {
 		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
 	}
-	if opts.EnterpriseMember {
-		helmOpts = union(helmOpts, &helm.Options{SetValues: map[string]string{"pachd.enterpriseMember": "true"}})
-	}
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
