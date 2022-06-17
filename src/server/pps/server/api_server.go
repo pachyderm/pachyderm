@@ -3025,7 +3025,7 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 			PodPatch: req.PodPatch,
 		},
 	); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	req.Branch = client.NewBranch(repo, branch)
 	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)
