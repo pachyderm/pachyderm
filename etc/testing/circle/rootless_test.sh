@@ -30,7 +30,7 @@ kubectl apply -f etc/testing/gatekeeper.yaml
 
 # install gatekeeper OPA Templates
 kubectl apply -f etc/testing/opa-policies/
-
+sleep 5
 #Install gatekeeper OPA constraints 
 kubectl apply -f etc/testing/opa-constraints.yaml
 
