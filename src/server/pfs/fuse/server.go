@@ -963,7 +963,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	for i, commitInfo := range commitInfos {
 		logrus.Infof("%d: commitInfo.Commit.ID: %s, m.ActualMountedCommit: %s", i, commitInfo.Commit.ID, m.ActualMountedCommit)
 		if commitInfo.Commit.ID == m.ActualMountedCommit {
-			indexOfCurrentCommit = i - 1
+			indexOfCurrentCommit = i
 			break
 		}
 	}
@@ -996,10 +996,12 @@ func (m *MountStateMachine) RefreshMountState() error {
 	}
 	if m.HowManyCommitsBehind > 0 {
 		m.Status = fmt.Sprintf(
-			"%d commits behind latest; current = %s, latest = %s",
+			"%d commits behind latest; current = %s (%d'th), latest = %s (%d'th)",
 			m.HowManyCommitsBehind,
 			first8chars(m.ActualMountedCommit),
+			indexOfCurrentCommit,
 			first8chars(m.LatestCommit),
+			indexOfLatestCommit,
 		)
 	} else {
 		m.Status = fmt.Sprintf(
