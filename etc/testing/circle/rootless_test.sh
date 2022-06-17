@@ -27,10 +27,10 @@ minikube start \
 
 # install gatekeeper
 kubectl apply -f etc/testing/gatekeeper.yaml
-
+sleep 5
 # install gatekeeper OPA Templates
 kubectl apply -f etc/testing/opa-policies/
-sleep 5
+sleep 10
 #Install gatekeeper OPA constraints 
 kubectl apply -f etc/testing/opa-constraints.yaml
 
