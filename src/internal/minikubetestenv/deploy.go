@@ -33,6 +33,11 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
+const (
+	MinioEndpoint = "minio.default.svc.cluster.local:9000"
+	MinioBucket   = "pachyderm-test"
+)
+
 var (
 	mu sync.Mutex // defensively lock around helm calls
 
@@ -138,8 +143,8 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"pachd.clusterDeploymentID": "dev",
 
 			"pachd.storage.backend":        "MINIO",
-			"pachd.storage.minio.bucket":   "pachyderm-test",
-			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
+			"pachd.storage.minio.bucket":   MinioBucket,
+			"pachd.storage.minio.endpoint": MinioEndpoint,
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
 
