@@ -238,19 +238,23 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          name: Build Docker
+          name: Build docker
           command: make docker-build VERSION=$CIRCLE_SHA1
       - run:
           name: Push docker
           command: make docker-push VERSION=$CIRCLE_SHA1
       - run:
-          name: Make release
-          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+          name: Make releases
+          command: |
+            make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
+            make release-mount-server GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
       - run:
-          name: Upload Pachctl Release
+          name: Upload releases
           command: |
             echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
             cd /home/circleci/dist-pach/pachctl/
+            gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
+            cd /home/circleci/dist-pach/mount-server/
             gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
             rm /home/circleci/gcpcreds.json
   release_job:
