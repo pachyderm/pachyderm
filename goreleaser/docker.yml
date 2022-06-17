@@ -61,6 +61,20 @@ builds:
     gcflags:
       - "all=-trimpath={{.Env.PWD}}"
   -
+    id: mount-server
+    dir: src/server/cmd/mount-server
+    main: main.go
+    binary: mount-server
+    ldflags:
+      - "{{ .Env.LD_FLAGS }}"
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+    gcflags:
+      - "all=-trimpath={{.Env.PWD}}"
+  -
     id: pachtf
     dir: src/server/cmd/pachtf
     main: main.go
@@ -119,6 +133,23 @@ dockers:
     goarch: amd64
     skip_push: false
     dockerfile: Dockerfile.pachctl
+    build_flag_templates:
+      - "--network=host"
+      - "--progress=plain"
+      - "--label=version={{.Version}}"
+      - "--label=release={{.Version}}"
+    extra_files:
+      - LICENSE
+      - licenses
+  -
+    image_templates:
+      - pachyderm/mount-server
+    ids:
+      - mount-server
+    goos: linux
+    goarch: amd64
+    skip_push: false
+    dockerfile: Dockerfile.mount-server
     build_flag_templates:
       - "--network=host"
       - "--progress=plain"

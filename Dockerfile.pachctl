@@ -1,7 +1,6 @@
 FROM debian:buster-slim
-RUN apt update && apt install -y ca-certificates fuse
+RUN apt update && apt install -y ca-certificates
 
-RUN mkdir -p /pfs
 COPY LICENSE /LICENSE
 COPY licenses /licenses
 COPY pachctl /usr/local/bin/pachctl
