@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 )
@@ -88,15 +89,15 @@ func (c *Cache) computeCachedChunk(data []byte) (*cachedChunk, error) {
 func get(cachedChunk *cachedChunk, filter *pathFilter, w io.Writer) error {
 	if len(cachedChunk.pathOffsets) == 0 {
 		_, err := w.Write(cachedChunk.data)
-		return err
+		return errors.EnsureStack(err)
 	}
 	i := sort.Search(len(cachedChunk.pathOffsets), func(i int) bool {
 		return atStart(cachedChunk.pathOffsets[i].upper, "", filter)
 	})
 	if i >= len(cachedChunk.pathOffsets) {
 		_, err := w.Write(cachedChunk.data[cachedChunk.pathOffsets[i-1].offset:])
-		return err
+		return errors.EnsureStack(err)
 	}
 	_, err := w.Write(cachedChunk.data[cachedChunk.pathOffsets[i].offset:])
-	return err
+	return errors.EnsureStack(err)
 }
