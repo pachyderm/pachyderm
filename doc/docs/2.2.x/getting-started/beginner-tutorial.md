@@ -27,7 +27,7 @@ You should land on this page:
 
 ![Console Landing Page](../images/console_landing_page.png)
 
-Click on your **View Project** (We are working on allowing you to organize your pipelines by Projects) to get started. 
+Click on your **View Project** (We are working on allowing you to organize your pipelines by Projects) to get started. You are all set to have a follow-along visual experience of the coming steps.
 
 ## Image processing with OpenCV
 

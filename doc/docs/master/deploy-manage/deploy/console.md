@@ -1,12 +1,29 @@
-# Deploy Console
+# Console
+
+![Console in action](../images/console.gif)
+
+## What is Console
+
+Pachyderm **Console is a complete web UI for visualizing running pipelines and exploring your data**. By clicking on individual pipeline segments, users can check their jobs' status, visualize their commits' content, access logs, and much more! It is a valuable companion when troubleshooting failed pipelines.
+
+Console is installed per default with Pachyderm Community Edition. Upon upgrading to Pachyderm Enterprise, you can add fine-grained access control to define which users, groups, or roles have access to specific Pachyderm resources.
+
+!!! Note
+     Request an Enterprise trial token directly from Console CE by hitting the **"Upgrade to Enterprise"** button at the bottom right of your Console, fill in [this form](https://www.pachyderm.com/trial/){target=_blank}, or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io).
+
+Before diving into Console installation steps, please look at Console's various states, from the Community Edition to Enterprise. It should give you a mental model of the various paths to upgrade your Community Edition and what happens when your Enterprise token expires.
+
+![Console state diagram](../images/console-state-diagram.png)
+
+## Deploy Console
 
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
-- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google-cloud-platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation).
+- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google-cloud-platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation.
 - To deploy locally, follow the instructions below.
 
-## Deploy Locally
+### Deploy Locally
 
 !!! Info "Reminder"
       A local installation helps you learn
@@ -18,9 +35,10 @@ Follow the deployment instructions in our [Local Installation](../../../getting-
 You are all set!
 
 !!! Note
-    Pachyderm local deployment comes with Console by default. To prevent Console from being installed, pass the following parameter to your helm install one line command `--set console.enabled=false`.
+    - **Pachyderm local deployment comes with Console by default**. To prevent Console from being installed, pass the following parameter to your helm install one line command `--set console.enabled=false`.
+    - Console CE does not require any authentication.
 
-## Deploy In The Cloud
+### Deploy In The Cloud
 
 The deployment of Console in your favorite Cloud usually requires, at a minimum, the set up an Ingress (see below), the activation of Authentication, and the setup of a DNS.
 
@@ -47,7 +65,7 @@ The deployment of Console in your favorite Cloud usually requires, at a minimum,
 
     - **Set the helm value `pachd.activateAuth` to false to prevent the automatic bootstrap of auth on the cluster**.
 
-## Connect to Console
+### Connect to Console
 
 === "No Ingress set up (Local or Quick Install)"
 

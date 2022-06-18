@@ -2,7 +2,7 @@
 
 On this page, you will find simplified deployment instructions and Helm values to get you started with the latest release of Pachyderm on the Kubernetes Engine of your choice (AWS (EKS), Google (GKS), and Azure (AKS)).
 
-For each cloud provider, we will give you the option to "quick deploy" Pachyderm with or without Console (Pachyderm UI).
+For each cloud provider, we will give you the option to "quick deploy" Pachyderm with or without Console (Pachyderm Web UI).
 
 !!! Important 
     The deployment steps highlighted in this document are **not intended for production**. For production settings, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
