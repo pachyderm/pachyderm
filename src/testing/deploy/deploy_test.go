@@ -73,7 +73,8 @@ func TestEnterpriseServerMember(t *testing.T) {
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
-		CleanupAfter:     false,
+		Enterprise:       true,
+		CleanupAfter:     true,
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
