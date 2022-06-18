@@ -510,7 +510,7 @@ should see something similar to this:
 
 ![image](../images/console_landing_page.png)
 
-Upon clicking on your **default Project** (We are working on allowing you to organize your DAGs and teams by Projects), 
+Upon clicking on your **View Project**, 
 you will be able to see your DAG's structure, and interactively explore your repos and pipelines:
 
 ![image](../images/console_dag_display.png)
