@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 )
@@ -1204,7 +1205,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Example: `
-# get file "XXX" on branch "master" in repo "foo"
+# get a single file "XXX" on branch "master" in repo "foo"
 $ {{alias}} foo@master:XXX
 
 # get file "XXX" in the parent of the current head of branch "master"
@@ -1217,7 +1218,11 @@ $ {{alias}} foo@master^2:XXX
 
 # get file "test[].txt" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
-$ {{alias}} 'foo@master:/test\[\].txt'`,
+$ {{alias}} 'foo@master:/test\[\].txt'
+
+# get all files under the directory "XXX" on branch "master" in repo "foo"
+$ {{alias}} foo@master:XXX -r
+`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			if !enableProgress {
 				progress.Disable()
@@ -1282,13 +1287,17 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			if err := c.GetFile(file.Commit, file.Path, w); err != nil {
-				return errors.Errorf("File %s not found. Command only supports file paths", file.Path)
+			if err := c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes)); err != nil {
+				msg := err.Error()
+				if strings.Contains(msg, pfsserver.GetFileTARSuggestion) {
+					err = errors.New(strings.ReplaceAll(msg, pfsserver.GetFileTARSuggestion, "Try again with the -r flag"))
+				}
+				return errors.Wrapf(err, "couldn't download %s from %s", file.Path, file.Commit)
 			}
 			return nil
 		}),
 	}
-	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
+	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Download multiple files, or recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")

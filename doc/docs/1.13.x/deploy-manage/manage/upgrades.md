@@ -6,7 +6,7 @@
       instructions in the [Migrate between major versions](./migrations.md).
       - Prior to 1.11, minor releases required a migration. This is no longer the case.
 
-Upgrades between minor releases or point releases, such as from version `1.12.5` to
+Upgrades between minor releases or patch releases, such as from version `1.12.5` to
 version `1.13.0` do not introduce breaking changes. Therefore, the upgrade
 procedure is simple and requires little to no downtime.
 
@@ -44,7 +44,7 @@ section.
 
       **Note:** You need to specify the major/minor version of `pachctl` to which
       you want to upgrade. For example, if you want to upgrade `1.12.0` to
-      the latest point release of the 1.12, add `@1.12` at the end of the upgrade path.
+      the latest patch release of the 1.12, add `@1.12` at the end of the upgrade path.
 
 1. Confirm that the new version has been successfully installed by running
 the following command:
@@ -121,7 +121,7 @@ of Pachyderm:
 
       The `pachd` and `pachctl` versions must both match the new version.
 
-## Troubleshooting point release Upgrades
+## Troubleshooting patch release Upgrades
 
 <!-- We might want to move this section to Troubleshooting -->
 

@@ -1,6 +1,6 @@
 # Upgrade Pachyderm
 
-Upgrades between minor releases or point releases, such as `2.0.0` to version `2.0.8`,
+Upgrades between minor releases or patch releases, such as `2.0.0` to version `2.0.8`,
 should be seamless.
 Therefore, the upgrade procedure is simple and requires little to no downtime.
 As a good practice, we recommend that you check the [release notes](https://github.com/pachyderm/pachyderm/blob/master/CHANGELOG.md){target=_blank} before an upgrade to get an understanding of the changes introduced between your current version and your target. 
@@ -63,7 +63,7 @@ pachd:
       ```  
 
 !!! Note
-      For a specific target release, specify the targeted major/minor version of `pachctl` for brew and major/minor/point release for curl in the commands above.
+      For a specific target release, specify the targeted major/minor version of `pachctl` for brew and major/minor/patch release for curl in the commands above.
 
 
  - Verify that the installation was successful by running `pachctl version --client-only`:  

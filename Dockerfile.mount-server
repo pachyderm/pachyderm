@@ -1,0 +1,7 @@
+FROM debian:buster-slim
+RUN apt update && apt install -y ca-certificates fuse
+
+RUN mkdir -p /pfs
+COPY LICENSE /LICENSE
+COPY licenses /licenses
+COPY mount-server /usr/local/bin/mount-server
