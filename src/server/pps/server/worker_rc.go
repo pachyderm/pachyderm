@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -330,8 +331,11 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 
 	workerImage := kd.config.WorkerImage
 	pachSecurityCtx := &v1.SecurityContext{
-		RunAsUser:  int64Ptr(1000),
-		RunAsGroup: int64Ptr(1000),
+		RunAsUser:                int64Ptr(1000),
+		RunAsGroup:               int64Ptr(1000),
+		AllowPrivilegeEscalation: pointer.BoolPtr(false),
+		ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+		Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 	}
 	var userSecurityCtx *v1.SecurityContext
 	userStr := pipelineInfo.Details.Transform.User
@@ -346,8 +350,11 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			kd.logger.Warnf("could not parse user %q into int: %v", userStr, err)
 		} else {
 			userSecurityCtx = &v1.SecurityContext{
-				RunAsUser:  int64Ptr(i),
-				RunAsGroup: int64Ptr(i),
+				RunAsUser:                int64Ptr(i),
+				RunAsGroup:               int64Ptr(i),
+				AllowPrivilegeEscalation: pointer.BoolPtr(false),
+				ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
 	}
@@ -416,6 +423,12 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: int64Ptr(0),
+		SecurityContext: &v1.PodSecurityContext{
+			RunAsNonRoot: pointer.BoolPtr(true),
+			SeccompProfile: &v1.SeccompProfile{
+				Type: v1.SeccompProfileType("RuntimeDefault"),
+			},
+		},
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
