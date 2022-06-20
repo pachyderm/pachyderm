@@ -499,8 +499,8 @@ func RevokeCmd() *cobra.Command {
 		}),
 	}
 	revoke.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Revoke an auth token (or all auth tokens minted for one user) on the enterprise server")
-	revoke.PersistentFlags().StringVar(&token, "token", "", "Revoke an auth token (or all auth tokens minted for one user) on the enterprise server")
-	revoke.PersistentFlags().StringVar(&user, "user", "", "Revoke an auth token (or all auth tokens minted for one user) on the enterprise server")
+	revoke.PersistentFlags().StringVar(&token, "token", "", "Pachyderm auth token that should be revoked (one of --token or --user must be set)")
+	revoke.PersistentFlags().StringVar(&user, "user", "", "User whose Pachyderm auth tokens should be revoked (one of --token or --user must be set)")
 	return cmdutil.CreateAlias(revoke, "auth revoke")
 }
 
