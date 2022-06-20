@@ -10533,3 +10533,52 @@ func TestMissingSecretFailure(t *testing.T) {
 		return nil
 	})
 }
+
+func TestSimplePipelineNonRoot(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	req := basicPipelineReq(pipeline, dataRepo)
+
+	req.PodSpec = "{\"containers\":[{\"name\":\"user\",\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"all\"]},\"readOnlyRootFilesystem\":true,\"runAsGroup\":1000,\"runAsUser\":1000}}],\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}}"
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}

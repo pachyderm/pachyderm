@@ -292,15 +292,23 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		Name: "tmp",
 		VolumeSource: v1.VolumeSource{
 			EmptyDir: &v1.EmptyDirVolumeSource{},
+		}}, v1.Volume{
+		Name: "pach-bin",
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
 		}})
 	tmpDirVolumeMount := v1.VolumeMount{
 		Name:      "tmp",
 		MountPath: "/tmp",
 	}
+	pachbinDirVolumeMount := v1.VolumeMount{
+		Name:      "pach-bin",
+		MountPath: "/pach-bin",
+	}
 	secretVolume, secretMount := GetBackendSecretVolumeAndMount()
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount, tmpDirVolumeMount)
-	userVolumeMounts = append(userVolumeMounts, secretMount)
+	userVolumeMounts = append(userVolumeMounts, secretMount, pachbinDirVolumeMount)
 
 	// in the case the pachd is deployed with custom root certs, propagate them to the side-cars
 	if path, ok := os.LookupEnv("SSL_CERT_DIR"); ok {
@@ -365,16 +373,12 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			// hard coded security settings besides uid/gid. Future TODO make configurable
 			podSecurityContext = &v1.PodSecurityContext{
 				RunAsNonRoot: pointer.BoolPtr(true),
-				FSGroup: int64Ptr(i),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
 				}}
 			userSecurityCtx = &v1.SecurityContext{
 				RunAsUser:                int64Ptr(i),
 				RunAsGroup:               int64Ptr(i),
-				AllowPrivilegeEscalation: pointer.BoolPtr(false),
-				ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
-				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
 	}

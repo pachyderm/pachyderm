@@ -39,4 +39,4 @@ kubectl apply -f etc/testing/opa-constraints.yaml
 ./etc/testing/circle/launch.sh
 
 # Run TestSimplePipeline
-go test -v ./src/server -run TestSimplePipeline
+go test -v ./src/server -run TestSimplePipelineNonRoot
