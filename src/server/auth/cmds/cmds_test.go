@@ -453,3 +453,62 @@ func TestSynonyms(t *testing.T) {
 		}
 	}
 }
+
+// TestRevoke tests revoking an existing token
+func TestRevoke(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	root := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
+	alice := tu.AuthenticateClient(t, c, aliceName)
+
+	whoAmICmd := tu.PachctlBashCmd(t, root, `pachctl auth whoami \
+	  | match {{.alice}}`,
+		"alice", aliceName)
+	require.NoError(t, whoAmICmd.Run())
+
+	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke {{.alice-token}}`,
+		"alice-token", alice.AuthToken())
+	require.NoError(t, tokenCmd.Run())
+
+	whoAmICmd = tu.PachctlBashCmd(t, root, `pachctl auth whoami 2>&1 >/dev/null \
+	  | match {{.auth-error}}`,
+		"auth-error", auth.ErrBadToken.Error())
+	require.NoError(t, whoAmICmd.Run())
+}
+
+// TestRevokeAll tests revoking all tokens currently issues for a user
+func TestRevokeAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	root := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
+	aliceClients := make([]*client.APIClient, 3)
+	for i := 0; i < len(aliceClients); i++ {
+		aliceClients[i] = tu.AuthenticateClient(t, c, aliceName)
+	}
+
+	for i := 0; i < len(aliceClients); i++ {
+		whoAmICmd := tu.PachctlBashCmd(t, aliceClients[i],
+			`pachctl auth whoami | match {{.alice}}`,
+			"alice", aliceName)
+		require.NoError(t, whoAmICmd.Run())
+	}
+
+	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke-for-user {{.alice}}`,
+		"alice", aliceName)
+	require.NoError(t, tokenCmd.Run())
+
+	for i := 0; i < len(aliceClients); i++ {
+		whoAmICmd := tu.PachctlBashCmd(t, aliceClients[i],
+			`pachctl auth whoami 2>&1 >/dev/null \
+	      | match {{.auth-error}}`,
+			"alice", aliceName,
+			"auth-error", auth.ErrBadToken.Error())
+		require.NoError(t, whoAmICmd.Run())
+	}
+}
