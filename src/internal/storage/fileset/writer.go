@@ -133,6 +133,13 @@ func (w *Writer) Copy(file File, datum string) error {
 		}
 		return w.uploader.Copy(copyIdx, idx.File.DataRefs)
 	}
+	if len(idx.File.DataRefs) == 0 {
+		return w.Add(idx.Path, datum, &bytes.Buffer{})
+	}
+	if len(idx.File.DataRefs) == 1 {
+		r := w.storage.ChunkStorage().NewDataReader(w.ctx, idx.File.DataRefs[0])
+		return w.Add(idx.Path, datum, r)
+	}
 	// TODO: Optimize to handle large files that can mostly be copy by reference?
 	return miscutil.WithPipe(func(w2 io.Writer) error {
 		r := w.storage.ChunkStorage().NewReader(w.ctx, idx.File.DataRefs)
@@ -160,16 +167,24 @@ func (w *Writer) Close() (*ID, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Rethink / rework merging the two additive indexes?
-	additiveMerge := index.NewWriter(w.ctx, w.storage.ChunkStorage(), "additive-merge-index-writer")
-	if err := index.Merge(w.ctx, w.storage.ChunkStorage(), []*index.Index{additiveIdx, additiveBatchedIdx}, func(idx *index.Index) error {
-		return additiveMerge.WriteIndex(idx)
-	}); err != nil {
-		return nil, err
-	}
-	additiveMergeIdx, err := additiveMerge.Close()
-	if err != nil {
-		return nil, err
+	var additiveMergeIdx *index.Index
+	switch {
+	case additiveIdx == nil:
+		additiveMergeIdx = additiveBatchedIdx
+	case additiveBatchedIdx == nil:
+		additiveMergeIdx = additiveIdx
+	default:
+		// TODO: Rethink / rework merging the two additive indexes?
+		additiveMerge := index.NewWriter(w.ctx, w.storage.ChunkStorage(), "additive-merge-index-writer")
+		if err := index.Merge(w.ctx, w.storage.ChunkStorage(), []*index.Index{additiveIdx, additiveBatchedIdx}, func(idx *index.Index) error {
+			return additiveMerge.WriteIndex(idx)
+		}); err != nil {
+			return nil, err
+		}
+		additiveMergeIdx, err = additiveMerge.Close()
+		if err != nil {
+			return nil, err
+		}
 	}
 	deletiveIdx, err := w.deletive.Close()
 	if err != nil {
