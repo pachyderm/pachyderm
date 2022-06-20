@@ -99,7 +99,7 @@ func main() {
 							"kubespawner_override": pulumi.Map{
 								"image": pulumi.String(nbUserImage),
 								"environment": pulumi.Map{
-									"ENSURE_MOUNT_SERVER": pulumi.String("false"),
+									"SIDECAR_MODE": pulumi.String("true"),
 								},
 								"extra_containers": pulumi.MapArray{
 									pulumi.Map{

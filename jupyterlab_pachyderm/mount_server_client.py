@@ -12,7 +12,7 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import ENSURE_MOUNT_SERVER, JUPYTERLAB_CI_TESTS
+from .env import JUPYTERLAB_CI_TESTS, SIDECAR_MODE
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -72,7 +72,7 @@ class MountServerClient(MountInterface):
         if await self._is_mount_server_running():
             return True
 
-        if not ENSURE_MOUNT_SERVER:
+        if SIDECAR_MODE:
             get_logger().debug("Kubernetes is responsible for running mount server")
             return False
 
