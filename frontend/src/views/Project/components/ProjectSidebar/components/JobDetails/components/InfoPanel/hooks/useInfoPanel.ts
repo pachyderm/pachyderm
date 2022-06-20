@@ -1,4 +1,5 @@
 import {
+  formatDuration,
   formatDistanceStrict,
   fromUnixTime,
   formatDistanceToNowStrict,
@@ -10,11 +11,14 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Input} from '@dash-frontend/lib/types';
 
-const NANOS = 1000000000;
+const NANOS = 1e9;
 
-const nanosToSeconds = (nanos: number) => {
-  if (!nanos) return 0;
-  return nanos / NANOS;
+const timestampToSeconds = (timestamp?: {seconds?: number; nanos?: number}) => {
+  if (!timestamp) return 0;
+  if (!timestamp.nanos) return timestamp.seconds || 0;
+  return (
+    (timestamp.seconds || 0) + Number((timestamp.nanos / NANOS).toFixed(2))
+  );
 };
 
 const useInfoPanel = () => {
@@ -70,9 +74,9 @@ const useInfoPanel = () => {
       salt: details?.salt,
       downloadBytes: details?.stats?.downloadBytes,
       uploadBytes: details?.stats?.uploadBytes,
-      downloadTime: nanosToSeconds(details?.stats?.downloadTime?.nanos),
-      processTime: nanosToSeconds(details?.stats?.processTime?.nanos),
-      uploadTime: nanosToSeconds(details?.stats?.uploadTime?.nanos),
+      downloadTime: timestampToSeconds(details?.stats?.downloadTime),
+      processTime: timestampToSeconds(details?.stats?.processTime),
+      uploadTime: timestampToSeconds(details?.stats?.uploadTime),
     };
   }, [job?.jsonDetails]);
 
@@ -115,19 +119,16 @@ const useInfoPanel = () => {
         label: 'Setup',
       },
       {
-        duration: formatDistanceStrict(
-          0,
-          fromUnixTime(jobDetails.downloadTime),
-        ),
+        duration: formatDuration({seconds: jobDetails.downloadTime}),
         bytes: jobDetails?.stats?.downloadBytes,
         label: 'Download',
       },
       {
-        duration: formatDistanceStrict(0, fromUnixTime(jobDetails.processTime)),
+        duration: formatDuration({seconds: jobDetails.processTime}),
         label: 'Processing',
       },
       {
-        duration: formatDistanceStrict(0, fromUnixTime(jobDetails.uploadTime)),
+        duration: formatDuration({seconds: jobDetails.uploadTime}),
         bytes: jobDetails?.stats?.uploadBytes,
         label: 'Upload',
       },

@@ -1074,3 +1074,88 @@ exports[`Job Details should correctly render extra details in JSON blob 1`] = `
   </div>
 </div>
 `;
+
+exports[`Job Details should display job durations 1`] = `
+<div
+  class="runtimeDetails"
+  data-testid="InfoPanel__durationDetails"
+>
+  <div
+    class="runtimeDetail"
+  >
+    <div>
+      <div
+        class="duration"
+      >
+        58 seconds
+      </div>
+    </div>
+    <div>
+      <div
+        class="metricLabel"
+      >
+        Setup
+      </div>
+    </div>
+  </div>
+  <div
+    class="runtimeDetail"
+  >
+    <div>
+      <div
+        class="duration"
+      >
+        10.27 seconds
+      </div>
+      <span
+        class="_captionTextSmall_1wkvo_63 bytes"
+      >
+        2.9 kB
+      </span>
+    </div>
+    <div>
+      <div
+        class="metricLabel"
+      >
+        Download
+      </div>
+    </div>
+  </div>
+  <div
+    class="runtimeDetail"
+  >
+    <div>
+      <div
+        class="duration"
+      >
+        20.53 seconds
+      </div>
+    </div>
+    <div>
+      <div
+        class="metricLabel"
+      >
+        Processing
+      </div>
+    </div>
+  </div>
+  <div
+    class="runtimeDetail"
+  >
+    <div>
+      <div
+        class="duration"
+      >
+        30.23 seconds
+      </div>
+    </div>
+    <div>
+      <div
+        class="metricLabel"
+      >
+        Upload
+      </div>
+    </div>
+  </div>
+</div>
+`;

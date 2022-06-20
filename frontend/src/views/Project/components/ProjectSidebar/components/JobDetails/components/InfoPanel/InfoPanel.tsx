@@ -132,6 +132,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
               {[styles.closing]: runtimeDetailsClosing},
               styles.runtimeDetails,
             )}
+            data-testid="InfoPanel__durationDetails"
           >
             {runtimeMetrics.map(({duration, bytes, label}) => (
               <div className={styles.runtimeDetail} key={label}>
