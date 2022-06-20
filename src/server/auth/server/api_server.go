@@ -145,11 +145,13 @@ func (a *apiServer) envBootstrap(ctx context.Context) {
 				})
 			return err
 		} else {
-			if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
-				return errors.EnsureStack(err)
+			if a.env.Config.PachdSpecificConfiguration != nil {
+				if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
+					return errors.EnsureStack(err)
+				}
+				if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
+					return errors.EnsureStack(err)
+				}
 			}
 			return nil
 		}
