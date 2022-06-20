@@ -365,6 +365,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			// hard coded security settings besides uid/gid. Future TODO make configurable
 			podSecurityContext = &v1.PodSecurityContext{
 				RunAsNonRoot: pointer.BoolPtr(true),
+				FSGroup: int64Ptr(i),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
 				}}
