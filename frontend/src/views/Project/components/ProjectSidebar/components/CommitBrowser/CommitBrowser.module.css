@@ -17,15 +17,15 @@
 }
 
 .commits {
-  margin-top: 0.625rem;
   padding: 0 0.75rem;
+  padding-top: 1.25rem;
   overflow-y: scroll;
   flex: 1;
+  height: calc(100vh - 20.5rem);
 }
 
 .autoCommits {
   padding: 0rem 1.5rem;
-  margin-bottom: 1.25rem;
   border-bottom: 1px dashed var(--line-grey);
 }
 

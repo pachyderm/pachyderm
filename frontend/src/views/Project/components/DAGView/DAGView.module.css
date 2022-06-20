@@ -1,5 +1,6 @@
 .view {
   padding: 0;
+  height: max-content;
 }
 
 .canvasControls {

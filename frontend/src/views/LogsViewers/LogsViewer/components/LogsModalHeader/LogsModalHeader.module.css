@@ -2,6 +2,7 @@
   margin: 0 1rem 0 0;
   border-right: solid 1px var(--line-grey);
   padding-right: 1rem;
+  white-space: nowrap;
 }
 
 .controls {
@@ -27,7 +28,7 @@
 
 .exportGroup {
   display: flex;
-  margin-right: 1rem;
+  margin-right: 2rem;
 }
 
 .copy {
