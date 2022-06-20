@@ -4,9 +4,12 @@
 
 ## What is Console
 
-Pachyderm **Console is a complete web UI for visualizing running pipelines and exploring your data**. By clicking on individual pipeline segments, users can check their jobs' status, visualize their commits' content, access logs, and much more! It is a valuable companion when troubleshooting failed pipelines.
+Pachyderm **Console is a complete web UI for visualizing running pipelines and exploring your data**. By clicking on individual pipeline segments, users can check their jobs' status, visualize their commits' content, access logs, and much more! It is a valuable companion when troubleshooting pipelines.
 
-Console is installed per default with Pachyderm Community Edition. Upon upgrading to Pachyderm Enterprise, you can add fine-grained access control to define which users, groups, or roles have access to specific Pachyderm resources.
+Pachyderm Community Edition comes with Console per default. Upon upgrading to Pachyderm Enterprise, you will be able to:
+
+- Benefit from our Authentication/Authorization features and control which users, groups, or roles have access to specific Pachyderm resources.
+- Lift all [CE scaling limits](../../../reference/scaling-limits/){target=_blank}.
 
 !!! Note
      Request an Enterprise trial token directly from Console CE by hitting the **"Upgrade to Enterprise"** button at the bottom right of your Console, fill in [this form](https://www.pachyderm.com/trial/){target=_blank}, or get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io).
@@ -20,7 +23,7 @@ Before diving into Console installation steps, please look at Console's various 
 Note that this section is an add-on to the deployment of Pachyderm, locally or in the cloud. 
 It details the additional steps required to install and access your Console.
 
-- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/), [Google](../google-cloud-platform/), [Azure](../azure/)...) in the [Deploy section](../) of the documentation.
+- If you plan to deploy in the cloud, this section will complement your values.yaml (find Pachyderm's deployment instructions matching your target ([AWS](../aws-deploy-pachyderm/){target=_blank}, [Google](../google-cloud-platform/){target=_blank}, [Azure](../azure/){target=_blank}...) in the [Deploy section](../){target=_blank} of the documentation.
 - To deploy locally, follow the instructions below.
 
 ### Deploy Locally
@@ -29,9 +32,9 @@ It details the additional steps required to install and access your Console.
       A local installation helps you learn
       some of the Pachyderm basics and experiment with the product. It is not designed to be a production environment.
 
-We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is [a Kubernetes cluster running locally](../../../getting-started/local-installation/#prerequisites).
+We provide an easy "one line" deployment command to install Pachyderm with Console on a local environment. All you need is a Kubernetes cluster running locally.
 
-Follow the deployment instructions in our [Local Installation](../../../getting-started/local-installation/#deploy-pachyderm-community-edition-or-enterprise-with-console) page.
+Follow the deployment instructions in our [Local Installation](../../../getting-started/local-installation/#deploy-pachyderm-community-edition-or-enterprise-with-console){target=_blank} page.
 You are all set!
 
 !!! Note
@@ -42,10 +45,11 @@ You are all set!
 
 The deployment of Console in your favorite Cloud usually requires, at a minimum, the set up an Ingress (see below), the activation of Authentication, and the setup of a DNS.
 
-- You can opt for a **quick installation** that will alleviate those infrastructure constraints (Not recommended in Production but an easy way to get started) and speed up your installation by following the steps in our [Quick Cloud Deployment](../quickstart/) page, then [connect to your Console](#connect-to-console): 
+- You can opt for a **quick installation** that will alleviate those infrastructure constraints (Not recommended in Production but an easy way to get started) and speed up your installation by following the steps in our [Quick Cloud Deployment](../quickstart/){target=_blank} page, then [connect to your Console](#connect-to-console): 
 
-!!! Note "Reminder"
-    - Use the mock user (username:`admin`, password: `password`) to authenticate to Console.
+!!! Note 
+    - You can "quick install" Pachyderm CE or Enterprise Edition.
+    - Use the mock user (username:`admin`, password: `password`) to login to Console when authentication is enabled but no Identity provider was wired (Enterprise).
 
 - For a **production environment**:
 
@@ -76,7 +80,7 @@ The deployment of Console in your favorite Cloud usually requires, at a minimum,
          - Point your browser to `http://localhost:4000` 
          - Authenticate as the mock User using `admin` & `password` 
 
-=== "Ingress + DNS set up"
+=== "Ingress / DNS set up"
 
     - Point your browser to:
 

@@ -194,6 +194,7 @@ nav:
             - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md        
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
         - Use JupyterLab Mount Extension: how-tos/jupyterlab-extension/index.md
+        - Use and Deploy Console: deploy-manage/deploy/console.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
@@ -211,7 +212,7 @@ nav:
                 - Deploy on GCP: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy On-Premises: deploy-manage/deploy/on-premises.md
-            - Deploy Console: deploy-manage/deploy/console.md
+            - Deploy Console: deploy-manage/deploy/console/#deploy-console
             - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/#install-the-mount-extension
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
