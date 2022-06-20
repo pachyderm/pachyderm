@@ -1,6 +1,15 @@
 # Changelog
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+
+# 0.6.0
+New Feature: Support for Sidecar mount server
+
+b6234e4 Add profile for sidecar (#138)
+f8af207 Fix boolean logic for env vars (#139)
+597d0ba Remove mount server config management from Jupyter BE (#137)
+d672034 Change to Jupyter base image in Dockerfile (#135)
+77ce3a1 Python 3.10 support (#132)
 # 0.5.1 
 d67cfc4 Auth fix - no longer crashes in the presence of inaccessible repos  (#134)
 a34ce1e remove pach theme from image (#131)
