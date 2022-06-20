@@ -62,7 +62,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 	}
 	if len(r.dataRefs) == 1 {
 		_, err := io.Copy(w, newDataReader(r.ctx, r.client, r.memCache, r.deduper, r.dataRefs[0], r.offsetBytes))
-		return err
+		return errors.EnsureStack(err)
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
 	defer cancel()
@@ -87,7 +87,7 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 			}
 			return func() error {
 				_, err := io.Copy(w, dr)
-				return err
+				return errors.EnsureStack(err)
 			}, nil
 		}); err != nil {
 			return err
@@ -122,7 +122,8 @@ func (dr *DataReader) Read(data []byte) (int, error) {
 	if err := dr.fetchData(); err != nil {
 		return 0, err
 	}
-	return dr.r.Read(data)
+	n, err := dr.r.Read(data)
+	return n, errors.EnsureStack(err)
 }
 
 func (dr *DataReader) fetchData() error {
