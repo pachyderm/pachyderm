@@ -454,8 +454,8 @@ func TestSynonyms(t *testing.T) {
 	}
 }
 
-// TestRevoke tests revoking an existing token
-func TestRevoke(t *testing.T) {
+// TestRevokeToken tests revoking an existing token
+func TestRevokeToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -469,7 +469,7 @@ func TestRevoke(t *testing.T) {
 		"alice", aliceName)
 	require.NoError(t, whoAmICmd.Run())
 
-	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke {{.alice-token}}`,
+	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke --token={{.alice-token}}`,
 		"alice-token", alice.AuthToken())
 	require.NoError(t, tokenCmd.Run())
 
@@ -479,8 +479,8 @@ func TestRevoke(t *testing.T) {
 	require.NoError(t, whoAmICmd.Run())
 }
 
-// TestRevokeAll tests revoking all tokens currently issues for a user
-func TestRevokeAll(t *testing.T) {
+// TestRevokeUser tests revoking all tokens currently issues for a user
+func TestRevokeUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -499,7 +499,7 @@ func TestRevokeAll(t *testing.T) {
 		require.NoError(t, whoAmICmd.Run())
 	}
 
-	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke-for-user {{.alice}}`,
+	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke --user={{.alice}}`,
 		"alice", aliceName)
 	require.NoError(t, tokenCmd.Run())
 
