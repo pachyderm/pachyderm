@@ -635,26 +635,32 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	}); err != nil {
 		return err
 	}
-	// list meta repos as a proxy for finding pipelines
-	a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
-		// strictly we should be checking the pipeline info for the output branch
-		output := client.NewCommit(info.Repo.Name, "master", "")
-		for output != nil {
-			info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
-			if err != nil {
-				return err
+
+	if request.ZombieTarget != nil {
+		return a.driver.detectZombie(ctx, request.ZombieTarget, fsckServer.Send)
+	}
+	if request.FullZombieCheck {
+		// list meta repos as a proxy for finding pipelines
+		a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+			// strictly we should be checking the pipeline info for the output branch
+			output := client.NewCommit(info.Repo.Name, "master", "")
+			for output != nil {
+				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				if err != nil {
+					return err
+				}
+				// we will be reading the whole file system, so unfinished commits would be very slow
+				if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
+					break
+				}
+				output = info.ParentCommit
 			}
-			// we will be reading the whole file system, so unfinished commits would be very slow
-			if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
-				break
+			if output == nil {
+				return nil
 			}
-			output = info.ParentCommit
-		}
-		if output == nil {
-			return nil
-		}
-		return a.driver.detectZombie(a.env.GetPachClient(ctx), output, fsckServer.Send)
-	})
+			return a.driver.detectZombie(ctx, output, fsckServer.Send)
+		})
+	}
 	return nil
 }
 

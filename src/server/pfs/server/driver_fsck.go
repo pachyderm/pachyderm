@@ -10,7 +10,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -20,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -342,11 +340,10 @@ func compare(s1, s2 stream.Stream) int {
 	return strings.Compare(idx1.Path, idx2.Path)
 }
 
-func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
 	log.Infof("checking for zombie data in %s", outputCommit)
 	// generate fileset that groups output files by datum
-	resp, err := c.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		ctx := c.Ctx()
+	id, err := d.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
 		_, fs, err := d.openCommit(ctx, outputCommit)
 		if err != nil {
 			return err
@@ -354,17 +351,16 @@ func (d *driver) detectZombie(c *client.APIClient, outputCommit *pfs.Commit, cb 
 		return errors.EnsureStack(fs.Iterate(ctx, func(f fileset.File) error {
 			id := f.Index().GetFile().GetDatum()
 			// write to same path as meta commit, one line per file
-			return errors.EnsureStack(mf.PutFile(common.MetaFilePath(id), strings.NewReader(f.Index().Path+"\n"),
-				client.WithAppendPutFile(), client.WithDatumPutFile(id)))
+			return errors.EnsureStack(w.Put(common.MetaFilePath(id), id, true,
+				strings.NewReader(f.Index().Path+"\n")))
 		}))
 	})
 	if err != nil {
 		return err
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
-	return c.WithRenewer(func(ctx context.Context, r *renew.StringSet) error {
-		r.Add(ctx, resp.FileSetId)
-		id, err := fileset.ParseID(resp.FileSetId)
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
+		r.Add(ctx, *id)
 		if err != nil {
 			return err
 		}
