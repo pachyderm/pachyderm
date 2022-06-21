@@ -1,0 +1,319 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    authTokenHash: 8dhvRvkpED4MRc2OC7xx7fqYNUJOtaa6RXShBzqJlig
+    pachVersion: 2.2.0+1655769204
+    pipelineName: pprof
+    pipelineVersion: "13"
+    specCommit: e6ef90b2698845aab644627b7f0b23ce
+  creationTimestamp: "2022-06-21T21:10:02Z"
+  generateName: pipeline-pprof-v13-
+  labels:
+    app: pipeline-pprof-v13
+    component: worker
+    pipelineName: pprof
+    suite: pachyderm
+  name: pipeline-pprof-v13-56hkz
+  namespace: default
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicationController
+    name: pipeline-pprof-v13
+    uid: 87bf307a-3aa5-493d-9c95-a6d3f4fbdb5e
+  resourceVersion: "1769693"
+  uid: 65c0de35-95b4-45ed-9986-db92eefa97cf
+spec:
+  containers:
+  - command:
+    - /pach-bin/worker
+    env:
+    - name: PPS_PIPELINE_NAME
+      value: pprof
+    - name: PACH_IN_WORKER
+      value: "true"
+    - name: PPS_WORKER_IP
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: status.podIP
+    - name: PPS_ETCD_PREFIX
+      value: pachyderm/1.7.0/pachyderm_pps
+    - name: PPS_POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: PPS_WORKER_GRPC_PORT
+      value: "1080"
+    - name: PACH_ROOT
+      value: /pach
+    - name: PACH_NAMESPACE
+      value: default
+    - name: STORAGE_BACKEND
+      value: MINIO
+    - name: POSTGRES_USER
+      value: pachyderm
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          key: postgresql-password
+          name: postgres
+    - name: POSTGRES_DATABASE
+      value: pachyderm
+    - name: PG_BOUNCER_HOST
+      value: pg-bouncer
+    - name: PG_BOUNCER_PORT
+      value: "5432"
+    - name: PEER_PORT
+      value: "1653"
+    - name: PPS_SPEC_COMMIT
+      value: e6ef90b2698845aab644627b7f0b23ce
+    - name: PPS_PIPELINE_NAME
+      value: pprof
+    - name: LOKI_SERVICE_HOST_VAR
+      value: PACHYDERM_LOKI_SERVICE_HOST
+    - name: LOKI_SERVICE_PORT_VAR
+      value: PACHYDERM_LOKI_SERVICE_PORT
+    - name: POSTGRES_PORT
+    - name: POSTGRES_HOST
+    - name: LOKI_LOGGING
+      value: "true"
+    image: golang:1.18.3
+    imagePullPolicy: IfNotPresent
+    name: user
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: "1"
+        memory: 1Gi
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /pach-bin
+      name: pach-bin
+    - mountPath: /pfs
+      name: pachyderm-worker
+    - mountPath: /pach
+      name: pach-dir-volume
+    - mountPath: /pachyderm-storage-secret
+      name: pachyderm-storage-secret
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-4wj98
+      readOnly: true
+  - command:
+    - /pachd
+    - --mode
+    - sidecar
+    env:
+    - name: PORT
+      value: "1650"
+    - name: PACHD_POD_NAME
+      valueFrom:
+        fieldRef:
+          apiVersion: v1
+          fieldPath: metadata.name
+    - name: GC_PERCENT
+      value: "50"
+    - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
+      value: "100"
+    - name: PPS_PIPELINE_NAME
+      value: pprof
+    - name: PACH_ROOT
+      value: /pach
+    - name: PACH_NAMESPACE
+      value: default
+    - name: STORAGE_BACKEND
+      value: MINIO
+    - name: POSTGRES_USER
+      value: pachyderm
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          key: postgresql-password
+          name: postgres
+    - name: POSTGRES_DATABASE
+      value: pachyderm
+    - name: PG_BOUNCER_HOST
+      value: pg-bouncer
+    - name: PG_BOUNCER_PORT
+      value: "5432"
+    - name: PEER_PORT
+      value: "1653"
+    - name: PPS_SPEC_COMMIT
+      value: e6ef90b2698845aab644627b7f0b23ce
+    - name: PPS_PIPELINE_NAME
+      value: pprof
+    - name: LOKI_SERVICE_HOST_VAR
+      value: PACHYDERM_LOKI_SERVICE_HOST
+    - name: LOKI_SERVICE_PORT_VAR
+      value: PACHYDERM_LOKI_SERVICE_PORT
+    - name: POSTGRES_PORT
+    - name: POSTGRES_HOST
+    - name: LOKI_LOGGING
+      value: "true"
+    envFrom:
+    - secretRef:
+        name: pachyderm-storage-secret
+    image: localhost:5001/pachd:1655769204
+    imagePullPolicy: IfNotPresent
+    name: storage
+    resources:
+      requests:
+        cpu: "0"
+        memory: 64M
+    securityContext:
+      runAsGroup: 1000
+      runAsUser: 1000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /pach
+      name: pach-dir-volume
+    - mountPath: /pachyderm-storage-secret
+      name: pachyderm-storage-secret
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-4wj98
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  initContainers:
+  - command:
+    - /app/init
+    image: localhost:5001/worker:1655769204
+    imagePullPolicy: IfNotPresent
+    name: init
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: "1"
+        memory: 1Gi
+    securityContext:
+      runAsGroup: 1000
+      runAsUser: 1000
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /pach-bin
+      name: pach-bin
+    - mountPath: /pfs
+      name: pachyderm-worker
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-4wj98
+      readOnly: true
+  nodeName: kind-control-plane
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: pachyderm-worker
+  serviceAccountName: pachyderm-worker
+  terminationGracePeriodSeconds: 0
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - emptyDir: {}
+    name: pach-bin
+  - emptyDir: {}
+    name: pachyderm-worker
+  - emptyDir: {}
+    name: pach-dir-volume
+  - name: pachyderm-storage-secret
+    secret:
+      defaultMode: 420
+      secretName: pachyderm-storage-secret
+  - name: kube-api-access-4wj98
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2022-06-21T21:10:04Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2022-06-21T21:10:05Z"
+    status: "True"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2022-06-21T21:10:05Z"
+    status: "True"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2022-06-21T21:10:02Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: containerd://a3dff030c546c83dc7d64fb3f756402a71a5855308c1c5176b5b94005b9e4b27
+    image: docker.io/pachyderm/pachd:local
+    imageID: localhost:5001/pachd@sha256:ea564bca7f04b83e9a2d478234903a91d505039b29b37b0ab558a5146b8f2d24
+    lastState: {}
+    name: storage
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2022-06-21T21:10:04Z"
+  - containerID: containerd://b66b761994c6444602c2e805c541107c3ec30f19fa6741d780899a9509217aab
+    image: docker.io/library/golang:1.18.3
+    imageID: docker.io/library/golang@sha256:b203dc573d81da7b3176264bfa447bd7c10c9347689be40540381838d75eebef
+    lastState: {}
+    name: user
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2022-06-21T21:10:04Z"
+  hostIP: 172.18.0.3
+  initContainerStatuses:
+  - containerID: containerd://891ce20a00d6625e5b6bfec0384538f883fb780709544f9984df77666d8524ec
+    image: docker.io/pachyderm/worker:local
+    imageID: localhost:5001/worker@sha256:aa4960b0dbea52b1abffe4b6d53726136abb46d614e69de1d5a6f79da77e275b
+    lastState: {}
+    name: init
+    ready: true
+    restartCount: 0
+    state:
+      terminated:
+        containerID: containerd://891ce20a00d6625e5b6bfec0384538f883fb780709544f9984df77666d8524ec
+        exitCode: 0
+        finishedAt: "2022-06-21T21:10:03Z"
+        reason: Completed
+        startedAt: "2022-06-21T21:10:03Z"
+  phase: Running
+  podIP: 10.244.0.219
+  podIPs:
+  - ip: 10.244.0.219
+  qosClass: Burstable
+  startTime: "2022-06-21T21:10:02Z"
