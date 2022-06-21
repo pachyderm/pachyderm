@@ -325,6 +325,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
+			bootstrappers = append(bootstrappers, authAPIServer.EnvBootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -882,6 +883,7 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
+			bootstrappers = append(bootstrappers, authAPIServer.EnvBootstrap)
 			return nil
 		}); err != nil {
 			return err
