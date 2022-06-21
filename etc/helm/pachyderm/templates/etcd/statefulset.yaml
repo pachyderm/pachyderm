@@ -31,7 +31,7 @@ spec:
       name: etcd
       namespace: {{ .Release.Namespace }}
       {{- if .Values.etcd.annotations }}
-      annotations: {{ toYaml .Values.etcd.annotations | nindent 4 }}
+      annotations: {{ toYaml .Values.etcd.annotations | nindent 8 }}
       {{- end }}
     spec:
       {{-  if .Values.etcd.affinity }}
