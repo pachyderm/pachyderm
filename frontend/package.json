@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "analyze": "ANALYZE=true npm run build",
-    "build": "NODE_ENV=production dotenv-flow -p ../  -- tsc && vite build",
-    "build:staging": "NODE_ENV=staging dotenv-flow -p ../ -- tsc && vite build",
+    "build": "NODE_ENV=production dotenv-flow -p ../ -- tsc && NODE_ENV=production dotenv-flow -p ../ -- vite build",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:js": "npx eslint '{src,cypress}/**/*.{ts,tsx}'",
     "lint:css": "npx stylelint 'src/**/*.module.css'",
