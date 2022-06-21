@@ -152,7 +152,7 @@ pushd examples/word_count/
 
     # just make sure we outputted some files that were right
     license_word_count=$(pachctl get file reduce@master:/license)
-    if [ "$license_word_count" -ne 10 ]; then
+    if [ "$license_word_count" -lt 1 ]; then
         echo "Unexpected word count in reduce repo"
         exit 1
     fi
