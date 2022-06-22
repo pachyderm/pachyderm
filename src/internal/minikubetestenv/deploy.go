@@ -1,10 +1,14 @@
 package minikubetestenv
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -17,7 +21,6 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -33,10 +36,15 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
-var (
-	mu sync.Mutex // defensively lock around helm calls
+const (
+	MinioEndpoint = "minio.default.svc.cluster.local:9000"
+	MinioBucket   = "pachyderm-test"
+)
 
-	computedPachAddress *grpcutil.PachdAddress
+var (
+	mu           sync.Mutex // defensively lock around helm calls
+	hostOverride *string    = flag.String("testenv.host", "", "override the default host used for testenv clusters")
+	basePort     *int       = flag.Int("testenv.baseport", 0, "alternative base port for testenv to begin assigning clusters from")
 )
 
 type DeployOpts struct {
@@ -54,6 +62,8 @@ type DeployOpts struct {
 	EnterpriseMember bool
 	EnterpriseServer bool
 	ValueOverrides   map[string]string
+	TLS              bool
+	CertPool         *x509.CertPool
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -81,21 +91,25 @@ func helmChartLocalPath(t testing.TB) string {
 	return filepath.Join(relPathParts...)
 }
 
-func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
-	if computedPachAddress == nil {
-		cfg, err := config.Read(true, true)
-		require.NoError(t, err)
-		_, context, err := cfg.ActiveContext(false)
-		require.NoError(t, err)
-		computedPachAddress, err = client.GetUserMachineAddr(context)
-		require.NoError(t, err)
-		if computedPachAddress == nil {
-			copy := grpcutil.DefaultPachdAddress
-			computedPachAddress = &copy
+func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
+	addr := grpcutil.DefaultPachdAddress
+	if *hostOverride != "" {
+		addr.Host = *hostOverride
+	} else if exposedServiceType() == "NodePort" {
+		in := strings.NewReader("minikube ip")
+		out := new(bytes.Buffer)
+		cmd := exec.Command("/bin/bash")
+		cmd.Stdin = in
+		cmd.Stdout = out
+		if err := cmd.Run(); err != nil {
+			t.Errorf("'minikube ip': %v. Try running tests with the 'testenv.host' argument", err)
 		}
+		addr.Host = strings.TrimSpace(out.String())
 	}
-	copy := *computedPachAddress
-	return &copy
+	if *basePort != 0 {
+		addr.Port = uint16(*basePort)
+	}
+	return &addr
 }
 
 func exposedServiceType() string {
@@ -175,8 +189,8 @@ func withMinio() *helm.Options {
 		SetValues: map[string]string{
 			"deployTarget":                 "custom",
 			"pachd.storage.backend":        "MINIO",
-			"pachd.storage.minio.bucket":   "pachyderm-test",
-			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
+			"pachd.storage.minio.bucket":   MinioBucket,
+			"pachd.storage.minio.endpoint": MinioEndpoint,
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
 		},
@@ -242,27 +256,47 @@ func withEnterpriseMember(host string, grpcPort int) *helm.Options {
 	}}
 }
 
-func withPort(namespace string, port uint16) *helm.Options {
-	return &helm.Options{
+func withPort(namespace string, port uint16, tls bool) *helm.Options {
+	opts := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
-		SetValues: map[string]string{
-			// Run gRPC traffic through the full router.
-			"proxy.service.httpPort":     fmt.Sprintf("%v", port),
-			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
-			// Let everything else use the legacy way.  We use the same mapping for
-			// internal ports, so in-cluster traffic doesn't go through the proxy, but
-			// doesn't need to confusingly use a different port number.
-			"pachd.service.apiGRPCPort":           fmt.Sprintf("%v", port),
-			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
-			"pachd.service.oidcPort":              fmt.Sprintf("%v", port+7),
-			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
-			"pachd.service.identityPort":          fmt.Sprintf("%v", port+8),
-			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
-			"pachd.service.s3GatewayPort":         fmt.Sprintf("%v", port+3),
-			"proxy.service.legacyPorts.metrics":   fmt.Sprintf("%v", port+4),
-			"pachd.service.prometheusPort":        fmt.Sprintf("%v", port+4),
-		},
+		SetValues:      map[string]string{},
 	}
+
+	// Allow the internal use to have the same port numbers as the proxy.
+	opts.SetValues["pachd.service.apiGRPCPort"] = fmt.Sprintf("%v", port)
+	opts.SetValues["pachd.service.oidcPort"] = fmt.Sprintf("%v", port+7)
+	opts.SetValues["pachd.service.identityPort"] = fmt.Sprintf("%v", port+8)
+	opts.SetValues["pachd.service.s3GatewayPort"] = fmt.Sprintf("%v", port+3)
+	opts.SetValues["pachd.service.prometheusPort"] = fmt.Sprintf("%v", port+4)
+
+	if tls {
+		// Use the default port for HTTPS.
+		opts.SetValues["proxy.service.httpsPort"] = fmt.Sprintf("%v", port)
+		opts.SetValues["proxy.service.httpsNodePort"] = fmt.Sprintf("%v", port)
+
+		// Disable HTTP.
+		opts.SetValues["proxy.service.httpPort"] = "0"
+		opts.SetValues["proxy.service.httpNodePort"] = "0"
+
+		// Disable the legacy services, since anything depending on the TLS argument to this
+		// function expects to do everything through the proxy
+		opts.SetValues["proxy.service.legacyPorts.console"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.oidc"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.identity"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.s3Gateway"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.metrics"] = "0"
+	} else {
+		// Run gRPC traffic through the full router.
+		opts.SetValues["proxy.service.httpPort"] = fmt.Sprintf("%v", port)
+		opts.SetValues["proxy.service.httpNodePort"] = fmt.Sprintf("%v", port)
+
+		// Let the legacy ports go through the proxy.
+		opts.SetValues["proxy.service.legacyPorts.oidc"] = fmt.Sprintf("%v", port+7)
+		opts.SetValues["proxy.service.legacyPorts.identity"] = fmt.Sprintf("%v", port+8)
+		opts.SetValues["proxy.service.legacyPorts.s3Gateway"] = fmt.Sprintf("%v", port+3)
+		opts.SetValues["proxy.service.legacyPorts.metrics"] = fmt.Sprintf("%v", port+4)
+	}
+	return opts
 }
 
 // withoutProxy disables the Pachyderm proxy.  It's used to test upgrades from versions of Pachyderm
@@ -350,18 +384,24 @@ func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Client
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string) *client.APIClient {
+func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string, certpool *x509.CertPool) *client.APIClient {
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
 	require.NoError(t, backoff.Retry(func() error {
 		t.Logf("Connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
 		var err error
-		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
+		opts := []client.Option{client.WithDialTimeout(10 * time.Second)}
+		if certpool != nil {
+			opts = append(opts, client.WithCertPool(certpool))
+		}
+		c, err = client.NewFromPachdAddress(pachAddress, opts...)
 		if err != nil {
+			t.Logf("retryable: failed to connect to pachd on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
 		// Ensure that pachd is really ready to receive requests.
 		if _, err := c.InspectCluster(); err != nil {
+			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
@@ -419,7 +459,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.Version = version
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
-	pachAddress := getPachAddress(t)
+	pachAddress := GetPachAddress(t)
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
 		pachAddress.Port = uint16(31650)
@@ -430,7 +470,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
-		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port))
+		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))
 	}
 	if opts.Enterprise || opts.EnterpriseServer {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
@@ -452,9 +492,12 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.ValueOverrides != nil {
 		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
 	}
+	if opts.TLS {
+		pachAddress.Secured = true
+	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
-			return pachClient(t, pachAddress, opts.AuthUser, namespace)
+			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 		}
 		deleteRelease(t, context.Background(), namespace, kubeClient)
 		// When CircleCI was experiencing network slowness, downloading
@@ -470,7 +513,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
-	return pachClient(t, pachAddress, opts.AuthUser, namespace)
+	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 }
 
 // Deploy pachyderm using a `helm upgrade ...`

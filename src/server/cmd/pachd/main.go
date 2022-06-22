@@ -79,7 +79,8 @@ func init() {
 }
 
 func main() {
-	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
@@ -138,6 +139,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
 
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
@@ -157,7 +162,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
+	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
 	externalServer, err := grpcutil.NewServer(
 		context.Background(),
 		true,
@@ -189,6 +194,16 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 
 	if err := logGRPCServerSetup("External Enterprise Server", func() error {
 		txnEnv := txnenv.New()
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -205,18 +220,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
@@ -257,7 +260,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
 			)
@@ -299,6 +302,17 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	var bootstrappers []bootstrapFunc
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
 		txnEnv := txnenv.New()
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
+				return err
+			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
 				authserver.EnvFromServiceEnv(env, txnEnv),
@@ -311,23 +325,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
+			bootstrappers = append(bootstrappers, authAPIServer.EnvBootstrap)
 			return nil
 		}); err != nil {
 			return err
 		}
-
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
-			bootstrappers = append(bootstrappers, bootstrap)
-			return nil
-		}); err != nil {
-			return err
-		}
-
 		healthServer := health.NewServer()
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 		if err := logGRPCServerSetup("Health", func() error {
@@ -368,11 +370,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, bootstrap := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -433,6 +436,11 @@ func doSidecarMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-sidecar", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -546,6 +554,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			env,
 			env.Config().PachdPodName,
 			nil,
+			env.GetDBClient(),
 		))
 		return nil
 	}); err != nil {
@@ -591,6 +600,11 @@ func doFullMode(config interface{}) (retErr error) {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
+
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
+
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
@@ -648,18 +662,15 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	if err := logGRPCServerSetup("External Pachd", func() error {
 		txnEnv := txnenv.New()
-		if !env.Config().EnterpriseMember {
-			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
-					identity_server.EnvFromServiceEnv(env),
-					true,
-				)
-				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-				return nil
-			}); err != nil {
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
 				return err
 			}
-
+			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
+			return nil
+		}); err != nil {
+			return err
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
@@ -674,6 +685,19 @@ func doFullMode(config interface{}) (retErr error) {
 			return nil
 		}); err != nil {
 			return err
+		}
+		if !env.Config().EnterpriseMember {
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer, _ := identity_server.NewIdentityServer(
+					identity_server.EnvFromServiceEnv(env),
+					true,
+				)
+				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+				return nil
+			}); err != nil {
+				return err
+			}
+
 		}
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
@@ -736,16 +760,6 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, _, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(externalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
 			return nil
@@ -771,6 +785,7 @@ func doFullMode(config interface{}) (retErr error) {
 				env,
 				env.Config().PachdPodName,
 				nil,
+				env.GetDBClient(),
 			))
 			return nil
 		}); err != nil {
@@ -845,17 +860,16 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if !env.Config().EnterpriseMember {
-			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
-					identity_server.EnvFromServiceEnv(env),
-					false,
-				)
-				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
-				return nil
-			}); err != nil {
+		if err := logGRPCServerSetup("License API", func() error {
+			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
+			if err != nil {
 				return err
 			}
+			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
+			bootstrappers = append(bootstrappers, bootstrap)
+			return nil
+		}); err != nil {
+			return err
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
@@ -869,9 +883,23 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
+			bootstrappers = append(bootstrappers, authAPIServer.EnvBootstrap)
 			return nil
 		}); err != nil {
 			return err
+		}
+		if !env.Config().EnterpriseMember {
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer, bootstrap := identity_server.NewIdentityServer(
+					identity_server.EnvFromServiceEnv(env),
+					false,
+				)
+				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+				bootstrappers = append(bootstrappers, bootstrap)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 		var transactionAPIServer txnserver.APIServer
 		if err := logGRPCServerSetup("Transaction API", func() error {
@@ -883,17 +911,6 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, bootstrap, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
-			bootstrappers = append(bootstrappers, bootstrap)
 			return nil
 		}); err != nil {
 			return err
@@ -1135,7 +1152,7 @@ func doPausedMode(config interface{}) (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
 				true,
 			)
@@ -1265,7 +1282,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		}
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
+				idAPIServer, _ := identity_server.NewIdentityServer(
 					identity_server.EnvFromServiceEnv(env),
 					false,
 				)

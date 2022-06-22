@@ -15,5 +15,13 @@ metadata:
   name: pachyderm-proxy-config
 data:
   envoy.json: |
+    {{- if .Values.proxy.tls.enabled }}
+    {{- .Files.Get "envoy-tls.json" | nindent 4 }}
+    {{- else -}}
     {{- .Files.Get "envoy.json" | nindent 4 }}
+    {{- end }}
+  {{- if .Values.proxy.tls.enabled }}
+  sds.yaml: |
+    {{- .Files.Get "envoy-sds.yaml" | nindent 4 }}
+  {{- end }}
 {{- end }}

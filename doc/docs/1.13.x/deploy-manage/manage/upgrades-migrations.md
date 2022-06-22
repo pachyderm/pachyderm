@@ -4,7 +4,7 @@ As new versions of Pachyderm are released, you might need to update
 your cluster to get access to bug fixes and new features.
 These updates fall into the following categories:
 
-* [Upgrades](./upgrades.md) — An upgrade is moving between point releases
+* [Upgrades](./upgrades.md) — An upgrade is moving between patch releases
   within the same major release. For example, between version 1.12.0 and 1.12.2.
   Upgrades are typically a simple process that require little to no downtime.
 

@@ -158,7 +158,7 @@ func RunLocal() (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.Env{},
 				true,
 			)
@@ -244,6 +244,7 @@ func RunLocal() (retErr error) {
 				env,
 				env.Config().PachdPodName,
 				nil,
+				env.GetDBClient(),
 			))
 			return nil
 		}); err != nil {
@@ -291,7 +292,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
+			idAPIServer, _ := identity_server.NewIdentityServer(
 				identity_server.Env{},
 				false,
 			)

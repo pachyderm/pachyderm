@@ -1,5 +1,5 @@
-// +build linux
+//go:build linux
 
 package cmds
 
-func printWarning() {}
+func PrintWarning() {}

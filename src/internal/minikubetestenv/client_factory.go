@@ -2,8 +2,10 @@ package minikubetestenv
 
 import (
 	"context"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,21 +23,6 @@ const (
 	namespacePrefix = "test-cluster-"
 )
 
-type acquireSettings struct {
-	WaitForLoki      bool
-	EnterpriseMember bool
-}
-
-type Option func(*acquireSettings)
-
-var WaitForLokiOption = func(ds *acquireSettings) {
-	ds.WaitForLoki = true
-}
-
-var EnterpriseMemberOption = func(ds *acquireSettings) {
-	ds.EnterpriseMember = true
-}
-
 var (
 	clusterFactory      *ClusterFactory
 	setup               sync.Once
@@ -44,18 +31,57 @@ var (
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
 )
 
+type acquireSettings struct {
+	WaitForLoki      bool
+	TLS              bool
+	EnterpriseMember bool
+	CertPool         *x509.CertPool
+	ValueOverrides   map[string]string
+}
+
+type Option func(*acquireSettings)
+
+var WaitForLokiOption Option = func(as *acquireSettings) {
+	as.WaitForLoki = true
+}
+
+var WithTLS Option = func(as *acquireSettings) {
+	as.TLS = true
+}
+
+func WithCertPool(pool *x509.CertPool) Option {
+	return func(as *acquireSettings) {
+		as.CertPool = pool
+	}
+}
+
+func WithValueOverrides(v map[string]string) Option {
+	return func(as *acquireSettings) {
+		as.ValueOverrides = v
+	}
+}
+
+var EnterpriseMemberOption Option = func(as *acquireSettings) {
+	as.EnterpriseMember = true
+}
+
+type managedCluster struct {
+	client   *client.APIClient
+	settings *acquireSettings
+}
+
 type ClusterFactory struct {
 	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
-	managedClusters   map[string]*client.APIClient
+	managedClusters   map[string]*managedCluster
 	availableClusters map[string]struct{}
 	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
 	sem               semaphore.Weighted // enforces max concurrency
 }
 
-func (cf *ClusterFactory) assignClient(assigned string, c *client.APIClient) {
+func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 	cf.mu.Lock()
 	defer cf.mu.Unlock()
-	cf.managedClusters[assigned] = c
+	cf.managedClusters[assigned] = mc
 }
 
 func clusterIdx(t testing.TB, name string) int {
@@ -65,22 +91,28 @@ func clusterIdx(t testing.TB, name string) int {
 	return r
 }
 
-func deployOpts(clusterIdx int, loki bool) *DeployOpts {
+func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 10),
 		UseLeftoverCluster: *useLeftoverClusters,
-		Loki:               loki,
+		Loki:               as.WaitForLoki,
+		TLS:                as.TLS,
+		CertPool:           as.CertPool,
+		ValueOverrides:     as.ValueOverrides,
 	}
 }
 
 func deleteAll(t testing.TB, c *client.APIClient) {
+	if c == nil {
+		return
+	}
 	tok := c.AuthToken()
 	c.SetAuthToken(testutil.RootToken)
 	require.NoError(t, c.DeleteAll())
 	c.SetAuthToken(tok)
 }
 
-func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
+func (cf *ClusterFactory) acquireFreeCluster() (string, *managedCluster) {
 	cf.mu.Lock()
 	defer cf.mu.Unlock()
 	if len(cf.availableClusters) > 0 {
@@ -95,7 +127,7 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 	return "", nil
 }
 
-func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *client.APIClient) {
+func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
 	assigned, clusterIdx := func() (string, int) {
 		cf.mu.Lock()
 		defer cf.mu.Unlock()
@@ -119,10 +151,14 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 		context.Background(),
 		assigned,
 		kube,
-		deployOpts(clusterIdx, as.WaitForLoki),
+		deployOpts(clusterIdx, as),
 	)
-	cf.assignClient(assigned, c)
-	return assigned, c
+	mc := &managedCluster{
+		client:   c,
+		settings: as,
+	}
+	cf.assignClient(assigned, mc)
+	return assigned, mc
 }
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
@@ -130,7 +166,7 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*client.APIClient{},
+			managedClusters:   map[string]*managedCluster{},
 			availableClusters: map[string]struct{}{},
 			sem:               *semaphore.NewWeighted(int64(*poolSize)),
 		}
@@ -141,7 +177,9 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
 		if *cleanupDataAfter {
-			deleteAll(t, clusterFactory.managedClusters[assigned])
+			if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+				deleteAll(t, mc.client)
+			}
 		}
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
@@ -151,19 +189,22 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	for _, o := range opts {
 		o(as)
 	}
-	assigned, c := clusterFactory.acquireFreeCluster()
+	assigned, mc := clusterFactory.acquireFreeCluster()
 	if assigned == "" {
-		assigned, c = clusterFactory.acquireNewCluster(t, as)
+		assigned, mc = clusterFactory.acquireNewCluster(t, as)
 	}
-	// in the case loki is requested, upgrade the cluster to include it
-	if as.WaitForLoki {
-		c = UpgradeRelease(t,
+
+	// If the cluster settings have changed, upgrade the cluster to make them take effect.
+	if !reflect.DeepEqual(mc.settings, as) {
+		t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
+		mc.client = UpgradeRelease(t,
 			context.Background(),
 			assigned,
 			testutil.GetKubeClient(t),
-			deployOpts(clusterIdx(t, assigned), as.WaitForLoki),
+			deployOpts(clusterIdx(t, assigned), as),
 		)
+		mc.settings = as
 	}
-	deleteAll(t, c)
-	return c, assigned
+	deleteAll(t, mc.client)
+	return mc.client, assigned
 }

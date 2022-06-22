@@ -2,6 +2,9 @@
 
 For a quick test installation of Pachyderm on AWS (suitable for development), jump to our [Quickstart page](../quickstart/).
 
+For deployments in production, refer to the following diagram and follow these step-by-step instructions:
+![AWS Arch](../images/arch-diagram-high-level-aws.svg)
+
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](../helm-install/){target=_blank} page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/){target=_blank}. You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
@@ -216,7 +219,7 @@ For your EKS cluster to successfully create two **Elastic Block Storage (EBS) pe
 
 In short, you will:
 
-1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html){target=_blank}. You might already have completed this step if you choose to create an IAM Role and Policy to give your containers permission to access your S3 bucket.
+1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html){target=_blank}. You might already have completed this step if you chose to create an IAM Role and Policy to give your containers permission to access your S3 bucket.
 1. Create a CSI Driver service account whose IAM Role will be granted the permission (policy) to make calls to AWS APIs. 
 1. Install Amazon EBS Container Storage Interface (CSI) driver on your cluster configured with your created service account.
 

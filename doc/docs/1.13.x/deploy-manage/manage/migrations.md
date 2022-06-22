@@ -5,7 +5,7 @@ cluster to get access to bug fixes and new features.
 
 !!! Info
     Visit [**Upgrade** Pachyderm](upgrades.md) if you need to
-    **move between minor releases or point releases**,
+    **move between minor releases or patch releases**,
     such as from 1.12.3 to 1.13.0.
 
 !!! Warning
