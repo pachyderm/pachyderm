@@ -186,7 +186,7 @@ Note that you can run both Console and JupyterLab on your local installation.
       This command will install Pachyderm's latest available GA version with Console CE.
 
        ```shell  
-       helm install --wait --timeout 600 pachd pach/pachyderm --set deployTarget=LOCAL  
+       helm install --wait --timeout 10m pachd pach/pachyderm --set deployTarget=LOCAL  
        ```    
 
        Add the following `--set console.enabled=false` to the command above to install without Console.
@@ -197,7 +197,7 @@ Note that you can run both Console and JupyterLab on your local installation.
        - Then, run the following helm command to **install Pachyderm's latest Enterprise Edition**: 
       
         ```shell  
-        helm install --wait --timeout 600 pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
+        helm install --wait --timeout 10m pachd pach/pachyderm --set deployTarget=LOCAL  --set pachd.enterpriseLicenseKey=$(cat license.txt) --set console.enabled=true  
         ``` 
 
 !!! Note 
