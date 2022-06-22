@@ -119,6 +119,8 @@ type EnterpriseSpecificConfiguration struct {
 	LicenseKey              string `env:"LICENSE_KEY,default="`
 	EnterpriseSecret        string `env:"ENTERPRISE_SECRET,default="`
 	EnterpriseMember        bool   `env:"ENTERPRISE_MEMBER,default=false"`
+	EnterpriseServerAddress string `env:"ENTERPRISE_SERVER_ADDRESS,default="`
+	EnterpriseServerToken   string `env:"ENTERPRISE_SERVER_TOKEN,default="`
 	IdentityConfig          string `env:"IDP_CONFIG,default="`
 	IdentityConnectors      string `env:"IDP_CONNECTORS,default="`
 	IdentityClients         string `env:"IDP_CLIENTS,default="`

@@ -461,6 +461,14 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
+	if opts.Enterprise || opts.EnterpriseServer {
+		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
+		issuerPort := int(pachAddress.Port) + 8
+		if opts.EnterpriseMember {
+			issuerPort = 31658
+		}
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
+	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
 		pachAddress.Port = uint16(31650)
@@ -472,14 +480,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))
-	}
-	if opts.Enterprise || opts.EnterpriseServer {
-		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		issuerPort := int(pachAddress.Port) + 8
-		if opts.EnterpriseMember {
-			issuerPort = 31658
-		}
-		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
 	}
 	if opts.EnterpriseMember {
 		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))

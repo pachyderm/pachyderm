@@ -11,6 +11,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -185,6 +186,21 @@ func (a *AuthServer) EnvBootstrap(ctx context.Context) error {
 							return errors.Wrapf(err, "update oidc client %q", c.Name)
 						}
 					}
+				} else {
+					ec, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+					if err != nil {
+						return errors.Wrapf(err, "connect to enterprise server")
+					}
+					ec.SetAuthToken(a.env.Config.EnterpriseServerToken)
+					if _, err = ec.IdentityAPIClient.CreateOIDCClient(ec.Ctx(), &identity.CreateOIDCClientRequest{Client: &c}); err != nil {
+						if !identity.IsErrAlreadyExists(err) {
+							return errors.Wrapf(err, "create oidc client %q", c.Name)
+						}
+						if _, err := ec.IdentityAPIClient.UpdateOIDCClient(ctx, &identity.UpdateOIDCClientRequest{Client: &c}); err != nil {
+							return errors.Wrapf(err, "update oidc client %q", c.Name)
+						}
+					}
+
 				}
 			}
 			if _, err := a.SetConfiguration(ctx, &auth.SetConfigurationRequest{Configuration: &config}); err != nil {

@@ -255,8 +255,21 @@ spec:
           value: {{ .Values.pachd.securityContext.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
+        {{- if .Values.pachd.activateEnterpriseMember }}
         - name: ENTERPRISE_MEMBER
           value: {{ .Values.pachd.activateEnterpriseMember | quote }}
+        - name: ENTERPRISE_SERVER_ADDRESS
+          value: {{ required "To register a pachd instance with an enterprise server, the enterprise server's address must be provided." .Values.pachd.enterpriseServerAddress | quote }}
+        - name: ENTERPRISE_SERVER_TOKEN
+          {{- if .Values.pachd.enterpriseRootTokenSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseRootTokenSecretName | quote}}
+              value: enterprise-root-token
+          {{- else }}
+          value: {{ required "To register this pachd as an enterprise member, the enterprise root token must be provided." .Values.pachd.enterpriseRootToken | quote }}
+          {{- end }}
+        {{- end }}
         {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE
           value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
