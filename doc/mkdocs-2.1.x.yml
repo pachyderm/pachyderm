@@ -25,7 +25,7 @@ pach_latest_version: '2.1.9'
 pach_major_minor_version: '2.1'
 search_index_version: '2.1.x'
 # Latest tag of the JupyterLab Mount Extension
-jupyterlab_extension_image_tag: 'v0.5.1'
+jupyterlab_extension_image_tag: 'v0.6.0'
 
 
 # Configuration

@@ -1209,6 +1209,37 @@ func TestPipelineFailure(t *testing.T) {
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 }
 
+func TestPPSEgressURLOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("Skipping %s in short mode", t.Name())
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "file1", strings.NewReader("foo")))
+
+	pipeline := tu.UniqueString("egress")
+	pipelineReq := basicPipelineReq(pipeline, repo)
+	pipelineReq.Egress = &pps.Egress{URL: fmt.Sprintf("test-minio://%s/%s/%s", minikubetestenv.MinioEndpoint, minikubetestenv.MinioBucket, pipeline)}
+
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), pipelineReq)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		commitInfo, err := c.WaitCommit(pipeline, "master", "")
+		if err != nil {
+			return err
+		}
+		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		if err != nil {
+			return err
+		}
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		return nil
+	})
+}
+
 func TestEgressFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
@@ -3098,7 +3129,6 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
 	b := backoff.NewTestingBackOff()
-	b.MaxElapsedTime = 30 * time.Second
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		if err != nil {
@@ -10470,7 +10500,6 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	// Initial load
 	master := client.NewCommit(repo, "master", "")
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
-	require.NoError(t, err)
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
@@ -10483,7 +10512,6 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 
 	// Add a new row, and test whether primary key conflicts
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
-	require.NoError(t, err)
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)

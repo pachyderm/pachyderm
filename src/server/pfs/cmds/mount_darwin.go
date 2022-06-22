@@ -4,6 +4,6 @@ package cmds
 
 import "fmt"
 
-func printWarning() {
+func PrintWarning() {
 	fmt.Println(`WARNING: Download the latest macOS and macFUSE versions or use mount on Linux for the best experience.`)
 }
