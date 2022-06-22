@@ -472,7 +472,7 @@ func TestRevokeToken(t *testing.T) {
 		`pachctl auth revoke --token={{.alice_token}}`,
 		"alice_token", alice.AuthToken()).Run())
 
-	whoAmIResp, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
+	_, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
 	require.YesError(t, err)
 	require.True(t, auth.IsErrBadToken(err))
 }
