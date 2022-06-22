@@ -88,11 +88,7 @@ assume some logic about the auth activation (namely that the suffix on issuerURI
 serve dex).
 */ -}}
 {{- define "pachyderm.dexBaseURI" -}}
-{{ (dict
-    "scheme" "http"
-    "host" (printf "pachd:%v" .Values.pachd.service.identityPort)
-    "path" (get (include "pachyderm.issuerURI" . | urlParse) "path")
-) | urlJoin }}
+{{ (dict "scheme" "http" "host" (printf "pachd:%v" .Values.pachd.service.identityPort) "path" (get (include "pachyderm.issuerURI" . | urlParse) "path") ) | urlJoin }}
 {{- end }}
 
 {{- define "pachyderm.consoleRedirectURI" -}}
