@@ -75,17 +75,17 @@ spec:
       rule: MustRunAs # MustRunAsNonRoot # RunAsAny 
       ranges:
         - min: 2
-          max: 2000
+          max: 65534
     runAsGroup:
       rule: MustRunAs # MayRunAs # RunAsAny 
       ranges:
         - min: 2
-          max: 2000
+          max: 65534
     fsGroup:
       rule: MustRunAs # MayRunAs # RunAsAny 
       ranges:
         - min: 2
-          max: 20000
+          max: 65534
 ---
 apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: K8sPSPVolumeTypes

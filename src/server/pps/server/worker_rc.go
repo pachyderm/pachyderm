@@ -279,7 +279,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			VolumeSource: v1.VolumeSource{
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
-		},v1.Volume{
+		}, v1.Volume{
 			Name: "user-tmp",
 			VolumeSource: v1.VolumeSource{
 				EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -294,7 +294,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			MountPath: "/tmp",
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
-		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount,userTmpVolumeMount)
+		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount, userTmpVolumeMount)
 	}
 	// add emptydir for /tmp to allow for read only rootfs
 	options.volumes = append(options.volumes, v1.Volume{
@@ -371,8 +371,11 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
 			kd.logger.Warnf("could not parse user %q into int: %v", userStr, err)
 		} else {
-			// hard coded security settings besides uid/gid. Future TODO make configurable
+			// hard coded security settings besides uid/gid.
 			podSecurityContext = &v1.PodSecurityContext{
+				RunAsUser:    int64Ptr(i),
+				RunAsGroup:   int64Ptr(i),
+				FSGroup:      int64Ptr(i),
 				RunAsNonRoot: pointer.BoolPtr(true),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
@@ -380,6 +383,9 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			userSecurityCtx = &v1.SecurityContext{
 				RunAsUser:                int64Ptr(i),
 				RunAsGroup:               int64Ptr(i),
+				AllowPrivilegeEscalation: pointer.BoolPtr(false),
+				ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
 	}
