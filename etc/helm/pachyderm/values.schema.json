@@ -522,6 +522,9 @@
                 "RotationTokenExpiry": {
                     "type": "string"
                 },
+                "avoidExternalNetwork": {
+                    "type": "boolean"
+                },
                 "dexCredentialSecretName": {
                     "type": "string"
                 },
@@ -1165,7 +1168,18 @@
                     }
                 },
                 "tls": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "secret": {
+                            "type": "object"
+                        },
+                        "secretName": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         }
