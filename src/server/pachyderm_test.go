@@ -10539,7 +10539,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	t.Parallel()
+	//t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = c.WithDefaultTransformUser("1000")
 
@@ -10553,7 +10553,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	req := basicPipelineReq(pipeline, dataRepo)
 
-	req.PodSpec = "{\"containers\":[{\"name\":\"user\",\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"all\"]},\"readOnlyRootFilesystem\":true,\"runAsGroup\":1000,\"runAsUser\":1000}}],\"securityContext\":{\"fsGroup\":1000,\"runAsGroup\":1000,\"runAsNonRoot\":true,\"runAsUser\":1000,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}}"
+	req.PodPatch = "[{\"op\":\"add\",\"path\":\"/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/securityContext/runAsGroup\",\"value\":1000},{\"op\":\"add\",\"path\":\"/securityContext/runAsNonRoot\",\"value\":true},{\"op\":\"add\",\"path\":\"/securityContext/runAsUser\",\"value\":1000},{\"op\":\"add\",\"path\":\"/securityContext/seccompProfile\",\"value\":{\"type\":\"RuntimeDefault\"}},{\"op\":\"add\",\"path\":\"/initContainers/0/securityContext/allowPrivilegeEscalation\",\"value\":false},{\"op\":\"add\",\"path\":\"/initContainers/0/securityContext/capabilities\",\"value\":{\"drop\":[\"all\"]}},{\"op\":\"add\",\"path\":\"/initContainers/0/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/initContainers/0/securityContext/readOnlyRootFilesystem\",\"value\":true},{\"op\":\"add\",\"path\":\"/containers/1/securityContext/allowPrivilegeEscalation\",\"value\":false},{\"op\":\"add\",\"path\":\"/containers/1/securityContext/capabilities\",\"value\":{\"drop\":[\"all\"]}},{\"op\":\"add\",\"path\":\"/containers/1/securityContext/readOnlyRootFilesystem\",\"value\":true},{\"op\":\"add\",\"path\":\"/containers/0/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/containers/0/securityContext\",\"value\":{\"runAsGroup\":1000,\"runAsUser\":1000,\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"all\"]},\"readOnlyRootFilesystem\":false}}]"
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
 

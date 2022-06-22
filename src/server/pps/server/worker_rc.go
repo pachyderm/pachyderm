@@ -292,23 +292,15 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		Name: "tmp",
 		VolumeSource: v1.VolumeSource{
 			EmptyDir: &v1.EmptyDirVolumeSource{},
-		}}, v1.Volume{
-		Name: "pach-bin",
-		VolumeSource: v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{},
 		}})
 	tmpDirVolumeMount := v1.VolumeMount{
 		Name:      "tmp",
 		MountPath: "/tmp",
 	}
-	pachbinDirVolumeMount := v1.VolumeMount{
-		Name:      "pach-bin",
-		MountPath: "/pach-bin",
-	}
 	secretVolume, secretMount := GetBackendSecretVolumeAndMount()
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount, tmpDirVolumeMount)
-	userVolumeMounts = append(userVolumeMounts, secretMount, pachbinDirVolumeMount)
+	userVolumeMounts = append(userVolumeMounts, secretMount)
 
 	// in the case the pachd is deployed with custom root certs, propagate them to the side-cars
 	if path, ok := os.LookupEnv("SSL_CERT_DIR"); ok {
