@@ -166,6 +166,7 @@ func RunLocal() (retErr error) {
 				return err
 			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			env.SetIdentityServer(idAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -297,6 +298,7 @@ func RunLocal() (retErr error) {
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			env.SetIdentityServer(idAPIServer)
 			return nil
 		}); err != nil {
 			return err

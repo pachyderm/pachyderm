@@ -209,9 +209,12 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			"pachd.oauthClientSecret":              "oidc-client-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
-			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
+			"oidc.issuerURI":                     "http://pachd:30658/dex",
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
+		},
+		SetStrValues: map[string]string{
+			"pachd.localhostIssuer": "true",
 		},
 	}
 }
