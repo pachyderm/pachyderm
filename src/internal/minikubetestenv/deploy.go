@@ -50,6 +50,7 @@ var (
 type DeployOpts struct {
 	Version            string
 	Enterprise         bool
+	Console            bool
 	AuthUser           string
 	CleanupAfter       bool
 	UseLeftoverCluster bool
@@ -212,9 +213,6 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			"oidc.issuerURI":                     "http://pachd:30658/dex",
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
-		},
-		SetStrValues: map[string]string{
-			"pachd.localhostIssuer": "true",
 		},
 	}
 }
@@ -485,6 +483,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.EnterpriseMember {
 		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
+	}
+	if opts.Console {
+		helmOpts.SetValues["console.enabled"] = "true"
 	}
 	if opts.Loki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
