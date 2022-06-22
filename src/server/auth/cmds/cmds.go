@@ -855,6 +855,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
 	commands = append(commands, CheckRepoCmd())
+	commands = append(commands, RevokeCmd())
 	commands = append(commands, GetGroupsCmd())
 	commands = append(commands, GetRepoRoleBindingCmd())
 	commands = append(commands, SetRepoRoleBindingCmd())
