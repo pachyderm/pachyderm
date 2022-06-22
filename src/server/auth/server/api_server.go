@@ -167,7 +167,7 @@ func (a *AuthServer) EnvBootstrap(ctx context.Context) error {
 				return errors.Wrapf(err, "unmarshal auth config: %q", a.env.Config.AuthConfig)
 			}
 			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
-				return errors.Wrapf(err, "unmarshal auth config: %q", a.env.Config.AuthConfig)
+				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
 			for _, c := range clients {
 				if c.Id == config.ClientID {
