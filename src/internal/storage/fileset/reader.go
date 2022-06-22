@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -59,13 +58,11 @@ type FileReader struct {
 func newFileReader(chunks *chunk.Storage, idx *index.Index) *FileReader {
 	return &FileReader{
 		chunks: chunks,
-		idx:    proto.Clone(idx).(*index.Index),
+		idx:    idx,
 	}
 }
 
 // Index returns the index for the file.
-// TODO: Removed clone because it had a significant performance impact for small files.
-// May want to revisit.
 func (fr *FileReader) Index() *index.Index {
 	return fr.idx
 }
