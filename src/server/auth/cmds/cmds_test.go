@@ -464,19 +464,17 @@ func TestRevokeToken(t *testing.T) {
 	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
 	alice := tu.AuthenticateClient(t, c, aliceName)
 
-	whoAmICmd := tu.PachctlBashCmd(t, root, `pachctl auth whoami \
-	  | match {{.alice}}`,
-		"alice", aliceName)
-	require.NoError(t, whoAmICmd.Run())
+	whoAmIResp, err := alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, aliceName, whoAmIResp.Username)
 
-	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke --token={{.alice-token}}`,
-		"alice-token", alice.AuthToken())
-	require.NoError(t, tokenCmd.Run())
+	require.NoError(t, tu.PachctlBashCmd(t, root,
+		`pachctl auth revoke --token={{.alice_token}}`,
+		"alice_token", alice.AuthToken()).Run())
 
-	whoAmICmd = tu.PachctlBashCmd(t, root, `pachctl auth whoami 2>&1 >/dev/null \
-	  | match {{.auth-error}}`,
-		"auth-error", auth.ErrBadToken.Error())
-	require.NoError(t, whoAmICmd.Run())
+	whoAmIResp, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
+	require.True(t, auth.IsErrBadToken(err))
 }
 
 // TestRevokeUser tests revoking all tokens currently issues for a user
@@ -493,22 +491,21 @@ func TestRevokeUser(t *testing.T) {
 	}
 
 	for i := 0; i < len(aliceClients); i++ {
-		whoAmICmd := tu.PachctlBashCmd(t, aliceClients[i],
-			`pachctl auth whoami | match {{.alice}}`,
-			"alice", aliceName)
-		require.NoError(t, whoAmICmd.Run())
+		c := aliceClients[i]
+		whoAmIResp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.NoError(t, err)
+		require.Equal(t, aliceName, whoAmIResp.Username)
 	}
 
-	tokenCmd := tu.PachctlBashCmd(t, root, `pachctl auth revoke --user={{.alice}}`,
-		"alice", aliceName)
-	require.NoError(t, tokenCmd.Run())
+	require.NoError(t, tu.PachctlBashCmd(t, root,
+		`pachctl auth revoke --user={{.alice}}`,
+		"alice", aliceName).Run())
 
+	// See relevant comments in TestRevokeToken
 	for i := 0; i < len(aliceClients); i++ {
-		whoAmICmd := tu.PachctlBashCmd(t, aliceClients[i],
-			`pachctl auth whoami 2>&1 >/dev/null \
-	      | match {{.auth-error}}`,
-			"alice", aliceName,
-			"auth-error", auth.ErrBadToken.Error())
-		require.NoError(t, whoAmICmd.Run())
+		c := aliceClients[i]
+		_, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.YesError(t, err)
+		require.True(t, auth.IsErrBadToken(err))
 	}
 }
