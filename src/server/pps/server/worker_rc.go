@@ -279,13 +279,22 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			VolumeSource: v1.VolumeSource{
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
+		},v1.Volume{
+			Name: "user-tmp",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
 		})
 		emptyDirVolumeMount := v1.VolumeMount{
 			Name:      "pach-dir-volume",
 			MountPath: kd.config.StorageRoot,
 		}
+		userTmpVolumeMount := v1.VolumeMount{
+			Name:      "user-tmp",
+			MountPath: "/tmp",
+		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
-		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
+		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount,userTmpVolumeMount)
 	}
 	// add emptydir for /tmp to allow for read only rootfs
 	options.volumes = append(options.volumes, v1.Volume{
