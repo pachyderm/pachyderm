@@ -535,11 +535,11 @@ func (c *unsupportedPpsBuilderClient) RunCron(_ context.Context, _ *pps_v2.RunCr
 	return nil, unsupportedError("RunCron")
 }
 
-func (c *unsupportedPpsBuilderClient) RunLoadTest(_ context.Context, _ *pfs_v2.RunLoadTestRequest, opts ...grpc.CallOption) (*pfs_v2.RunLoadTestResponse, error) {
+func (c *unsupportedPpsBuilderClient) RunLoadTest(_ context.Context, _ *pps_v2.RunLoadTestRequest, opts ...grpc.CallOption) (*pps_v2.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTest")
 }
 
-func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pfs_v2.RunLoadTestResponse, error) {
+func (c *unsupportedPpsBuilderClient) RunLoadTestDefault(_ context.Context, _ *types.Empty, opts ...grpc.CallOption) (*pps_v2.RunLoadTestResponse, error) {
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
