@@ -70,8 +70,7 @@ func NewEnv(t testing.TB) *Env {
 	logger := zaptest.NewLogger(t, zaptest.Level(level))
 	etcdConfig.ZapLoggerBuilder = embed.NewZapLoggerBuilder(logger.Named("etcd-server"))
 
-	// We want to assign a random unused port to etcd, but etcd doesn't give us a
-	// way to read it back out later. We can work around this by creating our own
+	// We want to assign a random unused port to etcd, but etcd doesn't give us a // way to read it back out later. We can work around this by creating our own
 	// listener on a random port, find out which port was used, close that
 	// listener, and pass that port down for etcd to use. There is a small race
 	// condition here where someone else can steal the port between these steps,

@@ -7,27 +7,34 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
-// Shard shards the file set into path ranges.
-// TODO This should be extended to be more configurable (different criteria
-// for creating shards).
-func (s *Storage) Shard(ctx context.Context, ids []ID, cb ShardCallback) error {
+func (s *Storage) EstimateShards(ctx context.Context, ids []ID, cb index.ShardCallback) error {
 	fs, err := s.Open(ctx, ids)
 	if err != nil {
 		return err
 	}
-	return shard(ctx, fs, s.shardSizeThreshold, s.shardCountThreshold, cb)
+	return fs.Shard(ctx, cb)
 }
 
-// ShardCallback is a callback that returns a path range for each shard.
-type ShardCallback func(*index.PathRange) error
+// Shard shards the file set into path ranges.
+// TODO This should be extended to be more configurable (different criteria
+// for creating shards).
+func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRange, cb index.ShardCallback) error {
+	fs, err := s.Open(ctx, ids, index.WithRange(pathRange))
+	if err != nil {
+		return err
+	}
+	return shard(ctx, fs, s.shardSizeThreshold, s.shardCountThreshold, pathRange, cb)
+}
 
 // shard creates shards (path ranges) from the file set streams being merged.
 // A shard is created when the size of the files is greater than or equal to the passed
 // in size threshold or the file count is greater than or equal to the passed in count threshold.
 // For each shard, the callback is called with the path range for the shard.
-func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64, cb ShardCallback) error {
+func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64, basePathRange *index.PathRange, cb index.ShardCallback) error {
 	var size, count int64
-	pathRange := &index.PathRange{}
+	pathRange := &index.PathRange{
+		Lower: basePathRange.Lower,
+	}
 	if err := fs.Iterate(ctx, func(f File) error {
 		// A shard is created when we have encountered more than shardThreshold content bytes.
 		if size >= sizeThreshold || count >= countThreshold {
@@ -50,6 +57,6 @@ func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64,
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
-	pathRange.Upper = ""
+	pathRange.Upper = basePathRange.Upper
 	return cb(pathRange)
 }

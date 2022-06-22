@@ -79,7 +79,15 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []files
 	return id, nil
 }
 
+// TODO: The task length stuff could probably be simplified.
 func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, []int, error) {
+	var pathRanges []*index.PathRange
+	if err := c.storage.EstimateShards(ctx, ids, func(pathRange *index.PathRange) error {
+		pathRanges = append(pathRanges, pathRange)
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
 	var inputs []*types.Any
 	for start := 0; start < len(ids); start += int(c.maxFanIn) {
 		end := start + int(c.maxFanIn)
@@ -87,13 +95,19 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 			end = len(ids)
 		}
 		ids := ids[start:end]
-		input, err := serializeShardTask(&ShardTask{
-			Inputs: fileset.IDsToHexStrings(ids),
-		})
-		if err != nil {
-			return nil, nil, err
+		for _, pathRange := range pathRanges {
+			input, err := serializeShardTask(&ShardTask{
+				Inputs: fileset.IDsToHexStrings(ids),
+				PathRange: &PathRange{
+					Lower: pathRange.Lower,
+					Upper: pathRange.Upper,
+				},
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			inputs = append(inputs, input)
 		}
-		inputs = append(inputs, input)
 	}
 	results := make([][]*CompactTask, len(inputs))
 	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
@@ -111,9 +125,11 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	}
 	var tasks []*CompactTask
 	var taskLens []int
-	for _, res := range results {
+	for i := 0; i < len(results); i += len(pathRanges) {
 		taskLen := len(tasks)
-		tasks = append(tasks, res...)
+		for j := range pathRanges {
+			tasks = append(tasks, results[i+j]...)
+		}
 		taskLens = append(taskLens, len(tasks)-taskLen)
 	}
 	return tasks, taskLens, nil
@@ -257,7 +273,11 @@ func processShardTask(ctx context.Context, storage *fileset.Storage, task *Shard
 		if err != nil {
 			return err
 		}
-		return storage.Shard(ctx, ids, func(pathRange *index.PathRange) error {
+		pathRange := &index.PathRange{
+			Lower: task.PathRange.Lower,
+			Upper: task.PathRange.Upper,
+		}
+		return storage.Shard(ctx, ids, pathRange, func(pathRange *index.PathRange) error {
 			result.CompactTasks = append(result.CompactTasks, &CompactTask{
 				Inputs: task.Inputs,
 				PathRange: &PathRange{

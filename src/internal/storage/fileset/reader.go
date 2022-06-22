@@ -36,7 +36,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...b
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {
-		return errors.Errorf("fileset %v is not primitive", r.id)
+		return errors.Errorf("file set %v is not primitive", r.id)
 	}
 	if len(deletive) > 0 && deletive[0] {
 		ir := index.NewReader(r.chunks, prim.Deletive, r.indexOpts...)
@@ -48,6 +48,19 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...b
 	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(r.chunks, idx))
 	})
+}
+
+func (r *Reader) Shard(ctx context.Context, cb index.ShardCallback) error {
+	md, err := r.store.Get(ctx, r.id)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	prim := md.GetPrimitive()
+	if prim == nil {
+		return errors.Errorf("file set %v is not primitive", r.id)
+	}
+	ir := index.NewReader(r.chunks, prim.Additive)
+	return ir.Shard(ctx, cb)
 }
 
 // FileReader is an abstraction for reading a file.

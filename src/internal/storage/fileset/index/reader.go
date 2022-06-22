@@ -187,3 +187,67 @@ func (lr *levelReader) next() error {
 	lr.buf.Reset()
 	return r.Get(lr.buf)
 }
+
+// ShardCallback is a callback that returns a path range for each shard.
+type ShardCallback = func(*PathRange) error
+
+func (r *Reader) Shard(ctx context.Context, cb ShardCallback) error {
+	if r.topIdx == nil || r.topIdx.File != nil {
+		return cb(&PathRange{})
+	}
+	idxs := []*Index{r.topIdx}
+	for len(idxs) < 10 {
+		nextIdxs, err := r.nextLevel(ctx, idxs)
+		if err != nil {
+			return err
+		}
+		if nextIdxs[0].File != nil {
+			break
+		}
+		idxs = nextIdxs
+	}
+	var priorUpper string
+	for i, idx := range idxs {
+		pathRange := &PathRange{
+			// TODO: This is a hack to check if we need to change path range inclusive / exclusive
+			Lower: priorUpper + "_",
+			Upper: idx.Range.LastPath,
+		}
+		priorUpper = pathRange.Upper
+		if i == 0 {
+			pathRange.Lower = ""
+		}
+		if i == len(idxs)-1 {
+			pathRange.Upper = ""
+		}
+		if err := cb(pathRange); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reader) nextLevel(ctx context.Context, idxs []*Index) ([]*Index, error) {
+	var dataRefs []*chunk.DataRef
+	for _, idx := range idxs {
+		dataRefs = append(dataRefs, idx.Range.ChunkRef)
+	}
+	cr := r.chunks.NewReader(ctx, dataRefs)
+	buf := &bytes.Buffer{}
+	if err := cr.Get(buf); err != nil {
+		return nil, err
+	}
+	pbr := pbutil.NewReader(buf)
+	var nextIdxs []*Index
+	for {
+		idx := &Index{}
+		if err := pbr.Read(idx); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, errors.EnsureStack(err)
+		}
+		nextIdxs = append(nextIdxs, idx)
+	}
+	return nextIdxs, nil
+}

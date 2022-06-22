@@ -87,6 +87,12 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 	})
 }
 
+// TODO: Look at the sizes?
+// TODO: Come up with better heuristics for sharding.
+func (mr *MergeReader) Shard(ctx context.Context, cb index.ShardCallback) error {
+	return mr.fileSets[0].Shard(ctx, cb)
+}
+
 // MergeFileReader is an abstraction for reading a merged file.
 type MergeFileReader struct {
 	chunks *chunk.Storage

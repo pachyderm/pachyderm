@@ -51,6 +51,10 @@ func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, delet
 	return errors.EnsureStack(err)
 }
 
+func (idxf *indexFilter) Shard(_ context.Context, _ index.ShardCallback) error {
+	return errors.Errorf("sharding an index filter file set")
+}
+
 var _ FileSet = &indexMapper{}
 
 type indexMapper struct {
@@ -72,6 +76,10 @@ func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, deletiv
 		})
 	}, deletive...)
 	return errors.EnsureStack(err)
+}
+
+func (im *indexMapper) Shard(_ context.Context, _ index.ShardCallback) error {
+	return errors.Errorf("sharding an index mapper file set")
 }
 
 var _ File = &indexMap{}
