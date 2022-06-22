@@ -42,7 +42,9 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - run: etc/testing/circle/install.sh
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: "20.10.12"
       - run: |-
           GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
           gotestsum \
