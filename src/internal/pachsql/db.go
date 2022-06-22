@@ -2,8 +2,6 @@ package pachsql
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -32,18 +30,6 @@ const (
 		WHERE schemaname != 'pg_catalog'
 		  AND schemaname != 'information_schema'
 		ORDER BY schemaname, tablename;
-	`
-	keyColumnExistsQueryTemplate = `
-		SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS
-		WHERE table_schema = '%s'
-		  AND table_name = '%s'
-		  AND column_name = 'key';
-	`
-	getOrdinalColumnQueryTemplate = `
-		SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS
-		WHERE table_schema = '%s'
-		  AND table_name = '%s'
-		  AND ordinal_position = 1;
 	`
 )
 
@@ -94,81 +80,11 @@ func OpenURL(u URL, password string) (*DB, error) {
 
 // ListTables returns an array of SchemaTable structs that represent the tables.
 func ListTables(ctx context.Context, db *DB) ([]SchemaTable, error) {
-	rows, err := db.QueryContext(ctx, listTablesQuery)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not list tables:")
-	}
-	defer rows.Close()
 	var tables []SchemaTable
-	if err := sqlx.StructScan(rows, &tables); err != nil {
-		return nil, errors.Wrapf(err, "could not scan tables:")
+	if err := sqlx.SelectContext(ctx, db, &tables, listTablesQuery); err != nil {
+		return nil, errors.Wrap(err, "list tables")
 	}
 	return tables, nil
-}
-
-// GetScannedRows queries db and calls MapScanRows on the response rows.
-func GetScannedRows(ctx context.Context, db *DB, query string) ([]RowMap, error) {
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to query database:")
-	}
-	defer rows.Close()
-	scannedRows, err := MapScanRows(rows)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to scan rows:")
-	}
-	return scannedRows, nil
-}
-
-// MapScanRows iterates through rows and returns an array of sqlx.MapScan results. This is useful
-// for when you want to capture the results, but don't know what columns the query can return
-// or when you don't want to create a struct to represent the columns.
-func MapScanRows(rows *sql.Rows) ([]RowMap, error) {
-	var processedRows []RowMap
-	for rows.Next() {
-		row := RowMap{}
-		if err := sqlx.MapScan(rows, row); err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		processedRows = append(processedRows, row)
-	}
-	return processedRows, nil
-}
-
-// GetMainColumn returns the 'key' column if it exists for SchemaTable table. Otherwise, it queries the db and returns
-// the column_name where ordinal_position is 1. This column can be used to order future queries against this table.
-func GetMainColumn(ctx context.Context, db *DB, table *SchemaTable) (string, error) {
-	keyExists, err := KeyColumnExists(ctx, db, table)
-	if err != nil {
-		return "", err
-	}
-	if keyExists {
-		return "key", nil
-	}
-	query := fmt.Sprintf(getOrdinalColumnQueryTemplate, table.SchemaName, table.TableName)
-	scannedRows, err := GetScannedRows(ctx, db, query)
-	if err != nil {
-		return "", err
-	}
-	column := ""
-	for _, value := range scannedRows[0] {
-		column = fmt.Sprintf("%s", value)
-		break
-	}
-	return column, nil
-}
-
-// KeyColumnExists returns true if the SchemaTable table has a 'key' column.
-func KeyColumnExists(ctx context.Context, db *DB, table *SchemaTable) (bool, error) {
-	query := fmt.Sprintf(keyColumnExistsQueryTemplate, table.SchemaName, table.TableName)
-	scannedRows, err := GetScannedRows(ctx, db, query)
-	if err != nil {
-		return false, err
-	}
-	if len(scannedRows) > 0 {
-		return true, nil
-	}
-	return false, nil
 }
 
 func postgresDSN(u URL, password string) (string, error) {
