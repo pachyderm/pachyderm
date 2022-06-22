@@ -127,7 +127,7 @@ func (c *oidcConfig) Ctx(ctx context.Context) context.Context {
 	return ctx
 }
 
-func (a *apiServer) getOIDCConfig(ctx context.Context) (*oidcConfig, error) {
+func (a *AuthServer) getOIDCConfig(ctx context.Context) (*oidcConfig, error) {
 	config, ok := a.configCache.Load().(*auth.OIDCConfig)
 	if !ok {
 		return nil, errors.New("unable to load cached OIDC configuration")
@@ -139,7 +139,7 @@ func (a *apiServer) getOIDCConfig(ctx context.Context) (*oidcConfig, error) {
 }
 
 // GetOIDCLoginURL uses the given state to generate a login URL for the OIDC provider object
-func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
+func (a *AuthServer) GetOIDCLoginURL(ctx context.Context) (string, string, error) {
 	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
 		return "", "", err
@@ -177,7 +177,7 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 // uses it discover the email of the user who obtained the code (or verify that
 // the code belongs to them). This is how Pachyderm currently implements OIDC
 // authorization in a production cluster
-func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email string, retErr error) {
+func (a *AuthServer) OIDCStateToEmail(ctx context.Context, state string) (email string, retErr error) {
 	defer func() {
 		logrus.Infof("converted OIDC state %q to email %q (or err: %v)",
 			half(state), email, retErr)
@@ -258,7 +258,7 @@ func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email s
 //
 // If needed, Pachyderm cluster administrators can impersonate users by calling
 // GetAuthToken(), but that call is logged and auditable.
-func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request) {
+func (a *AuthServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	code := req.URL.Query()["code"][0]
 	state := req.URL.Query()["state"][0]
@@ -324,7 +324,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, *IDTokenClaims, error) {
+func (a *AuthServer) validateIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, *IDTokenClaims, error) {
 	config, err := a.getOIDCConfig(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -347,7 +347,7 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 	return idToken, &claims, nil
 }
 
-func (a *apiServer) syncGroupMembership(ctx context.Context, claims *IDTokenClaims) error {
+func (a *AuthServer) syncGroupMembership(ctx context.Context, claims *IDTokenClaims) error {
 	groups := make([]string, len(claims.Groups))
 	for i, g := range claims.Groups {
 		groups[i] = fmt.Sprintf("%s%s", auth.GroupPrefix, g)
@@ -360,7 +360,7 @@ func (a *apiServer) syncGroupMembership(ctx context.Context, claims *IDTokenClai
 // authorization code into an access token. The caller (handleOIDCExchange) is
 // responsible for storing any responses from this in postgres and sending an HTTP
 // response to the user's browser.
-func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, state string) (nonce, email string, retErr error) {
+func (a *AuthServer) handleOIDCExchangeInternal(ctx context.Context, authCode, state string) (nonce, email string, retErr error) {
 	// log request, but do not log auth code (short-lived, but senstive user authenticator)
 	logrus.Infof("auth.OIDC.handleOIDCExchange { \"state\": %q }", half(state))
 	defer func() {
@@ -398,7 +398,7 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 	return idToken.Nonce, claims.Email, nil
 }
 
-func (a *apiServer) serveOIDC() error {
+func (a *AuthServer) serveOIDC() error {
 	mux := http.NewServeMux()
 	// serve 200 on '/' for health checks
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

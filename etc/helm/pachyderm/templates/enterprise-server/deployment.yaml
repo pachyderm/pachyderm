@@ -88,6 +88,16 @@ spec:
             secretKeyRef:
               name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
               key: "enterprise-license-key"
+        - name: IDP_CONNECTORS
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
+              key: "idps"
+        - name: IDP_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "identity-config"
         {{- end }}
         {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
         - name: ENTERPRISE_SECRET

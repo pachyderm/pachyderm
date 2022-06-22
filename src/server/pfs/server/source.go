@@ -5,11 +5,13 @@ import (
 	"path"
 	"strings"
 
+	"golang.org/x/net/context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/net/context"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 // Source iterates over FileInfos generated from a fileset.FileSet
@@ -200,13 +202,13 @@ func checkSingleFile(ctx context.Context, src Source) error {
 	var count int
 	err := src.Iterate(ctx, func(finfo *pfs.FileInfo, fsFile fileset.File) error {
 		if finfo.FileType != pfs.FileType_FILE {
-			return errors.Errorf("cannot get non-regular file. Try GetFileTAR for directories")
+			return errors.EnsureStack(pfsserver.ErrMatchedNonFile)
 		}
 		if count == 0 {
 			count++
 			return nil
 		}
-		return errors.Errorf("matched multiple files. Try GetFileTAR")
+		return errors.EnsureStack(pfsserver.ErrMatchedMultipleFiles)
 	})
 	return errors.EnsureStack(err)
 }

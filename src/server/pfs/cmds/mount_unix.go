@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
-	"github.com/sirupsen/logrus"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
@@ -105,7 +104,7 @@ func mountCmds() []*cobra.Command {
 				RepoOptions: repoOpts,
 			}
 			// Prints a warning if we're on macOS
-			printWarning()
+			PrintWarning()
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
@@ -114,26 +113,6 @@ func mountCmds() []*cobra.Command {
 	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo@branch+w\", where the trailing flag \"+w\" indicates write.")
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
-
-	var mountDir string
-	mountServer := &cobra.Command{
-		Use:   "{{alias}}",
-		Short: "Start a mount server for controlling FUSE mounts via a local REST API.",
-		Long:  "Starts a REST mount server, running in the foreground and logging to stdout.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-
-			// Show info messages to user by default
-			logrus.SetLevel(logrus.InfoLevel)
-
-			serverOpts := &fuse.ServerOptions{
-				MountDir: mountDir,
-			}
-			printWarning()
-			return fuse.Server(serverOpts, nil)
-		}),
-	}
-	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
-	commands = append(commands, cmdutil.CreateAlias(mountServer, "mount-server"))
 
 	var all bool
 	unmount := &cobra.Command{
