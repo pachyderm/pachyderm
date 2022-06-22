@@ -173,6 +173,8 @@ func (lr *levelReader) setup() error {
 		lr.buf = &bytes.Buffer{}
 		chunkRef := proto.Clone(lr.idx.Range.ChunkRef).(*chunk.DataRef)
 		// Skip offset bytes to get to first index entry in chunk.
+		// NOTE: Indexes can no longer span multiple chunks, but older
+		// versions of Pachyderm could write indexes that span multiple chunks.
 		chunkRef.OffsetBytes = lr.idx.Range.Offset
 		if lr.r.cache != nil {
 			return lr.r.cache.Get(lr.ctx, chunkRef, lr.r.filter, lr.buf)
