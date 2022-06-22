@@ -205,7 +205,7 @@ func (a *AuthServer) EnvBootstrap(ctx context.Context) error {
 			}
 			for p := range existing.Binding.Entries {
 				// `pach:` user role bindings cannot be modified
-				if strings.HasPrefix(p, auth.PachPrefix) {
+				if strings.HasPrefix(p, auth.PachPrefix) || strings.HasPrefix(p, auth.InternalPrefix) {
 					continue
 				}
 				if _, ok := roleBinding[p]; !ok {
