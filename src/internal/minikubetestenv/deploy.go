@@ -211,6 +211,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
 			"oidc.issuerURI":                     "http://pachd:30658/dex",
+			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
@@ -227,8 +228,7 @@ func withEnterpriseServer(image, host string) *helm.Options {
 		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 		"pachd.oauthClientID":                "enterprise-pach",
 		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
-
-		"enterpriseServer.service.type": "ClusterIP",
+		"enterpriseServer.service.type":      "ClusterIP",
 		// For tests, traffic from outside the cluster is routed through the proxy,
 		// but we bind the internal k8s service ports to the same numbers for
 		// in-cluster traffic, like enterprise registration.
