@@ -29,7 +29,7 @@ parameters:
 jobs:
   test-go:
     docker:
-      - image: cimg/golang:1.17
+      - image: cimg/go:1.17
     resource_class: xlarge
     environment:
       TEST_RESULTS: /tmp/test-results
