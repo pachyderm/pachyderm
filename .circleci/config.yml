@@ -392,13 +392,11 @@ workflows:
   nightly_load_tests:
     triggers:
       - schedule:
-          cron: "0 6 * * *"
+          cron: "30 * * * *"
           filters:
             branches:
               only:
-                - master
-                - 2.1.x
-                - 2.2.x
+                - reorganize-load-tests
     jobs:
       - nightly-load:
           matrix:
