@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -170,8 +171,7 @@ func (lr *levelReader) Read(data []byte) (int, error) {
 func (lr *levelReader) setup() error {
 	if lr.buf == nil {
 		lr.buf = &bytes.Buffer{}
-		// TODO: Clone?
-		chunkRef := lr.idx.Range.ChunkRef
+		chunkRef := proto.Clone(lr.idx.Range.ChunkRef).(*chunk.DataRef)
 		// Skip offset bytes to get to first index entry in chunk.
 		chunkRef.OffsetBytes = lr.idx.Range.Offset
 		if lr.r.cache != nil {
