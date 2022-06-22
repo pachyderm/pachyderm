@@ -80,6 +80,21 @@ http://localhost:30658
 {{- end }}
 {{- end }}
 
+{{- /*
+dexBaseURI: The internal URI of dex; typically something like http://pachd:30658.
+
+Note that we do an imperfect job of guessing this.  We need to handle enterprise members, and we
+assume some logic about the auth activation (namely that the suffix on issuerURI is where pachd will
+serve dex).
+*/ -}}
+{{- define "pachyderm.dexBaseURI" -}}
+{{ (dict
+    "scheme" "http"
+    "host" (printf "pachd:%v" .Values.pachd.service.identityPort)
+    "path" (get (include "pachyderm.issuerURI" . | urlParse) "path")
+) | urlJoin }}
+{{- end }}
+
 {{- define "pachyderm.consoleRedirectURI" -}}
 {{- if .Values.console.config.oauthRedirectURI -}}
 {{ .Values.console.config.oauthRedirectURI }}
@@ -110,7 +125,9 @@ pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
 
 {{- define "pachyderm.localhostIssuer" -}}
 {{- if .Values.pachd.localhostIssuer -}}
-  {{- if eq .Values.pachd.localhostIssuer "true" -}}
+  {{- if .Values.oidc.avoidExternalNetwork }}
+    true
+  {{- else if eq .Values.pachd.localhostIssuer "true" -}}
     true
   {{- else if eq .Values.pachd.localhostIssuer "false" -}}
     false
@@ -129,7 +146,7 @@ false
 {{- define "pachyderm.userAccessibleOauthIssuerHost" -}}
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
-{{- else if not .Values.ingress.enabled -}}
+{{- else if not (or .Values.ingress.enabled .Values.proxy.enabled) -}}
 localhost:30658
 {{- end -}}
 {{- end }}

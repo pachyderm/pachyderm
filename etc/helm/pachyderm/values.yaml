@@ -662,6 +662,10 @@ oidc:
   RotationTokenExpiry: 48h
   # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   userAccessibleOauthIssuerHost: ""
+  # If true, avoid making any OIDC requests from console (etc.) over the external network.  This is
+  # good if you have some sort of authenticating proxy or firewall rule in front of the
+  # publicly-available issuer URL.
+  avoidExternalNetwork: false
   ## to set up upstream IDPs, set pachd.mockIDP to false,
   ## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
   ## See the example below or https://dexidp.io/docs/connectors/
