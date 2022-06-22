@@ -96,6 +96,13 @@ spec:
           {{- if .Values.proxy.resources }}
           resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            - name: envoy-config
+              mountPath: /etc/envoy
+            {{- if .Values.proxy.tls.enabled }}
+            - name: tls
+              mountPath: /tls
+            {{- end }}
      {{- if .Values.global.securityContexts.enabled }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -111,13 +118,6 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       {{- end }}
-          volumeMounts:
-            - name: envoy-config
-              mountPath: /etc/envoy
-            {{- if .Values.proxy.tls.enabled }}
-            - name: tls
-              mountPath: /tls
-            {{- end }}
       volumes:
         - name: envoy-config
           configMap:
