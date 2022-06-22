@@ -29,7 +29,7 @@ parameters:
 jobs:
   test-go:
     docker:
-      - image: circleci/golang:1.17
+      - image: cimg/golang:1.17
     resource_class: xlarge
     environment:
       TEST_RESULTS: /tmp/test-results
@@ -61,7 +61,7 @@ jobs:
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
-            - /go/pkg/mod
+            - /home/circleci/go/pkg/mod
   circleci:
     parameters:
       bucket:
@@ -158,7 +158,7 @@ jobs:
       - save_cache:
           key: go-mod-helm-v4-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - "/home/circleci/go/pkg/mod"
   helm-publish:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
