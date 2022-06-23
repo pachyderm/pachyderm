@@ -32,7 +32,6 @@
 }
 
 .pipelineGroup {
-  border: solid 1px var(--line-grey);
   border-radius: 4px;
 }
 

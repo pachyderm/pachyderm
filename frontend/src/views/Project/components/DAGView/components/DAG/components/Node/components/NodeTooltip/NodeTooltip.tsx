@@ -7,12 +7,12 @@ import {deriveNameFromNodeNameAndType} from 'lib/deriveRepoNameFromNode';
 
 import Tooltip from '../../../Tooltip';
 
-const NODE_TOOLTIP_WIDTH = 250;
-const NODE_TOOLTIP_HEIGHT = 80;
+const NODE_TOOLTIP_WIDTH = 160;
+const NODE_TOOLTIP_HEIGHT = 50;
 const NODE_TOOLTIP_Y_OFFSET = -92;
 const NODE_TOOLTIP_X_OFFSET = -(NODE_TOOLTIP_WIDTH / 4);
-const EGRESS_NODE_TOOLTIP_Y_OFFSET = NODE_TOOLTIP_Y_OFFSET + 22;
-const EGRESS_NODE_TOOLTIP_X_OFFSET = NODE_TOOLTIP_X_OFFSET - 23;
+const EGRESS_NODE_TOOLTIP_Y_OFFSET = 10;
+const EGRESS_NODE_TOOLTIP_X_OFFSET = 170;
 
 interface TooltipContentProps {
   name: Node['name'];
@@ -39,7 +39,7 @@ const TooltipContent: React.FC<TooltipContentProps> = ({
   }
 
   if (type === NodeType.EGRESS) {
-    return <>Click to copy S3 address: {name}</>;
+    return <>Copy Egress URL</>;
   }
 
   return (
@@ -73,6 +73,7 @@ const NodeTooltip: React.FC<NodeTooltipProps> = ({
       y={isEgress ? EGRESS_NODE_TOOLTIP_Y_OFFSET : NODE_TOOLTIP_Y_OFFSET}
       x={isEgress ? EGRESS_NODE_TOOLTIP_X_OFFSET : NODE_TOOLTIP_X_OFFSET}
       noCaps={isEgress || !access}
+      hasArrow
       show={show}
     >
       <TooltipContent name={name} type={type} state={state} access={access} />

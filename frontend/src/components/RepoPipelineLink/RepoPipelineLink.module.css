@@ -1,10 +1,12 @@
 .base {
   border: solid 1px var(--line-grey);
+  background-color: var(--white);
   border-top: 0;
   display: flex;
   align-items: center;
   overflow-y: hidden;
   height: 2.5rem;
+  width: 100%;
   padding-right: 1rem;
 }
 
@@ -26,8 +28,12 @@
 .nodeName {
   padding-left: 0.5rem;
   flex: 1;
+  text-align: left;
   margin: 0;
   margin-top: 0.125rem;
   color: var(--pachyderm-black);
   display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

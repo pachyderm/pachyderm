@@ -77,7 +77,7 @@ describe('Projects Resolver', () => {
         'Solar Power Data Logger Team Collab',
       );
       expect(projects?.[3]?.name).toEqual('Solar Price Prediction Modal');
-      expect(projects?.[4]?.name).toEqual('Solar Industry Analysis 2020');
+      expect(projects?.[4]?.name).toEqual('Egress Examples');
       expect(projects?.[5]?.name).toEqual('Empty Project');
       expect(projects?.[6]?.name).toEqual('Trait Discovery');
     });

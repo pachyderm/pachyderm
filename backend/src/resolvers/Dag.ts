@@ -77,7 +77,11 @@ const deriveVertices = (
 
     if (p.details?.egress) {
       nodes.push({
-        name: p.details.egress.url,
+        name:
+          p.details.egress.url ||
+          p.details.egress.sqlDatabase?.url ||
+          p.details.egress.objectStorage?.url ||
+          '',
         type: NodeType.EGRESS,
         access: true,
         parents: [`${pipelineName}_repo`],

@@ -10,6 +10,7 @@
   color: var(--white);
   padding: 0.75rem;
   opacity: 0;
+  margin-left: 1rem;
 }
 
 .base .text.show {
@@ -23,14 +24,14 @@
 }
 
 .base .text.hasArrow:after {
-  width: 5px;
-  height: 20px;
-  margin-left: calc(50% - 20px);
+  width: 20px;
+  height: 5px;
+  margin-left: -32px;
   content: "";
   display: block;
   position: fixed;
-  bottom: -11px;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid var(--pachyderm-black);
+  bottom: 25px;
+  border-bottom: 4px solid transparent;
+  border-top: 4px solid transparent;
+  border-right: 5px solid var(--pachyderm-black);
 }

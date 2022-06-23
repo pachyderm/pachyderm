@@ -97,7 +97,7 @@ describe('Landing', () => {
       await findAllByText(
         'Lorem ipsum dolor sit amet, consectetu adipiscing elit, sed do eiusmod tempor',
       ),
-    ).toHaveLength(7);
+    ).toHaveLength(6);
   });
 
   it('should allow a user to view a project based in default lineage view', async () => {
@@ -153,7 +153,7 @@ describe('Landing', () => {
       'Solar Power Data Logger Team Collab',
     );
     expect(projectNames[3].textContent).toEqual('Solar Price Prediction Modal');
-    expect(projectNames[4].textContent).toEqual('Solar Industry Analysis 2020');
+    expect(projectNames[4].textContent).toEqual('Egress Examples');
     expect(projectNames[5].textContent).toEqual('Empty Project');
     expect(projectNames[6].textContent).toEqual('Trait Discovery');
 
@@ -171,10 +171,8 @@ describe('Landing', () => {
     expect(nameSortedProjectNames[1].textContent).toEqual(
       'Data Cleaning Process',
     );
-    expect(nameSortedProjectNames[2].textContent).toEqual('Empty Project');
-    expect(nameSortedProjectNames[3].textContent).toEqual(
-      'Solar Industry Analysis 2020',
-    );
+    expect(nameSortedProjectNames[2].textContent).toEqual('Egress Examples');
+    expect(nameSortedProjectNames[3].textContent).toEqual('Empty Project');
     expect(nameSortedProjectNames[4].textContent).toEqual(
       'Solar Panel Data Sorting',
     );

@@ -1,7 +1,7 @@
 import {SkeletonDisplayText, Tabs} from '@pachyderm/components';
 import {format, fromUnixTime} from 'date-fns';
 import capitalize from 'lodash/capitalize';
-import React, {useRef} from 'react';
+import React, {useRef, useCallback} from 'react';
 import {Helmet} from 'react-helmet';
 import {useRouteMatch} from 'react-router';
 
@@ -31,6 +31,22 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
   const {loading, repo} = useCurrentRepo();
   const {viewState} = useUrlQueryState();
   const repoBaseRef = useRef<HTMLDivElement>(null);
+  const filterEgressLink = useCallback(
+    (egress: boolean) => (name: string) => {
+      try {
+        const url = new URL(name);
+        return egress === Boolean(url);
+      } catch {
+        return egress === false;
+      }
+    },
+    [],
+  );
+
+  const inputs = (dagLinks && dagLinks[`${repo?.name}_repo`]) || [];
+
+  const egressOutputs = inputs.filter(filterEgressLink(true));
+  const pipelineOutputs = inputs.filter(filterEgressLink(false));
 
   const lineageMatch = useRouteMatch({
     path: LINEAGE_PATH,
@@ -78,11 +94,20 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
                 </div>
               </Description>
             )}
-            {dagLinks && dagLinks[`${repo?.name}_repo`] && (
+            {pipelineOutputs.length > 0 && (
               <Description loading={loading} term="Inputs To">
                 <div className={styles.pipelineGroup}>
-                  {dagLinks[`${repo?.name}_repo`].map((name) => (
+                  {pipelineOutputs.map((name) => (
                     <RepoPipelineLink name={name} type="pipeline" key={name} />
+                  ))}
+                </div>
+              </Description>
+            )}
+            {egressOutputs.length > 0 && (
+              <Description loading={loading} term="Egress To">
+                <div className={styles.pipelineGroup}>
+                  {egressOutputs.map((name) => (
+                    <RepoPipelineLink name={name} type="egress" key={name} />
                   ))}
                 </div>
               </Description>

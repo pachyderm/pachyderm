@@ -1,5 +1,13 @@
-import {Link, RepoSVG, PipelineSVG, Icon} from '@pachyderm/components';
-import React, {useMemo} from 'react';
+import {
+  Link,
+  RepoSVG,
+  PipelineSVG,
+  CopySVG,
+  Icon,
+  useClipboardCopy,
+  SuccessCheckmark,
+} from '@pachyderm/components';
+import React, {useMemo, useCallback} from 'react';
 
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -14,7 +22,7 @@ type RepoPipelineLinkProps = {
   name: string;
   branch?: string;
   repo?: string;
-  type: 'repo' | 'pipeline' | 'commit';
+  type: 'repo' | 'pipeline' | 'egress' | 'commit';
 };
 
 const getIcon = (type: RepoPipelineLinkProps['type']) => {
@@ -22,6 +30,8 @@ const getIcon = (type: RepoPipelineLinkProps['type']) => {
     case 'repo':
       return <RepoSVG />;
     case 'pipeline':
+      return <PipelineSVG />;
+    case 'egress':
       return <PipelineSVG />;
     default:
       return undefined;
@@ -37,6 +47,12 @@ const RepoPipelineLink: React.FC<RepoPipelineLinkProps> = ({
 }) => {
   const {projectId} = useUrlState();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
+  const {copy, copied, reset} = useClipboardCopy(name);
+  const handleCopy = useCallback(() => {
+    copy();
+    setTimeout(reset, 2000);
+  }, [copy, reset]);
+
   const nodeName = type !== 'pipeline' ? name.replace('_repo', '') : name;
   const path = useMemo(() => {
     switch (type) {
@@ -65,6 +81,35 @@ const RepoPipelineLink: React.FC<RepoPipelineLinkProps> = ({
   }, [nodeName, projectId, type, getPathToFileBrowser, branch, repo]);
 
   const icon = useMemo(() => getIcon(type), [type]);
+
+  if (type === 'egress') {
+    return (
+      <button
+        data-testid="RepoPipelineLink__item"
+        onClick={handleCopy}
+        aria-label={nodeName}
+        className={styles.base}
+      >
+        {icon ? (
+          <Icon small className={styles.nodeImage}>
+            {icon}
+          </Icon>
+        ) : null}
+        <span {...rest} className={styles.nodeName}>
+          {nodeName}
+        </span>
+        <Icon small className={styles.nodeImage}>
+          <CopySVG />
+        </Icon>
+        <Icon small>
+          <SuccessCheckmark
+            show={copied}
+            aria-label={'You have successfully copied the id'}
+          />
+        </Icon>
+      </button>
+    );
+  }
 
   return (
     <Link

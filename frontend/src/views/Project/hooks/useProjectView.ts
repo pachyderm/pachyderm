@@ -33,7 +33,7 @@ export const useProjectView = () => {
     let links = {} as Record<string, string[]>;
     dags?.forEach((dag) => {
       dag.links.forEach((link) => {
-        if (!link.target.includes('repo') && !link.target.includes('http')) {
+        if (!link.target.includes('repo')) {
           links = {
             ...links,
             [link.target]: links[link.target]

@@ -11,6 +11,10 @@ import {
   JobState,
   ParallelismSpec,
 } from '@pachyderm/node-pachyderm';
+import {
+  ObjectStorageEgress,
+  SQLDatabaseEgress,
+} from '@pachyderm/node-pachyderm/dist/proto/pfs/pfs_pb';
 
 import {DAGS} from './loadLimits';
 
@@ -37,6 +41,126 @@ const tutorial = [
         .setDescription('Not my favorite pipeline')
         .setOutputBranch('master')
         .setEgress(new Egress().setUrl('https://egress.com'))
+        .setS3Out(true)
+        .setSchedulingSpec(schedulingSpec)
+        .setTransform(
+          new Transform()
+            .setCmdList(['sh'])
+            .setImage('v4tech/imagemagick')
+            .setStdinList([
+              'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
+            ]),
+        ),
+    )
+    .setState(PipelineState.PIPELINE_FAILURE),
+
+  new PipelineInfo()
+    .setPipeline(new Pipeline().setName('edges'))
+    .setLastJobState(JobState.JOB_CREATED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setInput(new Input().setPfs(new PFSInput().setRepo('images')))
+        .setDescription('Very cool edges description')
+        .setOutputBranch('master')
+        .setTransform(
+          new Transform()
+            .setCmdList(['python3', './edges.py'])
+            .setImage('pachyderm/opencv'),
+        ),
+    )
+    .setState(PipelineState.PIPELINE_RUNNING),
+];
+
+const egress = [
+  new PipelineInfo()
+    .setPipeline(new Pipeline().setName('egress_s3'))
+    .setLastJobState(JobState.JOB_CREATED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setParallelismSpec(new ParallelismSpec().setConstant(8))
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(new PFSInput().setRepo('edges')),
+            new Input().setPfs(new PFSInput().setRepo('images')),
+          ]),
+        )
+        .setDescription('a pipeline with egress to an s3 bucket')
+        .setOutputBranch('master')
+        .setEgress(new Egress().setUrl('https://egress.com'))
+        .setS3Out(true)
+        .setSchedulingSpec(schedulingSpec)
+        .setTransform(
+          new Transform()
+            .setCmdList(['sh'])
+            .setImage('v4tech/imagemagick')
+            .setStdinList([
+              'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
+            ]),
+        ),
+    )
+    .setState(PipelineState.PIPELINE_FAILURE),
+
+  new PipelineInfo()
+    .setPipeline(new Pipeline().setName('egress_sql'))
+    .setLastJobState(JobState.JOB_CREATED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setParallelismSpec(new ParallelismSpec().setConstant(8))
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(new PFSInput().setRepo('edges')),
+            new Input().setPfs(new PFSInput().setRepo('images')),
+          ]),
+        )
+        .setDescription('a pipeline with egress to an sql database')
+        .setOutputBranch('master')
+        .setEgress(
+          new Egress().setSqlDatabase(
+            new SQLDatabaseEgress()
+              .setUrl(
+                'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+              )
+              .setFileFormat(
+                new SQLDatabaseEgress.FileFormat().setType(
+                  SQLDatabaseEgress.FileFormat.Type.CSV,
+                ),
+              ),
+          ),
+        )
+        .setS3Out(true)
+        .setSchedulingSpec(schedulingSpec)
+        .setTransform(
+          new Transform()
+            .setCmdList(['sh'])
+            .setImage('v4tech/imagemagick')
+            .setStdinList([
+              'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
+            ]),
+        ),
+    )
+    .setState(PipelineState.PIPELINE_FAILURE),
+
+  new PipelineInfo()
+    .setPipeline(new Pipeline().setName('egress_object'))
+    .setLastJobState(JobState.JOB_CREATED)
+    .setDetails(
+      new PipelineInfo.Details()
+        .setParallelismSpec(new ParallelismSpec().setConstant(8))
+        .setInput(
+          new Input().setCrossList([
+            new Input().setPfs(new PFSInput().setRepo('edges')),
+            new Input().setPfs(new PFSInput().setRepo('images')),
+          ]),
+        )
+        .setDescription('a pipeline with egress to object storage')
+        .setOutputBranch('master')
+        .setEgress(
+          new Egress().setObjectStorage(
+            new ObjectStorageEgress().setUrl(
+              'object://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+            ),
+          ),
+        )
         .setS3Out(true)
         .setSchedulingSpec(schedulingSpec)
         .setTransform(
@@ -457,7 +581,7 @@ const pipelines: {[projectId: string]: PipelineInfo[]} = {
   '2': customerTeam,
   '3': cron,
   '4': customerTeam,
-  '5': tutorial,
+  '5': egress,
   '6': [],
   '7': traitDiscovery,
   '8': [],

@@ -31,7 +31,6 @@ const getIcon = (node: Node) => {
     case NodeType.PIPELINE:
       return '/dag_pipeline.svg';
     default:
-      // TODO: add image for EGRESS type
       return undefined;
   }
 };

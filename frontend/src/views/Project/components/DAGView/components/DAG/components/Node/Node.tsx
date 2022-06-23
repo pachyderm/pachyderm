@@ -5,6 +5,7 @@ import React from 'react';
 
 import {Node as GraphQLNode} from '@dash-frontend/lib/types';
 
+import NodeTooltip from './components/NodeTooltip';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
@@ -18,9 +19,9 @@ type NodeProps = {
 const NODE_ICON_X_OFFSET = 28;
 const NODE_ICON_Y_OFFSET = 8;
 const SELECTION_X_OFFSET = 6;
-const EGRESS_NODE_IMAGE_X_OFFSET = 40;
-const EGRESS_NODE_IMAGE_Y_OFFSET = -20;
-const SUCCESS_CHECKMARK_X_OFFSET = 65;
+const EGRESS_NODE_IMAGE_X_OFFSET = 70;
+const EGRESS_NODE_IMAGE_Y_OFFSET = -30;
+const SUCCESS_CHECKMARK_X_OFFSET = 155;
 const SUCCESS_CHECKMARK_Y_OFFSET = 10;
 const INPUT_REPO_ICON_X_OFFSET = 10;
 const INPUT_REPO_ICON_Y_OFFSET = 8;
@@ -123,7 +124,6 @@ const Node: React.FC<NodeProps> = ({
       <image
         x={isEgress ? EGRESS_NODE_IMAGE_X_OFFSET : 0}
         y={isEgress ? EGRESS_NODE_IMAGE_Y_OFFSET : 0}
-        pointerEvents="none"
         href={getNodeImageHref(node)}
       />
 
@@ -142,6 +142,9 @@ const Node: React.FC<NodeProps> = ({
         x={SUCCESS_CHECKMARK_X_OFFSET}
         y={SUCCESS_CHECKMARK_Y_OFFSET}
       />
+      {NodeType.EGRESS === node.type && (
+        <NodeTooltip node={node} show={isHovered} />
+      )}
     </g>
   );
 };

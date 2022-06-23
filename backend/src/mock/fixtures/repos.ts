@@ -21,6 +21,34 @@ const tutorial = [
     .setBranchesList([new Branch().setName('master')]),
 ];
 
+const egress = [
+  new RepoInfo()
+    .setRepo(new Repo().setName('egress_sql').setType('user'))
+    .setDetails(new RepoInfo.Details().setSizeBytes(1000))
+    .setCreated(timestampFromObject({seconds: 1614136189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')]),
+  new RepoInfo()
+    .setRepo(new Repo().setName('egress_object').setType('user'))
+    .setDetails(new RepoInfo.Details().setSizeBytes(1000))
+    .setCreated(timestampFromObject({seconds: 1614136189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')]),
+  new RepoInfo()
+    .setRepo(new Repo().setName('egress_s3').setType('user'))
+    .setDetails(new RepoInfo.Details().setSizeBytes(1000))
+    .setCreated(timestampFromObject({seconds: 1614136189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')]),
+  new RepoInfo()
+    .setRepo(new Repo().setName('edges').setType('user'))
+    .setDetails(new RepoInfo.Details().setSizeBytes(1000))
+    .setCreated(timestampFromObject({seconds: 1614126189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')]),
+  new RepoInfo()
+    .setRepo(new Repo().setName('images').setType('user'))
+    .setDetails(new RepoInfo.Details().setSizeBytes(1000))
+    .setCreated(timestampFromObject({seconds: 1614116189, nanos: 0}))
+    .setBranchesList([new Branch().setName('master')]),
+];
+
 const customerTeam = [
   new RepoInfo()
     .setRepo(new Repo().setName('samples').setType('user'))
@@ -305,7 +333,7 @@ const repos: {[projectId: string]: RepoInfo[]} = {
   '2': customerTeam,
   '3': cron,
   '4': customerTeam,
-  '5': tutorial,
+  '5': egress,
   '6': [],
   '7': traitDiscovery,
   '8': tutorial,

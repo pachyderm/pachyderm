@@ -12,6 +12,7 @@ import DAGView from '../../components/DAGView';
 import ListView from '../../components/ListView';
 import ProjectSidebar from '../../components/ProjectSidebar';
 import {
+  PROJECT_PATH,
   LINEAGE_PATH,
   LINEAGE_REPOS_PATH,
   LINEAGE_PIPELINES_PATH,
@@ -35,6 +36,15 @@ type ProjectDetailsProps = {
   inputRepoLinks: Record<string, string[]>;
 };
 
+const Wrapper: React.FC = ({children}) => (
+  <>
+    <Route path={PROJECT_PATH}>
+      <div className={styles.listWrapper}>{children}</div>
+    </Route>
+    <Route path={LINEAGE_PATH}>{children}</Route>
+  </>
+);
+
 const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   dags,
   nodes,
@@ -47,7 +57,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
     useProjectDetails();
 
   return (
-    <>
+    <Wrapper>
       {loading ? (
         <div
           className={classnames(styles.loadingContainer, {
@@ -96,7 +106,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         <ProjectSidebar />
         <ProjectTutorial />
       </Route>
-    </>
+    </Wrapper>
   );
 };
 

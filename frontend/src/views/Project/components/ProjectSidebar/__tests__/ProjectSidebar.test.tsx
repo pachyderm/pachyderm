@@ -84,7 +84,7 @@ describe('ProjectSidebar', () => {
     it('should allow pipelines to be deleted', async () => {
       mockServer
         .getState()
-        .pipelines['8'].push(mockServer.getState().pipelines['5'][0]);
+        .pipelines['8'].push(mockServer.getState().pipelines['1'][0]);
       window.history.replaceState('', '', '/lineage/8/pipelines/montage');
 
       const {findByTestId, queryByTestId} = render(<Project />);
@@ -275,6 +275,29 @@ describe('ProjectSidebar', () => {
       await waitFor(() =>
         expect(mockServer.getState().repos['8']).toHaveLength(2),
       );
+    });
+
+    it('should display a link to pipeline egress', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/5/repos/egress_sql/branch/master/info',
+      );
+
+      const {findByText} = render(
+        <Project
+          dagLinks={{
+            egress_sql_repo: [
+              'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+            ],
+          }}
+        />,
+      );
+      const egress = await findByText(
+        'snowflake://pachyderm@WHMUWUD-CJ80657/PACH_DB/PUBLIC?warehouse=COMPUTE_WH',
+      );
+      click(egress);
+      expect(window.document.execCommand).toHaveBeenCalledWith('copy');
     });
   });
 

@@ -1,4 +1,3 @@
-import classnames from 'classnames';
 import React from 'react';
 import {Route, Switch} from 'react-router';
 
@@ -59,7 +58,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     : {};
 
   return (
-    <div className={classnames(styles.base, {[styles.fixed]: !resizable})}>
+    <div className={styles.base}>
       <Route
         path={[
           PROJECT_JOBS_PATH,
