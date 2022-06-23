@@ -148,7 +148,14 @@ describe('ProjectSidebar', () => {
         '/project/3/repos/cron/branch/master',
       );
 
-      const {findByTestId, queryByRole} = render(<Project />);
+      const {findByTestId, queryByRole, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
 
       await findByTestId('Title__name');
 
@@ -159,10 +166,17 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/2/repos/test/branch/master/commits',
+        '/project/2/repos/models/branch/master/commits',
       );
 
-      const {queryByRole} = render(<Project />);
+      const {queryByRole, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
 
       await waitFor(() =>
         expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument(),
@@ -176,7 +190,14 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/training/branch/master/commits',
       );
 
-      const {queryByRole} = render(<Project />);
+      const {queryByRole, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
 
       await waitFor(() =>
         expect(queryByRole('link', {name: 'Linked Job'})).toBeInTheDocument(),
@@ -190,13 +211,59 @@ describe('ProjectSidebar', () => {
         '/project/2/repos/training/branch/develop',
       );
 
-      const {findByText} = render(<Project />);
+      const {findByText, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
 
       const emptyMessage = await findByText(
         'There are no commits for this branch',
       );
 
       expect(emptyMessage).toBeInTheDocument();
+    });
+
+    it('should show no branches when the repo has no branches', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/repos/test/branch/default',
+      );
+
+      const {findByText, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+
+      const emptyMessage = await findByText(
+        'There are no branches on this repo!',
+      );
+
+      expect(emptyMessage).toBeInTheDocument();
+    });
+
+    it('should default to the first available branch on repos', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/project/2/repos/model/branch/default',
+      );
+
+      const {findByText, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
+
+      expect(await findByText('Branch: develop')).toBeInTheDocument();
     });
 
     it('should show a single commit with diff with a globalId filter', async () => {
@@ -222,13 +289,20 @@ describe('ProjectSidebar', () => {
       window.history.replaceState(
         '',
         '',
-        '/project/3/repos/processor/branch/master',
+        '/project/2/repos/select/branch/master',
       );
 
-      const {findByText} = render(<Project />);
+      const {findByText, getByTestId} = render(<Project />);
+
+      await waitForElementToBeRemoved(() =>
+        getByTestId('RepoDetails__repoNameSkeleton'),
+      );
+      await waitForElementToBeRemoved(() =>
+        getByTestId('CommitBrowser__loadingdots'),
+      );
 
       const emptyMessage = await findByText(
-        'Commit your first file on this repo!',
+        'There are no commits for this branch',
       );
 
       expect(emptyMessage).toBeInTheDocument();

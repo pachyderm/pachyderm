@@ -3,7 +3,7 @@ import React from 'react';
 
 import Description from '@dash-frontend/components/Description';
 import PipelineStateComponent from '@dash-frontend/components/PipelineState';
-import RepoPipelineLink from '@dash-frontend/components/RepoPipelineLink';
+import {RepoLink} from '@dash-frontend/components/ResourceLink';
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
@@ -24,7 +24,7 @@ const PipelineInfo: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
         <Description loading={loading} term="Inputs">
           <div className={styles.repoGroup}>
             {dagLinks[pipeline?.name || ''].map((name) => (
-              <RepoPipelineLink name={name} type="repo" key={name} />
+              <RepoLink name={name} key={name} />
             ))}
           </div>
         </Description>
@@ -32,7 +32,7 @@ const PipelineInfo: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
 
       <Description term="Output Repo" loading={loading}>
         <div className={styles.repoGroup}>
-          <RepoPipelineLink name={pipelineId} type="repo" />
+          <RepoLink name={pipelineId} />
         </div>
       </Description>
 

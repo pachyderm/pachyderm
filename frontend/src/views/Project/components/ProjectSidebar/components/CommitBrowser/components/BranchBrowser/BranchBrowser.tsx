@@ -9,13 +9,13 @@ import styles from './BranchBrowser.module.css';
 import useBranchBrowser from './hooks/useBranchBrowser';
 
 type BranchBrowserProps = {
-  repo?: RepoQuery['repo'];
+  repo: RepoQuery['repo'];
   repoBaseRef: React.RefObject<HTMLDivElement>;
 };
 
 const BranchBrowser: React.FC<BranchBrowserProps> = ({repo, repoBaseRef}) => {
-  const {handleBranchClick, branchId, dropdownItems} = useBranchBrowser({
-    branches: repo?.branches,
+  const {handleBranchClick, dropdownItems, selectedBranch} = useBranchBrowser({
+    branches: repo.branches,
   });
 
   const browserRef = useRef<HTMLDivElement>(null);
@@ -35,7 +35,7 @@ const BranchBrowser: React.FC<BranchBrowserProps> = ({repo, repoBaseRef}) => {
         onSelect={handleBranchClick}
         emptyResultsContent={'No matching branches found.'}
       >
-        <strong>Commits (Branch: {branchId})</strong>
+        <strong>{`Branch: ${selectedBranch}`}</strong>
       </SearchableDropdown>
     </div>
   );

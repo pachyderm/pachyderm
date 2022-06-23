@@ -50,7 +50,7 @@ const SearchResultsDropdown: React.FC = () => {
       onResultSelect(repoName);
       browserHistory.push(
         repoRoute({
-          branchId: 'master',
+          branchId: 'default',
           projectId,
           repoId: repoName,
         }),

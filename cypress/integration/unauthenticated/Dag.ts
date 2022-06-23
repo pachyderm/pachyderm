@@ -48,13 +48,13 @@ describe('Dag', () => {
 
     cy.get("#GROUP_images_repo", { timeout: 10000 }).should("exist");
     cy.get("#GROUP_edges_repo").should("exist");
-    cy.get('#GROUP_montage_repo').should("not.exist");
+    cy.get('#GROUP_montage_repo', { timeout: 10000 }).should("not.exist");
 
     cy.findByTestId('Node__state-ERROR', {timeout: 12000}).should('exist');
   });
 
   it('should derive the correct selected repo from the url', () => {
-    cy.visit('/lineage/default/repos/images/branch/master');
+    cy.visit('/lineage/default/repos/images/branch/default');
     const imageNode = cy.get("#GROUP_images_repo", { timeout: 10000 });
     imageNode.should('be.visible');
     cy.findByTestId("Title__name").should("have.text", "images");
@@ -70,7 +70,7 @@ describe('Dag', () => {
   it('should update the url correctly when selecting a repo', () => {
     const imageNode = cy.get("#GROUP_images_repo", { timeout: 10000 });
     imageNode.click();
-    cy.url().should("contain", "/lineage/default/repos/images/branch/master");
+    cy.url().should("contain", "/lineage/default/repos/images/branch/default");
   });
 
   it('should update the url correctly when selecting a pipeline', () => {

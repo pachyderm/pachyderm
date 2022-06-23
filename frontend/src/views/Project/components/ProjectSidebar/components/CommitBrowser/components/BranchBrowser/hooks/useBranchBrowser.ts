@@ -7,12 +7,17 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {repoRoute} from '@dash-frontend/views/Project/utils/routes';
 
 interface useBranchBrowserOpts {
-  branches?: RepoQuery['repo']['branches'];
+  branches: RepoQuery['repo']['branches'];
 }
 
-const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
+const useBranchBrowser = ({branches}: useBranchBrowserOpts) => {
   const {projectId, repoId, branchId} = useUrlState();
   const browserHistory = useHistory();
+
+  const selectedBranch = useMemo(() => {
+    return branchId === 'default' ? branches[0].name : branchId;
+  }, [branchId, branches]);
+
   const handleBranchClick = useCallback(
     (branchId: string) => {
       browserHistory.push(
@@ -27,7 +32,12 @@ const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
   );
   const dropdownItems = useMemo<DropdownItem[]>(() => {
     return [
-      {id: 'master', value: 'master', content: 'master', closeOnClick: true},
+      {
+        id: selectedBranch,
+        value: selectedBranch,
+        content: selectedBranch,
+        closeOnClick: true,
+      },
       ...branches
         .map((branch) => ({
           id: branch.name,
@@ -35,12 +45,12 @@ const useBranchBrowser = ({branches = []}: useBranchBrowserOpts = {}) => {
           content: branch.name,
           closeOnClick: true,
         }))
-        .filter((branch) => branch.value !== 'master')
-        .sort((a, b) => (a.value > b.value ? 1 : -1)),
+        .filter((branch) => branch.value !== selectedBranch)
+        .sort((a, b) => (a.value === 'master' || a.value > b.value ? 1 : -1)),
     ];
-  }, [branches]);
+  }, [branches, selectedBranch]);
 
-  return {handleBranchClick, branchId, dropdownItems};
+  return {handleBranchClick, dropdownItems, selectedBranch};
 };
 
 export default useBranchBrowser;

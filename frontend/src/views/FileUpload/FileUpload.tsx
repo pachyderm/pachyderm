@@ -96,7 +96,10 @@ const FileUpload: React.FC = () => {
               </Group>
               <div>
                 <Label htmlFor="branch" label="Branch" />
-                <Select id="branch" initialValue="master">
+                <Select
+                  id="branch"
+                  initialValue={branches.length > 0 ? branches[0] : ''}
+                >
                   {branches.map((branch) => (
                     <Select.Option value={branch} key={branch}>
                       {branch}

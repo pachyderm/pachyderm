@@ -6,9 +6,12 @@ import {Helmet} from 'react-helmet';
 import {useRouteMatch} from 'react-router';
 
 import Description from '@dash-frontend/components/Description';
-import RepoPipelineLink from '@dash-frontend/components/RepoPipelineLink';
+import EmptyState from '@dash-frontend/components/EmptyState';
+import {LETS_START_TITLE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
+import {PipelineLink, EgressLink} from '@dash-frontend/components/ResourceLink';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   LINEAGE_PATH,
   LINEAGE_REPO_PATH,
@@ -27,8 +30,14 @@ type RepoDetailsProps = {
   dagsLoading?: boolean;
 };
 
+const noBranchRepoMessage = 'There are no branches on this repo!';
+
 const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
   const {loading, repo} = useCurrentRepo();
+  const {repoId} = useUrlState();
+
+  const currentRepoLoading = loading || repoId !== repo?.id;
+
   const {viewState} = useUrlQueryState();
   const repoBaseRef = useRef<HTMLDivElement>(null);
   const filterEgressLink = useCallback(
@@ -54,13 +63,20 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
 
   const tabsBasePath = lineageMatch ? LINEAGE_REPO_PATH : PROJECT_REPO_PATH;
 
+  const BranchBrowser = () =>
+    repo?.branches?.length ? (
+      <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
+    ) : (
+      <EmptyState title={LETS_START_TITLE} message={noBranchRepoMessage} />
+    );
+
   return (
     <div className={styles.base} ref={repoBaseRef}>
       <Helmet>
         <title>Repo - Pachyderm Console</title>
       </Helmet>
       <div className={styles.title}>
-        {loading ? (
+        {currentRepoLoading ? (
           <SkeletonDisplayText data-testid="RepoDetails__repoNameSkeleton" />
         ) : (
           <Title>{repo?.name}</Title>
@@ -85,53 +101,52 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({dagsLoading, dagLinks}) => {
         <Tabs.TabPanel id={TAB_ID.INFO}>
           <dl className={styles.repoInfo}>
             {repo?.linkedPipeline && (
-              <Description loading={loading} term="Linked Pipeline">
+              <Description loading={currentRepoLoading} term="Linked Pipeline">
                 <div className={styles.pipelineGroup}>
-                  <RepoPipelineLink
-                    name={repo?.linkedPipeline?.id}
-                    type="pipeline"
-                  />
+                  <PipelineLink name={repo?.linkedPipeline?.id} />
                 </div>
               </Description>
             )}
             {pipelineOutputs.length > 0 && (
-              <Description loading={loading} term="Inputs To">
+              <Description loading={currentRepoLoading} term="Inputs To">
                 <div className={styles.pipelineGroup}>
                   {pipelineOutputs.map((name) => (
-                    <RepoPipelineLink name={name} type="pipeline" key={name} />
+                    <PipelineLink name={name} key={name} />
                   ))}
                 </div>
               </Description>
             )}
             {egressOutputs.length > 0 && (
-              <Description loading={loading} term="Egress To">
+              <Description loading={currentRepoLoading} term="Egress To">
                 <div className={styles.pipelineGroup}>
                   {egressOutputs.map((name) => (
-                    <RepoPipelineLink name={name} type="egress" key={name} />
+                    <EgressLink name={name} key={name} />
                   ))}
                 </div>
               </Description>
             )}
-            <Description loading={loading} term="Created">
+            <Description loading={currentRepoLoading} term="Created">
               {repo ? format(fromUnixTime(repo.createdAt), 'MM/d/yyyy') : 'N/A'}
             </Description>
-            <Description loading={loading} term="Description">
+            <Description loading={currentRepoLoading} term="Description">
               {repo?.description ? repo.description : 'N/A'}
             </Description>
             <Description term="Size">
-              {!loading ? repo?.sizeDisplay : <SkeletonDisplayText />}
+              {!currentRepoLoading ? (
+                repo?.sizeDisplay
+              ) : (
+                <SkeletonDisplayText />
+              )}
             </Description>
           </dl>
         </Tabs.TabPanel>
         <div className={styles.commitsTab}>
           <Tabs.TabPanel id={TAB_ID.COMMITS}>
-            {viewState.globalIdFilter ? (
-              !dagsLoading && (
-                <CommitDetails commitId={viewState.globalIdFilter} />
-              )
-            ) : (
-              <CommitBrowser repo={repo} repoBaseRef={repoBaseRef} />
-            )}
+            {viewState.globalIdFilter
+              ? !dagsLoading && (
+                  <CommitDetails commitId={viewState.globalIdFilter} />
+                )
+              : !currentRepoLoading && <BranchBrowser />}
           </Tabs.TabPanel>
         </div>
       </Tabs.RouterTabs>

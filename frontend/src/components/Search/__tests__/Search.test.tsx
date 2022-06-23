@@ -126,7 +126,7 @@ describe('Search', () => {
 
     assertDropdown().toBeHidden();
     expect(window.location.pathname).toBe(
-      '/project/1/repos/images/branch/master',
+      '/project/1/repos/images/branch/default',
     );
   });
 

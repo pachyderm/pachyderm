@@ -38,13 +38,16 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
     {projectId, key: 'hide_auto_commits'},
   );
 
+  const selectedBranch =
+    branchId === 'default' ? repo?.branches[0].name : branchId;
+
   const {commits, loading} = useCommits({
     args: {
       projectId,
       repoName: repoId,
       pipelineName: repo?.linkedPipeline?.name,
       originKind: hideAutoCommits ? OriginKind.USER : undefined,
-      branchName: branchId,
+      branchName: selectedBranch,
       number: COMMIT_LIMIT,
     },
     skip: !repo || repo.branches.length === 0,
@@ -61,17 +64,13 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
     );
   }
 
-  if (
-    !hideAutoCommits &&
-    (repo?.branches?.length || 0) <= 1 &&
-    !commits?.length
-  ) {
+  if (!hideAutoCommits && repo?.branches.length === 0 && !commits?.length) {
     return <EmptyState title={LETS_START_TITLE} message={emptyRepoMessage} />;
   }
 
   return (
     <>
-      <BranchBrowser repo={repo} repoBaseRef={repoBaseRef} />
+      {repo && <BranchBrowser repo={repo} repoBaseRef={repoBaseRef} />}
       <div className={styles.autoCommits}>
         <PureCheckbox
           selected={!hideAutoCommits}
@@ -144,20 +143,22 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
                       )}
                       <dt>
                         <ButtonGroup>
-                          <Button
-                            buttonType="secondary"
-                            to={getPathToFileBrowser({
-                              projectId,
-                              branchId,
-                              repoId: repoId,
-                              commitId: commit.id,
-                            })}
-                            disabled={
-                              !!repo?.linkedPipeline && commit.finished === -1
-                            }
-                          >
-                            View Files
-                          </Button>
+                          {selectedBranch && (
+                            <Button
+                              buttonType="secondary"
+                              to={getPathToFileBrowser({
+                                projectId,
+                                branchId: selectedBranch,
+                                repoId: repoId,
+                                commitId: commit.id,
+                              })}
+                              disabled={
+                                !!repo?.linkedPipeline && commit.finished === -1
+                              }
+                            >
+                              View Files
+                            </Button>
+                          )}
                           {commit.hasLinkedJob && (
                             <Button
                               buttonType="ghost"

@@ -12,7 +12,11 @@ import React from 'react';
 
 import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import Description from '@dash-frontend/components/Description';
-import RepoPipelineLink from '@dash-frontend/components/RepoPipelineLink';
+import {
+  RepoLink,
+  PipelineLink,
+  CommitLink,
+} from '@dash-frontend/components/ResourceLink';
 import {
   readableJobState,
   getJobStateHref,
@@ -162,7 +166,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
               className={styles.inputs}
             >
               {inputs.map((input) => (
-                <RepoPipelineLink key={input} name={input} type="repo" />
+                <RepoLink key={input} name={input} />
               ))}
             </Description>
           ) : null}
@@ -174,10 +178,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
             className={styles.inputs}
           >
             {job?.pipelineName ? (
-              <RepoPipelineLink
+              <PipelineLink
                 data-testid="InfoPanel__pipeline"
                 name={job.pipelineName}
-                type="pipeline"
               />
             ) : null}
           </Description>
@@ -190,12 +193,11 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
               data-testid="InfoPanel__output"
               className={styles.inputs}
             >
-              <RepoPipelineLink
+              <CommitLink
                 data-testid="InfoPanel__commitLink"
                 name={job.outputCommit}
                 branch={job.outputBranch}
-                repo={job.pipelineName}
-                type="commit"
+                repoName={job.pipelineName}
               />
             </Description>
           ) : null}

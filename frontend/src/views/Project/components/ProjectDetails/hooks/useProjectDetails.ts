@@ -16,7 +16,7 @@ export const useProjectDetails = () => {
   const repoRedirect = useCallback(
     (node: Node) =>
       repoRoute({
-        branchId: 'master',
+        branchId: 'default',
         projectId,
         repoId: deriveRepoNameFromNode(node),
       }),

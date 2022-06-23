@@ -30,11 +30,14 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId, repo}) => {
   const {getPathToFileBrowser} = useFileBrowserNavigation();
   const {branchId, projectId, repoId} = useUrlState();
 
+  const selectedBranch =
+    branchId === 'default' ? repo?.branches[0].name : branchId;
+
   const {commit, loading} = useCommit({
     args: {
       projectId,
       repoName: repoId,
-      branchName: branchId,
+      branchName: selectedBranch,
       id: commitId,
       withDiff: true,
     },
@@ -132,21 +135,23 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({commitId, repo}) => {
           )}
       </dl>
       <ButtonGroup>
-        <Button
-          onClick={() =>
-            browserHistory.push(
-              getPathToFileBrowser({
-                projectId,
-                branchId,
-                repoId: repoId,
-                commitId: commit.id,
-              }),
-            )
-          }
-          disabled={!!repo?.linkedPipeline && commit.finished === -1}
-        >
-          View Files
-        </Button>
+        {selectedBranch && (
+          <Button
+            onClick={() =>
+              browserHistory.push(
+                getPathToFileBrowser({
+                  projectId,
+                  branchId: selectedBranch,
+                  repoId: repoId,
+                  commitId: commit.id,
+                }),
+              )
+            }
+            disabled={!!repo?.linkedPipeline && commit.finished === -1}
+          >
+            View Files
+          </Button>
+        )}
         {commit.hasLinkedJob && (
           <Button
             buttonType="secondary"

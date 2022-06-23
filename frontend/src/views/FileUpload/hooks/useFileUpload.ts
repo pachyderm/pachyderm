@@ -139,13 +139,9 @@ const useFileUpload = () => {
   );
 
   const branches = useMemo(() => {
-    return (repo?.branches || []).reduce(
-      (acc, branch) => {
-        if (branch.name !== 'master') acc.push(branch.name);
-        return acc;
-      },
-      ['master'],
-    );
+    const branches = (repo?.branches || []).map((branch) => branch.name);
+    if (branches.length === 0) branches.push('master');
+    return branches;
   }, [repo?.branches]);
 
   const handleFileCancel = useCallback(

@@ -93,11 +93,10 @@ const customerTeam = [
   new RepoInfo()
     .setRepo(new Repo().setName('model').setType('user'))
     .setCreated(timestampFromObject({seconds: 1614526189, nanos: 0}))
-    .setBranchesList([new Branch().setName('master')]),
+    .setBranchesList([new Branch().setName('develop')]),
   new RepoInfo()
     .setRepo(new Repo().setName('test').setType('user'))
-    .setCreated(timestampFromObject({seconds: 1614426189, nanos: 0}))
-    .setBranchesList([new Branch().setName('master')]),
+    .setCreated(timestampFromObject({seconds: 1614426189, nanos: 0})),
   new RepoInfo()
     .setRepo(new Repo().setName('select').setType('user'))
     .setCreated(timestampFromObject({seconds: 1614326189, nanos: 0}))
