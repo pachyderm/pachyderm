@@ -224,7 +224,7 @@ Use the `pachctl auth revoke` command to revoke access for an existing Pachyderm
 - revoke all tokens for a given user `pachctl auth revoke --user=idp:usernamen@pachyderm.io` to log that user out forcibly.
 
 !!! Note
-    Note that a user whose Pachyderm token has been revoked can technically log in to Pachyderm again while their signed OIDC token is still valid. To entirely block access to a user, you have to remove that user from the user registry of your IdP.
+    Note that a user whose Pachyderm token has been revoked can technically log in to Pachyderm again unless **you have removed that user from the user registry of your IdP**.
 
 Take a look at the sequence diagram below illustrating the OIDC login flow. It highlights the exchange of the original OIDC ID Token for a Pachyderm Token.
 
