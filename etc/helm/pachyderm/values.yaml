@@ -50,7 +50,7 @@ global:
 
 console:
   # enabled controls whether the console manifests are created or not.
-  enabled: false
+  enabled: true
   annotations: {}
   image:
     # repository is the image repo to pull from; together with tag it

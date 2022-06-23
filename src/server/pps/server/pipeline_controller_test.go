@@ -69,7 +69,9 @@ func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline s
 func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
 	mockPachd.PPS.ListTask.Use(func(req *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
 		for i := 0; i < taskCount; i++ {
-			srv.Send(&task.TaskInfo{})
+			srv.Send(&task.TaskInfo{
+				State: task.State_RUNNING,
+			})
 		}
 		return nil
 	})

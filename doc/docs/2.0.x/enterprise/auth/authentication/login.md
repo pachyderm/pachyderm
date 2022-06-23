@@ -24,7 +24,7 @@ by login in as the [user created in Auth0](../idp-dex/#1-register-a-pachyderm-ap
       You should see the following message printed out in your browser:
       ![Login Success](../images/auth0-login-success.png)
 
-1. Check whose User you are logged in:
+1. Check who you logged in as:
 
       ```shell
       pachctl auth whoami

@@ -610,6 +610,8 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	if err != nil {
 		return err
 	}
+	// log the commit
+	logrus.Infof("Downloading %s from %s@%s", origPath, name, commit)
 	if commit == "" {
 		return nil
 	}
