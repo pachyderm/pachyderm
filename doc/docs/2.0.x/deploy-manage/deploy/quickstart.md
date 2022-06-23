@@ -38,6 +38,9 @@ latest available version of the components listed below.
 
 Select your favorite cloud provider.
 
+!!! Important "Definition"
+    Note that we often use the acronym `CE` for Community Edition.
+
 ## 2. Create Your Values.yaml
 ### AWS
 

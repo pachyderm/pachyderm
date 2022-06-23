@@ -142,7 +142,10 @@ with a Pachyderm cluster in your terminal.
   
       If you run `pachctl version` without the flag `--client-only`, the command times  
       out. This is expected behavior because Pachyderm has not been deployed yet (`pachd` is not yet running).  
-  
+
+!!! Tip  
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/){target=_blank}. This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
+      
 !!! Note "Architecture"  
       A look at [Pachyderm high-level architecture diagram](../../deploy-manage/#overview)   
       will help you build a mental image of Pachyderm various architectural components.  
@@ -160,9 +163,6 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
 Additionally, for JupyterLab users,  you can [**install Pachyderm JupyterLab Mount Extension**](#notebooks-users-install-pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
 Note that you can run both Console and JupyterLab on your local installation.
-
-!!! Tip  
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/){target=_blank}. This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
   
 * Get the Repo Info:  
 
@@ -177,7 +177,7 @@ Note that you can run both Console and JupyterLab on your local installation.
      To request a FREE trial enterprise license key, [click here](../../enterprise){target=_blank}. 
 
 
-=== "Latest CE (Includes Console)"
+=== "Pachyderm Community Edition (Includes Console)"
       This command will install Pachyderm's latest available GA version with Console CE.
 
        ```shell  
@@ -291,7 +291,7 @@ authenticate again (to Pachyderm this time) with the mock User (username: `admin
 ## NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
 
 !!! Note
-      You do not need a local Pachyderm CE or Enterprise instance running to install Pachyderm JupyterLab Mount Extension. However, **you need a running cluster to connect your Mount Extension to**; therefore, we recommend that you [install Pachyderm locally](#local-installation) first.
+      You do not need a local Pachyderm cluster already running to install Pachyderm JupyterLab Mount Extension. However, **you need a running cluster to connect your Mount Extension to**; therefore, we recommend that you [install Pachyderm locally](#local-installation) first.
 
 - To install [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
 

@@ -41,6 +41,9 @@ Use the latest available version of the components listed below.
     To get a free-trial token, fill in [this form](https://www.pachyderm.com/trial/){target=_blank}, get in touch with us at [sales@pachyderm.io](mailto:sales@pachyderm.io), or on our [Slack](https://www.pachyderm.com/slack/){target=_blank}. 
 
 Select your favorite cloud provider.
+
+!!! Important "Definition"
+    Note that we often use the acronym `CE` for Community Edition.
 ## 2. Create Your Values.yaml
 
 !!! Note
@@ -55,6 +58,7 @@ Install [AWS CLI](https://aws.amazon.com/cli/){target=_blank}
 1. [Create an S3 bucket](../aws-deploy-pachyderm/#3-create-an-s3-bucket) for your data
 
 1. Create a values.yaml
+
 
 === "Deploy Pachyderm CE (includes Console CE)"
 
