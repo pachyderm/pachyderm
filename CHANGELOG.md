@@ -1,5 +1,21 @@
 
 # Changelog
+## 2.2.3
+- enable console by default - #7813
+- Enterprise Members shouldn't run the Identity/Dex Service - #7785
+- Fix cluster perms getting reset by config-pod - #7806
+- Add 'pachctl auth revoke' - #7794
+- Fix Etcd annotations indent - #7802
+- Fix quotes around Enterprise Server address in helm values - #7798
+- remove redundant load test - #7792
+- Pass PPS Egress URL correctly - #7791
+- move nightly load tests to pulumi envs - #7780
+- bump load test env creation timeout - #7784
+- Enable TLS support for Postgres - #7607
+- Add logging response transformer to omit activation code from GetState - #7762
+- Improve Loki defaults and Upgrade loki-stack - #7760
+- Support JSON logs, for GCP - #7683
+
 ## 2.2.2
 - Add Support for Plurals in Pachctl - #7751
 - egress of CSVs with headers	- #7746
