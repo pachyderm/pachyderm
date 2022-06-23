@@ -5,35 +5,35 @@ The package manager [Helm](https://helm.sh/docs/intro/install/#helm){target=_bla
 !!! Reminder
     **Pachyderm services are exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)** except for LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations).
 
-This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/pachyderm){target=_blank}.
+This page gives a high level view of the steps to follow to install Pachyderm using Helm. Find our chart on [Artifacthub](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} or in our [GitHub repository](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/etc/helm/pachyderm){target=_blank}.
 
 !!! Important "Before your start your installation process." 
       - Refer to this generic page for more information on  how to install and get started with `Helm`.
-      - Read our [infrastructure recommendations](../ingress/). You will find instructions on setting up an ingress controller, a load balancer, or connecting an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires the set up of an Ingress and the activation of authentication.
+      - Read our [infrastructure recommendations](../ingress/). You will find instructions on setting up an ingress controller, a TCP load balancer, or connecting an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI, read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires the set up of a DNS, an Ingress, and the activation of authentication.
 ## Install
 ### Prerequisites
 1. Install [`Helm`](https://helm.sh/docs/intro/install/){target=_blank}. 
 
 1. Install [`pachctl`](../../../getting-started/local-installation/#install-pachctl), the command-line utility for interacting with a Pachyderm cluster. 
 
-1. Choose the deployment [guidelines](https://docs.pachyderm.com/2.1.x/deploy-manage/deploy/){target=_blank} that apply to you:
+1. Choose the deployment [guidelines](https://docs.pachyderm.com/{{ config.pach_branch }}/deploy-manage/deploy/){target=_blank} that apply to you:
     * **Find the deployment page that applies to your Cloud provider** (or custom deployment, or on-premises deployment).
-    It will help list the various installation prerequisites, Kubernetes deployment instructions, and kubectl installation that fit your own use case:
+    It will help list the various installation prerequisites, and Kubernetes deployment instructions that fit your own use case:
     
-        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/2.1.x/deploy-manage/deploy/google-cloud-platform/#google-cloud-platform){target=_blank} page.
+        For example, if your Cloud provider is Google Cloud Platform, follow the **Prerequisites** and **Deploy Kubernetes** sections of the [deployment on Google Cloud Platform](https://docs.pachyderm.com/{{ config.pach_branch }}/deploy-manage/deploy/google-cloud-platform/#google-cloud-platform){target=_blank} page.
 
-    * Additionally, those instructions will also help you configure the various elements (object store, credentials...) that relate to your deployment needs. Those parameters values will **be specified in a YAML configuration file** as follows.
+    * Additionally, those instructions will help you configure the various elements (object store, postgreSQL instance, secret names...) that relate to your deployment needs. Those parameters values will **be specified in your YAML configuration file** as follows.
 
 ### Edit a Values.yaml File
-Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/master/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
+Create a personalized `my_pachyderm_values.yaml` out of this [example repository](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/etc/helm/examples){target=_blank}. Pick the example that fits your target deployment and update the relevant values according to the parameters gathered in the previous step.   
 
 See the reference [values.yaml](../../../reference/helm-values/) for the list of all available helm values at your disposal.
 
 !!! Warning
     **No default k8s CPU and memory requests and limits** are created for pachd.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
     
-    For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
+    For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
 
 !!! Note "**Platform Secrets: READ BEFORE ANY INSTALL OR UPGRADE**" 
         Pachyderm recommends using **"platform secrets"** to hold the values needed by a cluster at the time of the deployment (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key). 

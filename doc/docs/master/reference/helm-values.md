@@ -62,7 +62,7 @@ Example:
 ```
 ### console
 
-This section is to configure the Pachyderm UI (`console`) which requires an enterprise license key. It is disabled by default.
+This section is to configure the Pachyderm UI (`console`). It is enabled by default.
 
 - `console.enabled` turns on the deployment of the UI.
 

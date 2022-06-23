@@ -2,11 +2,11 @@
 
 Welcome to the beginner tutorial for Pachyderm! 
 This tutorial should take about 15 minutes
-to complete and introduce you to Pachyderm's original concepts.
+to complete and introduce you to Pachyderm's fundamental concepts.
 
 ### Prerequisites
 
-This guide assumes that you already have Pachyderm running.
+This guide assumes that you have Pachyderm running. 
 
 - For an easy and quick start, install Pachyderm on your local machine as described in our [Local Installation](../local-installation/) page and start experimenting.
 
@@ -16,6 +16,18 @@ This guide assumes that you already have Pachyderm running.
     If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/).
     This handy tool suggests `pachctl` commands as you type and
     helps you learn Pachyderm faster.
+
+For this tutorial, you will use `pachctl` to interact with your Pachyderm cluster from your terminal window and Console (Pachyderm Web UI) to interactively
+visualize and explore your pipelines, your data, debug jobs, read logs, etc...
+
+If you deployed Pachyderm locally using the default local installation instructions,
+you have also deployed Pachyderm Web UI. 
+Point your browser to **`localhost:4000`** to connect to Console.
+You should land on this page:
+
+![Console Landing Page](../images/console_landing_page.png)
+
+Click on your **View Project** (We are working on allowing you to organize your pipelines by Projects) to get started. You are all set to have a follow-along visual experience of the coming steps.
 
 ## Image processing with OpenCV
 
@@ -69,6 +81,13 @@ This output shows that the repo has been successfully created. Because we
 have not added anything to it yet, the size of the repository HEAD commit
 on the master branch is 0B.
 
+Check your Console and notice the creation of your repository. 
+!!! Note 
+    Note the "plus" icon in your `images` repository. 
+    It indicates that this repository is an **input repository** instead of an output repository where the product of your pipeline transformation will be committed. Users can write data to input repositories only. 
+
+![Console images repo](../images/console-images-repo.png)
+
 ### Adding Data to Pachyderm
 
 Now that we have created a repo, it is time to add some data. In
@@ -79,7 +98,7 @@ You can add, remove, or update `files` in a given commit.
 !!! Info
     More about the concept of [`Commit`](../../concepts/data-concepts/commit/#commit) in Pachyderm.
 
-Let's start by just adding a file, in this case an image, to a new
+Let's start by adding a file, in this case an image, to a new
 commit. We have provided some sample images for you that we host on
 Imgur.
 
@@ -94,17 +113,13 @@ as they can contain huge amounts of data and we do not want that much
 more easily. If you want to add many files over a period of time, you
 can do `pachctl start commit` and `pachctl finish commit` yourself.
 
-We also specify the repo name `"images"`, the branch name `"master"`,
-and the file name: `"liberty.png"`.
-
-Here is an example atomic commit of the file `liberty.png` to the
-`images` repo `master` branch:
+To commit the file `liberty.png` to the `master` branch of the `images` repo, run :
 
 ```shell
 pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
 ```
 
-We can check to make sure the data we just added is in Pachyderm.
+To make sure that the data we just added is in Pachyderm.
 
 * Use the `pachctl list repo` command to check that data has been added:
 
@@ -145,8 +160,12 @@ We can check to make sure the data we just added is in Pachyderm.
   /liberty.png file 57.27KiB
   ```
 
-Now you can view the file by retrieving it from Pachyderm. Because this is an
-image, you cannot just print it out in the terminal, but the following
+In your Console, click on the `images` repo to visualize its commit and inspect its file:
+
+![Console images liberty](../images/console-images-liberty.png)
+
+Alternatively, you can view the file by retrieving it from Pachyderm. 
+Because this is an image, you cannot just print it out in the terminal, but the following
 command will let you view it:
 
 * On macOS, run:
@@ -172,12 +191,13 @@ specification or pipeline spec for short. For this [example](https://github.com/
 When you want to create your own pipeline specification later, you can refer to the
 full [Pipeline Specification](../../reference/pipeline-spec) to use
 more advanced options. Options include building your own code into a
-container. In this tutorial, we are using a pre-built Docker image.
+container.
+In this tutorial, your pipeline will use a pre-built Docker image.
 
 !!! Info
     More about the concept of [`Pipeline`](../../concepts/pipeline-concepts/pipeline/) in Pachyderm.
 
-For now, we are going to create a single pipeline spec that takes in images
+For now, we are going to create a single pipeline that takes in images
 and does some simple edge detection.
 
 ![image](../assets/images/opencv-liberty.png)
@@ -193,7 +213,7 @@ through the details.
   "description": "A pipeline that performs image edge detection by using the OpenCV library.",
   "transform": {
     "cmd": [ "python3", "/edges.py" ],
-    "image": "pachyderm/opencv"
+    "image": "pachyderm/opencv:1.0"
   },
   "input": {
     "pfs": {
@@ -208,13 +228,13 @@ The pipeline spec contains a few simple sections. The pipeline section contains
 a `name`, which is how you will identify your pipeline. **Your pipeline will also
 automatically create an output repo with the same name**. The `transform` section
 allows you to specify the docker image you want to use. In this case,
-`pachyderm/opencv` is the docker image (defaults to DockerHub as the registry),
+`pachyderm/opencv:1.0` is the docker image (defaults to DockerHub as the registry),
 and the entry point is `edges.py`. The input section specifies repos visible
 to the running pipeline, and how to process the data from the repos. **Commits to
 these repos will automatically trigger the pipeline to create new jobs to
 process them**. In this case, `images` is the repo, and `/*` is the glob pattern.
 
-The glob pattern defines how the input data will be transformed into datums if you want
+The glob pattern defines how the input data will be transformed into **datums** if you want
 to distribute computation. `/*` means that each file can be
 processed individually, which makes sense for images. Glob patterns are
 one of the most powerful features in Pachyderm.
@@ -224,7 +244,7 @@ one of the most powerful features in Pachyderm.
     in Pachyderm and the fundamental notion of [`Datums`](../../concepts/pipeline-concepts/datum/relationship-between-datums/).
 
 
-The following text is the Python code run in this pipeline:
+The following extract is the Python code run in this pipeline:
 
 ```python
 import cv2
@@ -262,8 +282,9 @@ Now, let's create the pipeline in Pachyderm:
 ```shell
 pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 ```
-
-### What Happens When You Create a Pipeline
+Again, check the end result in your Console:
+![Console edges pipeline](../images/console-edges-pipeline.png)
+#### What Happens When You Create a Pipeline
 
 Creating a pipeline tells Pachyderm to run your code on the data in your
 input repo (the HEAD commit) as well as **all future commits** that
@@ -280,48 +301,54 @@ registry (DockerHub in this case). This first run might take a
 minute or so because of the image download, depending on your Internet
 connection. Subsequent runs will be much faster.
 
-You can view the job with:
+* You can view the job with:
 
-```shell
-pachctl list job
-```
+    ```shell
+    pachctl list job
+    ```
 
-**System response:**
+    **System response:**
 
-```
-ID                               SUBJOBS PROGRESS CREATED       MODIFIED
-23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 5 seconds ago 5 seconds ago
-```
+    ```
+    ID                               SUBJOBS PROGRESS CREATED       MODIFIED
+    23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 5 seconds ago 5 seconds ago
+    ```
 
-You can check the state of your pipeline by running `pachctl list pipeline`.
+* You can check the state of your pipeline:
 
-**System response:**
+    ```shell
+    pachctl list pipeline
+    ```
 
-```
-NAME  VERSION INPUT     CREATED       STATE / LAST JOB  DESCRIPTION
-edges 1       images:/* 2 minutes ago running / success A pipeline that performs image edge detection by using the OpenCV library.
-```
+    **System response:**
 
-Yay! Your pipeline succeeded! Pachyderm creates a corresponding output
-repo for every pipeline. This output repo will have the same name as the
-pipeline, and all the results of that pipeline will be versioned in this
-output repo. In our example, the `edges` pipeline created an output repo
-called `edges` to store the results written to `/pfs/out`.
+    ```
+    NAME  VERSION INPUT     CREATED       STATE / LAST JOB  DESCRIPTION
+    edges 1       images:/* 2 minutes ago running / success A pipeline that performs image edge detection by using the OpenCV library.
+    ```
 
+    Yay! Your pipeline succeeded! Pachyderm creates a corresponding output
+    repo for every pipeline. This output repo will have the same name as the
+    pipeline, and all the results of that pipeline will be versioned in this
+    output repo. In our example, the `edges` pipeline created an output repo
+    called `edges` to store the results written to `/pfs/out`.
 
-```shell
-pachctl list repo
-```
+* List your repositories:
 
-**System response:**
+    ```shell
+    pachctl list repo
+    ```
 
-```
-NAME   CREATED        SIZE (MASTER) ACCESS LEVEL
-edges  10 minutes ago ≤ 22.22KiB    [repoOwner]  Output repo for pipeline edges.
-images 3 hours ago    ≤ 57.27KiB    [repoOwner]
-```
+    **System response:**
 
-### Reading the Output
+    ```
+    NAME   CREATED        SIZE (MASTER) ACCESS LEVEL
+    edges  10 minutes ago ≤ 22.22KiB    [repoOwner]  Output repo for pipeline edges.
+    images 3 hours ago    ≤ 57.27KiB    [repoOwner]
+    ```
+
+Note that all of that information and more are available in your Console.
+#### Reading the Output
 
 We can view the output data from the `edges` repo in the same fashion
 that we viewed the input data.
@@ -338,15 +365,16 @@ pachctl get file edges@master:liberty.png | open -f -a Preview.app
 pachctl get file edges@master:liberty.png | display
 ```
 
-The output should look similar to:
+The output should look like this:
 
-![image](../assets/images/edges-screenshot.png)
+![Console edges liberty](../images/console-edges-liberty.png)
 
-### Processing More Data
+
+#### Processing More Data
 
 **Pipelines will automatically process the data from new commits as
-they are created**. Think of pipelines as being subscribed to any new
-commits on their input repo(s). Also similar to Git, commits have a
+they are created**. In a way, pipelines "subscribe" to their input repo(s), ready to process any new
+incoming commits. Also similar to Git, commits have a
 parental structure that tracks which files have changed. In this case
 we are going to be adding more images.
 
@@ -365,42 +393,42 @@ run on the new data we have added**. We will see corresponding jobs get
 started and commits to the output `edges` repo. Let's also view our
 new outputs.
 
-View the list of jobs that have started:
+* View the list of jobs that have started:
 
-```shell
-pachctl list job
-```
+    ```shell
+    pachctl list job
+    ```
 
-**System response:**
+    **System response:**
 
-```
-ID                               SUBJOBS PROGRESS CREATED        MODIFIED
-1c1a9d7d36944eabb4f6f14ebca25bf1 1       ▇▇▇▇▇▇▇▇ 31 seconds ago 31 seconds ago
-fe5c4f70ac4347fd9c5934f0a9c44651 1       ▇▇▇▇▇▇▇▇ 47 seconds ago 47 seconds ago
-23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
-```
+    ```
+    ID                               SUBJOBS PROGRESS CREATED        MODIFIED
+    1c1a9d7d36944eabb4f6f14ebca25bf1 1       ▇▇▇▇▇▇▇▇ 31 seconds ago 31 seconds ago
+    fe5c4f70ac4347fd9c5934f0a9c44651 1       ▇▇▇▇▇▇▇▇ 47 seconds ago 47 seconds ago
+    23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
+    ```
 
-View the output data
+* View the output data:
 
-* On macOS, run:
+  * On macOS, run:
 
-  ```shell
-  pachctl get file edges@master:AT-AT.png | open -f -a Preview.app
-  pachctl get file edges@master:kitten.png | open -f -a Preview.app
-  ```
+    ```shell
+    pachctl get file edges@master:AT-AT.png | open -f -a Preview.app
+    pachctl get file edges@master:kitten.png | open -f -a Preview.app
+    ```
 
-* On Linux, run:
+  * On Linux, run:
 
-  ```shell
-  pachctl get file edges@master:AT-AT.png | display
-  pachctl get file edges@master:kitten.png | display
-  ```
+    ```shell
+    pachctl get file edges@master:AT-AT.png | display
+    pachctl get file edges@master:kitten.png | display
+    ```
 
 ### Adding Another Pipeline
 
 We have successfully deployed and used a single stage Pachyderm pipeline.
 Now, let's add a processing stage to illustrate a multi-stage Pachyderm
-pipeline. Specifically, let's add a `montage` pipeline that take our
+pipeline (also referenced as a **Directed Acyclic Graph or DAG** is this documentation). Specifically, let's add a `montage` pipeline that take our
 original and edge detected images and arranges them into a single
 montage of images:
 
@@ -454,74 +482,48 @@ discussed in
 and
 [our pipeline specification page](../../reference/pipeline-spec/#pfs-input).
 
-We create the `montage` pipeline as before, with `pachctl`:
+* To create the `montage` pipeline, run:
 
-```shell
-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
-```
+    ```shell
+    pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
+    ```
 
-The pipeline creation triggers a job that generates a montage for all the
-current HEAD commits of the input repos:
+    See your new DAG in Console:
+    ![Console opencv DAG](../images/console-opencv-dag.png)
 
-```shell
-pachctl list job
-```
+* The pipeline creation triggers a job that generates a montage for all the current HEAD commits of the input repos:
 
-**System response:**
+    ```shell
+    pachctl list job
+    ```
 
-```shell
-ID                               SUBJOBS PROGRESS CREATED        MODIFIED
-01e0c8040e18429daf7f67ce34c3a5d7 1       ▇▇▇▇▇▇▇▇ 11 seconds ago 11 seconds ago
-1c1a9d7d36944eabb4f6f14ebca25bf1 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
-fe5c4f70ac4347fd9c5934f0a9c44651 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
-23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 24 minutes ago 24 minutes ago
-```
+    **System response:**
 
-View the generated montage image by running one of
-the following commands:
+    ```shell
+    ID                               SUBJOBS PROGRESS CREATED        MODIFIED
+    01e0c8040e18429daf7f67ce34c3a5d7 1       ▇▇▇▇▇▇▇▇ 11 seconds ago 11 seconds ago
+    1c1a9d7d36944eabb4f6f14ebca25bf1 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
+    fe5c4f70ac4347fd9c5934f0a9c44651 1       ▇▇▇▇▇▇▇▇ 12 minutes ago 12 minutes ago
+    23378d899d3d45738f55df3809841145 1       ▇▇▇▇▇▇▇▇ 24 minutes ago 24 minutes ago
+    ```
 
-* On macOS, run:
+* View the generated montage image in Console or by running one of the following commands:
 
-```shell
-pachctl get file montage@master:montage.png | open -f -a Preview.app
-```
+    * In Console:
 
-* On Linux 64-bit, run:
+        ![Console opencv montage](../images/console-opencv-montage.png)
 
-```shell
-pachctl get file montage@master:montage.png | display
-```
+    * On macOS, run:
 
-![image](../assets/images/montage-screenshot.png)
+        ```shell
+        pachctl get file montage@master:montage.png | open -f -a Preview.app
+        ```
 
-## Exploring your DAG in Pachyderm Console
+    * On Linux 64-bit, run:
 
-Console is Pachyderm's GUI. It will help you interactively
-visualize and explore your pipelines, your data, debug jobs, read logs, etc...
-
-!!! Note
-     You will need an Enterprise Key when deploying with Console, locally or otherwise. 
-     To request a FREE trial enterprise license key, [click here](../../enterprise). 
-
-If you deployed locally, the Pachyderm Enterprise Console
-is also deployed by default.  To access it, visit
-`localhost:30080` in your favorite browser. You
-should see something similar to this:
-
-![image](../images/console_landing_page.png)
-
-Upon clicking on **View Project**, 
-you will be able to see your DAG's structure, and interactively explore your repos and pipelines:
-
-![image](../images/console_dag_display.png)
-
-Click on a repo to visualize its commits, see the related jobs, or inspect the files of a given commit:
-
-![image](../images/console_repo_commits.png)
-
-Or click on a pipeline to visualize its specification file, list its jobs, or view the details of a particular job.
-
-![image](../images/console_pipeline_jobs.png)
+        ```shell
+        pachctl get file montage@master:montage.png | display
+        ```
 
 ## Next Steps
 
@@ -537,4 +539,4 @@ Again, we would love to help and see what you come up with! Submit any
 questions, comment, contribution on
 [GitHub](https://github.com/pachyderm/pachyderm){target=_blank},
 [Slack](https://www.pachyderm.com/slack/){target=_blank}, or email at <support@pachyderm.io>
-if you want to show off anything nifty you've created!
+if you want to show off anything nifty you have created!
