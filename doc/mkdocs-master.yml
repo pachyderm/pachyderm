@@ -18,9 +18,9 @@ pach_branch: '2.2.x'
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
-pach_featured_version: '2.2.2'
+pach_featured_version: '2.2.3'
 # Latest version of Pachyderm
-pach_latest_version: '2.2.2'
+pach_latest_version: '2.2.3'
 pach_major_minor_version: '2.2'
 search_index_version: 'latest'
 # Latest tag of the JupyterLab Mount Extension
@@ -268,6 +268,7 @@ nav:
             - reference/pachctl/pachctl_auth_get_repo.md
             - reference/pachctl/pachctl_auth_login.md
             - reference/pachctl/pachctl_auth_logout.md
+            - reference/pachctl/pachctl_auth_revoke.md
             - reference/pachctl/pachctl_auth_roles-for-permission.md
             - reference/pachctl/pachctl_auth_rotate-root-token.md
             - reference/pachctl/pachctl_auth_set-config.md
