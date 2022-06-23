@@ -266,6 +266,7 @@ nav:
             - reference/pachctl/pachctl_auth_get_repo.md
             - reference/pachctl/pachctl_auth_login.md
             - reference/pachctl/pachctl_auth_logout.md
+            - reference/pachctl/pachctl_auth_revoke.md
             - reference/pachctl/pachctl_auth_roles-for-permission.md
             - reference/pachctl/pachctl_auth_rotate-root-token.md
             - reference/pachctl/pachctl_auth_set-config.md
