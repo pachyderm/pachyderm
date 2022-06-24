@@ -28,8 +28,8 @@ parameters:
 
 jobs:
   test-go:
-    docker:
-      - image: cimg/go:1.17
+    machine:
+      image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
     environment:
       TEST_RESULTS: /tmp/test-results
@@ -42,9 +42,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
+      - run: etc/testing/circle/install.sh
       - run: |-
           GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
           gotestsum \
