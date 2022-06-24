@@ -17,14 +17,14 @@ const (
 	configKey = 1
 )
 
-type apiServer struct {
+type IdentityServer struct {
 	env Env
 	api *dexAPI
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env Env, public bool) (identity.APIServer, func(context.Context) error) {
-	server := &apiServer{
+func NewIdentityServer(env Env, public bool) *IdentityServer {
+	server := &IdentityServer{
 		env: env,
 		api: newDexAPI(env.DexStorage),
 	}
@@ -38,10 +38,10 @@ func NewIdentityServer(env Env, public bool) (identity.APIServer, func(context.C
 		}()
 	}
 
-	return server, server.envBootstrap
+	return server
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) error {
+func (a *IdentityServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.IdentityConfig != "" {
 		a.env.Logger.Info("Started to configure identity server config via environment")
 		var config identity.IdentityServerConfig
@@ -88,14 +88,14 @@ func (a *apiServer) envBootstrap(ctx context.Context) error {
 	return nil
 }
 
-func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
+func (a *IdentityServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	if a.env.Config.IdentityConfig != "" {
 		return nil, errors.New("identity.SetIdentityServerConfig() is disable when the Identity Config is set via environment.")
 	}
 	return a.setIdentityServerConfig(ctx, req)
 }
 
-func (a *apiServer) setIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
+func (a *IdentityServer) setIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry, rotation_token_expiry) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3, rotation_token_expiry=$4`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry, req.Config.RotationTokenExpiry); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -103,7 +103,7 @@ func (a *apiServer) setIdentityServerConfig(ctx context.Context, req *identity.S
 	return &identity.SetIdentityServerConfigResponse{}, nil
 }
 
-func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
+func (a *IdentityServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
 	var config []*identity.IdentityServerConfig
 	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
 	if err != nil {
@@ -116,21 +116,21 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 	return &identity.GetIdentityServerConfigResponse{Config: config[0]}, nil
 }
 
-func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (*identity.CreateIDPConnectorResponse, error) {
+func (a *IdentityServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (*identity.CreateIDPConnectorResponse, error) {
 	if a.env.Config.IdentityConnectors != "" {
 		return nil, errors.New("identity.CreateIDPConnector() is disabled when the Identity Connectors are set via environment.")
 	}
 	return a.createIDPConnector(ctx, req)
 }
 
-func (a *apiServer) createIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
+func (a *IdentityServer) createIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (resp *identity.CreateIDPConnectorResponse, retErr error) {
 	if err := a.api.createConnector(req); err != nil {
 		return nil, err
 	}
 	return &identity.CreateIDPConnectorResponse{}, nil
 }
 
-func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
+func (a *IdentityServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPConnectorRequest) (resp *identity.GetIDPConnectorResponse, retErr error) {
 	c, err := a.api.getConnector(req.Id)
 	if err != nil {
 		return nil, err
@@ -141,14 +141,14 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 	}, nil
 }
 
-func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (*identity.UpdateIDPConnectorResponse, error) {
+func (a *IdentityServer) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (*identity.UpdateIDPConnectorResponse, error) {
 	if a.env.Config.IdentityConnectors != "" {
 		return nil, errors.New("identity.UpdateIDPConnector() is disabled when the Identity Connectors are set via environment.")
 	}
 	return a.updateIDPConnector(ctx, req)
 }
 
-func (a *apiServer) updateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (resp *identity.UpdateIDPConnectorResponse, retErr error) {
+func (a *IdentityServer) updateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (resp *identity.UpdateIDPConnectorResponse, retErr error) {
 	if err := a.api.updateConnector(req); err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (a *apiServer) updateIDPConnector(ctx context.Context, req *identity.Update
 	return &identity.UpdateIDPConnectorResponse{}, nil
 }
 
-func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
+func (a *IdentityServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDPConnectorsRequest) (resp *identity.ListIDPConnectorsResponse, retErr error) {
 	connectors, err := a.api.listConnectors()
 	if err != nil {
 		return nil, err
@@ -165,14 +165,14 @@ func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDP
 	return &identity.ListIDPConnectorsResponse{Connectors: connectors}, nil
 }
 
-func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (*identity.DeleteIDPConnectorResponse, error) {
+func (a *IdentityServer) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (*identity.DeleteIDPConnectorResponse, error) {
 	if a.env.Config.IdentityConnectors != "" {
 		return nil, errors.New("identity.DeleteIDPConnector() is disabled when the Identity Connectors are set via environment.")
 	}
 	return a.deleteIDPConnector(ctx, req)
 }
 
-func (a *apiServer) deleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (resp *identity.DeleteIDPConnectorResponse, retErr error) {
+func (a *IdentityServer) deleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (resp *identity.DeleteIDPConnectorResponse, retErr error) {
 	if err := a.api.deleteConnector(req.Id); err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (a *apiServer) deleteIDPConnector(ctx context.Context, req *identity.Delete
 	return &identity.DeleteIDPConnectorResponse{}, nil
 }
 
-func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (resp *identity.CreateOIDCClientResponse, retErr error) {
+func (a *IdentityServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOIDCClientRequest) (resp *identity.CreateOIDCClientResponse, retErr error) {
 	client, err := a.api.createClient(ctx, req)
 	if err != nil {
 		return nil, err
@@ -191,7 +191,7 @@ func (a *apiServer) CreateOIDCClient(ctx context.Context, req *identity.CreateOI
 	}, nil
 }
 
-func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOIDCClientRequest) (resp *identity.UpdateOIDCClientResponse, retErr error) {
+func (a *IdentityServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOIDCClientRequest) (resp *identity.UpdateOIDCClientResponse, retErr error) {
 	if err := a.api.updateClient(ctx, req); err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (a *apiServer) UpdateOIDCClient(ctx context.Context, req *identity.UpdateOI
 	return &identity.UpdateOIDCClientResponse{}, nil
 }
 
-func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
+func (a *IdentityServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClientRequest) (resp *identity.GetOIDCClientResponse, retErr error) {
 	client, err := a.api.getClient(req.Id)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (a *apiServer) GetOIDCClient(ctx context.Context, req *identity.GetOIDCClie
 	return &identity.GetOIDCClientResponse{Client: client}, nil
 }
 
-func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
+func (a *IdentityServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCClientsRequest) (resp *identity.ListOIDCClientsResponse, retErr error) {
 	clients, err := a.api.listClients()
 	if err != nil {
 		return nil, err
@@ -217,7 +217,7 @@ func (a *apiServer) ListOIDCClients(ctx context.Context, req *identity.ListOIDCC
 	return &identity.ListOIDCClientsResponse{Clients: clients}, nil
 }
 
-func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOIDCClientRequest) (resp *identity.DeleteOIDCClientResponse, retErr error) {
+func (a *IdentityServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOIDCClientRequest) (resp *identity.DeleteOIDCClientResponse, retErr error) {
 	if err := a.api.deleteClient(ctx, req.Id); err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 	return &identity.DeleteOIDCClientResponse{}, nil
 }
 
-func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
+func (a *IdentityServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
 	clients, err := a.api.listClients()
 	if err != nil {
 		return nil, err

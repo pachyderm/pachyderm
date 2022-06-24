@@ -158,7 +158,7 @@ func RunLocal() (retErr error) {
 		}
 
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, _ := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.Env{},
 				true,
 			)
@@ -211,7 +211,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, _, err := licenseserver.New(licenseserver.Env{})
+			licenseAPIServer, err := licenseserver.New(licenseserver.Env{})
 			if err != nil {
 				return err
 			}
@@ -293,7 +293,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer, _ := identity_server.NewIdentityServer(
+			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.Env{},
 				false,
 			)
