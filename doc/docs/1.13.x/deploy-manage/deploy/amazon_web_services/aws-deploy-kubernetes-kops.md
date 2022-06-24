@@ -14,7 +14,7 @@ Before you can deploy Pachyderm on Amazon AWS with
 - Install [AWS CLI](https://aws.amazon.com/cli/)
 - Install [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - Install [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
-- Install [pachctl](../../../../getting_started/local_installation/#install-pachctl)
+- Install [pachctl](../../../../getting-started/local-installation/#install-pachctl)
 - Install [jq](https://stedolan.github.io/jq/download/)
 - Install [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
 
@@ -28,7 +28,7 @@ AWS Management console to add an Identity and Access Management (IAM) user
 for `kops`.
 
 For more information about `kops`, see
-[kops AWS documentation](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md).
+[kops AWS documentation](https://github.com/kubernetes/kops/blob/master/docs/getting-started/aws.md).
 These instructions provide more details about configuring
 additional cluster parameters, such as enabling version control
 or encryption on your S3 bucket, and so on.
@@ -77,7 +77,7 @@ location on your computer.
    }
    ```
 
-1. Optionally, configure DNS as described in [Configure DNS](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md#configure-dns).
+1. Optionally, configure DNS as described in [Configure DNS](https://github.com/kubernetes/kops/blob/master/docs/getting-started/aws.md#configure-dns).
 In this example, a gossip-based cluster that ends with `k8s.local`
 is deployed.
 

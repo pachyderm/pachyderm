@@ -5,7 +5,7 @@ Often, production deploys of Pachyderm involve deploying Pachyderm to a non-defa
 * To deploy Pachyderm to a non-default namespace, 
 you need to add the `-n` or `--namespace` flag when deploying. 
     If the namespace does not already exist, 
-    you can have [Helm](../helm_install/) create it with `--create-namespace`.
+    you can have [Helm](../helm-install/) create it with `--create-namespace`.
 
 
     ```shell

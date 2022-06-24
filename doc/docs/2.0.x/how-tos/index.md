@@ -50,7 +50,7 @@ data operations in Pachyderm.
           Ingest/Export Strategies Overview
           </a>
           </li>
-          <li><a href="basic-data-operations/removing_data_from_pachyderm" class="md-typeset md-link">
+          <li><a href="basic-data-operations/removing-data-from-pachyderm" class="md-typeset md-link">
           Delete Data
           </a>
           </li>         
@@ -70,7 +70,7 @@ data operations in Pachyderm.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
+           <li><a href="../concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums" class="md-typeset md-link">
            Test datums
            </a>
            <li><a href="pipeline-operations/create-pipeline/" class="md-typeset md-link">
@@ -78,7 +78,7 @@ data operations in Pachyderm.
            </a>
            </li>
            </li>
-           <li><a href="pipeline-operations/updating_pipelines/" class="md-typeset md-link">
+           <li><a href="pipeline-operations/updating-pipelines/" class="md-typeset md-link">
            Update a Pipeline
            </a>
            </li>
@@ -105,7 +105,7 @@ data operations in Pachyderm.
            Create and Manage Secrets 
            </a>
            </li>
-           <li><a href="advanced-data-operations/time_windows" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/time-windows" class="md-typeset md-link">
            Processing Time-Windowed Data
            </a>
           </li>
@@ -114,7 +114,7 @@ data operations in Pachyderm.
            Use Transactions
            </a>
           </li>
-           <li><a href="advanced-data-operations/err_cmd" class="md-typeset md-link">
+           <li><a href="advanced-data-operations/err-cmd" class="md-typeset md-link">
            Skip Failed Datums
            </a>
           </li>

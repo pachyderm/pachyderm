@@ -21,7 +21,7 @@ The setup of an Enterprise Server requires to:
 Deploying and configuring an enterprise server can be done in one of two flavors:
 
 1. Provide all licensing and authentication configurations as a part of the Helm deployment.
-1. Or, [install a bare-bones version of Pachyderm with Helm](../../../../deploy-manage/deploy/helm_install/), then use `pachctl` commands to set up licensing and authentication.
+1. Or, [install a bare-bones version of Pachyderm with Helm](../../../../deploy-manage/deploy/helm-install/), then use `pachctl` commands to set up licensing and authentication.
 
 ### As Part Of A Regular Pachyderm Helm Deployment
 Update your values.yaml with your enterprise license key and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml){target=_blank}) or insert our minimal example below to your values.yaml.
@@ -147,7 +147,7 @@ Update your values.yaml with your enterprise license key and auth configurations
 	 - `ISSUER`, `CLIENT-ID`, `CLIENT-SECRET`: Refer to our [Identity Provider Configuration page](../../authentication/idp-dex/#create-a-connector-configuration-file).
 
 
-Check the [list of all available helm values](../../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+Check the [list of all available helm values](../../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 
 

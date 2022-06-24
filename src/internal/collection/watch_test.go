@@ -74,6 +74,7 @@ func (tester *ChannelWatchTester) nextEvent(timeout time.Duration) *watch.Event 
 }
 
 func (tester *ChannelWatchTester) Write(item *col.TestItem) {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return putItem(item)(rw)
 	})
@@ -81,6 +82,7 @@ func (tester *ChannelWatchTester) Write(item *col.TestItem) {
 }
 
 func (tester *ChannelWatchTester) Delete(id string) {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return errors.EnsureStack(rw.Delete(id))
 	})
@@ -88,6 +90,7 @@ func (tester *ChannelWatchTester) Delete(id string) {
 }
 
 func (tester *ChannelWatchTester) DeleteAll() {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return errors.EnsureStack(rw.DeleteAll())
 	})
@@ -99,6 +102,7 @@ func (tester *ChannelWatchTester) ExpectEvent(expected TestEvent) {
 }
 
 func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
+	tester.t.Helper()
 	actual := []TestEvent{}
 	for range expected {
 		ev := tester.nextEvent(5 * time.Second)
@@ -123,6 +127,7 @@ func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
 }
 
 func (tester *ChannelWatchTester) ExpectError(err error) {
+	tester.t.Helper()
 	ev := tester.nextEvent(5 * time.Second)
 	require.NotNil(tester.t, ev)
 	require.Equal(tester.t, TestEvent{watch.EventError, "", nil}, newTestEvent(tester.t, ev))
@@ -130,6 +135,7 @@ func (tester *ChannelWatchTester) ExpectError(err error) {
 }
 
 func (tester *ChannelWatchTester) ExpectNoEvents() {
+	tester.t.Helper()
 	require.Nil(tester.t, tester.nextEvent(100*time.Millisecond))
 }
 
@@ -207,6 +213,7 @@ func watchTests(
 		defer watcher.Close()
 
 		ev := nextEvent(watcher.Watch(), 5*time.Second)
+		require.NotNil(t, ev)
 		require.Equal(t, TestEvent{watch.EventError, "", nil}, newTestEvent(t, ev))
 		require.YesError(t, ev.Err)
 		require.True(t, errors.Is(ev.Err, context.Canceled))
@@ -230,6 +237,35 @@ func watchTests(
 			tester.ExpectNoEvents()
 			cancel()
 			tester.ExpectError(context.Canceled)
+			tester.ExpectNoEvents()
+		})
+
+		suite.Run("InterruptionDuringBackfill", func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reader, writer := newCollection(context.Background(), t)
+			for i := 0; i < 10; i++ {
+				writer(context.Background(), putItem(makeProto(makeID(i))))
+			}
+
+			watcher := makeWatcher(ctx, t, reader)
+			tester := NewWatchTester(t, writer, watcher)
+			cancel()
+			var canceled bool
+			for i := 0; i < 11; i++ {
+				// Consume events until we receive the cancellation event.  (Some
+				// events may have arrived before cancellation.)
+				ev := nextEvent(watcher.Watch(), time.Second)
+				require.NotNil(t, ev, "event %v should not be nil, since we haven't been canceled yet", i)
+				if ev.Err == nil {
+					continue
+				}
+				require.ErrorIs(t, ev.Err, context.Canceled)
+				canceled = true
+				break
+			}
+			require.True(t, canceled, "we should have gotten the cancellation event in the loop")
 			tester.ExpectNoEvents()
 		})
 

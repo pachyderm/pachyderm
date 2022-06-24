@@ -228,4 +228,4 @@ For example, delete the file `test.csv` in the `HEAD` of the `master` branch of 
      delete: s3://master.raw_data/test.csv
      ```
 !!! note "See Also:"
-    - [Complete S3 Gateway API reference](../../../../reference/s3gateway_api/)
+    - [Complete S3 Gateway API reference](../../../../reference/s3gateway-api/)

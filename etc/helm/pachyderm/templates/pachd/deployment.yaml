@@ -24,7 +24,7 @@ spec:
       annotations:
         checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
         {{- if .Values.pachd.annotations -}}
-        {{ toYaml .Values.pachd.annotations | nindent 4 }}
+        {{ toYaml .Values.pachd.annotations | nindent 8 }}
         {{- end }}
       labels:
         app: pachd
@@ -66,7 +66,7 @@ spec:
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
         {{- if .Values.global.postgresql.ssl }}
         - name: POSTGRES_SSL
-          value: {{ .Values.global.postgresql.ssl | quote }}
+          value: "require"
         {{- end }}
         - name: POSTGRES_PASSWORD
           valueFrom:
@@ -129,6 +129,8 @@ spec:
         - name: GOMAXPROCS # Needs to be PR'd to 2.0
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
+        - name: LOG_FORMAT
+          value: {{ .Values.pachd.logFormat }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
         - name: PACH_NAMESPACE
@@ -149,6 +151,14 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        {{- if .Values.pachd.storage.compactionShardSizeThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardSizeThreshold | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.compactionShardCountThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardCountThreshold | quote }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
@@ -156,6 +166,43 @@ spec:
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: TLS_CERT_SECRET_NAME
           value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
+        {{- end }}
+        {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
+              key: "enterprise-license-key"
+          {{- if (include "pachyderm.upstreamIDPsSecretName" .) }}
+        - name: IDP_CONNECTORS
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
+              key: "idps"
+        - name: IDP_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "identity-config"
+          {{- end }} 
+        {{- end }}
+        {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
+        - name: ENTERPRISE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
+              key: "enterprise-secret"
+        {{- end }}
+        {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}
+        - name: AUTH_ROOT_TOKEN
+          {{- if .Values.pachd.rootTokenSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.rootTokenSecretName | quote }}
+              key: "root-token"
+          {{- else }}
+          value: {{ .Values.pachd.rootToken | quote }}
+          {{- end }}
         {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
@@ -177,6 +224,12 @@ spec:
           value: {{ .Values.pachd.securityContext.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
+        - name: ENTERPRISE_MEMBER
+          value: {{ .Values.pachd.activateEnterpriseMember | quote }}
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        - name: IDENTITY_SERVER_DATABASE
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        {{ end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
@@ -227,6 +280,11 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+        {{- if .Values.oidc.dexCredentialSecretName }}
+        - mountPath: /dexcreds
+          name: dex-creds
+          readOnly: true
+        {{- end }}
       {{-  if .Values.pachd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
       {{- end }}
@@ -250,5 +308,11 @@ spec:
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
+      {{- if .Values.oidc.dexCredentialSecretName }}
+      - name: dex-creds
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.oidc.dexCredentialSecretName }}
       {{- end }}
 {{- end }}

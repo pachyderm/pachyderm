@@ -36,7 +36,7 @@ You can also create a combination of the above by aggregating multiple input.
 This section details the tools at your disposal to
 "break down" your data and fit your specific use case.
 ### PFS Input and Glob Pattern
-The most primitive input of a pipeline is a [**PFS input**](../../../reference/pipeline_spec/#pfs-input), defined, at a minimum, by:
+The most primitive input of a pipeline is a [**PFS input**](../../../reference/pipeline-spec/#pfs-input), defined, at a minimum, by:
 
 - a repo containing the data you want your pipeline to consider
 - a branch to watch for commits
@@ -75,7 +75,7 @@ aggregation methods, each configurable in the "input" section of the pipeline sp
 !!! Important
      Pipeline inputs, number of workers, parallelism parameters, and other
      performance knobs can all be configured through their
-     corresponding fields in the [pipeline specification](../../../reference/pipeline_spec.md).
+     corresponding fields in the [pipeline specification](../../../reference/pipeline-spec.md).
 
 To understand how datums affect data processing in Pachyderm, you need to
 understand the following subconcepts:

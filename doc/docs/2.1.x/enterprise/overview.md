@@ -11,7 +11,7 @@ Pachyderm Enterprise Edition helps you scale and manage Pachyderm data pipelines
 It delivers the most recent version of the Community Edition of Pachyderm along with additional features and a UI (Console) for visualizing pipelines and exploring data.
 
 !!! Warning "THE ENTERPRISE EDITION LIFTS **ALL SCALING LIMITATIONS**"
-     Note that the activation of the Enterprise Edition [**lifts all scaling limits of the Community Edition**](../../reference/scaling_limits/). You can run as many pipelines as you need and parallelize your jobs without constraints.
+     Note that the activation of the Enterprise Edition [**lifts all scaling limits of the Community Edition**](../../reference/scaling-limits/). You can run as many pipelines as you need and parallelize your jobs without constraints.
 
 
 ### Additional Features
@@ -26,15 +26,14 @@ Pachyderm Enterprise unlocks a series of additional administrative and security 
 
 Pachyderm Enterprise comes with a complementary tool that will quickly become indispensable when designing and debugging pipelines: **Pachyderm Console**, a visual interface for pipeline visualization and data exploration.
 
-Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  It automatically infers the structure of data scientists' DAGs and displays them visually. Data scientists and cluster admins can click on individual segments of pipelines and repos to see how many jobs have run, explore commits and data, or access Pachyderm logs. Console is an indispensable tool when designing and troubleshooting your data workflow.
+Pachyderm Enterprise Edition includes a full Web UI for visualizing pipelines and exploring data.  It automatically infers the structure of data scientists' DAGs and displays them visually. Data scientists and cluster admins can click on individual segments of pipelines and repos to see how many jobs have run, explore commits and data, or access Pachyderm logs. Console is an indispensable tool when designing and troubleshooting your data workflow.
 Console also supports file ingress from your local computer via a drag-and-drop file upload feature. 
 
 ![Console Pipeline](../images/console-pipeline.png)
 
-You can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/) by adding the relevant fields to your Helm values. A production environment requires setting up [Authentication, an Ingress Controller and a DNS](../../deploy-manage/deploy/ingress/). You can also choose to deploy Console [locally](../../deploy-manage/deploy/console/#deploy-locally) to experiment with the product or develop your pipelines.
+You can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/) by adding the relevant fields to your Helm values. A production environment requires setting up [Authentication, an Ingress Controller, and a DNS](../../deploy-manage/deploy/ingress/). You can also choose to deploy Console [locally](../../deploy-manage/deploy/console/#deploy-locally) to experiment with the product.
 
-!!! Note
-    Console is readily accessible on [Hub](https://hub.pachyderm.com/){target=_blank}.
+
 
 
 

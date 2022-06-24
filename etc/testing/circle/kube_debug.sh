@@ -28,8 +28,15 @@ cmds=(
   'kubectl describe pod -l suite=pachyderm,app=etcd'
   'curl -s http://$(minikube ip):30656/metrics'
   # Set --tail b/c by default 'kubectl logs' only outputs 10 lines if -l is set
-  'kubectl logs --tail=1500 -l suite=pachyderm,app=pachd'
-  'kubectl logs --tail=1500 -l suite=pachyderm,app=pachd --previous # if pachd restarted'
+  'kubectl logs --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  'kubectl logs --namespace=test-cluster-1 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  'kubectl logs --namespace=test-cluster-2 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  'kubectl logs --namespace=test-cluster-3 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  'kubectl logs --namespace=test-cluster-4 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  'kubectl logs --namespace=test-cluster-5 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  'kubectl logs --namespace=test-cluster-6 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
+  # if pachd restarted
+  'kubectl logs --tail=1500 -l suite=pachyderm,app=pachd --previous --prefix=true'
   'sudo dmesg | tail -n 40'
   'minikube logs | tail -n 100'
   'top -b -n 1 | head -n 40'

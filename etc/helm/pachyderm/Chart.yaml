@@ -32,7 +32,7 @@ appVersion: 2.1.0
 
 kubeVersion: ">= 1.16.0-0"
 
-icon: https://www.pachyderm.com/favicons/favicon-32x32.png
+icon: https://www.pachyderm.com/wp-content/themes/pachyderm/dist/img/favicons/favicon-32x32.png
 
 annotations:
   artifacthub.io/prerelease: "false" # NOTE: update prior to releasing
@@ -52,15 +52,15 @@ sources:
   - https://github.com/pachyderm/pachyderm
   - https://github.com/pachyderm/helmchart
 
-# Note this chart has one diverged change: 
+# Note this chart has one diverged change:
 # Adding a label variable to the volumeClaimTemplate in the Postgres Stateful set
 # TODO: Upstream this change
 dependencies:
 - name: postgresql
   version: "10.8.0"
-  repository: "file://../charts/postgresql"
+  repository: "file://./dependencies/postgresql"
   condition: postgresql.enabled
 - name: loki-stack
-  version: "2.5.1"
+  version: "2.6.4"
   repository: "https://grafana.github.io/helm-charts"
   condition: pachd.lokiDeploy

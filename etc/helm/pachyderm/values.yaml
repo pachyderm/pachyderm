@@ -25,8 +25,15 @@ global:
     postgresqlHost: "postgres"
     # The postgresql database port to connect to. Defaults to postgres server in subchart
     postgresqlPort: "5432"
-    # postgresqlSSL is the SSL mode to use for connecting to Postgres, for the default local postgres it is disabled
+    # postgresqlSSL is the SSL mode to use for pg-bouncer connecting to Postgres, for the default local postgres it is disabled
     postgresqlSSL: "disable"
+    # CA Certificate required to connect to Postgres
+    postgresqlSSLCACert: ""
+    # TLS Secret with cert/key to connect to Postgres
+    postgresqlSSLSecret: ""
+    # Indicates the DB name that dex connects to
+    # Indicates the DB name that dex connects to. Defaults to "Dex" if not set.
+    identityDatabaseFullNameOverride: ""
   # imagePullSecrets allow you to pull images from private repositories, these will also be added to pipeline workers
   # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
   # Example:
@@ -35,14 +42,15 @@ global:
   imagePullSecrets: []
   # when set, the certificate file in pachd-tls-cert will be loaded as the root certificate for pachd, console, and enterprise-server pods
   customCaCerts: false
-  # Sets the HTTP/S proxy server address for console, pachd, and enteprise server
+  # Sets the HTTP/S proxy server address for console, pachd, and enterprise server.  (This is for
+  # traffic leaving the cluster, not traffic coming into the cluster.)
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
 
 console:
   # enabled controls whether the console manifests are created or not.
-  enabled: false
+  enabled: true
   annotations: {}
   image:
     # repository is the image repo to pull from; together with tag it
@@ -58,7 +66,8 @@ console:
   # podLabels specifies labels to add to the console pod.
   podLabels: {}
   # resources specifies the resource request and limits.
-  resources: {}
+  resources:
+    {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -76,7 +85,6 @@ console:
     graphqlPort: 4000
     pachdAddress: "pachd-peer:30653"
     disableTelemetry: false # Disables analytics and error data collection
-
 
   service:
     annotations: {}
@@ -102,7 +110,8 @@ etcd:
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
   # resources specifies the resource request and limits
-  resources: {}
+  resources:
+    {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -157,7 +166,8 @@ enterpriseServer:
       create: false
       crt: ""
       key: ""
-  resources: {}
+  resources:
+    {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -197,14 +207,70 @@ loki-stack:
     persistence:
       enabled: true
       accessModes:
-      - ReadWriteOnce
-      size: 5Gi
+        - ReadWriteOnce
+      size: 10Gi
       storageClassName: standard
       annotations: {}
       nodeSelector: {}
       tolerations: []
+    config:
+      limits_config:
+        retention_period: 24h
+        retention_stream:
+          - selector: '{suite="pachyderm"}'
+            priority: 1
+            period: 168h # = 1 week
   grafana:
     enabled: false
+  promtail:
+    config:
+      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
+      snippets:
+        common:
+          # This is copy and paste of existing actions, so we don't lose them.
+          # Cf. https://github.com/grafana/loki/issues/3519#issuecomment-1125998705
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_node_name
+            target_label: node_name
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - action: replace
+            replacement: $1
+            separator: /
+            source_labels:
+              - namespace
+              - app
+            target_label: job
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_container_name
+            target_label: container
+          - action: replace
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+          - action: replace
+            regex: true/(.*)
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_annotationpresent_kubernetes_io_config_hash
+              - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+          # this gets all kubernetes labels as well
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
 
 pachd:
   enabled: true
@@ -222,7 +288,10 @@ pachd:
     # tag defaults to the chart’s specified appVersion.
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
+  logFormat: "json"
   logLevel: "info"
+  # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
+  # be deployed.
   lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
@@ -237,7 +306,8 @@ pachd:
   # resources specifies the resource requests and limits
   # replicas sets the number of pachd running pods
   replicas: 1
-  resources: {}
+  resources:
+    {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
@@ -245,7 +315,7 @@ pachd:
     #  cpu: "1"
     #  memory: "2G"
   securityContext:
-      enabled: true
+    enabled: true
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
@@ -441,8 +511,13 @@ pachd:
     # object storage uploads per Pachd instance.  It is analogous to
     # the --upload-concurrency-limit argument to pachctl deploy.
     uploadConcurrencyLimit: 100
+    # The shard size corresponds to the total size of the files in a shard.
+    # The shard count corresponds to the total number of files in a shard.
+    # If either criteria is met, a shard will be created.
+    compactionShardSizeThreshold: 0
+    compactionShardCountThreshold: 0
   ppsWorkerGRPCPort: 1080
-  # the number of seconds between pfs's garbage collection cycles. 
+  # the number of seconds between pfs's garbage collection cycles.
   # if this value is set to 0, it will default to pachyderm's internal configuration.
   # if this value is less than 0, it will turn off garbage collection.
   storageGCPeriod: 0
@@ -485,14 +560,18 @@ pgbouncer:
   annotations: {}
   nodeSelector: {}
   tolerations: []
-  resources: {}
+  resources:
+    {}
     #limits:
     #  cpu: "1"
     #  memory: "2G"
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+  # maxConnections specifies the maximum number of concurrent connections into pgbouncer.
   maxConnections: 1000
+  # defaultPoolSize specifies the maximum number of concurrent connections from pgbouncer to the postgresql database.
+  defaultPoolSize: 20
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
@@ -504,6 +583,7 @@ postgresql:
   enabled: true
   image:
     tag: "13.3.0"
+  # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
     dex.sh: |
       #!/bin/bash
@@ -557,15 +637,15 @@ cloudsqlAuthProxy:
   podLabels: {}
   # resources specifies the resource request and limits.
   resources: {}
-  # requests:
-    #   The proxy's memory use scales linearly with the number of active
-    #   connections. Fewer open connections will use less memory. Adjust
-    #   this value based on your application's requirements.
-    # memory: ""
-    #   The proxy's CPU use scales linearly with the amount of IO between
-    #   the database and the application. Adjust this value based on your
-    #   application's requirements.
-    # cpu: ""
+  #  requests:
+  #    # The proxy's memory use scales linearly with the number of active
+  #    # connections. Fewer open connections will use less memory. Adjust
+  #    # this value based on your application's requirements.
+  #    memory: ""
+  #    # The proxy's CPU use scales linearly with the amount of IO between
+  #    # the database and the application. Adjust this value based on your
+  #    # application's requirements.
+  #    cpu: ""
   service:
     # labels specifies labels to add to the cloudsql auth proxy service.
     labels: {}
@@ -575,8 +655,10 @@ cloudsqlAuthProxy:
 oidc:
   issuerURI: "" #Inferred if running locally or using ingress
   requireVerifiedEmail: false
+  # IDTokenExpiry is parsed into golang's time.Duration: https://pkg.go.dev/time#example-ParseDuration
   IDTokenExpiry: 24h
   # (Optional) If set, enables OIDC rotation tokens, and specifies the duration where they are valid.
+  # RotationTokenExpiry is parsed into golang's time.Duration: https://pkg.go.dev/time#example-ParseDuration
   RotationTokenExpiry: 48h
   # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   userAccessibleOauthIssuerHost: ""
@@ -617,5 +699,87 @@ oidc:
   # upstreamIDPsSecretName is used to pass the upstreamIDPs value via an existing k8s secret.
   # The value is pulled from the secret key, "upstream-idps".
   upstreamIDPsSecretName: ""
+  # Some dex configurations (like Google) require a credential file. Whatever secret is included in this
+  # below secret will be mounted to the pachd pod at /dexcreds/ so for example serviceAccountFilePath: /dexcreds/googleAuth.json
+  dexCredentialSecretName: ""
   mockIDP: true
   #TODO scopes:
+
+# The proxy is a service to handle all Pachyderm traffic (S3, Console, OIDC, Dex, GRPC) on a single
+# port; good for exposing directly to the Internet.
+proxy:
+  # If enabled, create a proxy deployment (based on the Envoy proxy) and a service to expose it.  If
+  # ingress is also enabled, any Ingress traffic will be routed through the proxy before being sent
+  # to pachd or Console.
+  enabled: false
+  # The number of proxy replicas to run.  1 should be fine, but if you want more for higher
+  # availability, that's perfectly reasonable.  Each replica can handle 50,000 concurrent
+  # connections.  There is an affinity rule to prefer scheduling the proxy pods on the same node as
+  # pachd, so a number here that matches the number of pachd replicas is a fine configuration.
+  # (Note that we don't guarantee to keep the proxy<->pachd traffic on-node or even in-region.)
+  replicas: 1
+  # The envoy image to pull.
+  image:
+    repository: "envoyproxy/envoy"
+    tag: "v1.22.0"
+    pullPolicy: "IfNotPresent"
+  # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
+  # a resonable memory limit.  It doesn't need much CPU.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 512Mi
+  # Any additional labels to add to the pods.  These are also added to the deployment and service
+  # selectors.
+  labels: {}
+  # Any additional annotations to add to the pods.
+  annotations: {}
+  # Configure the service that routes traffic to the proxy.
+  service:
+    # The type of service can be ClusterIP, NodePort, or LoadBalancer.
+    type: ClusterIP
+    # If the service is a LoadBalancer, you can specify the IP address to use.
+    loadBalancerIP: ""
+    # The port to serve plain HTTP traffic on.
+    httpPort: 80
+    # The port to serve HTTPS traffic on, if enabled below.
+    httpsPort: 443
+    # If the service is a NodePort, you can specify the port to receive HTTP traffic on.
+    httpNodePort: 30080
+    httpsNodePort: 30443
+    # Any additional annotations to add.
+    annotations: {}
+    # Any additional labels to add to the service itself (not the selector!).
+    labels: {}
+    # The proxy can also serve each backend service on a numbered port, and will do so for any port
+    # not numbered 0 here.  If this service is of type NodePort, the port numbers here will be used
+    # for the node port, and will need to be in the node port range.
+    legacyPorts:
+      console: 0 # legacy 30080, conflicts with default httpNodePort
+      grpc: 0 # legacy 30650
+      s3Gateway: 0 # legacy 30600
+      oidc: 0 # legacy 30657
+      identity: 0 # legacy 30658
+      metrics: 0 # legacy 30656
+  # Configuration for TLS (SSL, HTTPS).
+  tls:
+    # If true, enable TLS serving.  Enabling TLS is incompatible with support for legacy ports (you
+    # can't get a generally-trusted certificate for port numbers), and disables support for
+    # cleartext communication (cleartext requests will redirect to the secure server, and HSTS
+    # headers are set to prevent downgrade attacks).
+    #
+    # Note that if you are planning on putting the proxy behind an ingress controller, you probably
+    # want to configure TLS for the ingress controller, not the proxy.  This is intended for the
+    # case where the proxy is exposed directly to the Internet.  (It is possible to have your
+    # ingress controller talk to the proxy over TLS, in which case, it's fine to enable TLS here in
+    # addition to in the ingress section above.)
+    enabled: false
+    # The secret containing "tls.key" and "tls.crt" keys that contain PEM-encoded private key and
+    # certificate material.  Generate one with "kubectl create secret tls <name> --key=tls.key
+    # --cert=tls.cert".  This format is compatible with the secrets produced by cert-manager, and
+    # the proxy will pick up new data when cert-manager rotates the certificate.
+    secretName: ""
+    # If set, generate the secret from values here.  This is intended only for unit tests.
+    secret: {}

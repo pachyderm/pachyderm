@@ -3,6 +3,7 @@ package server
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -32,8 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
-
-	"golang.org/x/net/context"
 )
 
 // apiServer implements the public interface of the Pachyderm File System,
@@ -892,4 +892,27 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 	default:
 		return nil, errors.Errorf("first message must be a commit")
 	}
+}
+
+func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
+	if err != nil {
+		return nil, err
+	}
+	switch target := req.Target.(type) {
+	case *pfs.EgressRequest_ObjectStorage:
+		result, err := copyToObjectStorage(ctx, src, target.ObjectStorage.Url)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_ObjectStorage{ObjectStorage: result}}, nil
+
+	case *pfs.EgressRequest_SqlDatabase:
+		result, err := copyToSQLDB(ctx, src, target.SqlDatabase.Url, target.SqlDatabase.FileFormat)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		return &pfs.EgressResponse{Result: &pfs.EgressResponse_SqlDatabase{SqlDatabase: result}}, nil
+	}
+	return nil, errors.Errorf("egress failed")
 }

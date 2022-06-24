@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
 
 	units "github.com/docker/go-units"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -44,25 +46,13 @@ func writeFileSet(t *testing.T, s *Storage, files []*testFile) ID {
 }
 
 func checkFile(t *testing.T, f File, tf *testFile) {
-	r, w := io.Pipe()
-	eg := errgroup.Group{}
-	eg.Go(func() error {
+	require.NoError(t, miscutil.WithPipe(func(w io.Writer) error {
 		return errors.EnsureStack(f.Content(context.Background(), w))
-	})
-	eg.Go(func() (retErr error) {
-		defer func() {
-			if retErr != nil {
-				r.CloseWithError(retErr)
-			}
-		}()
+	}, func(r io.Reader) error {
 		actual := make([]byte, len(tf.data))
 		_, err := io.ReadFull(r, actual)
-		if err != nil && err != io.EOF {
-			return errors.EnsureStack(err)
-		}
-		return errors.EnsureStack(r.Close())
-	})
-	require.NoError(t, eg.Wait())
+		return errors.EnsureStack(err)
+	}))
 }
 
 // newTestStorage creates a storage object with a test db and test tracker
@@ -81,8 +71,12 @@ func TestWriteThenRead(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
+		var datums []string
 		for _, datumInt := range random.Perm(maxDatums) {
-			datum := fmt.Sprintf("%08x", datumInt)
+			datums = append(datums, fmt.Sprintf("%08x", datumInt))
+		}
+		sort.Strings(datums)
+		for _, datum := range datums {
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path:  "/" + fileName,
@@ -116,8 +110,12 @@ func TestWriteThenReadFuzz(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
+		var datums []string
 		for _, datumInt := range random.Perm(maxDatums) {
-			datum := fmt.Sprintf("%08x", datumInt)
+			datums = append(datums, fmt.Sprintf("%08x", datumInt))
+		}
+		sort.Strings(datums)
+		for _, datum := range datums {
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path:  "/" + fileName,
@@ -159,8 +157,12 @@ func TestCopy(t *testing.T) {
 	fileNames := index.Generate("abc")
 	files := []*testFile{}
 	for _, fileName := range fileNames {
+		var datums []string
 		for _, datumInt := range random.Perm(maxDatums) {
-			datum := fmt.Sprintf("%08x", datumInt)
+			datums = append(datums, fmt.Sprintf("%08x", datumInt))
+		}
+		sort.Strings(datums)
+		for _, datum := range datums {
 			data := randutil.Bytes(random, random.Intn(max))
 			files = append(files, &testFile{
 				path:  "/" + fileName,
@@ -199,13 +201,73 @@ func countChunks(t *testing.T, s *Storage) (count int64) {
 	return count
 }
 
+// This test ensures that future changes do not affect the stable hashes of files since that would be a breaking change.
 func TestStableHash(t *testing.T) {
-	ctx := context.Background()
-	storage := newTestStorage(t)
+	type testData struct {
+		seed     int64
+		expected []string
+	}
+	tds := []*testData{
+		&testData{
+			seed: 1648577872380609229,
+			expected: []string{
+				"27e12145099615b6bf0364a4472452dfe0e8105e6d58d7fbc5d0c038c7a50736",
+				"5672e6f3e1841f3f1e284c2d4b7c12dc213ffc88878c9d3e2302be8acd0198ef",
+			},
+		},
+		&testData{
+			seed: 1648742949150704545,
+			expected: []string{
+				"020e7fda5b3d81b000918ac4fa808a6569fc01000d15322247206aeeea1761a2",
+				"d1842da7cfdc60c4a63c8ab58bd8eee4fa765a270743f3aa36ece6cbef786423",
+			},
+		},
+		&testData{
+			seed: 1648742961991348032,
+			expected: []string{
+				"8a801a53ba2933cccea69fdb61eb3aa04b2019eea541aa848c6b42ef4c7262d5",
+				"d578bcae30c790722048f7d698a6279049012a42b339e802da07bca269831b30",
+			},
+		},
+		&testData{
+			seed: 1648742974827637769,
+			expected: []string{
+				"70e7271fc45251fcf788175df481ab6fd090f37860fcdc63b9f25c26834adf52",
+				"b480bf9cffce51b52615a59dc254647145c6376551cf864d2eb87c63bd11344d",
+			},
+		},
+		&testData{
+			seed: 1648742988445537518,
+			expected: []string{
+				"ca46ed3b9bc6a9b090d94a71d4d308ca05580ab467681cdb236b097206feba5a",
+				"79d4bc9c45b07aecaf19b0fe3cea273b059d70c23dabbe3f9d575c1051dddd44",
+			},
+		},
+	}
+	for _, td := range tds {
+		msg := fmt.Sprint("seed: ", strconv.FormatInt(td.seed, 10))
+		output, err := pachhash.ParseHex([]byte(td.expected[0]))
+		require.NoError(t, err)
+		random := rand.New(rand.NewSource(td.seed))
+		testStableHash(t, randutil.Bytes(random, 100*units.KB), output[:], msg)
+		output, err = pachhash.ParseHex([]byte(td.expected[1]))
+		require.NoError(t, err)
+		random = rand.New(rand.NewSource(td.seed))
+		testStableHash(t, randutil.Bytes(random, 100*units.MB), output[:], msg)
+	}
+}
+
+func TestStableHashFuzz(t *testing.T) {
 	seed := time.Now().UTC().UnixNano()
 	msg := fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 	random := rand.New(rand.NewSource(seed))
-	data := randutil.Bytes(random, 100*units.MB)
+	testStableHash(t, randutil.Bytes(random, 100*units.KB), nil, msg)
+	testStableHash(t, randutil.Bytes(random, 100*units.MB), nil, msg)
+}
+
+func testStableHash(t *testing.T, data, expected []byte, msg string) {
+	ctx := context.Background()
+	storage := newTestStorage(t)
 	var ids []ID
 	write := func(data []byte) {
 		w := storage.NewWriter(ctx)
@@ -237,6 +299,9 @@ func TestStableHash(t *testing.T) {
 	// Compute hash after writing to one writer.
 	write(data)
 	stableHash := getHash()
+	if expected != nil {
+		require.True(t, bytes.Equal(expected, stableHash))
+	}
 	// Compute hash after writing to two writers.
 	ids = nil
 	size := len(data) / 2

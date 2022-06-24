@@ -26,18 +26,20 @@ import (
 )
 
 func main() {
-	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
-
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
 }
 
 func do(config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
-	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+
+	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
 
 	// Enable cloud profilers if the configuration allows.
 	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
@@ -70,7 +72,7 @@ func do(config interface{}) error {
 
 	workerserver.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient))
+	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
 
 	// Put our IP address into etcd, so pachd can discover us
 	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)

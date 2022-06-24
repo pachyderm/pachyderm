@@ -1,7 +1,7 @@
 # Commit
 
 !!! Note "Attention"
-         Note that Pachyderm uses the term `commit` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID) for more details) and commits that occur on the given branch of a repository. The following page details the latter. 
+         Note that Pachyderm uses the term `commit` at two different levels. A global level (check [GlobalID](../../advanced-concepts/globalID){target=_blank} for more details) and commits that occur on the given branch of a repository. The following page details the latter. 
 
 ## Definition
 
@@ -131,7 +131,7 @@ Pachyderm displays the information about the HEAD of the branch.
 
 ## Squash And Delete Commit
 
-See [`squash commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
+See [`squash commit`](../../../how-tos/basic-data-operations/removing-data-from-pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing-data-from-pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
 
 
 

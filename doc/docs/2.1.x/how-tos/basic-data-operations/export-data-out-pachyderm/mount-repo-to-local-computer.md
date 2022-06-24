@@ -85,7 +85,7 @@ repository.
 !!! Warning
     Your changes are saved to the Pachyderm repository only **after you interrupt the `pachctl mount` with  `CTRL+C`** or with `pachctl unmount`, `unmount /<path-to-mount>`, or `fusermount -u /<path-to-mount>`.
 
-For example, you have the [OpenCV example pipeline](../../../../getting_started/beginner_tutorial/#image-processing-with-opencv)
+For example, you have the [OpenCV example pipeline](../../../../getting-started/beginner-tutorial/#image-processing-with-opencv)
 up and running. If you want to edit files in the `images`
 repository, experiment with brightness and contrast
 settings in `liberty.png`, and finally have your `edges`

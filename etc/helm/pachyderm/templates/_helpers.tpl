@@ -37,7 +37,7 @@ imagePullSecrets:
 {{- end -}}
 
 {{- define "pachyderm.ingressproto" -}}
-{{- if or .Values.ingress.tls.enabled .Values.ingress.uriHttpsProtoOverride -}}
+{{- if or .Values.ingress.tls.enabled .Values.proxy.tls.enabled .Values.ingress.uriHttpsProtoOverride -}}
 https
 {{- else -}}
 http
@@ -46,9 +46,14 @@ http
 
 {{- define "pachyderm.issuerURI" -}}
 {{- if .Values.oidc.issuerURI -}}
+{{- if and .Values.proxy.enabled (not (hasSuffix "/dex" .Values.oidc.issuerURI)) -}}
+{{ fail (printf "With the proxy enabled, oidc.issuerURI must end with /dex, not %s" .Values.oidc.issuerURI) }}
+{{- end -}}
 {{ .Values.oidc.issuerURI }}
 {{- else if .Values.ingress.host -}}
 {{- printf "%s://%s/dex" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- else if .Values.proxy.enabled -}}
+http://pachd:30658/dex
 {{- else if not .Values.ingress.enabled -}}
 {{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658
@@ -61,7 +66,7 @@ http://pachd:30658
 {{- end }}
 
 {{- /*
-reactAppRuntimeIssuerURI: The URI without the path of the user accessible issuerURI. 
+reactAppRuntimeIssuerURI: The URI without the path of the user accessible issuerURI.
 ie. In local deployments, this is http://localhost:30658, while the issuer URI is http://pachd:30658
 In deployments where the issuerURI is user accessible (ie. Via ingress) this would be the issuerURI without the path
 */ -}}
@@ -130,14 +135,38 @@ localhost:30658
 {{- end }}
 
 {{- define "pachyderm.idps" -}}
-{{- if .Values.oidc.upstreamIDPs }}
-{{ toYaml .Values.oidc.upstreamIDPs | indent 4 }}
-{{- else if .Values.oidc.mockIDP }}
-    - id: test
-      name: test
-      type: mockPassword
-      jsonConfig: '{"username": "admin", "password": "password"}'
+{{- if .Values.oidc.upstreamIDPs -}}
+{{ toYaml .Values.oidc.upstreamIDPs }}
+{{- else if .Values.oidc.mockIDP -}}
+- id: test
+  name: test
+  type: mockPassword
+  jsonConfig: '{"username": "admin", "password": "password"}'
 {{- else }}
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.enterpriseLicenseKeySecretName" -}}
+{{- if .Values.pachd.enterpriseLicenseKeySecretName }}
+{{ .Values.pachd.enterpriseLicenseKeySecretName }}
+{{- else if .Values.pachd.enterpriseLicenseKey }}
+pachyderm-license
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.enterpriseSecretSecretName" -}}
+{{- if .Values.pachd.enterpriseSecretSecretName }}
+{{ .Values.pachd.enterpriseSecretSecretName }}
+{{- else if or .Values.pachd.enterpriseSecret (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
+pachyderm-enterprise
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.upstreamIDPsSecretName" -}}
+{{- if .Values.oidc.upstreamIDPsSecretName }}
+{{ .Values.oidc.upstreamIDPsSecretName }}
+{{- else if or .Values.oidc.upstreamIDPs .Values.oidc.mockIDP }}
+pachyderm-identity
 {{- end }}
 {{- end }}

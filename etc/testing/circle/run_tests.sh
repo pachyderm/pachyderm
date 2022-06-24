@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -exo pipefail
 
 # shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh"
@@ -70,6 +70,7 @@ case "${BUCKET}" in
     make test-transaction
     make test-s3gateway-unit
     make test-worker
+    bash -ceo pipefail "go test -p 1 -count 1 ./src/server/debug/... ${TESTFLAGS}"
     # these tests require secure env vars to run, which aren't available
     # when the PR is coming from an outside contributor - so we just
     # disable them
@@ -87,18 +88,19 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-fuse
     ;;
+  PPS_AUTH)
+    export PACH_TEST_WITH_AUTH=1
+    go test -count=1 ./src/server/pps/server -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
+    ;;
   PPS?)
-    make docker-build-kafka
+    # make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
-    if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      export PACH_TEST_WITH_AUTH=1
-      go test -v -count=1 ./src/server/pps/server -timeout 420s
-    fi
     ;;
   AUTH)
     make test-identity
     make test-auth
+    make test-admin
     ;;
   ENTERPRISE)
     make test-license

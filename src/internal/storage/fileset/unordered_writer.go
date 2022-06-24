@@ -2,11 +2,13 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -16,6 +18,7 @@ type UnorderedWriter struct {
 	ctx                        context.Context
 	storage                    *Storage
 	memAvailable, memThreshold int64
+	fileThreshold              int64
 	buffer                     *Buffer
 	subFileSet                 int64
 	ttl                        time.Duration
@@ -26,7 +29,7 @@ type UnorderedWriter struct {
 	maxFanIn                   int
 }
 
-func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
+func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold, fileThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
 	if err := storage.filesetSem.Acquire(ctx, 1); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -34,12 +37,13 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold int6
 	// The other half will be for buffering in the chunk writer.
 	memThreshold /= 2
 	uw := &UnorderedWriter{
-		ctx:          ctx,
-		storage:      storage,
-		memAvailable: memThreshold,
-		memThreshold: memThreshold,
-		buffer:       NewBuffer(),
-		maxFanIn:     math.MaxInt32,
+		ctx:           ctx,
+		storage:       storage,
+		fileThreshold: fileThreshold,
+		memAvailable:  memThreshold,
+		memThreshold:  memThreshold,
+		buffer:        NewBuffer(),
+		maxFanIn:      math.MaxInt32,
 	}
 	for _, opt := range opts {
 		opt(uw)
@@ -63,7 +67,7 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 		uw.memAvailable -= n
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return nil
+				break
 			}
 			return errors.EnsureStack(err)
 		}
@@ -74,6 +78,10 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 			w = uw.buffer.Add(p, datum)
 		}
 	}
+	if int64(uw.buffer.Count()) >= uw.fileThreshold {
+		return uw.serialize()
+	}
+	return nil
 }
 
 func (uw *UnorderedWriter) validate(p string) error {
@@ -89,14 +97,18 @@ func (uw *UnorderedWriter) serialize() error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return uw.withWriter(func(w *Writer) error {
-		if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
-			return w.Add(path, datum, r)
-		}); err != nil {
-			return err
-		}
-		return uw.buffer.WalkDeletive(func(path, datum string) error {
-			return w.Delete(path, datum)
+	return miscutil.LogStep("UnorderedWriter.serialize", func() error {
+		return uw.withWriter(func(w *Writer) error {
+			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
+				return w.Add(path, datum, r)
+			}, func(f File, datum string) error {
+				return w.Copy(f, datum)
+			}); err != nil {
+				return err
+			}
+			return uw.buffer.WalkDeletive(func(path, datum string) error {
+				return w.Delete(path, datum)
+			})
 		})
 	})
 }
@@ -157,27 +169,26 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
+	if int64(uw.buffer.Count()) >= uw.fileThreshold {
+		return uw.serialize()
+	}
 	return nil
 }
 
 func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
-	if err := uw.serialize(); err != nil {
-		return err
-	}
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
-	return uw.withWriter(func(w *Writer) error {
-		err := fs.Iterate(ctx, func(f File) error {
-			if !appendFile {
-				if err := w.Delete(f.Index().Path, datum); err != nil {
-					return err
-				}
-			}
-			return w.Copy(f, datum)
-		})
-		return errors.EnsureStack(err)
-	})
+	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
+		if !appendFile {
+			uw.buffer.Delete(f.Index().Path, datum)
+		}
+		uw.buffer.Copy(f, datum)
+		if int64(uw.buffer.Count()) >= uw.fileThreshold {
+			return uw.serialize()
+		}
+		return nil
+	}))
 }
 
 // Close closes the writer.
@@ -186,7 +197,9 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 	if err := uw.serialize(); err != nil {
 		return nil, err
 	}
-	if err := uw.compact(); err != nil {
+	if err := miscutil.LogStep(fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
+		return uw.compact()
+	}); err != nil {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{

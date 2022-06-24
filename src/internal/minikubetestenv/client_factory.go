@@ -2,8 +2,12 @@ package minikubetestenv
 
 import (
 	"context"
+	"crypto/x509"
 	"flag"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -24,30 +28,91 @@ var (
 	setup               sync.Once
 	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
+	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
 )
+
+type acquireSettings struct {
+	WaitForLoki      bool
+	TLS              bool
+	EnterpriseMember bool
+	CertPool         *x509.CertPool
+	ValueOverrides   map[string]string
+}
+
+type Option func(*acquireSettings)
+
+var WaitForLokiOption Option = func(as *acquireSettings) {
+	as.WaitForLoki = true
+}
+
+var WithTLS Option = func(as *acquireSettings) {
+	as.TLS = true
+}
+
+func WithCertPool(pool *x509.CertPool) Option {
+	return func(as *acquireSettings) {
+		as.CertPool = pool
+	}
+}
+
+func WithValueOverrides(v map[string]string) Option {
+	return func(as *acquireSettings) {
+		as.ValueOverrides = v
+	}
+}
+
+var EnterpriseMemberOption Option = func(as *acquireSettings) {
+	as.EnterpriseMember = true
+}
+
+type managedCluster struct {
+	client   *client.APIClient
+	settings *acquireSettings
+}
 
 type ClusterFactory struct {
 	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
-	managedClusters   map[string]*client.APIClient
+	managedClusters   map[string]*managedCluster
 	availableClusters map[string]struct{}
 	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
 	sem               semaphore.Weighted // enforces max concurrency
 }
 
-func (cf *ClusterFactory) assignClient(assigned string, c *client.APIClient) {
+func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 	cf.mu.Lock()
 	defer cf.mu.Unlock()
-	cf.managedClusters[assigned] = c
+	cf.managedClusters[assigned] = mc
+}
+
+func clusterIdx(t testing.TB, name string) int {
+	s := strings.Split(name, "-")
+	r, err := strconv.Atoi(s[len(s)-1])
+	require.NoError(t, err)
+	return r
+}
+
+func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
+	return &DeployOpts{
+		PortOffset:         uint16(clusterIdx * 10),
+		UseLeftoverCluster: *useLeftoverClusters,
+		Loki:               as.WaitForLoki,
+		TLS:                as.TLS,
+		CertPool:           as.CertPool,
+		ValueOverrides:     as.ValueOverrides,
+	}
 }
 
 func deleteAll(t testing.TB, c *client.APIClient) {
+	if c == nil {
+		return
+	}
 	tok := c.AuthToken()
 	c.SetAuthToken(testutil.RootToken)
 	require.NoError(t, c.DeleteAll())
 	c.SetAuthToken(tok)
 }
 
-func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
+func (cf *ClusterFactory) acquireFreeCluster() (string, *managedCluster) {
 	cf.mu.Lock()
 	defer cf.mu.Unlock()
 	if len(cf.availableClusters) > 0 {
@@ -62,7 +127,7 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *client.APIClient) {
 	return "", nil
 }
 
-func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APIClient) {
+func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
 	assigned, clusterIdx := func() (string, int) {
 		cf.mu.Lock()
 		defer cf.mu.Unlock()
@@ -86,20 +151,22 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB) (string, *client.APICl
 		context.Background(),
 		assigned,
 		kube,
-		&DeployOpts{
-			PortOffset:         uint16(clusterIdx * 10),
-			UseLeftoverCluster: *useLeftoverClusters,
-		})
-	cf.assignClient(assigned, c)
-	return assigned, c
+		deployOpts(clusterIdx, as),
+	)
+	mc := &managedCluster{
+		client:   c,
+		settings: as,
+	}
+	cf.assignClient(assigned, mc)
+	return assigned, mc
 }
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm
 // clusters deployed in separate namespace, along with the associated namespace
-func AcquireCluster(t testing.TB) (*client.APIClient, string) {
+func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	setup.Do(func() {
 		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*client.APIClient{},
+			managedClusters:   map[string]*managedCluster{},
 			availableClusters: map[string]struct{}{},
 			sem:               *semaphore.NewWeighted(int64(*poolSize)),
 		}
@@ -109,15 +176,35 @@ func AcquireCluster(t testing.TB) (*client.APIClient, string) {
 	var assigned string
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
-		deleteAll(t, clusterFactory.managedClusters[assigned])
+		if *cleanupDataAfter {
+			if mc := clusterFactory.managedClusters[assigned]; mc != nil {
+				deleteAll(t, mc.client)
+			}
+		}
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
-	assigned, c := clusterFactory.acquireFreeCluster()
-	if assigned == "" {
-		assigned, c = clusterFactory.acquireNewCluster(t)
+	as := &acquireSettings{}
+	for _, o := range opts {
+		o(as)
 	}
-	deleteAll(t, c)
-	return c, assigned
+	assigned, mc := clusterFactory.acquireFreeCluster()
+	if assigned == "" {
+		assigned, mc = clusterFactory.acquireNewCluster(t, as)
+	}
+
+	// If the cluster settings have changed, upgrade the cluster to make them take effect.
+	if !reflect.DeepEqual(mc.settings, as) {
+		t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
+		mc.client = UpgradeRelease(t,
+			context.Background(),
+			assigned,
+			testutil.GetKubeClient(t),
+			deployOpts(clusterIdx(t, assigned), as),
+		)
+		mc.settings = as
+	}
+	deleteAll(t, mc.client)
+	return mc.client, assigned
 }

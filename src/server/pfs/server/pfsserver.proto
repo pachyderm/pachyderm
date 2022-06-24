@@ -14,6 +14,8 @@ message ShardTaskResult {
 message PathRange {
   string lower = 1;
   string upper = 2;
+  string lower_datum = 3;
+  string upper_datum = 4;
 }
 
 message CompactTask {
@@ -31,4 +33,13 @@ message ConcatTask {
 
 message ConcatTaskResult {
   string id = 1;
+}
+
+message ValidateTask {
+  string id = 1;
+}
+
+message ValidateTaskResult {
+  int64 size_bytes = 1;
+  string error = 2;
 }

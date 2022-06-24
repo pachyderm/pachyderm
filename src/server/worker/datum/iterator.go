@@ -15,6 +15,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -55,7 +56,7 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 	commit := pi.input.Commit
 	pattern := pi.input.Glob
 	return pi.pachClient.GlobFile(client.NewCommit(repo, branch, commit), pattern, func(fi *pfs.FileInfo) error {
-		g := glob.MustCompile(pi.input.Glob, '/')
+		g := glob.MustCompile(pfsfile.CleanPath(pi.input.Glob), '/')
 		// Remove the trailing slash to support glob replace on directory paths.
 		p := strings.TrimRight(fi.File.Path, "/")
 		joinOn := g.Replace(p, pi.input.JoinOn)

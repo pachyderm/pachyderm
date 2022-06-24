@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"golang.org/x/net/context"
 )
 
@@ -184,6 +185,14 @@ func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.Transa
 		return errors.New("branch and head commit must belong to the same repo")
 	}
 	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
+}
+
+func (a *validatedAPIServer) Egress(ctx context.Context, request *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	err := pfsserver.ValidateSQLDatabaseEgress(request.GetSqlDatabase())
+	if err != nil {
+		return nil, err
+	}
+	return a.apiServer.Egress(ctx, request)
 }
 
 func validateFile(file *pfs.File) error {

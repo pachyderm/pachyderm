@@ -129,7 +129,6 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 // DefaultConfigOptions is a serviceenv config option with the defaults used for tests
 func DefaultConfigOptions(config *serviceenv.Configuration) {
 	config.StorageMemoryThreshold = units.GB
-	config.StorageShardThreshold = units.GB
 	config.StorageLevelFactor = 10
 	config.StorageCompactionMaxFanIn = 10
 	config.StorageMemoryCacheSize = 20

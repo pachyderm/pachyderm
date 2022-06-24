@@ -8,7 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	kube_err "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -91,10 +90,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// querying k8s, then we might delete the RC for brand-new pipeline
 			// 'foo'). Though, even if we do delete a live pipeline's RC, it'll be
 			// fixed in the next cycle
-			kc := m.a.env.KubeClient.CoreV1().ReplicationControllers(m.a.env.Config.Namespace)
-			rcs, err := kc.List(ctx, metav1.ListOptions{
-				LabelSelector: "suite=pachyderm,pipelineName",
-			})
+			rcs, err := m.kd.ListReplicationControllers(ctx)
 			if err != nil {
 				// No sensible error recovery here (e.g .if we can't reach k8s). We'll
 				// keep going, and just won't delete any RCs this round.
@@ -105,12 +101,12 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 			// database; it determines both which RCs (from above) are stale and also
 			// which pipelines need to be bumped. Note that there may be zero
 			// pipelines in the database, and dbPipelines may be empty.
-			if err := m.a.listPipelineInfo(ctx, nil, 0,
+			if err := m.sd.ListPipelineInfo(ctx,
 				func(ptr *pps.PipelineInfo) error {
 					dbPipelines[ptr.Pipeline.Name] = true
 					return nil
 				}); err != nil {
-				// listPipelineInfo results (dbPipelines) are used by all remaining
+				// ListPipelineInfo results (dbPipelines) are used by all remaining
 				// steps, so if that didn't work, start over and try again
 				dbPipelines = map[string]bool{}
 				return errors.Wrap(err, "error polling pipelines")
@@ -124,7 +120,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 						return errors.New("'pipelineName' label missing from rc " + rc.Name)
 					}
 					if !dbPipelines[pipeline] {
-						m.eventCh <- &pipelineEvent{eventType: deleteEv, pipeline: pipeline}
+						m.eventCh <- &pipelineEvent{pipeline: pipeline}
 					}
 				}
 			}
@@ -153,7 +149,7 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 		// generate a pipeline event for 'pipeline'
 		log.Debugf("PPS master: polling pipeline %q", pipeline)
 		select {
-		case m.eventCh <- &pipelineEvent{eventType: writeEv, pipeline: pipeline}:
+		case m.eventCh <- &pipelineEvent{pipeline: pipeline}:
 			break
 		case <-ctx.Done():
 			break
@@ -176,33 +172,24 @@ func (m *ppsMaster) pollPipelines(ctx context.Context) {
 // to CRASHING
 func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
-		kubePipelineWatch, err := m.a.env.KubeClient.CoreV1().Pods(m.a.namespace).Watch(
-			ctx,
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{
-						"component": "worker",
-					})),
-				Watch: true,
-			})
+		watch, cancel, err := m.kd.WatchPipelinePods(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to watch kubernetes pods")
 		}
-		defer kubePipelineWatch.Stop()
+		defer cancel()
 	WatchLoop:
 		for {
 			select {
 			case <-ctx.Done():
 				return nil
-			case event := <-kubePipelineWatch.ResultChan():
+			case event, ok := <-watch:
+				if !ok {
+					log.Warn("kubernetes pod watch unexpectedly ended - restarting watch")
+					return backoff.ErrContinue
+				}
 				// if we get an error we restart the watch
 				if event.Type == kube_watch.Error {
 					return errors.Wrap(kube_err.FromObject(event.Object), "error while watching kubernetes pods")
-				} else if event.Type == "" {
-					// k8s watches seem to sometimes get stuck in a loop returning events
-					// with Type = "". We treat these as errors as otherwise we get an
-					// endless stream of them and can't do anything.
-					return errors.New("error while watching kubernetes pods: empty event type")
 				}
 				pod, ok := event.Object.(*v1.Pod)
 				if !ok {
@@ -217,12 +204,9 @@ func (m *ppsMaster) pollPipelinePods(ctx context.Context) {
 					if versionErr != nil {
 						return errors.Wrapf(err, "couldn't find pipeline rc version")
 					}
-					var pipelineInfo pps.PipelineInfo
-					if err := m.a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
-						ppsdb.PipelinesVersionIndex,
-						ppsdb.VersionKey(pipelineName, uint64(pipelineVersion)),
-						&pipelineInfo); err != nil {
-						return errors.Wrapf(err, "couldn't retrieve pipeline information")
+					var pipelineInfo *pps.PipelineInfo
+					if pipelineInfo, err = m.sd.GetPipelineInfo(ctx, pipelineName, pipelineVersion); err != nil {
+						return errors.EnsureStack(err)
 					}
 					return m.setPipelineCrashing(ctx, pipelineInfo.SpecCommit, reason)
 				}
@@ -270,13 +254,12 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		// TODO(msteffen) request only keys, since pipeline_controller.go reads
 		// fresh values for each event anyway
-		pipelineWatcher, err := m.a.pipelines.ReadOnly(ctx).Watch()
+		watcher, close, err := m.sd.Watch(ctx)
 		if err != nil {
 			return errors.Wrapf(err, "error creating watch")
 		}
-		defer pipelineWatcher.Close()
-
-		for event := range pipelineWatcher.Watch() {
+		defer close()
+		for event := range watcher {
 			if event.Err != nil {
 				return errors.Wrapf(event.Err, "event err")
 			}
@@ -284,26 +267,19 @@ func (m *ppsMaster) watchPipelines(ctx context.Context) {
 			if err != nil {
 				return errors.Wrap(err, "bad watch event key")
 			}
-			var e *pipelineEvent
 			switch event.Type {
-			case watch.EventPut:
-				e = &pipelineEvent{
-					eventType: writeEv,
+			case watch.EventPut, watch.EventDelete:
+				e := &pipelineEvent{
 					pipeline:  pipelineName,
 					timestamp: time.Unix(event.Rev, 0),
 				}
-			case watch.EventDelete:
-				e = &pipelineEvent{
-					eventType: deleteEv,
-					pipeline:  pipelineName,
-					timestamp: time.Unix(event.Rev, 0),
+				select {
+				case m.eventCh <- e:
+				case <-m.masterCtx.Done():
+					return errors.Wrap(err, "pipeline event arrived while master is restarting")
 				}
-			}
-			select {
-			case m.eventCh <- e:
-				continue
-			case <-m.masterCtx.Done():
-				return errors.Wrap(err, "pipeline event arrived while master is restarting")
+			case watch.EventError:
+				log.Errorf("watchPipelines received an errored event from the pipelines watcher, %v", event.Err)
 			}
 		}
 		return nil // reset until ctx is cancelled (RetryUntilCancel)

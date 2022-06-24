@@ -2,7 +2,6 @@ package chunk
 
 import (
 	"context"
-	"math"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
@@ -21,14 +20,10 @@ type TaskChain struct {
 }
 
 // NewTaskChain creates a new task chain.
-func NewTaskChain(ctx context.Context, parallelism int64) *TaskChain {
+func NewTaskChain(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
 	eg, errCtx := errgroup.WithContext(ctx)
 	prevChan := make(chan struct{})
 	close(prevChan)
-	sem := semaphore.NewWeighted(math.MaxInt64)
-	if parallelism > 0 {
-		sem = semaphore.NewWeighted(parallelism)
-	}
 	return &TaskChain{
 		eg:       eg,
 		ctx:      errCtx,

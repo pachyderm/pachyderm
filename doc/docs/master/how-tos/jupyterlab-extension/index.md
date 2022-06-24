@@ -1,3 +1,4 @@
+
 # Pachyderm JupyterLab Mount Extension
 
 ![Mount extension in action](../images/mount-extension.gif)
@@ -26,8 +27,8 @@
 
     - **You do not know the `pachd_address` of your cluster**:
 
-        - Install `pachctl` (Pachyderm command line tool) on your machine (see [`pachctl` installation instructions](../../getting_started/local_installation/#install-pachctl){target=_blank} ).
-        - Then, [connect that CLI to your cluster](../../getting_started/local_installation/#have-pachctl-and-your-cluster-communicate){target=_blank}.
+        - Install `pachctl` (Pachyderm command line tool) on your machine (see [`pachctl` installation instructions](../../getting-started/local-installation/#install-pachctl){target=_blank} ).
+        - Then, [connect that CLI to your cluster](../../getting-started/local-installation/#connect-pachctl-to-your-cluster){target=_blank}.
         - And run:
         ```shell
         docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:{{ config.jupyterlab_extension_image_tag }} lab --allow-root
@@ -37,6 +38,13 @@
 
 Note that we are assuming that you **already have a Pachyderm cluster running** to connect your JupyterHub/JupyterLab. Find Pachyderm installation instructions in the [Deploy/Manage](../../deploy-manage/deploy/) section of our documentation.
 ## Using The Extension
+
+!!! Warning "Troubleshooting - When in doubt, restart your mount server"
+        JupyterLab Mount Extension is an [experimental feature](https://docs.pachyderm.com/latest/contributing/supported-releases/#experimental){target=_blank}. Many issues can be resolved by restarting the mount server, should you find yourself in an odd situation. To kill/restart your server, run the following command from the terminal window in jupyterlab:
+        ```shell
+        pkill -f "pachctl mount-server" 
+        ```
+        The server will restart by itself.
 ### Connect The Extension To Your Pachyderm Cluster
 
 To connect the extension to your Pachyderm cluster, fill in the full `pachd_address` (i.e., Pachyderm cluster address) in the login form accessible by clicking on the mount extension icon in the far left tab bar. It should look like "grpc://`<external-IP-address-or-domain-name>`:`<port-number>`".
@@ -152,11 +160,10 @@ Replace the image name with your own image otherwise.
 !!! Info
     Find the complete installation instructions of JupyterHub on Kubernetes in [Jupyterhub for Kubernetes documentation](https://zero-to-jupyterhub.readthedocs.io/en/latest/#setup-jupyterhub){target=_blank}.
 
-
-- As a FUSE requirement, add the following to your **Jupyterhub helm chart values.YAML** file to enable root in the `singleuser` containers:
+- As a FUSE requirement, add the following to your **Jupyterhub helm chart values.YAML** file to enable root in the `singleuser` containers or use our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
 
     !!! Note
-        Update `singleuser.image.name` and `singleuser.image.tag` to match your user image.
+        Update the fields `singleuser.image.name` and `singleuser.image.tag` to match your user image or leave Pachyderm's default image `pachyderm/notebooks-user:{{ config.jupyterlab_extension_image_tag }}`.
 
     ```yaml
     singleuser:
@@ -190,7 +197,6 @@ Replace the image name with your own image otherwise.
                 c.KubeSpawner.modify_pod_hook = modify_pod_hook
     ```
 
-
 - Run the following commands to install JupyterHub:
 
     ```shell
@@ -199,7 +205,7 @@ Replace the image name with your own image otherwise.
 
     helm upgrade --cleanup-on-fail \
     --install jupyter jupyterhub/jupyterhub \
-    --values values.yaml
+    --values <your-jupyterhub-values.yaml>
     ```
 
     !!! Note 
@@ -221,10 +227,10 @@ Replace the image name with your own image otherwise.
 
 - Prerequisites
 
-    - [Install `pachctl`](../../../getting_started/local_installation/#install-pachctl){target=_blank} :
+    - [Install `pachctl`](../../../getting-started/local-installation/#install-pachctl){target=_blank} :
     Make sure that the version of `pachctl` matches the version of your cluster.
  
-    - [Have 'pachctl' and your Cluster Communicate](../../../getting_started/local_installation/#have-pachctl-and-your-cluster-communicate){target=_blank} .
+    - [Have 'pachctl' and your Cluster Communicate](../../../getting-started/local-installation/#have-pachctl-and-your-cluster-communicate){target=_blank} .
 
     - [Install FUSE](h../../../how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer/#prerequisites){target=_blank} . Choose the instructions that fit your environment.
     

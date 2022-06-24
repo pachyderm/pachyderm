@@ -2,10 +2,19 @@
 
 For a quick test installation of Pachyderm on AWS (suitable for development), jump to our [Quickstart page](../quickstart/).
 
+For deployments in production, refer to the following diagram and follow these step-by-step instructions:
+![AWS Arch](../images/arch-diagram-high-level-aws.svg)
+
 !!! Important "Before your start your installation process." 
-      - Refer to our generic ["Helm Install"](../helm_install/) page for more information on  how to install and get started with `Helm`.
-      - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
+      - Refer to our generic ["Helm Install"](../helm-install/){target=_blank} page for more information on  how to install and get started with `Helm`.
+      - Read our [infrastructure recommendations](../ingress/){target=_blank}. You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/){target=_blank} instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
+
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
 
 The following section walks you through deploying a Pachyderm cluster on [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/){target=_blank} (EKS). 
 
@@ -17,9 +26,9 @@ In particular, you will:
 1. [Enable Persistent Volumes Creation](#4-enable-your-persistent-volumes-creation)
 1. [Create An AWS Managed PostgreSQL Instance](#5-create-an-aws-managed-postgresql-database)
 1. [Deploy Pachyderm ](#6-deploy-pachyderm)
-1. Finally, you will need to install [pachctl](../../../getting_started/local_installation#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
+1. Finally, you will need to install [pachctl](../../../getting-started/local-installation#install-pachctl) to [interact with your cluster](#7-have-pachctl-and-your-cluster-communicate).
 1. And check that your cluster is [up and running](#8-check-that-your-cluster-is-up-and-running)
-
+1. (Optional) Install [JupyterHub and Pachyderm Mount Extension](#9-notebooks-users-install-pachyderm-jupyterlab-mount-extension) to experiment with your data in Pachyderm from your Notebook cells. 
 
 ## 1. Prerequisites
 
@@ -30,12 +39,12 @@ you have the following prerequisites installed and configured:
 * [AWS CLI](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-console.html){target=_blank}
 * [eksctl](https://docs.aws.amazon.com/eks/latest/userguide/getting-started-eksctl.html){target=_blank}
 * [aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html){target=_blank}.
-* [pachctl](../../../getting_started/local_installation#install-pachctl)
+* [pachctl](../../../getting-started/local-installation#install-pachctl){target=_blank}
 
 ## 2. Deploy Kubernetes by using `eksctl`
 
 !!! Attention
-      Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
+      Pachyderm requires running your cluster on Kubernetes 1.19.0 and above.
 
 Use the `eksctl` tool to deploy an EKS cluster in your
 Amazon AWS environment. The `eksctl create cluster` command
@@ -74,8 +83,11 @@ To deploy an EKS cluster, complete the following steps:
       ```
 
 Once your Kubernetes cluster is up, and your infrastructure is configured, 
-you are ready to prepare for the installation of Pachyderm. 
-Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
+you are ready to prepare for the installation of Pachyderm.
+Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure. 
+
+!!! Note "Secrets Manager"
+      Pachyderm recommends securing and managing your secrets in a Secret Manager. Learn about the [set up and configuration of your EKS cluster to retrieve the relevant secrets from AWS Secrets Manager](../aws-secret-manager){target=_blank} then resume the following installation steps.
 
 ## 3. Create an S3 bucket
 ### Create an S3 object store bucket for data
@@ -213,7 +225,7 @@ For your EKS cluster to successfully create two **Elastic Block Storage (EBS) pe
 
 In short, you will:
 
-1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html){target=_blank}. You might already have completed this step if you choose to create an IAM Role and Policy to give your containers permission to access your S3 bucket.
+1. [Create an IAM OIDC provider for your cluster](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html){target=_blank}. You might already have completed this step if you chose to create an IAM Role and Policy to give your containers permission to access your S3 bucket.
 1. Create a CSI Driver service account whose IAM Role will be granted the permission (policy) to make calls to AWS APIs. 
 1. Install Amazon EBS Container Storage Interface (CSI) driver on your cluster configured with your created service account.
 
@@ -227,6 +239,9 @@ volume later.
 
 By default, Pachyderm runs with a bundled version of PostgreSQL. 
 For production environments, it is **strongly recommended that you disable the bundled version and use an RDS PostgreSQL instance**. 
+
+!!! Attention
+      Note that [Aurora Serverless PostgreSQL](https://aws.amazon.com/rds/aurora/serverless/){target=_blank} is not supported and will not work.
 
 This section will provide guidance on the configuration settings you will need to: 
 
@@ -455,9 +470,10 @@ You have set up your infrastructure, created your S3 bucket and an AWS Managed P
       ```
 
 
-Check the [list of all available helm values](../../../reference/helm_values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
 
-
+!!! Important
+      Retain (ideally in version control) a copy of the Helm values used to deploy your cluster. It might be useful if you need to [restore a cluster from a backup](../../manage/backup-restore).
 ### Deploy Pachyderm On The Kubernetes Cluster
 
 
@@ -537,7 +553,7 @@ pachctl port-forward
 ## 8. Check That Your Cluster Is Up And Running
 
 !!! Attention
-    If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
+    If Authentication is activated (When you deploy with an enterprise key already set, for example), you need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
 pachctl version
@@ -551,3 +567,13 @@ pachctl             {{ config.pach_latest_version }}
 pachd               {{ config.pach_latest_version }}
 ```
 
+## 9. NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension
+
+Once your cluster is up and running, you can helm install JupyterHub on your Pachyderm cluster and experiment with your data in Pachyderm from your Notebook cells. 
+
+Check out our [JupyterHub and Pachyderm Mount Extension](../../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} page for installation instructions. 
+
+Use Pachyderm's default image and values.yaml [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank} or follow the instructions to update your own.
+
+!!! Note
+       Make sure to check our [data science notebook examples](https://github.com/pachyderm/examples){target=_blank} running on Pachyderm, from a market sentiment NLP implementation using a FinBERT model to pipelines training a regression model on the Boston Housing Dataset.

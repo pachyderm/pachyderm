@@ -23,7 +23,7 @@ Types other than `USER` indicate System Repos, which contain auxiliary informati
 
 Each pipeline comes with one `SPEC` and one `META` repo. Every time a job commits the result of a transformation to a pipeline output repo, it also commits to the pipeline's meta repo. Deleting the output repo of a pipeline (which happens per default when deleting a pipeline) will also delete its `SPEC` and `META` repo.
 
-`pachctl list repo --all` or `pachctl list repo --type=spec` will let you see all repos of all types or the spec system repo only, respectively. By default, no flag will give you the list of all user repos.
+`pachctl list repo --all` or `pachctl list repo --type=spec` will let you see all repos of all types or the spec system repo only, respectively. By default, no mention of a `--type` will give you the list of all `USER` repos.
 
 Additionally, **commits have an "origin"**. You can see an origin as the answer to **"What triggered the production of this commit"**.
 
@@ -48,8 +48,8 @@ Find these concepts in our documentation:
 -[Global ID](https://docs.pachyderm.com/latest/concepts/advanced-concepts/globalID/)
 
 ***Prerequisite***
-- Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
+- Pachyderm running [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
 - Clone this repo.

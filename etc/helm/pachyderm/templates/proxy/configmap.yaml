@@ -1,0 +1,27 @@
+{{- if .Values.proxy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: pachyderm-proxy
+    suite: pachyderm
+    {{- if .Values.proxy.labels }}
+    {{- toYaml .Values.proxy.labels | nindent 6 }}
+    {{- end }}
+  {{- if .Values.proxy.annotations }}
+  annotations:
+    {{- toYaml .Values.proxy.annotations | nindent 8 }}
+  {{- end }}
+  name: pachyderm-proxy-config
+data:
+  envoy.json: |
+    {{- if .Values.proxy.tls.enabled }}
+    {{- .Files.Get "envoy-tls.json" | nindent 4 }}
+    {{- else -}}
+    {{- .Files.Get "envoy.json" | nindent 4 }}
+    {{- end }}
+  {{- if .Values.proxy.tls.enabled }}
+  sds.yaml: |
+    {{- .Files.Get "envoy-sds.yaml" | nindent 4 }}
+  {{- end }}
+{{- end }}
