@@ -1,6 +1,8 @@
 package testpachd
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -77,6 +79,16 @@ func (mock *mockInspectPipelineInTransaction) Use(cb inspectPipelineInTransactio
 	mock.handler = cb
 }
 
+type mockActivateAuthInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
+
+type mockActivateAuthInTransaction struct {
+	handler mockActivateAuthInTransactionFunc
+}
+
+func (mock *mockActivateAuthInTransaction) Use(cb mockActivateAuthInTransactionFunc) {
+	mock.handler = cb
+}
+
 type ppsTransactionAPI struct {
 	ppsServerAPI
 	mock *MockPPSTransactionServer
@@ -93,6 +105,7 @@ type MockPPSTransactionServer struct {
 	UpdateJobStateInTransaction  mockUpdateJobStateInTransaction
 	CreatePipelineInTransaction  mockCreatePipelineInTransaction
 	InspectPipelineInTransaction mockInspectPipelineInTransaction
+	ActivateAuthInTransaction    mockActivateAuthInTransaction
 }
 
 type MockPPSPropagater struct{}

@@ -134,30 +134,35 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		return nil
 	}
 	a.env.Logger.Info("Started to configure auth server via environment")
+	ctx = internalauth.AsInternalUser(ctx, internalUser)
 	if err := func() error {
-		ctx = internalauth.AsInternalUser(ctx, internalUser)
 		// handle auth activation
 		if a.env.Config.AuthRootToken != "" {
-			if _, err := a.Activate(ctx, &auth.ActivateRequest{
-				RootToken: a.env.Config.AuthRootToken,
+			if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+				if _, err := a.activateInTransaction(ctx, txCtx, &auth.ActivateRequest{
+					RootToken: a.env.Config.AuthRootToken,
+				}); err != nil {
+					if !errors.As(err, auth.ErrAlreadyActivated) {
+						return errors.Wrapf(err, "activate auth")
+					}
+					_, err := a.rotateRootTokenInTransaction(txCtx,
+						&auth.RotateRootTokenRequest{
+							RootToken: a.env.Config.AuthRootToken,
+						})
+					return errors.Wrapf(err, "rotate root token")
+				} else {
+					if a.env.Config.PachdSpecificConfiguration != nil {
+						if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(ctx, txCtx, &pfs.ActivateAuthRequest{}); err != nil {
+							return errors.Wrap(err, "activate auth for pfs")
+						}
+						if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(ctx, txCtx, &pps.ActivateAuthRequest{}); err != nil {
+							return errors.Wrap(err, "activate auth for pps")
+						}
+					}
+				}
+				return nil
 			}); err != nil {
-				if !errors.As(err, auth.ErrAlreadyActivated) {
-					return err
-				}
-				_, err := a.rotateRootToken(ctx,
-					&auth.RotateRootTokenRequest{
-						RootToken: a.env.Config.AuthRootToken,
-					})
-				return err
-			} else {
-				if a.env.Config.PachdSpecificConfiguration != nil {
-					if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
-						return errors.EnsureStack(err)
-					}
-					if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
-						return errors.EnsureStack(err)
-					}
-				}
+				return errors.Wrapf(err, "activate auth via environment")
 			}
 		}
 		// handle oidc clients & this cluster's auth config
@@ -387,6 +392,29 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
+	var resp *auth.ActivateResponse
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		var err error
+		resp, err = a.activateInTransaction(ctx, txCtx, req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	// wait until the clusterRoleBinding watcher has updated the local cache
+	// (changing the activation state), so that Activate() is less likely to
+	// race with subsequent calls that expect auth to be activated.
+	if err := backoff.Retry(func() error {
+		if err := a.isActive(ctx); err != nil {
+			return errors.Errorf("auth never activated")
+		}
+		return nil
+	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext.TransactionContext, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
 	// TODO(acohen4) 2.3: disable RPC if a.env.Config.AuthRootToken != ""
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
@@ -402,7 +430,7 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*a
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin.
-	if err := a.isActive(ctx); err == nil {
+	if err := a.isActiveInTransaction(txCtx); err == nil {
 		return nil, auth.ErrAlreadyActivated
 	}
 
@@ -427,49 +455,40 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*a
 		}
 		return a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser)
 	}); err != nil {
-		return nil, err
-	}
-
-	// wait until the clusterRoleBinding watcher has updated the local cache
-	// (changing the activation state), so that Activate() is less likely to
-	// race with subsequent calls that expect auth to be activated.
-	if err := backoff.Retry(func() error {
-		if err := a.isActive(ctx); err != nil {
-			return errors.Errorf("auth never activated")
-		}
-		return nil
-	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "insert root token")
 	}
 	return &auth.ActivateResponse{PachToken: pachToken}, nil
 }
 
 // RotateRootToken implements the protobuf auth.RotateRootToken RPC
-func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
+func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (*auth.RotateRootTokenResponse, error) {
 	if a.env.Config.AuthRootToken != "" {
 		return nil, errors.New("RotateRootToken() is disabled when the root token is configured in the environment")
 	}
-	return a.rotateRootToken(ctx, req)
+	var resp *auth.RotateRootTokenResponse
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+		var err error
+		resp, err = a.rotateRootTokenInTransaction(txCtx, req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
-func (a *apiServer) rotateRootToken(ctx context.Context, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
+func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionContext, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
 	var rootToken string
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
-		// First revoke root's existing auth token
-		if err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
-			return err
-		}
-		// If the new token is in the request, use it.
-		// Otherwise generate a new random token.
-		rootToken = req.RootToken
-		if rootToken == "" {
-			rootToken = uuid.NewWithoutDashes()
-		}
-		if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(rootToken), auth.RootUser); err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
+	// First revoke root's existing auth token
+	if err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
+		return nil, err
+	}
+	// If the new token is in the request, use it.
+	// Otherwise generate a new random token.
+	rootToken = req.RootToken
+	if rootToken == "" {
+		rootToken = uuid.NewWithoutDashes()
+	}
+	if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(rootToken), auth.RootUser); err != nil {
 		return nil, err
 	}
 

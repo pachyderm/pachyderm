@@ -1702,12 +1702,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
-	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, prevPipelineInfo)
-	})
-}
-
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
 	addRead := make(map[string]struct{})
 	addWrite := make(map[string]struct{})
@@ -2944,7 +2938,19 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 }
 
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
-func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
+func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
+	var resp *pps.ActivateAuthResponse
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	var eg errgroup.Group
@@ -2955,29 +2961,26 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		eg.Go(func() error {
-			return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-				token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
-				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
-				}
-
-				pipelineInfo := &pps.PipelineInfo{}
-				if err := a.updatePipeline(txnCtx, pipelineName, pipelineInfo, func() error {
-					pipelineInfo.AuthToken = token
-					return nil
-				}); err != nil {
-					return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
-				}
+			token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
+			if err != nil {
+				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
+			}
+			pipelineInfo := &pps.PipelineInfo{}
+			if err := a.updatePipeline(txnCtx, pipelineName, pipelineInfo, func() error {
+				pipelineInfo.AuthToken = token
 				return nil
-			})
+			}); err != nil {
+				return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
+			}
+			// put 'pipeline' on relevant ACLs
+			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipeline, nil); err != nil {
+				return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pipeline.Pipeline.Name)
+			}
+			return nil
 		})
-		// put 'pipeline' on relevant ACLs
-		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {
-			return err
-		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
+		return nil, errors.EnsureStack(err)
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, errors.EnsureStack(err)
