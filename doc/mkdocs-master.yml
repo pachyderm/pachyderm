@@ -18,9 +18,9 @@ pach_branch: '2.2.x'
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
-pach_featured_version: '2.2.2'
+pach_featured_version: '2.2.3'
 # Latest version of Pachyderm
-pach_latest_version: '2.2.2'
+pach_latest_version: '2.2.3'
 pach_major_minor_version: '2.2'
 search_index_version: 'latest'
 # Latest tag of the JupyterLab Mount Extension
@@ -194,6 +194,7 @@ nav:
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
             - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md        
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md
+        - Use Console: deploy-manage/deploy/console.md
         - Use JupyterLab Mount Extension: how-tos/jupyterlab-extension/index.md
     - Deploy and Manage:
         - Overview: deploy-manage/index.md
@@ -213,7 +214,7 @@ nav:
                 - Deploy on GCP: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on premises: deploy-manage/deploy/on-premises.md
-            - Deploy Console: deploy-manage/deploy/console.md
+            - Deploy Console: deploy-manage/deploy/console/#deploy-console
             - Deploy JupyterLab Extension: how-tos/jupyterlab-extension/#install-the-mount-extension
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
@@ -268,6 +269,7 @@ nav:
             - reference/pachctl/pachctl_auth_get_repo.md
             - reference/pachctl/pachctl_auth_login.md
             - reference/pachctl/pachctl_auth_logout.md
+            - reference/pachctl/pachctl_auth_revoke.md
             - reference/pachctl/pachctl_auth_roles-for-permission.md
             - reference/pachctl/pachctl_auth_rotate-root-token.md
             - reference/pachctl/pachctl_auth_set-config.md

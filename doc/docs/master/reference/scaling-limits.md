@@ -1,6 +1,6 @@
 # Pipeline Scaling Limits in Community Edition
 
-Our free Pachyderm Community Edition contains **built-in scaling limitations and parallelism thresholds**. To scale beyond these limits, request a [Pachyderm Enterprise trial token](https://www.pachyderm.com/trial/){target=_blank} and enjoy unlimited scaling, access to Pachyderm web UI Console, and more.
+Our free Pachyderm Community Edition contains **built-in scaling limitations and parallelism thresholds**. To scale beyond these limits, request a [Pachyderm Enterprise trial token](https://www.pachyderm.com/trial/){target=_blank} and enjoy unlimited scaling, and more.
 
 !!! Info "You might qualify for a free Enterprise license." 
     Pachyderm offers activation keys for proofs-of-concept, startups, academic, nonprofit, or open-source projects. [Tell us about your project!](https://www.pachyderm.com/trial/){target=_blank}
