@@ -79,13 +79,13 @@ func (mock *mockInspectPipelineInTransaction) Use(cb inspectPipelineInTransactio
 	mock.handler = cb
 }
 
-type mockActivateAuthInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
+type activateAuthInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
 
 type mockActivateAuthInTransaction struct {
-	handler mockActivateAuthInTransactionFunc
+	handler activateAuthInTransactionFunc
 }
 
-func (mock *mockActivateAuthInTransaction) Use(cb mockActivateAuthInTransactionFunc) {
+func (mock *mockActivateAuthInTransaction) Use(cb activateAuthInTransactionFunc) {
 	mock.handler = cb
 }
 
@@ -170,6 +170,13 @@ func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.Tr
 		return api.mock.InspectPipelineInTransaction.handler(txnCtx, pipeline)
 	}
 	return nil, errors.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
+}
+
+func (api *ppsTransactionAPI) AcivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
+	if api.mock.ActivateAuthInTransaction.handler != nil {
+		return api.mock.ActivateAuthInTransaction.handler(ctx, txnCtx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock: pps.AcivateAuthInTransaction")
 }
 
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer
