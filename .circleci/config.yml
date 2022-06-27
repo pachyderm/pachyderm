@@ -4,6 +4,7 @@ version: 2.1
 orbs:
   go: circleci/go@1.6.0
   gcp-cli: circleci/gcp-cli@2.4.1
+  gh: circleci/github-cli@2.1
 
 parameters:
   machine_image:
@@ -343,100 +344,289 @@ jobs:
           command: |
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
+  build-docker-images:
+    docker: 
+      - image: cimg/go:1.17.3
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run:
+          name: install goreleaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin      
+      - run:
+          name: build docker images
+          command: |
+            make VERSION=$CIRCLE_SHA1 release-docker-images
+      - run:
+          name: push docker images
+          command: |
+            make VERSION=$CIRCLE_SHA1 docker-push-release
+  build-pachctl-bin:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+  build-helm-chart:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+  test-pachyderm:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+  release-github:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - gh/setup:
+          version: 2.13.0
+      - run:
+          name: create github release
+          command: gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./test/*.zip --generate-notes
+  release-docker-hub:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: pull docker images
+          command: |
+            make VERSION=$CIRCLE_SHA1 docker-pull
+      - run:
+          name: retag and push docker images
+          command: |
+            make VERSION=$VERSION docker-push
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+  release-redhat-marketplace:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+  release-hombrew-tap:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
+  release-artifact-hub:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - run:
+          name: "Say hello"
+          command: "echo Hello, World!"
 workflows:
-  circleci:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  # circleci:
+  #   when:
+  #     and:
+  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #   jobs:
+  #     - build
+  #     - check-prettier
+  #     - test-envoy
+  #     - circleci:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #               - MISC
+  #               # If you want to update the number of PPS buckets, you'll need to
+  #               # update the value of PPS_BUCKETS above
+  #               - AUTH
+  #               - ENTERPRISE
+  #               - PFS
+  #               - PPS1
+  #               - PPS2
+  #               - PPS3
+  #               - PPS4
+  #               - PPS5
+  #               - PPS6
+  #               - PPS_AUTH
+  #               - EXAMPLES
+  #               - INTERNAL
+  # helm:
+  #   when:
+  #     and:
+  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #   jobs:
+  #     - helm-build:
+  #         filters:
+  #           # Note: Not ignoring branches, so will be run on branches as well as tags
+  #           tags:
+  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #     - helm-publish:
+  #         requires:
+  #           - helm-build
+  #         filters:
+  #           branches:
+  #             ignore: /.*/
+  #           tags:
+  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  # nightly_load_tests:
+  #   triggers:
+  #     - schedule:
+  #         cron: "0 6 * * *"
+  #         filters:
+  #           branches:
+  #             only:
+  #               - master
+  #               - 2.1.x
+  #               - 2.2.x
+  #   jobs:
+  #     - nightly-load:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #               - LOAD1
+  #               - LOAD2
+  #               - LOAD3
+  #               - LOAD4
+  #               - LOAD5
+  #               - LOAD6
+  #               - LOAD7
+  # rootless:
+  #   when:
+  #     and:
+  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #   jobs:
+  #     - rootless
+  # deploy:
+  #   when:
+  #     and:
+  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #   jobs:
+  #     - deploy
+  # pach_core_release:
+  #   when: << pipeline.parameters.RELEASE_PACH_CORE >>
+  #   jobs:
+  #     - release_job:
+  #         filters:
+  #           branches:
+  #             only:
+  #               - 2.1.x
+  #               - 2.2.x
+  # red_hat:
+  #   jobs:
+  #     - push_redhat:
+  #         filters:
+  #           branches:
+  #             ignore: /.*/
+  #           tags:
+  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  release:
     jobs:
-      - build
-      - check-prettier
-      - test-envoy
-      - circleci:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS_AUTH
-                - EXAMPLES
-                - INTERNAL
-  helm:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - helm-build:
+      - build-docker-images:
           filters:
-            # Note: Not ignoring branches, so will be run on branches as well as tags
+            branches:
+              ignore: /.*/
             tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - build-pachctl-bin:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - build-helm-chart:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - test-pachyderm:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
-            - helm-build
+            - build-docker-images
+            - build-pachctl-bin
+            - build-helm-chart
+      - sign-off:
           filters:
             branches:
               ignore: /.*/
             tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  nightly_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - 2.1.x
-                - 2.2.x
-    jobs:
-      - nightly-load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-  rootless:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - rootless
-  deploy:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - deploy
-  pach_core_release:
-    when: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - release_job:
-          filters:
-            branches:
-              only:
-                - 2.1.x
-                - 2.2.x
-  red_hat:
-    jobs:
-      - push_redhat:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          type: approval
+          requires:
+            - test-pachyderm
+      - release-docker-hub:
           filters:
             branches:
               ignore: /.*/
             tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - sign-off
+      - release-redhat-marketplace:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - sign-off
+      - release-github:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - sign-off
+      - release-hombrew-tap:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - sign-off
+      - release-artifact-hub:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^test\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - sign-off
