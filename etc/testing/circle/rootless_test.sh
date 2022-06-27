@@ -35,7 +35,7 @@ while  [ $COUNT  -lt 6 ]; do
     COUNT=$(kubectl get constrainttemplates.templates.gatekeeper.sh -o json | jq -r '.items | length')
     sleep 2
 done
-
+kubectl wait --for=jsonpath='{.status.created}'=true -f etc/testing/opa-policies/
 #Install gatekeeper OPA constraints 
 kubectl apply -f etc/testing/opa-constraints.yaml
 
