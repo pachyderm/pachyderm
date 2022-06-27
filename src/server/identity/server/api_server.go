@@ -23,7 +23,7 @@ type apiServer struct {
 }
 
 // NewIdentityServer returns an implementation of identity.APIServer.
-func NewIdentityServer(env Env, public bool) (identity.APIServer, func(context.Context) error) {
+func NewIdentityServer(env Env, public bool) *apiServer {
 	server := &apiServer{
 		env: env,
 		api: newDexAPI(env.DexStorage),
@@ -38,10 +38,10 @@ func NewIdentityServer(env Env, public bool) (identity.APIServer, func(context.C
 		}()
 	}
 
-	return server, server.envBootstrap
+	return server
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) error {
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.IdentityConfig != "" {
 		a.env.Logger.Info("Started to configure identity server config via environment")
 		var config identity.IdentityServerConfig
