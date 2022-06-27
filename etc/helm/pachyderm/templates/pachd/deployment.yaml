@@ -225,10 +225,7 @@ spec:
         {{- end }}
         {{- if .Values.console.enabled }}
         - name: CONSOLE_OAUTH_ID
-          valueFrom:
-            secretKeyRef:
-              name: pachyderm-console-secret
-              key: OAUTH_CLIENT_ID
+          value: {{ .Values.console.config.oauthClientID | quote }}
         - name: CONSOLE_OAUTH_SECRET
           valueFrom:
             secretKeyRef:
