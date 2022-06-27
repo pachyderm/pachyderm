@@ -9,15 +9,6 @@ In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
 
 ## Go Client
 
-`pachctl` is the command-line tool you use 
-to interact with a Pachyderm cluster in your terminal. 
-However,  external applications might need to
-interact with Pachyderm directly through our APIs.
-
-In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
-
-## Go Client
-
 The Pachyderm team officially supports the Go client. It implements most of the functionalities provided with the `pachctl` CLI tool.
 
 ### Generate And Serve The godocs Locally
