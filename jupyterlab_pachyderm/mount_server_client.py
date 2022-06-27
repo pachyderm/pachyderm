@@ -3,10 +3,7 @@ import subprocess
 import time
 import platform
 import json
-from base64 import b64decode
 
-import python_pachyderm
-from python_pachyderm.service import health_proto
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
 from tornado import locks
 
@@ -16,7 +13,6 @@ from .env import JUPYTERLAB_CI_TESTS, SIDECAR_MODE
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
-PACH_CONFIG = "~/.pachyderm/config.json"
 
 
 class MountServerClient(MountInterface):

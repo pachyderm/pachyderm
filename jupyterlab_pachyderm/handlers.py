@@ -3,19 +3,15 @@ import json
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
-import python_pachyderm
 import tornado
 
-from .env import MOCK_PACHYDERM_SERVICE, MOUNT_SERVER_ENABLED, PFS_MOUNT_DIR
+from .env import PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
 from .log import get_logger
-from .mock_pachyderm import MockPachydermClient
 from .pachyderm import (
     READ_ONLY,
     READ_WRITE,
-    MountInterface,
-    PythonPachydermClient,
-    PythonPachydermMountClient,
+    MountInterface
 )
 from .mount_server_client import MountServerClient
 
@@ -308,22 +304,7 @@ class HealthHandler(BaseHandler):
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-    if MOCK_PACHYDERM_SERVICE:
-        get_logger().info(
-            f"MOCK_PACHYDERM_SERVICE=true -- using the MockPachydermClient"
-        )
-        web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
-            lambda: MockPachydermClient(), PFS_MOUNT_DIR
-        )
-    elif MOUNT_SERVER_ENABLED:
-        web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
-    else:
-        web_app.settings["pachyderm_mount_client"] = PythonPachydermMountClient(
-            lambda: PythonPachydermClient(
-                python_pachyderm.Client(), python_pachyderm.experimental.Client()
-            ),
-            PFS_MOUNT_DIR,
-        )
+    web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
 
     _handlers = [
         ("/repos", ReposHandler),

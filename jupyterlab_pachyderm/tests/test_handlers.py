@@ -5,11 +5,17 @@ from unittest.mock import patch
 import pytest
 import tornado
 
-from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
+from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION, _parse_pfs_path
 from jupyterlab_pachyderm.pachyderm import MountInterface
 
 
 pytest_plugins = ["jupyter_server.pytest_plugin"]
+
+
+def test_parse_pfs_path():
+    assert _parse_pfs_path("repo") == ("repo", "master", None)
+    assert _parse_pfs_path("repo/branch") == ("repo", "branch", None)
+    assert _parse_pfs_path("repo/branch/commit") == ("repo", "branch", "commit")
 
 
 class ErrorWithCode(Exception):
