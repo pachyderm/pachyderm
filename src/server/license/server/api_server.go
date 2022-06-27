@@ -25,7 +25,7 @@ const (
 	localhostEnterpriseClusterId = "localhost"
 )
 
-type LicenseServer struct {
+type apiServer struct {
 	env Env
 
 	// license is the database record where we store the active enterprise license
@@ -33,15 +33,15 @@ type LicenseServer struct {
 }
 
 // New returns an implementation of license.APIServer, and a function that bootstraps the license server via environment.
-func New(env Env) (*LicenseServer, error) {
-	s := &LicenseServer{
+func New(env Env) (*apiServer, error) {
+	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
 	return s, nil
 }
 
-func (a *LicenseServer) EnvBootstrap(ctx context.Context) error {
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
 		return nil
 	}
@@ -94,14 +94,14 @@ func (a *LicenseServer) EnvBootstrap(ctx context.Context) error {
 }
 
 // Activate implements the Activate RPC
-func (a *LicenseServer) Activate(ctx context.Context, req *lc.ActivateRequest) (*lc.ActivateResponse, error) {
+func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (*lc.ActivateResponse, error) {
 	if a.env.Config.LicenseKey != "" {
 		return nil, errors.New("license.Activate() is disabled when the license key is configured via environment")
 	}
 	return a.activate(ctx, req)
 }
 
-func (a *LicenseServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
+func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
 	// Validate the activation code
 	expiration, err := license.Validate(req.ActivationCode)
 	if err != nil {
@@ -138,11 +138,11 @@ func (a *LicenseServer) activate(ctx context.Context, req *lc.ActivateRequest) (
 }
 
 // GetActivationCode returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE), including the enterprise activation code
-func (a *LicenseServer) GetActivationCode(ctx context.Context, req *lc.GetActivationCodeRequest) (resp *lc.GetActivationCodeResponse, retErr error) {
+func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivationCodeRequest) (resp *lc.GetActivationCodeResponse, retErr error) {
 	return a.getLicenseRecord(ctx)
 }
 
-func (a *LicenseServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCodeResponse, error) {
+func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCodeResponse, error) {
 	var record ec.LicenseRecord
 	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
 		if col.IsErrNotFound(err) {
@@ -169,7 +169,7 @@ func (a *LicenseServer) getLicenseRecord(ctx context.Context) (*lc.GetActivation
 	return resp, nil
 }
 
-func (a *LicenseServer) checkLicenseState(ctx context.Context) error {
+func (a *apiServer) checkLicenseState(ctx context.Context) error {
 	record, err := a.getLicenseRecord(ctx)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (a *LicenseServer) checkLicenseState(ctx context.Context) error {
 	return nil
 }
 
-func (a *LicenseServer) validateClusterConfig(ctx context.Context, address string) error {
+func (a *apiServer) validateClusterConfig(ctx context.Context, address string) error {
 	if address == "" {
 		return errors.New("no address provided for cluster")
 	}
@@ -201,7 +201,7 @@ func (a *LicenseServer) validateClusterConfig(ctx context.Context, address strin
 
 // AddCluster registers a new pachd with this license server. Each pachd is configured with a shared secret
 // which is used to authenticate to the license server when heartbeating.
-func (a *LicenseServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (resp *lc.AddClusterResponse, retErr error) {
+func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (resp *lc.AddClusterResponse, retErr error) {
 	// Make sure we have an active license
 	if err := a.checkLicenseState(ctx); err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func (a *LicenseServer) AddCluster(ctx context.Context, req *lc.AddClusterReques
 	}, nil
 }
 
-func (a *LicenseServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (resp *lc.HeartbeatResponse, retErr error) {
+func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (resp *lc.HeartbeatResponse, retErr error) {
 	var count int
 	if err := a.env.DB.GetContext(ctx, &count, `SELECT COUNT(*) FROM license.clusters WHERE id=$1 and secret=$2`, req.Id, req.Secret); err != nil {
 		return nil, errors.Wrapf(err, "unable to look up cluster in database")
@@ -262,7 +262,7 @@ func (a *LicenseServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest)
 	}, nil
 }
 
-func (a *LicenseServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (resp *lc.DeleteAllResponse, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (resp *lc.DeleteAllResponse, retErr error) {
 	// TODO: attempt to synchronously deactivate enterprise licensing on every registered cluster
 
 	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM license.clusters`); err != nil {
@@ -282,7 +282,7 @@ func (a *LicenseServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest)
 	return &lc.DeleteAllResponse{}, nil
 }
 
-func (a *LicenseServer) ListClusters(ctx context.Context, req *lc.ListClustersRequest) (resp *lc.ListClustersResponse, retErr error) {
+func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersRequest) (resp *lc.ListClustersResponse, retErr error) {
 	clusters := make([]*lc.ClusterStatus, 0)
 	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
 	if err != nil {
@@ -294,7 +294,7 @@ func (a *LicenseServer) ListClusters(ctx context.Context, req *lc.ListClustersRe
 	}, nil
 }
 
-func (a *LicenseServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequest) (resp *lc.DeleteClusterResponse, retErr error) {
+func (a *apiServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequest) (resp *lc.DeleteClusterResponse, retErr error) {
 	// TODO: attempt to synchronously deactivate enterprise licensing on the specified cluster
 
 	_, err := a.env.DB.ExecContext(ctx, "DELETE FROM license.clusters WHERE id=$1", req.Id)
@@ -304,7 +304,7 @@ func (a *LicenseServer) DeleteCluster(ctx context.Context, req *lc.DeleteCluster
 	return &lc.DeleteClusterResponse{}, nil
 }
 
-func (a *LicenseServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequest) (resp *lc.UpdateClusterResponse, retErr error) {
+func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequest) (resp *lc.UpdateClusterResponse, retErr error) {
 	if req.Address != "" {
 		if err := a.validateClusterConfig(ctx, req.Address); err != nil {
 			return nil, err
@@ -338,7 +338,7 @@ func (a *LicenseServer) UpdateCluster(ctx context.Context, req *lc.UpdateCluster
 	return &lc.UpdateClusterResponse{}, nil
 }
 
-func (a *LicenseServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
+func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
 	clusters := make([]*lc.UserClusterInfo, 0)
 	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
 		return nil, errors.EnsureStack(err)
