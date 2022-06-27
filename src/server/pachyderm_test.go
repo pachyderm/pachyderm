@@ -10668,8 +10668,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	req := basicPipelineReq(pipeline, dataRepo)
-	req.Transform.Image = "bitnami/nginx:1.22.0-debian-11-r8"
-	req.Transform.User = "1000"
+	req.Transform.User = "nobody"
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
 	require.NoError(t, err)
 
