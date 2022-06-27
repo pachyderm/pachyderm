@@ -541,7 +541,7 @@ workflows:
   #             ignore: /.*/
   #           tags:
   #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  release:
+  test-release:
     jobs:
       - build-docker-images:
           filters:
