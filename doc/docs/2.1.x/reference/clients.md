@@ -53,7 +53,7 @@ Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pac
 For example, if you are testing on `minikube`, run
 `minikube ip` to get this information.
 
-See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv){target=_blank} for more
+See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/opencv){target=_blank} for more
 information.
 
 ## Python Client
