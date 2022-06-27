@@ -9,13 +9,42 @@ In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
 
 ## Go Client
 
-The Pachyderm team officially supports the Go client. It implements most of the functionality that is provided with the `pachctl` CLI tool.
+`pachctl` is the command-line tool you use 
+to interact with a Pachyderm cluster in your terminal. 
+However,  external applications might need to
+interact with Pachyderm directly through our APIs.
 
-For more info, check out the [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank}.
+In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
+
+## Go Client
+
+The Pachyderm team officially supports the Go client. It implements most of the functionalities provided with the `pachctl` CLI tool.
+
+### Generate And Serve The godocs Locally
+
+Golang's package (godoc), installed by default by the Go installer, can generate the Go client's documentation from the go code.
+
+To generate the docs:
+
+- Set your GOPATH: 
+
+	```shell
+	export PATH=$(go env GOPATH)/bin:$PATH
+	```
+
+- In Pachyderm's root directory, start the godocs server: 
+
+	```shell
+	go run golang.org/x/tools/cmd/godoc -http=:6060 -goroot="<your go root directory - for example: /Users/yourusername/pachyderm>"
+	```
+				
+	See https://pkg.go.dev/golang.org/x/tools/cmd/godoc for the complete list of flags available.
+
+- In your favorite browser, run `localhost:6060/pkg/`
+
 
 !!! Attention
-     A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/2.0.x/go.mod then:
-
+     A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/master/go.mod then:
 
 	```shell
 	go get google.golang.org/grpc
@@ -25,7 +54,7 @@ For more info, check out the [godocs](https://pkg.go.dev/github.com/pachyderm/pa
      
 ### Running Go Examples
 
-The Pachyderm [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank} reference
+The Pachyderm godocs reference (see generation instructions above)
 provides examples of how you can use the Go client API. You need to have a running Pachyderm cluster
 to run these examples.
 
@@ -33,7 +62,7 @@ Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pac
 For example, if you are testing on `minikube`, run
 `minikube ip` to get this information.
 
-See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/2.0.x/examples/opencv){target=_blank} for more
+See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/opencv){target=_blank} for more
 information.
 
 ## Python Client
