@@ -106,16 +106,51 @@ spec:
               name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
               key: "enterprise-secret"
         {{- end }}
-        {{- if or .Values.pachd.rootTokenSecretName .Values.pachd.rootToken }}
+        {{- if and (include "pachyderm.enterpriseLicenseKeySecretName" .) .Values.pachd.activateAuth }}
+        - name: ACTIVATE_AUTH
+          value: "true"
         - name: AUTH_ROOT_TOKEN
-          {{- if .Values.pachd.rootTokenSecretName }}
           valueFrom:
             secretKeyRef:
+            {{- if .Values.pachd.rootTokenSecretName }}
               name: {{ .Values.pachd.rootTokenSecretName | quote }}
+            {{- else }}
+              name: "pachyderm-auth"
+            {{- end }}
               key: "root-token"
-          {{- else }}
-          value: {{ .Values.pachd.rootToken | quote }}
-          {{- end }}
+        - name: AUTH_CONFIG
+          valueFrom:
+            secretKeyRef:
+              name: "pachyderm-auth"
+              key: "auth-config"
+        - name: IDP_CLIENTS
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "oidc-clients"
+        {{- if or (include  "pachyderm.mockIDPRoleBindings" .) .Values.pachd.pachAuthClusterRoleBindings }}
+        - name: AUTH_CLUSTER_RBAC
+          valueFrom:
+            secretKeyRef:
+              name: "pachyderm-auth"
+              key: "cluster-role-bindings"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.console.enabled }}
+        - name: CONSOLE_OAUTH_ID
+          valueFrom:
+            secretKeyRef:
+              name: pachyderm-console-secret
+              key: OAUTH_CLIENT_ID
+        - name: CONSOLE_OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: pachyderm-console-secret
+              key: OAUTH_CLIENT_SECRET
+        {{- end }}
+        {{- if .Release.IsUpgrade }}
+        - name: UPGRADE_NO_OP
+          value: {{ randAlphaNum 32 }}
         {{- end }}
         envFrom:
           - secretRef:

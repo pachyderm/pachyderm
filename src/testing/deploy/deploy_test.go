@@ -23,9 +23,9 @@ func TestDeployEnterprise(t *testing.T) {
 		"default",
 		k,
 		&minikubetestenv.DeployOpts{
-			AuthUser:     auth.RootUser,
-			Enterprise:   true,
-			CleanupAfter: true,
+			AuthUser:   auth.RootUser,
+			Enterprise: true,
+			Console:    true,
 		})
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -37,9 +37,8 @@ func TestDeployEnterprise(t *testing.T) {
 func TestUpgradeEnterpriseWithEnv(t *testing.T) {
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:     auth.RootUser,
-		Enterprise:   true,
-		CleanupAfter: true,
+		AuthUser:   auth.RootUser,
+		Enterprise: true,
 	}
 	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})

@@ -11,6 +11,7 @@ import (
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -47,10 +48,12 @@ const clusterIDKey = "cluster-id"
 // separate goroutines.
 type ServiceEnv interface {
 	AuthServer() auth_server.APIServer
+	IdentityServer() identity.APIServer
 	PfsServer() pfs_server.APIServer
 	PpsServer() pps_server.APIServer
 	EnterpriseServer() enterprise_server.APIServer
 	SetAuthServer(auth_server.APIServer)
+	SetIdentityServer(identity.APIServer)
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
 
@@ -124,6 +127,7 @@ type NonblockingServiceEnv struct {
 	listener col.PostgresListener
 
 	authServer       auth_server.APIServer
+	identityServer   identity.APIServer
 	ppsServer        pps_server.APIServer
 	pfsServer        pfs_server.APIServer
 	enterpriseServer enterprise_server.APIServer
@@ -528,6 +532,16 @@ func (env *NonblockingServiceEnv) AuthServer() auth_server.APIServer {
 // SetAuthServer registers an Auth APIServer with this service env
 func (env *NonblockingServiceEnv) SetAuthServer(s auth_server.APIServer) {
 	env.authServer = s
+}
+
+// IdentityServer returns the registered Identity APIServer
+func (env *NonblockingServiceEnv) IdentityServer() identity.APIServer {
+	return env.identityServer
+}
+
+// SetIdentityServer registers an Identity APIServer with this service env
+func (env *NonblockingServiceEnv) SetIdentityServer(s identity.APIServer) {
+	env.identityServer = s
 }
 
 // PpsServer returns the registered PPS APIServer

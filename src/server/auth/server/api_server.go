@@ -8,9 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -44,6 +47,9 @@ const (
 
 	// the length of interval between expired auth token cleanups
 	cleanupIntervalHours = 24
+
+	// auth server internal user
+	internalUser = auth.InternalPrefix + "auth-server"
 )
 
 // DefaultOIDCConfig is the default config for the auth API server
@@ -124,35 +130,122 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 }
 
 func (a *AuthServer) EnvBootstrap(ctx context.Context) error {
-	if a.env.Config.AuthRootToken == "" {
+	if !a.env.Config.ActivateAuth {
 		return nil
 	}
 	a.env.Logger.Info("Started to configure auth server via environment")
 	if err := func() error {
-		if _, err := a.Activate(ctx, &auth.ActivateRequest{
-			RootToken: a.env.Config.AuthRootToken,
-		}); err != nil {
-			if !errors.As(err, auth.ErrAlreadyActivated) {
+		ctx = internalauth.AsInternalUser(ctx, internalUser)
+		// handle auth activation
+		if a.env.Config.AuthRootToken != "" {
+			if _, err := a.Activate(ctx, &auth.ActivateRequest{
+				RootToken: a.env.Config.AuthRootToken,
+			}); err != nil {
+				if !errors.As(err, auth.ErrAlreadyActivated) {
+					return err
+				}
+				_, err := a.rotateRootToken(ctx,
+					&auth.RotateRootTokenRequest{
+						RootToken: a.env.Config.AuthRootToken,
+					})
+				return err
+			} else {
+				if a.env.Config.PachdSpecificConfiguration != nil {
+					if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
+						return errors.EnsureStack(err)
+					}
+					if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
+						return errors.EnsureStack(err)
+					}
+				}
+			}
+		}
+		// handle oidc clients & this cluster's auth config
+		if a.env.Config.AuthConfig != "" && a.env.Config.IdentityClients != "" {
+			var config auth.OIDCConfig
+			var clients []identity.OIDCClient
+			if err := yaml.Unmarshal([]byte(a.env.Config.AuthConfig), &config); err != nil {
+				return errors.Wrapf(err, "unmarshal auth config: %q", a.env.Config.AuthConfig)
+			}
+			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
+				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
+			}
+			for _, c := range clients {
+				if c.Id == config.ClientID {
+					c.Secret = config.ClientSecret
+				}
+				if c.Id == a.env.Config.ConsoleOAuthID {
+					c.Secret = a.env.Config.ConsoleOAuthSecret
+				}
+				if !a.env.Config.EnterpriseMember {
+					if _, err := a.env.GetIdentityServer().CreateOIDCClient(ctx, &identity.CreateOIDCClientRequest{Client: &c}); err != nil {
+						if !identity.IsErrAlreadyExists(err) {
+							return errors.Wrapf(err, "create oidc client %q", c.Name)
+						}
+						if _, err := a.env.GetIdentityServer().UpdateOIDCClient(ctx, &identity.UpdateOIDCClientRequest{Client: &c}); err != nil {
+							return errors.Wrapf(err, "update oidc client %q", c.Name)
+						}
+					}
+				} else {
+					ec, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+					if err != nil {
+						return errors.Wrapf(err, "connect to enterprise server")
+					}
+					ec.SetAuthToken(a.env.Config.EnterpriseServerToken)
+					if _, err = ec.IdentityAPIClient.CreateOIDCClient(ec.Ctx(), &identity.CreateOIDCClientRequest{Client: &c}); err != nil {
+						if !identity.IsErrAlreadyExists(err) {
+							return errors.Wrapf(err, "create oidc client %q", c.Name)
+						}
+						if _, err := ec.IdentityAPIClient.UpdateOIDCClient(ctx, &identity.UpdateOIDCClientRequest{Client: &c}); err != nil {
+							return errors.Wrapf(err, "update oidc client %q", c.Name)
+						}
+					}
+				}
+			}
+			if _, err := a.SetConfiguration(ctx, &auth.SetConfigurationRequest{Configuration: &config}); err != nil {
 				return err
 			}
-			_, err := a.rotateRootToken(internalauth.AsInternalUser(ctx, "auth-server"),
-				&auth.RotateRootTokenRequest{
-					RootToken: a.env.Config.AuthRootToken,
-				})
-			return err
-		} else {
-			if a.env.Config.PachdSpecificConfiguration != nil {
-				if _, err := a.env.GetPfsServer().ActivateAuth(ctx, &pfs.ActivateAuthRequest{}); err != nil {
-					return errors.EnsureStack(err)
+		}
+		// cluster role bindings
+		if a.env.Config.AuthClusterRoleBindings != "" {
+			var roleBinding map[string][]string
+			if err := yaml.Unmarshal([]byte(a.env.Config.AuthClusterRoleBindings), &roleBinding); err != nil {
+				return errors.Wrapf(err, "unmarshal auth cluster role bindings: %q", a.env.Config.AuthClusterRoleBindings)
+			}
+			existing, err := a.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
+				Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+			})
+			if err != nil {
+				return errors.Wrapf(err, "get cluster role bindings")
+			}
+			for p := range existing.Binding.Entries {
+				// `pach:` user role bindings cannot be modified
+				if strings.HasPrefix(p, auth.PachPrefix) || strings.HasPrefix(p, auth.InternalPrefix) {
+					a.env.Logger.Warnf("cannot modify cluster role bindings for subject %q", p)
+					continue
 				}
-				if _, err := a.env.GetPpsServer().ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
-					return errors.EnsureStack(err)
+				if _, ok := roleBinding[p]; !ok {
+					if _, err := a.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
+						Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+						Principal: p,
+					}); err != nil {
+						return errors.Wrapf(err, "unset principal cluster role bindings for principal %q", p)
+					}
 				}
 			}
-			return nil
+			for p, r := range roleBinding {
+				if _, err := a.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
+					Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
+					Principal: p,
+					Roles:     r,
+				}); err != nil {
+					return errors.Wrapf(err, "modify cluster role bindings")
+				}
+			}
 		}
+		return nil
 	}(); err != nil {
-		return errors.Errorf("configure the auth server via environment: %v", errors.EnsureStack(err))
+		return errors.Wrapf(errors.EnsureStack(err), "configure the auth server via environment")
 	}
 	a.env.Logger.Info("Successfully configured auth server via environment")
 	return nil
@@ -262,7 +355,7 @@ func (a *AuthServer) expiredEnterpriseCheck(ctx context.Context, username string
 
 func (a *AuthServer) userHasExpiredClusterAccessCheck(ctx context.Context, username string) error {
 	// Root User, PPS Master, and any Pipeline keep cluster access
-	if username == auth.RootUser || strings.HasPrefix(username, auth.PipelinePrefix) {
+	if username == auth.RootUser || strings.HasPrefix(username, auth.PipelinePrefix) || strings.HasPrefix(username, auth.InternalPrefix) {
 		return nil
 	}
 
@@ -326,7 +419,8 @@ func (a *AuthServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*
 		roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
 		if err := roleBindings.Put(clusterRoleBindingKey, &auth.RoleBinding{
 			Entries: map[string]*auth.Roles{
-				auth.RootUser: &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				auth.RootUser: {Roles: map[string]bool{auth.ClusterAdminRole: true}},
+				internalUser:  {Roles: map[string]bool{auth.ClusterAdminRole: true}},
 			},
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -1306,7 +1400,7 @@ func (a *AuthServer) checkCanonicalSubject(subject string) error {
 	// check against fixed prefixes
 	prefix += ":" // append ":" to match constants
 	switch prefix {
-	case auth.PipelinePrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix, auth.GroupPrefix:
+	case auth.PipelinePrefix, auth.InternalPrefix, auth.RobotPrefix, auth.PachPrefix, auth.UserPrefix, auth.GroupPrefix:
 		break
 	default:
 		return errors.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
