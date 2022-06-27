@@ -84,7 +84,7 @@ class MountServerClient(MountInterface):
                     [
                         "bash", "-c",
                         "set -o pipefail; "
-                        +f"pachctl mount-server --mount-dir {self.mount_dir}"
+                        +f"mount-server --mount-dir {self.mount_dir}"
                         +" >> /tmp/pachctl-mount-server.log 2>&1",
                     ],
                     env={

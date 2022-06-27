@@ -8,8 +8,8 @@ parameters:
     type: string
     # update this to build a different e.g. branch build of pachctl based on the git hash
     # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
-    default: 117da9b0921d75b3f689d7710823afdc1490822e
-    # Includes https://github.com/pachyderm/pachyderm/pull/7767
+    default: 145bbdb3e6e16adc34f6d9e8da631a0b0cd4e10a
+    # Includes https://github.com/pachyderm/pachyderm/pull/7790
 
 jobs:
   test:
@@ -126,7 +126,7 @@ jobs:
             tail -F /tmp/pachctl-mount-server.log &
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
-            pachctl mount-server --mount-dir $PFS_MOUNT_DIR &
+            mount-server --mount-dir $PFS_MOUNT_DIR &
             curl -XPUT -d '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' http://localhost:9002/config
             CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
@@ -446,6 +446,9 @@ commands:
     steps:
       - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
       - run:
+          name: Fuse options
+          command: echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
+      - run:
             name: Install kind
             command: |
               curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
@@ -467,6 +470,9 @@ commands:
       - run:
           name: Install pachctl
           command: curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv pachctl.tar.gz && sudo mv pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64/pachctl /usr/local/bin/
+      - run:
+          name: Install mount-server
+          command: curl -f -o mount-server.tar.gz -L https://storage.googleapis.com/pachyderm-builds/mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv mount-server.tar.gz && sudo mv mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64/mount-server /usr/local/bin/
       - run:
           name: Setup helm
           command: helm repo add pach https://helm.pachyderm.com && helm repo update
