@@ -155,6 +155,7 @@ func withBase(namespace string) *helm.Options {
 			"pachd.resources.requests.memory":              "512M",
 			"etcd.resources.requests.cpu":                  "250m",
 			"etcd.resources.requests.memory":               "512M",
+			"console.enabled":                              "false",
 		},
 	}
 }

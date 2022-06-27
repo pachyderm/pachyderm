@@ -136,7 +136,10 @@ with a Pachyderm cluster in your terminal.
   
       If you run `pachctl version` without the flag `--client-only`, the command times  
       out. This is expected behavior because Pachyderm has not been deployed yet (`pachd` is not yet running).  
-  
+
+!!! Tip  
+    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/){target=_blank}. This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
+
 !!! Note "Architecture"  
       A look at [Pachyderm high-level architecture diagram](../../deploy-manage/#overview)   
       will help you build a mental image of Pachyderm various architectural components.  
@@ -150,9 +153,6 @@ Follow Helm's [installation guide](https://helm.sh/docs/intro/install/){target=_
 ## Deploy Pachyderm Community Edition or Enterprise with Console  
 When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your local cluster by following these steps:  
   
-!!! Tip  
-    If you are new to Pachyderm, try [Pachyderm Shell](../../deploy-manage/manage/pachctl-shell/). This add-on tool suggests `pachctl` commands as you type. It will help you learn Pachyderm's main commands faster.  
-  
 * Get the Repo Info:  
    ```shell  
    helm repo add pach https://helm.pachyderm.com  
@@ -160,7 +160,7 @@ When done with the [Prerequisites](#prerequisites), deploy Pachyderm on your loc
    ```  
  * Install Pachyderm:  
 
-=== "Latest CE"
+=== "Pachyderm Community Edition"
       This command will install Pachyderm's latest available GA version.
 
        ```shell  

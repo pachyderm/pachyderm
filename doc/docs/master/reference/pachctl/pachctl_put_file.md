@@ -14,34 +14,28 @@ pachctl put file <repo>@<branch-or-commit>[:<path/to/file>] [flags]
 
 ```
 
-# Put data from stdin as repo/branch/path:
+# Put data from stdin at repo@branch:/path
 $ echo "data" | pachctl put file repo@branch:/path
 
-# Put data from stdin as repo/branch/path and start / finish a new commit on the branch.
-$ echo "data" | pachctl put file -c repo@branch:/path
-
-# Put a file from the local filesystem as repo/branch/path:
-$ pachctl put file repo@branch:/path -f file
-
-# Put a file from the local filesystem as repo/branch/file:
+# Put a file from the local filesystem at repo@branch:/file
 $ pachctl put file repo@branch -f file
 
-# Put the contents of a directory as repo/branch/path/dir/file:
-$ pachctl put file -r repo@branch:/path -f dir
+# Put a file from the local filesystem at repo@branch:/path
+$ pachctl put file repo@branch:/path -f file
 
-# Put the contents of a directory as repo/branch/dir/file:
+# Put the contents of a directory at repo@branch:/dir/file
 $ pachctl put file -r repo@branch -f dir
 
-# Put the contents of a directory as repo/branch/file, i.e. put files at the top level:
-$ pachctl put file -r repo@branch:/ -f dir
+# Put the contents of a directory at repo@branch:/path/file (without /dir)
+$ pachctl put file -r repo@branch:/path -f dir
 
-# Put the data from a URL as repo/branch/path:
-$ pachctl put file repo@branch:/path -f http://host/path
+# Put the data from a URL at repo@branch:/example.png
+$ pachctl put file repo@branch -f http://host/example.png
 
-# Put the data from a URL as repo/branch/path:
-$ pachctl put file repo@branch -f http://host/path
+# Put the data from a URL at repo@branch:/dir/example.png
+$ pachctl put file repo@branch:/dir -f http://host/example.png
 
-# Put the data from an S3 bucket as repo/branch/s3_object:
+# Put the data from an S3 bucket at repo@branch:/s3_object
 $ pachctl put file repo@branch -r -f s3://my_bucket
 
 # Put several files or URLs that are listed in file.

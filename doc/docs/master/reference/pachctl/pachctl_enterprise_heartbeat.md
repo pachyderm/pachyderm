@@ -13,7 +13,7 @@ pachctl enterprise heartbeat [flags]
 ### Options
 
 ```
-      --enterprise   Make the enterprise server refresh it's state
+      --enterprise   Make the enterprise server refresh its state
   -h, --help         help for heartbeat
 ```
 
