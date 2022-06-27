@@ -75,8 +75,8 @@ It implements most of the functionalities provided with the `pachctl` CLI tool a
 
 You will find all you need to get you started or dive into the details of the available modules and functions in the [API documentation](https://python-pachyderm.readthedocs.io/en/v7.1.x/){target=_blank}, namely:
 
-- The [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting-started.html#installation){target=_blank} and links to PyPI.
-- A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting-started.html#installation){target=_blank} to jumpstart your understanding of the API.
+- The [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting_started.html#installation ){target=_blank} and links to PyPI.
+- A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting_started.html#hello-world-example){target=_blank} to jumpstart your understanding of the API.
 - Links to python-pachyderm main Github repository with a [list of useful examples](https://github.com/pachyderm/python-pachyderm/tree/v7.1.x/examples){target=_blank}. 
 - As well as the entire **reference API**.
 
