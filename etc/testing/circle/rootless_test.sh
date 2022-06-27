@@ -27,10 +27,10 @@ minikube start \
 
 # install gatekeeper
 kubectl apply -f etc/testing/gatekeeper.yaml
-sleep 5
+kubectl -n gatekeeper-system wait --for=condition=ready pod -l control-plane=audit-controller --timeout=5m
 # install gatekeeper OPA Templates
 kubectl apply -f etc/testing/opa-policies/
-sleep 10
+kubectl wait --for=jsonpath='{.status.created}'=true -f etc/testing/opa-policies/
 #Install gatekeeper OPA constraints 
 kubectl apply -f etc/testing/opa-constraints.yaml
 
