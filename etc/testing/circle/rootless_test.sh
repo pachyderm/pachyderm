@@ -30,7 +30,12 @@ kubectl apply -f etc/testing/gatekeeper.yaml
 kubectl -n gatekeeper-system wait --for=condition=ready pod -l control-plane=audit-controller --timeout=5m
 # install gatekeeper OPA Templates
 kubectl apply -f etc/testing/opa-policies/
-kubectl wait --for=jsonpath='{.status.created}'=true -f etc/testing/opa-policies/
+COUNT=0
+while  [ $COUNT  -lt 6 ]; do
+    COUNT=$(kubectl get constrainttemplates.templates.gatekeeper.sh -o json | jq -r '.items | length')
+    sleep 2
+done
+
 #Install gatekeeper OPA constraints 
 kubectl apply -f etc/testing/opa-constraints.yaml
 
