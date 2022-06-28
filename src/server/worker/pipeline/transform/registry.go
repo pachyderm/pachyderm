@@ -478,8 +478,9 @@ func (reg *registry) processJobEgressing(pj *pendingJob) error {
 	egress := pj.ji.Details.Egress
 	var request pfs.EgressRequest
 	request.Commit = pj.commitInfo.Commit
-	if pj.ji.Details.Egress.URL != "" {
-		request.Target = &pfs.EgressRequest_ObjectStorage{ObjectStorage: egress.GetObjectStorage()}
+	// For backwards compatibility, egress still works with just a URL to object storage.
+	if egress.URL != "" {
+		request.Target = &pfs.EgressRequest_ObjectStorage{ObjectStorage: &pfs.ObjectStorageEgress{Url: egress.URL}}
 	} else {
 		switch egress.Target.(type) {
 		case *pps.Egress_ObjectStorage:

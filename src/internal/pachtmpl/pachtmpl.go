@@ -80,6 +80,9 @@ func (im httpImporter) Import(importedFrom, importedPath string) (contents jsonn
 	if err != nil {
 		return jsonnet.Contents{}, "", errors.EnsureStack(err)
 	}
+	if resp.StatusCode >= http.StatusBadRequest {
+		return jsonnet.Contents{}, "", errors.Errorf("http code %d fetching %s", resp.StatusCode, importedPath)
+	}
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return jsonnet.Contents{}, "", errors.EnsureStack(err)

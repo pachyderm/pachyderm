@@ -12,7 +12,7 @@ import (
 func Merge(ctx context.Context, storage *chunk.Storage, indexes []*Index, cb func(*Index) error) error {
 	var ss []stream.Stream
 	for _, index := range indexes {
-		ir := NewReader(storage, index)
+		ir := NewReader(storage, nil, index)
 		iterateFunc := func(cb func(interface{}) error) error {
 			return ir.Iterate(ctx, func(index *Index) error {
 				return cb(index)

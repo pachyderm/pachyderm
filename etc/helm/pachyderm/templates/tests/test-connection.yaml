@@ -20,5 +20,20 @@ spec:
       image: "alpine"
       command: ['/bin/sh', '-c', '--']
       args: ['while ! nc -vz pachd-peer 30653 ; do sleep 1 ; done']
+{{- if .Values.global.securityContexts.enabled }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+            drop:
+            - all
+  securityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  {{- end }}
   restartPolicy: Never
 {{- end }}

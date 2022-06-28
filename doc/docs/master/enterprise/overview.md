@@ -8,7 +8,7 @@
 
 Pachyderm Enterprise Edition helps you scale and manage Pachyderm data pipelines in an enterprise setting.
 
-It delivers the most recent version of the Community Edition of Pachyderm along with additional features and a UI (Console) for visualizing pipelines and exploring data.
+It delivers the most recent version of the Community Edition of Pachyderm along with additional features(#additioanl-features).
 
 !!! Warning "THE ENTERPRISE EDITION LIFTS **ALL SCALING LIMITATIONS**"
      Note that the activation of the Enterprise Edition [**lifts all scaling limits of the Community Edition**](../../reference/scaling-limits/). You can run as many pipelines as you need and parallelize your jobs without constraints.
@@ -20,20 +20,25 @@ Pachyderm Enterprise unlocks a series of additional administrative and security 
 
 - [**Authentication**](../auth/authentication/idp-dex): Pachyderm allows for authentication **against any OIDC provider**. Users can authenticate to Pachyderm by logging into their favorite Identity Provider. 
 - [**Role-Based Access Control - RBAC**](../auth/authorization/): Enterprise-scale deployments require access control.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines and data.  Administrators can silo data, prevent unintended modifications to production pipelines, and support multiple data scientists or even multiple data science groups by controlling users' access to Pachyderm resources.
-- [**Enterprise Server**](../auth/enterprise-server/setup/): An organization can have **many Pachyderm clusters registered with one single Enterprise Server** that manages the Enterprise licensing and the integration with a company's Identity Provider.
+- [**Enterprise Server**](../auth/enterprise-server/setup/): An organization can have **many Pachyderm clusters registered with one single Enterprise Server** that manages the ßEnterprise licensing and the integration with a company's Identity Provider.
 - Additionally, you have access to a pachctl command that [pauses (`pachctl enterprise pause`) and unpauses (`pachctl enterprise unpause`) your cluster](../../deploy-manage/manage/backup-restore){target=_blank} for a backup and restore.
 
 ### Tooling
 
-Pachyderm Enterprise comes with a complementary tool that will quickly become indispensable when designing and debugging pipelines: **Pachyderm Console**, a visual interface for pipeline visualization and data exploration.
+Pachyderm CE comes with an indispensable complementary tool 
+when designing and debugging pipelines: **Pachyderm Console**; 
+a full Web UI for visualizing pipelines and exploring data. 
 
-Pachyderm Enterprise Edition includes a full Web UI for visualizing pipelines and exploring data.  It automatically infers the structure of data scientists' DAGs and displays them visually. Data scientists and cluster admins can click on individual segments of pipelines and repos to see how many jobs have run, explore commits and data, or access Pachyderm logs. Console is an indispensable tool when designing and troubleshooting your data workflow.
-Console also supports file ingress from your local computer via a drag-and-drop file upload feature. 
+While Console is now part of Pachyderm Community Edition, 
+enabling Enterprise allows you to benefit 
+from the full Authentication and Role-Based Access Control capabilities 
+by restricting the access to specific resources to authorized users only. 
+Unauthorized users will not be able to visualize the content 
+of given clusters, repo, and pipelines.
 
-![Console Pipeline](../images/console-pipeline.png)
-
-You can [deploy Console with Pachyderm](../../deploy-manage/deploy/console/) by adding the relevant fields to your Helm values. A production environment requires setting up [Authentication, an Ingress Controller, and a DNS](../../deploy-manage/deploy/ingress/). You can also choose to deploy Console [locally](../../deploy-manage/deploy/console/#deploy-locally) to experiment with the product.
-
+Additionally, the Enterprise feature allows you to access Pachyderm's 
+logs via [Loki](../../deploy-manage/deploy/loki/){target=_blank}, 
+provided that you have activated the feature in your values.yaml.
 
 
 

@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package driver
@@ -16,8 +17,9 @@ import (
 func makeCmdCredentials(uid uint32, gid uint32) *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
-			Uid: uid,
-			Gid: gid,
+			Uid:         uid,
+			Gid:         gid,
+			NoSetGroups: true,
 		},
 	}
 }

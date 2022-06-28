@@ -459,6 +459,51 @@ func GetRobotTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(getAuthToken, "auth get-robot-token")
 }
 
+// RevokeCmd returns a cobra.Command that revokes a Pachyderm token.
+func RevokeCmd() *cobra.Command {
+	var enterprise bool
+	var token string
+	var user string
+	revoke := &cobra.Command{
+		Short: "Revoke a Pachyderm auth token",
+		Long:  "Revoke a Pachyderm auth token.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			if token == "" && user == "" {
+				return errors.Errorf("one of --token or --user must be set")
+			} else if token != "" && user != "" {
+				return errors.Errorf("only one of --token or --user may be set")
+			}
+
+			c, err := newClient(enterprise)
+			if err != nil {
+				return errors.Wrapf(err, "could not connect")
+			}
+			defer c.Close()
+
+			if token != "" {
+				_, err = c.RevokeAuthToken(c.Ctx(), &auth.RevokeAuthTokenRequest{
+					Token: token,
+				})
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
+				}
+			} else {
+				_, err = c.RevokeAuthTokensForUser(c.Ctx(), &auth.RevokeAuthTokensForUserRequest{
+					Username: user,
+				})
+				if err != nil {
+					return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
+				}
+			}
+			return nil
+		}),
+	}
+	revoke.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Revoke an auth token (or all auth tokens minted for one user) on the enterprise server")
+	revoke.PersistentFlags().StringVar(&token, "token", "", "Pachyderm auth token that should be revoked (one of --token or --user must be set)")
+	revoke.PersistentFlags().StringVar(&user, "user", "", "User whose Pachyderm auth tokens should be revoked (one of --token or --user must be set)")
+	return cmdutil.CreateAlias(revoke, "auth revoke")
+}
+
 func GetGroupsCmd() *cobra.Command {
 	var enterprise bool
 	getGroups := &cobra.Command{
@@ -546,7 +591,7 @@ func CheckRepoCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(check, "auth check repo")
+	return cmdutil.CreateAliases(check, "auth check repo", "repos")
 }
 
 // SetRepoRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
@@ -573,7 +618,7 @@ func SetRepoRoleBindingCmd() *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAlias(setScope, "auth set repo")
+	return cmdutil.CreateAliases(setScope, "auth set repo", "repos")
 }
 
 // GetRepoRoleBindingCmd returns a cobra command that gets the role bindings for a resource
@@ -597,7 +642,7 @@ func GetRepoRoleBindingCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(get, "auth get repo")
+	return cmdutil.CreateAliases(get, "auth get repo", "repos")
 }
 
 // SetClusterRoleBindingCmd returns a cobra command that sets the roles for a user on a resource
@@ -810,6 +855,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
 	commands = append(commands, CheckRepoCmd())
+	commands = append(commands, RevokeCmd())
 	commands = append(commands, GetGroupsCmd())
 	commands = append(commands, GetRepoRoleBindingCmd())
 	commands = append(commands, SetRepoRoleBindingCmd())

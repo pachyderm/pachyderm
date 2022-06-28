@@ -166,6 +166,7 @@ func RunLocal() (retErr error) {
 				return err
 			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			env.SetIdentityServer(idAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -210,7 +211,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, _, err := licenseserver.New(licenseserver.Env{})
+			licenseAPIServer, err := licenseserver.New(licenseserver.Env{})
 			if err != nil {
 				return err
 			}
@@ -244,6 +245,7 @@ func RunLocal() (retErr error) {
 				env,
 				env.Config().PachdPodName,
 				nil,
+				env.GetDBClient(),
 			))
 			return nil
 		}); err != nil {
@@ -296,6 +298,7 @@ func RunLocal() (retErr error) {
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			env.SetIdentityServer(idAPIServer)
 			return nil
 		}); err != nil {
 			return err

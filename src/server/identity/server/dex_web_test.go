@@ -52,9 +52,15 @@ func TestLazyStartWebServer(t *testing.T) {
 		RedirectURIs: []string{"http://example.com/callback"},
 	}))
 
-	req := httptest.NewRequest("GET", "/auth?client_id=test&nonce=abc&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&response_type=code&scope=openid+profile+email&state=abcd", nil)
-
+	// check if the dex server returns 200 on '/'
+	req := httptest.NewRequest("GET", "/", nil)
 	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
+
+	req = httptest.NewRequest("GET", "/auth?client_id=test&nonce=abc&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&response_type=code&scope=openid+profile+email&state=abcd", nil)
+
+	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
 	require.Matches(t, "/placeholder", recorder.Result().Header.Get("Location"))

@@ -417,3 +417,95 @@ func TestRotateRootToken(t *testing.T) {
 		pachctl auth whoami | match "pach:root"
 	`).Run())
 }
+
+// TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
+// A template is filled in that calls the help flag and the output is compared. It seems like 'match'
+// is unable to compare the outputs correctly, but we can use diff here which returns an exit code of 0
+// if there is no difference.
+func TestSynonyms(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	synonymCheckTemplate := `
+		pachctl auth {{VERB}} {{RESOURCE_SYNONYM}} -h > synonym.txt
+		pachctl auth {{VERB}} {{RESOURCE}} -h > singular.txt
+		diff synonym.txt singular.txt
+		rm synonym.txt singular.txt
+	`
+
+	resources := map[string][]string{
+		"repo": {"check", "set", "get"},
+	}
+
+	synonymsMap := map[string]string{
+		"repo": "repos",
+	}
+
+	for resource, verbs := range resources {
+		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
+		withResources := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonymsMap[resource])
+
+		for _, verb := range verbs {
+			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
+			t.Logf("Testing auth %s %s -h\n", verb, resource)
+			require.NoError(t, tu.BashCmd(synonymCommand).Run())
+		}
+	}
+}
+
+// TestRevokeToken tests revoking an existing token
+func TestRevokeToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	root := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
+	alice := tu.AuthenticateClient(t, c, aliceName)
+
+	whoAmIResp, err := alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, aliceName, whoAmIResp.Username)
+
+	require.NoError(t, tu.PachctlBashCmd(t, root,
+		`pachctl auth revoke --token={{.alice_token}}`,
+		"alice_token", alice.AuthToken()).Run())
+
+	_, err = alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
+	require.YesError(t, err)
+	require.True(t, auth.IsErrBadToken(err))
+}
+
+// TestRevokeUser tests revoking all tokens currently issues for a user
+func TestRevokeUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	root := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
+	aliceClients := make([]*client.APIClient, 3)
+	for i := 0; i < len(aliceClients); i++ {
+		aliceClients[i] = tu.AuthenticateClient(t, c, aliceName)
+	}
+
+	for i := 0; i < len(aliceClients); i++ {
+		c := aliceClients[i]
+		whoAmIResp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.NoError(t, err)
+		require.Equal(t, aliceName, whoAmIResp.Username)
+	}
+
+	require.NoError(t, tu.PachctlBashCmd(t, root,
+		`pachctl auth revoke --user={{.alice}}`,
+		"alice", aliceName).Run())
+
+	// See relevant comments in TestRevokeToken
+	for i := 0; i < len(aliceClients); i++ {
+		c := aliceClients[i]
+		_, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+		require.YesError(t, err)
+		require.True(t, auth.IsErrBadToken(err))
+	}
+}

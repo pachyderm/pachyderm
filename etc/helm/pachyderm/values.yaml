@@ -47,10 +47,13 @@ global:
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
+  # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
+  securityContexts:
+    enabled: true
 
 console:
   # enabled controls whether the console manifests are created or not.
-  enabled: false
+  enabled: true
   annotations: {}
   image:
     # repository is the image repo to pull from; together with tag it
@@ -138,8 +141,6 @@ etcd:
     labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
-  securityContext:
-    enabled: true
   tolerations: []
 
 enterpriseServer:
@@ -208,13 +209,69 @@ loki-stack:
       enabled: true
       accessModes:
         - ReadWriteOnce
-      size: 5Gi
+      size: 10Gi
       storageClassName: standard
       annotations: {}
       nodeSelector: {}
       tolerations: []
+    config:
+      limits_config:
+        retention_period: 24h
+        retention_stream:
+          - selector: '{suite="pachyderm"}'
+            priority: 1
+            period: 168h # = 1 week
   grafana:
     enabled: false
+  promtail:
+    config:
+      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
+      snippets:
+        common:
+          # This is copy and paste of existing actions, so we don't lose them.
+          # Cf. https://github.com/grafana/loki/issues/3519#issuecomment-1125998705
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_node_name
+            target_label: node_name
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_namespace
+            target_label: namespace
+          - action: replace
+            replacement: $1
+            separator: /
+            source_labels:
+              - namespace
+              - app
+            target_label: job
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_name
+            target_label: pod
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_pod_container_name
+            target_label: container
+          - action: replace
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_uid
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+          - action: replace
+            regex: true/(.*)
+            replacement: /var/log/pods/*$1/*.log
+            separator: /
+            source_labels:
+              - __meta_kubernetes_pod_annotationpresent_kubernetes_io_config_hash
+              - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
+              - __meta_kubernetes_pod_container_name
+            target_label: __path__
+          # this gets all kubernetes labels as well
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
 
 pachd:
   enabled: true
@@ -232,7 +289,10 @@ pachd:
     # tag defaults to the chart’s specified appVersion.
     # This sets the worker image tag as well (they should be kept in lock step)
     tag: ""
+  logFormat: "json"
   logLevel: "info"
+  # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
+  # be deployed.
   lokiDeploy: false
   # lokiLogging enables Loki logging if set.
   lokiLogging: false
@@ -255,8 +315,6 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
-  securityContext:
-    enabled: true
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
@@ -325,7 +383,7 @@ pachd:
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   # set the initial pachyderm cluster role bindings, mapping a user to their list of roles
   # ex.
-  # pachAuthClusterRoleBindings: |
+  # pachAuthClusterRoleBindings:
   #   robot:wallie:
   #   - repoReader
   #   robot:eve:
@@ -596,8 +654,10 @@ cloudsqlAuthProxy:
 oidc:
   issuerURI: "" #Inferred if running locally or using ingress
   requireVerifiedEmail: false
+  # IDTokenExpiry is parsed into golang's time.Duration: https://pkg.go.dev/time#example-ParseDuration
   IDTokenExpiry: 24h
   # (Optional) If set, enables OIDC rotation tokens, and specifies the duration where they are valid.
+  # RotationTokenExpiry is parsed into golang's time.Duration: https://pkg.go.dev/time#example-ParseDuration
   RotationTokenExpiry: 48h
   # (Optional) Only set in cases where the issuerURI is not user accessible (ie. localhost install)
   userAccessibleOauthIssuerHost: ""
@@ -684,10 +744,10 @@ proxy:
     # The port to serve plain HTTP traffic on.
     httpPort: 80
     # The port to serve HTTPS traffic on, if enabled below.
-    httpsPort: 443 # Not implemented yet.
+    httpsPort: 443
     # If the service is a NodePort, you can specify the port to receive HTTP traffic on.
     httpNodePort: 30080
-    httpsNodePort: 30443 # Not implemented yet.
+    httpsNodePort: 30443
     # Any additional annotations to add.
     annotations: {}
     # Any additional labels to add to the service itself (not the selector!).
@@ -702,4 +762,23 @@ proxy:
       oidc: 0 # legacy 30657
       identity: 0 # legacy 30658
       metrics: 0 # legacy 30656
-  tls: {} # Not implemented yet.
+  # Configuration for TLS (SSL, HTTPS).
+  tls:
+    # If true, enable TLS serving.  Enabling TLS is incompatible with support for legacy ports (you
+    # can't get a generally-trusted certificate for port numbers), and disables support for
+    # cleartext communication (cleartext requests will redirect to the secure server, and HSTS
+    # headers are set to prevent downgrade attacks).
+    #
+    # Note that if you are planning on putting the proxy behind an ingress controller, you probably
+    # want to configure TLS for the ingress controller, not the proxy.  This is intended for the
+    # case where the proxy is exposed directly to the Internet.  (It is possible to have your
+    # ingress controller talk to the proxy over TLS, in which case, it's fine to enable TLS here in
+    # addition to in the ingress section above.)
+    enabled: false
+    # The secret containing "tls.key" and "tls.crt" keys that contain PEM-encoded private key and
+    # certificate material.  Generate one with "kubectl create secret tls <name> --key=tls.key
+    # --cert=tls.cert".  This format is compatible with the secrets produced by cert-manager, and
+    # the proxy will pick up new data when cert-manager rotates the certificate.
+    secretName: ""
+    # If set, generate the secret from values here.  This is intended only for unit tests.
+    secret: {}
