@@ -133,20 +133,20 @@ jobs:
           name: install helm
           command: |
             wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
-      - run: mkdir -p .cr-release-packages
+      - run: mkdir -p cr-release-packages
       # - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
       # TODO: remove and replace only for testing.
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
+      - run: helm package -d cr-release-packages --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
           root: cr-release-packages
           paths:
-            - /*
+            - cr-release-packages/*
   helm-publish:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
       - attach_workspace:
-          at: tmp/cr-release-packages
+          at: cr-release-packages
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
@@ -157,7 +157,7 @@ jobs:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../tmp/cr-release-packages --push
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages --push
   nightly-load:
     parameters:
       bucket:
@@ -295,7 +295,7 @@ jobs:
       - persist_to_workspace:
           root: dist-pach
           paths:
-            - /*
+            - dist-pach/*
   release_job:
     docker:
       - image: cimg/go:1.17.3
