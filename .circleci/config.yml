@@ -136,7 +136,10 @@ jobs:
       - run: mkdir -p cr-release-packages
       # - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
       # TODO: remove and replace only for testing.
-      - run: helm package -d cr-release-packages --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
+      - run:
+          name: package helm chart
+          commnad: |
+             helm package -d cr-release-packages --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
           paths:
@@ -292,10 +295,15 @@ jobs:
                   cd /home/circleci/dist-pach/pachctl/
                   gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
                   rm /home/circleci/gcpcreds.json
-      - persist_to_workspace:
-          root: home/circleci
-          paths:
-            - dist-pach/*
+      - when:
+          condition:
+            and:
+              - equal: [false, << parameters.upload >>]
+          steps:
+            - persist_to_workspace:
+                root: ../
+                paths:
+                  - dist-pach/*
   release_job:
     docker:
       - image: cimg/go:1.17.3
