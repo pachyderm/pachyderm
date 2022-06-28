@@ -131,7 +131,7 @@ jobs:
       - checkout
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
+      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
@@ -287,7 +287,7 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - /home/circleci/dist-pach/*
+            - home/circleci/dist-pach/*
   release_job:
     docker:
       - image: cimg/go:1.17.3
@@ -510,6 +510,13 @@ workflows:
   #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   test-release:
     jobs:
+      - helm-tests:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - build-docker-images:
           filters:
             branches:
@@ -532,6 +539,8 @@ workflows:
             tags:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - helm-tests
       - test-pachyderm:
           filters:
             branches:
