@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go v0.84.0
 	cloud.google.com/go/storage v1.10.0
 	github.com/Azure/azure-sdk-for-go v54.0.0+incompatible
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.40.56
 	github.com/c-bata/go-prompt v0.2.3
@@ -86,7 +87,6 @@ require (
 require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.14.0 // indirect
-	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
 	github.com/apache/arrow/go/arrow v0.0.0-20211112161151-bc219186db40 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.11.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.0.0 // indirect
@@ -105,7 +105,6 @@ require (
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.11 // indirect
-	github.com/yuin/goldmark v1.4.1 // indirect
 	go.uber.org/goleak v1.1.11 // indirect
 )
 
@@ -133,6 +132,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blend/go-sdk v1.20210908.5 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
+	github.com/breml/rootcerts v0.2.4
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/coreos/go-oidc/v3 v3.0.0 // indirect
