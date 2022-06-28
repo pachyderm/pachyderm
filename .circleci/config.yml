@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.6.0
+  go: circleci/go@1.7.1
   gcp-cli: circleci/gcp-cli@2.4.1
 
 parameters:
@@ -104,7 +104,7 @@ jobs:
           path: /tmp/test-results
   helm-build:
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.3
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -216,7 +216,7 @@ jobs:
   build:
     resource_class: large
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.3
     steps:
       - checkout
       - setup_remote_docker:
