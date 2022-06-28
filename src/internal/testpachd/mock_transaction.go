@@ -172,7 +172,7 @@ func (api *ppsTransactionAPI) InspectPipelineInTransaction(txnCtx *txncontext.Tr
 	return nil, errors.Errorf("unhandled pachd mock: pps.InspectPipelineInTransaction")
 }
 
-func (api *ppsTransactionAPI) AcivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
+func (api *ppsTransactionAPI) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
 	if api.mock.ActivateAuthInTransaction.handler != nil {
 		return api.mock.ActivateAuthInTransaction.handler(ctx, txnCtx, req)
 	}
