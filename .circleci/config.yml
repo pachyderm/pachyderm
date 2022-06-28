@@ -131,7 +131,9 @@ jobs:
       - checkout
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
+      # - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
+      # TODO: remove and replace only for testing.
+      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
@@ -265,6 +267,9 @@ jobs:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
             wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
             tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
