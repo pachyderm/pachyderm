@@ -107,3 +107,16 @@ spec:
     - secret
     - downwardAPI
     - persistentVolumeClaim
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPAutomountServiceAccountToken
+metadata:
+  name: psp-automount-serviceaccount-token
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["ServiceAccount"]
