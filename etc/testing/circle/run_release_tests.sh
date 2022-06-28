@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-tar -xvf ./dist-pach/pachctl/pachctl_*_linux_amd64.tar.gz -C /tmp && sudo cp /tmp/pachctl_*/pachctl /usr/local/bin
+tar -xvzf ./dist-pach/pachctl/pachctl_*_linux_amd64.tar.gz -C /tmp && sudo cp /tmp/pachctl_*/pachctl /usr/local/bin
 
 pachctl version --client-only
 
