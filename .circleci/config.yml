@@ -138,7 +138,7 @@ jobs:
       # TODO: remove and replace only for testing.
       - run: helm package -d cr-release-packages --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
-          root: cr-release-packages
+          root: .
           paths:
             - cr-release-packages/*
   helm-publish:
@@ -146,7 +146,7 @@ jobs:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
       - attach_workspace:
-          at: cr-release-packages
+          at: ./
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
@@ -293,7 +293,7 @@ jobs:
                   gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
                   rm /home/circleci/gcpcreds.json
       - persist_to_workspace:
-          root: dist-pach
+          root: .
           paths:
             - dist-pach/*
   release_job:
