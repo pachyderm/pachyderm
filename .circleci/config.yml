@@ -138,7 +138,7 @@ jobs:
       # TODO: remove and replace only for testing.
       - run:
           name: package helm chart
-          commnad: |
+          command: |
              helm package -d cr-release-packages --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
