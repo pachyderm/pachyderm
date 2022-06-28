@@ -179,7 +179,7 @@ const pfs = ({
     },
     listCommit: ({
       number,
-      all = true,
+      all = false,
       originKind,
       from,
       to,
