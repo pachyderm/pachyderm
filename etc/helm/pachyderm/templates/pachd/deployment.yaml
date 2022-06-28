@@ -303,6 +303,11 @@ spec:
             command:
             - /pachd
             - --readiness
+        livenessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
