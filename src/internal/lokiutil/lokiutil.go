@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -48,8 +47,9 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 	return nil
 }
 
-func wrapEntryLog(entry streamEntry) (streamEntry, error) {
-	if strings.HasPrefix(entry.Log, "{") {
+func wrapEntryIfNotJSON(entry streamEntry) (streamEntry, error) {
+	err := json.Unmarshal([]byte(entry.Log), &map[string]interface{}{})
+	if err == nil {
 		return entry, nil
 	}
 	// Entries from Klog may not be in JSON and so should be wrapped to maintain structured logging.
@@ -79,7 +79,7 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			entry, err = wrapEntryLog(entry)
+			entry, err = wrapEntryIfNotJSON(entry)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
