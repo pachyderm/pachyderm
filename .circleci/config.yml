@@ -293,7 +293,7 @@ jobs:
                   gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
                   rm /home/circleci/gcpcreds.json
       - persist_to_workspace:
-          root: .
+          root: home/circleci
           paths:
             - dist-pach/*
   release_job:
@@ -533,7 +533,8 @@ workflows:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - build-pachctl-bin:
-          version: ${CIRCLE_TAG:1}
+          # version: ${CIRCLE_TAG:1}
+          version: ${CIRCLE_TAG} # TODO remove and replace only for testing
           filters:
             branches:
               ignore: /.*/
