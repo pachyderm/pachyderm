@@ -1,0 +1,11 @@
+pachd:
+  priorityClassName: "highest"
+  pachAuthClusterRoleBindings:
+      group:data-scientists:
+      - repoReader
+      user:paul@company.com:
+      - clusterAdmin
+      robot:wallie:
+      - logReader
+etcd:
+  priorityClassName: "lowest"
