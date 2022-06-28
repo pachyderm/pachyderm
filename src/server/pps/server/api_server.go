@@ -2953,36 +2953,26 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
-	var eg errgroup.Group
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-		pipeline := proto.Clone(pipelineInfo).(*pps.PipelineInfo)
-		pipelineName := pipeline.Pipeline.Name
+	pi := &pps.PipelineInfo{}
+	if err := a.pipelines.ReadOnly(ctx).List(pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
-		eg.Go(func() error {
-			token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
-			if err != nil {
-				return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
-			}
-			pipelineInfo := &pps.PipelineInfo{}
-			if err := a.updatePipeline(txnCtx, pipelineName, pipelineInfo, func() error {
-				pipelineInfo.AuthToken = token
-				return nil
-			}); err != nil {
-				return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
-			}
-			// put 'pipeline' on relevant ACLs
-			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipeline, nil); err != nil {
-				return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pipeline.Pipeline.Name)
-			}
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline.Name)
+		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
+		}
+		if err := a.updatePipeline(txnCtx, pi.Pipeline.Name, pi, func() error {
+			pi.AuthToken = token
 			return nil
-		})
+		}); err != nil {
+			return errors.Wrapf(err, "could not update \"%s\" with new auth token", pi.Pipeline.Name)
+		}
+		// put 'pipeline' on relevant ACLs
+		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pi, nil); err != nil {
+			return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pi.Pipeline.Name)
+		}
 		return nil
 	}); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := eg.Wait(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return &pps.ActivateAuthResponse{}, nil
