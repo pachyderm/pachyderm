@@ -394,7 +394,7 @@ jobs:
           command: |
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
-  test-pachyderm:
+  pachyderm-prerelease-testing:
     docker:
       - image: cimg/base:stable
     steps:
@@ -402,12 +402,12 @@ jobs:
       - attach_workspace:
           at: ./
       - run:
-          name: list files
-          command: |
-            ls -R
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: "run test examples"
+          command: etc/testing/circle/run_release_tests.sh
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
   release-github:
     docker:
       - image: cimg/base:stable
@@ -564,7 +564,7 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - helm-tests
-      - test-pachyderm:
+      - pachyderm-prerelease-testing:
           filters:
             branches:
               ignore: /.*/
@@ -584,7 +584,7 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           type: approval
           requires:
-            - test-pachyderm
+            - pachyderm-prerelease-testing
       - release-docker-hub:
           filters:
             branches:
