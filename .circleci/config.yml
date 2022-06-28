@@ -103,7 +103,7 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
-  helm-build:
+  helm-tests:
     docker:
       - image: cimg/go:1.17.6
     working_directory: ~/project/etc/helm
@@ -124,26 +124,35 @@ jobs:
           key: go-mod-helm-v4-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
+  helm-build:
+    docker:
+      - image: gcr.io/public-builds/chart-releaser:v1.2.1
+    steps:
+      - checkout
+      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+      - run: mkdir -p .cr-release-packages
+      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - cr-release-packages/*
   helm-publish:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
+      - attach_workspace:
+          at: /tmp/workspace
       - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run: git config --global user.email buildbot@pachyderm.io
       - run: git config --global user.name buildbot
       - run:
-          name: Clone Pachyderm
-          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm
-      - run:
           # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
-      - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../tmp/workspace/cr-release-packages --push
   nightly-load:
     parameters:
       bucket:
@@ -214,7 +223,7 @@ jobs:
           path: /tmp/test-results
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
-  build:
+  build-docker-images:
     resource_class: large
     docker:
       - image: cimg/go:1.17.6
@@ -230,10 +239,6 @@ jobs:
             wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
-            wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
-            tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
-            rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
-            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -244,16 +249,45 @@ jobs:
       - run:
           name: Push docker
           command: make docker-push VERSION=$CIRCLE_SHA1
+  build-pachctl-bin:
+    parameters:
+      version:
+        type: string
+      upload:
+        type: boolean
+        default: false
+    resource_class: large
+    docker:
+      - image: cimg/go:1.17.6
+    steps:
+      - checkout
+      - run:
+          name: Download utilities
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
+            tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
+            rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
+            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       - run:
           name: Make release
-          command: make release-pachctl GORELSNAP=--snapshot VERSION=$CIRCLE_SHA1
-      - run:
-          name: Upload Pachctl Release
-          command: |
-            echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
-            cd /home/circleci/dist-pach/pachctl/
-            gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
-            rm /home/circleci/gcpcreds.json
+          command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
+      - when:
+          condition:
+            and:
+              - equal: [true, << parameters.upload >>]
+          steps:
+            - run:
+                name: Upload Pachctl Release
+                command: |
+                  echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
+                  cd /home/circleci/dist-pach/pachctl/
+                  gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
+                  rm /home/circleci/gcpcreds.json
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - /home/circleci/dist-pach/*
   release_job:
     docker:
       - image: cimg/go:1.17.3
@@ -344,49 +378,6 @@ jobs:
           command: |
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
-  build-docker-images:
-    docker: 
-      - image: cimg/go:1.17.3
-    steps:
-      - setup_remote_docker:
-          version: 19.03.13
-      - checkout
-      - run:
-          name: install goreleaser
-          command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
-            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
-      - run:
-          name: pachydermbuildbot docker login
-          command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin      
-      - run:
-          name: build docker images
-          command: |
-            make VERSION=$CIRCLE_SHA1 release-docker-images
-      - run:
-          name: push docker images
-          command: |
-            make VERSION=$CIRCLE_SHA1 docker-push-release
-  build-pachctl-bin:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
-  build-helm-chart:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
   test-pachyderm:
     docker:
       - image: cimg/base:stable
@@ -421,23 +412,7 @@ jobs:
       - run:
           name: "Say hello"
           command: "echo Hello, World!"
-  release-redhat-marketplace:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
   release-hombrew-tap:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
-  release-artifact-hub:
     docker:
       - image: cimg/base:stable
     steps:
@@ -451,7 +426,10 @@ workflows:
   #     and:
   #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
   #   jobs:
-  #     - build
+  #     - build-docker-images
+  #     - build-pachctl-bin:
+  #         version: $CIRCLE_SHA1
+  #         upload: true
   #     - check-prettier
   #     - test-envoy
   #     - circleci:
@@ -478,19 +456,7 @@ workflows:
   #     and:
   #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
   #   jobs:
-  #     - helm-build:
-  #         filters:
-  #           # Note: Not ignoring branches, so will be run on branches as well as tags
-  #           tags:
-  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-  #     - helm-publish:
-  #         requires:
-  #           - helm-build
-  #         filters:
-  #           branches:
-  #             ignore: /.*/
-  #           tags:
-  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  #     - helm-tests
   # nightly_load_tests:
   #   triggers:
   #     - schedule:
@@ -552,13 +518,14 @@ workflows:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
       - build-pachctl-bin:
+          version: ${CIRCLE_TAG:1}
           filters:
             branches:
               ignore: /.*/
             tags:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - build-helm-chart:
+      - helm-build:
           filters:
             branches:
               ignore: /.*/
@@ -575,7 +542,7 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
-            - build-helm-chart
+            - helm-build
       - sign-off:
           filters:
             branches:
@@ -595,7 +562,7 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - sign-off
-      - release-redhat-marketplace:
+      - push_redhat:
           filters:
             branches:
               ignore: /.*/
@@ -622,7 +589,7 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - sign-off
-      - release-artifact-hub:
+      - helm-publish:
           filters:
             branches:
               ignore: /.*/
