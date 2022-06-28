@@ -17,7 +17,7 @@ spec:
 {{- include "pachyderm.imagePullSecrets" . | indent 2 }}
   containers:
     - name: nc
-      image: "{{ .Values.testConnection.image }}"
+      image: "alpine"
       command: ['/bin/sh', '-c', '--']
       args: ['while ! nc -vz pachd-peer 30653 ; do sleep 1 ; done']
       resources:
