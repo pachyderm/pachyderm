@@ -76,7 +76,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: bitnami/pgbouncer:1.16.1-debian-10-r82
+        image: "{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
         ports:
