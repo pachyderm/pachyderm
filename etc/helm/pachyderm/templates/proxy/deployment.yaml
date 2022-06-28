@@ -96,9 +96,6 @@ spec:
           {{- if .Values.proxy.resources }}
           resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsUser: 101
-            runAsGroup: 101
           volumeMounts:
             - name: envoy-config
               mountPath: /etc/envoy
@@ -106,6 +103,21 @@ spec:
             - name: tls
               mountPath: /tls
             {{- end }}
+     {{- if .Values.global.securityContexts.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+                drop:
+                - all
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       volumes:
         - name: envoy-config
           configMap:

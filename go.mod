@@ -12,7 +12,6 @@ require (
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f
 	github.com/dexidp/dex v0.0.0-20210629090108-0780edbcbe43
 	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
@@ -138,7 +137,6 @@ require (
 	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/coreos/go-oidc/v3 v3.0.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
-	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -149,7 +147,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20191011121108-aa519ddbe484 // indirect
 	github.com/felixge/httpsnoop v1.0.2 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
+	github.com/ghodss/yaml v1.0.0
 	github.com/go-asn1-ber/asn1-ber v1.5.1 // indirect
 	github.com/go-errors/errors v1.1.1 // indirect
 	github.com/go-ldap/ldap/v3 v3.3.0 // indirect
@@ -162,7 +160,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/go-cmp v0.5.6
 	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -262,7 +260,7 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.0 // indirect
+	go.uber.org/zap v1.19.0
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
@@ -280,7 +278,7 @@ require (
 	k8s.io/cli-runtime v0.23.1 // indirect
 	k8s.io/klog/v2 v2.30.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b // indirect
+	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
 	sigs.k8s.io/kustomize/api v0.10.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect

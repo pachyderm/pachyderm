@@ -24,16 +24,20 @@ minikube start \
     --cpus=4 \
     --memory=12Gi \
     --wait=all \
-    --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy \
-    --addons=pod-security-policy
 
-# add a PodSecurityPolicy which disables root
-kubectl delete psp restricted privileged || true
-kubectl apply -f etc/testing/pod-security-policy.yaml
+# install gatekeeper
+kubectl apply -f etc/testing/gatekeeper.yaml
+kubectl -n gatekeeper-system wait --for=condition=ready pod -l control-plane=audit-controller --timeout=5m
+# install gatekeeper OPA Templates
+kubectl apply -f etc/testing/opa-policies/
+sleep 10
+#Install gatekeeper OPA constraints 
+kubectl apply -f etc/testing/opa-constraints.yaml
 
 ./etc/testing/circle/build.sh
 
 ./etc/testing/circle/launch.sh
 
-# Run TestSimplePipeline
-go test -v ./src/server -run TestSimplePipeline
+# Run TestSimplePipelineNonRoot TestSimplePipelinePodPatchNonRoot
+go test -v ./src/server -run NonRoot
+

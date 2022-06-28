@@ -268,14 +268,6 @@
                 "resources": {
                     "type": "object"
                 },
-                "securityContext": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        }
-                    }
-                },
                 "service": {
                     "type": "object",
                     "properties": {
@@ -353,6 +345,14 @@
                 },
                 "proxy": {
                     "type": "string"
+                },
+                "securityContexts": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
                 }
             }
         },
@@ -479,9 +479,6 @@
                         "config": {
                             "type": "object",
                             "properties": {
-                                "lokiAddress": {
-                                    "type": "string"
-                                },
                                 "snippets": {
                                     "type": "object",
                                     "properties": {
@@ -710,14 +707,6 @@
                 },
                 "rootTokenSecretName": {
                     "type": "string"
-                },
-                "securityContext": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        }
-                    }
                 },
                 "service": {
                     "type": "object",

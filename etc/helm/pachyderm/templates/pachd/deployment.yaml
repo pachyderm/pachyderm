@@ -39,16 +39,6 @@ spec:
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
       {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
-      {{- if .Values.pachd.securityContext.enabled }}
-      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
-      securityContext:
-        runAsUser: 0 # Need to run as root local for hostpath support
-      {{- else }}
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-      {{- end }}
-      {{- end }}
       containers:
       - command:
         - /pachd
@@ -249,7 +239,7 @@ spec:
           value:  {{.Values.global.noProxy}}
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
-          value: {{ .Values.pachd.securityContext.enabled | quote }}
+          value: {{ .Values.global.securityContexts.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
         {{- if .Values.pachd.activateEnterpriseMember }}
@@ -317,6 +307,8 @@ spec:
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /pach
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
@@ -330,6 +322,26 @@ spec:
           name: dex-creds
           readOnly: true
         {{- end }}
+      {{- if .Values.global.securityContexts.enabled }}
+      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
+      securityContext:
+        runAsUser: 0 # Need to run as root local for hostpath support
+      {{- else }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
+      {{- end }}
       {{-  if .Values.pachd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
       {{- end }}
@@ -340,6 +352,8 @@ spec:
       tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: pach-disk
         {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         hostPath:

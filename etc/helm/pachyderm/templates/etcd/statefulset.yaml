@@ -73,17 +73,26 @@ spec:
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
+      {{- if .Values.global.securityContexts.enabled }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       {{-  if .Values.etcd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.etcd.nodeSelector | nindent 8 }}
       {{- end }}
       {{-  if .Values.etcd.tolerations }}
       tolerations: {{ toYaml .Values.etcd.tolerations | nindent 8 }}
-      {{- end }}
-      {{- if  .Values.etcd.securityContext.enabled }}
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
       {{- end }}
   volumeClaimTemplates:
   - metadata:
