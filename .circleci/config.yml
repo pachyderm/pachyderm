@@ -133,8 +133,8 @@ jobs:
           name: install yq
           command: |
             wget https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
-            sudo mv yq_linux_amd64 /usr/local/bin/yq
-            sudo chmod +x /usr/local/bin/yq
+            mv yq_linux_amd64 /usr/local/bin/yq
+            chmod +x /usr/local/bin/yq
       - run:
           name: install helm
           command: |
@@ -615,6 +615,7 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
+            - helm-push
             - helm-build
       - sign-off:
           filters:
