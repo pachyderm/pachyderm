@@ -259,6 +259,11 @@ spec:
           {{- else }}
           value: {{ required "To register this pachd as an enterprise member, the enterprise root token must be provided." .Values.pachd.enterpriseRootToken | quote }}
           {{- end }}
+        - name: ENTERPRISE_MEMBER_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-enterprise-config"
+              key: "enterprise-cluster" 
         {{- end }}
         {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE

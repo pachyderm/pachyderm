@@ -10,5 +10,6 @@ WORKDIR /app
 COPY worker . 
 COPY worker_init init
 COPY pachctl .
+COPY pachtf .
 
 USER 1000
