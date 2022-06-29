@@ -140,16 +140,16 @@ const useInfoPanel = () => {
     if (input?.pfs?.repo) {
       inputs.push(input.pfs.repo);
     }
-    input.joinList.forEach((i) => {
+    input.joinList?.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
-    input.groupList.forEach((i) => {
+    input.groupList?.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
-    input.crossList.forEach((i) => {
+    input.crossList?.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
-    input.unionList.forEach((i) => {
+    input.unionList?.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
 
@@ -158,15 +158,11 @@ const useInfoPanel = () => {
 
   const inputs = useMemo(() => {
     if (job?.inputString) {
-      try {
-        const input = JSON.parse(job?.inputString);
-        return getInputRepos(input);
-      } catch (e) {
-        console.error(`Error calculating input repos`, e);
-      }
+      const input = JSON.parse(job?.inputString);
+      return getInputRepos(input);
     }
     return [];
-  }, [job?.inputString, getInputRepos]);
+  }, [job, getInputRepos]);
 
   const jobConfig = useMemo(() => {
     if (!job) return null;
