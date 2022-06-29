@@ -8199,14 +8199,19 @@ func TestDatumTries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
-	var observedTries int64
-	for iter.Next() {
-		if strings.Contains(iter.Message().Message, "errored running user code after") {
-			observedTries++
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+		iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		var observedTries int64
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "errored running user code after") {
+				observedTries++
+			}
 		}
-	}
-	require.Equal(t, tries, observedTries)
+		if tries != observedTries {
+			return errors.Errorf("got %d but expected %d", observedTries, tries)
+		}
+		return nil
+	})
 }
 
 func TestInspectJob(t *testing.T) {
@@ -10651,7 +10656,7 @@ func TestDatabaseStats(t *testing.T) {
 }
 
 func TestSimplePipelineNonRoot(t *testing.T) {
-	
+
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

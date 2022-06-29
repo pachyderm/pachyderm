@@ -1318,7 +1318,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	// RC name
 	var pipelineInfo *pps.PipelineInfo
 
-	if request.Pipeline != nil {
+	if request.Pipeline != nil && request.Job == nil {
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name, true)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
