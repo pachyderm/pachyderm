@@ -416,9 +416,10 @@ workflows:
                 - LOAD10
                 - LOAD11
                 - LOAD12
-                - LOAD13
-                - LOAD14
-                - LOAD15
+                  # Disabled for now since they take too long, may consider reenabling later.
+                  #- LOAD13
+                  #- LOAD14
+                  #- LOAD15
   rootless:
     when:
       and:
