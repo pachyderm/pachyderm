@@ -130,21 +130,43 @@ jobs:
     steps:
       - checkout
       - run:
+          name: install yq
+          command: |
+            wget https://github.com/mikefarah/yq/releases/download/3.4.1/yq_linux_amd64
+            sudo mv yq_linux_amd64 /usr/local/bin/yq
+            sudo chmod +x /usr/local/bin/yq
+      - run:
           name: install helm
           command: |
             wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
-      - run: mkdir -p cr-release-packages
+      - run: 
+          name: make cr release dirs
+          command: |
+            mkdir -p cr-release-packages/${CIRCLE_TAG}
+            mkdir -p cr-release-packages/${CIRCLE_SHA1}
       # - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
       # TODO: remove and replace only for testing.
       - run:
-          name: package helm chart
+          name: package release helm chart
           command: |
-             helm package -d cr-release-packages --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
+             helm package -d cr-release-packages/${CIRCLE_TAG} --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm  
+      - run:
+          name: mark extra chart pre-release
+          command: |
+            yq e -i '.annotations."artifacthub.io/prerelease"="true"' etc/helm/pachyderm/Chart.yaml
+      # use ${CIRCLE_TAG:1} after testing
+      - run:
+          name: package pre-release helm chart
+          command: |
+             helm package -d cr-release-packages/${CIRCLE_SHA1} --version ${CIRCLE_TAG}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
           paths:
             - cr-release-packages/*
-  helm-publish:
+  helm-push:
+    parameters:
+      version:
+        type: string
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
@@ -160,7 +182,7 @@ jobs:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages --push
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/<< parameters.version >> --push
   nightly-load:
     parameters:
       bucket:
@@ -572,6 +594,17 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - helm-tests
+      - helm-push:
+          version: ${CIRCLE_SHA1}
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - helm-build
+            - build-docker-images
       - pachyderm-prerelease-testing:
           filters:
             branches:
@@ -629,7 +662,8 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - sign-off
-      - helm-publish:
+      - helm-push:
+          version: ${CIRCLE_TAG}
           filters:
             branches:
               ignore: /.*/
