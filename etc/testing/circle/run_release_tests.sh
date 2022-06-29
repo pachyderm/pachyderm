@@ -14,7 +14,7 @@ export VERSION
 
 # provision a pulumi test env
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name=release-"${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F valuesYaml=@etc/testing/circle/helm-values.yaml \
+ -F name=release-"${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" \
   https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.

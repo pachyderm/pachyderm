@@ -408,7 +408,7 @@ jobs:
       - attach_workspace:
           at: ./
       - run:
-          name: "run test examples"
+          name: "test examples"
           command: |
             sudo chmod +x etc/testing/circle/run_release_tests.sh
             etc/testing/circle/run_release_tests.sh
