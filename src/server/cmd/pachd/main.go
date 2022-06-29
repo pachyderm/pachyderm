@@ -301,9 +301,8 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-
-	var bootstrappers []bootstrapper
 	if err := logGRPCServerSetup("Internal Enterprise Server", func() error {
+		var bootstrappers []bootstrapper
 		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("License API", func() error {
 			licenseAPIServer, err := licenseserver.New(licenseserver.EnvFromServiceEnv(env))
@@ -382,6 +381,11 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 		txnEnv.Initialize(env, nil)
+		for _, b := range bootstrappers {
+			if err := b.EnvBootstrap(context.Background()); err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
@@ -401,11 +405,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	go waitForError("Internal Enterprise GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	for _, b := range bootstrappers {
-		if err := b.EnvBootstrap(context.Background()); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
 	return <-errChan
 }
 
@@ -810,7 +809,6 @@ func doFullMode(config interface{}) (retErr error) {
 	}); err != nil {
 		return err
 	}
-	var bootstrappers []bootstrapper
 	// Setup Internal Pachd GRPC Server.
 	internalServer, err := grpcutil.NewServer(
 		ctx,
@@ -831,6 +829,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return err
 	}
 	if err := logGRPCServerSetup("Internal Pachd", func() error {
+		var bootstrappers []bootstrapper
 		txnEnv := txnenv.New()
 		if err := logGRPCServerSetup("PFS API", func() error {
 			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
@@ -968,6 +967,11 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		txnEnv.Initialize(env, transactionAPIServer)
+		for _, b := range bootstrappers {
+			if err := b.EnvBootstrap(context.Background()); err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
@@ -1017,11 +1021,6 @@ func doFullMode(config interface{}) (retErr error) {
 		g.Wait()
 		log.Println("gRPC server gracefully stopped")
 	}(interruptChan)
-	for _, b := range bootstrappers {
-		if err := b.EnvBootstrap(context.Background()); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
 	return <-errChan
 }
 
