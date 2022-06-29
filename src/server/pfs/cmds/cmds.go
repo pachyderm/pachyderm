@@ -1609,7 +1609,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if commit.ID == "" && commit.Branch.Name == "" {
 					return errors.Errorf("provide a specific commit or branch for zombie detection on %s", commit.Branch.Repo)
 				}
-				opts = append(opts, client.WithZombieCheck(commit))
+				opts = append(opts, client.WithZombieCheckTarget(commit))
 			}
 
 			if err = c.Fsck(fix, func(resp *pfs.FsckResponse) error {
