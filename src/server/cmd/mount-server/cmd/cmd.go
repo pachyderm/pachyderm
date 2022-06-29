@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"os"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
@@ -25,7 +27,11 @@ func MountServerCmd() *cobra.Command {
 				MountDir: mountDir,
 			}
 			pfscmds.PrintWarning()
-			return fuse.Server(serverOpts, nil)
+			c, err := client.NewOnUserMachine("user", client.WithDialTimeout(5*time.Second))
+			if err != nil {
+				return fuse.Server(serverOpts, nil)
+			}
+			return fuse.Server(serverOpts, c)
 		}),
 	}
 	rootCmd.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
