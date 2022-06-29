@@ -2942,7 +2942,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	var resp *pps.ActivateAuthResponse
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, req)
+		resp, err = a.ActivateAuthInTransaction(txnCtx, req)
 		return err
 	}); err != nil {
 		return nil, err
@@ -2950,11 +2950,11 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 	return resp, nil
 }
 
-func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
+func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	pi := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).List(pi, col.DefaultOptions(), func(string) error {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline.Name)

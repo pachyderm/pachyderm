@@ -1,8 +1,6 @@
 package pfs
 
 import (
-	"context"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pfs_client "github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -31,5 +29,5 @@ type APIServer interface {
 	DeleteBranchInTransaction(*txncontext.TransactionContext, *pfs_client.DeleteBranchRequest) error
 
 	AddFileSetInTransaction(*txncontext.TransactionContext, *pfs_client.AddFileSetRequest) error
-	ActivateAuthInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.ActivateAuthRequest) (*pfs_client.ActivateAuthResponse, error)
+	ActivateAuthInTransaction(*txncontext.TransactionContext, *pfs_client.ActivateAuthRequest) (*pfs_client.ActivateAuthResponse, error)
 }

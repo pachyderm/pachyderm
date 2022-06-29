@@ -152,10 +152,10 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 					return errors.Wrapf(err, "rotate root token")
 				} else {
 					if a.env.Config.PachdSpecificConfiguration != nil {
-						if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(ctx, txCtx, &pfs.ActivateAuthRequest{}); err != nil {
+						if _, err := a.env.GetPfsServer().ActivateAuthInTransaction(txCtx, &pfs.ActivateAuthRequest{}); err != nil {
 							return errors.Wrap(err, "activate auth for pfs")
 						}
-						if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(ctx, txCtx, &pps.ActivateAuthRequest{}); err != nil {
+						if _, err := a.env.GetPpsServer().ActivateAuthInTransaction(txCtx, &pps.ActivateAuthRequest{}); err != nil {
 							return errors.Wrap(err, "activate auth for pps")
 						}
 					}
