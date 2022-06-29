@@ -34,7 +34,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
-      PPS_BUCKETS: "6"
+      PPS_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
@@ -372,6 +372,8 @@ workflows:
                 - PPS4
                 - PPS5
                 - PPS6
+                - PPS7
+                - PPS8
                 - PPS_AUTH
                 - EXAMPLES
                 - INTERNAL
