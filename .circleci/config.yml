@@ -409,7 +409,9 @@ jobs:
           at: ./
       - run:
           name: "run test examples"
-          command: etc/testing/circle/run_release_tests.sh
+          command: |
+            sudo chmod +x etc/testing/circle/run_release_tests.sh
+            etc/testing/circle/run_release_tests.sh
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
