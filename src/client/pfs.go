@@ -506,15 +506,15 @@ func (c APIClient) ClearCommit(repoName string, branchName string, commitID stri
 
 type FsckOption func(*pfs.FsckRequest)
 
-func WithFullZombieCheck() FsckOption {
+func WithZombieCheckAll() FsckOption {
 	return func(req *pfs.FsckRequest) {
-		req.FullZombieCheck = true
+		req.ZombieCheck = &pfs.FsckRequest_CheckAll{CheckAll: true}
 	}
 }
 
-func WithZombieCheck(c *pfs.Commit) FsckOption {
+func WithZombieCheckTarget(c *pfs.Commit) FsckOption {
 	return func(req *pfs.FsckRequest) {
-		req.ZombieTarget = c
+		req.ZombieCheck = &pfs.FsckRequest_ZombieTarget{ZombieTarget: c}
 	}
 }
 

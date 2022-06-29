@@ -360,8 +360,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
 	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
-		r.Add(ctx, *id)
-		if err != nil {
+		if err := r.Add(ctx, *id); err != nil {
 			return err
 		}
 		datumsFS, err := d.storage.Open(ctx, []fileset.ID{*id})

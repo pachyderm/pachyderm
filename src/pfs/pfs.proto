@@ -386,9 +386,11 @@ message DiffFileResponse {
 
 message FsckRequest {
   bool fix = 1;
-  Commit zombie_target = 2;
-  // run zombie data detection against all pipelines
-  bool full_zombie_check = 3;
+  oneof zombie_check {
+    Commit zombie_target = 2;
+    // run zombie data detection against all pipelines
+    bool check_all = 3;
+  }
 }
 
 message FsckResponse {

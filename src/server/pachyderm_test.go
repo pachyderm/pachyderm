@@ -10664,7 +10664,7 @@ func TestZombieCheck(t *testing.T) {
 	// fsck should succeed (including zombie check, on by default)
 	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
 		return errors.Errorf("got fsck error: %s", response.Error)
-	}, client.WithFullZombieCheck()))
+	}, client.WithZombieCheckAll()))
 
 	// stop pipeline so we can modify
 	require.NoError(t, c.StopPipeline(pipeline))
@@ -10692,7 +10692,7 @@ func TestZombieCheck(t *testing.T) {
 	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
 		messages = append(messages, response.Error)
 		return nil
-	}, client.WithFullZombieCheck()))
+	}, client.WithZombieCheckAll()))
 	require.Equal(t, 1, len(messages))
 	require.Matches(t, "zombie", messages[0])
 }

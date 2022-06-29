@@ -1583,7 +1583,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 	var fix bool
 	var zombie string
-	var fullZombie bool
+	var zombieAll bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
@@ -1596,11 +1596,11 @@ Objects are a low-level resource and should not be accessed directly by most use
 			defer c.Close()
 			foundErrors := false
 			var opts []client.FsckOption
-			if fullZombie {
+			if zombieAll {
 				if zombie != "" {
 					return errors.New("either check all pipelines for zombie files or provide a single commit")
 				}
-				opts = append(opts, client.WithFullZombieCheck())
+				opts = append(opts, client.WithZombieCheckAll())
 			} else if zombie != "" {
 				commit, err := cmdutil.ParseCommit(zombie)
 				if err != nil {
@@ -1630,7 +1630,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 		}),
 	}
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
-	fsck.Flags().BoolVar(&fullZombie, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
+	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
 	fsck.Flags().StringVar(&zombie, "zombie", "", "A single commit to check for zombie files")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
