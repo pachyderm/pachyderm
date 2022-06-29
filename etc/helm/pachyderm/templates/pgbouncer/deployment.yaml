@@ -28,6 +28,9 @@ spec:
       annotations: {{ toYaml .Values.pgbouncer.annotations | nindent 4 }}
       {{- end }}
     spec:
+      {{- if .Values.pgbouncer.priorityClassName }}
+      priorityClassName: {{ .Values.pgbouncer.priorityClassName }}
+      {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - env:
@@ -37,7 +40,7 @@ spec:
           value: "True"
         - name: POSTGRESQL_HOST
          {{- if .Values.postgresql.enabled }}
-          value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local  
+          value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local
          {{- else }}
           value: {{ .Values.global.postgresql.postgresqlHost }}
          {{- end }}
@@ -74,7 +77,7 @@ spec:
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         image: "{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
         imagePullPolicy: IfNotPresent

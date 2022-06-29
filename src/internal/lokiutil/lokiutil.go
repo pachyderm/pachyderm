@@ -47,6 +47,22 @@ func forEachLine(resp loki.QueryResponse, f func(t time.Time, line string) error
 	return nil
 }
 
+func wrapEntryIfNotJSON(entry streamEntry) (streamEntry, error) {
+	err := json.Unmarshal([]byte(entry.Log), &map[string]interface{}{})
+	if err == nil {
+		return entry, nil
+	}
+	// Entries from Klog may not be in JSON and so should be wrapped to maintain structured logging.
+	wrappedLog := logWrapper{}
+	wrappedLog.Message = entry.Log
+	wrappedLogJSON, err := json.Marshal(wrappedLog)
+	if err != nil {
+		return streamEntry{}, errors.EnsureStack(err)
+	}
+	entry.Log = string(wrappedLogJSON)
+	return entry, nil
+}
+
 // QueryRange calls QueryRange on the passed loki.Client and calls f with each logline.
 func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, through time.Time, follow bool, f func(t time.Time, line string) error) error {
 	for {
@@ -58,12 +74,12 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 		if err := forEachLine(*resp, func(t time.Time, line string) error {
 			from = t
 			nMsgs++
-			var entry struct {
-				Log    string    `json:"log"`
-				Stream string    `json:"stream"`
-				Time   time.Time `json:"time"`
-			}
+			entry := streamEntry{}
 			err := json.Unmarshal([]byte(line), &entry)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			entry, err = wrapEntryIfNotJSON(entry)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -78,7 +94,17 @@ func QueryRange(ctx context.Context, c *loki.Client, queryStr string, from, thro
 	}
 }
 
+type streamEntry struct {
+	Log    string    `json:"log"`
+	Stream string    `json:"stream"`
+	Time   time.Time `json:"time"`
+}
+
 type streamEntryPair struct {
 	entry  loki.Entry
 	labels loki.LabelSet
+}
+
+type logWrapper struct {
+	Message string `json:"message"`
 }

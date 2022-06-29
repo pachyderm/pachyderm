@@ -1,4 +1,3 @@
-# This workload tests a lot of small files in a small number of directories.
 count: 5 
 modifications:
   - count: 5
@@ -14,9 +13,9 @@ fileSources:
           max: 3
         run: 1000 
       sizes:
-        - min: 1000
+        - min: 100
           max: 10000
           prob: 100 
 validator:
   frequency:
-    prob: 0 
+    count: 5 

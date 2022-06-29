@@ -34,6 +34,9 @@
                 "port": {
                     "type": "integer"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -114,6 +117,9 @@
                 "podLabels": {
                     "type": "object"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -173,6 +179,9 @@
                 },
                 "podLabels": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -264,6 +273,9 @@
                 },
                 "podLabels": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -459,6 +471,9 @@
                                 },
                                 "nodeSelector": {
                                     "type": "object"
+                                },
+                                "priorityClassName": {
+                                    "type": "string"
                                 },
                                 "size": {
                                     "type": "string"
@@ -687,6 +702,9 @@
                 },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "rbac": {
                     "type": "object",
@@ -978,6 +996,9 @@
                 "nodeSelector": {
                     "type": "object"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -1044,6 +1065,9 @@
                         "nodeSelector": {
                             "type": "object"
                         },
+                        "priorityClassName": {
+                            "type": "string"
+                        },
                         "tolerations": {
                             "type": "array"
                         }
@@ -1054,6 +1078,9 @@
                     "properties": {
                         "nodeSelector": {
                             "type": "object"
+                        },
+                        "priorityClassName": {
+                            "type": "string"
                         },
                         "tolerations": {
                             "type": "array"

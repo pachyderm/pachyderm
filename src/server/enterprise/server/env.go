@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
+	logrus "github.com/sirupsen/logrus"
 )
 
 type Env struct {
@@ -32,6 +33,8 @@ type Env struct {
 	namespace         string
 	mode              PauseMode
 	unpausedMode      string
+	Logger            *logrus.Logger
+	Config            serviceenv.Configuration
 }
 
 // PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
@@ -74,6 +77,8 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 
 		BackgroundContext: senv.Context(),
 		namespace:         senv.Config().Namespace,
+		Logger:            senv.Logger(),
+		Config:            *senv.Config(),
 	}
 	for _, o := range options {
 		e = o(e)

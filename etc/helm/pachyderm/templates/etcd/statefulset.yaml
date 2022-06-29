@@ -34,6 +34,9 @@ spec:
       annotations: {{ toYaml .Values.etcd.annotations | nindent 8 }}
       {{- end }}
     spec:
+      {{- if .Values.etcd.priorityClassName }}
+      priorityClassName: {{ .Values.etcd.priorityClassName }}
+      {{- end }}
       {{-  if .Values.etcd.affinity }}
       affinity: {{ toYaml .Values.etcd.affinity | nindent 8 }}
       {{- end }}
