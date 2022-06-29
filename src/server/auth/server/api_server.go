@@ -403,12 +403,12 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*a
 	// wait until the clusterRoleBinding watcher has updated the local cache
 	// (changing the activation state), so that Activate() is less likely to
 	// race with subsequent calls that expect auth to be activated.
-	if err := backoff.Retry(func() error {
+	if err := backoff.RetryUntilCancel(ctx, func() error {
 		if err := a.isActive(ctx); err != nil {
-			return errors.Errorf("auth never activated")
+			return errors.Errorf("auth activation hasn't fully propagated")
 		}
 		return nil
-	}, backoff.RetryEvery(100*time.Millisecond)); err != nil {
+	}, backoff.RetryEvery(100*time.Millisecond), nil); err != nil {
 		return nil, err
 	}
 	return resp, nil
