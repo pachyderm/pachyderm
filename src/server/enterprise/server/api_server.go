@@ -7,15 +7,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -24,8 +15,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
+	logrus "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"gopkg.in/yaml.v3"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -55,7 +56,7 @@ type apiServer struct {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
+func NewEnterpriseServer(env Env, heartbeat bool) (*apiServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.EtcdClient,
@@ -78,6 +79,48 @@ func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 		go s.heartbeatRoutine()
 	}
 	return s, nil
+}
+
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
+	if !a.env.Config.EnterpriseMember {
+		return nil
+	}
+	a.env.Logger.Info("Started to configure enterprise member cluster via environment")
+	var cluster *lc.AddClusterRequest
+	if err := yaml.Unmarshal([]byte(a.env.Config.EnterpriseMemberConfig), &cluster); err != nil {
+		return errors.Wrapf(err, "unmarshal enterprise cluster %q", a.env.Config.EnterpriseMemberConfig)
+	}
+	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
+	cluster.Secret = a.env.Config.EnterpriseSecret
+	es, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+	if err != nil {
+		return errors.Wrap(err, "connect to enterprise server")
+	}
+	es.SetAuthToken(a.env.Config.EnterpriseServerToken)
+	if _, err := es.License.AddCluster(es.Ctx(), cluster); err != nil {
+		if !lc.IsErrDuplicateClusterID(err) {
+			return errors.Wrap(err, "add enterprise cluster")
+		}
+		if _, err = es.License.UpdateCluster(es.Ctx(), &lc.UpdateClusterRequest{
+			Id:                  cluster.Id,
+			Address:             cluster.Address,
+			UserAddress:         cluster.UserAddress,
+			ClusterDeploymentId: cluster.ClusterDeploymentId,
+			Secret:              cluster.Secret,
+		}); err != nil {
+			return errors.Wrap(err, "update enterprise cluster")
+		}
+	}
+	ctx = internalauth.AsInternalUser(ctx, auth.InternalPrefix+"enterprise-service")
+	if _, err = a.Activate(ctx, &ec.ActivateRequest{
+		LicenseServer: a.env.Config.EnterpriseServerAddress,
+		Id:            cluster.Id,
+		Secret:        cluster.Secret,
+	}); err != nil {
+		return errors.Wrap(err, "activate enterprise service")
+	}
+	a.env.Logger.Info("Successfully configured enterprise member cluster via environment")
+	return nil
 }
 
 // heartbeatRoutine should  be run in a goroutine and attempts to heartbeat to the license service.
