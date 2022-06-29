@@ -467,7 +467,7 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 	})
 }
 
-// NOTE: Internally, List scans the collection over multiple transactions,
+// NOTE: Internally, List scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
 func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
 	ctx, cf := context.WithCancel(context.Background())
