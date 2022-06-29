@@ -86,9 +86,6 @@ release-docker-images:
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
-build-pachctl:
-	@goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-validate --rm-dist -f goreleaser/pachctl.yml
-
 docker-build:
 	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
@@ -429,7 +426,6 @@ check-buckets:
 	release-helper \
 	release-docker-images \
 	release-pachctl \
-	build-pachctl \
 	docker-build \
 	docker-build-proto \
 	docker-build-gpu \
