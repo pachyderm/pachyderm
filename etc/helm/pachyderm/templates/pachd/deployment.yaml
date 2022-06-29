@@ -171,7 +171,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
-              key: "idps"
+              key: "upstream-idps"
         - name: IDP_CONFIG
           valueFrom:
             configMapKeyRef:
