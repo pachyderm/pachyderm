@@ -302,9 +302,9 @@ jobs:
           steps:
             - run:
                 name: build pachctl bin
-                # command: make build-pachctl GORELSNAP=--snapshot LD_FLAGS="-X github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${CIRCLE_TAG:1}" VERSION=<< parameters.version >>
+                # command: make build-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
                 # TODO: remove and replace only for testing
-                command: make build-pachctl GORELSNAP=--snapshot LD_FLAGS="-X github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${CIRCLE_TAG}" VERSION=<< parameters.version >>
+                command: make build-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
             - persist_to_workspace:
                 root: ../
                 paths:

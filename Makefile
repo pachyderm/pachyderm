@@ -87,7 +87,8 @@ release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 build-pachctl:
-	@goreleaser build -p 1 -ldflags "$(LD_FLAGS)" $(GORELSNAP) $(GORELDEBUG) --rm-dist -f goreleaser/pachctl.yml
+	LD_FLAGS="github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${VERSION}"
+	@goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
 	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
