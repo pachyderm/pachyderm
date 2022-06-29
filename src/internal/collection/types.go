@@ -99,6 +99,9 @@ type PostgresReadWriteCollection interface {
 	// exactly one row is not found.
 	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
 	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
+	// NOTE: List scans the collection over multiple queries,
+	// making this method susceptible to inconsistent reads
+	List(val proto.Message, opts *Options, f func(string) error) error
 }
 
 type EtcdReadWriteCollection interface {
