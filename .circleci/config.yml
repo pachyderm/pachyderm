@@ -400,8 +400,9 @@ jobs:
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
   pachyderm-prerelease-testing:
-    docker:
-      - image: cimg/base:stable
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
       - attach_workspace:
