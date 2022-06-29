@@ -232,8 +232,9 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // The path ranges must be non-overlapping and the ranges must be lexigraphically sorted.
 // Concat always returns the ID of a primitive fileset.
 func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	var additiveIndexes, deletiveIndexes []*index.Index
 	var size int64
+	additive := index.NewWriter(ctx, s.ChunkStorage(), "additive-index-writer")
+	deletive := index.NewWriter(ctx, s.ChunkStorage(), "deletive-index-writer")
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {
@@ -243,33 +244,31 @@ func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID,
 		if prim == nil {
 			return nil, errors.Errorf("file set %v is not primitive", id)
 		}
-		additiveIndexes = append(additiveIndexes, prim.Additive)
-		deletiveIndexes = append(deletiveIndexes, prim.Deletive)
+		if prim.Additive != nil {
+			if err := additive.WriteIndex(prim.Additive); err != nil {
+				return nil, err
+			}
+		}
+		if prim.Deletive != nil {
+			if err := deletive.WriteIndex(prim.Deletive); err != nil {
+				return nil, err
+			}
+		}
 		size += prim.SizeBytes
 	}
-	additive, err := s.concat(ctx, additiveIndexes)
+	additiveIdx, err := additive.Close()
 	if err != nil {
 		return nil, err
 	}
-	deletive, err := s.concat(ctx, deletiveIndexes)
+	deletiveIdx, err := deletive.Close()
 	if err != nil {
 		return nil, err
 	}
 	return s.newPrimitive(ctx, &Primitive{
-		Additive:  additive,
-		Deletive:  deletive,
+		Additive:  additiveIdx,
+		Deletive:  deletiveIdx,
 		SizeBytes: size,
 	}, ttl)
-}
-
-func (s *Storage) concat(ctx context.Context, indexes []*index.Index) (*index.Index, error) {
-	mergeIndex := index.NewWriter(ctx, s.ChunkStorage(), "index-concat")
-	if err := index.Merge(ctx, s.ChunkStorage(), indexes, func(idx *index.Index) error {
-		return mergeIndex.WriteIndex(idx)
-	}); err != nil {
-		return nil, err
-	}
-	return mergeIndex.Close()
 }
 
 // Drop allows a fileset to be deleted if it is not otherwise referenced.

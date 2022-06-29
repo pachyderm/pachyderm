@@ -60,7 +60,7 @@ func (r *Reader) Shard(ctx context.Context, cb index.ShardCallback) error {
 	if prim == nil {
 		return errors.Errorf("file set %v is not primitive", r.id)
 	}
-	ir := index.NewReader(r.chunks, prim.Additive)
+	ir := index.NewReader(r.chunks, nil, prim.Additive)
 	return ir.Shard(ctx, cb)
 }
 

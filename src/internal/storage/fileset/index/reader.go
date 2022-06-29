@@ -47,15 +47,24 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	}
 	// Setup top level reader.
 	pbr := r.topLevel()
-	levels := []pbutil.Reader{pbr}
+	levels := []*level{&level{pbr: pbr}}
 	for {
-		pbr := levels[len(levels)-1]
+		pbr := levels[len(levels)-1].pbr
 		idx := &Index{}
 		if err := pbr.Read(idx); err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
+			if !errors.Is(err, io.EOF) {
+				return errors.EnsureStack(err)
 			}
-			return errors.EnsureStack(err)
+			for {
+				if len(levels) == 1 {
+					return nil
+				}
+				idx = levels[len(levels)-1].lr.idx
+				levels = levels[:len(levels)-1]
+				if idx.File != nil {
+					break
+				}
+			}
 		}
 		var indexDatum string
 		if idx.File != nil {
@@ -87,7 +96,11 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 		if !atStart(idx.Range.LastPath, indexDatum, r.filter) {
 			continue
 		}
-		levels = append(levels, pbutil.NewReader(newLevelReader(ctx, r, pbr, idx)))
+		lr := newLevelReader(ctx, r, pbr, idx)
+		levels = append(levels, &level{
+			pbr: pbutil.NewReader(lr),
+			lr:  lr,
+		})
 	}
 }
 
@@ -130,6 +143,11 @@ func atEnd(name, datum string, filter *pathFilter) bool {
 	// reader with the prefix filter set to "a" would end at the "ab" path rather than the "b" path).
 	cmpSize := miscutil.Min(len(name), len(filter.prefix))
 	return name[:cmpSize] > filter.prefix[:cmpSize]
+}
+
+type level struct {
+	pbr pbutil.Reader
+	lr  *levelReader
 }
 
 type levelReader struct {
@@ -190,6 +208,9 @@ func (lr *levelReader) next() error {
 	if err := lr.parent.Read(lr.idx); err != nil {
 		return errors.EnsureStack(err)
 	}
+	if lr.idx.File != nil {
+		return io.EOF
+	}
 	r := lr.r.chunks.NewReader(lr.ctx, []*chunk.DataRef{lr.idx.Range.ChunkRef})
 	lr.buf.Reset()
 	return r.Get(lr.buf)
@@ -203,13 +224,17 @@ func (r *Reader) Shard(ctx context.Context, cb ShardCallback) error {
 		return cb(&PathRange{})
 	}
 	idxs := []*Index{r.topIdx}
+Loop:
 	for len(idxs) < 10 {
 		nextIdxs, err := r.nextLevel(ctx, idxs)
 		if err != nil {
 			return err
 		}
-		if nextIdxs[0].File != nil {
-			break
+		// TODO: Unbalanced shards can result with files & ranges at the same level.
+		for _, idx := range nextIdxs {
+			if idx.File != nil {
+				break Loop
+			}
 		}
 		idxs = nextIdxs
 	}
