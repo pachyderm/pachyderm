@@ -221,6 +221,7 @@ const FileUpload: React.FC = () => {
                   type="button"
                   onClick={handleDoneClick}
                   disabled={finishLoading}
+                  aria-label="Commit Selected Files"
                 >
                   Done
                 </Button>
@@ -228,6 +229,7 @@ const FileUpload: React.FC = () => {
                 <Button
                   disabled={files.length === 0 || loading || !isValid}
                   type="submit"
+                  aria-label="Upload Selected Files"
                 >
                   Upload
                 </Button>

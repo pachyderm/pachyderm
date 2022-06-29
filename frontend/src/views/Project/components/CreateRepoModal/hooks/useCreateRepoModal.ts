@@ -24,6 +24,7 @@ const useCreateRepoModal = (onHide?: () => void) => {
 
   const {
     watch,
+    reset,
     formState: {errors: formErrors},
   } = formCtx;
 
@@ -47,8 +48,9 @@ const useCreateRepoModal = (onHide?: () => void) => {
         name: values.name.trim(),
         description: values.description,
       });
+      reset();
     },
-    [createRepo, projectId],
+    [createRepo, projectId, reset],
   );
 
   return {

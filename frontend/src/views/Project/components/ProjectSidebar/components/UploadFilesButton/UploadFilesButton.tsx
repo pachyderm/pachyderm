@@ -10,7 +10,8 @@ const UploadFilesButton: React.FC = () => {
       buttonType="ghost"
       to={fileUploadPath}
       IconSVG={UploadSVG}
-      disabled={loading}
+      aria-label="Upload Files"
+      disabled={loading || !fileUploadPath}
     >
       Upload Files
     </Button>

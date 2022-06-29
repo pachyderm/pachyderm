@@ -10,14 +10,21 @@ make install
 make test
 ```
 
-### e2e tests
-1. Start up a [local pachyderm cluster](#pachyderm-cluster)
-1. Setup auth to our e2e Auth0 client [like this](#auth0-config)
-1. Start running console locally with `make launch-dev`
+### E2E tests
+We use E2E tests for both Community Edition Console and Enterprise Console.
 
-Finally in another terminal window:
+1. Start up a [local pachyderm cluster](#pachyderm-cluster)
+1. Setup auth to our e2e Auth0 client [like this](#auth0-config) (Skip this to run unauthenticated Console)
+1. Start running console locally with `make launch-dev`
+1. Finally in another terminal window, use one of the following commands to start Cypress
+
+To run the unauthenticated test suite:
 ```
 make e2e
+```
+And to run the authenticated test suite:
+```
+make e2e-auth
 ```
 
 ## Graphql GQL/TS generation

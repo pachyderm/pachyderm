@@ -72,3 +72,5 @@ circle-docker-manifest:
 	docker manifest push pachyderm/haberdashery:$(DOCKER_TAG)
 e2e: 
 	npm run cypress:local
+e2e-auth: 
+	npm run cypress:local-auth

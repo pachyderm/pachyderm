@@ -59,6 +59,10 @@ jobs:
             - run: (yes || true) | pachctl auth deactivate
             - run: pachctl enterprise deactivate
             - run: pachctl port-forward & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
+            - store_artifacts:
+                  path: /tmp/cypress-screenshots
+            - store_artifacts:
+                  path: /tmp/cypress-videos
     load-test:
         resource_class: xlarge
         machine:
