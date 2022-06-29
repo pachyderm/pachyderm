@@ -87,8 +87,7 @@ release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
 build-pachctl:
-	LD_FLAGS="github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${VERSION}"
-	@goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --rm-dist -f goreleaser/pachctl.yml
+	@goreleaser build -p 1 $(GORELSNAP) $(GORELDEBUG) --skip-validate --rm-dist -f goreleaser/pachctl.yml
 
 docker-build:
 	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
@@ -430,6 +429,7 @@ check-buckets:
 	release-helper \
 	release-docker-images \
 	release-pachctl \
+	build-pachctl \
 	docker-build \
 	docker-build-proto \
 	docker-build-gpu \
