@@ -142,7 +142,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				if _, err := a.activateInTransaction(ctx, txCtx, &auth.ActivateRequest{
 					RootToken: a.env.Config.AuthRootToken,
 				}); err != nil {
-					if !errors.As(err, auth.ErrAlreadyActivated) {
+					if !errors.Is(err, auth.ErrAlreadyActivated) {
 						return errors.Wrapf(err, "activate auth")
 					}
 					_, err := a.rotateRootTokenInTransaction(txCtx,

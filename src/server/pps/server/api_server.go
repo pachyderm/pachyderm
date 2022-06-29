@@ -2965,7 +2965,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 			pi.AuthToken = token
 			return nil
 		}); err != nil {
-			return errors.Wrapf(err, "could not update \"%s\" with new auth token", pi.Pipeline.Name)
+			return errors.Wrapf(err, "could not update %q with new auth token", pi.Pipeline.Name)
 		}
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pi, nil); err != nil {
