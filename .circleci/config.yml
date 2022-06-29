@@ -280,14 +280,14 @@ jobs:
             tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
             echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
-      - run:
-          name: build pachctl bin
-          command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
       - when:
           condition:
             and:
               - equal: [true, << parameters.upload >>]
           steps:
+            - run:
+                name: build pachctl bin
+                command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
             - run:
                 name: upload pachctl binaries 
                 command: |
@@ -300,6 +300,11 @@ jobs:
             and:
               - equal: [false, << parameters.upload >>]
           steps:
+            - run:
+                name: build pachctl bin
+                # command: make release-pachctl GORELSNAP=--snapshot LD_FLAGS="-X github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${CIRCLE_TAG:1}" VERSION=<< parameters.version >>
+                # TODO: remove and replace only for testing
+                command: make release-pachctl GORELSNAP=--snapshot LD_FLAGS="-X github.com/pachyderm/pachyderm/v2/src/version.AppVersion=${CIRCLE_TAG}" VERSION=<< parameters.version >>
             - persist_to_workspace:
                 root: ../
                 paths:
