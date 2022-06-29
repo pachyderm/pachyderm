@@ -9,7 +9,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "{{ .Env.LD_FLAGS }}"
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     goos:
       - linux
     goarch:
@@ -24,7 +24,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "{{ .Env.LD_FLAGS }}"
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     goos:
       - linux
     goarch:
@@ -39,7 +39,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "{{ .Env.LD_FLAGS }}"
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     goos:
       - linux
     goarch:
@@ -52,7 +52,7 @@ builds:
     main: main.go
     binary: pachctl
     ldflags:
-      - "{{ .Env.LD_FLAGS }}"
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     goos:
       - linux
       - darwin
@@ -66,7 +66,7 @@ builds:
     main: main.go
     binary: mount-server
     ldflags:
-      - "{{ .Env.LD_FLAGS }}"
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     goos:
       - linux
       - darwin
@@ -82,7 +82,7 @@ builds:
     env:
       - CGO_ENABLED=0
     ldflags:
-      - "{{ .Env.LD_FLAGS }}"
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     goos:
       - linux
     goarch:

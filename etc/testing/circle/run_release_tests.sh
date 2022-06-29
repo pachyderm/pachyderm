@@ -20,7 +20,6 @@ curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
 
-READY=false
 for _ in $(seq 108); do
   STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/release-${CIRCLE_SHA1:0:7}" | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
@@ -33,15 +32,9 @@ for _ in $(seq 108); do
   sleep 10
 done
 
-if READY == false
-then
-  echo "failed to provision pulumi test env"
-  exit 1
-fi
-
 pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/release-${CIRCLE_SHA1:0:7}"  | jq .Workspace.PachdIp)
 
-echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "release-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "commit-${CIRCLE_SHA1:0:7}"
+echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "release-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "release-${CIRCLE_SHA1:0:7}"
 
 echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
 
