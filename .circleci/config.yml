@@ -163,7 +163,7 @@ jobs:
           root: .
           paths:
             - cr-release-packages/*
-  helm-push:
+  helm-publish:
     parameters:
       version:
         type: string
@@ -594,7 +594,8 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - helm-tests
-      - helm-push:
+      - helm-publish:
+          name: chart-push-sha
           version: ${CIRCLE_SHA1}
           filters:
             branches:
@@ -615,7 +616,7 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
-            - helm-push
+            - chart-push-sha
             - helm-build
       - sign-off:
           filters:
@@ -663,7 +664,8 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - sign-off
-      - helm-push:
+      - helm-publish:
+          name: chart-push-release
           version: ${CIRCLE_TAG}
           filters:
             branches:
