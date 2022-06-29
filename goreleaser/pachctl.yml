@@ -14,7 +14,7 @@ builds:
     main: main.go
     binary: pachctl
     ldflags:
-      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X {{ .Env.LD_FLAGS}}
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X {{ .Env.LD_FLAGS }}
     gcflags:
       - "all=-trimpath={{.Env.GOBIN}}"
     env:
