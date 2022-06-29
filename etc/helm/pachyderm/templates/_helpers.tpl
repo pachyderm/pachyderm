@@ -170,3 +170,10 @@ pachyderm-enterprise
 pachyderm-identity
 {{- end }}
 {{- end }}
+
+{{- define "pachyderm.mockIDPRoleBindings" -}}
+{{- if and .Values.oidc.mockIDP (not .Values.oidc.upstreamIDPsSecretName) (not .Values.oidc.upstreamIDPs) }}
+user:kilgore@kilgore.trout:
+- clusterAdmin
+{{- end }}
+{{- end }}

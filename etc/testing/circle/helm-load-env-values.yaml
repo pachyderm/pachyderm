@@ -1,3 +1,5 @@
+deployTarget: LOCAL
+
 pachd:
     resources:
         requests:

@@ -2945,19 +2945,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
-	pachClient := a.env.GetPachClient(ctx)
-
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
-	var pipelines []*pps.PipelineInfo
-	pipelines, err := pachClient.ListPipeline(true)
-	if err != nil {
-		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
-	}
-
 	var eg errgroup.Group
-	for _, pipeline := range pipelines {
-		pipeline := pipeline
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
+		pipeline := proto.Clone(pipelineInfo).(*pps.PipelineInfo)
 		pipelineName := pipeline.Pipeline.Name
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
@@ -2980,8 +2973,11 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthReque
 		})
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {
-			return nil, err
+			return err
 		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -3002,27 +2998,30 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		return nil, err
 	}
 	pipeline := tu.UniqueString("TestLoadPipeline")
-	if err := pachClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 5,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Repo:   repo,
-				Branch: branch,
-				Glob:   "/*",
+	if _, err := pachClient.PpsAPIClient.CreatePipeline(
+		pachClient.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
+				},
 			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Repo:   repo,
+					Branch: branch,
+					Glob:   "/*",
+				},
+			},
+			PodPatch: req.PodPatch,
 		},
-		"",
-		false,
 	); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	req.Branch = client.NewBranch(repo, branch)
 	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)

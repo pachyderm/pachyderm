@@ -47,10 +47,13 @@ global:
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
+  # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
+  securityContexts:
+    enabled: true
 
 console:
   # enabled controls whether the console manifests are created or not.
-  enabled: false
+  enabled: true
   annotations: {}
   image:
     # repository is the image repo to pull from; together with tag it
@@ -61,6 +64,7 @@ console:
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
     tag: "2.1.0-1"
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   # podLabels specifies labels to add to the console pod.
@@ -106,6 +110,7 @@ etcd:
     pullPolicy: "IfNotPresent"
   # maxTxnOps sets the --max-txn-ops in the container args
   maxTxnOps: 10000
+  priorityClassName: ""
   nodeSelector: {}
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
@@ -138,8 +143,6 @@ etcd:
     labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
-  securityContext:
-    enabled: true
   tolerations: []
 
 enterpriseServer:
@@ -147,6 +150,7 @@ enterpriseServer:
   affinity: {}
   annotations: {}
   tolerations: []
+  priorityClassName: ""
   nodeSelector: {}
   service:
     type: ClusterIP
@@ -211,6 +215,7 @@ loki-stack:
       size: 10Gi
       storageClassName: standard
       annotations: {}
+      priorityClassName: ""
       nodeSelector: {}
       tolerations: []
     config:
@@ -300,6 +305,7 @@ pachd:
     enabled: true
     # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
+  priorityClassName: ""
   nodeSelector: {}
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
@@ -314,8 +320,6 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
-  securityContext:
-    enabled: true
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
@@ -384,7 +388,7 @@ pachd:
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   # set the initial pachyderm cluster role bindings, mapping a user to their list of roles
   # ex.
-  # pachAuthClusterRoleBindings: |
+  # pachAuthClusterRoleBindings:
   #   robot:wallie:
   #   - repoReader
   #   robot:eve:
@@ -558,6 +562,7 @@ pgbouncer:
   service:
     type: ClusterIP
   annotations: {}
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   resources:
@@ -610,9 +615,11 @@ postgresql:
     labels:
       suite: pachyderm
   primary:
+    priorityClassName: ""
     nodeSelector: {}
     tolerations: []
   readReplicas:
+    priorityClassName: ""
     nodeSelector: {}
     tolerations: []
 
@@ -631,6 +638,7 @@ cloudsqlAuthProxy:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "1.23.0"
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   # podLabels specifies labels to add to the dash pod.
