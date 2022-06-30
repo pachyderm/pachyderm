@@ -58,7 +58,7 @@ type DeployOpts struct {
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset       uint16
-	Loki             bool
+	DisableLoki      bool
 	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
@@ -123,6 +123,16 @@ func exposedServiceType() string {
 		serviceType = "NodePort"
 	}
 	return serviceType
+}
+
+func withoutLokiOptions(namespace string, port int) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"pachd.lokiDeploy":  "false",
+			"pachd.lokiLogging": "false",
+		},
+	}
 }
 
 func withLokiOptions(namespace string, port int) *helm.Options {
@@ -488,7 +498,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Console {
 		helmOpts.SetValues["console.enabled"] = "true"
 	}
-	if opts.Loki {
+	if opts.DisableLoki {
+		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
+	} else {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
@@ -511,7 +523,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
-	if opts.Loki {
+	if !opts.DisableLoki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)

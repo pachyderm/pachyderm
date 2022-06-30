@@ -478,7 +478,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := bobClient.WaitCommit(goodPipeline, "master", "")
 		return err
 	})
@@ -1602,7 +1602,7 @@ func TestListDatum(t *testing.T) {
 		err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), file, strings.NewReader("test"))
 		require.NoError(t, err)
 	}
-	require.NoErrorWithinT(t, 45*time.Second, func() error {
+	require.NoErrorWithinT(t, 90*time.Second, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1687,7 +1687,7 @@ func TestListJob(t *testing.T) {
 	var err error
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 100*time.Second, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1986,7 +1986,7 @@ func TestPipelineNewInput(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[2]))
 
 	// make sure the pipeline runs
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -2017,7 +2017,7 @@ func TestPipelineNewInput(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[0]))
 
 	// make sure the pipeline still runs
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -2612,7 +2612,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which

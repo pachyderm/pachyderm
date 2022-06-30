@@ -32,7 +32,7 @@ GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
 CLUSTERS_REUSE ?= true
-PARALLELISM ?= 5
+PARALLELISM ?= 3
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:

@@ -41,7 +41,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				"default",
 				k,
 				&minikubetestenv.DeployOpts{
-					Version: from,
+					Version:     from,
+					DisableLoki: true,
 				}))
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),

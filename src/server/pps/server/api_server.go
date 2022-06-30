@@ -1121,18 +1121,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		request.Since = types.DurationProto(DefaultLogsFrom)
 	}
 	if a.env.Config.LokiLogging || request.UseLokiBackend {
-		pachClient := a.env.GetPachClient(apiGetLogsServer.Context())
-		resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
-			&enterpriseclient.GetStateRequest{})
-		if err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
-		}
-		if resp.State == enterpriseclient.State_ACTIVE {
-			return a.getLogsLoki(request, apiGetLogsServer)
-		}
-		enterprisemetrics.IncEnterpriseFailures()
-		return errors.Errorf("%s requires an activation key to use Loki for logs. %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
+		return a.getLogsLoki(request, apiGetLogsServer)
 	}
 
 	// Authorize request and get list of pods containing logs we're interested in
@@ -1329,7 +1318,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	// RC name
 	var pipelineInfo *pps.PipelineInfo
 
-	if request.Pipeline != nil {
+	if request.Pipeline != nil && request.Job == nil {
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name, true)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)

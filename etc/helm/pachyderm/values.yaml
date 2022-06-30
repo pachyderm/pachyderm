@@ -297,9 +297,9 @@ pachd:
   logLevel: "info"
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
-  lokiDeploy: false
+  lokiDeploy: true
   # lokiLogging enables Loki logging if set.
-  lokiLogging: false
+  lokiLogging: true
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true

@@ -32,7 +32,7 @@ var (
 )
 
 type acquireSettings struct {
-	WaitForLoki      bool
+	SkipLoki         bool
 	TLS              bool
 	EnterpriseMember bool
 	CertPool         *x509.CertPool
@@ -41,8 +41,8 @@ type acquireSettings struct {
 
 type Option func(*acquireSettings)
 
-var WaitForLokiOption Option = func(as *acquireSettings) {
-	as.WaitForLoki = true
+var SkipLokiOption Option = func(as *acquireSettings) {
+	as.SkipLoki = true
 }
 
 var WithTLS Option = func(as *acquireSettings) {
@@ -95,7 +95,7 @@ func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 10),
 		UseLeftoverCluster: *useLeftoverClusters,
-		Loki:               as.WaitForLoki,
+		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
 		ValueOverrides:     as.ValueOverrides,
