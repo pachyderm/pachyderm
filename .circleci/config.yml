@@ -191,7 +191,6 @@ jobs:
           # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart Repo
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
-      - run: cr upload -o pachyderm -r helmchart --skip-existing
       - when:
           condition:
             and:
@@ -200,7 +199,8 @@ jobs:
             - run:
                 name: publish preview helm chart
                 command: |
-                   cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/preview --push
+                  cr upload -o pachyderm -r helmchart --package-path ../cr-release-packages/preview --skip-existing
+                  cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/preview --push
       - when:
           condition:
             and:
@@ -209,7 +209,8 @@ jobs:
             - run:
                 name: publish official helm chart
                 command: |
-                   cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/official --push
+                  cr upload -o pachyderm -r helmchart --package-path ../cr-release-packages/official --skip-existing
+                  cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/official --push
   nightly-load:
     parameters:
       bucket:
