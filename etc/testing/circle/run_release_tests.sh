@@ -65,3 +65,20 @@ if [ "$READY" = false ] ; then
     echo 'pachd failed to start'
     exit 1
 fi
+
+pushd examples/opencv
+    pachctl create repo images
+    pachctl create pipeline -f edges.json
+    pachctl create pipeline -f montage.json
+    pachctl put file images@master -i images.txt
+    pachctl put file images@master -i images2.txt
+
+    # wait for everything to finish
+    pachctl wait commit "montage@master"
+
+    # ensure the montage image was generated
+    pachctl inspect file montage@master:montage.png
+popd
+
+pachctl delete pipeline --all
+pachctl delete repo --all
