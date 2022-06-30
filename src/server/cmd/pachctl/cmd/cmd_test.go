@@ -31,6 +31,74 @@ func TestPortForwardError(t *testing.T) {
 	require.Matches(t, "context deadline exceeded", errMsg.String())
 }
 
+func TestPortForwardersRemoved(t *testing.T) {
+	cfgFile := testConfig(t, "")
+	defer os.Remove(cfgFile.Name())
+	os.Setenv("PACH_CONFIG", cfgFile.Name())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl port-forward &
+		sleep 1  # give port-forward time to start
+		pid="$!"
+
+		# Check that the port-forwarder is registered in the config
+		cat "${PACH_CONFIG}" | match "port_forwarders" || {
+			match_exit_code="$?"
+			killall pachctl  # kill child proc to prevent test from hanging
+			exit "${match_exit_code}"
+		}
+
+		# Kill port-forward proc with SIGKILL, so the config isn't updated
+		kill -9 "${pid}"
+		sleep 1  # give the port-forward process time to die
+		cat "${PACH_CONFIG}" | match "port_forwarders" || {
+			match_exit_code="$?"
+			killall pachctl  # kill child proc to prevent test from hanging
+			exit "${match_exit_code}"
+		}
+
+		# Attempting to connect should update the config
+		pachctl version
+		cat "${PACH_CONFIG}" | match -v "port_forwarders"
+		`,
+	).Run())
+}
+
+func TestPortForwardersReadOnlyConfig(t *testing.T) {
+	cfgFile := testConfig(t, "")
+	defer os.Remove(cfgFile.Name())
+	os.Setenv("PACH_CONFIG", cfgFile.Name())
+
+	require.NoError(t, tu.BashCmd(`
+		pachctl port-forward &
+		sleep 1  # give port-forward time to start
+		pid="$!"
+
+		# Check that the port-forwarder is registered in the config
+		cat "${PACH_CONFIG}" | match "port_forwarders" || {
+			match_exit_code="$?"
+			killall pachctl  # kill child proc to prevent test from hanging
+			exit "${match_exit_code}"
+		}
+
+		# Make pach config read-only
+		chmod ugo-rw "${PACH_CONFIG}"
+
+		# Kill port-forward proc with SIGKILL, so the config isn't updated
+		kill -9 "${pid}"
+		sleep 1  # give the port-forward process time to die
+
+		# Attempting to connect should work, but won't update the config
+		pachctl version
+		cat "${PACH_CONFIG}" | match "port_forwarders" || {
+			match_exit_code="$?"
+			killall pachctl  # kill child proc to prevent test from hanging
+			exit "${match_exit_code}"
+		}
+		`,
+	).Run())
+}
+
 // Check that no commands have brackets in their names, which indicates that
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
@@ -91,20 +159,21 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	cfgFile, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
 
-	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
-	require.NoError(t, err)
-
 	cfg := &config.Config{
 		UserID: uuid.NewWithoutDashes(),
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{
-				"test": &config.Context{
-					PachdAddress: pachdAddress.Qualified(),
-				},
+				"test": &config.Context{},
 			},
 			Metrics: false,
 		},
+	}
+
+	if pachdAddressStr != "" {
+		pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
+		require.NoError(t, err)
+		cfg.V2.Contexts["test"].PachdAddress = pachdAddress.Qualified()
 	}
 
 	j, err := json.Marshal(&cfg)
