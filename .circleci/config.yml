@@ -165,25 +165,51 @@ jobs:
             - cr-release-packages/*
   helm-publish:
     parameters:
-      path:
-        type: string
-        default: ../cr-release-packages/official
+      preview:
+        type: boolean
+        default: false
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
       - attach_workspace:
           at: ./
-      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+      - run:
+          name: download and install helm
+          command: |
+             wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
-      - run: git config --global user.email buildbot@pachyderm.io
-      - run: git config --global user.name buildbot
+      - run:
+          name: set git bot user
+          command: |
+             git config --global user.email buildbot@pachyderm.io
+      - run:
+          name: set get bot config
+          command: |
+             git config --global user.name buildbot
       - run:
           # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
-          name: Clone Helmchart
+          name: Clone Helmchart Repo
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path << parameters.path >> --push
+      - when:
+          condition:
+            and:
+              - equal: [true, << parameters.preview >>]
+          steps:
+            - run:
+                name: publish preview helm chart
+                command: |
+                   cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/preview --push
+      - when:
+          condition:
+            and:
+              - equal: [false, << parameters.preview >>]
+          steps:
+            - run:
+                name: publish official helm chart
+                command: |
+                   cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/official --push
   nightly-load:
     parameters:
       bucket:
@@ -586,6 +612,8 @@ workflows:
             tags:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - helm-tests
       - build-pachctl-bin:
           # version: ${CIRCLE_TAG:1}
           version: ${CIRCLE_TAG} # TODO remove and replace only for testing
@@ -595,9 +623,11 @@ workflows:
             tags:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - helm-tests
       - helm-publish:
           name: publish-chart-preview
-          path: ../cr-release-packages/preview 
+          preview: true 
           filters:
             branches:
               ignore: /.*/
