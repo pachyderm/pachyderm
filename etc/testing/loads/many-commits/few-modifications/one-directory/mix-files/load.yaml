@@ -1,5 +1,4 @@
-# This workload tests a large number of commits with small / medium size files.
-count: 100
+count: 25 
 modifications:
   - count: 1 
     putFile:
@@ -9,12 +8,15 @@ fileSources:
   - name: "random"
     random:
       sizes:
-        - min: 1000
+        - min: 100
           max: 10000
-          prob: 90 
-        - min: 1000000
+          prob: 50 
+        - min: 100000
           max: 10000000
+          prob: 40 
+        - min: 10000000
+          max: 1000000000
           prob: 10 
 validator:
   frequency:
-    prob: 0 
+    count: 25 

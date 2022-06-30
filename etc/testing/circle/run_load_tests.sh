@@ -68,6 +68,7 @@ done
 
 # Run load tests.
 set +e
+
 PFS_RESPONSE_SPEC=$(pachctl run pfs-load-test "${@}")
 
 if [ "${?}" -ne 0 ]; then
@@ -85,21 +86,5 @@ EOF
 
 fi
 
-PPS_RESPONSE_SPEC=$(pachctl run pps-load-test "${@}")
-
-if [[ "$CIRCLE_JOB" == *"nightly-load"* ]]; then
-
-DURATION=$(echo "$PPS_RESPONSE_SPEC" | jq '.duration')
-DURATION=${DURATION: 1:-2}
-bq insert --ignore_unknown_values insights.load-tests << EOF
-  {"gitBranch": "$CIRCLE_BRANCH","specName": "$BUCKET","duration": $DURATION,"type": "PPS", "commit": "$CIRCLE_SHA1", "timeStamp": "$(date +%Y-%m-%dT%H:%M:%S)"}
-EOF
-
-fi
-
-if [ "${?}" -ne 0 ]; then
-	pachctl debug dump /tmp/debug-dump
-	exit 1
-fi
 set -e
 pachctl debug dump /tmp/debug-dump

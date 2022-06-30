@@ -1,7 +1,6 @@
-# This workload tests a medium number of medium size files.
-count: 5 
+count: 25 
 modifications:
-  - count: 5
+  - count: 25
     putFile:
       count: 100
       source: "random"
@@ -9,9 +8,9 @@ fileSources:
   - name: "random"
     random:
       sizes:
-        - min: 1000000
+        - min: 100000
           max: 10000000
-          prob: 100 
+          prob: 100
 validator:
   frequency:
-    prob: 0 
+    count: 25 
