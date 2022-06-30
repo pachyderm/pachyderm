@@ -76,6 +76,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
           selected={!hideAutoCommits}
           small
           label="Auto Commits"
+          data-testid="CommitBrowser__autoCommits"
           onChange={() => handleHideAutoCommitChange(!hideAutoCommits)}
         />
       </div>

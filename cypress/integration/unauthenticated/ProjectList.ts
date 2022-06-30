@@ -20,11 +20,14 @@ describe('Project List', () => {
   it('should show the correct number of commits', () => {
     cy.findByText('images').click();
     cy.findByText('Commits').click();
-    cy.findAllByTestId('CommitBrowser__commit').should('have.length', 3);
-    cy.findAllByText('10 B', {exact: false}).should('have.length', 4);
+    cy.findAllByTestId('CommitBrowser__commit').should('have.length', 1);
+    cy.findByTestId('CommitBrowser__autoCommits').click({force: true});
+    cy.findAllByTestId('CommitBrowser__commit').should('have.length', 1);
     cy.findAllByText('edges').eq(0).click();
     cy.findByText('Commits').click();
-    cy.findAllByTestId('CommitBrowser__commit').should('have.length', 2);
+    cy.findAllByTestId('CommitBrowser__commit').should('have.length', 0);
+    cy.findByTestId('CommitBrowser__autoCommits').click({force: true});
+    cy.findAllByTestId('CommitBrowser__commit').should('have.length', 1);
   });
 
   it('should switch between list view and lineage view', () => {
