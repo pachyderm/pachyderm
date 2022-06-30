@@ -1620,7 +1620,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 					fmt.Printf("Fix applied: %v", resp.Fix)
 				}
 				return nil
-			}); err != nil {
+			}, opts...); err != nil {
 				return err
 			}
 			if !foundErrors {
