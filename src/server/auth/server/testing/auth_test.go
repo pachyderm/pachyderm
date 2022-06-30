@@ -1986,7 +1986,7 @@ func TestPipelineNewInput(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[2]))
 
 	// make sure the pipeline runs
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
