@@ -142,14 +142,14 @@ jobs:
       - run: 
           name: make cr release dirs
           command: |
-            mkdir -p cr-release-packages/${CIRCLE_TAG}
-            mkdir -p cr-release-packages/${CIRCLE_SHA1}
+            mkdir -p cr-release-packages/official
+            mkdir -p cr-release-packages/preview
       # - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
       # TODO: remove and replace only for testing.
       - run:
           name: package release helm chart
           command: |
-             helm package -d cr-release-packages/${CIRCLE_TAG} --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm  
+             helm package -d cr-release-packages/official --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm  
       - run:
           name: mark extra chart pre-release
           command: |
@@ -158,15 +158,16 @@ jobs:
       - run:
           name: package pre-release helm chart
           command: |
-             helm package -d cr-release-packages/${CIRCLE_SHA1} --version ${CIRCLE_TAG}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
+             helm package -d cr-release-packages/preview --version ${CIRCLE_TAG}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
           paths:
             - cr-release-packages/*
   helm-publish:
     parameters:
-      version:
+      path:
         type: string
+        default: ../cr-release-packages/official
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
@@ -182,7 +183,7 @@ jobs:
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
-      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../cr-release-packages/<< parameters.version >> --push
+      - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path << parameters.path >> --push
   nightly-load:
     parameters:
       bucket:
@@ -569,6 +570,15 @@ workflows:
             tags:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      - helm-build:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          requires:
+            - helm-tests
       - build-docker-images:
           filters:
             branches:
@@ -585,18 +595,9 @@ workflows:
             tags:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-build:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-          requires:
-            - helm-tests
       - helm-publish:
-          name: chart-push-sha
-          version: ${CIRCLE_SHA1}
+          name: publish-chart-preview
+          path: ../cr-release-packages/preview 
           filters:
             branches:
               ignore: /.*/
@@ -616,8 +617,7 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
-            - chart-push-sha
-            - helm-build
+            - publish-chart-preview
       - sign-off:
           filters:
             branches:
@@ -665,8 +665,7 @@ workflows:
           requires:
             - sign-off
       - helm-publish:
-          name: chart-push-release
-          version: ${CIRCLE_TAG}
+          name: publish-helm-chart
           filters:
             branches:
               ignore: /.*/
