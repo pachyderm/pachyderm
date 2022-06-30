@@ -20,6 +20,13 @@ spec:
       image: "{{ .Values.testConnection.image.repository }}:{{ .Values.testConnection.image.tag }}"
       command: ['/bin/sh', '-c', '--']
       args: ['while ! nc -vz pachd-peer 30653 ; do sleep 1 ; done']
+      resources:
+          limits:
+            cpu: 250m
+            memory: 50Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
 {{- if .Values.global.securityContexts.enabled }}
       securityContext:
         allowPrivilegeEscalation: false
