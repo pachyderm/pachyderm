@@ -158,6 +158,9 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(tx *pachsql.Tx) error, 
 		// failing because the deadline expired during commit.  But we can't know that here
 		// without extra annotations on the error.
 		outcome = "error"
+		if errors.Is(err, sql.ErrTxDone) {
+			outcome += "_txdone"
+		}
 		return err
 	}
 	outcome = "ok"
@@ -175,7 +178,11 @@ func tryTxFunc(tx *pachsql.Tx, cb func(tx *pachsql.Tx) error) error {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
-		underlyingTxFinishMetric.WithLabelValues("commit_failed").Inc()
+		label := "commit_failed"
+		if errors.Is(err, sql.ErrTxDone) {
+			label += "_txdone"
+		}
+		underlyingTxFinishMetric.WithLabelValues(label).Inc()
 		return errors.EnsureStack(err)
 	}
 	underlyingTxFinishMetric.WithLabelValues("commit_ok").Inc()

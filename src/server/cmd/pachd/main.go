@@ -106,6 +106,53 @@ func main() {
 	}
 }
 
+func newInternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+	return grpcutil.NewServer(
+		context.Background(),
+		false,
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
+}
+
+func newExternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+	return grpcutil.NewServer(
+		context.Background(),
+		true,
+		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
+		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
+		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			method, _ := grpc.MethodFromServerStream(stream)
+			return errors.Errorf("unknown service %v", method)
+		}),
+		grpc.ChainUnaryInterceptor(
+			errorsmw.UnaryServerInterceptor,
+			version_middleware.UnaryServerInterceptor,
+			tracing.UnaryServerInterceptor(),
+			authInterceptor.InterceptUnary,
+			loggingInterceptor.UnaryServerInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			errorsmw.StreamServerInterceptor,
+			version_middleware.StreamServerInterceptor,
+			tracing.StreamServerInterceptor(),
+			authInterceptor.InterceptStream,
+			loggingInterceptor.StreamServerInterceptor,
+		),
+	)
+}
+
 func doReadinessCheck(config interface{}) error {
 	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
 	return env.GetPachClient(context.Background()).Health()
@@ -165,31 +212,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
-	externalServer, err := grpcutil.NewServer(
-		context.Background(),
-		true,
-		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
-		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
-		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
-		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
-		}),
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			version_middleware.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			version_middleware.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -283,21 +306,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	}
 
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(
-		context.Background(),
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -447,22 +456,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	server, err := grpcutil.NewServer(
-		context.Background(),
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	server, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -632,32 +626,7 @@ func doFullMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := grpcutil.NewServer(
-		ctx,
-		true,
-		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
-		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
-		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
-		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
-		}),
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			version_middleware.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			version_middleware.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
-
+	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -812,21 +781,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	var bootstrappers []bootstrapper
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(
-		ctx,
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -1079,32 +1034,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := grpcutil.NewServer(
-		ctx,
-		true,
-		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
-		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
-		// (because the version_middleware interceptor throws an error, or the auth interceptor does).
-		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
-			method, _ := grpc.MethodFromServerStream(stream)
-			return errors.Errorf("unknown service %v", method)
-		}),
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			version_middleware.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			version_middleware.StreamServerInterceptor,
-			tracing.StreamServerInterceptor(),
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
-
+	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -1199,21 +1129,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := grpcutil.NewServer(
-		ctx,
-		false,
-		grpc.ChainUnaryInterceptor(
-			errorsmw.UnaryServerInterceptor,
-			tracing.UnaryServerInterceptor(),
-			authInterceptor.InterceptUnary,
-			loggingInterceptor.UnaryServerInterceptor,
-		),
-		grpc.ChainStreamInterceptor(
-			errorsmw.StreamServerInterceptor,
-			authInterceptor.InterceptStream,
-			loggingInterceptor.StreamServerInterceptor,
-		),
-	)
+	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
