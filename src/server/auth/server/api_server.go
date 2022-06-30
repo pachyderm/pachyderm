@@ -226,7 +226,6 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			for p := range existing.Binding.Entries {
 				// `pach:` user role bindings cannot be modified
 				if strings.HasPrefix(p, auth.PachPrefix) || strings.HasPrefix(p, auth.InternalPrefix) {
-					a.env.Logger.Warnf("cannot modify cluster role bindings for subject %q", p)
 					continue
 				}
 				if _, ok := roleBinding[p]; !ok {
