@@ -4130,13 +4130,17 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestGetLogs(t *testing.T) {
+func testGetLogs(t *testing.T, useLoki bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	var opts []minikubetestenv.Option
+	if !useLoki {
+		opts = append(opts, minikubetestenv.SkipLokiOption)
+	}
+	c, _ := minikubetestenv.AcquireCluster(t, opts...)
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -4337,6 +4341,14 @@ func TestGetLogs(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+}
+
+func TestGetLogsWithoutLoki(t *testing.T) {
+	testGetLogs(t, false)
+}
+
+func TestGetLogs(t *testing.T) {
+	testGetLogs(t, true)
 }
 
 func TestManyLogs(t *testing.T) {
