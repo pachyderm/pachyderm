@@ -663,7 +663,9 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           type: approval
           requires:
-            - pachyderm-prerelease-testing
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
       - release-docker-hub:
           filters:
             branches:
