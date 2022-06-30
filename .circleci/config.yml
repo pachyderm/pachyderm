@@ -282,6 +282,10 @@ jobs:
   # build pachctl and push to GCS bucket, so that it can be bundled into the
   # Jupyter-Pachyderm extension
   build-docker-images:
+    parameters:
+      appVersion:
+        type: string
+        default: ${CIRCLE_SHA1}
     resource_class: large
     docker:
       - image: cimg/go:1.17.6
@@ -303,10 +307,10 @@ jobs:
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Build Docker
-          command: make docker-build VERSION=$CIRCLE_SHA1
+          command: make docker-build VERSION=<< parameters.appVersion >>
       - run:
           name: Push docker
-          command: make docker-push VERSION=$CIRCLE_SHA1
+          command: make docker-push VERSION=${CIRCLE_SHA1}
   build-pachctl-bin:
     parameters:
       version:
@@ -607,6 +611,7 @@ workflows:
           requires:
             - helm-tests
       - build-docker-images:
+          appVersion: ${CIRCLE_TAG} # TODO remove and replace only for testing ${CIRCLE_TAG:1}
           filters:
             branches:
               ignore: /.*/

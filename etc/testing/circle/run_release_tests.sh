@@ -12,6 +12,10 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
+# wait for 5mins artifact hub to sync helm chart.
+# should be replaced with a ping 
+sleep 300
+
 # provision a pulumi test env
 #TODO; switch to CIRCLE_TAG:1 once done with testing
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
