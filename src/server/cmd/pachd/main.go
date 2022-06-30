@@ -316,6 +316,22 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				e,
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
+			bootstrappers = append(bootstrappers, enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := logGRPCServerSetup("Identity API", func() error {
 			idAPIServer := identity_server.NewIdentityServer(
 				identity_server.EnvFromServiceEnv(env),
@@ -353,30 +369,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-
-		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
-			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				e,
-				false,
-			)
-			if err != nil {
-				return err
-			}
-			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
-			env.SetEnterpriseServer(enterpriseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-
 		if err := logGRPCServerSetup("Admin API", func() error {
 			adminclient.RegisterAPIServer(internalServer.Server, adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env)))
 			return nil
 		}); err != nil {
 			return err
 		}
-
 		if err := logGRPCServerSetup("Version API", func() error {
 			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
@@ -875,6 +873,27 @@ func doFullMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
+		if err := logGRPCServerSetup("Enterprise API", func() error {
+			e := eprsserver.EnvFromServiceEnv(env,
+				path.Join(env.Config().EtcdPrefix,
+					env.Config().EnterpriseEtcdPrefix),
+				txnEnv,
+				eprsserver.WithMode(eprsserver.FullMode),
+				eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
+			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
+				e,
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			bootstrappers = append(bootstrappers, enterpriseAPIServer)
+			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			env.SetEnterpriseServer(enterpriseAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
 		if !env.Config().EnterpriseMember {
 			if err := logGRPCServerSetup("Identity API", func() error {
 				idAPIServer := identity_server.NewIdentityServer(
@@ -916,26 +935,6 @@ func doFullMode(config interface{}) (retErr error) {
 				return err
 			}
 			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Enterprise API", func() error {
-			e := eprsserver.EnvFromServiceEnv(env,
-				path.Join(env.Config().EtcdPrefix,
-					env.Config().EnterpriseEtcdPrefix),
-				txnEnv,
-				eprsserver.WithMode(eprsserver.FullMode),
-				eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
-			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				e,
-				false,
-			)
-			if err != nil {
-				return err
-			}
-			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
-			env.SetEnterpriseServer(enterpriseAPIServer)
 			return nil
 		}); err != nil {
 			return err

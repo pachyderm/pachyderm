@@ -34,6 +34,9 @@
                 "port": {
                     "type": "integer"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -114,6 +117,9 @@
                 "podLabels": {
                     "type": "object"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -173,6 +179,9 @@
                 },
                 "podLabels": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -264,6 +273,9 @@
                 },
                 "podLabels": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -460,6 +472,9 @@
                                 "nodeSelector": {
                                     "type": "object"
                                 },
+                                "priorityClassName": {
+                                    "type": "string"
+                                },
                                 "size": {
                                     "type": "string"
                                 },
@@ -479,6 +494,9 @@
                         "config": {
                             "type": "object",
                             "properties": {
+                                "lokiAddress": {
+                                    "type": "string"
+                                },
                                 "snippets": {
                                     "type": "object",
                                     "properties": {
@@ -684,6 +702,9 @@
                 },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "rbac": {
                     "type": "object",
@@ -958,11 +979,25 @@
                 "defaultPoolSize": {
                     "type": "integer"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "maxConnections": {
                     "type": "integer"
                 },
                 "nodeSelector": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -1030,6 +1065,9 @@
                         "nodeSelector": {
                             "type": "object"
                         },
+                        "priorityClassName": {
+                            "type": "string"
+                        },
                         "tolerations": {
                             "type": "array"
                         }
@@ -1040,6 +1078,9 @@
                     "properties": {
                         "nodeSelector": {
                             "type": "object"
+                        },
+                        "priorityClassName": {
+                            "type": "string"
                         },
                         "tolerations": {
                             "type": "array"
@@ -1154,7 +1195,34 @@
                     }
                 },
                 "tls": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "secret": {
+                            "type": "object"
+                        },
+                        "secretName": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "testConnection": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         }

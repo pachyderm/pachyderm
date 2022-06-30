@@ -35,6 +35,9 @@ spec:
       name: pachd
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if .Values.pachd.priorityClassName }}
+      priorityClassName: {{ .Values.pachd.priorityClassName }}
+      {{- end }}
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
@@ -155,7 +158,7 @@ spec:
         {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: TLS_CERT_SECRET_NAME
-          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
+          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
         {{- end }}
         {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
         - name: LICENSE_KEY
@@ -168,7 +171,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
-              key: "idps"
+              key: "upstream-idps"
         - name: IDP_CONFIG
           valueFrom:
             configMapKeyRef:
@@ -256,6 +259,11 @@ spec:
           {{- else }}
           value: {{ required "To register this pachd as an enterprise member, the enterprise root token must be provided." .Values.pachd.enterpriseRootToken | quote }}
           {{- end }}
+        - name: ENTERPRISE_MEMBER_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-enterprise-config"
+              key: "enterprise-cluster" 
         {{- end }}
         {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE
@@ -299,6 +307,11 @@ spec:
           name: prom-metrics
           protocol: TCP
         readinessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+        livenessProbe:
           exec:
             command:
             - /pachd

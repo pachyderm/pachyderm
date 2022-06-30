@@ -109,6 +109,44 @@ spec:
     - persistentVolumeClaim
 ---
 apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredProbes
+metadata:
+  name: must-have-probes
+spec:
+  enforcementAction: dryrun
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    probes: ["readinessProbe", "livenessProbe"]
+    probeTypes: ["tcpSocket", "httpGet", "exec"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredResources
+metadata:
+  name: container-must-have-limits-and-requests
+spec:
+  enforcementAction: dryrun
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    limits:
+      - cpu
+      - memory
+    requests:
+      - cpu
+      - memory
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
 kind: K8sPSPAutomountServiceAccountToken
 metadata:
   name: psp-automount-serviceaccount-token

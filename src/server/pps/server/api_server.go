@@ -1702,12 +1702,6 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) fixPipelineInputRepoACLs(ctx context.Context, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
-	return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.fixPipelineInputRepoACLsInTransaction(txnCtx, pipelineInfo, prevPipelineInfo)
-	})
-}
-
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
 	addRead := make(map[string]struct{})
 	addWrite := make(map[string]struct{})
@@ -2944,42 +2938,41 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 }
 
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
-func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
+func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
+	var resp *pps.ActivateAuthResponse
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		resp, err = a.ActivateAuthInTransaction(txnCtx, req)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
-	var eg errgroup.Group
-	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
-		pipeline := proto.Clone(pipelineInfo).(*pps.PipelineInfo)
-		pipelineName := pipeline.Pipeline.Name
+	pi := &pps.PipelineInfo{}
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
-		eg.Go(func() error {
-			return a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-				token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineName)
-				if err != nil {
-					return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
-				}
-
-				pipelineInfo := &pps.PipelineInfo{}
-				if err := a.updatePipeline(txnCtx, pipelineName, pipelineInfo, func() error {
-					pipelineInfo.AuthToken = token
-					return nil
-				}); err != nil {
-					return errors.Wrapf(err, "could not update \"%s\" with new auth token", pipelineName)
-				}
-				return nil
-			})
-		})
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline.Name)
+		if err != nil {
+			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
+		}
+		if err := a.updatePipeline(txnCtx, pi.Pipeline.Name, pi, func() error {
+			pi.AuthToken = token
+			return nil
+		}); err != nil {
+			return errors.Wrapf(err, "could not update %q with new auth token", pi.Pipeline.Name)
+		}
 		// put 'pipeline' on relevant ACLs
-		if err := a.fixPipelineInputRepoACLs(ctx, pipeline, nil); err != nil {
-			return err
+		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pi, nil); err != nil {
+			return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pi.Pipeline.Name)
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrapf(grpcutil.ScrubGRPC(err), "cannot get list of pipelines to update")
-	}
-	if err := eg.Wait(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return &pps.ActivateAuthResponse{}, nil
@@ -2998,27 +2991,30 @@ func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest
 		return nil, err
 	}
 	pipeline := tu.UniqueString("TestLoadPipeline")
-	if err := pachClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 5,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Repo:   repo,
-				Branch: branch,
-				Glob:   "/*",
+	if _, err := pachClient.PpsAPIClient.CreatePipeline(
+		pachClient.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
+				},
 			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Pfs: &pps.PFSInput{
+					Repo:   repo,
+					Branch: branch,
+					Glob:   "/*",
+				},
+			},
+			PodPatch: req.PodPatch,
 		},
-		"",
-		false,
 	); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	req.Branch = client.NewBranch(repo, branch)
 	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)

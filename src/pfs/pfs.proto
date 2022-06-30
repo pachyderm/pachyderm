@@ -452,6 +452,7 @@ message RunLoadTestRequest {
   string spec = 1;
   Branch branch = 2;
   int64 seed = 3;
+  string pod_patch = 4;
 }
 
 message RunLoadTestResponse {

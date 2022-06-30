@@ -31,11 +31,32 @@ spec:
       annotations: {{ toYaml .Values.console.annotations | nindent 4 }}
       {{- end }}
     spec:
+      {{- if .Values.console.priorityClassName }}
+      priorityClassName: {{ .Values.console.priorityClassName }}
+      {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}
         name: console
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: console-http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: console-http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
         ports:
         - containerPort: {{ .Values.console.config.graphqlPort }}
           name: console-http
