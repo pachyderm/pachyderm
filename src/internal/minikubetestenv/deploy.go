@@ -125,6 +125,16 @@ func exposedServiceType() string {
 	return serviceType
 }
 
+func withoutLokiOptions(namespace string, port int) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"pachd.lokiDeploy":  "false",
+			"pachd.lokiLogging": "false",
+		},
+	}
+}
+
 func withLokiOptions(namespace string, port int) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
@@ -489,6 +499,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["console.enabled"] = "true"
 	}
 	if opts.DisableLoki {
+		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
 	} else {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}

@@ -4378,7 +4378,7 @@ func TestManyLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 		iter := c.GetLogs(pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
