@@ -717,7 +717,9 @@ oidc:
   #TODO scopes:
 
 testConnection:
-  image: alpine
+  image:
+    repository: alpine
+    tag: latest
 
 # The proxy is a service to handle all Pachyderm traffic (S3, Console, OIDC, Dex, GRPC) on a single
 # port; good for exposing directly to the Internet.

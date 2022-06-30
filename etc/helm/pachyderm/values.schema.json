@@ -1214,7 +1214,15 @@
             "type": "object",
             "properties": {
                 "image": {
-                    "type": "string"
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         }
