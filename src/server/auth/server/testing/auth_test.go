@@ -2612,7 +2612,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
