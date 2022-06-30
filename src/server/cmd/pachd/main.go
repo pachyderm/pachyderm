@@ -956,6 +956,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	if !env.Config().EnterpriseMember {
 		env.InitDexDB()
 	}
+
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
