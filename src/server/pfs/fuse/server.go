@@ -475,18 +475,19 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(sopts *ServerOptions, testClient *client.APIClient) error {
+func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
 	// This variable points to the MountManager for each connected cluster.
 	// Updated when the config is updated.
 	var mm *MountManager = &MountManager{}
-	if testClient != nil {
+	if existingClient != nil {
 		var err error
-		mm, err = CreateMount(testClient, sopts.MountDir)
+		mm, err = CreateMount(existingClient, sopts.MountDir)
 		if err != nil {
 			return err
 		}
+		logrus.Infof("Connected to %s", existingClient.GetAddress().Qualified())
 	}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
