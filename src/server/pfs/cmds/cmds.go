@@ -1151,15 +1151,15 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
-				cs, cf := shell.FilesystemCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-			} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--append" {
-				cs, cf := shell.FileCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+		func(state shell.CacheState, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if state.Flag == "-f" || state.Flag == "--file" || state.Flag == "-i" || state.Flag == "input-file" {
+				cs, cf := shell.FilesystemCompletion(state, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(state.Flag))
+			} else if state.Flag == "" || state.Flag == "-c" || state.Flag == "--commit" || state.Flag == "-o" || state.Flag == "--append" {
+				cs, cf := shell.FileCompletion(state, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(state.Flag))
 			}
-			return nil, shell.SameFlag(flag)
+			return nil, shell.SameFlag(state.Flag)
 		})
 	commands = append(commands, cmdutil.CreateAliases(putFile, "put file", files))
 

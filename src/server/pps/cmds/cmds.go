@@ -318,12 +318,15 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "-p" || flag == "--pipeline" {
-				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+		func(state shell.CacheState, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if state.Flag == "-p" || state.Flag == "--pipeline" {
+				cs, cf := shell.PipelineCompletion(state, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(state.Flag))
 			}
-			return shell.JobSetCompletion(flag, text, maxCompletions)
+			cs, cf := shell.JobSetCompletion(state, maxCompletions)
+			return cs, shell.AndCacheFunc(cf, func(state shell.CacheState) bool {
+				return state.Flag != "-p" && state.Flag != "--pipeline"
+			})
 		})
 	commands = append(commands, cmdutil.CreateAliases(listJob, "list job", jobs))
 
@@ -527,6 +530,7 @@ each datum.`,
 		}),
 	}
 	inspectDatum.Flags().AddFlagSet(outputFlags)
+	shell.RegisterCompletionFunc(inspectDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectDatum, "inspect datum", datums))
 
 	var (
@@ -659,16 +663,16 @@ each datum.`,
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
 	shell.RegisterCompletionFunc(getLogs,
-		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "--pipeline" || flag == "-p" {
-				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+		func(state shell.CacheState, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if state.Flag == "--pipeline" || state.Flag == "-p" {
+				cs, cf := shell.PipelineCompletion(state, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(state.Flag))
 			}
-			if flag == "--job" || flag == "-j" {
-				cs, cf := shell.JobCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			if state.Flag == "--job" || state.Flag == "-j" {
+				cs, cf := shell.JobCompletion(state, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(state.Flag))
 			}
-			return nil, shell.SameFlag(flag)
+			return nil, shell.SameFlag(state.Flag)
 		})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
@@ -772,6 +776,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	inspectPipeline.Flags().AddFlagSet(outputFlags)
 	inspectPipeline.Flags().AddFlagSet(timestampFlags)
+	shell.RegisterCompletionFunc(inspectPipeline, shell.PipelineCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectPipeline, "inspect pipeline", pipelines))
 
 	var editor string

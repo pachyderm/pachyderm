@@ -43,8 +43,8 @@ func parsePart(text string) partEnum {
 }
 
 func samePart(p partEnum) CacheFunc {
-	return func(_, text string) bool {
-		return parsePart(text) == p
+	return func(state CacheState) bool {
+		return parsePart(state.Text) == p
 	}
 }
 
@@ -72,7 +72,7 @@ func closePachClient() error {
 }
 
 // RepoCompletion completes repo parameters of the form <repo>
-func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+func RepoCompletion(state CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	ris, err := c.ListRepo()
 	if err != nil {
@@ -85,18 +85,18 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 			Description: fmt.Sprintf("%s (<= %s)", ri.Description, units.BytesSize(float64(ri.SizeBytesUpperBound))),
 		})
 	}
-	return result, samePart(parsePart(text))
+	return result, samePart(parsePart(state.Text))
 }
 
 // BranchCompletion completes branch parameters of the form <repo>@<branch>
-func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+func BranchCompletion(state CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	partialFile := cmdutil.ParsePartialFile(text)
-	part := parsePart(text)
+	partialFile := cmdutil.ParsePartialFile(state.Text)
+	part := parsePart(state.Text)
 	var result []prompt.Suggest
 	switch part {
 	case repoPart:
-		return RepoCompletion(flag, text, maxCompletions)
+		return RepoCompletion(state, maxCompletions)
 	case commitOrBranchPart:
 		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
@@ -145,16 +145,16 @@ func abs(i int) int {
 }
 
 // FileCompletion completes file parameters of the form <repo>@<branch>:/file
-func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+func FileCompletion(state CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	partialFile := cmdutil.ParsePartialFile(text)
-	part := parsePart(text)
+	partialFile := cmdutil.ParsePartialFile(state.Text)
+	part := parsePart(state.Text)
 	var result []prompt.Suggest
 	switch part {
 	case repoPart:
-		return RepoCompletion(flag, text, maxCompletions)
+		return RepoCompletion(state, maxCompletions)
 	case commitOrBranchPart:
-		return BranchCompletion(flag, text, maxCompletions)
+		return BranchCompletion(state, maxCompletions)
 	case filePart:
 		if err := c.GlobFile(partialFile.Commit, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
@@ -170,8 +170,8 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 			return nil, CacheNone
 		}
 	}
-	return result, AndCacheFunc(samePart(part), func(_, text string) (result bool) {
-		_partialFile := cmdutil.ParsePartialFile(text)
+	return result, AndCacheFunc(samePart(part), func(state CacheState) (result bool) {
+		_partialFile := cmdutil.ParsePartialFile(state.Text)
 		return path.Dir(_partialFile.Path) == path.Dir(partialFile.Path) &&
 			abs(len(_partialFile.Path)-len(partialFile.Path)) < filePathCacheLength
 
@@ -179,8 +179,8 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 }
 
 // FilesystemCompletion completes file parameters from the local filesystem (not from pfs).
-func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	dir := filepath.Dir(text)
+func FilesystemCompletion(state CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+	dir := filepath.Dir(state.Text)
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, CacheNone
@@ -191,13 +191,13 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 			Text: filepath.Join(dir, fi.Name()),
 		})
 	}
-	return result, func(_, text string) bool {
-		return filepath.Dir(text) == dir
+	return result, func(state CacheState) bool {
+		return filepath.Dir(state.Text) == dir
 	}
 }
 
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
-func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+func PipelineCompletion(_ CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{Details: true})
 	if err != nil {
@@ -241,7 +241,7 @@ func jobSetDesc(jsi *pps.JobSetInfo) string {
 }
 
 // JobCompletion completes job parameters of the form <job-set>
-func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+func JobSetCompletion(_ CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
 	listJobSetClient, err := c.PpsAPIClient.ListJobSet(c.Ctx(), &pps.ListJobSetRequest{})
@@ -270,23 +270,26 @@ func jobDesc(ji *pps.JobInfo) string {
 	return fmt.Sprintf("%s: %s - %s", ji.Job.Pipeline.Name, pps_pretty.Progress(ji), statusString)
 }
 
-// JobCompletion completes job parameters of the form <job>
-func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+// JobCompletion completes job parameters of the form <pipeline>@<job-ID>
+func JobCompletion(state CacheState, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
+	partialFile := cmdutil.ParsePartialFile(state.Text)
+	part := parsePart(state.Text)
 	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, 0, false, func(ji *pps.JobInfo) error {
-		if maxCompletions > 0 {
-			maxCompletions--
-		} else {
-			return errutil.ErrBreak
+	switch part {
+	case repoPart:
+		return RepoCompletion(state, maxCompletions)
+	case commitOrBranchPart:
+		if err := c.ListJobF(partialFile.Commit.Branch.Repo.Name, nil, 0, false, func(info *pps.JobInfo) error {
+			result = append(result, prompt.Suggest{
+				Text:        fmt.Sprint(info.Job),
+				Description: jobDesc(info),
+			})
+			return nil
+		}); err != nil {
+			return nil, CacheNone
 		}
-		result = append(result, prompt.Suggest{
-			Text:        ji.Job.ID,
-			Description: jobDesc(ji),
-		})
-		return nil
-	}); err != nil {
-		return nil, CacheNone
+		return result, samePart(commitOrBranchPart)
 	}
-	return result, CacheAll
+	return nil, CacheNone
 }

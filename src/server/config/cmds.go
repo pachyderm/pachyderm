@@ -19,7 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 
-	prompt "github.com/c-bata/go-prompt"
+	"github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 )
@@ -500,7 +500,7 @@ func Cmds() []*cobra.Command {
 	return commands
 }
 
-func contextCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+func contextCompletion(_ shell.CacheState, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		log.Fatal(err)
