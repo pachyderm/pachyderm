@@ -41,6 +41,7 @@ func TestMatchFail(t *testing.T) {
 }
 
 func TestMatchInvertedFail(t *testing.T) {
+	t.Skip("TODO: reenable")
 	c := tu.BashCmd(`
 		echo "This is a test" \
 		  | match -v "test" \
