@@ -43,15 +43,17 @@ jobs:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
       - run: etc/testing/circle/install.sh
-      - run: |-
-          GOMAXPROCS=4 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-          gotestsum \
-          --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-          --rerun-fails \
-          --packages="./..." \
-          -- \
-          -count=1 \
-          -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+      - run:
+          no_output_timeout: 20m
+          command: |-
+            GOMAXPROCS=1 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            gotestsum \
+            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --rerun-fails \
+            --packages="./..." \
+            -- \
+            -count=1 \
+            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
       - store_artifacts: # upload test summary for display in Artifacts
           path: /tmp/test-results
           destination: raw-test-output
