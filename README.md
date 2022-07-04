@@ -34,33 +34,27 @@ Assuming that you are running a Pachyderm instance somewhere, and that you can p
 kubectl port-forward service/pachd 30650:30650
 ```
 
-Start a bash session in the `pachyderm/notebooks-user` container
+Start a bash session in the `pachyderm/notebooks-user` container from the top-level `jupyterlab-pachyderm` repo.
 
 ```
-docker run -it -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged \
+docker run --name jupyterlab_pachyderm_frontend_dev \
+  --net=host \
+  --rm \
+  -it -e GRANT_SUDO=yes --user root \
+  --device /dev/fuse --privileged \
   -v $(pwd):/home/jovyan/extension-wd \
   -w /home/jovyan/extension-wd \
-  pachyderm/notebooks-user:2e846a91e44f246ced0935e1034199fdb502b940 \
+  pachyderm/notebooks-user:77ce3a1ef2c73bf34d064cd0bdb5a64262bf3280 \
   bash
 ```
 
-Create `/pfs` directory if it doesn't exist
-
-```
-mkdir /pfs
-```
-
-In your container, configure `pachctl`
-
-```
-echo '{"pachd_address": "grpc://host.docker.internal:30650"}' | pachctl config set context "local" --overwrite && pachctl config set active-context "local"
-```
+If you are running the frontend container on Linux, and want to be able to talk to pachd in minikube on `grpc://localhost:30650`, use `--net=host` at the start of the the `docker run` command as shown above. If you are on macOS, you will want to remove `--net=host` as it is not supported. On macOS you can specify `grpc://host.docker.internal:30650` to get the same effect.
 
 Install the project in editable mode, and start JupyterLab
 
 ```
 pip install -e .
-jupyter labextension develop --overwrite .
+jupyter labextension develop --overwrite
 
 # Server extension must be manually installed in develop mode, for example
 jupyter server extension enable jupyterlab_pachyderm
@@ -78,6 +72,13 @@ Within container run:
 
 ```
 npm run watch
+```
+
+Iterating on the mount server, from inside a `pachyderm` checkout:
+```
+CGO_ENABLED=0 make install
+docker cp /home/luke/gocode/bin/pachctl jupyterlab_pachyderm_frontend_dev:/usr/local/bin/pachctl
+docker exec -ti jupyterlab_pachyderm_frontend_dev pkill -f pachctl
 ```
 
 ## Local Virtual Environment Setup 
@@ -99,7 +100,7 @@ Note: You will need NodeJS to build the extension package.
 
 ```bash
 # Clone the repo to your local environment
-# Change directory to the jupyterlab_pachyderm directory
+# Change directory to the jupyterlab-pachyderm directory (top level of repo)
 # Make sure you are using a virtual environment
 # Install package in development mode
 pip install -e .

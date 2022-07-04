@@ -26,6 +26,9 @@ export type Mount = {
   mode: string | null;
   mountpoint: string | null;
   mount_key: MountKey | null;
+  how_many_commits_behind: number;
+  actual_mounted_commit: string;
+  latest_commit: string;
 };
 
 export type MountKey = {

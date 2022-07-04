@@ -106,6 +106,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -149,6 +152,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -193,6 +199,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -223,6 +232,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -236,6 +248,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -274,6 +289,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -287,6 +305,8 @@ describe('sortable list components', () => {
 
     const statusIcon = getByTestId('ListItem__statusIcon');
     expect(statusIcon.title).toEqual('Error: error mounting branch');
+    const commitBehindnessText = getByTestId('ListItem__commitBehindness');
+    expect(commitBehindnessText.textContent).toContain('up to date');
   });
 
   it('should disable item when it is in a loading state', async () => {
@@ -305,6 +325,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -324,6 +347,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -343,6 +369,9 @@ describe('sortable list components', () => {
                 mode: null,
                 mountpoint: null,
                 mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
               },
             ],
           },
@@ -356,5 +385,104 @@ describe('sortable list components', () => {
     expect(unmountButtons[0]).toBeDisabled();
     expect(unmountButtons[1]).toBeDisabled();
     expect(unmountButtons[2]).toBeDisabled();
+  });
+  it('should show up to date when behindness is zero', async () => {
+    const repos: Repo[] = [
+      {
+        repo: 'edges',
+        authorization: 'off',
+        branches: [
+          {
+            branch: 'master',
+            mount: [
+              {
+                name: '',
+                state: 'mounted',
+                status: 'all is well, la la la',
+                mode: null,
+                mountpoint: null,
+                mount_key: null,
+                how_many_commits_behind: 0,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
+
+    const commitBehindnessText = getByTestId('ListItem__commitBehindness');
+    expect(commitBehindnessText.textContent).toContain('up to date');
+  });
+  it('should show behind when one commit behind', async () => {
+    const repos: Repo[] = [
+      {
+        repo: 'edges',
+        authorization: 'off',
+        branches: [
+          {
+            branch: 'master',
+            mount: [
+              {
+                name: '',
+                state: 'mounted',
+                status: 'all is well, la la la',
+                mode: null,
+                mountpoint: null,
+                mount_key: null,
+                how_many_commits_behind: 1,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
+
+    const commitBehindnessText = getByTestId('ListItem__commitBehindness');
+    expect(commitBehindnessText.textContent).toContain('1 commit behind');
+  });
+  it('should show behind when two commits behind', async () => {
+    const repos: Repo[] = [
+      {
+        repo: 'edges',
+        authorization: 'off',
+        branches: [
+          {
+            branch: 'master',
+            mount: [
+              {
+                name: '',
+                state: 'mounted',
+                status: 'all is well, la la la',
+                mode: null,
+                mountpoint: null,
+                mount_key: null,
+                how_many_commits_behind: 2,
+                actual_mounted_commit: 'a1b2c3',
+                latest_commit: 'a1b2c3',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const {getByTestId} = render(
+      <SortableList open={open} repos={repos} updateData={updateData} />,
+    );
+
+    const commitBehindnessText = getByTestId('ListItem__commitBehindness');
+    expect(commitBehindnessText.textContent).toContain('2 commits behind');
   });
 });

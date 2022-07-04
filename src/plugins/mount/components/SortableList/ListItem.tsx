@@ -21,7 +21,7 @@ type ListItemProps = {
 };
 
 const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
-  const [mountedBanch, setMountedBranch] = useState<Branch>();
+  const [mountedBranch, setMountedBranch] = useState<Branch>();
   const [selectedBranch, setSelectedBranch] = useState<string>();
   const [disabled, setDisabled] = useState<boolean>(false);
   const [authorized, setAuthorized] = useState<boolean>(false);
@@ -50,10 +50,10 @@ const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
   };
 
   const hasBranches = repo?.branches?.length > 0;
-  const buttonText = mountedBanch ? 'Unmount' : 'Mount';
+  const buttonText = mountedBranch ? 'Unmount' : 'Mount';
 
   const openFolder = () => {
-    if (mountedBanch) {
+    if (mountedBranch) {
       open(repo.repo);
     }
   };
@@ -62,12 +62,21 @@ const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
     mount();
   };
 
+  let behind = -1;
+  if (
+    typeof mountedBranch !== 'undefined' &&
+    mountedBranch.mount.length > 0 &&
+    typeof mountedBranch.mount[0].how_many_commits_behind !== 'undefined'
+  ) {
+    behind = mountedBranch.mount[0].how_many_commits_behind;
+  }
+
   const mount = async () => {
     setDisabled(true);
     try {
-      if (mountedBanch) {
+      if (mountedBranch) {
         const updatedRepos = await requestAPI<Repo[]>(
-          `repos/${repo.repo}/${mountedBanch.branch}/_unmount?name=${repo.repo}`,
+          `repos/${repo.repo}/${mountedBranch.branch}/_unmount?name=${repo.repo}`,
           'PUT',
         );
         updateData(updatedRepos);
@@ -139,8 +148,16 @@ const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
           {repo.repo}
         </span>
         <span className="pachyderm-mount-list-item-branch">
-          {mountedBanch ? (
-            <span title={mountedBanch.branch}>@ {mountedBanch.branch}</span>
+          {mountedBranch ? (
+            <div>
+              <span title={mountedBranch.branch}>@ {mountedBranch.branch}</span>
+              <span
+                style={{marginLeft: '7px'}}
+                data-testid="ListItem__commitBehindness"
+              >
+                {renderCommitBehindness(behind)}
+              </span>
+            </div>
           ) : (
             <>
               <span>@ </span>
@@ -173,20 +190,30 @@ const ListItem: React.FC<ListItemProps> = ({repo, open, updateData}) => {
         >
           {buttonText}
         </button>
-        {mountedBanch && (
+        {mountedBranch && (
           <span
             className="pachyderm-mount-list-item-status"
             data-testid="ListItem__status"
           >
             {renderStatus(
-              mountedBanch.mount[0].state,
-              mountedBanch.mount[0].status,
+              mountedBranch.mount[0].state,
+              mountedBranch.mount[0].status,
             )}
           </span>
         )}
       </span>
     </li>
   );
+};
+
+const renderCommitBehindness = (behind: number) => {
+  if (behind === 0) {
+    return <span>✅ up to date</span>;
+  } else if (behind === 1) {
+    return <span>⌛ {behind} commit behind</span>;
+  } else {
+    return <span>⌛ {behind} commits behind</span>;
+  }
 };
 
 const renderStatus = (state: mountState, status: string | null) => {
