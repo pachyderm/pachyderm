@@ -1,3 +1,5 @@
+//go:build k8s
+
 package main
 
 import (
@@ -41,7 +43,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				"default",
 				k,
 				&minikubetestenv.DeployOpts{
-					Version: from,
+					Version:     from,
+					DisableLoki: true,
 				}))
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
