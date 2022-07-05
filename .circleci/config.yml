@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.6.0
+  go: circleci/go@1.7.1
   gcp-cli: circleci/gcp-cli@2.4.1
   codecov: codecov/codecov@1.1.0
 
