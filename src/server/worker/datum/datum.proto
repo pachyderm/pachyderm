@@ -5,6 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/server/worker/datum";
 
 import "gogoproto/gogo.proto";
 
+import "pfs/pfs.proto";
 import "pps/pps.proto";
 import "server/worker/common/common.proto";
 
@@ -32,4 +33,13 @@ message Stats {
   int64 failed = 4;
   int64 recovered = 5;
   string failed_id = 6 [(gogoproto.customname) = "FailedID"];
+}
+
+message PFSTask {
+  pps_v2.PFSInput input = 1; 
+  pfs_v2.PathRange path_range = 2;
+}
+
+message PFSTaskResult {
+  string file_set_id = 1;
 }

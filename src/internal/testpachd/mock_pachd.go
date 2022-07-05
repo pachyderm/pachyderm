@@ -454,6 +454,7 @@ type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty,
 type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
 type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error)
+type shardFileSetFunc func(context.Context, *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error)
 type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
 type putCacheFunc func(context.Context, *pfs.PutCacheRequest) (*types.Empty, error)
 type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error)
@@ -497,6 +498,7 @@ type mockAddFileSet struct{ handler addFileSetFunc }
 type mockGetFileSet struct{ handler getFileSetFunc }
 type mockRenewFileSet struct{ handler renewFileSetFunc }
 type mockComposeFileSet struct{ handler composeFileSetFunc }
+type mockShardFileSet struct{ handler shardFileSetFunc }
 type mockCheckStorage struct{ handler checkStorageFunc }
 type mockPutCache struct{ handler putCacheFunc }
 type mockGetCache struct{ handler getCacheFunc }
@@ -540,6 +542,7 @@ func (mock *mockAddFileSet) Use(cb addFileSetFunc)                 { mock.handle
 func (mock *mockGetFileSet) Use(cb getFileSetFunc)                 { mock.handler = cb }
 func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)             { mock.handler = cb }
 func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handler = cb }
+func (mock *mockShardFileSet) Use(cb shardFileSetFunc)             { mock.handler = cb }
 func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
 func (mock *mockPutCache) Use(cb putCacheFunc)                     { mock.handler = cb }
 func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handler = cb }
@@ -589,6 +592,7 @@ type mockPFSServer struct {
 	GetFileSet         mockGetFileSet
 	RenewFileSet       mockRenewFileSet
 	ComposeFileSet     mockComposeFileSet
+	ShardFileSet       mockShardFileSet
 	CheckStorage       mockCheckStorage
 	PutCache           mockPutCache
 	GetCache           mockGetCache
@@ -802,6 +806,12 @@ func (api *pfsServerAPI) ComposeFileSet(ctx context.Context, req *pfs.ComposeFil
 		return api.mock.ComposeFileSet.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ComposeFileSet")
+}
+func (api *pfsServerAPI) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
+	if api.mock.ShardFileSet.handler != nil {
+		return api.mock.ShardFileSet.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ShardFileSet")
 }
 func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
 	if api.mock.CheckStorage.handler != nil {

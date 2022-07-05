@@ -604,7 +604,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, request.PathRange, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(respServer.Send(fi))
 	})
 }
@@ -658,6 +658,20 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 	}
 	return &pfs.CreateFileSetResponse{
 		FileSetId: filesetID.HexString(),
+	}, nil
+}
+
+func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
+	fsid, err := fileset.ParseID(req.FileSetId)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.ShardFileSetResponse{
+		Shards: shards,
 	}, nil
 }
 

@@ -73,7 +73,8 @@ const (
 
 	// DefaultLogsFrom is the default duration to return logs from, i.e. by
 	// default we return logs from up to 24 hours ago.
-	DefaultLogsFrom = time.Hour * 24
+	DefaultLogsFrom  = time.Hour * 24
+	ppsTaskNamespace = "/pps"
 )
 
 var (
@@ -1054,7 +1055,9 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 		return visitErr
 	}
 	pachClient := a.env.GetPachClient(ctx)
-	di, err := datum.NewIterator(pachClient, input)
+	// TODO: Add cache?
+	taskDoer := a.env.TaskService.NewDoer(ppsTaskNamespace, uuid.NewWithoutDashes(), nil)
+	di, err := datum.NewIterator(pachClient, taskDoer, input)
 	if err != nil {
 		return err
 	}

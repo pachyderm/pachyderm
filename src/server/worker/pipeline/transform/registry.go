@@ -286,9 +286,6 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	ctx := pachClient.Ctx()
 	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID, pj.cache)
 	if err := func() error {
-		if err := pj.writeDatumCount(ctx, taskDoer); err != nil {
-			return err
-		}
 		if err := pj.withParallelDatums(ctx, taskDoer, func(ctx context.Context, fileSetID string) error {
 			return reg.processDatums(ctx, pj, taskDoer, fileSetID)
 		}); err != nil {

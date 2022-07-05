@@ -2,6 +2,8 @@ package transform
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -10,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -159,39 +162,39 @@ func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func(datum.De
 	})
 }
 
-// writeDatumCount gets the total count of input datums for the job and updates
-// its DataTotal field.
-func (pj *pendingJob) writeDatumCount(ctx context.Context, taskDoer task.Doer) error {
-	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	var count int
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		// Upload the datums from the current job into the datum file set format.
-		var err error
-		_, count, err = pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
-		return err
-	}); err != nil {
-		return err
-	}
-	pj.ji.DataTotal = int64(count)
-	return pj.writeJobInfo()
-}
-
 // The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the base job.
 func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer, cb func(context.Context, string) error) error {
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		pachClient := pachClient.WithCtx(ctx)
 		// Upload the datums from the current job into the datum file set format.
-		fileSetID, _, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
-		if err != nil {
+		var fileSetID string
+		var count int64
+		var err error
+		if err := pj.logger.LogStep("creating full job datum file set", func() error {
+			fileSetID, count, err = uploadDatums(pachClient, taskDoer, pj.ji.Job)
+			if err != nil {
+				return err
+			}
+			return renewer.Add(ctx, fileSetID)
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		pj.ji.DataTotal = count
+		if err := pj.writeJobInfo(); err != nil {
 			return err
 		}
 		var baseFileSetID string
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
-			var err error
-			baseFileSetID, err = pj.createFullBaseJobDatumFileSet(ctx, taskDoer, renewer)
-			if err != nil {
-				return err
+			if err := pj.logger.LogStep("creating full base job datum file set", func() error {
+				baseFileSetID, _, err = uploadDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
+				if err != nil {
+					return err
+				}
+				return renewer.Add(ctx, baseFileSetID)
+			}); err != nil {
+				return errors.EnsureStack(err)
 			}
 		}
 		// Create the output datum file set for the new datums (datums that do not exist in the base job).
@@ -203,61 +206,55 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer
 	})
 }
 
-// TODO: There is probably a way to reduce the boilerplate for running all of these preprocessing tasks.
-func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, int, error) {
-	var (
-		fileSetID string
-		count     int
-	)
-	if err := pj.logger.LogStep("creating full job datum file set", func() error {
-		input, err := serializeUploadDatumsTask(&UploadDatumsTask{Job: pj.ji.Job})
-		if err != nil {
-			return err
-		}
-		output, err := task.DoOne(ctx, taskDoer, input)
-		if err != nil {
-			return err
-		}
-		result, err := deserializeUploadDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.FileSetId); err != nil {
-			return err
-		}
-		fileSetID = result.FileSetId
-		count = int(result.Count)
-		return nil
-	}); err != nil {
+func uploadDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, int64, error) {
+	jobInfo, err := pachClient.InspectJob(job.Pipeline.Name, job.ID, true)
+	if err != nil {
+		return "", 0, err
+	}
+	metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(
+		pachClient.Ctx(),
+		&pfs.InspectCommitRequest{
+			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
+		})
+	if err != nil {
 		return "", 0, errors.EnsureStack(err)
 	}
-	return fileSetID, count, nil
+	var dit datum.Iterator
+	if metaCommitInfo.Finishing != nil {
+		dit = datum.NewCommitIterator(pachClient, metaCommitInfo.Commit)
+	} else {
+		dit, err = datum.NewIterator(pachClient, taskDoer, jobInfo.Details.Input)
+		if err != nil {
+			return "", 0, err
+		}
+		dit = datum.NewJobIterator(dit, jobInfo.Job, &hasher{salt: jobInfo.Details.Salt})
+	}
+	return uploadDatumFileSet(pachClient, dit)
 }
 
-func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, error) {
-	var baseFileSetID string
-	if err := pj.logger.LogStep("creating full base job datum file set", func() error {
-		input, err := serializeUploadDatumsTask(&UploadDatumsTask{Job: client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID)})
-		if err != nil {
-			return err
-		}
-		output, err := task.DoOne(ctx, taskDoer, input)
-		if err != nil {
-			return err
-		}
-		result, err := deserializeUploadDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.FileSetId); err != nil {
-			return err
-		}
-		baseFileSetID = result.FileSetId
-		return nil
-	}); err != nil {
-		return "", errors.EnsureStack(err)
+func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, int64, error) {
+	var count int64
+	s, err := withDatumFileSet(pachClient, func(s *datum.Set) error {
+		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
+			count++
+			return s.UploadMeta(meta)
+		}))
+	})
+	if err != nil {
+		return "", 0, err
 	}
-	return baseFileSetID, nil
+	return s, count, nil
+}
+
+func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
+		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.FileSetId, nil
 }
 
 func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
@@ -309,9 +306,15 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
-		fileSetID, _, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
-		if err != nil {
-			return err
+		var fileSetID string
+		if err := pj.logger.LogStep("creating full job datum file set", func() error {
+			fileSetID, _, err = uploadDatums(pachClient, taskDoer, pj.ji.Job)
+			if err != nil {
+				return err
+			}
+			return renewer.Add(ctx, fileSetID)
+		}); err != nil {
+			return errors.EnsureStack(err)
 		}
 		// Create the output datum file set for the datums that were not processed by the base (failed, recovered, etc.).
 		outputFileSetID, deleteFileSetID, skipped, err := pj.createJobDatumFileSetSerial(ctx, taskDoer, renewer, fileSetID, pj.baseMetaCommit)
@@ -379,25 +382,6 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 }
 
 // TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
-func serializeUploadDatumsTask(task *UploadDatumsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
-
-func deserializeUploadDatumsTaskResult(taskAny *types.Any) (*UploadDatumsTaskResult, error) {
-	task := &UploadDatumsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return task, nil
-}
-
 func serializeComputeParallelDatumsTask(task *ComputeParallelDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {

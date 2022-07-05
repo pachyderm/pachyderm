@@ -290,9 +290,16 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, cb func(*pfs.File
 	return err
 }
 
-func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, cb func(*pfs.FileInfo) error) error {
+func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, pathRange *pfs.PathRange, cb func(*pfs.FileInfo) error) error {
 	glob = pfsfile.CleanPath(glob)
-	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)))
+	indexOpts := []index.Option{index.WithPrefix(globLiteralPrefix(glob))}
+	if pathRange != nil {
+		indexOpts = append(indexOpts, index.WithRange(&index.PathRange{
+			Lower: pathRange.Lower,
+			Upper: pathRange.Upper,
+		}))
+	}
+	commitInfo, fs, err := d.openCommit(ctx, commit, indexOpts...)
 	if err != nil {
 		return err
 	}
@@ -456,6 +463,24 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	}
 	ids = append(ids, *id)
 	return d.storage.Compose(ctx, ids, defaultTTL)
+}
+
+func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.PathRange, error) {
+	var shards []*pfs.PathRange
+	fs, err := d.storage.Open(ctx, []fileset.ID{fsid})
+	if err != nil {
+		return nil, err
+	}
+	if err := fs.Shard(ctx, func(pathRange *index.PathRange) error {
+		shards = append(shards, &pfs.PathRange{
+			Lower: pathRange.Lower,
+			Upper: pathRange.Upper,
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return shards, nil
 }
 
 func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {

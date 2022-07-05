@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
@@ -39,13 +38,9 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 		ctx,
 		func(ctx context.Context, input *types.Any) (*types.Any, error) {
 			switch {
-			case types.Is(input, &UploadDatumsTask{}):
-				uploadDatumsTask, err := deserializeUploadDatumsTask(input)
-				if err != nil {
-					return nil, err
-				}
+			case datum.IsTask(input):
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return processUploadDatumsTask(pachClient, uploadDatumsTask)
+				return datum.ProcessTask(pachClient, input)
 			case types.Is(input, &ComputeParallelDatumsTask{}):
 				computeParallelDatumsTask, err := deserializeComputeParallelDatumsTask(input)
 				if err != nil {
@@ -75,61 +70,6 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 			}
 		},
 	))
-}
-
-func processUploadDatumsTask(pachClient *client.APIClient, task *UploadDatumsTask) (*types.Any, error) {
-	jobInfo, err := pachClient.InspectJob(task.Job.Pipeline.Name, task.Job.ID, true)
-	if err != nil {
-		return nil, err
-	}
-	metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(
-		pachClient.Ctx(),
-		&pfs.InspectCommitRequest{
-			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
-		})
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	var dit datum.Iterator
-	if metaCommitInfo.Finishing != nil {
-		dit = datum.NewCommitIterator(pachClient, metaCommitInfo.Commit)
-	} else {
-		dit, err = datum.NewIterator(pachClient, jobInfo.Details.Input)
-		if err != nil {
-			return nil, err
-		}
-		dit = datum.NewJobIterator(dit, jobInfo.Job, &hasher{salt: jobInfo.Details.Salt})
-	}
-	fileSetID, count, err := uploadDatumFileSet(pachClient, dit)
-	if err != nil {
-		return nil, err
-	}
-	return serializeUploadDatumsTaskResult(&UploadDatumsTaskResult{FileSetId: fileSetID, Count: int64(count)})
-}
-
-func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, int, error) {
-	var count int
-	s, err := withDatumFileSet(pachClient, func(s *datum.Set) error {
-		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
-			count++
-			return s.UploadMeta(meta)
-		}))
-	})
-	if err != nil {
-		return "", 0, err
-	}
-	return s, count, nil
-}
-
-func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
-		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
-	})
-	if err != nil {
-		return "", err
-	}
-	return resp.FileSetId, nil
 }
 
 func processComputeParallelDatumsTask(pachClient *client.APIClient, task *ComputeParallelDatumsTask) (*types.Any, error) {
@@ -419,25 +359,6 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 		datumSet.MetaFileSetId = resp.FileSetId
 		return renewer.Add(ctx, datumSet.MetaFileSetId)
 	})
-}
-
-func deserializeUploadDatumsTask(taskAny *types.Any) (*UploadDatumsTask, error) {
-	task := &UploadDatumsTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return task, nil
-}
-
-func serializeUploadDatumsTaskResult(task *UploadDatumsTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
 }
 
 func deserializeComputeParallelDatumsTask(taskAny *types.Any) (*ComputeParallelDatumsTask, error) {

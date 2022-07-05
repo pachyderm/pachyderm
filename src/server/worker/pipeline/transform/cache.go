@@ -31,13 +31,8 @@ func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
 
 func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 	var fileSetIds []string
+	// TODO: Add caching for datum tasks.
 	switch {
-	case types.Is(output, &UploadDatumsTaskResult{}):
-		udt, err := deserializeUploadDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		fileSetIds = append(fileSetIds, udt.FileSetId)
 	case types.Is(output, &ComputeParallelDatumsTaskResult{}):
 		cpdt, err := deserializeComputeParallelDatumsTaskResult(output)
 		if err != nil {

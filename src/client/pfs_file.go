@@ -449,6 +449,22 @@ func (c APIClient) ComposeFileSet(IDs []string, ttl time.Duration) (_ string, re
 	return resp.FileSetId, nil
 }
 
+func (c APIClient) ShardFileSet(ID string) (_ []*pfs.PathRange, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	resp, err := c.PfsAPIClient.ShardFileSet(
+		c.Ctx(),
+		&pfs.ShardFileSetRequest{
+			FileSetId: ID,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Shards, nil
+}
+
 // GetFile returns the contents of a file at a specific Commit.
 // offset specifies a number of bytes that should be skipped in the beginning of the file.
 // size limits the total amount of data returned, note you will get fewer bytes

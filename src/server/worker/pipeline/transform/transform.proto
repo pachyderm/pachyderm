@@ -21,15 +21,6 @@ message DatumSet {
   datum.Stats stats = 6;
 }
 
-message UploadDatumsTask {
-  pps_v2.Job job = 1;
-} 
-
-message UploadDatumsTaskResult {
-  string file_set_id = 1;
-  int64 count = 2;
-} 
-
 message ComputeParallelDatumsTask {
   pps_v2.Job job = 1;
   string file_set_id = 2;

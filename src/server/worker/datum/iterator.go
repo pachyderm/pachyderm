@@ -10,14 +10,15 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
-	glob "github.com/pachyderm/ohmyglob"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -32,10 +33,11 @@ type Iterator interface {
 
 type pfsIterator struct {
 	pachClient *client.APIClient
+	taskDoer   task.Doer
 	input      *pps.PFSInput
 }
 
-func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) Iterator {
+func newPFSIterator(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSInput) Iterator {
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
@@ -43,6 +45,7 @@ func newPFSIterator(pachClient *client.APIClient, input *pps.PFSInput) Iterator 
 	}
 	return &pfsIterator{
 		pachClient: pachClient,
+		taskDoer:   taskDoer,
 		input:      input,
 	}
 }
@@ -51,31 +54,57 @@ func (pi *pfsIterator) Iterate(cb func(*Meta) error) error {
 	if pi.input == nil {
 		return nil
 	}
-	repo := pi.input.Repo
-	branch := pi.input.Branch
-	commit := pi.input.Commit
-	pattern := pi.input.Glob
-	return pi.pachClient.GlobFile(client.NewCommit(repo, branch, commit), pattern, func(fi *pfs.FileInfo) error {
-		g := glob.MustCompile(pfsfile.CleanPath(pi.input.Glob), '/')
-		// Remove the trailing slash to support glob replace on directory paths.
-		p := strings.TrimRight(fi.File.Path, "/")
-		joinOn := g.Replace(p, pi.input.JoinOn)
-		groupBy := g.Replace(p, pi.input.GroupBy)
-		return cb(&Meta{
-			Inputs: []*common.Input{
-				&common.Input{
-					FileInfo:   fi,
-					JoinOn:     joinOn,
-					OuterJoin:  pi.input.OuterJoin,
-					GroupBy:    groupBy,
-					Name:       pi.input.Name,
-					Lazy:       pi.input.Lazy,
-					Branch:     pi.input.Branch,
-					EmptyFiles: pi.input.EmptyFiles,
-					S3:         pi.input.S3,
+	return pi.pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		pachClient := pi.pachClient.WithCtx(ctx)
+		fileSetID, err := pachClient.GetFileSet(pi.input.Repo, pi.input.Branch, pi.input.Commit)
+		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, fileSetID); err != nil {
+			return err
+		}
+		shards, err := pachClient.ShardFileSet(fileSetID)
+		if err != nil {
+			return err
+		}
+		var inputs []*types.Any
+		for _, shard := range shards {
+			input, err := serializePFSTask(&PFSTask{
+				Input: pi.input,
+				PathRange: &pfs.PathRange{
+					Lower: shard.Lower,
+					Upper: shard.Upper,
 				},
-			},
-		})
+			})
+			if err != nil {
+				return err
+			}
+			inputs = append(inputs, input)
+		}
+		fileSetIDs := make([]string, len(inputs))
+		if err := task.DoBatch(ctx, pi.taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err != nil {
+				return err
+			}
+			result, err := deserializePFSTaskResult(output)
+			if err != nil {
+				return err
+			}
+			if err := renewer.Add(ctx, result.FileSetId); err != nil {
+				return err
+			}
+			fileSetIDs[i] = result.FileSetId
+			return nil
+		}); err != nil {
+			return err
+		}
+		for _, fileSetID := range fileSetIDs {
+			fsi := NewFileSetIterator(pachClient, fileSetID)
+			return fsi.Iterate(func(meta *Meta) error {
+				return cb(meta)
+			})
+		}
+		return nil
 	})
 }
 
@@ -83,10 +112,10 @@ type unionIterator struct {
 	iterators []Iterator
 }
 
-func newUnionIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterator, error) {
+func newUnionIterator(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (Iterator, error) {
 	ui := &unionIterator{}
 	for _, input := range inputs {
-		di, err := NewIterator(pachClient, input)
+		di, err := NewIterator(pachClient, taskDoer, input)
 		if err != nil {
 			return nil, err
 		}
@@ -108,10 +137,10 @@ type crossIterator struct {
 	iterators []Iterator
 }
 
-func newCrossIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterator, error) {
+func newCrossIterator(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (Iterator, error) {
 	ci := &crossIterator{}
 	for _, input := range inputs {
-		di, err := NewIterator(pachClient, input)
+		di, err := NewIterator(pachClient, taskDoer, input)
 		if err != nil {
 			return nil, err
 		}
@@ -138,8 +167,8 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 	return errors.EnsureStack(err)
 }
 
-func newCronIterator(pachClient *client.APIClient, input *pps.CronInput) Iterator {
-	return newPFSIterator(pachClient, &pps.PFSInput{
+func newCronIterator(pachClient *client.APIClient, taskDoer task.Doer, input *pps.CronInput) Iterator {
+	return newPFSIterator(pachClient, taskDoer, &pps.PFSInput{
 		Name:   input.Name,
 		Repo:   input.Repo,
 		Branch: "master",
@@ -278,12 +307,12 @@ type joinIterator struct {
 	iterators  []Iterator
 }
 
-func newJoinIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterator, error) {
+func newJoinIterator(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (Iterator, error) {
 	ji := &joinIterator{
 		pachClient: pachClient,
 	}
 	for _, input := range inputs {
-		di, err := NewIterator(pachClient, input)
+		di, err := NewIterator(pachClient, taskDoer, input)
 		if err != nil {
 			return nil, err
 		}
@@ -409,12 +438,12 @@ type groupIterator struct {
 	iterators  []Iterator
 }
 
-func newGroupIterator(pachClient *client.APIClient, inputs []*pps.Input) (Iterator, error) {
+func newGroupIterator(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (Iterator, error) {
 	gi := &groupIterator{
 		pachClient: pachClient,
 	}
 	for _, input := range inputs {
-		di, err := NewIterator(pachClient, input)
+		di, err := NewIterator(pachClient, taskDoer, input)
 		if err != nil {
 			return nil, err
 		}
@@ -518,34 +547,34 @@ func compare(s1, s2 stream.Stream) int {
 }
 
 // NewIterator creates a new datum iterator.
-func NewIterator(pachClient *client.APIClient, input *pps.Input) (Iterator, error) {
+func NewIterator(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (Iterator, error) {
 	var iterator Iterator
 	var err error
 	switch {
 	case input.Pfs != nil:
-		iterator = newPFSIterator(pachClient, input.Pfs)
+		iterator = newPFSIterator(pachClient, taskDoer, input.Pfs)
 	case input.Union != nil:
-		iterator, err = newUnionIterator(pachClient, input.Union)
+		iterator, err = newUnionIterator(pachClient, taskDoer, input.Union)
 		if err != nil {
 			return nil, err
 		}
 	case input.Cross != nil:
-		iterator, err = newCrossIterator(pachClient, input.Cross)
+		iterator, err = newCrossIterator(pachClient, taskDoer, input.Cross)
 		if err != nil {
 			return nil, err
 		}
 	case input.Join != nil:
-		iterator, err = newJoinIterator(pachClient, input.Join)
+		iterator, err = newJoinIterator(pachClient, taskDoer, input.Join)
 		if err != nil {
 			return nil, err
 		}
 	case input.Group != nil:
-		iterator, err = newGroupIterator(pachClient, input.Group)
+		iterator, err = newGroupIterator(pachClient, taskDoer, input.Group)
 		if err != nil {
 			return nil, err
 		}
 	case input.Cron != nil:
-		iterator = newCronIterator(pachClient, input.Cron)
+		iterator = newCronIterator(pachClient, taskDoer, input.Cron)
 	default:
 		return nil, errors.Errorf("unrecognized input type: %v", input)
 	}
@@ -570,4 +599,23 @@ func (ii *indexIterator) Iterate(cb func(*Meta) error) error {
 		return cb(meta)
 	})
 	return errors.EnsureStack(err)
+}
+
+func serializePFSTask(task *PFSTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializePFSTaskResult(taskAny *types.Any) (*PFSTaskResult, error) {
+	task := &PFSTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
 }

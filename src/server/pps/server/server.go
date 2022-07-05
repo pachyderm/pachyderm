@@ -78,6 +78,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	apiServer := (srv).(*apiServer)
 	apiServer.validateKube(apiServer.env.BackgroundContext)
 	go apiServer.master()
+	go apiServer.worker()
 	return apiServer, nil
 }
 
