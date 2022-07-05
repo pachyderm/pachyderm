@@ -95,7 +95,7 @@ spec:
         {{- end }}
         volumeMounts:
         - mountPath: /var/data/etcd
-          name: etcd-storage
+          name: etcd-tmpfs
       {{- if .Values.global.securityContexts.enabled }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -117,19 +117,8 @@ spec:
       {{-  if .Values.etcd.tolerations }}
       tolerations: {{ toYaml .Values.etcd.tolerations | nindent 8 }}
       {{- end }}
-  volumeClaimTemplates:
-  - metadata:
-      labels:
-        app: etcd
-        suite: pachyderm
-      name: etcd-storage
-      namespace: {{ .Release.Namespace }}
-    spec:
-      {{- if .Values.etcd.storageClass }}
-      storageClassName: {{ .Values.etcd.storageClass }}
-      {{- end }}
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: {{ .Values.etcd.storageSize }}
+    volumes:
+      - emptyDir:
+          medium: Memory
+          sizeLimit: {{ .Values.etcd.memoryStorage }}
+        name: etcd-tmpfs

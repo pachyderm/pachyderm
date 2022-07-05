@@ -25,7 +25,6 @@ func TestHub(t *testing.T) {
 			"pachd service type":                  false,
 			"etcd prometheus port":                false,
 			"etcd prometheus scrape":              false,
-			"etcd storage class":                  false,
 			"secrets":                             false,
 			"cloudsql auth proxy service":         false,
 			"cloudsql auth proxy service account": false,
@@ -193,12 +192,6 @@ func TestHub(t *testing.T) {
 		case *appsV1.StatefulSet:
 			switch object.Name {
 			case "etcd":
-				for _, pvc := range object.Spec.VolumeClaimTemplates {
-					if *pvc.Spec.StorageClassName != "ssd-storage-class" {
-						t.Errorf("storage class is %q, not ssd-storage-class", *pvc.Spec.StorageClassName)
-					}
-					checks["etcd storage class"] = true
-				}
 				for _, cc := range object.Spec.Template.Spec.Containers {
 					if cc.Name != "etcd" {
 						continue
