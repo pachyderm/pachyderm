@@ -298,7 +298,7 @@ jobs:
             rm /home/circleci/gcpcreds.json
   release_job:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:1.18.3
     steps:
       - checkout
       - run:
@@ -375,7 +375,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:1.18.3
     steps:
       - checkout
       - setup_remote_docker:
