@@ -76,10 +76,6 @@ case "${BUCKET}" in
     # disable them
     # make test-tls
     ;;
-  INTERNAL)
-    go install -v ./src/testing/match
-    bash -ceo pipefail "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
-    ;;
   EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh

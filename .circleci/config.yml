@@ -416,7 +416,6 @@ workflows:
                 - PPS8
                 - PPS_AUTH
                 - EXAMPLES
-                - INTERNAL
   helm:
     when:
       and:
