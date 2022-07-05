@@ -174,13 +174,13 @@ func setup(config interface{}, service string) (env *serviceenv.NonblockingServi
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	if env.Config().LogFormat == "text" {
+		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+	}
 	profileutil.StartCloudProfiler(service, env.Config())
 	debug.SetGCPercent(env.Config().GCPercent)
 	if env.Config().EtcdPrefix == "" {
 		env.Config().EtcdPrefix = col.DefaultPrefix
-	}
-	if env.Config().LogFormat == "text" {
-		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 	}
 	return env, err
 }
@@ -216,7 +216,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err = setupDB(context.Background(), env); err != nil {
+	if err := setupDB(context.Background(), env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
