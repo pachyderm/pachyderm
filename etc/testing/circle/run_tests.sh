@@ -39,7 +39,7 @@ function test_bucket {
 
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
-    tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+    tests=( $(go test -v -tags=k8s  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
     # Add anchors for the regex so we don't run collateral tests
     tests=( "${tests[@]/#/^}" )
     tests=( "${tests[@]/%/\$\$}" )
