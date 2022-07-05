@@ -330,13 +330,13 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
+		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
+			return err
+		}
 		for _, b := range bootstrappers {
 			if err := b.EnvBootstrap(context.Background()); err != nil {
 				return errors.EnsureStack(err)
 			}
-		}
-		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
-			return err
 		}
 		healthServer.Resume()
 		return nil
@@ -681,13 +681,13 @@ func doFullMode(config interface{}) (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
+		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
+			return err
+		}
 		for _, b := range bootstrappers {
 			if err := b.EnvBootstrap(context.Background()); err != nil {
 				return errors.EnsureStack(err)
 			}
-		}
-		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
-			return err
 		}
 		healthServer.Resume()
 		return nil
