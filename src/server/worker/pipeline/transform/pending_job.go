@@ -176,33 +176,6 @@ func (pj *pendingJob) writeDatumCount(ctx context.Context, taskDoer task.Doer) e
 	return pj.writeJobInfo()
 }
 
-// The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the base job.
-func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer, cb func(context.Context, string) error) error {
-	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		// Upload the datums from the current job into the datum file set format.
-		fileSetID, _, err := pj.createFullJobDatumFileSet(ctx, taskDoer, renewer)
-		if err != nil {
-			return err
-		}
-		var baseFileSetID string
-		if pj.baseMetaCommit != nil {
-			// Upload the datums from the base job into the datum file set format.
-			var err error
-			baseFileSetID, err = pj.createFullBaseJobDatumFileSet(ctx, taskDoer, renewer)
-			if err != nil {
-				return err
-			}
-		}
-		// Create the output datum file set for the new datums (datums that do not exist in the base job).
-		outputFileSetID, err := pj.createJobDatumFileSetParallel(ctx, taskDoer, renewer, fileSetID, baseFileSetID)
-		if err != nil {
-			return err
-		}
-		return cb(ctx, outputFileSetID)
-	})
-}
-
 // TODO: There is probably a way to reduce the boilerplate for running all of these preprocessing tasks.
 func (pj *pendingJob) createFullJobDatumFileSet(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet) (string, int, error) {
 	var (
@@ -258,36 +231,6 @@ func (pj *pendingJob) createFullBaseJobDatumFileSet(ctx context.Context, taskDoe
 		return "", errors.EnsureStack(err)
 	}
 	return baseFileSetID, nil
-}
-
-func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
-	var outputFileSetID string
-	if err := pj.logger.LogStep("creating job datum file set (parallel jobs)", func() error {
-		input, err := serializeComputeParallelDatumsTask(&ComputeParallelDatumsTask{
-			Job:           pj.ji.Job,
-			FileSetId:     fileSetID,
-			BaseFileSetId: baseFileSetID,
-		})
-		if err != nil {
-			return err
-		}
-		output, err := task.DoOne(ctx, taskDoer, input)
-		if err != nil {
-			return err
-		}
-		result, err := deserializeComputeParallelDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.FileSetId); err != nil {
-			return err
-		}
-		outputFileSetID = result.FileSetId
-		return nil
-	}); err != nil {
-		return "", errors.EnsureStack(err)
-	}
-	return outputFileSetID, nil
 }
 
 // The datums that must be processed serially (with respect to the base job) are the datums that exist in both the current and base job.
@@ -392,25 +335,6 @@ func serializeUploadDatumsTask(task *UploadDatumsTask) (*types.Any, error) {
 
 func deserializeUploadDatumsTaskResult(taskAny *types.Any) (*UploadDatumsTaskResult, error) {
 	task := &UploadDatumsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return task, nil
-}
-
-func serializeComputeParallelDatumsTask(task *ComputeParallelDatumsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
-
-func deserializeComputeParallelDatumsTaskResult(taskAny *types.Any) (*ComputeParallelDatumsTaskResult, error) {
-	task := &ComputeParallelDatumsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

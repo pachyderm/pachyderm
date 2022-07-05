@@ -46,13 +46,6 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
 				return processUploadDatumsTask(pachClient, uploadDatumsTask)
-			case types.Is(input, &ComputeParallelDatumsTask{}):
-				computeParallelDatumsTask, err := deserializeComputeParallelDatumsTask(input)
-				if err != nil {
-					return nil, err
-				}
-				pachClient := driver.PachClient().WithCtx(ctx)
-				return processComputeParallelDatumsTask(pachClient, computeParallelDatumsTask)
 			case types.Is(input, &ComputeSerialDatumsTask{}):
 				computeSerialDatumsTask, err := deserializeComputeSerialDatumsTask(input)
 				if err != nil {
@@ -130,26 +123,6 @@ func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (
 		return "", err
 	}
 	return resp.FileSetId, nil
-}
-
-func processComputeParallelDatumsTask(pachClient *client.APIClient, task *ComputeParallelDatumsTask) (*types.Any, error) {
-	var dits []datum.Iterator
-	if task.BaseFileSetId != "" {
-		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId))
-	}
-	dits = append(dits, datum.NewFileSetIterator(pachClient, task.FileSetId))
-	outputFileSetID, err := withDatumFileSet(pachClient, func(outputSet *datum.Set) error {
-		return datum.Merge(dits, func(metas []*datum.Meta) error {
-			if len(metas) > 1 || !proto.Equal(metas[0].Job, task.Job) {
-				return nil
-			}
-			return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
-		})
-	})
-	if err != nil {
-		return nil, err
-	}
-	return serializeComputeParallelDatumsTaskResult(&ComputeParallelDatumsTaskResult{FileSetId: outputFileSetID})
 }
 
 func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeSerialDatumsTask) (*types.Any, error) {
@@ -430,25 +403,6 @@ func deserializeUploadDatumsTask(taskAny *types.Any) (*UploadDatumsTask, error) 
 }
 
 func serializeUploadDatumsTaskResult(task *UploadDatumsTaskResult) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
-}
-
-func deserializeComputeParallelDatumsTask(taskAny *types.Any) (*ComputeParallelDatumsTask, error) {
-	task := &ComputeParallelDatumsTask{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return task, nil
-}
-
-func serializeComputeParallelDatumsTaskResult(task *ComputeParallelDatumsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

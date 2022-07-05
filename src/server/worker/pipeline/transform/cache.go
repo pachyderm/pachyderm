@@ -38,12 +38,6 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 			return err
 		}
 		fileSetIds = append(fileSetIds, udt.FileSetId)
-	case types.Is(output, &ComputeParallelDatumsTaskResult{}):
-		cpdt, err := deserializeComputeParallelDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		fileSetIds = append(fileSetIds, cpdt.FileSetId)
 	case types.Is(output, &ComputeSerialDatumsTaskResult{}):
 		csdt, err := deserializeComputeSerialDatumsTaskResult(output)
 		if err != nil {

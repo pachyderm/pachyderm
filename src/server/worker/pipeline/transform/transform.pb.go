@@ -217,116 +217,6 @@ func (m *UploadDatumsTaskResult) GetCount() int64 {
 	return 0
 }
 
-type ComputeParallelDatumsTask struct {
-	Job                  *pps.Job `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
-	FileSetId            string   `protobuf:"bytes,2,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
-	BaseFileSetId        string   `protobuf:"bytes,3,opt,name=base_file_set_id,json=baseFileSetId,proto3" json:"base_file_set_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ComputeParallelDatumsTask) Reset()         { *m = ComputeParallelDatumsTask{} }
-func (m *ComputeParallelDatumsTask) String() string { return proto.CompactTextString(m) }
-func (*ComputeParallelDatumsTask) ProtoMessage()    {}
-func (*ComputeParallelDatumsTask) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{3}
-}
-func (m *ComputeParallelDatumsTask) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ComputeParallelDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ComputeParallelDatumsTask.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *ComputeParallelDatumsTask) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComputeParallelDatumsTask.Merge(m, src)
-}
-func (m *ComputeParallelDatumsTask) XXX_Size() int {
-	return m.Size()
-}
-func (m *ComputeParallelDatumsTask) XXX_DiscardUnknown() {
-	xxx_messageInfo_ComputeParallelDatumsTask.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ComputeParallelDatumsTask proto.InternalMessageInfo
-
-func (m *ComputeParallelDatumsTask) GetJob() *pps.Job {
-	if m != nil {
-		return m.Job
-	}
-	return nil
-}
-
-func (m *ComputeParallelDatumsTask) GetFileSetId() string {
-	if m != nil {
-		return m.FileSetId
-	}
-	return ""
-}
-
-func (m *ComputeParallelDatumsTask) GetBaseFileSetId() string {
-	if m != nil {
-		return m.BaseFileSetId
-	}
-	return ""
-}
-
-type ComputeParallelDatumsTaskResult struct {
-	FileSetId            string   `protobuf:"bytes,1,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *ComputeParallelDatumsTaskResult) Reset()         { *m = ComputeParallelDatumsTaskResult{} }
-func (m *ComputeParallelDatumsTaskResult) String() string { return proto.CompactTextString(m) }
-func (*ComputeParallelDatumsTaskResult) ProtoMessage()    {}
-func (*ComputeParallelDatumsTaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{4}
-}
-func (m *ComputeParallelDatumsTaskResult) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ComputeParallelDatumsTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ComputeParallelDatumsTaskResult.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *ComputeParallelDatumsTaskResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComputeParallelDatumsTaskResult.Merge(m, src)
-}
-func (m *ComputeParallelDatumsTaskResult) XXX_Size() int {
-	return m.Size()
-}
-func (m *ComputeParallelDatumsTaskResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_ComputeParallelDatumsTaskResult.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ComputeParallelDatumsTaskResult proto.InternalMessageInfo
-
-func (m *ComputeParallelDatumsTaskResult) GetFileSetId() string {
-	if m != nil {
-		return m.FileSetId
-	}
-	return ""
-}
-
 type ComputeSerialDatumsTask struct {
 	Job                  *pps.Job    `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	FileSetId            string      `protobuf:"bytes,2,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
@@ -341,7 +231,7 @@ func (m *ComputeSerialDatumsTask) Reset()         { *m = ComputeSerialDatumsTask
 func (m *ComputeSerialDatumsTask) String() string { return proto.CompactTextString(m) }
 func (*ComputeSerialDatumsTask) ProtoMessage()    {}
 func (*ComputeSerialDatumsTask) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{5}
+	return fileDescriptor_21583a759eb7fa97, []int{3}
 }
 func (m *ComputeSerialDatumsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -411,7 +301,7 @@ func (m *ComputeSerialDatumsTaskResult) Reset()         { *m = ComputeSerialDatu
 func (m *ComputeSerialDatumsTaskResult) String() string { return proto.CompactTextString(m) }
 func (*ComputeSerialDatumsTaskResult) ProtoMessage()    {}
 func (*ComputeSerialDatumsTaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{6}
+	return fileDescriptor_21583a759eb7fa97, []int{4}
 }
 func (m *ComputeSerialDatumsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -474,7 +364,7 @@ func (m *CreateDatumSetsTask) Reset()         { *m = CreateDatumSetsTask{} }
 func (m *CreateDatumSetsTask) String() string { return proto.CompactTextString(m) }
 func (*CreateDatumSetsTask) ProtoMessage()    {}
 func (*CreateDatumSetsTask) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{7}
+	return fileDescriptor_21583a759eb7fa97, []int{5}
 }
 func (m *CreateDatumSetsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -536,7 +426,7 @@ func (m *CreateDatumSetsTaskResult) Reset()         { *m = CreateDatumSetsTaskRe
 func (m *CreateDatumSetsTaskResult) String() string { return proto.CompactTextString(m) }
 func (*CreateDatumSetsTaskResult) ProtoMessage()    {}
 func (*CreateDatumSetsTaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{8}
+	return fileDescriptor_21583a759eb7fa97, []int{6}
 }
 func (m *CreateDatumSetsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -583,8 +473,6 @@ func init() {
 	proto.RegisterType((*DatumSet)(nil), "pachyderm.worker.pipeline.transform.DatumSet")
 	proto.RegisterType((*UploadDatumsTask)(nil), "pachyderm.worker.pipeline.transform.UploadDatumsTask")
 	proto.RegisterType((*UploadDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.UploadDatumsTaskResult")
-	proto.RegisterType((*ComputeParallelDatumsTask)(nil), "pachyderm.worker.pipeline.transform.ComputeParallelDatumsTask")
-	proto.RegisterType((*ComputeParallelDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.ComputeParallelDatumsTaskResult")
 	proto.RegisterType((*ComputeSerialDatumsTask)(nil), "pachyderm.worker.pipeline.transform.ComputeSerialDatumsTask")
 	proto.RegisterType((*ComputeSerialDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.ComputeSerialDatumsTaskResult")
 	proto.RegisterType((*CreateDatumSetsTask)(nil), "pachyderm.worker.pipeline.transform.CreateDatumSetsTask")
@@ -596,44 +484,41 @@ func init() {
 }
 
 var fileDescriptor_21583a759eb7fa97 = []byte{
-	// 580 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcf, 0x6a, 0xdb, 0x4e,
-	0x10, 0x66, 0xa3, 0x9f, 0x9d, 0x78, 0x1d, 0x27, 0x46, 0xbf, 0xd0, 0x38, 0x81, 0xd8, 0x46, 0x3d,
-	0x24, 0x10, 0x90, 0x5a, 0xe7, 0xd2, 0x6b, 0xe3, 0x10, 0x70, 0xa0, 0xa5, 0xc8, 0xe9, 0xa5, 0x17,
-	0xb3, 0xb2, 0xc6, 0xb6, 0x6c, 0x49, 0xbb, 0xec, 0xae, 0x5c, 0x7a, 0x2e, 0x14, 0xfa, 0x2c, 0x7d,
-	0x91, 0x1e, 0xfb, 0x04, 0xa5, 0xf8, 0x35, 0x7a, 0x29, 0xbb, 0xeb, 0xff, 0x6d, 0x1a, 0x1d, 0x7a,
-	0x11, 0x3b, 0x33, 0xdf, 0xac, 0xbe, 0xf9, 0x66, 0x66, 0xf1, 0x33, 0x01, 0x7c, 0x0a, 0xdc, 0x7b,
-	0x4f, 0xf9, 0x04, 0xb8, 0xc7, 0x22, 0x06, 0x71, 0x94, 0x82, 0x27, 0x39, 0x49, 0xc5, 0x80, 0xf2,
-	0x64, 0x75, 0x72, 0x19, 0xa7, 0x92, 0xda, 0x4f, 0x19, 0xe9, 0x8f, 0x3e, 0x84, 0xc0, 0x13, 0xd7,
-	0x24, 0xb9, 0x8b, 0x24, 0x77, 0x09, 0x3d, 0x3d, 0x1a, 0xd2, 0x21, 0xd5, 0x78, 0x4f, 0x9d, 0x4c,
-	0xea, 0x69, 0x85, 0x0d, 0x84, 0xc7, 0x06, 0x62, 0x69, 0x32, 0xe1, 0x31, 0xb6, 0x30, 0x1b, 0x9b,
-	0x54, 0x42, 0x22, 0xb3, 0xc4, 0x7c, 0x0d, 0xc0, 0xf9, 0x89, 0xf0, 0xde, 0x8d, 0xb2, 0xbb, 0x20,
-	0xed, 0x26, 0x2e, 0x8e, 0x69, 0xd0, 0x8b, 0xc2, 0x1a, 0x6a, 0xa2, 0x8b, 0xd2, 0x75, 0x69, 0xf6,
-	0xbd, 0x51, 0xb8, 0xa3, 0x41, 0xe7, 0xc6, 0x2f, 0x8c, 0x69, 0xd0, 0x09, 0xed, 0x3a, 0x2e, 0x0f,
-	0xa2, 0x18, 0x7a, 0x02, 0xa4, 0x82, 0xed, 0x28, 0x98, 0x5f, 0x52, 0xae, 0x2e, 0xc8, 0x4e, 0x68,
-	0x5f, 0xe1, 0x0a, 0xcd, 0x24, 0xcb, 0x64, 0xaf, 0x4f, 0x93, 0x24, 0x92, 0x35, 0xab, 0x89, 0x2e,
-	0xca, 0xad, 0x03, 0x97, 0x0d, 0x44, 0x6f, 0xda, 0x72, 0xdb, 0xda, 0xeb, 0xef, 0x1b, 0x90, 0xb1,
-	0xec, 0x4b, 0x6c, 0xcf, 0x93, 0xd6, 0xef, 0xfe, 0x4f, 0xdf, 0x7d, 0x68, 0x22, 0xb7, 0xcb, 0x3f,
-	0x9c, 0xe3, 0x6a, 0x02, 0x92, 0x6c, 0x40, 0x0b, 0x1a, 0x5a, 0x51, 0xfe, 0x15, 0xd0, 0xc1, 0x05,
-	0x21, 0x89, 0x14, 0xb5, 0xa2, 0xa6, 0xb0, 0xef, 0x9a, 0xb2, 0xbb, 0xca, 0xe7, 0x9b, 0x90, 0xf3,
-	0x1c, 0x57, 0xdf, 0xb2, 0x98, 0x92, 0x50, 0x4b, 0x20, 0xee, 0x89, 0x98, 0xd8, 0x67, 0xd8, 0x1a,
-	0xd3, 0x40, 0x2b, 0x50, 0x6e, 0x95, 0x5d, 0xc6, 0x34, 0xf1, 0x3b, 0x1a, 0xf8, 0xca, 0xef, 0xbc,
-	0xc6, 0x4f, 0xb6, 0x53, 0x7c, 0x10, 0x59, 0x2c, 0xb7, 0xb5, 0x41, 0xdb, 0xda, 0x1c, 0xe1, 0x42,
-	0x9f, 0x66, 0xa9, 0xd4, 0xaa, 0x59, 0xbe, 0x31, 0x9c, 0x8f, 0x08, 0x9f, 0xb4, 0x69, 0xc2, 0x32,
-	0x09, 0x6f, 0x08, 0x27, 0x71, 0x0c, 0x71, 0x6e, 0x32, 0x8f, 0xb6, 0xe3, 0x1c, 0x57, 0x03, 0x22,
-	0x60, 0x43, 0x2c, 0xcb, 0x88, 0xa5, 0xfc, 0x4b, 0xb1, 0x9c, 0x97, 0xb8, 0xf1, 0x20, 0x89, 0x7c,
-	0xe5, 0x39, 0x5f, 0x10, 0x3e, 0x9e, 0xdf, 0xd1, 0x05, 0x1e, 0x91, 0x7f, 0x58, 0xc6, 0x8b, 0x79,
-	0x19, 0xba, 0xf1, 0x7f, 0x1d, 0xac, 0x03, 0x85, 0x7b, 0x05, 0x92, 0xcc, 0x47, 0xeb, 0x18, 0xef,
-	0xa6, 0xb4, 0x27, 0x26, 0x11, 0xd3, 0xf3, 0xb4, 0xe7, 0x17, 0x53, 0xda, 0x9d, 0x44, 0xcc, 0xf9,
-	0x84, 0xf0, 0xd9, 0x03, 0x6c, 0x73, 0xb6, 0xf3, 0x12, 0xdb, 0x21, 0xc4, 0x20, 0x37, 0xd5, 0x35,
-	0xdc, 0x0f, 0x4d, 0x64, 0x35, 0x8c, 0x35, 0xbc, 0xab, 0x48, 0x30, 0x30, 0xfa, 0x5b, 0xfe, 0xc2,
-	0x74, 0x3e, 0x23, 0xfc, 0x7f, 0x9b, 0x03, 0x91, 0xb0, 0x58, 0xc3, 0x5c, 0x92, 0xfd, 0xb6, 0x68,
-	0x3b, 0x39, 0x16, 0x6d, 0xab, 0x24, 0x6b, 0xbb, 0x85, 0x23, 0x7c, 0xf2, 0x07, 0x2a, 0xf9, 0xf5,
-	0x88, 0xd2, 0xf5, 0x25, 0x16, 0x6b, 0x7a, 0xe8, 0xc8, 0x5c, 0x0e, 0xd1, 0x09, 0xaf, 0xef, 0xbf,
-	0xce, 0xea, 0xe8, 0xdb, 0xac, 0x8e, 0x7e, 0xcc, 0xea, 0xe8, 0xdd, 0xed, 0x30, 0x92, 0xa3, 0x2c,
-	0x70, 0xfb, 0x34, 0xf1, 0x96, 0x2f, 0xe1, 0xda, 0x69, 0xda, 0xf2, 0x04, 0xef, 0x7b, 0x8f, 0x3d,
-	0xab, 0x41, 0x51, 0xbf, 0x69, 0x57, 0xbf, 0x02, 0x00, 0x00, 0xff, 0xff, 0xa9, 0x3a, 0x53, 0xe2,
-	0x81, 0x05, 0x00, 0x00,
+	// 543 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xcd, 0x6e, 0xd3, 0x40,
+	0x10, 0xd6, 0x36, 0x24, 0x6d, 0x26, 0x4d, 0x1b, 0x99, 0x8a, 0x86, 0x4a, 0x4d, 0x23, 0x73, 0xa0,
+	0x52, 0x25, 0x1b, 0xd2, 0x0b, 0xe7, 0xa6, 0xaa, 0x94, 0x4a, 0x70, 0x70, 0xca, 0x85, 0x8b, 0xb5,
+	0x8e, 0x27, 0x89, 0x13, 0xdb, 0xbb, 0xda, 0x5d, 0x07, 0xf1, 0x02, 0x48, 0x3c, 0x0b, 0x2f, 0xc2,
+	0x91, 0x27, 0x40, 0x28, 0xaf, 0xc1, 0x05, 0x79, 0x37, 0x7f, 0x4d, 0xa1, 0xf5, 0xc5, 0xda, 0x6f,
+	0xe6, 0x9b, 0xf5, 0xb7, 0xdf, 0x8c, 0x06, 0xde, 0x48, 0x14, 0x33, 0x14, 0xee, 0x67, 0x26, 0xa6,
+	0x28, 0x5c, 0x1e, 0x71, 0x8c, 0xa3, 0x14, 0x5d, 0x25, 0x68, 0x2a, 0x87, 0x4c, 0x24, 0xeb, 0x93,
+	0xc3, 0x05, 0x53, 0xcc, 0x7a, 0xc5, 0xe9, 0x60, 0xfc, 0x25, 0x44, 0x91, 0x38, 0xa6, 0xc8, 0x59,
+	0x16, 0x39, 0x2b, 0xea, 0xc9, 0xd1, 0x88, 0x8d, 0x98, 0xe6, 0xbb, 0xf9, 0xc9, 0x94, 0x9e, 0xd4,
+	0xf9, 0x50, 0xba, 0x7c, 0x28, 0x57, 0x90, 0x4b, 0x97, 0xf3, 0x25, 0x3c, 0xbb, 0x2f, 0x25, 0xa4,
+	0x2a, 0x4b, 0xcc, 0xd7, 0x10, 0xec, 0x3f, 0x04, 0xf6, 0xae, 0x73, 0xdc, 0x47, 0x65, 0xb5, 0xa1,
+	0x32, 0x61, 0x81, 0x1f, 0x85, 0x4d, 0xd2, 0x26, 0xe7, 0xd5, 0xab, 0xea, 0xfc, 0xd7, 0x59, 0xf9,
+	0x96, 0x05, 0xbd, 0x6b, 0xaf, 0x3c, 0x61, 0x41, 0x2f, 0xb4, 0x5a, 0x50, 0x1b, 0x46, 0x31, 0xfa,
+	0x12, 0x55, 0x4e, 0xdb, 0xc9, 0x69, 0x5e, 0x35, 0x0f, 0xf5, 0x51, 0xf5, 0x42, 0xeb, 0x12, 0xea,
+	0x2c, 0x53, 0x3c, 0x53, 0xfe, 0x80, 0x25, 0x49, 0xa4, 0x9a, 0xa5, 0x36, 0x39, 0xaf, 0x75, 0x0e,
+	0x1c, 0x3e, 0x94, 0xfe, 0xac, 0xe3, 0x74, 0x75, 0xd4, 0xdb, 0x37, 0x24, 0x83, 0xac, 0x0b, 0xb0,
+	0x16, 0x45, 0x9b, 0x77, 0x3f, 0xd3, 0x77, 0x1f, 0x9a, 0xcc, 0xcd, 0xea, 0x0f, 0xaf, 0xa1, 0x91,
+	0xa0, 0xa2, 0xf7, 0xa8, 0x65, 0x4d, 0xad, 0xe7, 0xf1, 0x35, 0xd1, 0x86, 0xb2, 0x54, 0x54, 0xc9,
+	0x66, 0x45, 0x4b, 0xd8, 0x77, 0xcc, 0xb3, 0xfb, 0x79, 0xcc, 0x33, 0x29, 0xfb, 0x2d, 0x34, 0x3e,
+	0xf2, 0x98, 0xd1, 0x50, 0x5b, 0x20, 0xef, 0xa8, 0x9c, 0x5a, 0xa7, 0x50, 0x9a, 0xb0, 0x40, 0x3b,
+	0x50, 0xeb, 0xd4, 0x1c, 0xce, 0xb5, 0xf0, 0x5b, 0x16, 0x78, 0x79, 0xdc, 0xfe, 0x00, 0x2f, 0xb6,
+	0x4b, 0x3c, 0x94, 0x59, 0xac, 0xb6, 0xbd, 0x21, 0xdb, 0xde, 0x1c, 0x41, 0x79, 0xc0, 0xb2, 0x54,
+	0x69, 0xd7, 0x4a, 0x9e, 0x01, 0xf6, 0x77, 0x02, 0xc7, 0x5d, 0x96, 0xf0, 0x4c, 0x61, 0x1f, 0x45,
+	0x44, 0xe3, 0xc2, 0x52, 0x9e, 0x6c, 0xc6, 0x3b, 0x68, 0x04, 0x54, 0xa2, 0xaf, 0xfd, 0x7a, 0xb4,
+	0x1f, 0x07, 0x39, 0xef, 0x3d, 0x2a, 0xba, 0xe8, 0xc8, 0x31, 0xec, 0xa6, 0xcc, 0x97, 0xd3, 0x88,
+	0xeb, 0x36, 0xec, 0x79, 0x95, 0x94, 0xf5, 0xa7, 0x11, 0xb7, 0xbf, 0x12, 0x38, 0xfd, 0x8f, 0xda,
+	0x82, 0x2e, 0x5c, 0x80, 0x15, 0x62, 0x8c, 0x0a, 0xfd, 0x87, 0xda, 0x0f, 0x4d, 0x66, 0xdd, 0xc3,
+	0x26, 0xec, 0xe6, 0x22, 0x38, 0x86, 0x5a, 0x78, 0xc9, 0x5b, 0x42, 0xfb, 0x1b, 0x81, 0xe7, 0x5d,
+	0x81, 0x54, 0xe1, 0x72, 0x7a, 0x0b, 0x59, 0xf6, 0x60, 0x3e, 0x77, 0x0a, 0xcc, 0xe7, 0xd6, 0x93,
+	0x4a, 0x5b, 0x4f, 0xb2, 0xc7, 0xf0, 0xf2, 0x1f, 0x52, 0x8a, 0xfb, 0x11, 0xa5, 0x9b, 0xb3, 0x2f,
+	0x37, 0xfc, 0xd0, 0x99, 0x85, 0x1d, 0xb2, 0x17, 0x5e, 0xdd, 0xfd, 0x98, 0xb7, 0xc8, 0xcf, 0x79,
+	0x8b, 0xfc, 0x9e, 0xb7, 0xc8, 0xa7, 0x9b, 0x51, 0xa4, 0xc6, 0x59, 0xe0, 0x0c, 0x58, 0xe2, 0xae,
+	0x16, 0xc8, 0xc6, 0x69, 0xd6, 0x71, 0xa5, 0x18, 0xb8, 0x4f, 0x6d, 0xa3, 0xa0, 0xa2, 0x57, 0xc1,
+	0xe5, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xb2, 0x92, 0xc5, 0xdc, 0xb8, 0x04, 0x00, 0x00,
 }
 
 func (m *DatumSet) Marshal() (dAtA []byte, err error) {
@@ -782,93 +667,6 @@ func (m *UploadDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 		i = encodeVarintTransform(dAtA, i, uint64(m.Count))
 		i--
 		dAtA[i] = 0x10
-	}
-	if len(m.FileSetId) > 0 {
-		i -= len(m.FileSetId)
-		copy(dAtA[i:], m.FileSetId)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.FileSetId)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *ComputeParallelDatumsTask) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ComputeParallelDatumsTask) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *ComputeParallelDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.BaseFileSetId) > 0 {
-		i -= len(m.BaseFileSetId)
-		copy(dAtA[i:], m.BaseFileSetId)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.BaseFileSetId)))
-		i--
-		dAtA[i] = 0x1a
-	}
-	if len(m.FileSetId) > 0 {
-		i -= len(m.FileSetId)
-		copy(dAtA[i:], m.FileSetId)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.FileSetId)))
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Job != nil {
-		{
-			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTransform(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *ComputeParallelDatumsTaskResult) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ComputeParallelDatumsTaskResult) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *ComputeParallelDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.FileSetId) > 0 {
 		i -= len(m.FileSetId)
@@ -1168,46 +966,6 @@ func (m *UploadDatumsTaskResult) Size() (n int) {
 	}
 	if m.Count != 0 {
 		n += 1 + sovTransform(uint64(m.Count))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ComputeParallelDatumsTask) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Job != nil {
-		l = m.Job.Size()
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	l = len(m.FileSetId)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	l = len(m.BaseFileSetId)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
-func (m *ComputeParallelDatumsTaskResult) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.FileSetId)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1733,240 +1491,6 @@ func (m *UploadDatumsTaskResult) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTransform(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ComputeParallelDatumsTask) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTransform
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTask: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTask: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Job", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Job == nil {
-				m.Job = &pps.Job{}
-			}
-			if err := m.Job.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FileSetId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.FileSetId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BaseFileSetId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.BaseFileSetId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTransform(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ComputeParallelDatumsTaskResult) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTransform
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTaskResult: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FileSetId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.FileSetId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipTransform(dAtA[iNdEx:])
