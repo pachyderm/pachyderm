@@ -508,7 +508,7 @@ type FsckOption func(*pfs.FsckRequest)
 
 func WithZombieCheckAll() FsckOption {
 	return func(req *pfs.FsckRequest) {
-		req.ZombieCheck = &pfs.FsckRequest_ZombieCheckAll{ZombieCheckAll: true}
+		req.ZombieCheck = &pfs.FsckRequest_ZombieAll{ZombieAll: true}
 	}
 }
 

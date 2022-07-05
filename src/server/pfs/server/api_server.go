@@ -639,7 +639,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	if target := request.GetZombieTarget(); target != nil {
 		return a.driver.detectZombie(ctx, target, fsckServer.Send)
 	}
-	if request.GetZombieCheckAll() {
+	if request.GetZombieAll() {
 		// list meta repos as a proxy for finding pipelines
 		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues

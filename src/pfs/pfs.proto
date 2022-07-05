@@ -389,7 +389,7 @@ message FsckRequest {
   oneof zombie_check {
     Commit zombie_target = 2;
     // run zombie data detection against all pipelines
-    bool zombie_check_all = 3;
+    bool zombie_all = 3;
   }
 }
 
