@@ -566,7 +566,7 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err = setupDB(context.Background(), env); err != nil {
+	if err := setupDB(context.Background(), env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -950,13 +950,12 @@ func doPausedMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err = setupDB(context.Background(), env); err != nil {
+	if err := setupDB(context.Background(), env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
 		env.InitDexDB()
 	}
-
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
 
 	// Setup External Pachd GRPC Server.
