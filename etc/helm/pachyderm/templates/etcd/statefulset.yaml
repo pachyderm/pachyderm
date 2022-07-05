@@ -117,8 +117,8 @@ spec:
       {{-  if .Values.etcd.tolerations }}
       tolerations: {{ toYaml .Values.etcd.tolerations | nindent 8 }}
       {{- end }}
-    volumes:
-      - emptyDir:
-          medium: Memory
-          sizeLimit: {{ .Values.etcd.memoryStorage }}
-        name: etcd-tmpfs
+      volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.etcd.memoryStorage }}
+          name: etcd-tmpfs
