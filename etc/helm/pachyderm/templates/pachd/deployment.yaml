@@ -263,7 +263,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: "pachyderm-enterprise-config"
-              key: "enterprise-cluster" 
+              key: "enterprise-cluster"
         {{- end }}
         {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE
@@ -316,6 +316,13 @@ spec:
             command:
             - /pachd
             - --readiness
+        startupProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
