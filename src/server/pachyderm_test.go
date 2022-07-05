@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -4130,13 +4132,17 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestGetLogs(t *testing.T) {
+func testGetLogs(t *testing.T, useLoki bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	var opts []minikubetestenv.Option
+	if !useLoki {
+		opts = append(opts, minikubetestenv.SkipLokiOption)
+	}
+	c, _ := minikubetestenv.AcquireCluster(t, opts...)
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -4339,6 +4345,14 @@ func TestGetLogs(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestGetLogsWithoutLoki(t *testing.T) {
+	testGetLogs(t, false)
+}
+
+func TestGetLogs(t *testing.T) {
+	testGetLogs(t, true)
+}
+
 func TestManyLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4378,7 +4392,7 @@ func TestManyLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		iter := c.GetLogs(pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
@@ -4401,7 +4415,7 @@ func TestLokiLogs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -8199,14 +8213,19 @@ func TestDatumTries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
-	var observedTries int64
-	for iter.Next() {
-		if strings.Contains(iter.Message().Message, "errored running user code after") {
-			observedTries++
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+		iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		var observedTries int64
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "errored running user code after") {
+				observedTries++
+			}
 		}
-	}
-	require.Equal(t, tries, observedTries)
+		if tries != observedTries {
+			return errors.Errorf("got %d but expected %d", observedTries, tries)
+		}
+		return nil
+	})
 }
 
 func TestInspectJob(t *testing.T) {
@@ -9581,7 +9600,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -10651,7 +10670,7 @@ func TestDatabaseStats(t *testing.T) {
 }
 
 func TestSimplePipelineNonRoot(t *testing.T) {
-	
+
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

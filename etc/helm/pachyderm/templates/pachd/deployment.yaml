@@ -171,7 +171,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
-              key: "idps"
+              key: "upstream-idps"
         - name: IDP_CONFIG
           valueFrom:
             configMapKeyRef:
@@ -307,6 +307,11 @@ spec:
           name: prom-metrics
           protocol: TCP
         readinessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+        livenessProbe:
           exec:
             command:
             - /pachd

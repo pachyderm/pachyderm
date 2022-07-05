@@ -494,6 +494,9 @@
                         "config": {
                             "type": "object",
                             "properties": {
+                                "lokiAddress": {
+                                    "type": "string"
+                                },
                                 "snippets": {
                                     "type": "object",
                                     "properties": {
@@ -976,6 +979,17 @@
                 "defaultPoolSize": {
                     "type": "integer"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "maxConnections": {
                     "type": "integer"
                 },
@@ -1190,6 +1204,22 @@
                             "type": "object"
                         },
                         "secretName": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "testConnection": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
                             "type": "string"
                         }
                     }

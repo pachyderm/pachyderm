@@ -467,6 +467,19 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 	})
 }
 
+// NOTE: Internally, List scans the collection using multiple queries,
+// making this method susceptible to inconsistent reads
+func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+	ctx, cf := context.WithCancel(context.Background())
+	defer cf()
+	return c.postgresCollection.list(ctx, nil, opts, c.tx, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return f(m.Key)
+	})
+}
+
 func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val proto.Message, opts *Options, f func(string, int64) error) error {
 	fakeRev := int64(0)
 	lastTimestamp := time.Time{}

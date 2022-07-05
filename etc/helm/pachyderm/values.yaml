@@ -297,9 +297,9 @@ pachd:
   logLevel: "info"
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
-  lokiDeploy: false
+  lokiDeploy: true
   # lokiLogging enables Loki logging if set.
-  lokiLogging: false
+  lokiLogging: true
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true
@@ -565,6 +565,9 @@ pgbouncer:
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
+  image:
+    repository: bitnami/pgbouncer
+    tag: 1.16.1-debian-10-r82
   resources:
     {}
     #limits:
@@ -712,6 +715,11 @@ oidc:
   dexCredentialSecretName: ""
   mockIDP: true
   #TODO scopes:
+
+testConnection:
+  image:
+    repository: alpine
+    tag: latest
 
 # The proxy is a service to handle all Pachyderm traffic (S3, Console, OIDC, Dex, GRPC) on a single
 # port; good for exposing directly to the Internet.

@@ -110,6 +110,18 @@
         },
       },
     ],
+    health_check: {
+      healthy_threshold: 1,
+      http_health_check: {
+        host: 'localhost',
+        path: '/',
+      },
+      interval: '30s',
+      timeout: '10s',
+      unhealthy_threshold: 2,
+      no_traffic_interval: '10s',
+      no_traffic_healthy_interval: '10s',
+    },
   },
   console: {
     internal_port: 4000,
