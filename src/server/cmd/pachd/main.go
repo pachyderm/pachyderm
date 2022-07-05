@@ -153,18 +153,7 @@ func newExternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *
 	)
 }
 
-func doReadinessCheck(config interface{}) error {
-	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
-	return env.GetPachClient(context.Background()).Health()
-}
-
-func doEnterpriseMode(config interface{}) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			log.WithError(retErr).Print("failed to start server")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
-		}
-	}()
+func setup(config interface{}, service string) (env *serviceenv.NonblockingServiceEnv, err error) {
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -184,14 +173,19 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-enterprise", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-
+	env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	if env.Config().LogFormat == "text" {
 		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 	}
+	profileutil.StartCloudProfiler(service, env.Config())
+	debug.SetGCPercent(env.Config().GCPercent)
+	if env.Config().EtcdPrefix == "" {
+		env.Config().EtcdPrefix = col.DefaultPrefix
+	}
+	return env, err
+}
 
+func setupDB(ctx context.Context, env *serviceenv.NonblockingServiceEnv) error {
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
@@ -202,11 +196,31 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err := migrations.BlockUntil(context.Background(), env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
+	return nil
+}
+
+func doReadinessCheck(config interface{}) error {
+	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
+	return env.GetPachClient(context.Background()).Health()
+}
+
+func doEnterpriseMode(config interface{}) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			log.WithError(retErr).Print("failed to start server")
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		}
+	}()
+
+	env, err := setup(config, "pachyderm-pachd-enterprise")
+	if err != nil {
+		return err
+	}
+	if err := setupDB(context.Background(), env); err != nil {
+		return err
+	}
 	if !env.Config().EnterpriseMember {
 		env.InitDexDB()
-	}
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
 	}
 
 	// Setup External Pachd GRPC Server.
@@ -424,35 +438,9 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
-	// may create a pach client before tracing is active, not install the Jaeger
-	// gRPC interceptor in the client, and not propagate traces)
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-sidecar", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-
-	if env.Config().LogFormat == "text" {
-		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-	}
-
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
+	env, err := setup(config, "pachyderm-pachd-sidecar")
+	if err != nil {
+		return err
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
@@ -574,49 +562,17 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-
-	// must run InstallJaegerTracer before InitWithKube/pach client initialization
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-full", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-
-	if env.Config().LogFormat == "text" {
-		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-	}
-
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
-	}
-
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(ctx, log.StandardLogger(), env.GetDBClient()); err != nil {
+	env, err := setup(config, "pachyderm-pachd-full")
+	if err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	if err := migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+	if err := setupDB(context.Background(), env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
 		env.InitDexDB()
 	}
+
 	var reporter *metrics.Reporter
 	if env.Config().Metrics {
 		reporter = metrics.NewReporter(env)
@@ -989,41 +945,12 @@ func doPausedMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "info", "":
-		log.SetLevel(log.InfoLevel)
-	default:
-		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", logLevel)
-		log.SetLevel(log.InfoLevel)
-	}
-
 	log.Println("starting up in paused mode")
-
-	// must run InstallJaegerTracer before InitWithKube/pach client initialization
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Printf("connecting to Jaeger at %q", endpoint)
-	} else {
-		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	profileutil.StartCloudProfiler("pachyderm-pachd-paused", env.Config())
-	debug.SetGCPercent(env.Config().GCPercent)
-	if env.Config().EtcdPrefix == "" {
-		env.Config().EtcdPrefix = col.DefaultPrefix
-	}
-
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
-	if err := dbutil.WaitUntilReady(ctx, log.StandardLogger(), env.GetDBClient()); err != nil {
+	env, err := setup(config, "pachyderm-pachd-paused")
+	if err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	if err := migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
+	if err := setupDB(context.Background(), env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
