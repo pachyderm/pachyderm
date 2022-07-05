@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.6.0
+  go: circleci/go@1.7.1
   gcp-cli: circleci/gcp-cli@2.4.1
   codecov: codecov/codecov@1.1.0
 
@@ -143,12 +143,12 @@ jobs:
           path: /tmp/test-results
   helm-build:
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.3
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
           path: ~/project
-      - run: mkdir /home/circleci/bin
+      - run: mkdir -p /home/circleci/bin
       - restore_cache:
           keys:
             - go-mod-helm-v4-{{ checksum "go.sum" }}
@@ -255,7 +255,7 @@ jobs:
   build:
     resource_class: large
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.3
     steps:
       - checkout
       - setup_remote_docker:
