@@ -109,7 +109,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run: mkdir /home/circleci/bin
+      - run: mkdir -p /home/circleci/bin
       - restore_cache:
           keys:
             - go-mod-helm-v4-{{ checksum "go.sum" }}
