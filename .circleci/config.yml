@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.7.1
+  go: circleci/go@1.6.0
   gcp-cli: circleci/gcp-cli@2.4.1
 
 parameters:
