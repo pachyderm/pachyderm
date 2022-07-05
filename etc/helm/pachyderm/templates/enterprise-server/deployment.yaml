@@ -126,6 +126,15 @@ spec:
             secretKeyRef:
               name: "pachyderm-auth"
               key: "auth-config"
+        - name: AUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.pachd.oauthClientSecretSecretName }}
+              name: {{ .Values.pachd.oauthClientSecretSecretName | quote }}
+              {{- else }}
+              name: "pachyderm-auth"
+              {{- end }}
+              key: "pachd-oauth-client-secret"
         - name: IDP_CLIENTS
           valueFrom:
             configMapKeyRef:

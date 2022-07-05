@@ -172,6 +172,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			if err := yaml.Unmarshal([]byte(a.env.Config.AuthConfig), &config); err != nil {
 				return errors.Wrapf(err, "unmarshal auth config: %q", a.env.Config.AuthConfig)
 			}
+			config.ClientSecret = a.env.Config.AuthClientSecret
 			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
