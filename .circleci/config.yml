@@ -30,7 +30,7 @@ jobs:
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
-    resource_class: xlarge
+    resource_class: medium
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
