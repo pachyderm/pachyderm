@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	pfs    = "/pfs"
-	pfsOut = "/pfs/out"
+	pfs                    = "/pfs"
+	pfsOut                 = "/pfs/out"
+	PACHYDERM_SQL_PASSWORD = "PACHYDERM_SQL_PASSWORD"
 )
 
 func main() {
@@ -51,10 +52,10 @@ type Entrypoint = func(ctx context.Context, log *logrus.Logger, args []string) e
 var entrypoints = map[string]Entrypoint{
 	"sql-ingest":      sqlIngest,
 	"sql-gen-queries": sqlGenQueries,
+	"sql-run":         sqlRun,
 }
 
 func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
-	const passwordEnvar = "PACHYDERM_SQL_PASSWORD"
 	if len(args) < 2 {
 		return errors.Errorf("must provide db url and format")
 	}
@@ -67,9 +68,9 @@ func sqlIngest(ctx context.Context, log *logrus.Logger, args []string) error {
 			return errors.EnsureStack(err)
 		}
 	}
-	password, ok := os.LookupEnv(passwordEnvar)
+	password, ok := os.LookupEnv(PACHYDERM_SQL_PASSWORD)
 	if !ok {
-		return errors.Errorf("must set %v", passwordEnvar)
+		return errors.Errorf("must set %v", PACHYDERM_SQL_PASSWORD)
 	}
 	u, err := pachsql.ParseURL(urlStr)
 	if err != nil {
@@ -116,4 +117,36 @@ func sqlGenQueries(ctx context.Context, log *logrus.Logger, args []string) error
 		OutputDir: outputDir,
 		Query:     query,
 	})
+}
+
+func sqlRun(ctx context.Context, log *logrus.Logger, args []string) error {
+	if len(args) < 4 {
+		return errors.Errorf("must provide [url, fileFormat, query, outputFile, hasHeader]")
+	}
+	url, fileFormat, query, oFname := args[0], args[1], args[2], args[3]
+	hasHeader, err := strconv.ParseBool(args[4])
+	if err != nil {
+		return err
+	}
+
+	password, ok := os.LookupEnv(PACHYDERM_SQL_PASSWORD)
+	if !ok {
+		return errors.Errorf("must set %v", PACHYDERM_SQL_PASSWORD)
+	}
+	u, err := pachsql.ParseURL(url)
+	if err != nil {
+		return err
+	}
+
+	params := transforms.SQLRunParams{
+		Logger:     log,
+		OutputDir:  pfsOut,
+		OutputFile: oFname,
+		Query:      query,
+		Password:   secrets.Secret(password),
+		URL:        *u,
+		HasHeader:  hasHeader,
+		Format:     fileFormat,
+	}
+	return transforms.RunSQLRaw(ctx, params)
 }

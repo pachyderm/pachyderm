@@ -116,7 +116,10 @@ type SQLQueryGenerationParams struct {
 	Logger              *logrus.Logger
 	InputDir, OutputDir string
 
-	Query string
+	URL      string
+	Query    string
+	Password secrets.Secret
+	Format   string
 }
 
 // SQLQueryGeneration generates queries with a timestamp in the comments
@@ -148,4 +151,56 @@ func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
 		return uint64(timestamp.Unix()), nil
 	}
 	return 0, errors.Errorf("missing timestamp file")
+}
+
+type SQLRunParams struct {
+	Logger                *logrus.Logger
+	OutputDir, OutputFile string
+	Query                 string
+	Password              secrets.Secret
+	URL                   pachsql.URL
+	HasHeader             bool
+	Format                string
+}
+
+func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
+	log := params.Logger
+	db, err := pachsql.OpenURL(params.URL, string(params.Password))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err := db.PingContext(ctx); err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	writerFactory, err := makeWriterFactory(params.Format, params.HasHeader)
+	if err != nil {
+		return err
+	}
+
+	w, err := os.OpenFile(filepath.Join(params.OutputDir, params.OutputFile), os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+
+	rows, err := db.QueryContext(ctx, params.Query)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	tw := writerFactory(w, columns)
+
+	res, err := sdata.MaterializeSQL(tw, rows)
+	if err != nil {
+		return err
+	}
+	log.Infof("Sucessfully materialized %d rows", res.RowCount)
+	return nil
 }
