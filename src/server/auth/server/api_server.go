@@ -168,15 +168,11 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		// handle oidc clients & this cluster's auth config
 		if a.env.Config.AuthConfig != "" && a.env.Config.IdentityClients != "" {
 			var config auth.OIDCConfig
-			var pachdClientSecret string
 			var clients []identity.OIDCClient
 			if err := yaml.Unmarshal([]byte(a.env.Config.AuthConfig), &config); err != nil {
 				return errors.Wrapf(err, "unmarshal auth config: %q", a.env.Config.AuthConfig)
 			}
-			if err := yaml.Unmarshal([]byte(a.env.Config.AuthClientSecret), &pachdClientSecret); err != nil {
-				return errors.Wrapf(err, "unmarshal auth client secret: %q", a.env.Config.AuthClientSecret)
-			}
-			config.ClientSecret = pachdClientSecret
+			config.ClientSecret = a.env.Config.AuthClientSecret
 			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
