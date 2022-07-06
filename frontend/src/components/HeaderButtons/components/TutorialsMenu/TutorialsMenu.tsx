@@ -21,7 +21,8 @@ const TutorialsMenu: React.FC<TutorialsMenuProps> = ({
   setStickTutorialsMenu,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
-  const tutorials = useTutorialsList();
+  const tutorialsList = useTutorialsList();
+  const tutorials = Object.values(tutorialsList);
   const {startTutorial, tutorialProgress, deleteTutorialResources} =
     useTutorialsMenu(projectId);
   const handleOutsideClick = useCallback(() => {
@@ -38,11 +39,12 @@ const TutorialsMenu: React.FC<TutorialsMenuProps> = ({
           <TutorialItem
             key={tutorial.id}
             content={tutorial.content}
-            progress={tutorialProgress && tutorialProgress[tutorial.id]?.story}
+            progress={tutorial.progress.initialStory}
             stories={tutorial.stories}
             tutorialComplete={
               tutorialProgress && tutorialProgress[tutorial.id]?.completed
             }
+            tutorialStarted={tutorialProgress && tutorialProgress[tutorial.id]}
             handleClick={() => startTutorial(tutorial.id)}
             handleDelete={() => {
               tutorial.cleanup.cleanupImageProcessing();

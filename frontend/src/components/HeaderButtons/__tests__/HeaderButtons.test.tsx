@@ -36,7 +36,7 @@ describe('HeaderButtons', () => {
   it('should show progress dots when tutorial progress is available', async () => {
     window.localStorage.setItem(
       'pachyderm-console-default',
-      '{"tutorial_progress":{"image-processing":{"story":3,"task":0}}}',
+      '{"tutorial_progress":{"image-processing":{"story":2,"task":1}}}',
     );
 
     const {getAllByText, findByText, findByTestId, queryByText} = render(

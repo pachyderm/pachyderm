@@ -7,6 +7,7 @@ import {
   useModal,
   Icon,
   StoryProgressDots,
+  Story,
 } from '@pachyderm/components';
 import React, {useCallback} from 'react';
 
@@ -17,9 +18,10 @@ const WARNING_MESSAGE =
 
 type TutorialItemProps = {
   content: string;
-  stories: number;
+  stories: Story[];
   progress?: number;
   tutorialComplete: boolean;
+  tutorialStarted: boolean;
   handleClick?: () => void;
   handleDelete?: () => void;
   deleteLoading?: boolean;
@@ -37,6 +39,7 @@ const TutorialItem: React.FC<TutorialItemProps> = ({
   deleteError,
   setStickTutorialsMenu,
   tutorialComplete,
+  tutorialStarted,
 }) => {
   const {
     openModal: openConfirmationModal,
@@ -70,16 +73,14 @@ const TutorialItem: React.FC<TutorialItemProps> = ({
         <div className={styles.content}>
           {content}
           <div className={styles.progress}>
-            {(progress === undefined || progress === null) && (
+            {!tutorialStarted && (
               <CaptionTextSmall className={styles.subtitle}>
                 Start Tutorial
               </CaptionTextSmall>
             )}
-            {progress !== undefined &&
-              progress !== null &&
-              !tutorialComplete && (
-                <StoryProgressDots progress={progress} stories={stories} />
-              )}
+            {tutorialStarted && !tutorialComplete && (
+              <StoryProgressDots progress={progress} stories={stories.length} />
+            )}
             {tutorialComplete && (
               <CaptionTextSmall className={styles.subtitle}>
                 <Icon color="highlightGreen">
