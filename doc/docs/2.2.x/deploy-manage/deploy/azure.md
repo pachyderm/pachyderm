@@ -393,9 +393,9 @@ make sure that you are using the right Kubernetes context first.
 
 
     ```shell
-    $ helm repo add pach https://helm.pachyderm.com
-    $ helm repo update
-    $ helm install pachd -f values.yaml pach/pachyderm --version <version-of-the-chart>
+    helm repo add pach https://helm.pachyderm.com
+    helm repo update
+    helm install pachd -f values.yaml pach/pachyderm --version <version-of-the-chart>
     ```
 
     **System Response:**
@@ -458,7 +458,7 @@ If you are exposing your cluster publicly:
   1. Check that your are using the right context: 
 
       ```shell
-      $ pachctl config get active-context
+      pachctl config get active-context
       ```
 
       Your cluster context name should show up.
@@ -467,7 +467,7 @@ If you're not exposing `pachd` publicly, you can run:
 
 ```shell
 # Background this process because it blocks.
-$ pachctl port-forward
+pachctl port-forward
 ``` 
 
 ## 8. Check That Your Cluster Is Up And Running
@@ -476,7 +476,7 @@ $ pachctl port-forward
     If Authentication is activated (When you deploy with an enterprise key already set, for example), you need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
-$ pachctl version
+pachctl version
 ```
 
 **System Response:**
