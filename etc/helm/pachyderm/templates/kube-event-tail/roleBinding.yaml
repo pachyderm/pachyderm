@@ -1,0 +1,17 @@
+{{- if and .Values.kubeEventTail.enabled (eq .Values.kubeEventTail.clusterScope false) }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: pachyderm-kube-event-tail
+    suite: pachyderm
+  name: pachyderm-kube-event-tail-reader-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pachyderm-kube-event-tail-reader
+subjects:
+- kind: ServiceAccount
+  name: pachyderm-kube-event-tail
+  namespace: {{ .Release.Namespace }}
+{{- end }}

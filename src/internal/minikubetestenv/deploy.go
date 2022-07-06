@@ -218,7 +218,6 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      rootToken,
-			"pachd.oauthClientSecret":              "oidc-client-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
 			"oidc.issuerURI":                     "http://pachd:30658/dex",

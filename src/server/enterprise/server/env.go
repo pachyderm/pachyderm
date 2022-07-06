@@ -62,7 +62,7 @@ func WithMode(mode PauseMode) Option {
 	}
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) Env {
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) *Env {
 	e := Env{
 		DB:       senv.GetDBClient(),
 		Listener: senv.GetPostgresListener(),
@@ -83,7 +83,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txn
 	for _, o := range options {
 		e = o(e)
 	}
-	return e
+	return &e
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {

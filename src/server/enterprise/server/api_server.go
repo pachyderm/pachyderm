@@ -44,7 +44,7 @@ const (
 )
 
 type apiServer struct {
-	env Env
+	env *Env
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -56,7 +56,7 @@ type apiServer struct {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env Env, heartbeat bool) (*apiServer, error) {
+func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.EtcdClient,

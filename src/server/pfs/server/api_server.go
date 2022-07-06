@@ -641,10 +641,37 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
-	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
+	ctx := fsckServer.Context()
+	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
 		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
 		return err
+	}
+
+	if target := request.GetZombieTarget(); target != nil {
+		return a.driver.detectZombie(ctx, target, fsckServer.Send)
+	}
+	if request.GetZombieAll() {
+		// list meta repos as a proxy for finding pipelines
+		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
+			output := client.NewCommit(info.Repo.Name, "master", "")
+			for output != nil {
+				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				if err != nil {
+					return err
+				}
+				// we will be reading the whole file system, so unfinished commits would be very slow
+				if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
+					break
+				}
+				output = info.ParentCommit
+			}
+			if output == nil {
+				return nil
+			}
+			return a.driver.detectZombie(ctx, output, fsckServer.Send)
+		})
 	}
 	return nil
 }
