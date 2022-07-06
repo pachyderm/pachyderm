@@ -8,7 +8,17 @@ import {Story, TaskComponentProps} from 'TutorialModal/lib/types';
 import {Link} from '../../Link';
 import Mark from '../components/Mark';
 import TaskCard from '../components/TaskCard';
-import TutorialModal from '../TutorialModal';
+import TutorialModalBodyProvider from '../components/TutorialModalBody/TutorialModalBodyProvider';
+import TutorialModalComponent from '../TutorialModal';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const TutorialModal = (props: any): any => {
+  return (
+    <TutorialModalBodyProvider>
+      <TutorialModalComponent {...props} />
+    </TutorialModalBodyProvider>
+  );
+};
 
 const Task1Component: React.FC<TaskComponentProps> = ({
   onCompleted,
@@ -130,6 +140,15 @@ const stories: Story[] = [
       },
     ],
   },
+  {
+    name: 'The next story',
+    sections: [
+      {
+        taskName: 'The next task',
+        Task: Task1Component,
+      },
+    ],
+  },
 ];
 
 describe('TutorialModal', () => {
@@ -145,21 +164,8 @@ describe('TutorialModal', () => {
   });
 
   it('should allow moving to the next story', async () => {
-    const nextStory: Story = {
-      name: 'The next story',
-      sections: [
-        {
-          taskName: 'The next task',
-          Task: Task1Component,
-        },
-      ],
-    };
-
     const {findByRole, findByText, findAllByRole} = render(
-      <TutorialModal
-        stories={stories.concat([nextStory])}
-        tutorialName="test"
-      />,
+      <TutorialModal stories={stories} tutorialName="test" />,
     );
 
     expect(await findByText('Story 1 of 2')).toBeInTheDocument();
@@ -229,58 +235,9 @@ describe('TutorialModal', () => {
     expect(updatedTask2Checkmark).toBeInTheDocument();
   });
 
-  it('should display the current task when minimized', async () => {
-    const {findByRole, findAllByLabelText} = render(
-      <TutorialModal stories={stories} tutorialName="test" />,
-    );
-
-    const minimizeButton = await findByRole('button', {name: 'minimize'});
-    click(minimizeButton);
-
-    const tasks = await findAllByLabelText(
-      'Create a pipeline using the provided edges.json specification.',
-    );
-    expect(tasks.length).toBe(1);
-  });
-
-  it('should include the continue task when displaying the final task while minimized', async () => {
-    const {findByRole, queryByLabelText} = render(
-      <TutorialModal stories={stories} tutorialName="test" />,
-    );
-
-    const pipelineButton = await findByRole('button', {
-      name: 'Create pipeline spec',
-    });
-    click(pipelineButton);
-
-    const minimizeButton = await findByRole('button', {name: 'minimize'});
-    click(minimizeButton);
-
-    expect(
-      queryByLabelText(
-        'Minimize the overlay and inspect the pipeline and resulting output repo in the DAG',
-      ),
-    ).toBeInTheDocument();
-
-    expect(queryByLabelText('Continue to the next story')).toBeInTheDocument();
-  });
-
   it('should be able to switch between stories using the dropdown', () => {
-    const nextStory: Story = {
-      name: 'The next story',
-      sections: [
-        {
-          taskName: 'The next task',
-          Task: Task1Component,
-        },
-      ],
-    };
-
     const {queryByText, getByText, getByRole} = render(
-      <TutorialModal
-        stories={stories.concat([nextStory])}
-        tutorialName="test"
-      />,
+      <TutorialModal stories={stories} tutorialName="test" />,
     );
 
     expect(queryByText('Story 1 of 2')).toBeInTheDocument();

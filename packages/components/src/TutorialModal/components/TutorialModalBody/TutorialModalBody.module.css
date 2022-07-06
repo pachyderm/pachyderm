@@ -16,6 +16,18 @@
   }
 }
 
+@keyframes fadeContent {
+  0% {
+     opacity: 1;
+  }
+  75% {
+     opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 .overlay {
   position: absolute;
   z-index: var(--z-index-modal-overlay);
@@ -41,11 +53,16 @@
   border-bottom: 0px;
 }
 
+.minimize .body .content {
+  animation: fadeContent 1s ease-out;
+  opacity: 0;
+}
+
 .modal {
   position: absolute;
   top: 0;
   right: 2rem;
-  bottom: 0;
+  bottom: -2px;
   left: 2rem;
   display: flex;
   flex-direction: column;
@@ -120,37 +137,6 @@
   color: var(--grey-10);
   margin-bottom: 1.5rem;
   display: block;
-}
-
-
-@keyframes miniTaskOpen {
-  0% {
-    left: calc(-100% + 2rem);
-  }
-  1% {
-    left: 0;
-  }
-  50% {
-    left: 0;
-  }
-  51% {
-    left: calc(-100% + 2rem);
-  }
-}
-
-.miniTaskOpen {
-  animation: miniTaskOpen 60s forwards 0.5s;
-}
-
-.miniTask {
-  left: calc(-100% + 2rem);
-  background-color: var(--grey-1);
-  border: 1px solid var(--grey-4);
-  border-radius: 3px;
-  padding: 1.5rem 4rem 1.5rem 1rem;
-  width: 21.5rem;
-  position: absolute;
-  bottom: 4rem;
 }
 
 .rightArrow {

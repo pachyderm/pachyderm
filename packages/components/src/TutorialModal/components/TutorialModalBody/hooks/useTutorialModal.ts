@@ -10,7 +10,6 @@ const useTutorialModal = (
   initialTask: number,
 ) => {
   const tutorialModalRef = useRef<HTMLDivElement>(null);
-  const [minimized, setMinimized] = useState(false);
   const [currentTask, setCurrentTask] = useState(initialTask);
   const [currentStory, setCurrentStory] = useState(initialStory);
   const {visitStep, completeStep, clear} = useProgressBar();
@@ -57,22 +56,12 @@ const useTutorialModal = (
     [stories, clear, currentStory],
   );
 
-  const displayTaskIndex = currentTask === 0 ? 0 : currentTask - 1;
-  const displayTaskInstance = taskSections[displayTaskIndex].taskName;
-  const nextTaskIndex = displayTaskIndex === 0 ? 1 : displayTaskIndex + 1;
-
   return {
     currentStory,
     currentTask,
-    displayTaskIndex,
-    displayTaskInstance,
     handleNextStory,
     handleStoryChange,
     handleTaskCompletion,
-    minimized,
-    nextTaskIndex,
-    setCurrentStory,
-    setMinimized,
     taskSections,
     tutorialModalRef,
   };

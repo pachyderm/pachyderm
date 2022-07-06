@@ -35,7 +35,7 @@
 
 .close {
   position: absolute;
-  top: 1rem;
+  top: 0.75rem;
   right: 1rem;
   z-index: 1;
 }

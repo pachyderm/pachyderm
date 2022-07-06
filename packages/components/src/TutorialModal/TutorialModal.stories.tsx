@@ -11,6 +11,7 @@ import {
   ConfigurationUploadModule,
 } from './components/Modules/';
 import TaskCard from './components/TaskCard';
+import TutorialModalBodyProvider from './components/TutorialModalBody/TutorialModalBodyProvider';
 import {Story, TaskComponentProps} from './lib/types';
 import TutorialModal from './TutorialModal';
 
@@ -375,7 +376,11 @@ const stories: Story[] = [
 ];
 
 export const Default = () => {
-  return <TutorialModal stories={stories} tutorialName="image-processing" />;
+  return (
+    <TutorialModalBodyProvider>
+      <TutorialModal stories={stories} tutorialName="image-processing" />
+    </TutorialModalBodyProvider>
+  );
 };
 
 const ConfigurationTaskComponent: React.FC<TaskComponentProps> = ({
@@ -482,11 +487,13 @@ const configurationStories: Story[] = [
 
 export const ConfigurationUpload = () => {
   return (
-    <TutorialModal
-      stories={configurationStories}
-      tutorialName="configuration-upload"
-      onClose={() => null}
-      onSkip={() => null}
-    />
+    <TutorialModalBodyProvider>
+      <TutorialModal
+        stories={configurationStories}
+        tutorialName="configuration-upload"
+        onClose={() => null}
+        onSkip={() => null}
+      />
+    </TutorialModalBodyProvider>
   );
 };

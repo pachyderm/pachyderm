@@ -1,6 +1,6 @@
 import classNames from 'classnames';
 import noop from 'lodash/noop';
-import React, {ReactNode} from 'react';
+import React, {useContext} from 'react';
 
 import {Button} from 'Button';
 import {Group} from 'Group';
@@ -15,13 +15,12 @@ import {
 } from 'Svg';
 import {TaskCard} from 'TutorialModal';
 
-import {PureCheckbox} from '../../../Checkbox';
 import SideBar from '../../components/SideBar';
-import TaskListItem from '../../components/TaskListItem';
 import {Story} from '../../lib/types';
 
 import useTutorialModal from './hooks/useTutorialModal';
 import styles from './TutorialModalBody.module.css';
+import TutorialModalBodyContext from './TutorialModalBodyContext';
 
 export type TutorialModalBodyProps = {
   stories: Story[];
@@ -30,34 +29,6 @@ export type TutorialModalBodyProps = {
   onTutorialComplete?: () => void;
   onSkip?: () => void;
   onClose?: () => void;
-};
-
-const NextTaskInstance: React.FC<{
-  currentTask: number;
-  nextTaskIndex: number;
-  storyLength: number;
-  taskName?: ReactNode;
-}> = ({currentTask, nextTaskIndex, storyLength, taskName}) => {
-  if (currentTask === storyLength) {
-    return (
-      <PureCheckbox
-        readOnly
-        name="Continue"
-        selected={false}
-        label={'Continue to the next story'}
-      />
-    );
-  } else if (currentTask === 0) {
-    return null;
-  } else {
-    return (
-      <TaskListItem
-        currentTask={currentTask}
-        index={nextTaskIndex}
-        task={taskName}
-      />
-    );
-  }
 };
 
 const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
@@ -71,17 +42,14 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
   const {
     currentStory,
     currentTask,
-    displayTaskIndex,
-    displayTaskInstance,
+    handleNextStory,
     handleStoryChange,
     handleTaskCompletion,
-    handleNextStory,
-    minimized,
-    nextTaskIndex,
-    setMinimized,
     taskSections,
     tutorialModalRef,
   } = useTutorialModal(stories, initialStory, initialTask);
+
+  const {minimized, setMinimized} = useContext(TutorialModalBodyContext);
 
   const classes = classNames(styles.modal, {
     [styles.minimize]: minimized,
@@ -92,25 +60,6 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
     <>
       <div className={!minimized ? styles.overlay : ''} />
       <div className={classes}>
-        {displayTaskInstance ? (
-          <div
-            className={classNames(styles.miniTask, {
-              [styles.miniTaskOpen]: minimized,
-            })}
-          >
-            <TaskListItem
-              currentTask={currentTask}
-              index={displayTaskIndex}
-              task={displayTaskInstance}
-            />
-            <NextTaskInstance
-              currentTask={currentTask}
-              nextTaskIndex={nextTaskIndex}
-              storyLength={taskSections.length}
-              taskName={taskSections[nextTaskIndex]?.taskName}
-            />
-          </div>
-        ) : null}
         <div className={styles.header}>
           <Group spacing={16}>
             <div className={styles.storyProgressWrapper}>
@@ -120,18 +69,6 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                 progress={currentStory}
               />
             </div>
-            <Button
-              className={styles.button}
-              onClick={handleNextStory}
-              disabled={
-                currentStory === stories.length - 1 ||
-                currentTask <= taskSections.length - 1
-              }
-              data-testid="TutorialModalBody__nextStory"
-            >
-              Next Story
-              <ArrowRightSVG />
-            </Button>
           </Group>
           <div className={styles.rightButtons}>
             {onSkip && (
@@ -159,7 +96,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
             <Button
               className={styles.button}
               buttonType="secondary"
-              onClick={() => setMinimized((prevValue) => !prevValue)}
+              onClick={() => setMinimized(!minimized)}
               data-testid={`TutorialModalBody__${
                 minimized ? 'maximize' : 'minimize'
               }`}
