@@ -114,8 +114,14 @@ jobs:
       - restore_cache:
           keys:
             - go-mod-helm-v4-{{ checksum "go.sum" }}
-      - run: wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
-      - run: wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
+      - run:
+          name: install helm
+          command: |
+             wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
+      - run:
+          name: install kubeval
+          command: |
+            wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
       - run: make lint
       - run: make test
       - run: make kubeval-gcp
@@ -309,7 +315,9 @@ jobs:
           name: Build Docker
           command: |
             v=<< parameters.appVersion >>
-            make docker-build VERSION=v VERSION_ADDITIONAL=${v:${#${v%%-*}}}
+            additional=${v%%-*}
+            index=${#additional}
+            make docker-build VERSION=v VERSION_ADDITIONAL=${v:index}
       - run:
           name: Push docker
           command: make docker-push VERSION=${CIRCLE_SHA1}
@@ -365,7 +373,9 @@ jobs:
                 # TODO: remove and replace only for testing
                 command: |
                   v=<< parameters.version >>
-                  make release-pachctl GORELSNAP=--snapshot VERSION=v VERSION_ADDITIONAL=${v:${#${v%%-*}}}
+                  additional=${v%%-*}
+                  index=${#additional}
+                  make release-pachctl GORELSNAP=--snapshot VERSION=v VERSION_ADDITIONAL=${v:index}
             - persist_to_workspace:
                 root: ../
                 paths:
@@ -717,7 +727,6 @@ workflows:
               #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
-            - sign-off
             - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
       - helm-publish:
           name: publish-helm-chart
