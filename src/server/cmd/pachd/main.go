@@ -819,17 +819,19 @@ func doPausedMode(config interface{}) (retErr error) {
 		}); err != nil {
 			return err
 		}
-		if err := logGRPCServerSetup("Identity API", func() error {
-			idAPIServer := identity_server.NewIdentityServer(
-				identity_server.EnvFromServiceEnv(env),
-				true,
-			)
-			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
-			env.SetIdentityServer(idAPIServer)
-			return nil
-		}); err != nil {
-			return err
+		if !env.Config().EnterpriseMember {
+			if err := logGRPCServerSetup("Identity API", func() error {
+				idAPIServer := identity_server.NewIdentityServer(
+					identity_server.EnvFromServiceEnv(env),
+					true,
+				)
+				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+				env.SetIdentityServer(idAPIServer)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 		if err := logGRPCServerSetup("Auth API", func() error {
 			authAPIServer, err := authserver.NewAuthServer(
@@ -842,6 +844,15 @@ func doPausedMode(config interface{}) (retErr error) {
 			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
 			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
 			env.SetAuthServer(authAPIServer)
+			return nil
+		}); err != nil {
+			return err
+		}
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+		if err := logGRPCServerSetup("Health", func() error {
+			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -868,6 +879,7 @@ func doPausedMode(config interface{}) (retErr error) {
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
+		healthServer.Resume()
 		return nil
 	}); err != nil {
 		return err
