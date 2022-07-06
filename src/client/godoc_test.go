@@ -1,3 +1,5 @@
+//go:build k8s
+
 //nolint:wrapcheck
 package client
 

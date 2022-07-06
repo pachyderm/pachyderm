@@ -1,0 +1,87 @@
+{{- if .Values.kubeEventTail.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: pachyderm-kube-event-tail
+    suite: pachyderm
+  name: pachyderm-kube-event-tail
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pachyderm-kube-event-tail
+      suite: pachyderm
+  template:
+    metadata:
+      labels:
+        app: pachyderm-kube-event-tail
+        suite: pachyderm
+    spec:
+    {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
+      containers:
+        - name: kube-event-tail
+          env:
+            - name: DEBUG_ADDRESS
+              value: 0.0.0.0:8081
+            - name: NAMESPACE
+          {{- if eq .Values.kubeEventTail.clusterScope true }}
+              value: ""
+          {{ else }}
+              value: {{ .Release.Namespace }}
+          {{- end }}
+          image: "{{ .Values.kubeEventTail.image.repository }}:{{ .Values.kubeEventTail.image.tag }}"
+          imagePullPolicy: {{ .Values.kubeEventTail.image.pullPolicy }}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: debug
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          ports:
+            - containerPort: 8081
+              name: debug
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: debug
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+        {{- if .Values.kubeEventTail.resources }}
+          resources: {{ toYaml .Values.kubeEventTail.resources | nindent 12 }}
+        {{- else }}
+          resources:
+            limits:
+              cpu: 1
+              memory: 45Mi
+            requests:
+              cpu: 100m
+              memory: 45Mi
+        {{- end }}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+    {{- if .Values.global.securityContexts.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+    {{- end }}
+      serviceAccountName: pachyderm-kube-event-tail
+{{- end }}

@@ -172,6 +172,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			if err := yaml.Unmarshal([]byte(a.env.Config.AuthConfig), &config); err != nil {
 				return errors.Wrapf(err, "unmarshal auth config: %q", a.env.Config.AuthConfig)
 			}
+			config.ClientSecret = a.env.Config.AuthClientSecret
 			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
@@ -226,7 +227,6 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			for p := range existing.Binding.Entries {
 				// `pach:` user role bindings cannot be modified
 				if strings.HasPrefix(p, auth.PachPrefix) || strings.HasPrefix(p, auth.InternalPrefix) {
-					a.env.Logger.Warnf("cannot modify cluster role bindings for subject %q", p)
 					continue
 				}
 				if _, ok := roleBinding[p]; !ok {

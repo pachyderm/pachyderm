@@ -203,6 +203,15 @@ spec:
             secretKeyRef:
               name: "pachyderm-auth"
               key: "auth-config"
+        - name: AUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.pachd.oauthClientSecretSecretName }}
+              name: {{ .Values.pachd.oauthClientSecretSecretName | quote }}
+              {{- else }}
+              name: "pachyderm-auth"
+              {{- end }}
+              key: "pachd-oauth-client-secret"
         - name: IDP_CLIENTS
           valueFrom:
             configMapKeyRef:
@@ -263,7 +272,7 @@ spec:
           valueFrom:
             configMapKeyRef:
               name: "pachyderm-enterprise-config"
-              key: "enterprise-cluster" 
+              key: "enterprise-cluster"
         {{- end }}
         {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
         - name: IDENTITY_SERVER_DATABASE
@@ -316,6 +325,13 @@ spec:
             command:
             - /pachd
             - --readiness
+        startupProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}

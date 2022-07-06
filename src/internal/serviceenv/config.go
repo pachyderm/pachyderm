@@ -115,6 +115,7 @@ type EnterpriseSpecificConfiguration struct {
 	ActivateAuth            bool   `env:"ACTIVATE_AUTH,default=false"`
 	AuthRootToken           string `env:"AUTH_ROOT_TOKEN,default="`
 	AuthConfig              string `env:"AUTH_CONFIG,default="`
+	AuthClientSecret        string `env:"AUTH_CLIENT_SECRET,default="`
 	AuthClusterRoleBindings string `env:"AUTH_CLUSTER_RBAC,default="`
 	LicenseKey              string `env:"LICENSE_KEY,default="`
 	EnterpriseSecret        string `env:"ENTERPRISE_SECRET,default="`

@@ -30,16 +30,6 @@ import (
 )
 
 const (
-	// MetaPrefix is the prefix for the meta path.
-	MetaPrefix = "meta"
-	// MetaFileName is the name of the meta file.
-	MetaFileName = "meta"
-	// PFSPrefix is the prefix for the pfs path.
-	PFSPrefix = "pfs"
-	// OutputPrefix is the prefix for the output path.
-	OutputPrefix = "out"
-	// TmpFileName is the name of the tmp file.
-	TmpFileName       = "tmp"
 	defaultNumRetries = 3
 )
 
@@ -207,12 +197,12 @@ func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
 
 // PFSStorageRoot returns the pfs storage root.
 func (d *Datum) PFSStorageRoot() string {
-	return path.Join(d.storageRoot, PFSPrefix, d.ID)
+	return path.Join(d.storageRoot, common.PFSPrefix, d.ID)
 }
 
 // MetaStorageRoot returns the meta storage root.
 func (d *Datum) MetaStorageRoot() string {
-	return path.Join(d.storageRoot, MetaPrefix, d.ID)
+	return path.Join(d.storageRoot, common.MetaPrefix, d.ID)
 }
 
 func (d *Datum) finish(err error) (retErr error) {
@@ -244,7 +234,7 @@ func (d *Datum) handleFailed(err error) {
 
 func (d *Datum) withData(cb func() error) (retErr error) {
 	// Setup and defer cleanup of pfs directory.
-	if err := os.MkdirAll(path.Join(d.PFSStorageRoot(), OutputPrefix), 0777); err != nil {
+	if err := os.MkdirAll(path.Join(d.PFSStorageRoot(), common.OutputPrefix), 0777); err != nil {
 		return errors.EnsureStack(err)
 	}
 	defer func() {
@@ -352,7 +342,7 @@ func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
 	if err := marshaler.Marshal(buf, d.meta); err != nil {
 		return errors.EnsureStack(err)
 	}
-	fullPath := path.Join(MetaPrefix, d.IDPrefix+d.ID, MetaFileName)
+	fullPath := common.MetaFilePath(d.IDPrefix + d.ID)
 	err := mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
 	return errors.EnsureStack(err)
 }
@@ -361,7 +351,7 @@ func (d *Datum) uploadOutput() error {
 	if d.set.pfsOutputClient != nil {
 		start := time.Now()
 		d.meta.Stats.UploadBytes = 0
-		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), OutputPrefix), func(hdr *tar.Header) error {
+		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), common.OutputPrefix), func(hdr *tar.Header) error {
 			d.meta.Stats.UploadBytes += hdr.Size
 			return nil
 		}); err != nil {
@@ -495,11 +485,11 @@ func NewDeleter(metaFileWalker fileWalkerFunc, metaOutputClient, pfsOutputClient
 		ID := common.DatumID(meta.Inputs)
 		tagOption := client.WithDatumDeleteFile(ID)
 		// Delete the datum's meta file from the meta commit.
-		if err := metaOutputClient.DeleteFile(path.Join(MetaPrefix, ID, MetaFileName), tagOption); err != nil {
+		if err := metaOutputClient.DeleteFile(common.MetaFilePath(ID), tagOption); err != nil {
 			return errors.EnsureStack(err)
 		}
-		pfsDir := "/" + path.Join(PFSPrefix, ID)
-		outDir := path.Join(pfsDir, OutputPrefix)
+		pfsDir := "/" + path.Join(common.PFSPrefix, ID)
+		outDir := path.Join(pfsDir, common.OutputPrefix)
 		files, err := metaFileWalker(pfsDir)
 		if err != nil {
 			if pfsserver.IsFileNotFoundErr(err) {
