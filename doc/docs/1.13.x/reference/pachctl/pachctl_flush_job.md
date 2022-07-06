@@ -15,10 +15,10 @@ pachctl flush job <repo>@<branch-or-commit> ... [flags]
 ```
 
 # Return jobs caused by foo@XXX and bar@YYY.
-$ pachctl flush job foo@XXX bar@YYY
+pachctl flush job foo@XXX bar@YYY
 
 # Return jobs caused by foo@XXX leading to pipelines bar and baz.
-$ pachctl flush job foo@XXX -p bar -p baz
+pachctl flush job foo@XXX -p bar -p baz
 ```
 
 ### Options

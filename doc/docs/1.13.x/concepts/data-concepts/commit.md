@@ -57,7 +57,7 @@ displays the information about the HEAD of the branch.
 
 !!! example
     ```shell
-    $ pachctl inspect commit raw_data@master --full-timestamps
+    pachctl inspect commit raw_data@master --full-timestamps
     ```
 
     **System Response:**
@@ -82,5 +82,5 @@ the incorrect data.
 
 !!! example
     ```shell
-    $ pachctl delete commit raw_data@8248d97632874103823c7603fb8c851c
+    pachctl delete commit raw_data@8248d97632874103823c7603fb8c851c
     ```

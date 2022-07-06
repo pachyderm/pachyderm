@@ -15,16 +15,16 @@ pachctl list commit <repo>[@<branch>] [flags]
 ```
 
 # return commits in repo "foo"
-$ pachctl list commit foo
+pachctl list commit foo
 
 # return commits in repo "foo" on branch "master"
-$ pachctl list commit foo@master
+pachctl list commit foo@master
 
 # return the last 20 commits in repo "foo" on branch "master"
-$ pachctl list commit foo@master -n 20
+pachctl list commit foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
-$ pachctl list commit foo@master --from XXX
+pachctl list commit foo@master --from XXX
 ```
 
 ### Options

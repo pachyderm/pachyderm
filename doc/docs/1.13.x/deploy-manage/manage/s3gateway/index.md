@@ -65,7 +65,7 @@ commits by using the commit ID as the S3 object version ID or use the new syntax
     To retrieve the file `file.txt` in the commit `a5984442ce6b4b998879513ff3da17da` on the master branch of the repo `arandomrepo`:
 
     ```shell
-    $ aws s3api get-object --bucket master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt --version-id a5984442ce6b4b998879513ff3da17da export.txt
+    aws s3api get-object --bucket master.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt --version-id a5984442ce6b4b998879513ff3da17da export.txt
     ```
     ```shell
     {
@@ -81,6 +81,6 @@ commits by using the commit ID as the S3 object version ID or use the new syntax
     OR...
 
     ```shell
-    $ aws s3api get-object --bucket a5984442ce6b4b998879513ff3da17da.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt export.txt
+    aws s3api get-object --bucket a5984442ce6b4b998879513ff3da17da.arandomrepo --profile gcp-pf --endpoint http://localhost:30600 --key file.txt export.txt
     ```
     
