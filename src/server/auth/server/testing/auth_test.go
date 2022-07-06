@@ -480,7 +480,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 2*time.Minute, func() error {
+	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := bobClient.WaitCommit(goodPipeline, "master", "")
 		return err
 	})
@@ -1689,7 +1689,7 @@ func TestListJob(t *testing.T) {
 	var err error
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 100*time.Second, func() error {
+	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1765,7 +1765,7 @@ func TestInspectDatum(t *testing.T) {
 	// alice commits to the input repo, and the pipeline runs successfully
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1988,7 +1988,7 @@ func TestPipelineNewInput(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[2]))
 
 	// make sure the pipeline runs
-	require.NoErrorWithinT(t, 2*time.Minute, func() error {
+	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
