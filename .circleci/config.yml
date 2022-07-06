@@ -307,7 +307,9 @@ jobs:
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Build Docker
-          command: make docker-build VERSION=<< parameters.appVersion >>
+          command: |
+            v=<< parameters.appVersion >>
+            make docker-build VERSION=v VERSION_ADDITIONAL=${v:${#${v%%-*}}}
       - run:
           name: Push docker
           command: make docker-push VERSION=${CIRCLE_SHA1}
@@ -316,6 +318,7 @@ jobs:
       version:
         type: string
       upload:
+        description: Determines if this job should perform an extra step to upload bin to a gcp bucket.
         type: boolean
         default: false
     resource_class: large
@@ -341,6 +344,7 @@ jobs:
           steps:
             - run:
                 name: build pachctl bin
+                description: Builds and uploads pachctl amd64 binary for extensions with a git commit SHA.
                 command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
             - run:
                 name: upload pachctl binaries 
@@ -356,9 +360,12 @@ jobs:
           steps:
             - run:
                 name: build pachctl bin
+                description: Builds and prepares all pachctl binaries for release.
                 # command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
                 # TODO: remove and replace only for testing
-                command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
+                command: |
+                  v=<< parameters.version >>
+                  make release-pachctl GORELSNAP=--snapshot VERSION=v VERSION_ADDITIONAL=${v:${#${v%%-*}}}
             - persist_to_workspace:
                 root: ../
                 paths:
