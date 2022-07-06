@@ -317,7 +317,7 @@ jobs:
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
-            make docker-build VERSION=v VERSION_ADDITIONAL=${v:index}
+            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
       - run:
           name: Push docker
           command: make docker-push VERSION=${CIRCLE_SHA1}
@@ -375,7 +375,7 @@ jobs:
                   v=<< parameters.version >>
                   additional=${v%%-*}
                   index=${#additional}
-                  make release-pachctl GORELSNAP=--snapshot VERSION=v VERSION_ADDITIONAL=${v:index}
+                  make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
             - persist_to_workspace:
                 root: ../
                 paths:
@@ -668,7 +668,6 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - helm-build
-            - build-docker-images
       - pachyderm-prerelease-testing:
           filters:
             branches:
