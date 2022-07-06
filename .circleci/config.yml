@@ -475,11 +475,13 @@ jobs:
       - image: cimg/base:stable
     steps:
       - checkout
+      - attach_workspace:
+          at: ./
       - gh/setup:
           version: 2.13.0
       - run:
           name: create github release
-          command: gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./test/*.zip --generate-notes
+          command: gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -493,17 +495,24 @@ jobs:
           name: retag and push docker images
           command: |
             make VERSION=$VERSION docker-push
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
   release-hombrew-tap:
     docker:
-      - image: cimg/base:stable
+      - image: cimg/go:1.17.3
     steps:
       - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: setup pachydermbuildbot git
+          command: |
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"
+      # TODO make this depend on tag regex
+      - run:
+          name: update homebrew formula
+          command: |
+            ./etc/build/update_homebrew.sh "alpha"
 workflows:
   # circleci:
   #   when:
@@ -702,6 +711,7 @@ workflows:
               only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
           requires:
             - sign-off
+            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
       - helm-publish:
           name: publish-helm-chart
           filters:
