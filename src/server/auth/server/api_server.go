@@ -188,7 +188,11 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 						if !identity.IsErrAlreadyExists(err) {
 							return errors.Wrapf(err, "create oidc client %q", c.Name)
 						}
-						if _, err := a.env.GetIdentityServer().UpdateOIDCClient(ctx, &identity.UpdateOIDCClientRequest{Client: &c}); err != nil {
+						// recreate the client because updating the client secret is not supported by the dex API
+						if _, err := a.env.GetIdentityServer().DeleteOIDCClient(ctx, &identity.DeleteOIDCClientRequest{Id: c.Id}); err != nil {
+							return errors.Wrapf(err, "delete oidc client %q", c.Name)
+						}
+						if _, err := a.env.GetIdentityServer().CreateOIDCClient(ctx, &identity.CreateOIDCClientRequest{Client: &c}); err != nil {
 							return errors.Wrapf(err, "update oidc client %q", c.Name)
 						}
 					}
