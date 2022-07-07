@@ -699,32 +699,30 @@ oidc:
   ## See the example below or https://dexidp.io/docs/connectors/
   # upstreamIDPs:
   #   - id: idpConnector
-  #     jsonConfig: >-
-  #       {
-  #           "issuer": "",
-  #           "clientID": "",
-  #           "clientSecret": "",
-  #           "redirectURI": "http://localhost:30658/callback",
-  #           "insecureEnableGroups": true,
-  #           "insecureSkipEmailVerified": true,
-  #           "insecureSkipIssuerCallbackDomainCheck": true,
-  #           "forwardedLoginParams": ["login_hint"]
-  #       }
+  #     Config:
+  #       issuer: ""
+  #       clientID: ""
+  #       clientSecret: ""
+  #       redirectURI: "http://localhost:30658/callback"
+  #       insecureEnableGroups: true
+  #       insecureSkipEmailVerified: true
+  #       insecureSkipIssuerCallbackDomainCheck: true
+  #       forwardedLoginParams:
+  #       - login_hint
   #     name: idpConnector
   #     type: oidc
   #
   #   - id: okta
-  #     jsonConfig: >-
-  #       {
-  #           "issuer": "https://dev-84362674.okta.com",
-  #           "clientID": "client_id",
-  #           "clientSecret": "notsecret",
-  #           "redirectURI": "http://localhost:30658/callback",
-  #           "insecureEnableGroups": true,
-  #           "insecureSkipEmailVerified": true,
-  #           "insecureSkipIssuerCallbackDomainCheck": true,
-  #           "forwardedLoginParams": ["login_hint"]
-  #       }
+  #     config:
+  #       issuer: "https://dev-84362674.okta.com"
+  #       clientID: "client_id"
+  #       clientSecret: "notsecret"
+  #       redirectURI: "http://localhost:30658/callback"
+  #       insecureEnableGroups: true
+  #       insecureSkipEmailVerified: true
+  #       insecureSkipIssuerCallbackDomainCheck: true
+  #       forwardedLoginParams:
+  #       - login_hint
   #     name: okta
   #     type: oidc
   upstreamIDPs: []

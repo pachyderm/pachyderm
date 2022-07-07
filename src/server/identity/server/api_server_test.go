@@ -233,10 +233,10 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 	conn := &identity.IDPConnector{
-		Id:         "id",
-		Name:       "name",
-		Type:       "mockPassword",
-		JsonConfig: `{"username": "test", "password": "test"}`,
+		Id:     "id",
+		Name:   "name",
+		Type:   "mockPassword",
+		Config: `{"password":"test","username":"test"}`,
 	}
 
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{

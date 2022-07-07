@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	logrus "github.com/sirupsen/logrus"
@@ -56,6 +57,21 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		var connectors []identity.IDPConnector
 		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConnectors), &connectors); err != nil {
 			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
+		}
+		// IDPConnector.Config can't be unmarshalled to directly, so it has to be manually unmarshalled.
+		var tmpConnectors []map[string]interface{}
+		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConnectors), &tmpConnectors); err != nil {
+			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
+		}
+		for i, connector := range connectors {
+			config, ok := tmpConnectors[i]["config"]
+			if ok {
+				configBytes, err := json.Marshal(config)
+				if err != nil {
+					return errors.Wrapf(err, "unmarshal intermediate IdentityConnector config")
+				}
+				connector.Config.Value = configBytes
+			}
 		}
 		existing, err := a.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})
 		if err != nil {

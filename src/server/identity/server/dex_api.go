@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/gogo/protobuf/types"
+
+	"github.com/ghodss/yaml"
+
 	dex_api "github.com/dexidp/dex/api/v2"
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
@@ -109,7 +113,14 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 		return errors.New("no name specified")
 	}
 
-	if err := a.validateConnector(req.Connector.Id, req.Connector.Type, []byte(req.Connector.JsonConfig)); err != nil {
+	// dexidp doesn't support unmarshalling from yaml, so we have to convert to json.
+	// If config is already json, then this is a no-op under the hood.
+	config, err := yaml.YAMLToJSON(PickConfig(req.Connector.Config, req.Connector.JsonConfig))
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+
+	if err := a.validateConnector(req.Connector.Id, req.Connector.Type, config); err != nil {
 		return err
 	}
 
@@ -118,7 +129,7 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 		Type:            req.Connector.Type,
 		Name:            req.Connector.Name,
 		ResourceVersion: strconv.Itoa(int(req.Connector.ConfigVersion)),
-		Config:          []byte(req.Connector.JsonConfig),
+		Config:          config,
 	}
 
 	if err := a.storage.CreateConnector(conn); err != nil {
@@ -156,18 +167,24 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 			c.Name = in.Connector.Name
 		}
 
-		if in.Connector.JsonConfig != "" && in.Connector.JsonConfig != "null" {
-			c.Config = []byte(in.Connector.JsonConfig)
-		}
-
 		if in.Connector.Type != "" {
 			c.Type = in.Connector.Type
+		}
+
+		// dexidp doesn't support unmarshalling from yaml, so we have to convert to json.
+		// If config is already json, then this is a no-op under the hood.
+		config, err := yaml.YAMLToJSON(PickConfig(in.Connector.Config, in.Connector.JsonConfig))
+		if err != nil {
+			return dex_storage.Connector{}, errors.EnsureStack(err)
+		}
+
+		if string(config) != "" && string(config) != "null" {
+			c.Config = config
 		}
 
 		if err := a.validateConnector(c.ID, c.Type, c.Config); err != nil {
 			return dex_storage.Connector{}, err
 		}
-
 		return c, nil
 	})
 	return errors.EnsureStack(err)
@@ -232,6 +249,19 @@ func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error
 	return nil
 }
 
+// PickConfig determines whether to use the config or jsonConfig.
+// JsonConfig should only be used for backwards compatibility.
+func PickConfig(config *types.Any, jsonConfig string) []byte {
+	switch {
+	case config != nil && config.Value != nil && string(config.Value) != "" && string(config.Value) != "null":
+		return config.Value
+	case jsonConfig != "" && jsonConfig != "null":
+		return []byte(jsonConfig)
+	default:
+		return []byte("")
+	}
+}
+
 func storageClientToPach(c dex_storage.Client) *identity.OIDCClient {
 	return &identity.OIDCClient{
 		Id:           c.ID,
@@ -250,7 +280,9 @@ func dexConnectorToPach(c dex_storage.Connector) *identity.IDPConnector {
 		Name:          c.Name,
 		Type:          c.Type,
 		ConfigVersion: int64(version),
-		JsonConfig:    string(c.Config),
+		Config: &types.Any{
+			Value: c.Config,
+		},
 	}
 }
 

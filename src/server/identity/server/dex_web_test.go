@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -145,7 +147,14 @@ func TestUpdateIDP(t *testing.T) {
 
 	// update the connector config
 	_, err = api.UpdateIDPConnector(context.Background(), &identity.UpdateIDPConnectorRequest{
-		Connector: &identity.IDPConnector{Id: "conn", Type: "github", JsonConfig: `{"clientID": "test2", "redirectURI": "/callback"}`, ConfigVersion: 1},
+		Connector: &identity.IDPConnector{
+			Id:   "conn",
+			Type: "github",
+			Config: &types.Any{
+				Value: []byte("---\nclientID: \"test2\"\nredirectURI: \"/callback\""),
+			},
+			ConfigVersion: 1,
+		},
 	})
 	require.NoError(t, err)
 

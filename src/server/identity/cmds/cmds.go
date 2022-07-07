@@ -6,6 +6,11 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/gogo/protobuf/types"
+
+	"github.com/ghodss/yaml"
+	"github.com/pachyderm/pachyderm/v2/src/server/identity/server"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -25,21 +30,24 @@ type connectorConfig struct {
 }
 
 func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
-	config := connectorConfig{
+	config, err := yaml.YAMLToJSON(server.PickConfig(conn.Config, conn.JsonConfig))
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	connConfig := connectorConfig{
 		ID:      conn.Id,
 		Name:    conn.Name,
 		Type:    conn.Type,
 		Version: conn.ConfigVersion,
 	}
-
-	if err := json.Unmarshal([]byte(conn.JsonConfig), &config.Config); err != nil {
+	if err := json.Unmarshal(config, &connConfig.Config); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return &config, nil
+	return &connConfig, nil
 }
 
 func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
-	jsonConfig, err := json.Marshal(c.Config)
+	config, err := json.Marshal(c.Config)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -48,7 +56,9 @@ func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
 		Name:          c.Name,
 		Type:          c.Type,
 		ConfigVersion: c.Version,
-		JsonConfig:    string(jsonConfig),
+		Config: &types.Any{
+			Value: config,
+		},
 	}, nil
 }
 
@@ -153,7 +163,6 @@ func CreateIDPConnectorCmd() *cobra.Command {
 			if err := deserializeYAML(file, &connector); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
-
 			config, err := connector.toIDPConnector()
 			if err != nil {
 				return err
