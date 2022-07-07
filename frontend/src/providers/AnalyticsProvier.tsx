@@ -1,14 +1,19 @@
 import {useAnalytics} from '@pachyderm/components';
+import * as Sentry from '@sentry/react';
+import LogRocket from 'logrocket';
 import React from 'react';
-import {useLocation} from 'react-router';
 import {getAnonymousId, identify, page, track} from 'rudder-sdk-js';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
 import useAuth from '@dash-frontend/hooks/useAuth';
 
+const enableTelemetry =
+  process.env.REACT_APP_RUNTIME_DISABLE_TELEMETRY !== 'true';
+
 const AnalyticsProvider: React.FC = ({children}) => {
   const {loggedIn} = useAuth();
   const {account} = useAccount({skip: !loggedIn});
+
   const analytics = useAnalytics({
     createdAt: Date.now(),
     email: account?.email,
@@ -21,14 +26,16 @@ const AnalyticsProvider: React.FC = ({children}) => {
     },
   });
 
-  analytics.init();
+  if (enableTelemetry) {
+    Sentry.setUser({
+      id: account?.id,
+      email: account?.email,
+    });
+    if (account?.email) {
+      LogRocket.identify(account.email);
+    }
 
-  const {search} = useLocation();
-  const params = new URLSearchParams(search);
-  const promoCode = params.get('utm_content');
-
-  if (promoCode) {
-    window.localStorage.setItem('promoCode', promoCode);
+    analytics.init();
   }
 
   return <>{children}</>;
