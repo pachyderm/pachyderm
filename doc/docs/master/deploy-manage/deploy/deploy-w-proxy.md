@@ -3,7 +3,7 @@
 We are now shipping Pachyderm with an **optional embedded proxy** allowing Pachyderm to expose one single port externally (whether you access `pachd` over gRPC using `pachctl`, or `console` over HTTP, for example).
 
 See Pachyderm new high-level architecture diagram:
-![High level architecture](../../images/arch-diagram-high-level-with-proxy.svg)
+![High level architecture](../images/arch-diagram-high-level-with-proxy.svg)
 
 This page is an add-on to existing installation instructions in the case where you chose to deploy Pachyderm with an embedded proxy. The steps below replace all or parts of the existing installation documentation. We will let you know when to use them and which section they overwrite.
 
@@ -21,7 +21,7 @@ This page is an add-on to existing installation instructions in the case where y
 !!! Warning
     The deployment of Pachyderm with a proxy is optional at the moment and will become permanent in the next minor release of Pachyderm.
 
-The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../../images/infra-recommendations-with-proxy.png)
+The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../images/infra-recommendations-with-proxy.png)
 
 !!! Note 
     See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L699){target=_blank} for all available configurable fields of the proxy.
