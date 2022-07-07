@@ -235,13 +235,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	tempExternalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
-	if err != nil {
-		return err
-	}
-	if _, err := tempExternalServer.ListenTCP("", env.Config().Port); err != nil {
-		return err
-	}
 	var bootstrappers []bootstrapper
 	if err := logGRPCServerSetup("External + Internal Enterprise Servers", func() error {
 		txnEnv := txnenv.New()
@@ -269,7 +262,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
-			eprsclient.RegisterAPIServer(tempExternalServer.Server, enterpriseAPIServer)
 			env.SetEnterpriseServer(enterpriseAPIServer)
 			licenseEnv.EnterpriseServer = enterpriseAPIServer
 			bootstrappers = append(bootstrappers, enterpriseAPIServer)
@@ -343,7 +335,6 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 				return errors.EnsureStack(err)
 			}
 		}
-		tempExternalServer.Server.GracefulStop()
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
@@ -522,6 +513,10 @@ func doFullMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
+	tempExternalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	if err != nil {
+		return err
+	}
 	var bootstrappers []bootstrapper
 	if err := logGRPCServerSetup("External + Internal Pachd Servers", func() error {
 		txnEnv := txnenv.New()
@@ -554,6 +549,7 @@ func doFullMode(config interface{}) (retErr error) {
 			}
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
+			eprsclient.RegisterAPIServer(tempExternalServer.Server, enterpriseAPIServer)
 			bootstrappers = append(bootstrappers, enterpriseAPIServer)
 			env.SetEnterpriseServer(enterpriseAPIServer)
 			licenseEnv.EnterpriseServer = enterpriseAPIServer
@@ -690,6 +686,15 @@ func doFullMode(config interface{}) (retErr error) {
 		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
 			return err
 		}
+		if _, err := tempExternalServer.ListenTCP("", env.Config().Port); err != nil {
+			return err
+		}
+		for _, b := range bootstrappers {
+			if err := b.EnvBootstrap(context.Background()); err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
+		tempExternalServer.Server.GracefulStop()
 		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
@@ -697,11 +702,6 @@ func doFullMode(config interface{}) (retErr error) {
 		return nil
 	}); err != nil {
 		return err
-	}
-	for _, b := range bootstrappers {
-		if err := b.EnvBootstrap(context.Background()); err != nil {
-			return errors.EnsureStack(err)
-		}
 	}
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
