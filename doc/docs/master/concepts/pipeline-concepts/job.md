@@ -59,7 +59,7 @@ They are various ways to list jobs in Pachyderm, depending on the expected outco
 
     !!! example
         ```shell
-        $ pachctl list jobs -p edges
+        pachctl list jobs -p edges
         ```
 
         **System Response:**
@@ -87,7 +87,7 @@ process time, image:tag used to transform your data, etc...). Along with checkin
     Add a `--raw` flag to output a detailed JSON version of the job.
 
     ```shell
-    $ pachctl inspect jobs edges@fd9454d06d8e4fa38a75c8cd20b39538 --raw
+    pachctl inspect jobs edges@fd9454d06d8e4fa38a75c8cd20b39538 --raw
     ```
 
     **System Response:**
