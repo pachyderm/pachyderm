@@ -3,7 +3,7 @@
 We are now shipping Pachyderm with an **optional embedded proxy** allowing Pachyderm to expose one single port externally (whether you access `pachd` over gRPC using `pachctl`, or `console` over HTTP, for example).
 
 See Pachyderm new high-level architecture diagram:
-![High level architecture](../../images/arch-diagram-high-level-with-proxy.png)
+![High level architecture](../../images/arch-diagram-high-level-with-proxy.svg)
 
 This page is an add-on to existing installation instructions in the case where you chose to deploy Pachyderm with an embedded proxy. The steps below replace all or parts of the existing installation documentation. We will let you know when to use them and which section they overwrite.
 

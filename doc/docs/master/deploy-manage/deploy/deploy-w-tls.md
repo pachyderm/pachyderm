@@ -56,8 +56,7 @@ Et voila!
     If you choose to deploy Pachyderm with a proxy (see the [deployment instructions](../deploy-w-proxy/) and new recommended architecture), the setup of **tls is set in the proxy section of your values.yaml** only (i.e., tls terminates inside the proxy).
 
     Note that if you are planning on putting the proxy behind an ingress controller, you probably
-    want to configure TLS for the ingress controller, rather than the proxy.  The setup of TLS at the proxy level is intended for the case where the proxy is exposed directly to the Internet.  It is possible to have your ingress controller talk to the proxy over TLS, in which case, it is fine to enable TLS both in the proxy section and the ingress section. 
-
+    want to configure TLS for the ingress controller, rather than the proxy.  The setup of TLS at the proxy level is intended for the case where the proxy is exposed directly to the Internet.
 
     ```yaml
       proxy:
