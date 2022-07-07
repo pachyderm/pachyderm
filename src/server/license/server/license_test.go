@@ -246,7 +246,7 @@ func TestClusterCRUD(t *testing.T) {
 
 // TestAddClusterUnreachable tries to add a cluster with a misconfigured address
 // and confirms there's an error
-func TestAddClusterUnreachable(t *testing.T) {
+func TestAddClusterAddressValidation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -255,7 +255,7 @@ func TestAddClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "grpc://bad.example",
+		Address: "",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
@@ -263,7 +263,7 @@ func TestAddClusterUnreachable(t *testing.T) {
 
 // TestUpdateClusterUnreachable tries to update an existing cluster with a misconfigured address
 // and confirms there's an error
-func TestUpdateClusterUnreachable(t *testing.T) {
+func TestUpdateClusterAddressValidation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -272,7 +272,7 @@ func TestUpdateClusterUnreachable(t *testing.T) {
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:      "localhost",
-		Address: "grpc://bad.example",
+		Address: "",
 	})
 	require.YesError(t, err)
 	require.Matches(t, "unable to create client", err.Error())
