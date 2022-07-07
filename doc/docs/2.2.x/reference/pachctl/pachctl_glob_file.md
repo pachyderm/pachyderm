@@ -17,10 +17,10 @@ pachctl glob file <repo>@<branch-or-commit>:<pattern> [flags]
 # Return files in repo "foo" on branch "master" that start
 # with the character "A".  Note how the double quotation marks around the
 # parameter are necessary because otherwise your shell might interpret the "*".
-pachctl glob file "foo@master:A*"
+$ pachctl glob file "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-pachctl glob file "foo@master:data/*"
+$ pachctl glob file "foo@master:data/*"
 ```
 
 ### Options
