@@ -1,5 +1,8 @@
 
 # Changelog
+## 2.2.4
+- Remove Log Parsing in lokiutil - #7863
+
 ## 2.2.3
 - enable console by default - #7813
 - Enterprise Members shouldn't run the Identity/Dex Service - #7785
