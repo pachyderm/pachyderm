@@ -29,7 +29,7 @@ const useNode = (node: Node, isInteractive: boolean) => {
     let nodeName = node.name;
     // Need to have a string that works as a valid query selector.
     // urls (and url-encoded urls) are not valid query selectors.
-    if (node.type === NodeType.EGRESS) {
+    if (node.name && node.type === NodeType.EGRESS) {
       const {host} = new URL(node.name);
 
       nodeName = host.replace('.com', '');

@@ -54,7 +54,7 @@ const normalizeDAGData = async (
         return node.parents.reduce<LinkInputData[]>((acc, parent) => {
           const parentName = `${parent}_repo`;
           const sourceIndex = correspondingIndex[parentName];
-          const state = vertices[sourceIndex].jobState || undefined;
+          const sourceVertex = vertices[sourceIndex];
 
           return [
             ...acc,
@@ -62,8 +62,8 @@ const normalizeDAGData = async (
               id: objectHash({node: node, parent}),
               sources: [parentName],
               targets: [node.name],
-              state,
-              sourceState: vertices[sourceIndex].state || undefined,
+              state: sourceVertex?.jobState || undefined,
+              sourceState: sourceVertex?.state || undefined,
               targetstate: node.state || undefined,
               sections: [],
               transferring: deriveTransferringState({
@@ -77,7 +77,7 @@ const normalizeDAGData = async (
 
       return node.parents.reduce<LinkInputData[]>((acc, parentName) => {
         const sourceIndex = correspondingIndex[parentName || ''];
-        const state = vertices[sourceIndex].jobState || undefined;
+        const sourceVertex = vertices[sourceIndex];
 
         return [
           ...acc,
@@ -86,13 +86,13 @@ const normalizeDAGData = async (
             id: objectHash(`${parentName}-${node.name}`),
             sources: [parentName],
             targets: [node.name],
-            state,
-            sourceState: vertices[sourceIndex].state || undefined,
+            state: sourceVertex?.jobState || undefined,
+            sourceState: sourceVertex?.state || undefined,
             targetstate: node.state || undefined,
             sections: [],
             transferring: deriveTransferringState({
-              targetNodeType: vertices[sourceIndex].type,
-              targetNodeState: state,
+              targetNodeType: sourceVertex?.type || undefined,
+              targetNodeState: sourceVertex?.jobState || undefined,
             }),
           },
         ];
