@@ -9,14 +9,14 @@ you need to add the `-n` or `--namespace` flag when deploying.
 
 
     ```shell
-    $ helm install <args> --namespace pachyderm --create-namespace
+    helm install <args> --namespace pachyderm --create-namespace
     ```
 
 * To talk to your Pachyderm cluster:
 
     - You can either modify an existing pachctl context
         ```shell
-        $ pachctl config update context --namespace pachyderm
+        pachctl config update context --namespace pachyderm
         ```
 
     - or [import one from Kubernetes](../import-kubernetes-context/):
