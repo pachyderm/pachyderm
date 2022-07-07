@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -22,6 +23,7 @@ type Env struct {
 
 	// circular dependency
 	GetEnterpriseServer func() enterprise.APIServer
+	GetIdentityServer   func() identity.APIServer
 	GetPfsServer        func() pfs.APIServer
 	GetPpsServer        func() pps.APIServer
 
@@ -38,6 +40,7 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv
 		TxnEnv:     txnEnv,
 
 		GetEnterpriseServer: senv.EnterpriseServer,
+		GetIdentityServer:   senv.IdentityServer,
 		GetPfsServer:        senv.PfsServer,
 		GetPpsServer:        senv.PpsServer,
 

@@ -28,6 +28,9 @@ spec:
       annotations: {{ toYaml .Values.pgbouncer.annotations | nindent 4 }}
       {{- end }}
     spec:
+      {{- if .Values.pgbouncer.priorityClassName }}
+      priorityClassName: {{ .Values.pgbouncer.priorityClassName }}
+      {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - env:
@@ -37,7 +40,7 @@ spec:
           value: "True"
         - name: POSTGRESQL_HOST
          {{- if .Values.postgresql.enabled }}
-          value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local  
+          value: {{ .Values.global.postgresql.postgresqlHost }}.{{ .Release.Namespace }}.svc.cluster.local
          {{- else }}
           value: {{ .Values.global.postgresql.postgresqlHost }}
          {{- end }}
@@ -74,11 +77,28 @@ spec:
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }} 
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
-        image: bitnami/pgbouncer:1.16.1-debian-10-r82
+        image: "{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
+        livenessProbe:
+          failureThreshold: 5
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/ --tuples-only --command="SELECT 1;" | grep -q "1"
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 3
+          tcpSocket:
+            port: 5432
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
         ports:
         - containerPort: 5432
           name: client-port
@@ -87,6 +107,14 @@ spec:
             cpu: 250m
             memory: 256M
         volumeMounts:
+        - mountPath: /opt/bitnami/pgbouncer/conf/
+          name: config
+        - mountPath: /opt/bitnami/pgbouncer/tmp/
+          name: pgtmp
+        - mountPath: /opt/bitnami/pgbouncer/logs/
+          name: logs
+        - mountPath: /tmp
+          name: tmp
         {{- if .Values.global.postgresql.postgresqlSSLSecret }}
         - mountPath: /pg-tls-cert
           name: pg-tls-cert
@@ -95,6 +123,21 @@ spec:
         - mountPath: /pg-ca-cert
           name: pg-ca-cert
         {{- end }}
+      {{- if .Values.global.securityContexts.enabled }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       {{- if .Values.pgbouncer.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pgbouncer.nodeSelector | nindent 8 }}
       {{- end }}
@@ -102,6 +145,14 @@ spec:
       tolerations: {{ toYaml .Values.pgbouncer.tolerations | nindent 8 }}
       {{- end }}
       volumes:
+      - emptyDir: {}
+        name: pgtmp
+      - emptyDir: {}
+        name: tmp
+      - emptyDir: {}
+        name: config
+      - emptyDir: {}
+        name: logs
       {{- if .Values.global.postgresql.postgresqlSSLSecret }}
       - name: pg-tls-cert
         secret:

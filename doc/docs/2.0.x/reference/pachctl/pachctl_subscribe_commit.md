@@ -15,13 +15,13 @@ pachctl subscribe commit <repo>[@<branch>] [flags]
 ```
 
 # subscribe to commits in repo "test" on branch "master"
-$ pachctl subscribe commit test@master
+pachctl subscribe commit test@master
 
 # subscribe to commits in repo "test" on branch "master", but only since commit XXX.
-$ pachctl subscribe commit test@master --from XXX
+pachctl subscribe commit test@master --from XXX
 
 # subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
-$ pachctl subscribe commit test@master --new
+pachctl subscribe commit test@master --new
 ```
 
 ### Options

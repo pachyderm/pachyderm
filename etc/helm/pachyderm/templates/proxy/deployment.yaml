@@ -29,6 +29,9 @@ spec:
         {{- toYaml .Values.proxy.labels | nindent 8 }}
         {{- end }}
     spec:
+      {{- if .Values.proxy.priorityClassName }}
+      priorityClassName: {{ .Values.proxy.priorityClassName }}
+      {{- end }}
       affinity:
         podAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -71,8 +74,8 @@ spec:
               containerPort: 9901
             - name: http-port
               containerPort: 8080
-            # - name: https
-            #   containerPort: 8443
+            - name: https-port
+              containerPort: 8443
             - name: console-direct
               containerPort: 4000
             - name: s3-direct
@@ -96,14 +99,35 @@ spec:
           {{- if .Values.proxy.resources }}
           resources: {{ toYaml .Values.proxy.resources | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsUser: 101
-            runAsGroup: 101
           volumeMounts:
             - name: envoy-config
               mountPath: /etc/envoy
+            {{- if .Values.proxy.tls.enabled }}
+            - name: tls
+              mountPath: /tls
+            {{- end }}
+     {{- if .Values.global.securityContexts.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+                drop:
+                - all
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       volumes:
         - name: envoy-config
           configMap:
             name: pachyderm-proxy-config
+        {{- if .Values.proxy.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ required "proxy.tls.secretName must be set when TLS is enabled on the proxy" .Values.proxy.tls.secretName }}
+        {{- end }}
 {{- end }}

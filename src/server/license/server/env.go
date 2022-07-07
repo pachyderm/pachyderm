@@ -15,8 +15,8 @@ type Env struct {
 	EnterpriseServer enterprise.APIServer
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv) Env {
-	return Env{
+func EnvFromServiceEnv(senv serviceenv.ServiceEnv) *Env {
+	return &Env{
 		DB:               senv.GetDBClient(),
 		Listener:         senv.GetPostgresListener(),
 		Config:           senv.Config(),

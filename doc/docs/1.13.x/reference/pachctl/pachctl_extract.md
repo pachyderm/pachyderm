@@ -15,10 +15,10 @@ pachctl extract [flags]
 ```
 
 # Extract into a local file:
-$ pachctl extract > backup
+pachctl extract > backup
 
 # Extract to s3:
-$ pachctl extract -u s3://bucket/backup
+pachctl extract -u s3://bucket/backup
 ```
 
 ### Options

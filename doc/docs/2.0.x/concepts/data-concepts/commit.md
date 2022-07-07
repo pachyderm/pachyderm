@@ -63,7 +63,7 @@ by running `pachctl list commit <commitID>` or restrict to a particular reposito
 
     !!! example
         ```shell
-        $ pachctl list commit images@master
+        pachctl list commit images@master
         ```
 
         **System Response:**
@@ -89,7 +89,7 @@ Pachyderm displays the information about the HEAD of the branch.
 !!! example
     Add a `--raw` flag to output a detailed JSON version of the commit.
     ```shell
-    $ pachctl inspect commit images@c6d7be4a13614f2baec2cb52d14310d0 --raw
+    pachctl inspect commit images@c6d7be4a13614f2baec2cb52d14310d0 --raw
     ```
 
     **System Response:**

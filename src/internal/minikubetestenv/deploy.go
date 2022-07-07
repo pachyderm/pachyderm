@@ -1,10 +1,14 @@
 package minikubetestenv
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -17,7 +21,6 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -33,25 +36,35 @@ const (
 	licenseKeySecretName   = "enterprise-license-key-secret"
 )
 
-var (
-	mu sync.Mutex // defensively lock around helm calls
+const (
+	MinioEndpoint = "minio.default.svc.cluster.local:9000"
+	MinioBucket   = "pachyderm-test"
+)
 
-	computedPachAddress *grpcutil.PachdAddress
+var (
+	mu           sync.Mutex // defensively lock around helm calls
+	hostOverride *string    = flag.String("testenv.host", "", "override the default host used for testenv clusters")
+	basePort     *int       = flag.Int("testenv.baseport", 0, "alternative base port for testenv to begin assigning clusters from")
 )
 
 type DeployOpts struct {
 	Version            string
 	Enterprise         bool
+	Console            bool
 	AuthUser           string
 	CleanupAfter       bool
 	UseLeftoverCluster bool
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset     uint16
-	Loki           bool
-	WaitSeconds    int
-	ValueOverrides map[string]string
+	PortOffset       uint16
+	DisableLoki      bool
+	WaitSeconds      int
+	EnterpriseMember bool
+	EnterpriseServer bool
+	ValueOverrides   map[string]string
+	TLS              bool
+	CertPool         *x509.CertPool
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -79,21 +92,25 @@ func helmChartLocalPath(t testing.TB) string {
 	return filepath.Join(relPathParts...)
 }
 
-func getPachAddress(t testing.TB) *grpcutil.PachdAddress {
-	if computedPachAddress == nil {
-		cfg, err := config.Read(true, true)
-		require.NoError(t, err)
-		_, context, err := cfg.ActiveContext(false)
-		require.NoError(t, err)
-		computedPachAddress, err = client.GetUserMachineAddr(context)
-		require.NoError(t, err)
-		if computedPachAddress == nil {
-			copy := grpcutil.DefaultPachdAddress
-			computedPachAddress = &copy
+func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
+	addr := grpcutil.DefaultPachdAddress
+	if *hostOverride != "" {
+		addr.Host = *hostOverride
+	} else if exposedServiceType() == "NodePort" {
+		in := strings.NewReader("minikube ip")
+		out := new(bytes.Buffer)
+		cmd := exec.Command("/bin/bash")
+		cmd.Stdin = in
+		cmd.Stdout = out
+		if err := cmd.Run(); err != nil {
+			t.Errorf("'minikube ip': %v. Try running tests with the 'testenv.host' argument", err)
 		}
+		addr.Host = strings.TrimSpace(out.String())
 	}
-	copy := *computedPachAddress
-	return &copy
+	if *basePort != 0 {
+		addr.Port = uint16(*basePort)
+	}
+	return &addr
 }
 
 func exposedServiceType() string {
@@ -106,6 +123,16 @@ func exposedServiceType() string {
 		serviceType = "NodePort"
 	}
 	return serviceType
+}
+
+func withoutLokiOptions(namespace string, port int) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"pachd.lokiDeploy":  "false",
+			"pachd.lokiLogging": "false",
+		},
+	}
 }
 
 func withLokiOptions(namespace string, port int) *helm.Options {
@@ -128,30 +155,27 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 	}
 }
 
-func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
+func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"deployTarget": "custom",
-
-			"pachd.service.type":        "ClusterIP",
-			"pachd.image.tag":           image,
-			"pachd.clusterDeploymentID": "dev",
-
-			"pachd.storage.backend":        "MINIO",
-			"pachd.storage.minio.bucket":   "pachyderm-test",
-			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
-			"pachd.storage.minio.id":       "minioadmin",
-			"pachd.storage.minio.secret":   "minioadmin",
-
-			"pachd.resources.requests.cpu":    "250m",
-			"pachd.resources.requests.memory": "512M",
-			"etcd.resources.requests.cpu":     "250m",
-			"etcd.resources.requests.memory":  "512M",
-
+			"pachd.clusterDeploymentID":                    "dev",
 			"global.postgresql.postgresqlPassword":         "pachyderm",
 			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
+			"pachd.resources.requests.cpu":                 "250m",
+			"pachd.resources.requests.memory":              "512M",
+			"etcd.resources.requests.cpu":                  "250m",
+			"etcd.resources.requests.memory":               "512M",
+			"console.enabled":                              "false",
+		},
+	}
+}
 
+func withPachd(image string) *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"pachd.image.tag":    image,
+			"pachd.service.type": "ClusterIP",
 			// For tests, traffic from outside the cluster is routed through the proxy,
 			// but we bind the internal k8s service ports to the same numbers for
 			// in-cluster traffic, like enterprise registration.
@@ -169,6 +193,19 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 			"proxy.service.legacyPorts.metrics":   "30656",
 			"pachd.service.prometheusPort":        "30656",
 		},
+	}
+}
+
+func withMinio() *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"deployTarget":                 "custom",
+			"pachd.storage.backend":        "MINIO",
+			"pachd.storage.minio.bucket":   MinioBucket,
+			"pachd.storage.minio.endpoint": MinioEndpoint,
+			"pachd.storage.minio.id":       "minioadmin",
+			"pachd.storage.minio.secret":   "minioadmin",
+		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
 			"pachd.storage.minio.secure":    "false",
@@ -176,44 +213,101 @@ func localDeploymentWithMinioOptions(namespace, image string) *helm.Options {
 	}
 }
 
-func withEnterprise(namespace string, address *grpcutil.PachdAddress) *helm.Options {
+func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Options {
 	return &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
-			"pachd.rootToken":                      testutil.RootToken,
-			"pachd.oauthClientSecret":              "oidc-client-secret",
+			"pachd.rootToken":                      rootToken,
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
-			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:30658", address.Host),
-			"ingress.host":                       fmt.Sprintf("%s:30657", address.Host),
+			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
+			"oidc.issuerURI":                     "http://pachd:30658/dex",
+			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
 	}
 }
 
-func withPort(namespace string, port uint16) *helm.Options {
-	return &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
-		SetValues: map[string]string{
-			// Run gRPC traffic through the full router.
-			"proxy.service.httpPort":     fmt.Sprintf("%v", port),
-			"proxy.service.httpNodePort": fmt.Sprintf("%v", port),
+func withEnterpriseServer(image, host string) *helm.Options {
+	return &helm.Options{SetValues: map[string]string{
+		"pachd.enabled":                      "false",
+		"enterpriseServer.enabled":           "true",
+		"enterpriseServer.image.tag":         image,
+		"oidc.mockIDP":                       "true",
+		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
+		"pachd.oauthClientID":                "enterprise-pach",
+		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
+		"enterpriseServer.service.type":      "ClusterIP",
+		// For tests, traffic from outside the cluster is routed through the proxy,
+		// but we bind the internal k8s service ports to the same numbers for
+		// in-cluster traffic, like enterprise registration.
+		"proxy.enabled":                      "true",
+		"proxy.service.type":                 exposedServiceType(),
+		"proxy.service.httpPort":             "31650",
+		"proxy.service.httpNodePort":         "31650",
+		"pachd.service.apiGRPCPort":          "31650",
+		"proxy.service.legacyPorts.oidc":     "31657",
+		"pachd.service.oidcPort":             "31657",
+		"proxy.service.legacyPorts.identity": "31658",
+		"pachd.service.identityPort":         "31658",
+		"proxy.service.legacyPorts.metrics":  "31656",
+		"pachd.service.prometheusPort":       "31656",
+	}}
+}
 
-			// Let everything else use the legacy way.  We use the same mapping for
-			// internal ports, so in-cluster traffic doesn't go through the proxy, but
-			// doesn't need to confusingly use a different port number.
-			"pachd.service.apiGRPCPort":           fmt.Sprintf("%v", port),
-			"proxy.service.legacyPorts.oidc":      fmt.Sprintf("%v", port+7),
-			"pachd.service.oidcPort":              fmt.Sprintf("%v", port+7),
-			"proxy.service.legacyPorts.identity":  fmt.Sprintf("%v", port+8),
-			"pachd.service.identityPort":          fmt.Sprintf("%v", port+8),
-			"proxy.service.legacyPorts.s3Gateway": fmt.Sprintf("%v", port+3),
-			"pachd.service.s3GatewayPort":         fmt.Sprintf("%v", port+3),
-			"proxy.service.legacyPorts.metrics":   fmt.Sprintf("%v", port+4),
-			"pachd.service.prometheusPort":        fmt.Sprintf("%v", port+4),
-		},
+func withEnterpriseMember(host string, grpcPort int) *helm.Options {
+	return &helm.Options{SetValues: map[string]string{
+		"pachd.activateEnterpriseMember":     "true",
+		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
+		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
+		"pachd.enterpriseRootToken":          testutil.RootToken,
+		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
+		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
+	}}
+}
+
+func withPort(namespace string, port uint16, tls bool) *helm.Options {
+	opts := &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues:      map[string]string{},
 	}
+
+	// Allow the internal use to have the same port numbers as the proxy.
+	opts.SetValues["pachd.service.apiGRPCPort"] = fmt.Sprintf("%v", port)
+	opts.SetValues["pachd.service.oidcPort"] = fmt.Sprintf("%v", port+7)
+	opts.SetValues["pachd.service.identityPort"] = fmt.Sprintf("%v", port+8)
+	opts.SetValues["pachd.service.s3GatewayPort"] = fmt.Sprintf("%v", port+3)
+	opts.SetValues["pachd.service.prometheusPort"] = fmt.Sprintf("%v", port+4)
+
+	if tls {
+		// Use the default port for HTTPS.
+		opts.SetValues["proxy.service.httpsPort"] = fmt.Sprintf("%v", port)
+		opts.SetValues["proxy.service.httpsNodePort"] = fmt.Sprintf("%v", port)
+
+		// Disable HTTP.
+		opts.SetValues["proxy.service.httpPort"] = "0"
+		opts.SetValues["proxy.service.httpNodePort"] = "0"
+
+		// Disable the legacy services, since anything depending on the TLS argument to this
+		// function expects to do everything through the proxy
+		opts.SetValues["proxy.service.legacyPorts.console"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.oidc"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.identity"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.s3Gateway"] = "0"
+		opts.SetValues["proxy.service.legacyPorts.metrics"] = "0"
+	} else {
+		// Run gRPC traffic through the full router.
+		opts.SetValues["proxy.service.httpPort"] = fmt.Sprintf("%v", port)
+		opts.SetValues["proxy.service.httpNodePort"] = fmt.Sprintf("%v", port)
+
+		// Let the legacy ports go through the proxy.
+		opts.SetValues["proxy.service.legacyPorts.oidc"] = fmt.Sprintf("%v", port+7)
+		opts.SetValues["proxy.service.legacyPorts.identity"] = fmt.Sprintf("%v", port+8)
+		opts.SetValues["proxy.service.legacyPorts.s3Gateway"] = fmt.Sprintf("%v", port+3)
+		opts.SetValues["proxy.service.legacyPorts.metrics"] = fmt.Sprintf("%v", port+4)
+	}
+	return opts
 }
 
 // withoutProxy disables the Pachyderm proxy.  It's used to test upgrades from versions of Pachyderm
@@ -252,9 +346,13 @@ func union(a, b *helm.Options) *helm.Options {
 	return c
 }
 
-func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string) {
+func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace, version string, enterpriseServer bool) {
+	label := "app=pachd"
+	if enterpriseServer {
+		label = "app=pach-enterprise"
+	}
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
-		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pachd"})
+		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
@@ -297,18 +395,24 @@ func waitForPgbouncer(t testing.TB, ctx context.Context, kubeClient *kube.Client
 	}, backoff.RetryEvery(5*time.Second).For(5*time.Minute)))
 }
 
-func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string) *client.APIClient {
+func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string, certpool *x509.CertPool) *client.APIClient {
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
 	require.NoError(t, backoff.Retry(func() error {
 		t.Logf("Connecting to pachd on port: %v, in namespace: %s", pachAddress.Port, namespace)
 		var err error
-		c, err = client.NewFromPachdAddress(pachAddress, client.WithDialTimeout(10*time.Second))
+		opts := []client.Option{client.WithDialTimeout(10 * time.Second)}
+		if certpool != nil {
+			opts = append(opts, client.WithCertPool(certpool))
+		}
+		c, err = client.NewFromPachdAddress(pachAddress, opts...)
 		if err != nil {
+			t.Logf("retryable: failed to connect to pachd on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
 		// Ensure that pachd is really ready to receive requests.
 		if _, err := c.InspectCluster(); err != nil {
+			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
 		}
 		return nil
@@ -348,7 +452,7 @@ func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClie
 			"enterprise-license-key": testutil.GetTestEnterpriseCode(t),
 		},
 	}, metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"))
+	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
@@ -359,24 +463,43 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	version := localImage
 	chartPath := helmChartLocalPath(t)
-	// TODO(acohen4): apply minio deployment to this namespace
-	helmOpts := localDeploymentWithMinioOptions(namespace, version)
+	helmOpts := withBase(namespace)
 	if opts.Version != "" {
 		version = opts.Version
 		chartPath = helmChartPublishedPath
 		helmOpts.Version = version
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
-	pachAddress := getPachAddress(t)
+	pachAddress := GetPachAddress(t)
+	if opts.Enterprise || opts.EnterpriseServer {
+		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
+		issuerPort := int(pachAddress.Port) + 8
+		if opts.EnterpriseMember {
+			issuerPort = 31658
+		}
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
+	}
+	if opts.EnterpriseServer {
+		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
+		pachAddress.Port = uint16(31650)
+	} else {
+		helmOpts = union(helmOpts, withPachd(version))
+		// TODO(acohen4): apply minio deployment to this namespace
+		helmOpts = union(helmOpts, withMinio())
+	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
-		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port))
+		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))
 	}
-	if opts.Enterprise {
-		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		helmOpts = union(helmOpts, withEnterprise(namespace, pachAddress))
+	if opts.EnterpriseMember {
+		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
 	}
-	if opts.Loki {
+	if opts.Console {
+		helmOpts.SetValues["console.enabled"] = "true"
+	}
+	if opts.DisableLoki {
+		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
+	} else {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
@@ -385,9 +508,12 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.ValueOverrides != nil {
 		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
 	}
+	if opts.TLS {
+		pachAddress.Secured = true
+	}
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
-			return pachClient(t, pachAddress, opts.AuthUser, namespace)
+			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 		}
 		deleteRelease(t, context.Background(), namespace, kubeClient)
 		// When CircleCI was experiencing network slowness, downloading
@@ -395,15 +521,15 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		// successful.
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
-	waitForPachd(t, ctx, kubeClient, namespace, version)
-	if opts.Loki {
+	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+	if !opts.DisableLoki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)
 	if opts.WaitSeconds > 0 {
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
-	return pachClient(t, pachAddress, opts.AuthUser, namespace)
+	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 }
 
 // Deploy pachyderm using a `helm upgrade ...`

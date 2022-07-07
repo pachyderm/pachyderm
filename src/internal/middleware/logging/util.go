@@ -15,6 +15,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type config struct {
+	// valid values are only "text" and "json", where "json" is default
+	format string
+}
+
+type Option func(*config)
+
+func WithLogFormat(fmt string) func(*config) {
+	return func(cfg *config) {
+		if fmt != "text" {
+			cfg.format = "json"
+		}
+		cfg.format = fmt
+	}
+}
+
 // This needs to be a global var, not a field on the logger, because multiple servers
 // create new loggers, and the prometheus registration uses a global namespace
 var reportDurationGauge prometheus.Gauge
@@ -28,8 +44,16 @@ type LoggingInterceptor struct {
 }
 
 // NewLoggingInterceptor creates a new interceptor that logs method start and end
-func NewLoggingInterceptor(logger *logrus.Logger) *LoggingInterceptor {
-	logger.Formatter = log.FormatterFunc(log.Pretty)
+func NewLoggingInterceptor(logger *logrus.Logger, opts ...Option) *LoggingInterceptor {
+	cfg := &config{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	logger.Formatter = log.FormatterFunc(log.JSONPretty)
+	if cfg.format == "text" {
+		logger.Formatter = log.FormatterFunc(log.Pretty)
+	}
+
 	interceptor := &LoggingInterceptor{
 		logger,
 		make(map[string]*prometheus.HistogramVec),

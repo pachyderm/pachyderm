@@ -386,6 +386,11 @@ message DiffFileResponse {
 
 message FsckRequest {
   bool fix = 1;
+  oneof zombie_check {
+    Commit zombie_target = 2;
+    // run zombie data detection against all pipelines
+    bool zombie_all = 3;
+  }
 }
 
 message FsckResponse {
@@ -452,6 +457,7 @@ message RunLoadTestRequest {
   string spec = 1;
   Branch branch = 2;
   int64 seed = 3;
+  string pod_patch = 4;
 }
 
 message RunLoadTestResponse {

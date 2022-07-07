@@ -62,7 +62,7 @@ Example:
 ```
 ### console
 
-This section is to configure the Pachyderm UI (`console`) which requires an enterprise license key. It is disabled by default.
+This section is to configure the Pachyderm UI (`console`). It is enabled by default.
 
 - `console.enabled` turns on the deployment of the UI.
 
@@ -161,6 +161,8 @@ This section is to configure the pachd deployment.
 
 - `pachd.image` sets the image to use for pachd. This can be left at the defaults unless instructed.
 
+- `pachd.logFormat` sets the logging format (`text` or `json`). `json` is default.
+-
 - `pachd.logLevel` sets the logging level. `info` is default.
 
 - `pachd.lokiLogging` enables Loki logging if set.

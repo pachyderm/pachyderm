@@ -7,6 +7,12 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	log "github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
+	"golang.org/x/sync/errgroup"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -14,11 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	etcd "go.etcd.io/etcd/client/v3"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -149,9 +150,18 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 						fmt.Printf("errored putting task %v in cache: %v\n", key, err)
 					}
 				}
+				log.WithFields(log.Fields{
+					"task-id": task.ID,
+					"error":   err,
+				}).Print("task response received")
 				if err := cb(task.Index, task.Output, err); err != nil {
+					log.WithFields(log.Fields{
+						"task-id": task.ID,
+						"error":   err,
+					}).Print("task callback failed")
 					return err
 				}
+				log.WithField("task-id", task.ID).Print("task callback complete")
 				atomic.AddInt64(&count, -1)
 				select {
 				case <-done:
@@ -190,9 +200,11 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if err != nil {
 					return err
 				}
+				log.WithField("task-id", taskID).Print("task created")
 				if ed.cache != nil {
 					output, err := ed.cache.Get(ctx, taskID)
 					if err == nil {
+						log.WithField("task-id", taskID).Print("result cached")
 						if err := cb(index, output, nil); err != nil {
 							return err
 						}
@@ -211,6 +223,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if err := renewer.Put(ctx, taskKey, task); err != nil {
 					return err
 				}
+				log.WithField("task-id", taskID).Print("task submitted")
 				atomic.AddInt64(&count, 1)
 			case <-ctx.Done():
 				return errors.EnsureStack(ctx.Err())
@@ -349,7 +362,12 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				return nil
 			}
 			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
+				log.WithField("task-id", task.ID).Println("task received")
 				taskOutput, taskErr := cb(ctx, task.Input)
+				log.WithFields(log.Fields{
+					"task-id": task.ID,
+					"error":   taskErr,
+				}).Println("task completed")
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {
 					return nil

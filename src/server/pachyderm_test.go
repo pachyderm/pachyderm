@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -6,6 +8,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,8 +26,10 @@ import (
 
 	"github.com/docker/go-units"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -46,7 +51,6 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +83,21 @@ func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
 			Constant: 1,
 		},
 		Input: client.NewPFSInput(input, "/*"),
+	}
+}
+
+func createTestCommits(t *testing.T, repoName, branchName string, numCommits int, c *client.APIClient) {
+	require.NoError(t, c.CreateRepo(repoName), "pods should be available to create a repo against")
+
+	for i := 0; i < numCommits; i++ {
+		commit, err := c.StartCommit(repoName, branchName)
+		require.NoError(t, err, "creating a test commit should succeed")
+
+		err = c.PutFile(commit, "/file", bytes.NewBufferString("file contents"))
+		require.NoError(t, err, "should be able to add a file to a commit")
+
+		err = c.FinishCommit(repoName, branchName, commit.ID)
+		require.NoError(t, err, "finishing a commit should succeed")
 	}
 }
 
@@ -1189,6 +1208,37 @@ func TestPipelineFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
+}
+
+func TestPPSEgressURLOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("Skipping %s in short mode", t.Name())
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "file1", strings.NewReader("foo")))
+
+	pipeline := tu.UniqueString("egress")
+	pipelineReq := basicPipelineReq(pipeline, repo)
+	pipelineReq.Egress = &pps.Egress{URL: fmt.Sprintf("test-minio://%s/%s/%s", minikubetestenv.MinioEndpoint, minikubetestenv.MinioBucket, pipeline)}
+
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), pipelineReq)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		commitInfo, err := c.WaitCommit(pipeline, "master", "")
+		if err != nil {
+			return err
+		}
+		jobInfo, err := c.InspectJob(pipeline, commitInfo.Commit.ID, false)
+		if err != nil {
+			return err
+		}
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+		return nil
+	})
 }
 
 func TestEgressFailure(t *testing.T) {
@@ -3080,7 +3130,6 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.Branch.Name, commit2.ID))
 
 	b := backoff.NewTestingBackOff()
-	b.MaxElapsedTime = 30 * time.Second
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil, -1, true)
 		if err != nil {
@@ -4082,13 +4131,17 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestGetLogs(t *testing.T) {
+func testGetLogs(t *testing.T, useLoki bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	var opts []minikubetestenv.Option
+	if !useLoki {
+		opts = append(opts, minikubetestenv.SkipLokiOption)
+	}
+	c, _ := minikubetestenv.AcquireCluster(t, opts...)
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -4291,6 +4344,14 @@ func TestGetLogs(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestGetLogsWithoutLoki(t *testing.T) {
+	testGetLogs(t, false)
+}
+
+func TestGetLogs(t *testing.T) {
+	testGetLogs(t, true)
+}
+
 func TestManyLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4330,7 +4391,7 @@ func TestManyLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		iter := c.GetLogs(pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
@@ -4353,7 +4414,7 @@ func TestLokiLogs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -8151,14 +8212,19 @@ func TestDatumTries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
-	var observedTries int64
-	for iter.Next() {
-		if strings.Contains(iter.Message().Message, "errored running user code after") {
-			observedTries++
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+		iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		var observedTries int64
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "errored running user code after") {
+				observedTries++
+			}
 		}
-	}
-	require.Equal(t, tries, observedTries)
+		if tries != observedTries {
+			return errors.Errorf("got %d but expected %d", observedTries, tries)
+		}
+		return nil
+	})
 }
 
 func TestInspectJob(t *testing.T) {
@@ -9533,7 +9599,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -9889,6 +9955,7 @@ func TestNonrootPipeline(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
 				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+				User:  "65534", // This is "nobody" on the default ubuntu:20.04 container, but it works.
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
@@ -9898,7 +9965,7 @@ func TestNonrootPipeline(t *testing.T) {
 			Update:       false,
 			PodPatch: `[
 				{"op": "add",  "path": "/securityContext",  "value": {}},
-				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 1000}
+				{"op": "add",  "path": "/securityContext/runAsUser",  "value": 65534}
 			]`,
 			Autoscaling: false,
 		},
@@ -10451,7 +10518,6 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	// Initial load
 	master := client.NewCommit(repo, "master", "")
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
-	require.NoError(t, err)
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
@@ -10464,7 +10530,6 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 
 	// Add a new row, and test whether primary key conflicts
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
-	require.NoError(t, err)
 	commitInfo, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 	_, err = c.InspectJob(pipeline, commitInfo.Commit.ID, false)
@@ -10532,4 +10597,226 @@ func TestMissingSecretFailure(t *testing.T) {
 		}
 		return nil
 	})
+}
+func TestDatabaseStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	type rowCountResults struct {
+		NLiveTup int    `json:"n_live_tup"`
+		RelName  string `json:"relname"`
+	}
+
+	type commitResults struct {
+		Key string `json:"key"`
+	}
+
+	repoName := tu.UniqueString("TestDatabaseStats-repo")
+	branchName := "master"
+	numCommits := 100
+	buf := &bytes.Buffer{}
+	filter := &debug.Filter{
+		Filter: &debug.Filter_Database{Database: true},
+	}
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	createTestCommits(t, repoName, branchName, numCommits, c)
+	time.Sleep(5 * time.Second) // give some time for the stats collector to run.
+	require.NoError(t, c.Dump(filter, 100, buf), "dumping database files should succeed")
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+
+	var rows []commitResults
+	foundCommitsJSON, foundRowCounts := false, false
+	require.NoError(t, tarutil.Iterate(gr, func(f tarutil.File) error {
+		fileContents := &bytes.Buffer{}
+		if err := f.Content(fileContents); err != nil {
+			return errors.EnsureStack(err)
+		}
+
+		hdr, err := f.Header()
+		require.NoError(t, err, "getting database tar file header should succeed")
+		require.NotMatch(t, "^[a-zA-Z0-9_\\-\\/]+\\.error$", hdr.Name)
+		switch hdr.Name {
+		case "database/row-counts.json":
+			var rows []rowCountResults
+			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
+				"unmarshalling row-counts.json should succeed")
+
+			for _, row := range rows {
+				if row.RelName == "commits" {
+					require.NotEqual(t, 0, row.NLiveTup,
+						"some commits from createTestCommits should be accounted for")
+					foundRowCounts = true
+				}
+			}
+		case "database/tables/collections/commits.json":
+			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
+				"unmarshalling commits.json should succeed")
+			require.Equal(t, numCommits, len(rows), "number of commits should match number of rows")
+			foundCommitsJSON = true
+		}
+
+		return nil
+	}))
+
+	require.Equal(t, true, foundRowCounts,
+		"we should have an entry in row-counts.json for commits")
+	require.Equal(t, true, foundCommitsJSON,
+		"checks for commits.json should succeed")
+}
+
+func TestSimplePipelineNonRoot(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	req := basicPipelineReq(pipeline, dataRepo)
+	req.Transform.User = "65534"
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
+func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	req := basicPipelineReq(pipeline, dataRepo)
+
+	req.PodPatch = "[{\"op\":\"add\",\"path\":\"/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/securityContext\",\"value\":{\"runAsGroup\":1000,\"runAsUser\":1000,\"fsGroup\":1000,\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}},{\"op\":\"add\",\"path\":\"/containers/0/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/containers/0/securityContext\",\"value\":{\"runAsGroup\":1000,\"runAsUser\":1000,\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"all\"]},\"readOnlyRootFilesystem\":true}}]"
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
+func TestZombieCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name() + "-data")
+	pipeline := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
+		"foo", strings.NewReader("baz")))
+
+	req := basicPipelineReq(pipeline, repo)
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := c.WaitCommit(pipeline, "master", "")
+		return err
+	})
+	// fsck should succeed (including zombie check, on by default)
+	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
+		return errors.Errorf("got fsck error: %s", response.Error)
+	}, client.WithZombieCheckAll()))
+
+	// stop pipeline so we can modify
+	require.NoError(t, c.StopPipeline(pipeline))
+	// create new commits on output and meta
+	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
+		if _, err := c.StartCommit(pipeline, "master"); err != nil {
+			return errors.EnsureStack(err)
+		}
+		metaBranch := client.NewSystemRepo(pipeline, pfs.MetaRepoType).NewBranch("master")
+		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{Commit: metaBranch.NewCommit("")})
+		return errors.EnsureStack(err)
+	})
+	require.NoError(t, err)
+	// add a file to the output with a datum that doesn't exist
+	require.NoError(t, c.PutFile(client.NewCommit(pipeline, "master", ""),
+		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
+	require.NoError(t, c.FinishCommit(pipeline, "master", ""))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	var messages []string
+	// fsck should notice the zombie file
+	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
+		messages = append(messages, response.Error)
+		return nil
+	}, client.WithZombieCheckAll()))
+	require.Equal(t, 1, len(messages))
+	require.Matches(t, "zombie", messages[0])
 }

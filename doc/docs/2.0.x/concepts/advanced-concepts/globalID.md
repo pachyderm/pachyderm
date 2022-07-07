@@ -26,7 +26,7 @@ This ability to track down related commits and jobs with one global identifier b
 ## List All Global Commits And Global Jobs
 You can list all global commits by running the following command: 
 ```shell
-$ pachctl list commit
+pachctl list commit
 ```
 Each global commit displays how many (sub) commits it is made of.
 ```
@@ -37,7 +37,7 @@ e050771b5c6f4082aed48a059e1ac203 4          ▇▇▇▇▇▇▇▇ 24 seconds 
 ```
 Similarly, if you run the equivalent command for global jobs:
 ```shell
-$ pachctl list job
+pachctl list job
 ```
 you will notice that the job IDs are shared with the global commit IDs.
 
@@ -61,7 +61,7 @@ in the global commit ID 1035715e796f45caae7a1d3ffd1f93ca.
 
 To list all (sub) commits involved in a global commit:
 ```shell
-$ pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
+pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 REPO         BRANCH COMMIT                           FINISHED      SIZE        ORIGIN DESCRIPTION
@@ -76,7 +76,7 @@ montage      master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago 1.292MiB    A
 
 Similarly, change `commit` in `job` to list all (sub) jobs linked to your global job ID.
 ```shell
-$ pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
+pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 ID                               PIPELINE STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
@@ -104,7 +104,7 @@ Let's take a look at the origin of each commit.
 1. Inspect the commit ID 1035715e796f45caae7a1d3ffd1f93ca in the `images` repo,  the repo in which our change (`put file`) has originated:
 
     ```shell
-    $ pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
+    pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     Note that this original commit is of `USER` origin (i.e., the result of a user change).
 
@@ -116,7 +116,7 @@ Let's take a look at the origin of each commit.
 
 1. Inspect the following commit 1035715e796f45caae7a1d3ffd1f93ca produced in the output repos of the edges pipeline:
     ```shell
-    $ pachctl inspect commit edges@1035715e796f45caae7a1d3ffd1f93ca --raw
+    pachctl inspect commit edges@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     ```json
     {
@@ -180,7 +180,7 @@ Let's take a look at the origin of each commit.
 
 - Besides  the `USER` and `AUTO` commits, notice a set of `ALIAS` commits in `edges.spec` and `montage.spec`:
 ```shell
-$ pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
+pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
 ```
 The version of each pipeline within their respective `.spec` repos are neither the result of a user change, nor of an automatic change.
 They have, however, contributed to the creation of the previous `AUTO` commits. 

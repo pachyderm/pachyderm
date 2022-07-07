@@ -1,6 +1,38 @@
 
 # Changelog
 
+## 2.2.3
+
+- Enable console by default - #7813
+- Enterprise Members shouldn't run the Identity/Dex Service - #7785
+- Fix cluster perms getting reset by config-pod - #7806
+- Add 'pachctl auth revoke' - #7794
+- Fix Etcd annotations indent - #7802
+- Fix quotes around Enterprise Server address in helm values - #7798
+- Remove redundant load test - #7792
+- Pass PPS Egress URL correctly - #7791
+- Move nightly load tests to pulumi envs - #7780
+- Bump load test env creation timeout - #7784
+- Enable TLS support for Postgres - #7607
+- Add logging response transformer to omit activation code from GetState - #7762
+- Improve Loki defaults and Upgrade loki-stack - #7760
+- Support JSON logs, for GCP - #7683
+
+## 2.2.2
+
+- Add Support for Plurals in Pachctl - #7751
+- egress of CSVs with headers	- #7746
+- Various Loki improvements	- #7733
+- avoid using 31800 for all nodeports, give each test a unique port - #7735
+- Use a unique serve mux per port, allow health checks on OIDC/Identity ports - #7730
+- CSV header - #7721
+- Match helm appVersion to version. - #7715
+- Always prep test results for upload to circle - #7711
+- Enterprise Server Cmd Tests against test cluster pachd instances - #7705
+- Make deletion progress more visible. - #7706
+- Fuse Tests shouldn't depend on 'default' pachd instance - #7700
+- Deploy Loki  in test clusters - #7699
+
 ## 2.2.1
 
 - Include gRPC status codes for more errors. - #7680

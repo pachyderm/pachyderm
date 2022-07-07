@@ -548,7 +548,7 @@ You are done! You can make sure that your cluster is working
 by running `pachctl version` or creating a new repo.
 
 !!! Attention
-    If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
+    If Authentication is activated (When you deploy with an enterprise key already set, for example), you need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
 pachctl version

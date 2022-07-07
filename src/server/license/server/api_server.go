@@ -26,22 +26,22 @@ const (
 )
 
 type apiServer struct {
-	env Env
+	env *Env
 
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }
 
 // New returns an implementation of license.APIServer, and a function that bootstraps the license server via environment.
-func New(env Env) (lc.APIServer, func(context.Context) error, error) {
+func New(env *Env) (*apiServer, error) {
 	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
-	return s, s.envBootstrap, nil
+	return s, nil
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) error {
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
 		return nil
 	}

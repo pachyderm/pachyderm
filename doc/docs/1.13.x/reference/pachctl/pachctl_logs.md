@@ -15,13 +15,13 @@ pachctl logs [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>] [flags]
 ```
 
 # Return logs emitted by recent jobs in the "filter" pipeline
-$ pachctl logs --pipeline=filter
+pachctl logs --pipeline=filter
 
 # Return logs emitted by the job aedfa12aedf
-$ pachctl logs --job=aedfa12aedf
+pachctl logs --job=aedfa12aedf
 
 # Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-$ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
+pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
 ```
 
 ### Options

@@ -1,18 +1,27 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
+	log "github.com/sirupsen/logrus"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 func equalBranches(a, b []*pfs.Branch) bool {
@@ -301,4 +310,99 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		})
 	}
 	return nil
+}
+
+type ErrZombieData struct {
+	Commit *pfs.Commit
+	ID     string
+}
+
+func (e ErrZombieData) Error() string {
+	return fmt.Sprintf("commit %v contains output from datum %s which should have been deleted", e.Commit, e.ID)
+}
+
+type fileStream struct {
+	iterator   *fileset.Iterator
+	file       fileset.File
+	fromOutput bool
+}
+
+func (fs *fileStream) Next() error {
+	var err error
+	fs.file, err = fs.iterator.Next()
+	return err
+}
+
+// just match on path, we don't care about datum here
+func compare(s1, s2 stream.Stream) int {
+	idx1 := s1.(*fileStream).file.Index()
+	idx2 := s2.(*fileStream).file.Index()
+	return strings.Compare(idx1.Path, idx2.Path)
+}
+
+func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+	log.Infof("checking for zombie data in %s", outputCommit)
+	// generate fileset that groups output files by datum
+	id, err := d.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
+		_, fs, err := d.openCommit(ctx, outputCommit)
+		if err != nil {
+			return err
+		}
+		return errors.EnsureStack(fs.Iterate(ctx, func(f fileset.File) error {
+			id := f.Index().GetFile().GetDatum()
+			// write to same path as meta commit, one line per file
+			return errors.EnsureStack(w.Put(common.MetaFilePath(id), id, true,
+				strings.NewReader(f.Index().Path+"\n")))
+		}))
+	})
+	if err != nil {
+		return err
+	}
+	// now merge with the meta commit to look for extra datums in the output commit
+	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
+		if err := r.Add(ctx, *id); err != nil {
+			return err
+		}
+		datumsFS, err := d.storage.Open(ctx, []fileset.ID{*id})
+		if err != nil {
+			return err
+		}
+		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit), index.WithPrefix("/"+common.MetaPrefix))
+		if err != nil {
+			return err
+		}
+		var streams []stream.Stream
+		streams = append(streams, &fileStream{
+			iterator:   fileset.NewIterator(ctx, datumsFS),
+			fromOutput: true,
+		}, &fileStream{
+			iterator: fileset.NewIterator(ctx, metaFS),
+		})
+		pq := stream.NewPriorityQueue(streams, compare)
+		return errors.EnsureStack(pq.Iterate(func(ss []stream.Stream) error {
+			if len(ss) == 2 {
+				return nil // datum is present both in output and meta, as expected
+			}
+			s := ss[0].(*fileStream)
+			if !s.fromOutput {
+				return nil // datum doesn't have any output, not an error
+			}
+			// this is zombie data: output files not associated with any current datum
+			// report each file back as an error
+			id := s.file.Index().File.Datum
+			return miscutil.WithPipe(func(w io.Writer) error {
+				return errors.EnsureStack(s.file.Content(ctx, w))
+			}, func(r io.Reader) error {
+				sc := bufio.NewScanner(r)
+				for sc.Scan() {
+					if err := cb(&pfs.FsckResponse{
+						Error: fmt.Sprintf("stale datum %s had file %s", id, sc.Text()),
+					}); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		}))
+	})
 }
