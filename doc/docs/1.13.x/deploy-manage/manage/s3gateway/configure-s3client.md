@@ -13,8 +13,8 @@ described on the [MinIO download page](https://min.io/download).
 the following command:
 
       ```shell
-      $ minio version
-      $ mc version
+      minio version
+      mc version
       ```
       **System Response:**
       ```
@@ -26,7 +26,7 @@ the following command:
 1. Set up the MinIO configuration file to use the S3 Gateway port `30600` for your host:
 
       ```shell
-      $ vi ~/.mc/config.json
+      vi ~/.mc/config.json
       ```
       You should see a configuration similar to the following.
       For a minikube deployment, verify the
@@ -54,12 +54,12 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 1. Verify that the AWS CLI is installed:
 
       ```shell
-      $ aws --version
+      aws --version
       ```
 
 1. Configure AWS CLI. Use the `aws configure` command to configure your credentials file:
       ```shell
-      $ aws configure --profile <name-your-profile>
+      aws configure --profile <name-your-profile>
       ```
       Both the access key and secret key 
       should be set as mentioned in the [# Set Your Credentails](#set-your-credentials) section of this page.
@@ -93,7 +93,7 @@ Then follow the [Using boto](https://boto3.amazonaws.com/v1/documentation/api/la
 retrieve your session token in your active context:
 
       ```shell
-      $ more ~/.pachyderm/config.json
+      more ~/.pachyderm/config.json
       ```
       Search for your session token: `"session_token": "your-session-token-value"`.
       **Make sure to fill both fields `Access Key ID` and `Secret Access Key` with that same value.**

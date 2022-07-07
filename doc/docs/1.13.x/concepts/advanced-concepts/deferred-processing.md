@@ -40,19 +40,19 @@ To configure a staging branch, complete the following steps:
 1. Create a repository. For example, `data`.
 
    ```shell
-   $ pachctl create repo data
+   pachctl create repo data
    ```
 
 1. Create a `master` branch.
 
    ```shell
-   $ pachctl create branch data@master
+   pachctl create branch data@master
    ```
 
 1. View the created branch:
 
    ```shell
-   $ pachctl list branch data
+   pachctl list branch data
 
    BRANCH HEAD
    master -
@@ -67,7 +67,7 @@ To configure a staging branch, complete the following steps:
 1. Commit a file to the staging branch:
 
    ```shell
-   $ pachctl put file data@staging -f <file>
+   pachctl put file data@staging -f <file>
    ```
 
    Pachyderm automatically creates the `staging` branch.
@@ -78,7 +78,7 @@ To configure a staging branch, complete the following steps:
 1. Verify that the branches were created:
 
    ```shell
-   $ pachctl list branch data
+   pachctl list branch data
 
    BRANCH  HEAD
    
@@ -96,14 +96,14 @@ To configure a staging branch, complete the following steps:
    to point it to the head of the staging branch:
 
    ```shell
-   $ pachctl create branch data@master --head staging
+   pachctl create branch data@master --head staging
    ```
 
 1. List your branches to verify that the master branch has a `HEAD`
    commit:
 
    ```shell
-   $ pachctl list branch data
+   pachctl list branch data
 
    staging f3506f0fab6e483e8338754081109e69
    master  f3506f0fab6e483e8338754081109e69
@@ -115,7 +115,7 @@ To configure a staging branch, complete the following steps:
 1. Verify that the pipeline has new jobs:
 
    ```shell
-   $ pachctl list job
+   pachctl list job
 
    ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL   UL  STATE
    061b0ef8f44f41bab5247420b4e62ca2 test     32 seconds ago Less than a second 0       6 + 0 / 6 108B 24B success
@@ -141,9 +141,9 @@ want to process the seventh, third, and most recent commits, you need
 to run the following commands respectively:
 
 ```shell
-$ pachctl create branch data@master --head staging^7
-$ pachctl create branch data@master --head staging^3
-$ pachctl create branch data@master --head staging
+pachctl create branch data@master --head staging^7
+pachctl create branch data@master --head staging^3
+pachctl create branch data@master --head staging
 ```
 
 When you run the commands above, Pachyderm creates a job for each
@@ -159,7 +159,7 @@ the result of processing `staging^1`, you can *roll back* your HEAD commit
 by running the following command:
 
 ```shell
-$ pachctl create branch data@master --head staging^1
+pachctl create branch data@master --head staging^1
 ```
 
 This command starts a new job to process `staging^1`. The `HEAD` commit on
@@ -182,21 +182,21 @@ To copy files from one branch to another, complete the following steps:
 1. Start a commit:
 
    ```shell
-   $ pachctl start commit data@master
+   pachctl start commit data@master
    ```
 
 1. Copy files:
 
    ```shell
-   $ pachctl copy file data@staging:file1 data@master:file1
-   $ pachctl copy file data@staging:file2 data@master:file2
+   pachctl copy file data@staging:file1 data@master:file1
+   pachctl copy file data@staging:file2 data@master:file2
    ...
    ```
 
 1. Close the commit:
 
    ```shell
-   $ pachctl finish commit data@master
+   pachctl finish commit data@master
    ```
 
 While the commit is open, you can run `pachctl delete file` if you want to remove something from
@@ -223,7 +223,7 @@ following steps:
 1. When you want to process data, run:
 
    ```shell
-   $ pachctl create branch pipeline@master --head staging
+   pachctl create branch pipeline@master --head staging
    ```
 
 ## Automate Deferred Processing With Branch Triggers
@@ -243,8 +243,8 @@ Building on the example above, to make `master` automatically trigger when
 there's 1 Megabyte of new data on `staging`, run:
 
 ```shell
-$ pachctl create branch data@master --trigger staging --trigger-size 1MB
-$ pachctl list branch data
+pachctl create branch data@master --trigger staging --trigger-size 1MB
+pachctl list branch data
 
 BRANCH  HEAD                             TRIGGER
 staging 8b5f3eb8dc4346dcbd1a547f537982a6 -
@@ -260,8 +260,8 @@ triggers can point to branches that don't exist yet. The head of `master` will
 update if you add a MB of new data to `staging`:
 
 ```shell
-$ dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
-$ pachctl list branch data
+dd if=/dev/urandom bs=1MiB count=1 | pachctl put file data@staging:/file
+pachctl list branch data
 
 BRANCH  HEAD                             TRIGGER
 staging 64b70e6aeda84845858c42d755023673 -
@@ -273,7 +273,7 @@ the head of a branch. If you ever want to trigger `master` even though the
 trigger condition hasn't been met you can run:
 
 ```shell
-$ pachctl create branch data@master --head staging
+pachctl create branch data@master --head staging
 ```
 
 Notice that you don't need to re-specify the trigger when you call `create
