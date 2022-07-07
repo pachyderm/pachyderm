@@ -15,25 +15,25 @@ pachctl list job [<job-id>] [flags]
 ```
 
 # Return a summary list of all jobs
-$ pachctl list job
+pachctl list job
 
 # Return all sub-jobs in a job
-$ pachctl list job <job-id>
+pachctl list job <job-id>
 
 # Return all sub-jobs split across all pipelines
-$ pachctl list job --expand
+pachctl list job --expand
 
 # Return only the sub-jobs from the most recent version of pipeline "foo"
-$ pachctl list job -p foo
+pachctl list job -p foo
 
 # Return all sub-jobs from all versions of pipeline "foo"
-$ pachctl list job -p foo --history all
+pachctl list job -p foo --history all
 
 # Return all sub-jobs whose input commits include foo@XXX and bar@YYY
-$ pachctl list job -i foo@XXX -i bar@YYY
+pachctl list job -i foo@XXX -i bar@YYY
 
 # Return all sub-jobs in pipeline foo and whose input commits include bar@YYY
-$ pachctl list job -p foo -i bar@YYY
+pachctl list job -p foo -i bar@YYY
 ```
 
 ### Options
