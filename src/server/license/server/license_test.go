@@ -258,7 +258,7 @@ func TestAddClusterAddressValidation(t *testing.T) {
 		Address: "",
 	})
 	require.YesError(t, err)
-	require.Matches(t, "unable to create client", err.Error())
+	require.Matches(t, "no address provided for cluster", err.Error())
 }
 
 // TestUpdateClusterUnreachable tries to update an existing cluster with a misconfigured address
@@ -275,7 +275,7 @@ func TestUpdateClusterAddressValidation(t *testing.T) {
 		Address: "",
 	})
 	require.YesError(t, err)
-	require.Matches(t, "unable to create client", err.Error())
+	require.Matches(t, "no address provided for cluster", err.Error())
 }
 
 // TestAddClusterNoLicense tries to add a cluster with no license configured and
