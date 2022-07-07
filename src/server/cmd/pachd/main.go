@@ -538,7 +538,6 @@ func doFullMode(config interface{}) (retErr error) {
 			txnEnv,
 			eprsserver.WithMode(eprsserver.FullMode),
 			eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
-
 		if err := logGRPCServerSetup("Enterprise API", func() error {
 			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 				enterpriseEnv,
@@ -639,6 +638,7 @@ func doFullMode(config interface{}) (retErr error) {
 			adminServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env))
 			adminclient.RegisterAPIServer(externalServer.Server, adminServer)
 			adminclient.RegisterAPIServer(internalServer.Server, adminServer)
+			adminclient.RegisterAPIServer(tempExternalServer.Server, adminServer)
 			return nil
 		}); err != nil {
 			return err
@@ -648,6 +648,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Health", func() error {
 			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
 			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
+			grpc_health_v1.RegisterHealthServer(tempExternalServer.Server, healthServer)
 			return nil
 		}); err != nil {
 			return err
@@ -655,6 +656,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if err := logGRPCServerSetup("Version API", func() error {
 			versionpb.RegisterAPIServer(externalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+			versionpb.RegisterAPIServer(tempExternalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 			return nil
 		}); err != nil {
 			return err
@@ -689,6 +691,7 @@ func doFullMode(config interface{}) (retErr error) {
 		if _, err := tempExternalServer.ListenTCP("", env.Config().Port); err != nil {
 			return err
 		}
+		healthServer.Resume()
 		for _, b := range bootstrappers {
 			if err := b.EnvBootstrap(context.Background()); err != nil {
 				return errors.EnsureStack(err)
