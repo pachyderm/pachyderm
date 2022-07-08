@@ -87,5 +87,5 @@ func InternalAuthUserPermissions(tx *pachsql.Tx) error {
 		return errors.Wrapf(err, "getting the cluster role binding")
 	}
 	binding.Entries[internalUser] = &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}}
-	return roleBindings.ReadWrite(tx).Put(clusterRoleBindingKey, &binding)
+	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(clusterRoleBindingKey, &binding))
 }
