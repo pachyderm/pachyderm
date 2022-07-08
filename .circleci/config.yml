@@ -1,6 +1,14 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
+aliases:
+  - &only-release-tags
+    branches:
+      ignore: /.*/
+    tags:
+      #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+
 orbs:
   go: circleci/go@1.6.0
   gcp-cli: circleci/gcp-cli@2.4.1
@@ -529,7 +537,10 @@ jobs:
       - run:
           name: update homebrew formula
           command: |
-            ./etc/build/update_homebrew.sh "alpha"
+            v=${CIRCLE_TAG}
+            additional=${v%%-*}
+            index=${#additional}
+            ./etc/build/update_homebrew.sh ${v:index}
 workflows:
   # circleci:
   #   when:
@@ -601,139 +612,62 @@ workflows:
   #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
   #   jobs:
   #     - deploy
-  # pach_core_release:
-  #   when: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - release_job:
-  #         filters:
-  #           branches:
-  #             only:
-  #               - 2.1.x
-  #               - 2.2.x
-  # red_hat:
-  #   jobs:
-  #     - push_redhat:
-  #         filters:
-  #           branches:
-  #             ignore: /.*/
-  #           tags:
-  #             only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   test-release:
     jobs:
       - helm-tests:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
       - helm-build:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - helm-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG} # TODO remove and replace only for testing ${CIRCLE_TAG:1}
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - helm-tests
       - build-pachctl-bin:
           # version: ${CIRCLE_TAG:1}
           version: ${CIRCLE_TAG} # TODO remove and replace only for testing
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - helm-tests
       - helm-publish:
           name: publish-chart-preview
           preview: true 
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - helm-build
       - pachyderm-prerelease-testing:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
       - sign-off:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           type: approval
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
       - release-docker-hub:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - sign-off
       - push_redhat:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - sign-off
       - release-github:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - sign-off
       - release-hombrew-tap:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
       - helm-publish:
           name: publish-helm-chart
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-              only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+          filters: *only-release-tags
           requires:
             - sign-off
