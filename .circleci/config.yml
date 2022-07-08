@@ -35,6 +35,10 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o /tmp/test-results/sar
+          background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
@@ -61,7 +65,7 @@ jobs:
           path: /tmp/test-results
       - run:
           when: always
-          run: etc/testing/circle/upload-to-pachyderm.sh || true
+          command: etc/testing/circle/upload-to-pachyderm.sh || true
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
       - save_cache:
@@ -83,7 +87,7 @@ jobs:
       - checkout
       - run:
           name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o /tmp/test-results/sar
           background: true
       - restore_cache:
           keys:
@@ -139,11 +143,14 @@ jobs:
       - run:
           name: Dump debugging info in case of failure
           when: on_fail
-          command: etc/testing/circle/kube_debug.sh
+          command: etc/testing/circle/kube_debug.sh | tee /tmp/test-results/kube_debug.txt
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - run:
+          when: always
+          command: etc/testing/circle/upload-to-pachyderm.sh || true
   helm-build:
     docker:
       - image: cimg/go:1.18.3

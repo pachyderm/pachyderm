@@ -8,4 +8,4 @@ EOF
 
 pachctl version
 
-pachctl put file build-results@master:/pachyderm/$CIRCLE_BRANCH/$CIRCLE_BUILD_NUM/$CIRCLE_JOB/$CIRCLE_WORKFLOW_JOB_ID/report.xml -f /tmp/raw-test-output/gotestsum-report.xml
+pachctl put file -r build-results@master:/pachyderm/$CIRCLE_BRANCH/$CIRCLE_BUILD_NUM/$CIRCLE_JOB/$CIRCLE_WORKFLOW_JOB_ID/ -f /tmp/test-results
