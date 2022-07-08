@@ -60,8 +60,6 @@ http://pachd:1658
 {{- else -}}
 http://pachd:30658
 {{- end -}}
-{{- else -}}
-{{ fail "For Authentication, an OIDC Issuer for this pachd must be set." }}
 {{- end -}}
 {{- end }}
 
