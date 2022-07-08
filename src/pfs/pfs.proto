@@ -331,6 +331,7 @@ message GetFileRequest {
   File file = 1;
   string URL = 2;
   int64 offset = 3;
+  PathRange path_range = 4;
 // TODO:
 //  int64 size_bytes = 3;
 }
@@ -415,6 +416,7 @@ message RenewFileSetRequest {
 message ComposeFileSetRequest {
   repeated string file_set_ids = 1;
   int64 ttl_seconds = 2;
+  bool compact = 3;
 }
 
 message ShardFileSetRequest {

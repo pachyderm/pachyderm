@@ -506,7 +506,12 @@ func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Durat
 	return err
 }
 
-func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration, compact bool) (*fileset.ID, error) {
+	if compact {
+		compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, uuid.NewWithoutDashes(), nil)
+		return compactor.Compact(ctx, taskDoer, ids, ttl)
+	}
 	return d.storage.Compose(ctx, ids, ttl)
 }
 

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -69,4 +70,18 @@ dataFilters:
 		break
 	}
 	return matchesData
+}
+
+func Shard(pachClient *client.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
+	var result []*pfs.PathRange
+	for _, fileSetID := range fileSetIDs {
+		shards, err := pachClient.ShardFileSet(fileSetID)
+		if err != nil {
+			return nil, err
+		}
+		if len(shards) > len(result) {
+			result = shards
+		}
+	}
+	return result, nil
 }

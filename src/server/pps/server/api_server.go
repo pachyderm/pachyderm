@@ -1106,7 +1106,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	metaCommit := ppsutil.MetaCommit(jobInfo.OutputCommit)
-	fsi := datum.NewCommitIterator(pachClient, metaCommit)
+	fsi := datum.NewCommitIterator(pachClient, metaCommit, nil)
 	err = fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{

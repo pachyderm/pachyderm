@@ -221,7 +221,7 @@ func uploadDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 	}
 	var dit datum.Iterator
 	if metaCommitInfo.Finishing != nil {
-		dit = datum.NewCommitIterator(pachClient, metaCommitInfo.Commit)
+		dit = datum.NewCommitIterator(pachClient, metaCommitInfo.Commit, nil)
 	} else {
 		dit, err = datum.NewIterator(pachClient, taskDoer, jobInfo.Details.Input)
 		if err != nil {
@@ -325,7 +325,7 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 		if err := pj.logger.LogStep("deleting old datum outputs", func() error {
 			pachClient := pachClient.WithCtx(ctx)
 			return pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
-				dit := datum.NewFileSetIterator(pachClient, deleteFileSetID)
+				dit := datum.NewFileSetIterator(pachClient, deleteFileSetID, nil)
 				return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
 					return deleter(meta)
 				}))

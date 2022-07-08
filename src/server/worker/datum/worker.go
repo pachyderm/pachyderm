@@ -18,12 +18,7 @@ import (
 )
 
 func IsTask(input *types.Any) bool {
-	switch {
-	case types.Is(input, &PFSTask{}):
-		return true
-	default:
-		return false
-	}
+	return types.Is(input, &PFSTask{}) || types.Is(input, &CrossTask{})
 }
 
 func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, error) {
@@ -34,6 +29,12 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 			return nil, err
 		}
 		return processPFSTask(pachClient, task)
+	case types.Is(input, &CrossTask{}):
+		task, err := deserializeCrossTask(input)
+		if err != nil {
+			return nil, err
+		}
+		return processCrossTask(pachClient, task)
 	default:
 		return nil, errors.Errorf("unrecognized any type (%v) in datum worker", input.TypeUrl)
 	}
@@ -93,6 +94,33 @@ func withDatumFileSet(pachClient *client.APIClient, cb func(*Set) error) (string
 	return resp.FileSetId, nil
 }
 
+func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*types.Any, error) {
+	fileSetID, err := withDatumFileSet(pachClient, func(s *Set) error {
+		iterators := []Iterator{NewFileSetIterator(pachClient, task.BaseFileSetId, task.BaseFileSetPathRange)}
+		for _, fileSetID := range task.FileSetIds {
+			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
+		}
+		return iterate(nil, iterators, func(meta *Meta) error {
+			return s.UploadMeta(meta)
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return serializeCrossTaskResult(&CrossTaskResult{FileSetId: fileSetID})
+}
+
+func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) error) error {
+	if len(iterators) == 0 {
+		return cb(&Meta{Inputs: crossInputs})
+	}
+	// TODO: Might want to exit fast for the zero datums case.
+	err := iterators[0].Iterate(func(meta *Meta) error {
+		return iterate(append(crossInputs, meta.Inputs...), iterators[1:], cb)
+	})
+	return errors.EnsureStack(err)
+}
+
 func deserializePFSTask(taskAny *types.Any) (*PFSTask, error) {
 	task := &PFSTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
@@ -102,6 +130,25 @@ func deserializePFSTask(taskAny *types.Any) (*PFSTask, error) {
 }
 
 func serializePFSTaskResult(task *PFSTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeCrossTask(taskAny *types.Any) (*CrossTask, error) {
+	task := &CrossTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeCrossTaskResult(task *CrossTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

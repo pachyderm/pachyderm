@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"math"
 	"time"
@@ -197,36 +196,7 @@ func (uw *UnorderedWriter) Close() (*ID, error) {
 	if err := uw.serialize(); err != nil {
 		return nil, err
 	}
-	if err := miscutil.LogStep(fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
-		return uw.compact()
-	}); err != nil {
-		return nil, err
-	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
 		Layers: idsToHex(uw.ids),
 	}, uw.ttl)
-}
-
-func (uw *UnorderedWriter) compact() error {
-	for len(uw.ids) > uw.maxFanIn {
-		var ids []ID
-		for start := 0; start < len(uw.ids); start += int(uw.maxFanIn) {
-			end := start + int(uw.maxFanIn)
-			if end > len(uw.ids) {
-				end = len(uw.ids)
-			}
-			id, err := uw.storage.Compact(uw.ctx, uw.ids[start:end], uw.ttl)
-			if err != nil {
-				return err
-			}
-			if uw.renewer != nil {
-				if err := uw.renewer.Add(uw.ctx, *id); err != nil {
-					return err
-				}
-			}
-			ids = append(ids, *id)
-		}
-		uw.ids = ids
-	}
-	return nil
 }
