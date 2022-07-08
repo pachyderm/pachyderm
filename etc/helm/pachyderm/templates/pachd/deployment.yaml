@@ -315,23 +315,6 @@ spec:
         - containerPort: 1656
           name: prom-metrics
           protocol: TCP
-        readinessProbe:
-          exec:
-            command:
-            - /pachd
-            - --readiness
-        livenessProbe:
-          exec:
-            command:
-            - /pachd
-            - --readiness
-        startupProbe:
-          exec:
-            command:
-            - /pachd
-            - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}

@@ -186,11 +186,6 @@ spec:
         - containerPort: 1656
           name: prom-metrics
           protocol: TCP
-        readinessProbe:
-          exec:
-            command:
-            - /pachd
-            - --readiness
         {{- if .Values.enterpriseServer.resources }}
         resources: {{ toYaml .Values.enterpriseServer.resources | nindent 10 }}
         {{- end }}
