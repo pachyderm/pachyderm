@@ -275,7 +275,7 @@ func TestUpdateClusterAddressValidation(t *testing.T) {
 		Address: "",
 	})
 	require.YesError(t, err)
-	require.Matches(t, "no address provided for cluster", err.Error())
+	require.Matches(t, "No cluster fields were provided to the UpdateCluster RPC", err.Error())
 }
 
 // TestAddClusterNoLicense tries to add a cluster with no license configured and
