@@ -10,4 +10,4 @@ pachctl config set active-context pachops
 
 pachctl version
 
-pachctl put file -r build-results@master:/pachyderm/$CIRCLE_BRANCH/$CIRCLE_BUILD_NUM/$CIRCLE_JOB/$CIRCLE_WORKFLOW_JOB_ID/ -f /tmp/test-results
+pachctl put file -r pach-core-ci-results@master:/pachyderm/$(echo $CIRCLE_BRANCH | sed 's/\//_/g')/$CIRCLE_SHA1/$CIRCLE_JOB/$CIRCLE_WORKFLOW_JOB_ID/ -f /tmp/test-results
