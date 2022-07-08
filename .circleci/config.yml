@@ -59,6 +59,9 @@ jobs:
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
           path: /tmp/test-results
+      - run:
+          when: always
+          run: etc/testing/circle/upload-to-pachyderm.sh || true
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
       - save_cache:
