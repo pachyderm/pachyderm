@@ -1,5 +1,7 @@
 
 # Changelog
+## 2.2.4
+- Remove Log Parsing in lokiutil - #7863
 
 ## 2.2.3
 

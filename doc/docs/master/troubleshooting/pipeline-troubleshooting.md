@@ -185,7 +185,7 @@ If there are no parent jobs that are still running, then continue debugging:
 Describe the pod via:
 
 ```
-$kubectl describe po/pipeline-foo-5-v1-273zc
+kubectl describe po/pipeline-foo-5-v1-273zc
 ```
 
 If the state is `CrashLoopBackoff`, you're looking for a descriptive error message. One such cause for this behavior might be if you specified an image for your pipeline that does not exist.
@@ -201,7 +201,7 @@ Failed to delete a pipeline with an `etcdserver` error.
 Deleting pipelines fails with the following error:
 
 ```shell
-$ pachctl delete pipeline pipeline-name
+pachctl delete pipeline pipeline-name
 etcdserver: too many operations in txn request (XXXXXX comparisons, YYYYYYY writes: hint: set --max-txn-ops on the ETCD cluster to at least the largest of those values)
 ```
 
@@ -213,13 +213,13 @@ Depending on how you deployed Pachyderm,
 you need to either edit the `etcd` `Deployment` or `StatefulSet`.
 
 ```shell
-$ kubectl edit deploy etcd
+kubectl edit deploy etcd
 ```
 
 or
 
 ```shell
-$ kubectl edit statefulset etcd
+kubectl edit statefulset etcd
 ```
 
 In the `spec/template/containers/command` path, set the value for

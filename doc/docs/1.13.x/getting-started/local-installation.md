@@ -204,10 +204,10 @@ deploy Pachyderm on your local cluster by following these steps:
 ### Using Helm
 * Get the Repo Info:
    ```shell
-   $ helm repo add pachyderm https://helm.pachyderm.com
+   helm repo add pachyderm https://helm.pachyderm.com
    ```
    ```shell
-   $ helm repo update
+   helm repo update
    ```
 
 * Edit a values file `my_pachyderm_values.yaml` with `pachd.storage.backend` set to `LOCAL`:
@@ -218,7 +218,7 @@ deploy Pachyderm on your local cluster by following these steps:
 
 * Install the Pachyderm helm chart ([helm v3](https://helm.sh/docs/intro/)):
    ```shell
-   $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm --version 0.6.5
+   helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm --version 0.6.5
    ```
 
 ## Check your install
@@ -251,7 +251,7 @@ Kubernetes restarted those pods. You can safely ignore that message.
 1. Run `pachctl version` to verify that `pachd` has been deployed.
 
       ```shell
-      $ pachctl version
+      pachctl version
       ```
 
       **System Response:**

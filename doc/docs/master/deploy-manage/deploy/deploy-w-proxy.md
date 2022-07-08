@@ -3,7 +3,7 @@
 We are now shipping Pachyderm with an **optional embedded proxy** allowing Pachyderm to expose one single port externally (whether you access `pachd` over gRPC using `pachctl`, or `console` over HTTP, for example).
 
 See Pachyderm new high-level architecture diagram:
-![High level architecture](../../images/arch-diagram-high-level-with-proxy.png)
+![High level architecture](../images/arch-diagram-high-level-with-proxy.svg)
 
 This page is an add-on to existing installation instructions in the case where you chose to deploy Pachyderm with an embedded proxy. The steps below replace all or parts of the existing installation documentation. We will let you know when to use them and which section they overwrite.
 
@@ -21,7 +21,7 @@ This page is an add-on to existing installation instructions in the case where y
 !!! Warning
     The deployment of Pachyderm with a proxy is optional at the moment and will become permanent in the next minor release of Pachyderm.
 
-The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../../images/infra-recommendations-with-proxy.png)
+The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../images/infra-recommendations-with-proxy.png)
 
 !!! Note 
     See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L699){target=_blank} for all available configurable fields of the proxy.
@@ -54,10 +54,7 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
 
 * **Use a secure connection**
 
-    Make sure that you have Transport Layer Security (TLS) is enabled for your incoming traffic. 
-    
-    !!! Note
-        TLS Coming soon!
+    Make sure that you have [Transport Layer Security (TLS)](./deploy-w-tls){target=_blank} enabled for your incoming traffic. 
    
 * **Use Pachyderm authentication/authorization**
 
@@ -192,7 +189,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
           secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
           region: "us-east-2"          
     ```
-=== "Deploy Pachyderm with Console"
+=== "Deploy Pachyderm with Console and Enterprise"
 
     ```yaml hl_lines="3-6 18-30"
     deployTarget: "AMAZON"
@@ -246,7 +243,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       externalService:
         enabled: true
     ```
-=== "Deploy Pachyderm with Console"
+=== "Deploy Pachyderm with Console and Enterprise"
 
     ```yaml hl_lines="3-6 15-26"
     deployTarget: "GOOGLE"
@@ -299,7 +296,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
           # storage account key
           secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
     ```
-=== "Deploy Pachyderm with Console"
+=== "Deploy Pachyderm with Console and Enterprise"
 
     ```yaml hl_lines="3-6 18-29"
     deployTarget: "MICROSOFT"
@@ -342,7 +339,7 @@ JupyterLab users, [**you can also install Pachyderm JupyterLab Mount Extension**
 
 Note that you can run both Console and JupyterLab on your local installation.
 
-### Deploy Pachyderm Community Edition Or Enterprise with Console 
+### Deploy Pachyderm Community Edition Or Enterprise
 
 * Get the Repo Info:  
 
@@ -353,7 +350,7 @@ Note that you can run both Console and JupyterLab on your local installation.
 
 * Create your values.yaml
 
-=== "Latest CE"
+=== "Latest Community Edition"
 
       ```yaml 
       deployTarget: LOCAL
@@ -363,7 +360,31 @@ Note that you can run both Console and JupyterLab on your local installation.
         service:
           type: LoadBalancer
       ```    
-=== "Enterprise (Console)"
+=== "Community Edition With Console"
+
+      ```yaml 
+      deployTarget: LOCAL
+
+      proxy:
+        enabled: true
+        service:
+          type: LoadBalancer
+        
+      pachd:
+        localhostIssuer: "true"
+        oauthRedirectURI: http://localhost/authorization-code/callback
+        
+      console:
+        enabled: true
+        config:
+          reactAppRuntimeIssuerURI: http://localhost
+          oauthRedirectURI: http://localhost/oauth/callback/?inline=true
+        
+      oidc:
+        mockIDP: true
+        userAccessibleOauthIssuerHost: localhost
+      ```
+=== "Enterprise With Console"
 
     Make sure to update your enterprise key in `pachd.enterpriseLicenseKey`.
 
@@ -390,6 +411,7 @@ Note that you can run both Console and JupyterLab on your local installation.
         mockIDP: true
         userAccessibleOauthIssuerHost: localhost
       ```
+
 * Install Pachyderm by running the following command:  
 
   ```shell  
