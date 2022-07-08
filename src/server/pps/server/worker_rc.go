@@ -332,7 +332,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 	// 64M, but is overridden by the CacheSize setting for the sidecar.
 	cpuZeroQuantity := resource.MustParse("0")
 	memDefaultQuantity := resource.MustParse("64M")
-	memSidecarQuantity := resource.MustParse("64M")
+	//memSidecarQuantity := resource.MustParse("64M")
 
 	// Get service account name for worker from env or use default
 	workerServiceAccountName, ok := os.LookupEnv(WorkerServiceAccountEnvVar)
@@ -424,8 +424,8 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memDefaultQuantity,
+						v1.ResourceCPU:    resource.MustParse("200m"),
+						v1.ResourceMemory: resource.MustParse("1Gi"),
 					},
 				},
 				VolumeMounts:    userVolumeMounts,
@@ -447,8 +447,8 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memSidecarQuantity,
+						v1.ResourceCPU:    resource.MustParse("200m"),
+						v1.ResourceMemory: resource.MustParse("1Gi"),
 					},
 				},
 				Ports:           sidecarPorts,
