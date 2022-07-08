@@ -35,11 +35,11 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
+      - run: mkdir ${TEST_RESULTS}
       - run:
           name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o /tmp/test-results/sar
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o ${TEST_RESULTS}/sar
           background: true
-      - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: CGO_ENALBED=0 go install ./src/testing/match
@@ -85,6 +85,7 @@ jobs:
       BUCKET: << parameters.bucket >>
     steps:
       - checkout
+      - run: mkdir /tmp/test-results
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o /tmp/test-results/sar
