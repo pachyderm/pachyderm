@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
@@ -73,4 +74,18 @@ func CollectionsV0() []col.PostgresCollection {
 		col.NewPostgresCollection(membersCollectionName, nil, nil, nil, membersIndexes),
 		col.NewPostgresCollection(groupsCollectionName, nil, nil, nil, groupsIndexes),
 	}
+}
+
+// InternalAuthUserPermissions adds the Internal Auth User as a cluster admin
+func InternalAuthUserPermissions(tx *pachsql.Tx) error {
+	roleBindings := roleBindingsCollection(nil, nil)
+	var binding auth.RoleBinding
+	if err := roleBindings.ReadWrite(tx).Get(clusterRoleBindingKey, &binding); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil
+		}
+		return errors.Wrapf(err, "getting the cluster role binding")
+	}
+	binding.Entries[internalUser] = &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}}
+	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(clusterRoleBindingKey, &binding))
 }
