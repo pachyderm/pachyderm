@@ -34,30 +34,7 @@ See the reference [values.yaml](../../../reference/helm-values/) for the list of
     **No default k8s CPU and memory requests and limits** are created for pachd.  If you don't provide values in the values.yaml file, then those requests and limits are simply not set. 
     
     For Production deployments, Pachyderm strongly recommends that you **[create your values.yaml file with CPU and memory requests and limits for both pachd and etcd](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}** set to values appropriate to your specific environment. For reference, 1 CPU and 2 GB memory for each is a sensible default. 
-
-!!! Note "**Platform Secrets: READ BEFORE ANY INSTALL OR UPGRADE**" 
-        Pachyderm recommends using **"platform secrets"** to hold the values needed by a cluster at the time of the deployment (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key). 
-        You have the option to: 
-
-        1. [Create those secrets](../../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml (Recommended option). 
-        1. For a quick installation, put the secrets' values in the dedicated fields of your values.yaml. In such cases, those will populate Pachyderm's default `pachyderm-bootstrap-config` secret. 
-
-        Find the complete list of helm values that can control secret values here: 
-        ``` 
-        global.postgresqlExistingSecretName 
-        console.config.oauthClientSecretSecretName 
-        pachd.enterpriseLicenseKeySecretName 
-        pachd.rootTokenSecretName 
-        pachd.enterpriseSecretSecretName 
-        pachd.oauthClientSecretSecretName 
-        pachd.enterpriseRootTokenSecretName 
-        oidc.upstreamIDPsSecretName 
-        ``` 
-        
-        It is important to note that if no secret name is provided for the fields mentioned above, Pachyderm will retrieve the dedicated plain-text secret values in the helm values and populate a generic, default, auto-generated secret (`pachyderm-bootstrap-config`) at the time of the installation. If no value is found in either one of those two cases, default values are used in `pachyderm-bootstrap-config`. Check the list of all secret values fields and  `pachyderm-bootstrap-config` keys in our [upgrade section](../../manage/upgrades/#troubleshoot-upgrades){target=_blank}.
-
-        This generic secret `pachyderm-bootstrap-config` is reset at each upgrade, and new default values are created, causing the **helm upgrade to fail unless you retrieve your default values (for example: `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}`), create a dedicated secret for each, then manually set each secret name back into their corresponding secret name field above.**
-       
+     
 ###  Install Pachyderm's Helm Chart
 1. Get your Helm Repo Info
     ```shell
@@ -100,9 +77,6 @@ See the reference [values.yaml](../../../reference/helm-values/) for the list of
     pachd-5db79fb9dd-b2gdq         1/1     Running   2          18h
     postgres-0                     1/1     Running   0          18h
     ```
-
-
-
 ### Have 'pachctl' and your Cluster Communicate
 
 Assuming your `pachd` is running as shown above, make sure that `pachctl` can talk to the cluster.
@@ -179,3 +153,100 @@ helm upgrade pachd -f my_new_pachyderm_values.yaml pach/pachyderm --version <you
 !!! Warning
 
         Make sure that your platform's secret names have been set properly. Refer to this [section](#edit-a-valuesyaml-file) for the list of secrets we recommend creating prior to installing the product, and what to do if you have not. **Failing to provide those values might cause your upgrade to fail.**
+
+
+## READ BEFORE ANY INSTALL OR UPGRADE: Pachyderm Configuration Values and Platform Secrets
+
+### Values Used By Pachyderm At Installation/Upgrade Time
+
+Configuration values can be provided to Pachyderm in various ways:
+
+#### **A - Provide credentials directly in your values.yaml**
+
+You can provide credentials and configuration values directly in your values.yaml or set them with a `--set` argument during the installation/upgrade. The [(Second table, Column B)](#mapping-table-between-external-secrets-fields-values-fields-and-pachyderm-platform-secrets) below lists the names of the fields in which you can hard code your values directly).
+
+-  *A-1 - Provide the minimal amount of values and let Pachyderm auto-generate the rest*
+
+    - If applicable: Provide your Enterprise License in 
+    - Optionally, your IDPs
+    - If you are using a built-in PostgreSQL, we strongly recommand to set its password before before your initial installation.
+
+    !!! Warning "Built-in PostgreSQL users"
+    
+        ```yaml
+        postgresql:
+                postgresqlPassword: "abc123321cba"
+                postgresqlPostgresPassword: "npLvsvhGcF"
+        ```
+        
+        If no value is provided, Pachyderm will auto-generate a password during the first installation. That password will be reset at each upgrade, and new default value created, **causing your helm upgrade to fail unless you retrieve the initial password ( `{{"kubectl get secret postgres -o go-template='{{.data.postgresql-password | base64decode }}'"}}`) then inject it back into your values.
+
+    The rest of the values will be generated for you.
+
+- *A-2 - Choose and set your values rather than letting them be generated*
+
+    !!! Note "TL;DR"
+        Find the complete list of helm values that can control secret values here. (More details in the [section below](#mapping-table-between-external-secrets-fields-values-fields-and-pachyderm-platform-secrets)).
+
+        ``` 
+        - `pachd.rootToken`: Password of your root user - Can be any value. See command below to generate your own.
+        - `pachd.enterpriseLicenseKey`: Your enterprise license.
+        - `pachd.enterpriseSecret`: Needed if you connect to an enterprise server. - Can be any value. See command below to generate your own.
+        - `pachd.oauthClientSecret`: Pachd oidc config to connect to dex. - Can be any value. See command below to generate your own.  
+        - `oidc.upstreamIDPs` : The list of dex connectors, each containing Oauth client info connecting to an upstream IDP.
+        - `console.config.oauthClientSecret`: Oauth client secret for Console. Required if you set Console Enterprise. - Can be any value. See command below to generate your own.  
+        - `global.postgresqlPassword`: Password to your postgreSQL - Can be any value if you are using a built-in PostgreSQL. See command below to generate your own.    
+        - `pachd.enterpriseRootToken`: Provide this token when installing a cluster that is under an Enterprise Server's umbrella - Can be any value. See command below to generate your own.
+        ``` 
+        
+        Generate your own value using:
+
+        ```shell
+        openssl rand -hex 16
+        f438329fc98302779be65eef226d32c1
+        ```
+
+#### **B - Use Secret(s)** 
+
+If your organization uses tools like ArgoCD for Gitops, you might want to [Create those secrets](../../../how-tos/advanced-data-operations/secrets/#create-a-secret) ahead of time then supply their names in the `secretName` field of your values.yaml. 
+
+Find the secret name field to reference your secret in your values.yaml (Column A) and its corresponding Secret Key (First column) in the second table below.
+### Pachyderm Platform Secrets
+
+Pachyderm inject the values hard coded in your values.yaml into **"platform secrets"** (see the complete list of secrets in the table below)  at the time of the deployment or upgrade (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key).
+
+!!! Note
+    If no secret name is provided for the  secret name fields, Pachyderm will retrieve the dedicated plain-text secret values in the helm values and populate generic platform secrets (see list below) at the time of the installation, then re-use those for each upgrade. If no value is found in either one of those two cases, default values are used.
+
+
+|Secret Name  <div style="width:190px"> | Key |	Description <div style="width:290px">|
+|---------------------------------|-----|-------------|
+|`pachyderm-auth`                 |	- root-token <div> - auth-config <div> - cluster-role-bindings | - Password of the "root" user of your cluster. <div> - Pachd oidc config to connect to dex.<div> - [Role Based Access declaration](../../enterprise/auth/authorization/index) at the cluster level. Used to define access control at the cluster level when deploying. For example: Give a specific group `ClusterAdmin` access at once, or give an entire company a default `RepoReader` Access to all repos on this cluster.|
+|**`pachyderm-console-secret`**     | OAUTH_CLIENT_SECRET | Oauth client secret for Console. Required if you set Console Enterprise. |
+|**`pachyderm-deployment-id-secret`** | CLUSTER_DEPLOYMENT_ID | Cluster identifier. |
+|**`pachyderm-enterprise`** | enterprise-secret | For internal use. Used as a shared secret between an Enterprise Server and a Cluster to communicate. Always present when enterprise is on but used only when an Enterprise Server is set.|
+|`pachyderm-identity` | upstream-idps | The list of dex connectors, each containing Oauth client info connecting to an upstream IDP. |
+|`pachyderm-license` | enterprise-license-key | Your enterprise license. |
+|`pachyderm-storage-secret` | *This content depends on what object store backs your installation of Pachyderm.*|Credentials for Pachyderm to access your object store.|
+|`postgres` | - postgresql-password <div> - postgresql-postgres-password| Password for Pachyderm to Access Postgres. |
+
+### Mapping Table Between External Secrets Fields, Values Fields, and Pachyderm Platform Secrets
+
+Find the complete list of the secret key and secret name fields to reference a secret in a values.yaml, the secret values fields if you chose to hard code your values in your values.yaml rather than pass them in a secret, and Pachyderm's platform secrets and keys those values will be injected into.
+
+!!! Important "Order of operations."
+       Note that if no secret name is provided for the fields mentioned in **A** (see table above), Pachyderm will retrieve the dedicated plain-text secret values in the helm values (Column **B**) and populate (or autogenerate when lfet blank) its own platform secrets at the time of the installation/upgrade (Column **C**). 
+
+|Secret KEY name| <div style="width:290px"> Description </div>| A - Create your secrets ahead <br> of your cluster creation| B - Pass credentials in values.yaml| <div style="width:250px"> C - Corresponding (Platform Secret, Key) in which the values provided in A or B will be injected.</div>| 
+|------------|------------|-----|--------|---------|
+|root-token| Root clusterAdmin| pachd.rootTokenSecretName |pachd.rootToken|(pachyderm-auth, rootToken)|
+|root-token|Users give this token in their values.yaml when they install a cluster that is under an [Enterprise Server's](../../enterprise/auth/enterprise-server/setup) umbrella.|pachd.enterpriseRootTokenSecretName|pachd.enterpriseRootToken|????|
+|postgresql-password|Password to your database|global.postgresql.postgresqlExistingSecretName <br> global.postgresql.postgresqlExistingSecretKey |global.postgresql.postgresqlPassword|(postgres, postgresql-password) , (postgres, postgresql-postgres-password)|
+|OAUTH_CLIENT_SECRET|Oauth client secret for Console <br> Required if you set Console|console.config.oauthClientSecretSecretName |console.config.oauthClientSecret|(pachyderm-console-secret, OAUTH_CLIENT_SECRET)|
+|enterprise-license-key|Your enterprise license|pachd.enterpriseLicenseKeySecretName |pachd.enterpriseLicenseKey|(pachyderm-license, enterprise-license-key)|
+|auth-config| Oauth client secret for pachd| pachd.oauthClientSecretSecretName|pachd.oauthClientSecret|(pachyderm-auth, auth-config)|
+|enterprise-secret|Needed if you connect to an enterprise server|pachd.enterpriseSecretSecretName  |pachd.enterpriseSecret| (pachyderm-enterprise, enterprise-secret)  |
+|upstream-idps|The list of dex connectors, each containing Oauth client info connecting to an upstream IDP|oidc.upstreamIDPsSecretName|oidc.upstreamIDPs|(pachyderm-identity, upstream-idps)|
+
+
+        

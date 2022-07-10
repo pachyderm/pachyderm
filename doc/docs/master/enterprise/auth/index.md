@@ -15,9 +15,7 @@ Setting up Pachyderm's User Access Management (also referred to as "Authenticati
 !!! Attention 
       If you have enabled the enterprise features [through Helm, auth is already activated](../auth/).
 
-      In this case, a `pachyderm-bootstrap-config` k8s secret is automatically created containing an entry for your [rootToken](#activate-user-access-management). Use `{{"kubectl get secret pachyderm-bootstrap-config -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
-
-	  **This secret is only used when configuring through helm**
+      In this case, a `pachyderm-auth` k8s secret is automatically created containing an entry for your [rootToken](#activate-user-access-management). Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 
 
 1. [Activate the feature](#activate-user-access-management).
