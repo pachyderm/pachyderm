@@ -46,10 +46,6 @@ This `Root user` (or initial admin) has irrevokable `clusterAdmin` privileges on
 Pachyderm's cluster. More on the various types of Users, Roles, and Ressources [here](../auth/authorization/#users-types).
 
 
-!!! Note
-     If you run `pachctl auth activate` after having enabled your enterprise features through Helm, the original `pachyderm-bootstrap-config` K8s secret created with the installation **is not updated**. Instead, the new rootToken is printed in your STDOUT.
-
-
 **System Response**
 ```
 Pachyderm root token:
