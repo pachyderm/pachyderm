@@ -161,11 +161,11 @@ Check the [list of all available helm values](../../../../reference/helm-values/
 
 !!! Warning
     - **When enterprise is enabled through Helm, auth is automatically activated** (i.e., you do not need to run `pachctl auth activate`) and a `pachyderm-auth` k8s secret is created containing a [rootToken](../../../enterprise/auth/#activate-user-access-management) key. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
-    
-    However, **this secret is only used when configuring through helm**:
+			
+		However, **this secret is only used when configuring through helm**:
 
-        - If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
-        - Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
+		- If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
+		- Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
 
     - **Set the helm value `pachd.activateAuth` to false to prevent the automatic bootstrap of auth on the cluster**.
 
@@ -214,8 +214,8 @@ Add the enterprise server's root token, and network addresses to the values.yaml
   		enterpriseServerAddress: "grpc://<ENTERPRISE_SERVER_ADDRESS>"
   		enterpriseCallbackAddress: "grpc://<PACHD_ADDRESS>"
   		enterpriseRootToken: "<ENTERPRISE-ROOT-TOKEN>" # the same root token of the enterprise cluster
-			# Alternatively, you can set this value in a secret 
-			enterpriseRootTokenSecretName: "<Name of you secret containing enterpriseRootToken>"
+		# Alternatively, use a secret
+		enterpriseRootTokenSecretName: "<Name of you secret containing enterpriseRootToken>" 
 
 	```
 
