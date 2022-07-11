@@ -109,7 +109,9 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run: etc/testing/circle/build.sh
-      - when: #Save cache in only one bucket, after build and before running tests, this ensures build cache is saved even when tests fail
+      #Save cache in only one bucket, after build and before running tests, 
+      #this ensures build cache is saved even when tests fail
+      - when: 
           condition:
             equal: [MISC, <<parameters.bucket>>]
           steps:
@@ -478,9 +480,11 @@ jobs:
           at: ./
       - gh/setup:
           version: 2.13.0
+      # This should be {CIRCLE_TAG:1} after testing
       - run:
           name: create github release
-          command: gh release create --draft ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes # This should be {CIRCLE_TAG:1} after testing
+          command: |
+             gh release create --draft ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes
   release-github:
     docker:
       - image: cimg/base:stable
@@ -490,9 +494,11 @@ jobs:
           at: ./
       - gh/setup:
           version: 2.13.0
+      # This should be {CIRCLE_TAG:1} after testing
       - run:
           name: create github release
-          command: gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes # This should be {CIRCLE_TAG:1} after testing
+          command: |
+             gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes
   release-docker-hub:
     docker:
       - image: cimg/base:stable
