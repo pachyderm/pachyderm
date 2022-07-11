@@ -186,7 +186,8 @@ and your IdP-Pachyderm connector config file created (here with the Auth0 parame
 
 - Reference your connector in Helm
 
-
+!!! Note
+    Coming Soon
 
 - Alternatively, use `pachctl`
 
