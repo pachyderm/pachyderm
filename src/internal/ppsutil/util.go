@@ -48,12 +48,19 @@ func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
 }
 
 // PipelineRcName generates the name of the k8s replication controller that
-// manages a pipeline's workers
+// manages a pipeline's workers.  Names are limited to 63 characters, so the
+// pipeline name is truncated if necessary in order to stay under the limit.  Of
+// note, collisions are _not_ currently handled.
 func PipelineRcName(name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
 	name = strings.ReplaceAll(name, "_", "-")
+	var max = 63 - (len("pipeline") + 1) // pipeline-
+	max -= len(fmt.Sprint(version)) + 2  // -v$VERSION
+	if len(name) > max {
+		name = name[0:max]
+	}
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 

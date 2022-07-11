@@ -208,8 +208,8 @@ func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.Ca
 	return pc
 }
 
-// Bump signals the pipelineController goro to either process the  latest state
-// of the pipeline now, or once its done with its current processing iteration.
+// Bump signals the pipelineController goro to either process the latest state
+// of the pipeline now, or once it’s done with its current processing iteration.
 //
 // This function is expected to be called while holding the pcMgr lock.
 // This helps guard the critical section when the goroutine is cleaned up
