@@ -163,7 +163,7 @@ This section is to configure the pachd deployment.
 - `pachd.image` sets the image to use for pachd. This can be left at the defaults unless instructed.
 
 - `pachd.logFormat` sets the logging format (`text` or `json`). `json` is default.
--
+
 - `pachd.logLevel` sets the logging level. `info` is default.
 
 - `pachd.lokiLogging` enables Loki logging if set.
@@ -253,8 +253,7 @@ If you're using Amazon S3 as your storage backend, configure it here.
 
 - `storage.amazon.id` sets the Amazon access key ID to use.
 
-- `storage.amazon.logOptions` sets various log options in Pachyderm’s internal S3 client.  Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries','RequestErrors', 'EventStreamBody', or 'all'
- (case-insensitive).  See 'AWS SDK for Go' docs for details.
+- `storage.amazon.logOptions` sets various log options in Pachyderm’s internal S3 client.  Comma-separated list containing zero or more of: 'Debug', 'Signing', 'HTTPBody', 'RequestRetries','RequestErrors', 'EventStreamBody', or 'all' (case-insensitive).  See 'AWS SDK for Go' docs for details.
 
 - `storage.amazon.maxUploadParts` sets the maximum number of upload parts. Default is `10000`.
 
