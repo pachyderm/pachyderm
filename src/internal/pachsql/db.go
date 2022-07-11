@@ -149,6 +149,7 @@ func snowflakeDSN(u URL, password string) (string, error) {
 	// in this case, the account_identifier is my_organization-my_account
 	params := make(map[string]*string, len(u.Params))
 	for k, v := range u.Params {
+		v := v
 		params[k] = &v
 	}
 	var account, host string
