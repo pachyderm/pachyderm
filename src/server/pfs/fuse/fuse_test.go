@@ -16,6 +16,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
@@ -491,10 +492,10 @@ func TestMountDir(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	err := env.PachClient.WithModifyFileClient(client.NewCommit("repo", "master", ""), func(mf client.ModifyFile) error {
 		if err := mf.PutFile("dir/foo", strings.NewReader("foo")); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := mf.PutFile("dir/bar", strings.NewReader("bar")); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	})
