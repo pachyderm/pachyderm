@@ -34,15 +34,12 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 
-	env := newTestEnv(t, dbConfig, pipelineInfo)
+	env := newPachEnv(t, dbConfig)
 
-	eg, ctx := errgroup.WithContext(env.driver.PachClient().Ctx())
+	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
 	t.Cleanup(func() {
 		require.NoError(t, eg.Wait())
 	})
-
-	env.driver = env.driver.WithContext(ctx)
-	env.PachClient = env.driver.PachClient()
 
 	// Set env vars that the object storage layer expects in the env
 	// This is global but it should be fine because all tests use the same value.
@@ -88,31 +85,31 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	})
 	require.NoError(t, err)
 
+	pipelineInfo.SpecCommit = specCommit
+	renv := testEnvFromPach(t, pipelineInfo, env)
+	renv.driver = renv.driver.WithContext(ctx)
+	renv.PachClient = renv.driver.PachClient()
+
 	// Put the pipeline info into the collection (which is read by the master)
-	err = env.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
-		pipelineInfo := &pps.PipelineInfo{
-			State:       pps.PipelineState_PIPELINE_STARTING,
-			Version:     1,
-			SpecCommit:  specCommit,
-			Parallelism: 1,
-		}
-		err := env.driver.Pipelines().ReadWrite(sqlTx).Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+	err = renv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+		rw := renv.driver.Pipelines().ReadWrite(sqlTx)
+		err := rw.Put(specCommit, pipelineInfo) // pipeline/info needs to contain spec
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 
 	eg.Go(func() error {
-		if err := Run(env.driver, env.logger); err != nil && !errors.Is(err, context.Canceled) {
+		if err := Run(renv.driver, renv.logger); err != nil && !errors.Is(err, context.Canceled) {
 			return err
 		}
 		return nil
 	})
 
 	eg.Go(func() error {
-		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{})
+		err := backoff.RetryUntilCancel(renv.driver.PachClient().Ctx(), func() error {
+			return Worker(renv.driver.PachClient().Ctx(), renv.driver, renv.logger, &Status{})
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-			env.logger.Logf("worker failed, retrying immediately, err: %v", err)
+			renv.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil
 		})
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -121,7 +118,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 		return nil
 	})
 
-	return env
+	return renv
 }
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
@@ -251,7 +248,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
-	suite.Skip("TODO: investigate test failure")
+	// suite.Skip("TODO: investigate test failure")
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		t.Parallel()

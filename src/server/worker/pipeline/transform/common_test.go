@@ -123,6 +123,36 @@ func (td *testDriver) GetContainerImageID(ctx context.Context, containerName str
 	return imageID, errors.EnsureStack(err)
 }
 
+func newPachEnv(t *testing.T, dbConfig serviceenv.ConfigOption) *testpachd.RealEnv {
+	realEnv := testpachd.NewRealEnv(t, dbConfig)
+	return realEnv
+}
+
+func testEnvFromPach(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *testpachd.RealEnv) *testEnv {
+	logger := logs.NewMockLogger()
+	if debug {
+		logger.Writer = os.Stdout
+	}
+	workerDir := filepath.Join(realEnv.Directory, "worker")
+	driver, err := driver.NewDriver(
+		realEnv.ServiceEnv,
+		realEnv.PachClient,
+		pipelineInfo,
+		workerDir,
+	)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	t.Cleanup(cancel)
+	driver = driver.WithContext(ctx)
+
+	return &testEnv{
+		RealEnv: realEnv,
+		logger:  logger,
+		driver:  &testDriver{driver},
+	}
+}
+
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
 func newTestEnv(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
