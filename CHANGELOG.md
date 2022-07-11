@@ -1,5 +1,8 @@
 
 # Changelog
+## 2.2.5
+- Fix upgrade for 2.2.x to 2.2.3+ without console #7874
+
 ## 2.2.4
 - Remove Log Parsing in lokiutil - #7863
 
