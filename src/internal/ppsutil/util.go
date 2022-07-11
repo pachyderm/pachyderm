@@ -42,6 +42,13 @@ import (
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 )
 
+// MaxPipelineNameLength is the maximum allowed length of a pipeline name.  This
+// is based on the maximum length of a label in k8s is 63, and we have some
+// boilerplate which eats up part of that.  The tricky part is that the version
+// is monotonically increasing.  The workaround is to reserve enough space for
+// 9,999 pipeline versions, then truncate the pipeline name itself thereafter.
+var MaxPipelineNameLength = 63 - len("pipeline--v1234")
+
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
 	return client.NewRepo(pipeline.Name)

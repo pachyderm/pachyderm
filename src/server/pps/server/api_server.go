@@ -1509,9 +1509,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if err := ancestry.ValidateName(request.Pipeline.Name); err != nil {
 		return errors.Wrapf(err, "invalid pipeline name")
 	}
-	if len(request.Pipeline.Name) > 63 {
-		return errors.Errorf("pipeline name is %d characters long, but must have at most 63: %q",
-			len(request.Pipeline.Name), request.Pipeline.Name)
+	if len(request.Pipeline.Name) > ppsutil.MaxPipelineNameLength {
+		return errors.Errorf("pipeline name is %d characters long, but must have at most %d: %q",
+			len(request.Pipeline.Name), ppsutil.MaxPipelineNameLength, request.Pipeline.Name)
 	}
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
