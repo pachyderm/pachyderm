@@ -26,7 +26,7 @@ For example, let's create the `master` branch of the repo `test`.
 1. In MinIO, 
     - this would look like:
       ```shell
-      $ mc mb local/master.test
+      mc mb local/master.test
       ```
       **System Response:**
       ```
@@ -34,7 +34,7 @@ For example, let's create the `master` branch of the repo `test`.
       ```
     - verify that the S3 bucket has been successfully created:
       ```shell
-      $ mc ls local
+      mc ls local
       ```
       **System Response:**
       ```
@@ -43,7 +43,7 @@ For example, let's create the `master` branch of the repo `test`.
 1. If you are using AWS S3 CLI,
     - this would look like:
       ```shell
-      $ aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
+      aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
       ```
       **System Response:**
       ```
@@ -51,7 +51,7 @@ For example, let's create the `master` branch of the repo `test`.
       ```
     - verify that the S3 bucket has been successfully created:
       ```shell
-      $ aws --endpoint-url http://localhost:30600/ s3 ls
+      aws --endpoint-url http://localhost:30600/ s3 ls
       ```
       **System Response:**
       ```
@@ -70,7 +70,7 @@ Call the *delete an empty S3 bucket* command on your S3 client to delete a Pachy
 
 1. In MinIO, 
     ```shell
-    $ mc rb local/master.test
+    mc rb local/master.test
     ```
     **System Response:**
     ```
@@ -78,7 +78,7 @@ Call the *delete an empty S3 bucket* command on your S3 client to delete a Pachy
     ```
 1. If you are using AWS S3 CLI,
     ```shell
-    $ aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
+    aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
     ```
     **System Response:**
     ```
@@ -91,7 +91,7 @@ repository by running an S3 client `ls` command.
 
 1. In MinIO,
      ```shell
-     $ mc ls local
+     mc ls local
      ```
      **System Response:**
      ```
@@ -104,7 +104,7 @@ repository by running an S3 client `ls` command.
 1. If you are using AWS S3 CLI,
 
      ```shell
-     $ aws --endpoint-url http://localhost:30600 s3 ls
+     aws --endpoint-url http://localhost:30600 s3 ls
      ```
      **System Response:**
      ```
@@ -119,7 +119,7 @@ For example, list the contents of the repository raw_data.
 
 1. In MinIO,
      ```shell
-     $ mc ls local/master.raw_data
+     mc ls local/master.raw_data
      ```
      **System Response:**
      ```
@@ -128,7 +128,7 @@ For example, list the contents of the repository raw_data.
 
 1. If you are using AWS S3 CLI,
      ```shell
-     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
      ```
      **System Response:**
      ```
@@ -149,7 +149,7 @@ the `raw_data` repository. `raw_data` being an input repository.
 1. In MinIO,
     - this would look like:
         ```shell
-        $ mc cp test.csv local/master.raw_data/test.csv
+        mc cp test.csv local/master.raw_data/test.csv
         ```
         **System Response:**
         ```
@@ -157,7 +157,7 @@ the `raw_data` repository. `raw_data` being an input repository.
         ```
     - Check that the file was added:
         ```shell
-        $ mc ls local/master.raw_data
+        mc ls local/master.raw_data
         ```
         **System Response:**
 
@@ -169,7 +169,7 @@ the `raw_data` repository. `raw_data` being an input repository.
 1. If you are using AWS S3 CLI,
     - this would look like:
       ```shell
-      $ aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
+      aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
       ```
       **System Response:**
       ```
@@ -177,7 +177,7 @@ the `raw_data` repository. `raw_data` being an input repository.
       ```
     - Check that the file was added:
       ```shell
-      $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
+      aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
       ```
       **System Response:**
       ```
@@ -190,7 +190,7 @@ For example, download the file `github_issues_medium.csv` from the `master` bran
 
 1. In MinIO,
      ```shell
-     $ mc cp local/master.raw_data/github_issues_medium.csv .
+     mc cp local/master.raw_data/github_issues_medium.csv .
      ```
      **System Response:**
      ```
@@ -199,7 +199,7 @@ For example, download the file `github_issues_medium.csv` from the `master` bran
 
 1. If you are using AWS S3 CLI,
      ```shell
-     $ aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
+     aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
      ```
      **System Response:**
      ```
@@ -211,7 +211,7 @@ For example, delete the file `test.csv` in the `HEAD` of the `master` branch of 
 
 1. In MinIO,
      ```shell
-     $ mc rm local/master.raw_data/test.csv
+     mc rm local/master.raw_data/test.csv
      ```
      **System Response:**
      ```
@@ -221,7 +221,7 @@ For example, delete the file `test.csv` in the `HEAD` of the `master` branch of 
 1. If you are using AWS S3 CLI,
 
      ```shell
-     $ aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
+     aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
      ```
      **System Response:**
      ```

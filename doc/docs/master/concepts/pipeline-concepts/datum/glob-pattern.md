@@ -179,7 +179,7 @@ You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the da
 
 !!! example
     ```shell
-    $ pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
+    pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
     ```
     **System Response:**
 
@@ -200,7 +200,7 @@ You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the da
     - You might want to follow up with [inspect datum pipeline@job_number datum ID](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/){target=_blank} to detail the files that a specific datum includes.
     
         ```shell
-        $ pachctl inspect datum edges@b8687e9720f04b7ab53ae8c64541003b a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
+        pachctl inspect datum edges@b8687e9720f04b7ab53ae8c64541003b a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
         ```
         **System Response:**
         ```

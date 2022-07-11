@@ -15,19 +15,19 @@ pachctl run pipeline <pipeline> [<repo>@[<branch>|<commit>|<branch>=<commit>]...
 ```
 
 		# Rerun the latest job for the "filter" pipeline
-		$ pachctl run pipeline filter
+		pachctl run pipeline filter
 
 		# Process the pipeline "filter" on the data from commit-branch pairs "repo1@A=a23e4" and "repo2@B=bf363"
-		$ pachctl run pipeline filter repo1@A=a23e4 repo2@B=bf363
+		pachctl run pipeline filter repo1@A=a23e4 repo2@B=bf363
 
 		# Run the pipeline "filter" on the data from commit "167af5" on the "staging" branch on repo "repo1"
-		$ pachctl run pipeline filter repo1@staging=167af5
+		pachctl run pipeline filter repo1@staging=167af5
 
 		# Run the pipeline "filter" on the HEAD commit of the "testing" branch on repo "repo1"
-		$ pachctl run pipeline filter repo1@testing
+		pachctl run pipeline filter repo1@testing
 
 		# Run the pipeline "filter" on the commit "af159e which originated on the "master" branch on repo "repo1"
-		$ pachctl run pipeline filter repo1@af159
+		pachctl run pipeline filter repo1@af159
 ```
 
 ### Options

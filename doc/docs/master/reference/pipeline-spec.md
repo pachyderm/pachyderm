@@ -147,7 +147,7 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
           "branch": string,
           "glob": string,
           "lazy" bool,
-          "empty_files": bool
+          "empty_files": bool,
           "s3": bool
         }
       },
@@ -158,7 +158,7 @@ To see how to use a pipeline spec to create a pipeline, refer to the [create pip
           "branch": string,
           "glob": string,
           "lazy" bool,
-          "empty_files": bool
+          "empty_files": bool,
           "s3": bool
         }
       }

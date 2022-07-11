@@ -46,15 +46,15 @@ See also the reference [values.yaml](https://github.com/pachyderm/helmchart/blob
 ###  Install the Pachyderm Helm Chart
 1. Get your Helm Repo Info
     ```shell
-    $ helm repo add pachyderm https://helm.pachyderm.com
-    $ helm repo update
+    helm repo add pachyderm https://helm.pachyderm.com
+    helm repo update
     ```
 
 1. Install Pachyderm
 
     You are ready to deploy Pachyderm on the environment of your choice.
     ```shell
-    $ helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm --version 0.6.5
+    helm install pachd -f my_pachyderm_values.yaml pachyderm/pachyderm --version 0.6.5
     ```
 You can choose a specific helm chart version by adding a `--version` flag (for example, `--version 0.3.0`). 
 Each version of a chart is associated with a given version of Pachyderm. 
@@ -66,7 +66,7 @@ No mention of the version will install the latest available version of Pachyderm
 
 1. Check your deployment
     ```shell
-    $ kubectl get pods
+    kubectl get pods
     ```
 
     **System Response:**
@@ -81,7 +81,7 @@ No mention of the version will install the latest available version of Pachyderm
 1. Verify that the Pachyderm cluster is up and running
 
     ```shell
-    $ pachctl version
+    pachctl version
     ```
 
     **System Response:**
@@ -95,7 +95,7 @@ No mention of the version will install the latest available version of Pachyderm
 ## Uninstall the Pachyderm Helm Chart
 [Helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) a release as easily as you installed it.
 ```shell
-$ helm uninstall pachd 
+helm uninstall pachd 
 ```
 
 ## Conversion table

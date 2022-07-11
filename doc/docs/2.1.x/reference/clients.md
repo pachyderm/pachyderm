@@ -9,13 +9,33 @@ In this case, Pachyderm offers language specific SDKs in Go, Python, and JS.
 
 ## Go Client
 
-The Pachyderm team officially supports the Go client. It implements most of the functionality that is provided with the `pachctl` CLI tool.
+The Pachyderm team officially supports the Go client. It implements most of the functionalities provided with the `pachctl` CLI tool.
 
-For more info, check out the [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank}.
+### Generate And Serve The godocs Locally
+
+Golang's package (godoc), installed by default by the Go installer, can generate the Go client's documentation from the go code.
+
+To generate the docs:
+
+- Set your GOPATH: 
+
+	```shell
+	export PATH=$(go env GOPATH)/bin:$PATH
+	```
+
+- In Pachyderm's root directory, start the godocs server: 
+
+	```shell
+	go run golang.org/x/tools/cmd/godoc -http=:6060 -goroot="<your go root directory - for example: /Users/yourusername/pachyderm>"
+	```
+				
+	See https://pkg.go.dev/golang.org/x/tools/cmd/godoc for the complete list of flags available.
+
+- In your favorite browser, run `localhost:6060/pkg/`
+
 
 !!! Attention
      A compatible version of `gRPC` is needed when using the Go client.  You can identify the compatible version by searching for the version number next to `replace google.golang.org/grpc => google.golang.org/grpc` in https://github.com/pachyderm/pachyderm/blob/master/go.mod then:
-
 
 	```shell
 	go get google.golang.org/grpc
@@ -25,7 +45,7 @@ For more info, check out the [godocs](https://pkg.go.dev/github.com/pachyderm/pa
      
 ### Running Go Examples
 
-The Pachyderm [godocs](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client){target=_blank} reference
+The Pachyderm godocs reference (see generation instructions above)
 provides examples of how you can use the Go client API. You need to have a running Pachyderm cluster
 to run these examples.
 
@@ -33,7 +53,7 @@ Make sure that you use your `pachd_address` in `client.NewFromAddress("<your-pac
 For example, if you are testing on `minikube`, run
 `minikube ip` to get this information.
 
-See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv){target=_blank} for more
+See the [OpenCV Example in Go](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/opencv){target=_blank} for more
 information.
 
 ## Python Client
@@ -42,14 +62,14 @@ The Python client `python-pachyderm` is officially supported by the Pachyderm te
 It implements most of the functionalities provided with the `pachctl` CLI tool allowing you to easily integrate operations like `create repo`, `put a file,` or `create pipeline` into your python applications.
 
 !!! Note
-     Use **python-pachyderm v7.0** with Pachyderm 2.0 and higher. 
+     Use **python-pachyderm v7.x** with Pachyderm 2.0 and higher. 
 
 You will find all you need to get you started or dive into the details of the available modules and functions in the [API documentation](https://python-pachyderm.readthedocs.io/en/v7.1.x/){target=_blank}, namely:
 
-- The [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting-started.html#installation){target=_blank} and links to PyPI.
-- A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting-started.html#installation){target=_blank} to jumpstart your understanding of the API.
+- The [installation instructions](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting_started.html#installation){target=_blank} and links to PyPI.
+- A quick ["Hello World" example](https://python-pachyderm.readthedocs.io/en/v7.1.x/getting_started.html#hello-world-example){target=_blank} to jumpstart your understanding of the API.
 - Links to python-pachyderm main Github repository with a [list of useful examples](https://github.com/pachyderm/python-pachyderm/tree/v7.1.x/examples){target=_blank}. 
-- As well as the entire **reference API**.
+- As well as the entire [**reference API**](https://python-pachyderm.readthedocs.io/en/v7.1.x/python_pachyderm.html){target=_blank}.
 
 ## Node Client
 

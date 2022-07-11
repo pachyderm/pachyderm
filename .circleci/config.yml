@@ -10,9 +10,10 @@ aliases:
       only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
 
 orbs:
-  go: circleci/go@1.6.0
+  go: circleci/go@1.7.1
   gcp-cli: circleci/gcp-cli@2.4.1
   gh: circleci/github-cli@2.1
+  codecov: codecov/codecov@1.1.0
 
 parameters:
   machine_image:
@@ -24,17 +25,46 @@ parameters:
   retain_slots:
     type: string
     default: "0"
-  RELEASE_PACH_CORE:
-    type: boolean
-    default: false
-  RELEASE_TYPE:
-    type: string
-    default: ""
-  ADDITIONAL_VERSION:
-    type: string
-    default: ""
 
 jobs:
+  test-go:
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    resource_class: xlarge
+    environment:
+      TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - run: mkdir ${TEST_RESULTS}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: CGO_ENALBED=0 go install ./src/testing/match
+      - restore_cache:
+          keys:
+            - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: etc/testing/circle/install.sh
+      - run:
+          no_output_timeout: 20m
+          command: |-
+            GOMAXPROCS=2 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            gotestsum \
+            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --rerun-fails \
+            --packages="./..." \
+            -- \
+            -count=1 \
+            -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./...
+      - store_artifacts: # upload test summary for display in Artifacts
+          path: /tmp/test-results
+          destination: raw-test-output
+      - store_test_results: # upload test results for display in Test Summary
+          path: /tmp/test-results
+      - codecov/upload:
+          file: /tmp/test-results/coverage.txt
+      - save_cache:
+          key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/go/pkg/mod
   circleci:
     parameters:
       bucket:
@@ -43,7 +73,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
-      PPS_BUCKETS: "6"
+      PPS_BUCKETS: "8"
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
@@ -113,12 +143,12 @@ jobs:
           path: /tmp/test-results
   helm-tests:
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.3
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
           path: ~/project
-      - run: mkdir /home/circleci/bin
+      - run: mkdir -p /home/circleci/bin
       - restore_cache:
           keys:
             - go-mod-helm-v4-{{ checksum "go.sum" }}
@@ -137,7 +167,7 @@ jobs:
       - save_cache:
           key: go-mod-helm-v4-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg/mod"
+            - "/home/circleci/go/pkg/mod"
   helm-build:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
@@ -256,7 +286,7 @@ jobs:
       - checkout
       - run: etc/testing/circle/install.sh
       - run: etc/testing/circle/rootless_test.sh
-  deploy:
+  deploy-tests:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -302,7 +332,7 @@ jobs:
         default: ${CIRCLE_SHA1}
     resource_class: large
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.3
     steps:
       - checkout
       - setup_remote_docker:
@@ -361,12 +391,16 @@ jobs:
             - run:
                 name: build pachctl bin
                 description: Builds and uploads pachctl amd64 binary for extensions with a git commit SHA.
-                command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
+                command: |
+                  make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
+                  make release-mount-server GORELSNAP=--snapshot VERSION=<< parameters.version >>
             - run:
                 name: upload pachctl binaries 
                 command: |
                   echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
                   cd /home/circleci/dist-pach/pachctl/
+                  gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
+                  cd /home/circleci/dist-pach/mount-server/
                   gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
                   rm /home/circleci/gcpcreds.json
       - when:
@@ -377,8 +411,6 @@ jobs:
             - run:
                 name: build pachctl bin
                 description: Builds and prepares all pachctl binaries for release.
-                # command: make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
-                # TODO: remove and replace only for testing
                 command: |
                   v=<< parameters.version >>
                   additional=${v%%-*}
@@ -388,64 +420,6 @@ jobs:
                 root: ../
                 paths:
                   - dist-pach/*
-  release_job:
-    docker:
-      - image: cimg/go:1.17.3
-    steps:
-      - checkout
-      - run:
-          name: pachydermbuildbot docker login
-          command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - setup_remote_docker:
-          version: 19.03.13
-      - run:
-          name: pull pachyderm/etcd:v3.5.1 docker image
-          command: |
-            docker pull pachyderm/etcd:v3.5.1
-      - run:
-          name: install goreleaser
-          command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
-            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
-      - add_ssh_keys:
-          fingerprints:
-            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
-      - run:
-          name: setup pachydermbuildbot git
-          command: |
-            git config --global user.email "buildbot@pachyderm.io"
-            git config --global user.name "pachydermbuildbot"
-      - when:
-          condition:
-            and:
-              - equal: [custom, << pipeline.parameters.RELEASE_TYPE >>]
-          steps:
-            - run:
-                name: make custom-release
-                command: |
-                  make custom-release
-      - when:
-          condition:
-            and:
-              - equal: [point, << pipeline.parameters.RELEASE_TYPE >>]
-          steps:
-            - run:
-                name: make point-release
-                command: |
-                  make point-release
-      - when:
-          condition:
-            and:
-              - equal: [candidate, << pipeline.parameters.RELEASE_TYPE >>]
-          steps:
-            - run:
-                name: make release-candidate
-                command: |
-                  make VERSION_ADDITIONAL=<< pipeline.parameters.ADDITIONAL_VERSION >> release-candidate
   check-prettier:
     docker:
       - image: cimg/node:16.11.0
@@ -467,7 +441,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:1.18.3
     steps:
       - checkout
       - setup_remote_docker:
@@ -495,6 +469,18 @@ jobs:
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
+  release-github-draft:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - gh/setup:
+          version: 2.13.0
+      - run:
+          name: create github release
+          command: gh release create --draft ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes # This should be {CIRCLE_TAG:1} after testing
   release-github:
     docker:
       - image: cimg/base:stable
@@ -506,7 +492,7 @@ jobs:
           version: 2.13.0
       - run:
           name: create github release
-          command: gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes
+          command: gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes # This should be {CIRCLE_TAG:1} after testing
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -533,86 +519,80 @@ jobs:
           command: |
             git config --global user.email "buildbot@pachyderm.io"
             git config --global user.name "pachydermbuildbot"
-      # TODO make this depend on tag regex
       - run:
           name: update homebrew formula
+          description: updates homebrew after determining release type.
+          # this checks if it is a custom, pre, or alpha release and passes that additional string so homebrew knows to create new homebrew index. 
+          # $additional is currently just a flag, that value itself is not used.  
           command: |
             v=${CIRCLE_TAG}
-            additional=${v%%-*}
-            index=${#additional}
-            ./etc/build/update_homebrew.sh ${v:index}
+            prefix=${v%%-*}
+            index=${#prefix}
+            additional=${v:index}
+            ./etc/build/update_homebrew.sh ${additional}
 workflows:
-  # circleci:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - build-docker-images
-  #     - build-pachctl-bin:
-  #         version: $CIRCLE_SHA1
-  #         upload: true
-  #     - check-prettier
-  #     - test-envoy
-  #     - circleci:
-  #         matrix:
-  #           parameters:
-  #             bucket:
-  #               - MISC
-  #               # If you want to update the number of PPS buckets, you'll need to
-  #               # update the value of PPS_BUCKETS above
-  #               - AUTH
-  #               - ENTERPRISE
-  #               - PFS
-  #               - PPS1
-  #               - PPS2
-  #               - PPS3
-  #               - PPS4
-  #               - PPS5
-  #               - PPS6
-  #               - PPS_AUTH
-  #               - EXAMPLES
-  #               - INTERNAL
-  # helm:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - helm-tests
-  # nightly_load_tests:
-  #   triggers:
-  #     - schedule:
-  #         cron: "0 6 * * *"
-  #         filters:
-  #           branches:
-  #             only:
-  #               - master
-  #               - 2.1.x
-  #               - 2.2.x
-  #   jobs:
-  #     - nightly-load:
-  #         matrix:
-  #           parameters:
-  #             bucket:
-  #               - LOAD1
-  #               - LOAD2
-  #               - LOAD3
-  #               - LOAD4
-  #               - LOAD5
-  #               - LOAD6
-  #               - LOAD7
-  # rootless:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - rootless
-  # deploy:
-  #   when:
-  #     and:
-  #       - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-  #   jobs:
-  #     - deploy
-  test-release:
+  circleci:
+    jobs:
+      - build-docker-images
+      - build-pachctl-bin:
+          version: $CIRCLE_SHA1
+          upload: true
+      - check-prettier
+      - test-go
+      - test-envoy
+      - circleci:
+          matrix:
+            parameters:
+              bucket:
+                - MISC
+                # If you want to update the number of PPS buckets, you'll need to
+                # update the value of PPS_BUCKETS above
+                - AUTH
+                - ENTERPRISE
+                - PFS
+                - PPS1
+                - PPS2
+                - PPS3
+                - PPS4
+                - PPS5
+                - PPS6
+                - PPS7
+                - PPS8
+                - PPS_AUTH
+                - EXAMPLES
+                - INTERNAL
+  helm-tests:
+    jobs:
+      - helm-tests
+  nightly_load_tests:
+    triggers:
+      - schedule:
+          cron: "0 6 * * *"
+          filters:
+            branches:
+              only:
+                - master
+                - 2.1.x
+                - 2.2.x
+    jobs:
+      - nightly-load:
+          matrix:
+            parameters:
+              bucket:
+                - LOAD1
+                - LOAD2
+                - LOAD3
+                - LOAD4
+                - LOAD5
+                - LOAD6
+                - LOAD7
+  rootless-tests:
+    jobs:
+      - rootless
+  deploy-tests:
+    jobs:
+      - deploy-tests
+  release:
     jobs:
       - helm-tests:
           filters: *only-release-tags
@@ -637,12 +617,17 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-build
+      - release-github-draft:
+          filters: *only-release-tags
+          requires:
+            - build-pachctl-bin
       - pachyderm-prerelease-testing:
           filters: *only-release-tags
           requires:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
+            - release-github-draft
       - sign-off:
           filters: *only-release-tags
           type: approval
@@ -650,6 +635,7 @@ workflows:
             - build-docker-images
             - build-pachctl-bin
             - publish-chart-preview
+            - release-github-draft
       - release-docker-hub:
           filters: *only-release-tags
           requires:

@@ -15,7 +15,7 @@ pachctl wait commit <repo>@<branch-or-commit> [flags]
 ```
 
 # wait for the commit foo@XXX to finish and return it
-$ pachctl wait commit foo@XXX -b bar@baz
+pachctl wait commit foo@XXX -b bar@baz
 ```
 
 ### Options

@@ -135,7 +135,7 @@ If you're not exposing `pachd` publicly, you can run:
 
 ```shell
 # Background this process because it blocks.
-$ pachctl port-forward
+pachctl port-forward
 ``` 
 
 Verify that `pachctl` and your cluster are connected:

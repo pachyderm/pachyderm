@@ -26,7 +26,7 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
 
     - Install the Prometheus-operator helm chart
     ```shell
-    $ helm install <a-release-name> prometheus-community/kube-prometheus-stack
+    helm install <a-release-name> prometheus-community/kube-prometheus-stack
     ```
 
 1. Create a ServiceMonitor for Pachyderm in Kubernetes:
@@ -51,7 +51,7 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
         ```
     - Create a ServiceMonitor looking to scrape metrics from `suite: pachyderm`:
         ```shell
-        $ kubectl create -f myprometheusservice.yaml
+        kubectl create -f myprometheusservice.yaml
         ```
         The prometheus-operator will search for the pods based on the label selector `<a-release-name>`
         and creates a prometheus target so prometheus will scrape the metrics endpoint `prometheus-metrics`.
@@ -65,7 +65,7 @@ Prometheus' **Kubernetes cluster monitoring** using the Prometheus Operator:
             Let's take a quick look at this file:
             
             ```shell
-            $ pachctl deploy local --dry-run > pachd.json
+            pachctl deploy local --dry-run > pachd.json
             ```
             In pachd.json, find:
             ```shell
@@ -81,7 +81,7 @@ One last step before you can collect your metrics:
 If you followed the instruction above, you can connect to Prometheus by using kubectl port-forward.
 
 ```shell
-$   kubectl port-forward pod/prometheus-<a-release-name>-kube-prometheus-stack-prometheus-0 9090
+  kubectl port-forward pod/prometheus-<a-release-name>-kube-prometheus-stack-prometheus-0 9090
 ```
 If you have an existing Prometheus deployment, please navigate to your Prometheus GUI.
 

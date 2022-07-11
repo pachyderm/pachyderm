@@ -57,7 +57,7 @@ Below, the state transition diagram of a job:
 
     !!! example
         ```shell
-        $ pachctl list job -p edges
+        pachctl list job -p edges
         ```
 
         **System Response:**
@@ -83,7 +83,7 @@ process time, image:tag used to transform your data, etc...). Along with checkin
 !!! example
     Add a `--raw` flag to output a detailed JSON version of the job.
     ```shell
-    $ pachctl inspect job edges@fd9454d06d8e4fa38a75c8cd20b39538 --raw
+    pachctl inspect job edges@fd9454d06d8e4fa38a75c8cd20b39538 --raw
     ```
 
     **System Response:**

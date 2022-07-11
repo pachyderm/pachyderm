@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -278,17 +279,36 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			VolumeSource: v1.VolumeSource{
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
+		}, v1.Volume{
+			Name: "user-tmp",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
 		})
 		emptyDirVolumeMount := v1.VolumeMount{
 			Name:      "pach-dir-volume",
 			MountPath: kd.config.StorageRoot,
 		}
+		userTmpVolumeMount := v1.VolumeMount{
+			Name:      "user-tmp",
+			MountPath: "/tmp",
+		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
-		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
+		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount, userTmpVolumeMount)
+	}
+	// add emptydir for /tmp to allow for read only rootfs
+	options.volumes = append(options.volumes, v1.Volume{
+		Name: "tmp",
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
+		}})
+	tmpDirVolumeMount := v1.VolumeMount{
+		Name:      "tmp",
+		MountPath: "/tmp",
 	}
 	secretVolume, secretMount := GetBackendSecretVolumeAndMount()
 	options.volumes = append(options.volumes, secretVolume)
-	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount, tmpDirVolumeMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
 	// in the case the pachd is deployed with custom root certs, propagate them to the side-cars
@@ -330,24 +350,42 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 
 	workerImage := kd.config.WorkerImage
 	pachSecurityCtx := &v1.SecurityContext{
-		RunAsUser:  int64Ptr(1000),
-		RunAsGroup: int64Ptr(1000),
+		RunAsUser:                int64Ptr(1000),
+		RunAsGroup:               int64Ptr(1000),
+		AllowPrivilegeEscalation: pointer.BoolPtr(false),
+		ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+		Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 	}
 	var userSecurityCtx *v1.SecurityContext
+	var podSecurityContext *v1.PodSecurityContext
 	userStr := pipelineInfo.Details.Transform.User
 	if !kd.config.EnableWorkerSecurityContexts {
 		pachSecurityCtx = nil
+		podSecurityContext = nil
 	} else if kd.config.WorkerUsesRoot {
 		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
 		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+		podSecurityContext = nil
 	} else if userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
 		if i, err := strconv.ParseInt(userStr, 10, 64); err != nil {
 			kd.logger.Warnf("could not parse user %q into int: %v", userStr, err)
 		} else {
+			// hard coded security settings besides uid/gid.
+			podSecurityContext = &v1.PodSecurityContext{
+				RunAsUser:    int64Ptr(i),
+				RunAsGroup:   int64Ptr(i),
+				FSGroup:      int64Ptr(i),
+				RunAsNonRoot: pointer.BoolPtr(true),
+				SeccompProfile: &v1.SeccompProfile{
+					Type: v1.SeccompProfileType("RuntimeDefault"),
+				}}
 			userSecurityCtx = &v1.SecurityContext{
-				RunAsUser:  int64Ptr(i),
-				RunAsGroup: int64Ptr(i),
+				RunAsUser:                int64Ptr(i),
+				RunAsGroup:               int64Ptr(i),
+				AllowPrivilegeEscalation: pointer.BoolPtr(false),
+				ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
 	}
@@ -401,6 +439,12 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				Env:             sidecarEnv,
 				EnvFrom:         envFrom,
 				VolumeMounts:    sidecarVolumeMounts,
+				ReadinessProbe: &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
+					Command: []string{"/pachd", "--readiness"}}},
+				},
+				LivenessProbe: &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
+					Command: []string{"/pachd", "--readiness"}}},
+				},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
@@ -416,6 +460,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: int64Ptr(0),
+		SecurityContext:               podSecurityContext,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
