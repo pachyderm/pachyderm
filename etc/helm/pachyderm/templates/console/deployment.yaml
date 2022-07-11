@@ -110,6 +110,8 @@ spec:
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
+        - mountPath: /home/
+          name: tmp
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - mountPath: /pach-tls/certs
           name: pachd-tls-cert
@@ -136,6 +138,8 @@ spec:
       tolerations: {{ toYaml .Values.console.tolerations | nindent 8 }}
       {{- end }}
       volumes:
+      - emptyDir: {}
+        name: tmp
       {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
       - name: pachd-tls-cert
         secret:

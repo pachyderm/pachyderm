@@ -273,6 +273,10 @@ loki-stack:
               - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
               - __meta_kubernetes_pod_container_name
             target_label: __path__
+          - action: keep
+            regex: pachyderm
+            source_labels:
+              - __meta_kubernetes_pod_label_suite
           # this gets all kubernetes labels as well
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
