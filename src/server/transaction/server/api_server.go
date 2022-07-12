@@ -5,14 +5,17 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
 type apiServer struct {
-	driver *driver
+	driver    *driver
+	ppsServer ppsiface.APIServer
 }
 
 func newAPIServer(
@@ -24,12 +27,21 @@ func newAPIServer(
 		return nil, err
 	}
 	s := &apiServer{
-		driver: d,
+		driver:    d,
+		ppsServer: env.PpsServer(),
 	}
 	return s, nil
 }
 
 func (a *apiServer) BatchTransaction(ctx context.Context, request *transaction.BatchTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
+	// pipelines need some validation using a context, outside the transaction, so do it here
+	for i, req := range request.Requests {
+		if req.CreatePipeline != nil {
+			if err := a.ppsServer.ValidatePipelineExternally(ctx, req.CreatePipeline); err != nil {
+				return nil, errors.Wrapf(err, "request %d of %d (%s)", i+1, len(request.Requests), req)
+			}
+		}
+	}
 	return a.driver.batchTransaction(ctx, request.Requests)
 }
 

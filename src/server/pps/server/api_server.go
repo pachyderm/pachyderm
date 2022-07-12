@@ -1844,11 +1844,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, request.Pipeline.Name)
 
-	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
-		return nil, err
-	}
-
-	if err := a.validateSecret(ctx, request); err != nil {
+	if err := a.ValidatePipelineExternally(ctx, request); err != nil {
 		return nil, err
 	}
 
@@ -1858,6 +1854,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+// ValidatePipelineExternally performs the pipeline creation request validation steps
+// which do not depend on pachyderm state
+func (a *apiServer) ValidatePipelineExternally(ctx context.Context, request *pps.CreatePipelineRequest) error {
+	if err := a.validateEnterpriseChecks(ctx, request); err != nil {
+		return err
+	}
+	return a.validateSecret(ctx, request)
 }
 
 func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {

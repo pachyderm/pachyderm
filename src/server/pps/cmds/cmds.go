@@ -1273,6 +1273,7 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 	if err != nil {
 		return err
 	}
+	var allRequests []*pps.CreatePipelineRequest
 	pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
 	if err != nil {
 		return err
@@ -1326,18 +1327,43 @@ func pipelineHelper(reprocess bool, pushImages bool, registry, username, pipelin
 						"'bash:latest' to 'bash:5'. This improves reproducibility of your pipelines.\n\n")
 			}
 		}
-		if err = txncmds.WithActiveTransaction(pc, func(txClient *pachdclient.APIClient) error {
-			_, err := txClient.PpsAPIClient.CreatePipeline(
-				txClient.Ctx(),
-				request,
-			)
-			return grpcutil.ScrubGRPC(err)
-		}); err != nil {
-			return err
-		}
+		allRequests = append(allRequests, request)
 	}
+	return runCreatePipelineBatch(pc, allRequests)
+}
 
-	return nil
+// runCreatePipelineBatch creates a batch of pipelines in a (mostly) transactional manner
+func runCreatePipelineBatch(pc *client.APIClient, requests []*pps.CreatePipelineRequest) error {
+	if len(requests) == 0 {
+		return nil
+	}
+	txn, err := txncmds.GetActiveTransaction()
+	if err != nil {
+		return err
+	}
+	run := func(ctx context.Context, c client.PpsAPIClient) error {
+		for _, r := range requests {
+			_, err := c.CreatePipeline(ctx, r)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+		}
+		return nil
+	}
+	if len(requests) == 1 || txn != nil {
+		// special case one to have a cleaner error message
+		// also, if we're currently in a transaction, just run one by one, triggering the append behavior
+		// because we don't support bulk appending to a transaction
+		// note that this means if a user starts a transaction manually and creates multiple pipelines at once,
+		// we still end up adding some requests to the stored transaction in the event of failure
+		pc = pc.WithTransaction(txn)
+		return run(pc.Ctx(), pc.PpsAPIClient)
+	}
+	// otherwise, run in a batch in a new transaction to avoid the quadratic cost
+	_, err = pc.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
+		return run(pc.Ctx(), builder.PpsAPIClient)
+	})
+	return grpcutil.ScrubGRPC(err)
 }
 
 func dockerPushHelper(request *ppsclient.CreatePipelineRequest, registry, username string) error {

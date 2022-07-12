@@ -37,6 +37,9 @@ func DecodeHash(hash string) ([]byte, error) {
 }
 
 func (r *Repo) String() string {
+	if r == nil {
+		return ""
+	}
 	if r.Type == UserRepoType {
 		return r.Name
 	}
@@ -65,6 +68,9 @@ func (c *Commit) NewFile(path string) *File {
 }
 
 func (c *Commit) String() string {
+	if c == nil {
+		return ""
+	}
 	return c.Branch.String() + "=" + c.ID
 }
 
@@ -76,5 +82,8 @@ func (b *Branch) NewCommit(id string) *Commit {
 }
 
 func (b *Branch) String() string {
+	if b == nil {
+		return ""
+	}
 	return b.Repo.String() + "@" + b.Name
 }

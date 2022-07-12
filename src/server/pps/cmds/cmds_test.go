@@ -275,6 +275,41 @@ func TestJSONMultiplePipelines(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl list pipeline`).Run())
 }
 
+func TestJSONMultiplePipelinesTransactional(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	pipeline := tu.UniqueString(t.Name())
+	// create two pipelines in sequence, where the second will fail
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo data
+		pachctl create pipeline 2>&1 <<EOF | match "must specify a name"
+		{
+		    "pipeline": {"name": "{{.pipeline}}-A"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {"cmd": ["true"]}
+		}
+		{
+		    "pipeline": {"name": "{{.pipeline}}-B"},
+		    "input": {
+				"pfs": {}
+		    },
+		    "transform": {"cmd": ["true"]}
+		}
+		EOF 
+	`, "pipeline", pipeline).Run())
+	// make sure we didn't end up creating the first pipeline, either
+	require.NoError(t, tu.PachctlBashCmd(t, c,
+		`pachctl inspect repo {{.pipeline}}-A 2>&1 | match "not found"`,
+		"pipeline", pipeline).Run())
+}
+
 // TestJSONStringifiedNumberstests that JSON pipelines may use strings to
 // specify numeric values such as a pipeline's parallelism (a feature of gogo's
 // JSON parser).
@@ -1023,6 +1058,53 @@ func TestPipelineWithMissingSecret(t *testing.T) {
 		EOF
 		true) | match "missing key"
 	`, "pipeline", tu.UniqueString("p-"), "secret", secretName).Run())
+}
+
+func TestMultiPipelineWithMissingSecret(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	pipeline := tu.UniqueString(t.Name())
+	// create two pipelines in sequence, where the second will fail due to a missing secret
+	// this ensures validation is done even in the batch transaction case
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		(
+		set +e +o pipefail
+		pachctl create repo data
+		pachctl create pipeline 2>&1 <<EOF
+		{
+		    "pipeline": {"name": "{{.pipeline}}-A"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/*",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["true"]
+		    }
+		}
+		{
+		    "pipeline": {"name": "{{.pipeline}}-B"},
+		    "input": {
+				"pfs": {
+					"glob": "/*",
+					"repo": "{{.pipeline}}-A"
+				}
+		    },
+		    "transform": {
+				"cmd": ["true"],
+				"secrets": [{"name": "does-not-exist"}]
+		    }
+		}
+		EOF
+		true) | match "missing Kubernetes secret"
+	`, "pipeline", pipeline).Run())
+	// make sure we didn't end up creating the first pipeline, either
+	require.NoError(t, tu.PachctlBashCmd(t, c,
+		`pachctl inspect repo {{.pipeline}} 2>&1 | match "not found"`,
+		"pipeline", pipeline).Run())
 }
 
 func TestPipelineWithSecret(t *testing.T) {

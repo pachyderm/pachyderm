@@ -92,7 +92,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			defer c.Close()
-			txn, err := getActiveTransaction()
+			txn, err := GetActiveTransaction()
 			if err != nil {
 				return err
 			}

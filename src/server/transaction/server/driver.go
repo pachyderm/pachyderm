@@ -178,7 +178,7 @@ func (d *driver) runTransaction(txnCtx *txncontext.TransactionContext, info *tra
 		}
 
 		if err != nil {
-			return result, errors.Wrapf(err, "error running request %d of %d", i+1, len(info.Requests))
+			return result, errors.Wrapf(err, "error running request %d of %d (%s)", i+1, len(info.Requests), request)
 		}
 	}
 	return result, nil

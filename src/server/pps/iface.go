@@ -1,6 +1,8 @@
 package pps
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	pps_client "github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -14,6 +16,8 @@ type APIServer interface {
 	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
 	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
 	NewJobFinisher(*txncontext.TransactionContext) txncontext.PpsJobFinisher
+
+	ValidatePipelineExternally(context.Context, *pps_client.CreatePipelineRequest) error
 
 	StopJobInTransaction(*txncontext.TransactionContext, *pps_client.StopJobRequest) error
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error

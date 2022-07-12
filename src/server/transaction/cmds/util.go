@@ -10,10 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 )
 
-// getActiveTransaction will read the active transaction from the config file
+// GetActiveTransaction will read the active transaction from the config file
 // (if it exists) and return it.  If the config file is uninitialized or the
 // active transaction is unset, `nil` will be returned.
-func getActiveTransaction() (*transaction.Transaction, error) {
+func GetActiveTransaction() (*transaction.Transaction, error) {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error reading Pachyderm config")
@@ -29,7 +29,7 @@ func getActiveTransaction() (*transaction.Transaction, error) {
 }
 
 func requireActiveTransaction() (*transaction.Transaction, error) {
-	txn, err := getActiveTransaction()
+	txn, err := GetActiveTransaction()
 	if err != nil {
 		return nil, err
 	} else if txn == nil {
@@ -69,7 +69,7 @@ func ClearActiveTransaction() error {
 // given callback with the new client.  This is for executing RPCs that can be
 // run inside a transaction - if this isn't supported, it will have no effect.
 func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient) error) error {
-	txn, err := getActiveTransaction()
+	txn, err := GetActiveTransaction()
 	if err != nil {
 		return err
 	}

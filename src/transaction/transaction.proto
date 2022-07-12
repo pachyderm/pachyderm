@@ -15,6 +15,7 @@ message DeleteAllRequest {
 }
 
 message TransactionRequest {
+  option (gogoproto.goproto_stringer) = false;
   // Exactly one of these fields should be set
   pfs_v2.CreateRepoRequest create_repo = 1;
   pfs_v2.DeleteRepoRequest delete_repo = 2;
