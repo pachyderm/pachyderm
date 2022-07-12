@@ -203,6 +203,8 @@ spec:
         {{- end }}
       {{- if .Values.global.securityContexts.enabled }}
         securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:
