@@ -181,7 +181,7 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 
 	w, err := os.OpenFile(filepath.Join(params.OutputDir, params.OutputFile), os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer w.Close()
 

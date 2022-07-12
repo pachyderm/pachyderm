@@ -126,7 +126,7 @@ func sqlRun(ctx context.Context, log *logrus.Logger, args []string) error {
 	url, fileFormat, query, oFname := args[0], args[1], args[2], args[3]
 	hasHeader, err := strconv.ParseBool(args[4])
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 
 	password, ok := os.LookupEnv(PACHYDERM_SQL_PASSWORD)
