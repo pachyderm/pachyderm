@@ -190,7 +190,16 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 		return "", errors.EnsureStack(err)
 	}
 	if metaCommitInfo.Finishing != nil {
-		return pachClient.GetFileSet(metaCommitInfo.Commit.Branch.Repo.Name, metaCommitInfo.Commit.Branch.Name, metaCommitInfo.Commit.ID)
+		resp, err := pachClient.PfsAPIClient.GetFileSet(
+			pachClient.Ctx(),
+			&pfs.GetFileSetRequest{
+				Commit: metaCommitInfo.Commit,
+			},
+		)
+		if err != nil {
+			return "", err
+		}
+		return resp.FileSetId, nil
 	}
 	return datum.Create(pachClient, taskDoer, jobInfo.Details.Input)
 }
