@@ -591,6 +591,15 @@ workflows:
                 - LOAD5
                 - LOAD6
                 - LOAD7
+                - LOAD8
+                - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
+                  # Disabled for now since they take too long, may consider reenabling later.
+                  #- LOAD13
+                  #- LOAD14
+                  #- LOAD15
   rootless-tests:
     jobs:
       - rootless
