@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -18,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
@@ -75,12 +75,14 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 func processComputeParallelDatumsTask(pachClient *client.APIClient, task *ComputeParallelDatumsTask) (*types.Any, error) {
 	var dits []datum.Iterator
 	if task.BaseFileSetId != "" {
-		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId, nil))
+		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId, task.PathRange))
 	}
-	dits = append(dits, datum.NewFileSetIterator(pachClient, task.FileSetId, nil))
-	outputFileSetID, err := withDatumFileSet(pachClient, func(outputSet *datum.Set) error {
+	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+	dit = datum.NewJobIterator(dit, task.JobInfo.Job, &hasher{salt: task.JobInfo.Details.Salt})
+	dits = append(dits, dit)
+	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-parallel", func(outputSet *datum.Set) error {
 		return datum.Merge(dits, func(metas []*datum.Meta) error {
-			if len(metas) > 1 || !proto.Equal(metas[0].Job, task.Job) {
+			if len(metas) > 1 || !proto.Equal(metas[0].Job, task.JobInfo.Job) {
 				return nil
 			}
 			return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
@@ -93,30 +95,32 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 }
 
 func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeSerialDatumsTask) (*types.Any, error) {
+	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+	dit = datum.NewJobIterator(dit, task.JobInfo.Job, &hasher{salt: task.JobInfo.Details.Salt})
 	dits := []datum.Iterator{
-		datum.NewCommitIterator(pachClient, task.BaseMetaCommit, nil),
-		datum.NewFileSetIterator(pachClient, task.FileSetId, nil),
+		datum.NewCommitIterator(pachClient, task.BaseMetaCommit, task.PathRange),
+		dit,
 	}
-	var deleteFileSetID string
+	var metaDeleteFileSetID, outputDeleteFileSetID string
 	var skipped int64
-	outputFileSetID, err := withDatumFileSet(pachClient, func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-serial", func(outputSet *datum.Set) error {
 		var err error
-		deleteFileSetID, err = withDatumFileSet(pachClient, func(deleteSet *datum.Set) error {
+		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(pachClient, task.BaseMetaCommit, func(deleter datum.Deleter) error {
 			return datum.Merge(dits, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was processed in the parallel step.
-					if proto.Equal(metas[0].Job, task.Job) {
+					if proto.Equal(metas[0].Job, task.JobInfo.Job) {
 						return nil
 					}
 					// Datum only exists in the parent job.
-					return deleteSet.UploadMeta(metas[0])
+					return deleter(metas[0])
 				}
 				// Check if a skippable datum was successfully processed by the parent.
 				if !task.NoSkip && skippableDatum(metas[1], metas[0]) {
 					skipped++
 					return nil
 				}
-				if err := deleteSet.UploadMeta(metas[0]); err != nil {
+				if err := deleter(metas[0]); err != nil {
 					return err
 				}
 				return outputSet.UploadMeta(metas[1], datum.WithPrefixIndex())
@@ -128,9 +132,10 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 		return nil, err
 	}
 	return serializeComputeSerialDatumsTaskResult(&ComputeSerialDatumsTaskResult{
-		FileSetId:       outputFileSetID,
-		DeleteFileSetId: deleteFileSetID,
-		Skipped:         skipped,
+		FileSetId:             outputFileSetID,
+		OutputDeleteFileSetId: outputDeleteFileSetID,
+		MetaDeleteFileSetId:   metaDeleteFileSetID,
+		Skipped:               skipped,
 	})
 }
 
@@ -139,64 +144,63 @@ func skippableDatum(meta1, meta2 *datum.Meta) bool {
 	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
+func withDeleter(pachClient *client.APIClient, baseMetaCommit *pfs.Commit, cb func(datum.Deleter) error) (string, string, error) {
+	var outputFileSetID, metaFileSetID string
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
+			resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) error {
+				metaFileWalker := func(path string) ([]string, error) {
+					var files []string
+					if err := pachClient.WalkFile(baseMetaCommit, path, func(fi *pfs.FileInfo) error {
+						if fi.FileType == pfs.FileType_FILE {
+							files = append(files, fi.File.Path)
+						}
+						return nil
+					}); err != nil {
+						return nil, err
+					}
+					return files, nil
+				}
+				return cb(datum.NewDeleter(metaFileWalker, mfMeta, mfPFS))
+			})
+			if err != nil {
+				return err
+			}
+			if err := renewer.Add(ctx, resp.FileSetId); err != nil {
+				return err
+			}
+			outputFileSetID = resp.FileSetId
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		metaFileSetID = resp.FileSetId
+		return nil
+	}); err != nil {
+		return "", "", err
+	}
+	return outputFileSetID, metaFileSetID, nil
+}
+
 func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*types.Any, error) {
-	setSpec, err := createSetSpec(driver, task.FileSetId)
+	setSpec, err := createSetSpec(driver, task.FileSetId, task.PathRange)
 	if err != nil {
 		return nil, err
 	}
-	pachClient := driver.PachClient()
-	var inputFileSetsId string
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-			pachClient := pachClient.WithCtx(ctx)
-			dit := datum.NewFileSetIterator(pachClient, task.FileSetId, nil)
-			storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-			var count int64
-			if err := datum.CreateSets(dit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
-				resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-					return upload(mf)
-				})
-				if err != nil {
-					return err
-				}
-				if err := renewer.Add(pachClient.Ctx(), resp.FileSetId); err != nil {
-					return err
-				}
-				name := fmt.Sprintf("%016d", count)
-				count++
-				input, err := serializeDatumSet(&DatumSet{
-					JobID:        task.Job.ID,
-					OutputCommit: task.OutputCommit,
-					FileSetId:    resp.FileSetId,
-				})
-				if err != nil {
-					return err
-				}
-				data, err := proto.Marshal(input)
-				if err != nil {
-					return errors.EnsureStack(err)
-				}
-				return errors.EnsureStack(mf.PutFile(name, bytes.NewReader(data)))
-			}); err != nil {
-				return err
-			}
-			var err error
-			inputFileSetsId, err = renewer.Compose(ctx)
-			return err
-		})
-	})
+	datumSets, err := datum.CreateSets(driver.PachClient(), setSpec, task.FileSetId, task.PathRange)
 	if err != nil {
 		return nil, err
 	}
 	return serializeCreateDatumSetsTaskResult(&CreateDatumSetsTaskResult{
-		FileSetId:       resp.FileSetId,
-		InputFileSetsId: inputFileSetsId,
+		DatumSets: datumSets,
 	})
 }
 
-func createSetSpec(driver driver.Driver, fileSetID string) (*datum.SetSpec, error) {
+// TODO: The heuristic based sets don't make as much sense with the datum sharding.
+func createSetSpec(driver driver.Driver, fileSetID string, pathRange *pfs.PathRange) (*datum.SetSpec, error) {
 	pachClient := driver.PachClient()
-	dit := datum.NewFileSetIterator(pachClient, fileSetID, nil)
+	dit := datum.NewFileSetIterator(pachClient, fileSetID, pathRange)
 	var numDatums int64
 	if err := dit.Iterate(func(_ *datum.Meta) error {
 		numDatums++
@@ -304,7 +308,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				cacheClient := pfssync.NewCacheClient(pachClient, renewer)
 				// Setup datum set for processing.
 				return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
-					di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId, nil)
+					di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId, datumSet.PathRange)
 					// Process each datum in the assigned datum set.
 					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()

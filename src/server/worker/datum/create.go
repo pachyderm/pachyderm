@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"strings"
-	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -17,10 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"golang.org/x/sync/errgroup"
-)
-
-const (
-	ttl = 15 * time.Minute
 )
 
 func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
@@ -47,7 +42,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
-		return createEmptyFileSet(pachClient)
+		return CreateEmptyFileSet(pachClient)
 	}
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
@@ -95,7 +90,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 			ctx,
 			&pfs.ComposeFileSetRequest{
 				FileSetIds: resultFileSetIDs,
-				TtlSeconds: int64(ttl),
+				TtlSeconds: int64(common.TTL),
 				Compact:    true,
 			},
 		)
@@ -108,10 +103,6 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 		return "", err
 	}
 	return outputFileSetID, nil
-}
-
-func createEmptyFileSet(pachClient *client.APIClient) (string, error) {
-	return withDatumFileSet(pachClient, func(_ *Set) error { return nil })
 }
 
 func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
@@ -133,7 +124,7 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			ctx,
 			&pfs.ComposeFileSetRequest{
 				FileSetIds: fileSetIDs,
-				TtlSeconds: int64(ttl),
+				TtlSeconds: int64(common.TTL),
 				Compact:    true,
 			},
 		)
@@ -211,7 +202,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			ctx,
 			&pfs.ComposeFileSetRequest{
 				FileSetIds: resultFileSetIDs,
-				TtlSeconds: int64(ttl),
+				TtlSeconds: int64(common.TTL),
 				Compact:    true,
 			},
 		)
@@ -250,7 +241,7 @@ func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.
 		for _, fs := range filesets {
 			dits = append(dits, newFileSetMultiIterator(pachClient, fs))
 		}
-		outputFileSetID, err = withDatumFileSet(pachClient, func(s *Set) error {
+		outputFileSetID, err = WithCreateFileSet(pachClient, "pachyderm-datums-join", func(s *Set) error {
 			return mergeByKey(dits, existingMetaHash, func(metas []*Meta) error {
 				var crossInputs [][]*common.Input
 				for _, m := range metas {
@@ -357,7 +348,7 @@ func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		for _, fs := range filesets {
 			dits = append(dits, newFileSetMultiIterator(pachClient, fs))
 		}
-		outputFileSetID, err = withDatumFileSet(pachClient, func(s *Set) error {
+		outputFileSetID, err = WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
 			return mergeByKey(dits, existingMetaHash, func(metas []*Meta) error {
 				var allInputs []*common.Input
 				for _, m := range metas {

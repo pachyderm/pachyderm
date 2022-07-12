@@ -475,7 +475,7 @@ func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
+		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
 		}
@@ -498,7 +498,7 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
+		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
 		}
@@ -909,7 +909,7 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 }
 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
-	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"), nil)
 	if err != nil {
 		return nil, err
 	}

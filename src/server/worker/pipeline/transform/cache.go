@@ -44,13 +44,7 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.DeleteFileSetId)
-	case types.Is(output, &CreateDatumSetsTaskResult{}):
-		cdst, err := deserializeCreateDatumSetsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		fileSetIds = append(fileSetIds, cdst.FileSetId, cdst.InputFileSetsId)
+		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.OutputDeleteFileSetId, csdt.MetaDeleteFileSetId)
 	case types.Is(output, &DatumSet{}):
 		ds, err := deserializeDatumSet(output)
 		if err != nil {

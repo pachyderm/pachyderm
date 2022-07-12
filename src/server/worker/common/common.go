@@ -5,10 +5,15 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+)
+
+const (
+	TTL = 15 * time.Minute
 )
 
 // IsDone returns true if the given context has been canceled, or false otherwise
@@ -72,6 +77,7 @@ dataFilters:
 	return matchesData
 }
 
+// TODO: Trim non-meta file shards?
 func Shard(pachClient *client.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
 	var result []*pfs.PathRange
 	for _, fileSetID := range fileSetIDs {

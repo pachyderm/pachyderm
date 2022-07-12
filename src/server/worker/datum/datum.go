@@ -49,26 +49,28 @@ type SetSpec struct {
 	SizeBytes int64
 }
 
-// CreateSets creates datum sets from the passed in datum iterator.
-func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(client.ModifyFile) error) error) error {
-	var metas []*Meta
+func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
+	commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", fileSetID)
 	shouldCreateSet := shouldCreateSetFunc(setSpec)
-	if err := dit.Iterate(func(meta *Meta) error {
-		metas = append(metas, meta)
+	var sets []*pfs.PathRange
+	var pathRange *pfs.PathRange
+	if err := iterateMeta(pachClient, commit, basePathRange, func(path string, meta *Meta) error {
+		if pathRange == nil {
+			pathRange = &pfs.PathRange{Lower: path}
+		}
+		pathRange.Upper = path
 		if shouldCreateSet(meta) {
-			if err := createSet(metas, storageRoot, upload); err != nil {
-				return err
-			}
-			metas = nil
+			sets = append(sets, pathRange)
+			pathRange = nil
 		}
 		return nil
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
-	if len(metas) > 0 {
-		return createSet(metas, storageRoot, upload)
+	if pathRange != nil {
+		sets = append(sets, pathRange)
 	}
-	return nil
+	return sets, nil
 }
 
 func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
@@ -100,19 +102,6 @@ func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
 			return true
 		}
 	}
-}
-
-func createSet(metas []*Meta, storageRoot string, upload func(func(client.ModifyFile) error) error) error {
-	return upload(func(mf client.ModifyFile) error {
-		return WithSet(nil, storageRoot, func(s *Set) error {
-			for _, meta := range metas {
-				if err := s.UploadMeta(meta, WithPrefixIndex()); err != nil {
-					return err
-				}
-			}
-			return nil
-		}, WithMetaOutput(mf))
-	})
 }
 
 // Set manages a set of datums.

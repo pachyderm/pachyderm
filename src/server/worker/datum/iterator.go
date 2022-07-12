@@ -83,20 +83,26 @@ func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit, pathRan
 }
 
 func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
+	return iterateMeta(ci.pachClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
+		return cb(meta)
+	})
+}
+
+func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
 	req := &pfs.GetFileRequest{
-		File:      ci.commit.NewFile(path.Join("/", MetaPrefix, "*", MetaFileName)),
-		PathRange: ci.pathRange,
+		File:      commit.NewFile(path.Join("/", MetaPrefix, "*", MetaFileName)),
+		PathRange: pathRange,
 	}
-	ctx, cancel := context.WithCancel(ci.pachClient.Ctx())
+	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	defer cancel()
-	client, err := ci.pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	client, err := pachClient.PfsAPIClient.GetFileTAR(ctx, req)
 	if err != nil {
 		return err
 	}
 	r := grpcutil.NewStreamingBytesReader(client, nil)
 	tr := tar.NewReader(r)
 	for {
-		_, err := tr.Next()
+		hdr, err := tr.Next()
 		if err != nil {
 			if pfsserver.IsFileNotFoundErr(err) || errors.Is(err, io.EOF) {
 				return nil
@@ -107,7 +113,7 @@ func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
 		if err := jsonpb.Unmarshal(tr, meta); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := cb(meta); err != nil {
+		if err := cb(hdr.Name, meta); err != nil {
 			return err
 		}
 	}

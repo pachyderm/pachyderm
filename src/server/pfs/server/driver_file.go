@@ -178,10 +178,17 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 	return uw.Copy(ctx, fs, tag, appendFile)
 }
 
-func (d *driver) getFile(ctx context.Context, file *pfs.File) (Source, error) {
+func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.PathRange) (Source, error) {
 	commit := file.Commit
 	glob := pfsfile.CleanPath(file.Path)
-	commitInfo, fs, err := d.openCommit(ctx, commit, index.WithPrefix(globLiteralPrefix(glob)), index.WithDatum(file.Datum))
+	indexOpts := []index.Option{index.WithPrefix(globLiteralPrefix(glob)), index.WithDatum(file.Datum)}
+	if pathRange != nil {
+		indexOpts = append(indexOpts, index.WithRange(&index.PathRange{
+			Lower: pathRange.Lower,
+			Upper: pathRange.Upper,
+		}))
+	}
+	commitInfo, fs, err := d.openCommit(ctx, commit, indexOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,8 +1,6 @@
 package datum
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -12,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
@@ -41,7 +38,7 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 }
 
 func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, error) {
-	fileSetID, err := withDatumFileSet(pachClient, func(s *Set) error {
+	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-pfs", func(s *Set) error {
 		commit := client.NewCommit(task.Input.Repo, task.Input.Branch, task.Input.Commit)
 		client, err := pachClient.PfsAPIClient.GlobFile(
 			pachClient.Ctx(),
@@ -83,19 +80,8 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 	return serializePFSTaskResult(&PFSTaskResult{FileSetId: fileSetID})
 }
 
-func withDatumFileSet(pachClient *client.APIClient, cb func(*Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		storageRoot := filepath.Join(os.TempDir(), "pachyderm-datums", uuid.NewWithoutDashes())
-		return WithSet(nil, storageRoot, cb, WithMetaOutput(mf))
-	})
-	if err != nil {
-		return "", err
-	}
-	return resp.FileSetId, nil
-}
-
 func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*types.Any, error) {
-	fileSetID, err := withDatumFileSet(pachClient, func(s *Set) error {
+	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
 		iterators := []Iterator{NewFileSetIterator(pachClient, task.BaseFileSetId, task.BaseFileSetPathRange)}
 		for _, fileSetID := range task.FileSetIds {
 			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))

@@ -2,8 +2,6 @@ package transform
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -12,10 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -137,42 +135,18 @@ func (pj *pendingJob) clearCache() {
 	}
 }
 
-func (pj *pendingJob) withDeleter(pachClient *client.APIClient, cb func(datum.Deleter) error) error {
-	// Setup modify file client for meta commit.
-	metaCommit := pj.metaCommitInfo.Commit
-	return pachClient.WithModifyFileClient(metaCommit, func(mfMeta client.ModifyFile) error {
-		// Setup modify file client for output commit.
-		outputCommit := pj.commitInfo.Commit
-		return pachClient.WithModifyFileClient(outputCommit, func(mfPFS client.ModifyFile) error {
-			baseMetaCommit := pj.baseMetaCommit
-			metaFileWalker := func(path string) ([]string, error) {
-				var files []string
-				if err := pachClient.WalkFile(baseMetaCommit, path, func(fi *pfs.FileInfo) error {
-					if fi.FileType == pfs.FileType_FILE {
-						files = append(files, fi.File.Path)
-					}
-					return nil
-				}); err != nil {
-					return nil, err
-				}
-				return files, nil
-			}
-			return cb(datum.NewDeleter(metaFileWalker, mfMeta, mfPFS))
-		})
-	})
-}
-
 // The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the base job.
-func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer, cb func(context.Context, string) error) error {
+// TODO: Count.
+func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Doer) (string, error) {
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+	var outputFileSetID string
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
 		// Upload the datums from the current job into the datum file set format.
 		var fileSetID string
-		var count int64
 		var err error
 		if err := pj.logger.LogStep("creating full job datum file set", func() error {
-			fileSetID, count, err = uploadDatums(pachClient, taskDoer, pj.ji.Job)
+			fileSetID, err = createDatums(pachClient, taskDoer, pj.ji.Job)
 			if err != nil {
 				return err
 			}
@@ -180,15 +154,11 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		pj.ji.DataTotal = count
-		if err := pj.writeJobInfo(); err != nil {
-			return err
-		}
 		var baseFileSetID string
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
 			if err := pj.logger.LogStep("creating full base job datum file set", func() error {
-				baseFileSetID, _, err = uploadDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
+				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
 				if err != nil {
 					return err
 				}
@@ -198,18 +168,18 @@ func (pj *pendingJob) withParallelDatums(ctx context.Context, taskDoer task.Doer
 			}
 		}
 		// Create the output datum file set for the new datums (datums that do not exist in the base job).
-		outputFileSetID, err := pj.createJobDatumFileSetParallel(ctx, taskDoer, renewer, fileSetID, baseFileSetID)
-		if err != nil {
-			return err
-		}
-		return cb(ctx, outputFileSetID)
-	})
+		outputFileSetID, err = pj.createJobDatumFileSetParallel(ctx, taskDoer, renewer, fileSetID, baseFileSetID)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	return outputFileSetID, nil
 }
 
-func uploadDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, int64, error) {
+func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, error) {
 	jobInfo, err := pachClient.InspectJob(job.Pipeline.Name, job.ID, true)
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	metaCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(
 		pachClient.Ctx(),
@@ -217,70 +187,73 @@ func uploadDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 			Commit: ppsutil.MetaCommit(jobInfo.OutputCommit),
 		})
 	if err != nil {
-		return "", 0, errors.EnsureStack(err)
+		return "", errors.EnsureStack(err)
 	}
-	var dit datum.Iterator
 	if metaCommitInfo.Finishing != nil {
-		dit = datum.NewCommitIterator(pachClient, metaCommitInfo.Commit, nil)
-	} else {
-		dit, err = datum.NewIterator(pachClient, taskDoer, jobInfo.Details.Input)
-		if err != nil {
-			return "", 0, err
-		}
-		dit = datum.NewJobIterator(dit, jobInfo.Job, &hasher{salt: jobInfo.Details.Salt})
+		return pachClient.GetFileSet(metaCommitInfo.Commit.Branch.Repo.Name, metaCommitInfo.Commit.Branch.Name, metaCommitInfo.Commit.ID)
 	}
-	return uploadDatumFileSet(pachClient, dit)
-}
-
-func uploadDatumFileSet(pachClient *client.APIClient, dit datum.Iterator) (string, int64, error) {
-	var count int64
-	s, err := withDatumFileSet(pachClient, func(s *datum.Set) error {
-		return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
-			count++
-			return s.UploadMeta(meta)
-		}))
-	})
-	if err != nil {
-		return "", 0, err
-	}
-	return s, count, nil
-}
-
-func withDatumFileSet(pachClient *client.APIClient, cb func(*datum.Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		storageRoot := filepath.Join(os.TempDir(), "pachyderm-skipped-tmp", uuid.NewWithoutDashes())
-		return datum.WithSet(nil, storageRoot, cb, datum.WithMetaOutput(mf))
-	})
-	if err != nil {
-		return "", err
-	}
-	return resp.FileSetId, nil
+	return datum.Create(pachClient, taskDoer, jobInfo.Details.Input)
 }
 
 func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
 	var outputFileSetID string
 	if err := pj.logger.LogStep("creating job datum file set (parallel jobs)", func() error {
-		input, err := serializeComputeParallelDatumsTask(&ComputeParallelDatumsTask{
-			Job:           pj.ji.Job,
-			FileSetId:     fileSetID,
-			BaseFileSetId: baseFileSetID,
+		pachClient := pj.driver.PachClient()
+		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+			pachClient := pachClient.WithCtx(ctx)
+			fileSetIDs := []string{fileSetID}
+			if baseFileSetID != "" {
+				fileSetIDs = append(fileSetIDs, baseFileSetID)
+			}
+			shards, err := common.Shard(pachClient, fileSetIDs)
+			if err != nil {
+				return err
+			}
+			var inputs []*types.Any
+			for _, shard := range shards {
+				input, err := serializeComputeParallelDatumsTask(&ComputeParallelDatumsTask{
+					JobInfo:       pj.ji,
+					FileSetId:     fileSetID,
+					BaseFileSetId: baseFileSetID,
+					PathRange:     shard,
+				})
+				if err != nil {
+					return err
+				}
+				inputs = append(inputs, input)
+			}
+			resultFileSetIDs := make([]string, len(inputs))
+			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+				if err != nil {
+					return err
+				}
+				result, err := deserializeComputeParallelDatumsTaskResult(output)
+				if err != nil {
+					return err
+				}
+				if err := renewer.Add(ctx, result.FileSetId); err != nil {
+					return err
+				}
+				resultFileSetIDs[i] = result.FileSetId
+				return nil
+			}); err != nil {
+				return err
+			}
+			// TODO: Make this a task for caching?
+			resp, err := pachClient.PfsAPIClient.ComposeFileSet(
+				ctx,
+				&pfs.ComposeFileSetRequest{
+					FileSetIds: resultFileSetIDs,
+					TtlSeconds: int64(common.TTL),
+					Compact:    true,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			outputFileSetID = resp.FileSetId
+			return nil
 		})
-		if err != nil {
-			return err
-		}
-		output, err := task.DoOne(ctx, taskDoer, input)
-		if err != nil {
-			return err
-		}
-		result, err := deserializeComputeParallelDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.FileSetId); err != nil {
-			return err
-		}
-		outputFileSetID = result.FileSetId
-		return nil
 	}); err != nil {
 		return "", errors.EnsureStack(err)
 	}
@@ -290,25 +263,26 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 // The datums that must be processed serially (with respect to the base job) are the datums that exist in both the current and base job.
 // A datum is skipped if it exists in both jobs with the same hash and was successfully processed by the base.
 // Deletion operations are created for the datums that need to be removed from the base job output commits.
-func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, cb func(context.Context, string) error) error {
+func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer) (string, error) {
+	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	// There are no serial datums if no base exists.
 	if pj.baseMetaCommit == nil {
-		return nil
+		return datum.CreateEmptyFileSet(pachClient)
 	}
-	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	// Wait for the base job to finish.
 	ci, err := pachClient.WaitCommit(pj.baseMetaCommit.Branch.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if ci.Error != "" {
-		return pfsserver.ErrCommitError{Commit: ci.Commit}
+		return "", pfsserver.ErrCommitError{Commit: ci.Commit}
 	}
-	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+	var outputFileSetID string
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Upload the datums from the current job into the datum file set format.
 		var fileSetID string
 		if err := pj.logger.LogStep("creating full job datum file set", func() error {
-			fileSetID, _, err = uploadDatums(pachClient, taskDoer, pj.ji.Job)
+			fileSetID, err = createDatums(pachClient, taskDoer, pj.ji.Job)
 			if err != nil {
 				return err
 			}
@@ -317,68 +291,103 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 			return errors.EnsureStack(err)
 		}
 		// Create the output datum file set for the datums that were not processed by the base (failed, recovered, etc.).
-		outputFileSetID, deleteFileSetID, skipped, err := pj.createJobDatumFileSetSerial(ctx, taskDoer, renewer, fileSetID, pj.baseMetaCommit)
-		if err != nil {
-			return err
-		}
-		// Delete the appropriate files.
-		if err := pj.logger.LogStep("deleting old datum outputs", func() error {
-			pachClient := pachClient.WithCtx(ctx)
-			return pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
-				dit := datum.NewFileSetIterator(pachClient, deleteFileSetID, nil)
-				return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
-					return deleter(meta)
-				}))
-			})
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		// Record the skipped datums.
-		stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-		stats.Skipped = skipped
-		pj.saveJobStats(stats)
-		if err := pj.writeJobInfo(); err != nil {
-			return err
-		}
-		return cb(ctx, outputFileSetID)
-	})
+		outputFileSetID, err = pj.createJobDatumFileSetSerial(ctx, taskDoer, renewer, fileSetID, pj.baseMetaCommit)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	return outputFileSetID, nil
 }
 
-func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID string, baseMetaCommit *pfs.Commit) (string, string, int64, error) {
-	var outputFileSetID, deleteFileSetID string
-	var skipped int64
+func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID string, baseMetaCommit *pfs.Commit) (string, error) {
+	var outputFileSetID string
 	if err := pj.logger.LogStep("creating job datum file set (serial jobs)", func() error {
-		input, err := serializeComputeSerialDatumsTask(&ComputeSerialDatumsTask{
-			Job:            pj.ji.Job,
-			FileSetId:      fileSetID,
-			BaseMetaCommit: baseMetaCommit,
-			NoSkip:         pj.noSkip,
+		pachClient := pj.driver.PachClient()
+		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+			pachClient := pachClient.WithCtx(ctx)
+			baseFileSetID, err := pachClient.GetFileSet(baseMetaCommit.Branch.Repo.Name, baseMetaCommit.Branch.Name, baseMetaCommit.ID)
+			if err != nil {
+				return err
+			}
+			if err := renewer.Add(ctx, baseFileSetID); err != nil {
+				return err
+			}
+			shards, err := common.Shard(pachClient, []string{fileSetID, baseFileSetID})
+			if err != nil {
+				return err
+			}
+			var inputs []*types.Any
+			for _, shard := range shards {
+				input, err := serializeComputeSerialDatumsTask(&ComputeSerialDatumsTask{
+					JobInfo:        pj.ji,
+					FileSetId:      fileSetID,
+					BaseMetaCommit: baseMetaCommit,
+					NoSkip:         pj.noSkip,
+					PathRange:      shard,
+				})
+				if err != nil {
+					return err
+				}
+				inputs = append(inputs, input)
+			}
+			resultFileSetIDs := make([]string, len(inputs))
+			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+				if err != nil {
+					return err
+				}
+				result, err := deserializeComputeSerialDatumsTaskResult(output)
+				if err != nil {
+					return err
+				}
+				if err := renewer.Add(ctx, result.FileSetId); err != nil {
+					return err
+				}
+				resultFileSetIDs[i] = result.FileSetId
+				if _, err := pachClient.PfsAPIClient.AddFileSet(
+					ctx,
+					&pfs.AddFileSetRequest{
+						Commit:    pj.commitInfo.Commit,
+						FileSetId: result.OutputDeleteFileSetId,
+					},
+				); err != nil {
+					return err
+				}
+				if _, err := pachClient.PfsAPIClient.AddFileSet(
+					ctx,
+					&pfs.AddFileSetRequest{
+						Commit:    pj.metaCommitInfo.Commit,
+						FileSetId: result.MetaDeleteFileSetId,
+					},
+				); err != nil {
+					return err
+				}
+				// Record the skipped datums.
+				stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+				stats.Skipped = result.Skipped
+				pj.saveJobStats(stats)
+				return pj.writeJobInfo()
+			}); err != nil {
+				return err
+			}
+			// TODO: Make this a task for caching?
+			resp, err := pachClient.PfsAPIClient.ComposeFileSet(
+				ctx,
+				&pfs.ComposeFileSetRequest{
+					FileSetIds: resultFileSetIDs,
+					TtlSeconds: int64(common.TTL),
+					Compact:    true,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			outputFileSetID = resp.FileSetId
+			return nil
 		})
-		if err != nil {
-			return err
-		}
-		output, err := task.DoOne(ctx, taskDoer, input)
-		if err != nil {
-			return err
-		}
-		result, err := deserializeComputeSerialDatumsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.FileSetId); err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.DeleteFileSetId); err != nil {
-			return err
-		}
-		outputFileSetID = result.FileSetId
-		deleteFileSetID = result.DeleteFileSetId
-		skipped = result.Skipped
-		return nil
 	}); err != nil {
-		return "", "", 0, errors.EnsureStack(err)
+		return "", errors.EnsureStack(err)
 	}
-	return outputFileSetID, deleteFileSetID, skipped, nil
+	return outputFileSetID, nil
 }
 
 // TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
