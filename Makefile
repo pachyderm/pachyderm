@@ -29,8 +29,8 @@ SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
 # defaults vendor image tags
-ETCD_IMAGE_VERSION=v3.5.0
-KUBE_EVENT_TAIL_IMAGE_VERSION=v0.0.7
+ETCD_IMAGE_VERSION ?= v3.5.0
+KUBE_EVENT_TAIL_IMAGE_VERSION ?= v0.0.7
 
 # Default upper bound for test timeouts
 # You can specify your own, but this is what CI uses
