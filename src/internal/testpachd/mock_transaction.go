@@ -1,6 +1,8 @@
 package testpachd
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -87,6 +89,16 @@ func (mock *mockActivateAuthInTransaction) Use(cb activateAuthInTransactionFunc)
 	mock.handler = cb
 }
 
+type validatePipelineExternallyFunc func(context.Context, *pps.CreatePipelineRequest) error
+
+type mockValidatePipelineExternally struct {
+	handler validatePipelineExternallyFunc
+}
+
+func (mock *mockValidatePipelineExternally) Use(cb validatePipelineExternallyFunc) {
+	mock.handler = cb
+}
+
 type ppsTransactionAPI struct {
 	ppsServerAPI
 	mock *MockPPSTransactionServer
@@ -104,6 +116,7 @@ type MockPPSTransactionServer struct {
 	CreatePipelineInTransaction  mockCreatePipelineInTransaction
 	InspectPipelineInTransaction mockInspectPipelineInTransaction
 	ActivateAuthInTransaction    mockActivateAuthInTransaction
+	ValidatePipelineExternally   mockValidatePipelineExternally
 }
 
 type MockPPSPropagater struct{}
@@ -175,6 +188,13 @@ func (api *ppsTransactionAPI) ActivateAuthInTransaction(txnCtx *txncontext.Trans
 		return api.mock.ActivateAuthInTransaction.handler(txnCtx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock: pps.AcivateAuthInTransaction")
+}
+
+func (api *ppsTransactionAPI) ValidatePipelineExternally(ctx context.Context, req *pps.CreatePipelineRequest) error {
+	if api.mock.ValidatePipelineExternally.handler != nil {
+		return api.mock.ValidatePipelineExternally.handler(ctx, req)
+	}
+	return errors.Errorf("unhandled pachd mock: pps.ValidatePipelineExternally")
 }
 
 // NewMockPPSTransactionServer instantiates a MockPPSTransactionServer
