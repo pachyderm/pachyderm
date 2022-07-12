@@ -4725,7 +4725,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 					map[string]string{
 						"app":             "pipeline",
 						"pipelineName":    pipelineInfo.Pipeline.Name,
-						"pipelineVersion": pipelineInfo.Version,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 					},
 				)),
 			})
@@ -4801,7 +4801,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 					map[string]string{
 						"app":             "pipeline",
 						"pipelineName":    pipelineInfo.Pipeline.Name,
-						"pipelineVersion": pipelineInfo.Version,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 						"suite":           "pachyderm"},
 				)),
 			})
@@ -4871,7 +4871,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 					map[string]string{
 						"app":             "pipeline",
 						"pipelineName":    pipelineInfo.Pipeline.Name,
-						"pipelineVersion": pipelineInfo.Version,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 						"suite":           "pachyderm"},
 				)),
 			})
@@ -5130,7 +5130,7 @@ func TestPodOpts(t *testing.T) {
 						map[string]string{
 							"app":             "pipeline",
 							"pipelineName":    pipelineInfo.Pipeline.Name,
-							"pipelineVersion": pipelineInfo.Version,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 							"suite":           "pachyderm"},
 					)),
 				})
@@ -5196,7 +5196,7 @@ func TestPodOpts(t *testing.T) {
 						map[string]string{
 							"app":             "pipeline",
 							"pipelineName":    pipelineInfo.Pipeline.Name,
-							"pipelineVersion": pipelineInfo.Version,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 							"suite":           "pachyderm"},
 					)),
 				})
@@ -9036,7 +9036,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 					map[string]string{
 						"app":             "pipeline",
 						"pipelineName":    pipelineInfo.Pipeline.Name,
-						"pipelineVersion": pipelineInfo.Version,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 					},
 				)),
 			})
