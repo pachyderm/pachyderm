@@ -4715,7 +4715,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
@@ -4791,7 +4790,6 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
@@ -4861,7 +4859,6 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
@@ -5120,7 +5117,6 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
@@ -5186,7 +5182,6 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
@@ -9026,7 +9021,6 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 
 	// make sure 'vol0' is correct in the pod spec
 	var volumes []v1.Volume
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
