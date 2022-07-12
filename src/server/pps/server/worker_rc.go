@@ -29,6 +29,7 @@ import (
 
 const (
 	pipelineNameLabel            = "pipelineName"
+	pipelineVersionLabel         = "pipelineVersion"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
@@ -597,6 +598,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	transform := pipelineInfo.Details.Transform
+	// QQQQ change this?
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels[pipelineNameLabel] = pipelineName
