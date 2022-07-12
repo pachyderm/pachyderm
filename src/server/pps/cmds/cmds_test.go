@@ -295,6 +295,7 @@ func TestJSONMultiplePipelinesTransactional(t *testing.T) {
 		    },
 		    "transform": {"cmd": ["true"]}
 		}
+		---
 		{
 		    "pipeline": {"name": "{{.pipeline}}-B"},
 		    "input": {
@@ -302,7 +303,7 @@ func TestJSONMultiplePipelinesTransactional(t *testing.T) {
 		    },
 		    "transform": {"cmd": ["true"]}
 		}
-		EOF 
+		EOF
 	`, "pipeline", pipeline).Run())
 	// make sure we didn't end up creating the first pipeline, either
 	require.NoError(t, tu.PachctlBashCmd(t, c,
@@ -1085,6 +1086,7 @@ func TestMultiPipelineWithMissingSecret(t *testing.T) {
 		      "cmd": ["true"]
 		    }
 		}
+		---
 		{
 		    "pipeline": {"name": "{{.pipeline}}-B"},
 		    "input": {
