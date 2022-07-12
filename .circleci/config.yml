@@ -319,7 +319,7 @@ jobs:
           name: pull vendor images
           command: |
             docker pull pachyderm/etcd:<< pipeline.parameters.etcd_image >>
-            docker pull jrockway/kube-event-tail:<< pipeline.parameters.kube_event_tail_image >> 
+            docker pull jrockway/kube-event-tail:<< pipeline.parameters.kube_event_tail_image >>
       - run:
           name: install goreleaser
           command: |
