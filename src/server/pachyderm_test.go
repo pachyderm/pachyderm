@@ -4722,7 +4722,11 @@ func TestPipelineResourceRequest(t *testing.T) {
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": pipelineInfo.Version,
+					},
 				)),
 			})
 		if err != nil {
@@ -4794,7 +4798,11 @@ func TestPipelineResourceLimit(t *testing.T) {
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": pipelineInfo.Version,
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -4860,7 +4868,11 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": pipelineInfo.Version,
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -5115,7 +5127,11 @@ func TestPodOpts(t *testing.T) {
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": pipelineInfo.Version,
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -5177,7 +5193,11 @@ func TestPodOpts(t *testing.T) {
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": pipelineInfo.Version,
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -9013,7 +9033,11 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": pipelineInfo.Version,
+					},
 				)),
 			})
 		if err != nil {
