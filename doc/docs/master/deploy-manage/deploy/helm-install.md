@@ -186,7 +186,7 @@ Those configuration values can be provided to Pachyderm in various ways:
 
 You can provide credentials and configuration values directly in your values.yaml or set them with a `--set` argument during the installation/upgrade. The [(Second table, Column B)](#mapping-table-between-external-secrets-fields-values-fields-and-pachyderm-platform-secrets) below lists the names of the fields in which you can hard code your values directly).
 
--  *A-1 - Provide the minimal amount of values and let Pachyderm auto-generate the rest*
+-  *A-1 - Provide the minimal amount of values and let Pachyderm generate the rest*
 
     - Provide your [Enterprise License](../../../enterprise/deployment/#activate-the-enterprise-edition){target=_blank} (For Enterprise users only). 
     - Optionally, your [IDPs configuration](../../../enterprise/auth/authentication/idp-dex/#create-your-idp-pachyderm-connection){target=_blank} (For Enterprise users using the Authentication feature)
@@ -223,7 +223,7 @@ Find the secret name field to reference your secret in your values.yaml (Column 
 Pachyderm inject the values hard coded in your values.yaml into **"platform secrets"** (see the complete list of secrets in the table below)  at the time of the deployment or upgrade (such as Postgresql admin login username and password, OAuth information to set up your IdP, or your enterprise license key).
 
 !!! Note
-    If no secret name is provided for the  secret name fields, Pachyderm will retrieve the dedicated plain-text secret values in the helm values and populate generic platform secrets (see list below) at the time of the installation, then re-use those for each upgrade. If no value is found in either one of those two cases, default values are used.
+    If no secret name is provided for the  secret name fields, Pachyderm will retrieve the dedicated plain-text secret values in the helm values and populate generic platform secrets (see list below) at the time of the installation, then re-use those at each upgrade. If no value is found in either one of those two cases, default values are used.
 
 
 |Secret Name  <div style="width:190px"> | Key |	Description <div style="width:290px">|

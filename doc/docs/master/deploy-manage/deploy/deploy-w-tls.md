@@ -5,6 +5,8 @@
 You can deploy your Pachyderm cluster with Transport Layer Security (TLS)
 enabled to secure internet browser connections and transactions through data encryption by means of a trusted certificate and a private key. 
 
+if you want to use lets encrypt, an easy way is to use cert manager, here’s a link to their docs, and then you’ll just need to put those annotations on the proxy service (or ingress, etc)
+
 Before enabling TLS, we recommend to install [Cert-Manager](https://cert-manager.io/docs/installation/){target=_blank} on your cluster. Cert-Manager simplifies the process of obtaining (No Certificate Signing Requests needed), renewing, and using certificates. 
 In particular, you will use cert-manager to:
 
@@ -55,8 +57,7 @@ Et voila!
     
     If you choose to deploy Pachyderm with a proxy (see the [deployment instructions](../deploy-w-proxy/) and new recommended architecture), the setup of **tls is set in the proxy section of your values.yaml** only (i.e., tls terminates inside the proxy).
 
-    Note that if you are planning on putting the proxy behind an ingress controller, you probably
-    want to configure TLS for the ingress controller, rather than the proxy.  The setup of TLS at the proxy level is intended for the case where the proxy is exposed directly to the Internet.
+    The setup of TLS at the proxy level is intended for the case where the proxy is exposed directly to the Internet.
 
     ```yaml
       proxy:
