@@ -8,16 +8,12 @@ import (
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
-const (
-	// MajorVersion is the current major version for pachyderm.
-	MajorVersion = 2
-	// MinorVersion is the current minor version for pachyderm.
-	MinorVersion = 3
-	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 0
-)
-
 var (
+	// Overwritten at build time by linker
+	AppVersion = "0.0.0"
+
+	MajorVersion, MinorVersion, MicroVersion = getVersions()
+
 	// AdditionalVersion is the string provided at release time
 	// The value is passed to the linker at build time
 	//
@@ -27,15 +23,24 @@ var (
 
 	// Version is the current version for pachyderm.
 	Version = &pb.Version{
-		Major:      MajorVersion,
-		Minor:      MinorVersion,
-		Micro:      MicroVersion,
+		Major:      uint32(MajorVersion),
+		Minor:      uint32(MinorVersion),
+		Micro:      uint32(MicroVersion),
 		Additional: AdditionalVersion,
 	}
 
 	// Custom release have a 40 character commit hash build into the version string
 	customReleaseRegex = regexp.MustCompile(`[0-9a-f]{40}`)
 )
+
+func getVersions() (int, int, int) {
+	var major, minor, micro int
+	_, parseError := fmt.Sscanf(AppVersion, "%d.%d.%d", &major, &minor, &micro)
+	if parseError != nil {
+		panic(parseError)
+	}
+	return major, minor, micro
+}
 
 // IsUnstable will return true for alpha or beta builds, and false otherwise.
 func IsUnstable() bool {

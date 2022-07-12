@@ -15,6 +15,10 @@ export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.A
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
+# default version for goreleaser binary ldflags (used when build locally or just CI).
+# is overwritten a release time by automation.
+export VERSION=0.0.0
+
 CLUSTER_NAME ?= pachyderm
 CLUSTER_MACHINE_TYPE ?= n1-standard-4
 CLUSTER_SIZE ?= 4
@@ -132,6 +136,13 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
+
+docker-pull:
+	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
+	$(SKIP) docker pull pachyderm/worker:$(VERSION)
+	$(SKIP) docker pull pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker pull pachyderm/mount-server:$(VERSION)
+	$(SKIP) docker pull pachyderm/pachtf:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
