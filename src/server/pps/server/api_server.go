@@ -23,6 +23,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -3114,7 +3115,13 @@ func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVer
 		})),
 	})
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return a.legacyRCPods(ctx, pipelineName, pipelineVersion)
+		}
 		return nil, errors.EnsureStack(err)
+	}
+	if len(podList.Items) == 0 {
+		return a.legacyRCPods(ctx, pipelineName, pipelineVersion)
 	}
 	return podList.Items, nil
 }
