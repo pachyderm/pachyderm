@@ -15,7 +15,7 @@ pachctl run cron <pipeline> [flags]
 ```
 
 		# Run a cron pipeline "clock" now
-		$ pachctl run cron clock
+		pachctl run cron clock
 ```
 
 ### Options

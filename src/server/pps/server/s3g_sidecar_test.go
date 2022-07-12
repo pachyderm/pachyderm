@@ -1,3 +1,5 @@
+//go:build k8s
+
 /*
 This test is for PPS pipelines that use S3 inputs/outputs. Most of these
 pipelines use the pachyderm/s3testing image, which exists on dockerhub but can

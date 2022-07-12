@@ -8,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -26,22 +25,22 @@ const (
 )
 
 type apiServer struct {
-	env Env
+	env *Env
 
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }
 
 // New returns an implementation of license.APIServer, and a function that bootstraps the license server via environment.
-func New(env Env) (lc.APIServer, func(context.Context) error, error) {
+func New(env *Env) (*apiServer, error) {
 	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
 	}
-	return s, s.envBootstrap, nil
+	return s, nil
 }
 
-func (a *apiServer) envBootstrap(ctx context.Context) error {
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
 		return nil
 	}
@@ -183,18 +182,6 @@ func (a *apiServer) checkLicenseState(ctx context.Context) error {
 func (a *apiServer) validateClusterConfig(ctx context.Context, address string) error {
 	if address == "" {
 		return errors.New("no address provided for cluster")
-	}
-
-	pachClient, err := client.NewFromURI(address)
-	if err != nil {
-		return errors.Wrapf(err, "unable to create client for %q", address)
-	}
-
-	// Make an RPC that doesn't need auth - we don't care about the response, the pachd version is
-	// included in the heartbeat
-	_, err = pachClient.GetVersion(ctx, &types.Empty{})
-	if err != nil {
-		return errors.Wrapf(err, "unable to connect to pachd at %q", address)
 	}
 	return nil
 }

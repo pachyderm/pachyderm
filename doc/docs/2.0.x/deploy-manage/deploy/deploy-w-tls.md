@@ -1,41 +1,63 @@
-# Deploy Pachyderm with TLS
+# Deploy Pachyderm with TLS (SSL, HTTPS)
+
+## Create A Certificate And Enable TLS
 
 You can deploy your Pachyderm cluster with Transport Layer Security (TLS)
-enabled to ensure your cluster communications are protected from external
-attackers, and all the communication parties are verified by means of a
-trusted certificate and a private key. For many organizations, TLS is a
-security requirement that ensures integrity of their data.
-Before you can enable TLS, you need to obtain a certificate from a trusted
-CA, such as Let's Encrypt, Cloudflare, or other.
-You can enable TLS during the deployment of your Pachyderm cluster by configuring it in your helm values. You can either provide an existing secret with your certificate, or supply your certificate and key and helm will create the secret for you.
+enabled to secure internet browser connections and transactions through data encryption by means of a trusted certificate and a private key. 
 
-```yaml
-pachd:
-  tls:
-    enabled: true
-    secretName: ""
-    newSecret:
-      create: false
-      crt: ""
-      key: ""
-```
+Before enabling TLS, we recommend to install [Cert-Manager](https://cert-manager.io/docs/installation/){target=_blank} on your cluster. Cert-Manager simplifies the process of obtaining (No Certificate Signing Requests needed), renewing, and using certificates. 
+In particular, you will use cert-manager to:
+
+- **Talk to a certificate issuer** ([Let's Encrypt](https://letsencrypt.org/){target=_blank}, [HashiCorp Vault](https://www.vaultproject.io/){target=_blank}, [Venafi](https://www.venafi.com/){target=_blank}...). Cert-manager comes with a number of built-in certificate issuers. You can also install external issuers in addition to the built-in types.
+- **Obtain your certificate**:
+
+    You can verify that the certificate is issued correctly by running the following command:
+
+    ```shell
+    kubectl get certificate
+    ```
+    You should see the certificate with a status of Ready in output.
+
+- **Create the backing tls secret** holding your Certificate and private key automatically.
 
 !!! Note
-    When using self signed certificates or custom certificate authority, you will need to set `global.customCaCerts` to true to add Pachyderm's certificate and CA to the list of trusted authorities for console and enterprise, allowing Pachyderm components (pachd, Console, enterprise server) to communicate over SSL. 
+    The secret containing "tls.key" and "tls.crt" keys that contain PEM-encoded private key and
+    certificate material can be alternatively generated with `kubectl create secret tls <name> --key=tls.key --cert=tls.cert`. 
 
-    If you are using a custom ca-signed cert, you must include the full certificate chain in the root.crt file.
+Once your tls secret is created:
 
+- Enable tls in your helm values.
+- Reference this certificate object in your helm chart by setting its secret name in the proper tls section. The secret name should match the name set in your [certificate ressource](https://cert-manager.io/docs/usage/certificate/#creating-certificate-resources){target=_blank}.
+
+!!! Example
+    In this example, you terminate tls at the cluster level by enabling tls directly on pachd:
+    
+    ```yaml
+     pachd:
+       tls:
+          enabled: true
+          secretName: "<the-secret-name-in-your-certificate-ressource>"
+    ```
+
+Et voila!
+
+
+!!! Note
+    When using self signed certificates or custom certificate authority, you will need to set `global.customCaCerts` to true to add Pachyderm's certificate and CA to the list of trusted authorities for console and enterprise, allowing Pachyderm components (pachd, Console, Enterprise Server) to communicate over SSL. 
+
+    If you are using a custom ca-signed cert, **you must include the full certificate chain in the root.crt file**.
+
+## Connect to Pachyderm Via SSL
 
 After you deploy Pachyderm, to connect through `pachctl` by using a
-trusted certificate, you need to configure the `pachd_address` in the
+trusted certificate, you will need to set the `pachd_address` in the
 Pachyderm context with the cluster IP address that starts with `grpcs://`.
 You can do so by running the following command:
 
 !!! example
     ```shell   
-    echo '{"pachd_address": "grpcs://<cluster-ip:30650"}' | pachctl config set context "local-grpcs" --overwrite && pachctl config set active-context "local-grpcs"   
+    echo '{"pachd_address": "grpcs://<cluster-ip:30650"}' | pachctl config set context "grpcs-context" --overwrite && pachctl config set active-context "grpcs-context"   
     ```
 
 !!! note "See Also:"
-
-- [Connect by using a Pachyderm context](../connect-to-cluster/#connect-by-using-a-pachyderm-context)
+    [Connect by using a Pachyderm context](../connect-to-cluster/#connect-by-using-a-pachyderm-context)

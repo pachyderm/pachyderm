@@ -47,6 +47,9 @@ global:
   proxy: ""
   # If proxy is set, this allows you to set a comma-separated list of destinations that bypass the proxy
   noProxy: ""
+  # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
+  securityContexts:
+    enabled: true
 
 console:
   # enabled controls whether the console manifests are created or not.
@@ -60,7 +63,8 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.1.0-1"
+    tag: "2.3.0-alpha.1"
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   # podLabels specifies labels to add to the console pod.
@@ -106,6 +110,7 @@ etcd:
     pullPolicy: "IfNotPresent"
   # maxTxnOps sets the --max-txn-ops in the container args
   maxTxnOps: 10000
+  priorityClassName: ""
   nodeSelector: {}
   # podLabels specifies labels to add to the etcd pod.
   podLabels: {}
@@ -138,8 +143,6 @@ etcd:
     labels: {}
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
-  securityContext:
-    enabled: true
   tolerations: []
 
 enterpriseServer:
@@ -147,6 +150,7 @@ enterpriseServer:
   affinity: {}
   annotations: {}
   tolerations: []
+  priorityClassName: ""
   nodeSelector: {}
   service:
     type: ClusterIP
@@ -211,6 +215,7 @@ loki-stack:
       size: 10Gi
       storageClassName: standard
       annotations: {}
+      priorityClassName: ""
       nodeSelector: {}
       tolerations: []
     config:
@@ -268,6 +273,10 @@ loki-stack:
               - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
               - __meta_kubernetes_pod_container_name
             target_label: __path__
+          - action: keep
+            regex: pachyderm
+            source_labels:
+              - __meta_kubernetes_pod_label_suite
           # this gets all kubernetes labels as well
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
@@ -292,14 +301,15 @@ pachd:
   logLevel: "info"
   # If lokiDeploy is true, a Pachyderm-specific instance of Loki will
   # be deployed.
-  lokiDeploy: false
+  lokiDeploy: true
   # lokiLogging enables Loki logging if set.
-  lokiLogging: false
+  lokiLogging: true
   metrics:
     # enabled sets the METRICS environment variable if set.
     enabled: true
     # endpoint should be the URL of the metrics endpoint.
     endpoint: ""
+  priorityClassName: ""
   nodeSelector: {}
   # podLabels specifies labels to add to the pachd pod.
   podLabels: {}
@@ -314,8 +324,6 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
-  securityContext:
-    enabled: true
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.
@@ -384,7 +392,7 @@ pachd:
   localhostIssuer: "" # "true", "false", or "" (used string as bool doesn't support empty value)
   # set the initial pachyderm cluster role bindings, mapping a user to their list of roles
   # ex.
-  # pachAuthClusterRoleBindings: |
+  # pachAuthClusterRoleBindings:
   #   robot:wallie:
   #   - repoReader
   #   robot:eve:
@@ -554,12 +562,33 @@ pachd:
     # deploy.
     create: true
 
+kubeEventTail:
+  # Deploys a lightweight app that watches kubernetes events and echos them to logs.
+  enabled: true
+  # clusterScope determines whether kube-event-tail should watch all events or just events in its namespace.
+  clusterScope: false
+  image:
+    repository: "docker.io/jrockway/kube-event-tail"
+    pullPolicy: "IfNotPresent"
+    tag: "v0.0.6"
+  resources:
+    limits:
+      cpu: 1
+      memory: 45Mi
+    requests:
+      cpu: 100m
+      memory: 45Mi
+
 pgbouncer:
   service:
     type: ClusterIP
   annotations: {}
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
+  image:
+    repository: bitnami/pgbouncer
+    tag: 1.16.1-debian-10-r82
   resources:
     {}
     #limits:
@@ -610,9 +639,11 @@ postgresql:
     labels:
       suite: pachyderm
   primary:
+    priorityClassName: ""
     nodeSelector: {}
     tolerations: []
   readReplicas:
+    priorityClassName: ""
     nodeSelector: {}
     tolerations: []
 
@@ -631,6 +662,7 @@ cloudsqlAuthProxy:
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
     tag: "1.23.0"
+  priorityClassName: ""
   nodeSelector: {}
   tolerations: []
   # podLabels specifies labels to add to the dash pod.
@@ -704,6 +736,11 @@ oidc:
   dexCredentialSecretName: ""
   mockIDP: true
   #TODO scopes:
+
+testConnection:
+  image:
+    repository: alpine
+    tag: latest
 
 # The proxy is a service to handle all Pachyderm traffic (S3, Console, OIDC, Dex, GRPC) on a single
 # port; good for exposing directly to the Internet.

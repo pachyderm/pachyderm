@@ -166,6 +166,7 @@ dockers:
       - pachctl
       - worker_init
       - worker
+      - pachtf
     goos: linux
     goarch: amd64
     skip_push: false
@@ -177,20 +178,3 @@ dockers:
     extra_files:
       - LICENSE
       - licenses
-  -
-    image_templates:
-      - pachyderm/pachtf
-    ids:
-      - pachtf
-    goos: linux
-    goarch: amd64
-    skip_push: false
-    dockerfile: Dockerfile.pachtf
-    build_flag_templates:
-      - "--progress=plain"
-      - "--label=version={{.Version}}"
-      - "--label=release={{.Version}}"
-    extra_files:
-      - LICENSE
-      - licenses
- 

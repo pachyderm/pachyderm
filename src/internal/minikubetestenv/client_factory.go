@@ -1,3 +1,5 @@
+//go:build k8s
+
 package minikubetestenv
 
 import (
@@ -26,13 +28,13 @@ const (
 var (
 	clusterFactory      *ClusterFactory
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
+	poolSize            *int  = flag.Int("clusters.pool", 3, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", true, "cleanup the data following each test")
 )
 
 type acquireSettings struct {
-	WaitForLoki      bool
+	SkipLoki         bool
 	TLS              bool
 	EnterpriseMember bool
 	CertPool         *x509.CertPool
@@ -41,8 +43,8 @@ type acquireSettings struct {
 
 type Option func(*acquireSettings)
 
-var WaitForLokiOption Option = func(as *acquireSettings) {
-	as.WaitForLoki = true
+var SkipLokiOption Option = func(as *acquireSettings) {
+	as.SkipLoki = true
 }
 
 var WithTLS Option = func(as *acquireSettings) {
@@ -95,7 +97,7 @@ func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 10),
 		UseLeftoverCluster: *useLeftoverClusters,
-		Loki:               as.WaitForLoki,
+		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
 		ValueOverrides:     as.ValueOverrides,

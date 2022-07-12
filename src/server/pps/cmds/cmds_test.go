@@ -1,3 +1,5 @@
+//go:build k8s
+
 // TODO(msteffen) Add tests for:
 //
 // - restart datum

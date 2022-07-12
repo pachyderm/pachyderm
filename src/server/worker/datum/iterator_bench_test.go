@@ -1,3 +1,5 @@
+//go:build k8s
+
 package datum
 
 // TODO: Update if useful.

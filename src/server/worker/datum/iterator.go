@@ -90,7 +90,7 @@ func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
 
 func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
 	req := &pfs.GetFileRequest{
-		File:      commit.NewFile(path.Join("/", MetaPrefix, "*", MetaFileName)),
+		File:      commit.NewFile(path.Join("/", common.MetaFilePath("*"))),
 		PathRange: pathRange,
 	}
 	ctx, cancel := context.WithCancel(pachClient.Ctx())

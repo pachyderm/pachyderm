@@ -1,0 +1,147 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPCapabilities
+metadata:
+  name: capabilities
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    allowedCapabilities: [""]
+    requiredDropCapabilities: ["all"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPAllowPrivilegeEscalationContainer
+metadata:
+  name: psp-allow-privilege-escalation-container
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPReadOnlyRootFilesystem
+metadata:
+  name: psp-readonlyrootfilesystem
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPSeccomp
+metadata:
+  name: psp-seccomp
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    allowedProfiles:
+    - runtime/default
+    - docker/default
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPAllowedUsers
+metadata:
+  name: psp-pods-allowed-user-ranges
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    runAsUser:
+      rule: MustRunAs # MustRunAsNonRoot # RunAsAny 
+      ranges:
+        - min: 2
+          max: 65534
+    runAsGroup:
+      rule: MustRunAs # MayRunAs # RunAsAny 
+      ranges:
+        - min: 2
+          max: 65534
+    fsGroup:
+      rule: MustRunAs # MayRunAs # RunAsAny 
+      ranges:
+        - min: 2
+          max: 65534
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPVolumeTypes
+metadata:
+  name: psp-volume-types
+spec:
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    volumes:
+    - configMap
+    - emptyDir
+    - projected
+    - secret
+    - downwardAPI
+    - persistentVolumeClaim
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredProbes
+metadata:
+  name: must-have-probes
+spec:
+  enforcementAction: dryrun
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    probes: ["readinessProbe", "livenessProbe"]
+    probeTypes: ["tcpSocket", "httpGet", "exec"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredResources
+metadata:
+  name: container-must-have-limits-and-requests
+spec:
+  enforcementAction: dryrun
+  match:
+    labelSelector:
+        matchLabels:
+          suite: pachyderm
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    limits:
+      - cpu
+      - memory
+    requests:
+      - cpu
+      - memory

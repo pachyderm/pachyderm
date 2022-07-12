@@ -12,3 +12,18 @@ data:
     issuer: {{ include "pachyderm.issuerURI" . }}
     id_token_expiry: {{ .Values.oidc.IDTokenExpiry }}
     rotation_token_expiry: {{ .Values.oidc.RotationTokenExpiry }}
+  oidc-clients: |
+    - id: {{ .Values.pachd.oauthClientID }}
+      name: {{ .Values.pachd.oauthClientID }}
+      redirect_uris:
+      - {{ include "pachyderm.pachdRedirectURI" . }}
+      {{- if .Values.console.enabled}}
+      trusted_peers:
+      - {{ .Values.console.config.oauthClientID | quote }}
+      {{- end }}
+    {{- if .Values.console.enabled }}
+    - id: {{ .Values.console.config.oauthClientID }}
+      name: {{ .Values.console.config.oauthClientID  }}
+      redirect_uris:
+      - {{ include "pachyderm.consoleRedirectURI" . | quote }}
+    {{- end }}

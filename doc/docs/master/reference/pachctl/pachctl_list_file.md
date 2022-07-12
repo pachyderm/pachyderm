@@ -15,22 +15,22 @@ pachctl list file <repo>@<branch-or-commit>[:<path/in/pfs>] [flags]
 ```
 
 # list top-level files on branch "master" in repo "foo"
-$ pachctl list file foo@master
+pachctl list file foo@master
 
 # list files under directory "dir" on branch "master" in repo "foo"
-$ pachctl list file foo@master:dir
+pachctl list file foo@master:dir
 
 # list top-level files in the parent commit of the current head of "master"
 # in repo "foo"
-$ pachctl list file foo@master^
+pachctl list file foo@master^
 
 # list top-level files in the grandparent of the current head of "master"
 # in repo "foo"
-$ pachctl list file foo@master^2
+pachctl list file foo@master^2
 
 # list file under directory "dir[1]" on branch "master" in repo "foo"
 # : quote and protect regex characters
-$ pachctl list file 'foo@master:dir\[1\]'
+pachctl list file 'foo@master:dir\[1\]'
 ```
 
 ### Options

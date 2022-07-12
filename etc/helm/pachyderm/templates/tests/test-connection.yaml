@@ -17,8 +17,30 @@ spec:
 {{- include "pachyderm.imagePullSecrets" . | indent 2 }}
   containers:
     - name: nc
-      image: "alpine"
+      image: "{{ .Values.testConnection.image.repository }}:{{ .Values.testConnection.image.tag }}"
       command: ['/bin/sh', '-c', '--']
       args: ['while ! nc -vz pachd-peer 30653 ; do sleep 1 ; done']
+      resources:
+          limits:
+            cpu: 250m
+            memory: 50Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+{{- if .Values.global.securityContexts.enabled }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+            drop:
+            - all
+  securityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  {{- end }}
   restartPolicy: Never
 {{- end }}

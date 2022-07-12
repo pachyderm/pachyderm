@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -37,6 +38,9 @@ type TestServiceEnv struct {
 
 	// Auth is the registered auth APIServer
 	Auth auth_server.APIServer
+
+	// Identity is the registered auth APIServer
+	Identity identity.APIServer
 
 	// Pps is the registered pps APIServer
 	Pps pps_server.APIServer
@@ -119,9 +123,14 @@ func (s *TestServiceEnv) Close() error {
 	return errors.EnsureStack(eg.Wait())
 }
 
-// AuthServer returns the registered PFS APIServer
+// AuthServer returns the registered Auth APIServer
 func (env *TestServiceEnv) AuthServer() auth_server.APIServer {
 	return env.Auth
+}
+
+// IdentityServer returns the registered Identity APIServer
+func (env *TestServiceEnv) IdentityServer() identity.APIServer {
+	return env.Identity
 }
 
 // PpsServer returns the registered PPS APIServer
@@ -134,9 +143,14 @@ func (env *TestServiceEnv) PfsServer() pfs_server.APIServer {
 	return env.Pfs
 }
 
-// SetAuthServer returns the registered PFS APIServer
+// SetAuthServer returns the registered Auth APIServer
 func (env *TestServiceEnv) SetAuthServer(s auth_server.APIServer) {
 	env.Auth = s
+}
+
+// SetIdentityServer returns the registered Identity APIServer
+func (env *TestServiceEnv) SetIdentityServer(s identity.APIServer) {
+	env.Identity = s
 }
 
 // SetPpsServer returns the registered PPS APIServer

@@ -34,6 +34,9 @@ spec:
       annotations: {{ toYaml .Values.etcd.annotations | nindent 8 }}
       {{- end }}
     spec:
+      {{- if .Values.etcd.priorityClassName }}
+      priorityClassName: {{ .Values.etcd.priorityClassName }}
+      {{- end }}
       {{-  if .Values.etcd.affinity }}
       affinity: {{ toYaml .Values.etcd.affinity | nindent 8 }}
       {{- end }}
@@ -62,6 +65,26 @@ spec:
         image: "{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: etcd
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: client-port
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: client-port
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
         ports:
         - containerPort: 2379
           name: client-port
@@ -73,17 +96,26 @@ spec:
         volumeMounts:
         - mountPath: /var/data/etcd
           name: etcd-storage
+      {{- if .Values.global.securityContexts.enabled }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       {{-  if .Values.etcd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.etcd.nodeSelector | nindent 8 }}
       {{- end }}
       {{-  if .Values.etcd.tolerations }}
       tolerations: {{ toYaml .Values.etcd.tolerations | nindent 8 }}
-      {{- end }}
-      {{- if  .Values.etcd.securityContext.enabled }}
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
       {{- end }}
   volumeClaimTemplates:
   - metadata:

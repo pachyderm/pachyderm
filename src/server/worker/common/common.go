@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -13,8 +14,22 @@ import (
 )
 
 const (
-	TTL = 15 * time.Minute
+	// MetaPrefix is the prefix for the meta path.
+	MetaPrefix = "meta"
+	// MetaFileName is the name of the meta file.
+	MetaFileName = "meta"
+	// PFSPrefix is the prefix for the pfs path.
+	PFSPrefix = "pfs"
+	// OutputPrefix is the prefix for the output path.
+	OutputPrefix = "out"
+	// TmpFileName is the name of the tmp file.
+	TmpFileName = "tmp"
+	TTL         = 15 * time.Minute
 )
+
+func MetaFilePath(id string) string {
+	return path.Join(MetaPrefix, id, MetaFileName)
+}
 
 // IsDone returns true if the given context has been canceled, or false otherwise
 func IsDone(ctx context.Context) bool {

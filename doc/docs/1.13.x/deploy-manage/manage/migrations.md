@@ -256,7 +256,7 @@ To restore your cluster, complete the following steps:
 1. If you deployed your new cluster into a different namespace on the same Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
       ```shell
-      $ pachctl config get context `pachctl config get active-context`
+      pachctl config get context `pachctl config get active-context`
       ```
 
       **Example System Response:**

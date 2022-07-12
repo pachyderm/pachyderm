@@ -59,21 +59,33 @@ func newAPIServer(env Env) (*apiServer, error) {
 
 // ActivateAuth implements the protobuf pfs.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
-	var repoInfo pfs.RepoInfo
+	var resp *pfs.ActivateAuthResponse
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		err := a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
-			err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
-				Type: auth.ResourceType_REPO,
-				Name: repoInfo.Repo.Name,
-			})
-			if err != nil && !col.IsErrExists(err) {
-				return errors.EnsureStack(err)
-			}
-			return nil
-		})
-		return errors.EnsureStack(err)
+		var err error
+		resp, err = a.ActivateAuthInTransaction(txnCtx, request)
+		if err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return nil, err
+	}
+	return resp, nil
+}
+
+func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
+	var repoInfo pfs.RepoInfo
+	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: repoInfo.Repo.Name,
+		})
+		if err != nil && !col.IsErrExists(err) {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	return &pfs.ActivateAuthResponse{}, nil
 }
@@ -629,10 +641,37 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
-	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
+	ctx := fsckServer.Context()
+	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
 		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
 		return err
+	}
+
+	if target := request.GetZombieTarget(); target != nil {
+		return a.driver.detectZombie(ctx, target, fsckServer.Send)
+	}
+	if request.GetZombieAll() {
+		// list meta repos as a proxy for finding pipelines
+		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
+			output := client.NewCommit(info.Repo.Name, "master", "")
+			for output != nil {
+				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				if err != nil {
+					return err
+				}
+				// we will be reading the whole file system, so unfinished commits would be very slow
+				if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
+					break
+				}
+				output = info.ParentCommit
+			}
+			if output == nil {
+				return nil
+			}
+			return a.driver.detectZombie(ctx, output, fsckServer.Send)
+		})
 	}
 	return nil
 }
