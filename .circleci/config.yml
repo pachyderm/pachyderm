@@ -610,7 +610,6 @@ workflows:
       - helm-tests:
           filters: *only-release-tags
       - circleci:
-          name: circleci-tests
           matrix:
             parameters:
               bucket:
