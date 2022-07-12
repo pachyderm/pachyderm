@@ -501,6 +501,7 @@ workflows:
                 - 2.1.x
                 - 2.2.x
                 - master
+                - CORE-813
   red_hat:
     jobs:
       - push_redhat:
