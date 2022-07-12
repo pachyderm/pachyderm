@@ -510,7 +510,7 @@ jobs:
       - run:
           name: retag and push docker images
           command: |
-            make VERSION=$VERSION docker-push
+            make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     docker:
       - image: cimg/go:1.17.3
