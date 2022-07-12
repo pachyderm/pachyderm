@@ -568,7 +568,7 @@ kubeEventTail:
   # clusterScope determines whether kube-event-tail should watch all events or just events in its namespace.
   clusterScope: false
   image:
-    repository: "docker.io/jrockway/kube-event-tail"
+    repository: pachyderm/kube-event-tail
     pullPolicy: "IfNotPresent"
     tag: "v0.0.6"
   resources:
@@ -587,7 +587,7 @@ pgbouncer:
   nodeSelector: {}
   tolerations: []
   image:
-    repository: bitnami/pgbouncer
+    repository: pachyderm/pgbouncer
     tag: 1.16.1-debian-10-r82
   resources:
     {}
