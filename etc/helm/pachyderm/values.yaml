@@ -324,6 +324,15 @@ pachd:
     #requests:
     #  cpu: "1"
     #  memory: "2G"
+  livenessProbe:
+    enabled: false
+    exec:
+      command:
+      - /pachd
+      - --readiness
+    failureThreshold: 10
+    periodSeconds: 30
+    timeoutSeconds: 30
   # requireCriticalServersOnly only requires the critical pachd
   # servers to startup and run without errors.  It is analogous to the
   # --require-critical-servers-only argument to pachctl deploy.

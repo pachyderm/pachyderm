@@ -358,6 +358,17 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 	}
 	var userSecurityCtx *v1.SecurityContext
 	var podSecurityContext *v1.PodSecurityContext
+	var pachLivenessProbe *v1.Probe
+	if kd.config.EnableWorkerLivenessProbes {
+		pachLivenessProbe = &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
+			Command: []string{"/pachd", "--readiness"}}},
+			TimeoutSeconds:   30,
+			FailureThreshold: 10,
+			PeriodSeconds:    30,
+		}
+	} else {
+		pachLivenessProbe = nil
+	}
 	userStr := pipelineInfo.Details.Transform.User
 	if !kd.config.EnableWorkerSecurityContexts {
 		pachSecurityCtx = nil
@@ -442,9 +453,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				ReadinessProbe: &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
 					Command: []string{"/pachd", "--readiness"}}},
 				},
-				LivenessProbe: &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
-					Command: []string{"/pachd", "--readiness"}}},
-				},
+				LivenessProbe: pachLivenessProbe,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,

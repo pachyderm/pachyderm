@@ -252,6 +252,10 @@ spec:
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
           value: {{ .Values.global.securityContexts.enabled | quote }}
+        {{- if .Values.pachd.livenessProbe.enabled }}
+        - name: ENABLE_WORKER_LIVENESS_PROBE
+          value:  {{ .Values.pachd.livenessProbe.enabled | quote }}
+        {{- end }}
         - name: UNPAUSED_MODE
           value: "full"
         {{- if .Values.pachd.activateEnterpriseMember }}
@@ -320,11 +324,9 @@ spec:
             command:
             - /pachd
             - --readiness
-        livenessProbe:
-          exec:
-            command:
-            - /pachd
-            - --readiness
+        {{- if .Values.pachd.livenessProbe.enabled }}
+        livenessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.pachd.livenessProbe "enabled") "context" $) | nindent 10 }}
+        {{- end }}
         startupProbe:
           exec:
             command:

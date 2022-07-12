@@ -413,10 +413,10 @@
         "kubeEventTail": {
             "type": "object",
             "properties": {
-                "enabled": {
+                "clusterScope": {
                     "type": "boolean"
                 },
-                "clusterScope": {
+                "enabled": {
                     "type": "boolean"
                 },
                 "image": {
@@ -439,6 +439,9 @@
                         "limits": {
                             "type": "object",
                             "properties": {
+                                "cpu": {
+                                    "type": "integer"
+                                },
                                 "memory": {
                                     "type": "string"
                                 }
@@ -701,6 +704,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "livenessProbesEnabled": {
+                    "type": "boolean"
                 },
                 "localhostIssuer": {
                     "type": "string"
