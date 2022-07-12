@@ -416,24 +416,6 @@ workflows:
                 - PPS8
                 - PPS_AUTH
                 - EXAMPLES
-  helm:
-    when:
-      and:
-        - not: << pipeline.parameters.RELEASE_PACH_CORE >>
-    jobs:
-      - helm-build:
-          filters:
-            # Note: Not ignoring branches, so will be run on branches as well as tags
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      - helm-publish:
-          requires:
-            - helm-build
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   nightly_load_tests:
     triggers:
       - schedule:
@@ -487,11 +469,3 @@ workflows:
                 - 2.1.x
                 - 2.2.x
                 - master
-  red_hat:
-    jobs:
-      - push_redhat:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
