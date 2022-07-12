@@ -10,6 +10,14 @@ parameters:
   machine_image:
     type: string
     default: "ubuntu-2004:202201-02"
+  etcd_image:
+    type: string
+    default: "v3.5.1"
+  # if you change this here, also update in helm chart
+  # will get automated later with yq
+  kube_event_tail_image:
+    type: string
+    default: "v0.0.6"
   run_flaky_tests:
     type: string
     default: ""
@@ -308,9 +316,10 @@ jobs:
       - setup_remote_docker:
           version: 19.03.13
       - run:
-          name: pull pachyderm/etcd:v3.5.1 docker image
+          name: pull vendor images
           command: |
-            docker pull pachyderm/etcd:v3.5.1
+            docker pull pachyderm/etcd:<< pipeline.parameters.etcd_image >>
+            docker pull jrockway/kube-event-tail:<< pipeline.parameters.kube_event_tail_image >> 
       - run:
           name: install goreleaser
           command: |
@@ -327,6 +336,11 @@ jobs:
           command: |
             git config --global user.email "buildbot@pachyderm.io"
             git config --global user.name "pachydermbuildbot"
+      - run:
+          name: set vendor image versions
+          command: |
+            echo 'export ETCD_IMAGE_VERSION=<< pipeline.parameters.etcd_image >>' >> $BASH_ENV
+            echo 'export KUBE_EVENT_TAIL_IMAGE_VERSION=<< pipeline.parameters.kube_event_tail_image >>' >> $BASH_ENV
       - when:
           condition:
             and:

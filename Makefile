@@ -28,6 +28,10 @@ GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 
+# defaults vendor image tags
+ETCD_IMAGE_VERSION=v3.5.0
+KUBE_EVENT_TAIL_IMAGE_VERSION=v0.0.7
+
 # Default upper bound for test timeouts
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
@@ -134,7 +138,8 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
 
 docker-push-release: docker-push
-	$(SKIP) docker push pachyderm/etcd:v3.5.1
+	$(SKIP) docker push pachyderm/etcd:$(ETCD_IMAGE_VERSION)
+	$(SKIP) docker push pachyderm/kube-event-tail:$(KUBE_EVENT_TAIL_IMAGE_VERSION)
 
 check-kubectl:
 	@# check that kubectl is installed
