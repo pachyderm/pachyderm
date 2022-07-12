@@ -6,8 +6,7 @@ aliases:
     branches:
       ignore: /.*/
     tags:
-      #only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
-      only: /^\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
 
 orbs:
   go: circleci/go@1.7.1
@@ -190,21 +189,18 @@ jobs:
           command: |
             mkdir -p cr-release-packages/official
             mkdir -p cr-release-packages/preview
-      # - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm # cr package did not work with embedded chart
-      # TODO: remove and replace only for testing.
       - run:
           name: package release helm chart
           command: |
-            helm package -d cr-release-packages/official --version ${CIRCLE_TAG} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
+            helm package -d cr-release-packages/official --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - run:
           name: mark extra chart pre-release
           command: |
             yq e -i '.annotations."artifacthub.io/prerelease"="true"' etc/helm/pachyderm/Chart.yaml
-      # use ${CIRCLE_TAG:1} after testing
       - run:
           name: package pre-release helm chart
           command: |
-            helm package -d cr-release-packages/preview --version ${CIRCLE_TAG}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG} etc/helm/pachyderm
+            helm package -d cr-release-packages/preview --version ${CIRCLE_TAG:1}-${CIRCLE_SHA1} --app-version ${CIRCLE_TAG:1} etc/helm/pachyderm
       - persist_to_workspace:
           root: .
           paths:
@@ -479,11 +475,10 @@ jobs:
           at: ./
       - gh/setup:
           version: 2.13.0
-      # This should be {CIRCLE_TAG:1} after testing
       - run:
           name: create github release
           command: |
-            gh release create --draft ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes
+            gh release create --draft ${CIRCLE_TAG:1} -t ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
   release-github:
     docker:
       - image: cimg/base:stable
@@ -493,11 +488,10 @@ jobs:
           at: ./
       - gh/setup:
           version: 2.13.0
-      # This should be {CIRCLE_TAG:1} after testing
       - run:
           name: create github release
           command: |
-            gh release create ${CIRCLE_TAG} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG}* --generate-notes
+            gh release create ${CIRCLE_TAG:1} -t ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -614,13 +608,12 @@ workflows:
           requires:
             - helm-tests
       - build-docker-images:
-          appVersion: ${CIRCLE_TAG} # TODO remove and replace only for testing ${CIRCLE_TAG:1}
+          appVersion: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
       - build-pachctl-bin:
-          # version: ${CIRCLE_TAG:1}
-          version: ${CIRCLE_TAG} # TODO remove and replace only for testing
+          version: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests

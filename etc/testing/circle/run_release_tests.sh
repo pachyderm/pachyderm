@@ -17,17 +17,16 @@ export VERSION
 sleep 300
 
 # provision a pulumi test env
-#TODO; switch to CIRCLE_TAG:1 once done with testing
 WORKSPACE=${CIRCLE_TAG//./-}
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name=v"${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG}-${CIRCLE_SHA1}" \
+ -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" \
   https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
 
 for _ in $(seq 108); do
-  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/v${WORKSPACE}-${CIRCLE_SHA1:0:7}" | jq .Workspace.Status | tr -d '"')
+  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}-${CIRCLE_SHA1:0:7}" | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
@@ -43,9 +42,9 @@ then
   exit 1
 fi
 
-pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/v${WORKSPACE}-${CIRCLE_SHA1:0:7}"  | jq .Workspace.PachdIp)
+pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}-${CIRCLE_SHA1:0:7}"  | jq .Workspace.PachdIp)
 
-echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "v${WORKSPACE}-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "v${WORKSPACE}-${CIRCLE_SHA1:0:7}"
+echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "${WORKSPACE}-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "${WORKSPACE}-${CIRCLE_SHA1:0:7}"
 
 echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
 
