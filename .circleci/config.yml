@@ -609,20 +609,25 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
+      - circleci:
+          filters: *only-release-tags
       - helm-build:
           filters: *only-release-tags
           requires:
             - helm-tests
+            - circleci
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
+            - circleci
       - build-pachctl-bin:
           version: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
+            - circleci
       - helm-publish:
           name: publish-chart-preview
           preview: true
