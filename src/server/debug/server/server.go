@@ -252,6 +252,7 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
+						"app":             "pipeline",
 						"pipelineName":    pipelineInfo.Pipeline.Name,
 						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
 					},

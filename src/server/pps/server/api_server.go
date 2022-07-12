@@ -1174,6 +1174,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 
 		// 3) Get pods for this pipeline
+		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err != nil {
 			return err
@@ -3110,6 +3111,7 @@ func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVer
 			APIVersion: "v1",
 		},
 		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{
+			"app":             "pipeline",
 			"pipelineName":    pipelineName,
 			"pipelineVersion": fmt.Sprint(pipelineVersion),
 		})),
@@ -3155,11 +3157,22 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	return ci, nil
 }
 
-func labels(app string) map[string]string {
+func pipelineLabels(pipelineName string, pipelineVersion uint64) map[string]string {
 	return map[string]string{
-		"app":       app,
-		"suite":     suite,
-		"component": "worker",
+		"app":             "pipeline",
+		"pipelineName":    pipelineName,
+		"pipelineVersion": fmt.Sprint(pipelineVersion),
+		"suite":           suite,
+		"component":       "worker",
+	}
+}
+
+func spoutLabels(pipelineName string) map[string]string {
+	return map[string]string{
+		"app":          "spout",
+		"pipelineName": pipelineName,
+		"suite":        suite,
+		"component":    "worker",
 	}
 }
 
