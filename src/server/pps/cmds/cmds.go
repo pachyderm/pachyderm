@@ -1010,6 +1010,20 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
+	testPipeline := &cobra.Command{
+		Short: "Test a pipeline locally.",
+		Long:  "Test a pipeline locally without creating it in the cluster.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			return testPipeline(client, pipelinePath)
+		}),
+	}
+	testPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
+	commands = append(commands, cmdutil.CreateAliases(testPipeline, "test pipeline", pipelines))
+
 	var file string
 	createSecret := &cobra.Command{
 		Short: "Create a secret on the cluster.",
