@@ -17,6 +17,8 @@ pach_featured_version: '2.2.5'
 pach_latest_version: '2.0.8'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
+# Latest compatible version of Python-pachyderm
+python_pachyderm_version: '7.1.x'
 
 # Configuration
 theme:
