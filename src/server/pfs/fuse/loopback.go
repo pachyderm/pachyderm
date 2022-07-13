@@ -619,8 +619,11 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	repoName := ro.Repo
-	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+	// Define the callback up front because we use it in two paths
+	createFile := func(fi *pfs.FileInfo) (retErr error) {
+		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
+			return nil
+		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
@@ -656,7 +659,10 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 			return err
 		}
 		return nil
-	}); err != nil && !errutil.IsNotFoundError(err) &&
+	}
+	filePath := pathpkg.Join(parts[1:]...)
+	repoName := ro.File.Commit.Branch.Repo.Name
+	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}
@@ -697,7 +703,7 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	repoName := ro.Repo
+	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
 	bi, err := n.root().c.InspectBranch(repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {

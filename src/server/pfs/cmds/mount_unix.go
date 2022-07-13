@@ -28,45 +28,28 @@ const (
 func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
-		var repo string
-		var flag string
 		opts := &fuse.RepoOptions{}
-		repoAndRest := strings.Split(arg, "@")
-		if len(repoAndRest) == 1 {
-			// No branch specified
-			opts.Branch = "master"
-			repoAndFlag := strings.Split(repoAndRest[0], "+")
-			repo = repoAndFlag[0]
-			if len(repoAndFlag) > 1 {
-				flag = repoAndFlag[1]
-			}
-			opts.Repo = repo
-		} else {
-			repo = repoAndRest[0]
-			branchAndFlag := strings.Split(repoAndRest[1], "+")
-			opts.Branch = branchAndFlag[0]
-			if len(branchAndFlag) > 1 {
-				flag = branchAndFlag[1]
-			}
-			opts.Repo = repo
+		fileAndFlag := strings.Split(arg, "+")
+		file, err := cmdutil.ParseFile(fileAndFlag[0])
+		if err != nil {
+			return nil, err
 		}
-		if flag != "" {
-			for _, c := range flag {
+		opts.Name = file.Commit.Branch.Repo.Name
+		opts.File = file
+		if len(fileAndFlag) > 1 {
+			for _, c := range fileAndFlag[1] {
 				if c != 'w' && c != 'r' {
 					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
 				}
 			}
-			if strings.Contains("w", flag) {
+			if strings.Contains("w", fileAndFlag[1]) {
 				opts.Write = true
 			}
 		}
-		if repo == "" {
-			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
+		if opts.File.Commit.Branch.Name == "" {
+			opts.File.Commit.Branch.Name = "master"
 		}
-		// NB: `pachctl mount` always mounts a repo at its own name, but that
-		// key can be something else
-		opts.Name = repo
-		result[repo] = opts
+		result[opts.File.Commit.Branch.Repo.Name] = opts
 	}
 	return result, nil
 }
@@ -110,7 +93,7 @@ func mountCmds() []*cobra.Command {
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo@branch+w\", where the trailing flag \"+w\" indicates write.")
+	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo[@branch=commit][+w]\", where the trailing flag \"+w\" indicates write. You can omit the branch when specifying a commit unless the same commit ID is on multiple branches in the repo.")
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
