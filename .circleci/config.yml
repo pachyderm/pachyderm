@@ -577,7 +577,7 @@ workflows:
                 - PPS6
                 - PPS7
                 - PPS8
-                - PPS_AUTH
+                - S3_AUTH
                 - EXAMPLES
   helm-tests:
     jobs:
