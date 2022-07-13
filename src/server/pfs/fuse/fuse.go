@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -51,10 +50,9 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			opts.RepoOptions[ri.Repo.Name] = &RepoOptions{
 				// mount name is same as repo name, i.e. mount it at a directory
 				// named the same as the repo itself
-				Name:   ri.Repo.Name,
-				Repo:   ri.Repo.Name,
-				Branch: branch,
-				Write:  write,
+				Name:  ri.Repo.Name,
+				File:  client.NewFile(ri.Repo.Name, branch, "", ""),
+				Write: write,
 			}
 		}
 	}
@@ -62,9 +60,25 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		return err
 	}
 	commits := make(map[string]string)
-	for repo, branch := range opts.getBranches() {
-		if uuid.IsUUIDWithoutDashes(branch) {
-			commits[repo] = branch
+	if opts != nil {
+		for repo, ropts := range opts.RepoOptions {
+			if ropts.File.Commit.ID != "" && ropts.File.Commit.Branch.Name == "" {
+				commits[repo] = ropts.File.Commit.ID
+				cis, err := c.InspectCommitSet(ropts.File.Commit.ID)
+				if err != nil {
+					return err
+				}
+				branch := ""
+				for _, ci := range cis {
+					if ci.Commit.Branch.Repo.Name == repo {
+						if branch != "" {
+							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.ID)
+						}
+						branch = ci.Commit.Branch.Name
+					}
+				}
+				ropts.File.Commit.Branch.Name = branch
+			}
 		}
 	}
 	rootDir, err := ioutil.TempDir("", "pfs")

@@ -1294,10 +1294,9 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
-			Name:   m.Name,
-			Repo:   m.MountKey.Repo,
-			Branch: m.MountKey.Branch,
-			Write:  m.Mode == "rw",
+			Name:  m.Name,
+			File:  client.NewFile(m.MountKey.Repo, m.MountKey.Branch, "", ""),
+			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.MountKey.Branch
 	}()
@@ -1536,7 +1535,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 		// on their name
 		repoName = name
 	} else {
-		repoName = opts.Repo
+		repoName = opts.File.Commit.Branch.Repo.Name
 	}
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
 	if err != nil {
