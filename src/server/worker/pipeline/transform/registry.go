@@ -349,7 +349,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 				FileSetId: result.OutputFileSetId,
 			},
 		); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if _, err := pachClient.PfsAPIClient.AddFileSet(
 			ctx,
@@ -358,7 +358,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 				FileSetId: result.MetaFileSetId,
 			},
 		); err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if err := datum.MergeStats(stats, result.Stats); err != nil {
 			return err

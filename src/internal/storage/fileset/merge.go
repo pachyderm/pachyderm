@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -90,7 +91,8 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 // TODO: Look at the sizes?
 // TODO: Come up with better heuristics for sharding.
 func (mr *MergeReader) Shard(ctx context.Context, cb index.ShardCallback) error {
-	return mr.fileSets[0].Shard(ctx, cb)
+	err := mr.fileSets[0].Shard(ctx, cb)
+	return errors.EnsureStack(err)
 }
 
 // MergeFileReader is an abstraction for reading a merged file.

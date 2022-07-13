@@ -197,7 +197,7 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 			},
 		)
 		if err != nil {
-			return "", err
+			return "", errors.EnsureStack(err)
 		}
 		return resp.FileSetId, nil
 	}
@@ -258,7 +258,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 				},
 			)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			outputFileSetID = resp.FileSetId
 			return nil
@@ -359,7 +359,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 						FileSetId: result.OutputDeleteFileSetId,
 					},
 				); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				if _, err := pachClient.PfsAPIClient.AddFileSet(
 					ctx,
@@ -368,7 +368,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 						FileSetId: result.MetaDeleteFileSetId,
 					},
 				); err != nil {
-					return err
+					return errors.EnsureStack(err)
 				}
 				// Record the skipped datums.
 				stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
@@ -388,7 +388,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 				},
 			)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			outputFileSetID = resp.FileSetId
 			return nil

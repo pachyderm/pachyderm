@@ -97,7 +97,7 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 	defer cancel()
 	client, err := pachClient.PfsAPIClient.GetFileTAR(ctx, req)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	r := grpcutil.NewStreamingBytesReader(client, nil)
 	tr := tar.NewReader(r)
@@ -208,26 +208,6 @@ func (li *listIterator) Iterate(cb func(*Meta) error) error {
 		}
 	}
 	return nil
-}
-
-type indexIterator struct {
-	iterator Iterator
-}
-
-func newIndexIterator(iterator Iterator) Iterator {
-	return &indexIterator{
-		iterator: iterator,
-	}
-}
-
-func (ii *indexIterator) Iterate(cb func(*Meta) error) error {
-	index := int64(0)
-	err := ii.iterator.Iterate(func(meta *Meta) error {
-		meta.Index = index
-		index++
-		return cb(meta)
-	})
-	return errors.EnsureStack(err)
 }
 
 // Merge merges multiple datum iterators (key is datum ID).

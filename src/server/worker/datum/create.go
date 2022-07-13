@@ -95,7 +95,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 			},
 		)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		outputFileSetID = resp.FileSetId
 		return nil
@@ -129,7 +129,7 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			},
 		)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		outputFileSetID = resp.FileSetId
 		return nil
@@ -207,7 +207,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			},
 		)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		outputFileSetID = resp.FileSetId
 		return nil

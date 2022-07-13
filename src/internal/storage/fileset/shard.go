@@ -12,7 +12,8 @@ func (s *Storage) EstimateShards(ctx context.Context, ids []ID, cb index.ShardCa
 	if err != nil {
 		return err
 	}
-	return fs.Shard(ctx, cb)
+	err = fs.Shard(ctx, cb)
+	return errors.EnsureStack(err)
 }
 
 // Shard shards the file set into path ranges.

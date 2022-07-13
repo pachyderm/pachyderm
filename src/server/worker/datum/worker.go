@@ -49,7 +49,7 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 			},
 		)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		return clientsdk.ForEachGlobFile(client, func(fi *pfs.FileInfo) error {
 			g := glob.MustCompile(pfsfile.CleanPath(task.Input.Glob), '/')
