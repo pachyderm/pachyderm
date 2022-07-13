@@ -487,10 +487,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG:1} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG:1} -t ${CIRCLE_TAG} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
             fi
   release-github:
     docker:
@@ -504,7 +504,7 @@ jobs:
       - run:
           name: create github release
           command: |
-            gh release edit ${CIRCLE_TAG:1} --draft=false
+            gh release edit ${CIRCLE_TAG} --draft=false
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -548,7 +548,7 @@ jobs:
             prefix=${v%%-*}
             index=${#prefix}
             additional=${v:index}
-            etc/build/update_homebrew.sh ${additional}
+            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   circleci:
     jobs:

@@ -22,4 +22,4 @@ version="$("${PACHCTL}" version --client-only)"
 echo "--- Releasing Version: $version"
 make VERSION="$version" VERSION_ADDITIONAL="$VERSION_ADDITIONAL" release
 
-./update_homebrew.sh "$1"
+./update_homebrew.sh "$version" "$1"

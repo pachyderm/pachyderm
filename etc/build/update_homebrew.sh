@@ -2,11 +2,11 @@
 
 set -e
 
-version="$("${PACHCTL}" version --client-only)"
+version=$1
 
 echo "--- Updating homebrew formula to use binaries at version $version"
 BRANCH=master
-if [ -n "$1" ]
+if [ -n "$2" ]
 then
     BRANCH=$version
 fi
