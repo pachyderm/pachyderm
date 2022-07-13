@@ -9,8 +9,6 @@ import {
 } from '@pachyderm/components';
 import React, {useState} from 'react';
 
-import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-
 import Account from './components/Account';
 import TutorialsMenu from './components/TutorialsMenu';
 import styles from './HeaderButtons.module.css';
@@ -28,10 +26,6 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
 }) => {
   const [tutorialsMenuVisible, setTutorialsMenu] = useState(false);
   const [stickTutorialsMenu, setStickTutorialsMenu] = useState(false);
-  const [activeTutorial] = useLocalProjectSettings({
-    projectId: projectId || 'default',
-    key: 'active_tutorial',
-  });
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
@@ -70,16 +64,14 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   return (
     <>
       <Group spacing={16} align="center" className={styles.responsiveHide}>
-        {!activeTutorial && (
-          <Button
-            onClick={() => setTutorialsMenu(true)}
-            buttonType="tertiary"
-            IconSVG={EducationSVG}
-            iconPosition="start"
-          >
-            Learn Pachyderm
-          </Button>
-        )}
+        <Button
+          onClick={() => setTutorialsMenu(true)}
+          buttonType="tertiary"
+          IconSVG={EducationSVG}
+          iconPosition="start"
+        >
+          Learn Pachyderm
+        </Button>
         {showSupport && (
           <Button
             buttonType="tertiary"

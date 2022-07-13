@@ -1,4 +1,7 @@
-import {NotificationBannerProvider} from '@pachyderm/components';
+import {
+  NotificationBannerProvider,
+  TutorialModalBodyProvider,
+} from '@pachyderm/components';
 import React, {Suspense, lazy} from 'react';
 import {BrowserRouter, Redirect, Route, Switch} from 'react-router-dom';
 
@@ -27,27 +30,29 @@ const DashUI: React.FC = () => {
       <LoggedInProvider>
         <ApolloProvider>
           <AnalyticsProvider>
-            <NotificationBannerProvider>
-              <main id="main">
-                <Suspense fallback={<LoadingSkeleton />}>
-                  <Switch>
-                    <Route
-                      path="/"
-                      exact
-                      component={AuthenticatedRoute(Landing)}
-                    />
+            <TutorialModalBodyProvider>
+              <NotificationBannerProvider>
+                <main id="main">
+                  <Suspense fallback={<LoadingSkeleton />}>
+                    <Switch>
+                      <Route
+                        path="/"
+                        exact
+                        component={AuthenticatedRoute(Landing)}
+                      />
 
-                    <Route
-                      path={[PROJECT_PATH, LINEAGE_PATH]}
-                      component={AuthenticatedRoute(Project)}
-                    />
+                      <Route
+                        path={[PROJECT_PATH, LINEAGE_PATH]}
+                        component={AuthenticatedRoute(Project)}
+                      />
 
-                    <Route path="/not-found" exact component={ErrorView} />
-                    <Redirect to={'/not-found'} />
-                  </Switch>
-                </Suspense>
-              </main>
-            </NotificationBannerProvider>
+                      <Route path="/not-found" exact component={ErrorView} />
+                      <Redirect to={'/not-found'} />
+                    </Switch>
+                  </Suspense>
+                </main>
+              </NotificationBannerProvider>
+            </TutorialModalBodyProvider>
           </AnalyticsProvider>
         </ApolloProvider>
       </LoggedInProvider>

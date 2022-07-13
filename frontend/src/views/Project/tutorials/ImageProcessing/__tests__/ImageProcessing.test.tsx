@@ -1,4 +1,5 @@
 import {mockServer} from '@dash-backend/testHelpers';
+import {TutorialModalBodyProvider} from '@pachyderm/components';
 import {render, waitFor} from '@testing-library/react';
 import React from 'react';
 
@@ -8,7 +9,16 @@ import {
   generateTutorialView,
 } from '@dash-frontend/testHelpers';
 
-import ProjectTutorial from '../../ProjectTutorial';
+import ProjectTutorialComponent from '../../ProjectTutorial';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ProjectTutorial = (props: any): any => {
+  return (
+    <TutorialModalBodyProvider>
+      <ProjectTutorialComponent {...props} />
+    </TutorialModalBodyProvider>
+  );
+};
 
 describe('Image Processing', () => {
   beforeEach(() => {
@@ -59,9 +69,7 @@ describe('Image Processing', () => {
     };
 
     const nextStory = async () => {
-      const nextStoryButton = (
-        await findAllByRole('button', {name: 'Next Story'})
-      )[1];
+      const nextStoryButton = await findByRole('button', {name: 'Next Story'});
 
       await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
       click(nextStoryButton);
@@ -98,9 +106,7 @@ describe('Image Processing', () => {
     )[1];
 
     click(pipelineCreationButton);
-    const nextStoryButton = (
-      await findAllByRole('button', {name: 'Next Story'})
-    )[1];
+    const nextStoryButton = await findByRole('button', {name: 'Next Story'});
 
     await waitFor(() => expect(nextStoryButton).not.toBeDisabled());
 

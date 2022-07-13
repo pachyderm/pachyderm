@@ -1,5 +1,5 @@
-import {useOutsideClick} from '@pachyderm/components';
-import React, {useRef, useCallback} from 'react';
+import {useOutsideClick, TutorialModalBodyContext} from '@pachyderm/components';
+import React, {useRef, useCallback, useContext} from 'react';
 
 import useTutorialsList from '@dash-frontend/views/Project/tutorials/hooks/useTutorialsList';
 
@@ -31,6 +31,14 @@ const TutorialsMenu: React.FC<TutorialsMenuProps> = ({
     }
   }, [setTutorialsMenu, stickTutorialsMenu]);
   useOutsideClick(menuRef, handleOutsideClick);
+  const {setMinimized: setTutorialMinimized} = useContext(
+    TutorialModalBodyContext,
+  );
+
+  const getHandleClick = (tutorialId: string) => () => {
+    startTutorial(tutorialId);
+    setTutorialMinimized(false);
+  };
 
   return (
     <div className={styles.tutorialsMenu} ref={menuRef}>
@@ -45,7 +53,7 @@ const TutorialsMenu: React.FC<TutorialsMenuProps> = ({
               tutorialProgress && tutorialProgress[tutorial.id]?.completed
             }
             tutorialStarted={tutorialProgress && tutorialProgress[tutorial.id]}
-            handleClick={() => startTutorial(tutorial.id)}
+            handleClick={getHandleClick(tutorial.id)}
             handleDelete={() => {
               tutorial.cleanup.cleanupImageProcessing();
               deleteTutorialResources(tutorial.id);

@@ -18,9 +18,7 @@ import {
   LINEAGE_PIPELINES_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
-  TUTORIAL_PATH,
 } from '../../constants/projectPaths';
-import ProjectTutorial from '../../tutorials/ProjectTutorial';
 
 import {useProjectDetails} from './hooks/useProjectDetails';
 import styles from './ProjectDetails.module.css';
@@ -92,6 +90,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
               />
             </Route>
             <DAGView dags={dags} loading={loading} error={error} />
+            <ProjectSidebar />
           </Route>
         </>
       )}
@@ -101,10 +100,6 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
           dagsLoading={loading}
           dagLinks={inputRepoLinks}
         />
-      </Route>
-      <Route path={TUTORIAL_PATH}>
-        <ProjectSidebar />
-        <ProjectTutorial />
       </Route>
     </Wrapper>
   );

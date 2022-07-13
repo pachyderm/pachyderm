@@ -11,7 +11,6 @@ import GlobalFilter from '@dash-frontend/components/GlobalFilter';
 import Header from '@dash-frontend/components/Header';
 import HeaderButtons from '@dash-frontend/components/HeaderButtons';
 import Search from '@dash-frontend/components/Search';
-import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 import useProjectHeader from './hooks/useProjectHeader';
@@ -21,10 +20,6 @@ const ProjectHeader = () => {
   const {projectName, loading} = useProjectHeader();
   const {projectId} = useUrlState();
   const [showTooltip, setShowTooltip] = useState(false);
-  const [activeTutorial] = useLocalProjectSettings({
-    projectId: projectId || 'default',
-    key: 'active_tutorial',
-  });
 
   const setProjectNameRef: React.RefCallback<HTMLHeadingElement> = useCallback(
     (element: HTMLHeadingElement | null) => {
@@ -71,7 +66,7 @@ const ProjectHeader = () => {
       <Search />
       <Group align="center">
         <GlobalFilter />
-        {!activeTutorial && <div className={styles.divider} />}
+        <div className={styles.divider} />
         <HeaderButtons projectId={projectId} />
       </Group>
     </Header>

@@ -33,8 +33,6 @@ export const LINEAGE_FILE_BROWSER_PATH = '/lineage/:projectId/repos/:repoId/bran
 export const LINEAGE_LOGS_VIEWER_PIPELINE_PATH = `/lineage/:projectId/pipelines/:pipelineId/logs`;
 export const LINEAGE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/jobs/:jobId/:pipelineId/logs`;
 
-export const TUTORIAL_PATH = [LINEAGE_PATH, LINEAGE_FILE_BROWSER_PATH];
-
 export const PROJECT_PATHS = [
   LINEAGE_PATH,
   LINEAGE_REPOS_PATH,
