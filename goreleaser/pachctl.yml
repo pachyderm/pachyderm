@@ -14,7 +14,7 @@ builds:
     main: main.go
     binary: pachctl
     ldflags:
-      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }}
+      - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
     gcflags:
       - "all=-trimpath={{.Env.GOBIN}}"
     env:
