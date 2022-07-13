@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/multierr"
 )
 
 // PutFile puts a file into PFS from a reader.
@@ -83,9 +84,8 @@ func (c APIClient) WithModifyFileClient(commit *pfs.Commit, cb func(ModifyFile) 
 		return err
 	}
 	defer func() {
-		if retErr == nil {
-			retErr = mfc.Close()
-		}
+		err := mfc.Close()
+		retErr = multierr.Combine(retErr, errors.Wrap(err, "close"))
 	}()
 	return cb(mfc)
 }
@@ -129,7 +129,7 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 	for _, opt := range opts {
 		opt(config)
 	}
-	return mfc.maybeError(func() error {
+	return mfc.maybeError("PutFile", func() error {
 		if !config.append {
 			if err := mfc.sendDeleteFile(&pfs.DeleteFile{
 				Path:  path,
@@ -161,14 +161,14 @@ func (mfc *modifyFileCore) PutFile(path string, r io.Reader, opts ...PutFileOpti
 	})
 }
 
-func (mfc *modifyFileCore) maybeError(f func() error) (retErr error) {
+func (mfc *modifyFileCore) maybeError(name string, f func() error) (retErr error) {
 	if mfc.err != nil {
 		return mfc.err
 	}
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 		if retErr != nil {
-			mfc.err = retErr
+			mfc.err = errors.Wrap(retErr, name)
 		}
 	}()
 	return f()
@@ -187,7 +187,7 @@ func (mfc *modifyFileCore) PutFileTAR(r io.Reader, opts ...PutFileOption) error 
 	for _, opt := range opts {
 		opt(config)
 	}
-	return mfc.maybeError(func() error {
+	return mfc.maybeError("PutFileTAR", func() error {
 		tr := tar.NewReader(r)
 		for hdr, err := tr.Next(); err != io.EOF; hdr, err = tr.Next() {
 			if err != nil {
@@ -235,7 +235,7 @@ func (mfc *modifyFileCore) PutFileURL(path, url string, recursive bool, opts ...
 	for _, opt := range opts {
 		opt(config)
 	}
-	return mfc.maybeError(func() error {
+	return mfc.maybeError("PutFileURL", func() error {
 		if !config.append {
 			if err := mfc.sendDeleteFile(&pfs.DeleteFile{
 				Path:  path,
@@ -263,7 +263,7 @@ func (mfc *modifyFileCore) DeleteFile(path string, opts ...DeleteFileOption) err
 	for _, opt := range opts {
 		opt(config)
 	}
-	return mfc.maybeError(func() error {
+	return mfc.maybeError("DeleteFile", func() error {
 		if config.recursive {
 			path = strings.TrimRight(path, "/") + "/"
 		}
@@ -284,7 +284,7 @@ func (mfc *modifyFileCore) sendDeleteFile(req *pfs.DeleteFile) error {
 }
 
 func (mfc *modifyFileCore) CopyFile(dst string, src *pfs.File, opts ...CopyFileOption) error {
-	return mfc.maybeError(func() error {
+	return mfc.maybeError("CopyFile", func() error {
 		cf := &pfs.CopyFile{
 			Dst: dst,
 			Src: src,
@@ -306,10 +306,8 @@ func (mfc *modifyFileCore) sendCopyFile(req *pfs.CopyFile) error {
 
 // Close closes the ModifyFileClient.
 func (mfc *ModifyFileClient) Close() error {
-	return mfc.maybeError(func() error {
-		_, err := mfc.client.CloseAndRecv()
-		return err
-	})
+	_, err := mfc.client.CloseAndRecv()
+	return multierr.Combine(mfc.err, err)
 }
 
 // FileSetsRepoName is the repo name used to access filesets as virtual commits.
@@ -338,9 +336,11 @@ func (c APIClient) WithCreateFileSetClient(cb func(ModifyFile) error) (resp *pfs
 		return nil, err
 	}
 	defer func() {
-		if retErr == nil {
-			resp, retErr = ctfsc.Close()
+		r, err := ctfsc.Close()
+		if retErr == nil && err == nil {
+			resp = r
 		}
+		retErr = multierr.Combine(retErr, errors.Wrap(err, "close"))
 	}()
 	return nil, cb(ctfsc)
 }
@@ -370,18 +370,11 @@ func (c APIClient) NewCreateFileSetClient() (_ *CreateFileSetClient, retErr erro
 
 // Close closes the CreateFileSetClient.
 func (ctfsc *CreateFileSetClient) Close() (*pfs.CreateFileSetResponse, error) {
-	var ret *pfs.CreateFileSetResponse
-	if err := ctfsc.maybeError(func() error {
-		resp, err := ctfsc.client.CloseAndRecv()
-		if err != nil {
-			return err
-		}
-		ret = resp
-		return nil
-	}); err != nil {
+	resp, clErr := ctfsc.client.CloseAndRecv()
+	if err := multierr.Combine(clErr, ctfsc.err); err != nil {
 		return nil, err
 	}
-	return ret, nil
+	return resp, nil
 }
 
 // GetFileSet gets a file set for a commit.
