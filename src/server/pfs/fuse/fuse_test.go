@@ -323,7 +323,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Name: "repo1", File: file, Write: true},
+			"repo1": {Name: "repo1", File: client.NewFile("repo1", "staging", "", ""), Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
