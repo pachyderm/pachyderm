@@ -42,13 +42,10 @@ See the [Effective Go Style Guide](https://go.dev/doc/effective_go) for standard
 
 See the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments) guide for a list of common comments made on reviews for Go. 
 
----
 
 ### Checks 
 
 - Run checks using `make lint`. 
-
----
 
 ### Testing 
 
