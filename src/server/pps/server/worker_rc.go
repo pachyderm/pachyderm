@@ -28,6 +28,7 @@ import (
 )
 
 const (
+	appLabel                     = "app"
 	pipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
 	pachVersionAnnotation        = "pachVersion"

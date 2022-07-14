@@ -294,7 +294,7 @@ func (a *apiServer) validateKube(ctx context.Context) {
 		}
 	}
 	name := uuid.NewWithoutDashes()
-	labels := map[string]string{"app": name}
+	labels := map[string]string{appLabel: name}
 	rc := &v1.ReplicationController{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ReplicationController",
@@ -3105,21 +3105,21 @@ func (a *apiServer) listPods(ctx context.Context, labels labels.Set) ([]v1.Pod, 
 }
 
 func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
-	return a.listPods(ctx, map[string]string{"app": "pachd"})
+	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
 }
 
 func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
 	pp, err := a.listPods(ctx, map[string]string{
-		"app":             "pipeline",
-		"pipelineName":    pipelineName,
-		"pipelineVersion": fmt.Sprint(pipelineVersion),
+		appLabel:             "pipeline",
+		pipelineNameLabel:    pipelineName,
+		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	if len(pp) == 0 {
 		return a.listPods(ctx, map[string]string{
-			"app": ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+			appLabel: ppsutil.PipelineRcName(pipelineName, pipelineVersion),
 		})
 	}
 	return pp, nil
@@ -3141,20 +3141,20 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 
 func pipelineLabels(pipelineName string, pipelineVersion uint64) map[string]string {
 	return map[string]string{
-		"app":             "pipeline",
-		"pipelineName":    pipelineName,
-		"pipelineVersion": fmt.Sprint(pipelineVersion),
-		"suite":           suite,
-		"component":       "worker",
+		appLabel:             "pipeline",
+		pipelineNameLabel:    pipelineName,
+		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		"suite":              suite,
+		"component":          "worker",
 	}
 }
 
 func spoutLabels(pipelineName string) map[string]string {
 	return map[string]string{
-		"app":          "spout",
-		"pipelineName": pipelineName,
-		"suite":        suite,
-		"component":    "worker",
+		appLabel:          "spout",
+		pipelineNameLabel: pipelineName,
+		"suite":           suite,
+		"component":       "worker",
 	}
 }
 

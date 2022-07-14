@@ -130,7 +130,7 @@ func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController
 				pachVersionAnnotation:        version.PrettyVersion(),
 			},
 			Labels: map[string]string{
-				"app":                "pipeline",
+				appLabel:             "pipeline",
 				pipelineNameLabel:    pi.Pipeline.Name,
 				pipelineVersionLabel: fmt.Sprint(pi.Version),
 			},
