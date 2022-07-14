@@ -34,7 +34,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 
-	prompt "github.com/c-bata/go-prompt"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -328,13 +327,17 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	listJob.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only sub-jobs with the specified state. Can be repeated to include multiple states")
 	shell.RegisterCompletionFunc(listJob,
-		func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+		func(c *client.APIClient, flag, text string, maxCompletions int64) *shell.CompletionResult {
+			var res *shell.CompletionResult
 			if flag == "-p" || flag == "--pipeline" {
-				cs, cf := shell.PipelineCompletion(c, flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+				res = shell.PipelineCompletion(c, flag, text, maxCompletions)
+			} else {
+				res = shell.JobSetCompletion(c, flag, text, maxCompletions)
 			}
-			cs, cf := shell.JobSetCompletion(c, flag, text, maxCompletions)
-			return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			if res != nil {
+				res.CacheFunc = shell.AndCacheFunc(res.CacheFunc, shell.SameFlag(flag))
+			}
+			return res
 		})
 	commands = append(commands, cmdutil.CreateAliases(listJob, "list job", jobs))
 	debugCommands = append(debugCommands, cmdutil.CreateAliases(listJob, "list job", jobs))
@@ -672,16 +675,20 @@ each datum.`,
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 	getLogs.Flags().StringVar(&since, "since", "24h", "Return log messages more recent than \"since\".")
 	shell.RegisterCompletionFunc(getLogs,
-		func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "--pipeline" || flag == "-p" {
-				cs, cf := shell.PipelineCompletion(c, flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+		func(c *client.APIClient, flag, text string, maxCompletions int64) *shell.CompletionResult {
+			var res *shell.CompletionResult
+			switch flag {
+			case "--pipeline", "-p":
+				res = shell.PipelineCompletion(c, flag, text, maxCompletions)
+			case "--job", "-j":
+				res = shell.JobCompletion(c, flag, text, maxCompletions)
+			default:
+				return &shell.CompletionResult{CacheFunc: shell.SameFlag(flag)}
 			}
-			if flag == "--job" || flag == "-j" {
-				cs, cf := shell.JobCompletion(c, flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			if res != nil {
+				res.CacheFunc = shell.AndCacheFunc(res.CacheFunc, shell.SameFlag(flag))
 			}
-			return nil, shell.SameFlag(flag)
+			return res
 		})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 	debugCommands = append(debugCommands, cmdutil.CreateAlias(getLogs, "logs"))

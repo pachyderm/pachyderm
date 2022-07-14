@@ -50,8 +50,14 @@ func AndCacheFunc(fs ...CacheFunc) CacheFunc {
 	}
 }
 
+type CompletionResult struct {
+	Suggestions []prompt.Suggest
+	Prefix      string
+	CacheFunc   CacheFunc
+}
+
 // CompletionFunc is a function which returns completions for a command.
-type CompletionFunc func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc)
+type CompletionFunc func(c *client.APIClient, flag, text string, maxCompletions int64) *CompletionResult
 
 var completions map[string]CompletionFunc = make(map[string]CompletionFunc)
 
@@ -78,9 +84,8 @@ type shell struct {
 	maxCompletions int64
 
 	// variables for caching completion calls
-	completionID string
-	suggests     []prompt.Suggest
-	cacheF       CacheFunc
+	completionID     string
+	completionResult *CompletionResult
 
 	getClient   func() *client.APIClient
 	closeClient func() error
@@ -110,12 +115,17 @@ func (s *shell) executor(in string) {
 }
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
-	return SuggestFromCommand(s.rootCmd, in, s.maxCompletions, func(id, flag, text string, fn CompletionFunc) []prompt.Suggest {
-		if s.completionID != id || s.cacheF == nil || !s.cacheF(flag, text) {
+	return SuggestFromCommand(s.rootCmd, in, s.maxCompletions, func(id, flag, text string, fn CompletionFunc) (suggests []prompt.Suggest, prefix string) {
+		if s.completionID != id || s.completionResult == nil ||
+			s.completionResult.CacheFunc == nil || !s.completionResult.CacheFunc(flag, text) {
 			s.completionID = id
-			s.suggests, s.cacheF = fn(s.getClient(), flag, text, s.maxCompletions)
+			s.completionResult = fn(s.getClient(), flag, text, s.maxCompletions)
 		}
-		return s.suggests
+		if s.completionResult != nil {
+			suggests = s.completionResult.Suggestions
+			prefix = s.completionResult.Prefix
+		}
+		return
 	})
 }
 
@@ -123,7 +133,7 @@ func SuggestFromCommand(
 	cmd *cobra.Command,
 	in prompt.Document,
 	maxCompletions int64,
-	cache func(string, string, string, CompletionFunc) []prompt.Suggest) []prompt.Suggest {
+	cache func(string, string, string, CompletionFunc) ([]prompt.Suggest, string)) []prompt.Suggest {
 	args := strings.Fields(in.Text)
 	if strings.HasSuffix(in.Text, " ") {
 		args = append(args, "")
@@ -159,16 +169,16 @@ func SuggestFromCommand(
 		return result
 	}
 	if id, ok := cmd.Annotations[completionAnnotation]; ok {
-		suggestions := cache(id, flag, text, completions[id])
-		return TrimSuggestionList(text, suggestions, int(maxCompletions))
+		suggestions, prefix := cache(id, flag, text, completions[id])
+		return TrimSuggestionList(text, prefix, suggestions, int(maxCompletions))
 	}
 	return nil
 }
 
-func TrimSuggestionList(text string, suggestions []prompt.Suggest, maxCompletions int) []prompt.Suggest {
+func TrimSuggestionList(text, prefix string, suggestions []prompt.Suggest, maxCompletions int) []prompt.Suggest {
 	var result []prompt.Suggest
 	for _, sug := range suggestions {
-		sText := sug.Text
+		sText := prefix + sug.Text
 		if len(text) < len(sText) {
 			sText = sText[:len(text)]
 		}
@@ -184,8 +194,7 @@ func TrimSuggestionList(text string, suggestions []prompt.Suggest, maxCompletion
 
 func (s *shell) clearCache() {
 	s.completionID = ""
-	s.suggests = nil
-	s.cacheF = nil
+	s.completionResult = nil
 }
 
 func (s *shell) run() {
@@ -211,6 +220,7 @@ func (s *shell) run() {
 			}
 			return fmt.Sprintf("context:(%s) >>> ", activeContext), true
 		}),
+		prompt.OptionCompletionWordSeparator(" @"), // split on @ to replace only commit/job IDs
 	).Run()
 	if pachClient != nil {
 		if err := pachClient.Close(); err != nil {
@@ -270,5 +280,6 @@ func RunCustom(rootCmd *cobra.Command, title string, c *client.APIClient, maxCom
 		s.suggestor,
 		prompt.OptionPrefix(">>> "),
 		prompt.OptionTitle(title),
+		prompt.OptionCompletionWordSeparator(" @"), // split on @ to replace only commit/job IDs
 	).Run()
 }

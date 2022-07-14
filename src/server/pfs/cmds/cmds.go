@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	prompt "github.com/c-bata/go-prompt"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/mattn/go-isatty"
@@ -1165,15 +1164,20 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
 	shell.RegisterCompletionFunc(putFile,
-		func(c *client.APIClient, flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
-			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
-				cs, cf := shell.FilesystemCompletion(flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-			} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--append" {
-				cs, cf := shell.FileCompletion(c, flag, text, maxCompletions)
-				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+		func(c *client.APIClient, flag, text string, maxCompletions int64) *shell.CompletionResult {
+			var res *shell.CompletionResult
+			switch flag {
+			case "-f", "--file", "-i", "--input-file":
+				res = shell.FilesystemCompletion(flag, text, maxCompletions)
+			case "--parallelism", "-p":
+				return nil
+			default:
+				res = shell.FileCompletion(c, flag, text, maxCompletions)
 			}
-			return nil, shell.SameFlag(flag)
+			if res != nil {
+				res.CacheFunc = shell.AndCacheFunc(res.CacheFunc, shell.SameFlag(flag))
+			}
+			return res
 		})
 	commands = append(commands, cmdutil.CreateAliases(putFile, "put file", files))
 

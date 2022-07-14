@@ -39,12 +39,14 @@ $ {{alias}} heap
 $ {{alias}} goro`,
 		Run: func(_ *cobra.Command, _ []string) {}, // just to show up in suggestions
 	}
-	pachshell.RegisterCompletionFunc(profile, func(_ *client.APIClient, flag, text string, _ int64) ([]prompt.Suggest, pachshell.CacheFunc) {
-		return []prompt.Suggest{{
-			Text: "heap",
-		}, {
-			Text: "goroutine",
-		}}, nil
+	pachshell.RegisterCompletionFunc(profile, func(_ *client.APIClient, flag, text string, _ int64) *pachshell.CompletionResult {
+		return &pachshell.CompletionResult{
+			Suggestions: []prompt.Suggest{{
+				Text: "heap",
+			}, {
+				Text: "goroutine",
+			}},
+		}
 	})
 	subcommands = append(subcommands, cmdutil.CreateAlias(profile, "profile"))
 
