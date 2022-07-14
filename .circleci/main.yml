@@ -64,7 +64,7 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
-  circleci:
+  integration-tests:
     parameters:
       bucket:
         type: string
@@ -550,7 +550,7 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
-  circleci:
+  integration-tests:
     jobs:
       - build-docker-images
       - build-pachctl-bin:
@@ -559,7 +559,7 @@ workflows:
       - check-prettier
       - test-go
       - test-envoy
-      - circleci:
+      - integration-tests:
           matrix:
             parameters:
               bucket:
@@ -623,7 +623,7 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
-      - circleci:
+      - integration-tests:
           matrix:
             parameters:
               bucket:
@@ -648,19 +648,19 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
-            - circleci
+            - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
-            - circleci
+            - integration-tests
       - build-pachctl-bin:
           version: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
-            - circleci
+            - integration-tests
       - helm-publish:
           name: publish-chart-preview
           preview: true
