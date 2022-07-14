@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package shell
 
 import (
@@ -126,7 +127,7 @@ func (d *debugDump) handleProfile(in string) {
 
 	profilePath := tmpFile.Name()
 
-	fmt.Println("Running pprof\n\n")
+	fmt.Println("Running pprof")
 	cmd := exec.Command("go", "tool", "pprof", filepath.Base(profilePath))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

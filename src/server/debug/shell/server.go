@@ -1,3 +1,4 @@
+//nolint:wrapcheck
 package shell
 
 import (
@@ -8,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -88,6 +91,44 @@ func (d *debugDump) Address() string {
 
 func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error {
 	g := globlib.MustCompile(glob, '/')
+	info, err := os.Stat(d.path)
+	if err != nil {
+		return err
+	}
+
+	fileFunc := func(name string, r io.Reader) error {
+		if g.Match(name) {
+			if err := cb(name, r); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	if info.IsDir() {
+		if err := filepath.WalkDir(d.path, func(path string, entry fs.DirEntry, err error) error {
+			if entry.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(d.path, path)
+			if err != nil {
+				return err
+			}
+			contents, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer contents.Close()
+			return fileFunc(rel, contents)
+		}); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+		return nil
+	}
+
 	file, err := os.Open(d.path)
 	if err != nil {
 		return err
@@ -107,13 +148,11 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 			}
 			return err
 		}
-		if g.Match(hdr.Name) {
-			if err := cb(hdr.Name, tr); err != nil {
-				if errors.Is(err, errutil.ErrBreak) {
-					break
-				}
-				return err
+		if err := fileFunc(hdr.Name, tr); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				break
 			}
+			return err
 		}
 	}
 	return nil
