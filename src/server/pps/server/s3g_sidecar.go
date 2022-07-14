@@ -212,7 +212,7 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 	selectorlabels := map[string]string{
 		// NOTE: this used to be ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
-		"app":             "s3gateway",
+		"app":             "pipeline",
 		"pipelineName":    jobInfo.Job.Pipeline.Name,
 		"pipelineVersion": fmt.Sprint(jobInfo.PipelineVersion),
 		"suite":           "pachyderm",
