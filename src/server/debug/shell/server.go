@@ -65,7 +65,7 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 	mock.Version.GetVersion.Use(d.getVersion)
 
 	mock.Auth.WhoAmI.Use(func(_ context.Context, _ *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
-		return &auth.WhoAmIResponse{Username: "debugUser"}, nil
+		return nil, auth.ErrNotActivated
 	})
 
 	return d
