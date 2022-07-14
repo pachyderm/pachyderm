@@ -4715,14 +4715,17 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
 				)),
 			})
 		if err != nil {
@@ -4787,14 +4790,17 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -4853,14 +4859,17 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -5108,14 +5117,17 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -5170,14 +5182,17 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -9006,14 +9021,17 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 
 	// make sure 'vol0' is correct in the pod spec
 	var volumes []v1.Volume
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
 				)),
 			})
 		if err != nil {

@@ -13,6 +13,13 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/wcharczuk/go-chart"
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	describe "k8s.io/kubectl/pkg/describe"
+
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -28,11 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	log "github.com/sirupsen/logrus"
-	"github.com/wcharczuk/go-chart"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	describe "k8s.io/kubectl/pkg/describe"
 )
 
 const (
@@ -240,6 +242,37 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 }
 
 func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
+		ctx,
+		metav1.ListOptions{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ListOptions",
+				APIVersion: "v1",
+			},
+			LabelSelector: metav1.FormatLabelSelector(
+				metav1.SetAsLabelSelector(
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
+				),
+			),
+		},
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return s.getLegacyWorkerPods(ctx, pipelineInfo)
+		}
+		return nil, errors.EnsureStack(err)
+	}
+	if len(podList.Items) == 0 {
+		return s.getLegacyWorkerPods(ctx, pipelineInfo)
+	}
+	return podList.Items, nil
+}
+
+func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
 	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
 		ctx,
 		metav1.ListOptions{
