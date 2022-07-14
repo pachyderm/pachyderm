@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -129,11 +128,7 @@ func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController
 				hashedAuthTokenAnnotation:    hashAuthToken(pi.AuthToken),
 				pachVersionAnnotation:        version.PrettyVersion(),
 			},
-			Labels: map[string]string{
-				appLabel:             "pipeline",
-				pipelineNameLabel:    pi.Pipeline.Name,
-				pipelineVersionLabel: fmt.Sprint(pi.Version),
-			},
+			Labels: pipelineLabels(pi.Pipeline.Name, pi.Version),
 		},
 	}
 }
