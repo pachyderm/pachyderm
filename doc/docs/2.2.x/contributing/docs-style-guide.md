@@ -134,9 +134,9 @@ Avoid mixing objectives or use cases in one article; instead, organize and separ
 The below outlines are 4 articles, with the parent article linking to each modular sub-topic.
 
 - How to Locally Deploy Pachyderm
-  - MacOS Local Deployment Guide
-  - Linux Local Deployment Guide
-  - Windows Local Deployment Guide
+    - MacOS Local Deployment Guide
+    - Linux Local Deployment Guide
+    - Windows Local Deployment Guide
 
 ---
 
