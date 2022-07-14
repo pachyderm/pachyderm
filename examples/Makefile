@@ -164,18 +164,22 @@ gatk-base:
 gatk-data: $(GATK_GERMLINE_FILES)
 	$(PACHCTL) start transaction
 	$(PACHCTL) start commit reference@master
-	$(PACHCTL) start commit samples@master
 	$(PACHCTL) finish transaction
-	$(PACHCTL) put file reference@master:ref.dict  -f gatk/GATK_Germline/data/ref/ref.dict
-	$(PACHCTL) put file reference@master:ref.fasta -f gatk/GATK_Germline/data/ref/ref.fasta
-	$(PACHCTL) put file reference@master:ref.fasta.fai -f gatk/GATK_Germline/data/ref/ref.fasta.fai
-	$(PACHCTL) put file reference@master:refSDF -r -f gatk/GATK_Germline/data/ref/refSDF
-	$(PACHCTL) put file samples@master:mother/mother.bam -f gatk/GATK_Germline/data/bams/mother.bam
-	$(PACHCTL) put file samples@master:mother/mother.bai -f gatk/GATK_Germline/data/bams/mother.bai
-	$(PACHCTL) put file samples@master:father/father.bam -f gatk/GATK_Germline/data/bams/father.bam
-	$(PACHCTL) put file samples@master:father/father.bai -f gatk/GATK_Germline/data/bams/father.bai	
-	$(PACHCTL) finish commit reference@master
+	cd gatk/GATK_Germline/data/ref/ && $(PACHCTL) put file reference@master -r -f .
+	$(PACHCTL) list file reference@master
+	$(PACHCTL) start commit samples@master
+	cd gatk/GATK_Germline/data/bams/ && for f in $$(ls mother.*); do $(PACHCTL) put file samples@master:mother/$$f -f $$f; done
 	$(PACHCTL) finish commit samples@master
+	$(PACHCTL) list file samples@master
+	$(PACHCTL) list file samples@master:mother
+	$(PACHCTL)  start commit samples@master
+	cd gatk/GATK_Germline/data/bams/ && for f in $$(ls father.*); do $(PACHCTL)  put file samples@master:father/$$f -f $$f; done
+	$(PACHCTL)  finish commit samples@master
+	$(PACHCTL)  start commit samples@master
+	cd gatk/GATK_Germline/data/bams/ && for f in $$(ls son.*); do $(PACHCTL)  put file samples@master:son/$$f -f $$f; done
+	$(PACHCTL)  finish commit samples@master
+	$(PACHCTL)  list file samples@master
+	$(PACHCTL)  list job
 
 gatk: gatk-base gatk-data
 
