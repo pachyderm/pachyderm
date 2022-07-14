@@ -87,8 +87,7 @@ type shell struct {
 	completionID     string
 	completionResult *CompletionResult
 
-	getClient   func() *client.APIClient
-	closeClient func() error
+	getClient func() *client.APIClient
 }
 
 func newShell(rootCmd *cobra.Command, maxCompletions int64, getClient func() *client.APIClient) *shell {

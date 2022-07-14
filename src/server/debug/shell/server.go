@@ -107,6 +107,9 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 
 	if info.IsDir() {
 		if err := filepath.WalkDir(d.path, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
 			if entry.IsDir() {
 				return nil
 			}
@@ -346,7 +349,7 @@ func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranc
 	var ci pfs.CommitInfo
 	var found bool
 	branchSet := make(map[string]bool)
-	err := d.globTarProtos(glob, &ci, func(_ string) error {
+	if err := d.globTarProtos(glob, &ci, func(_ string) error {
 		found = true
 		return nil
 	}, func() error {
@@ -359,9 +362,8 @@ func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranc
 			Head:             ci.Commit,
 			DirectProvenance: ci.DirectProvenance,
 		})
-	})
-	if err != nil {
-
+	}); err != nil {
+		return err
 	}
 	if !found {
 		return pfsserver.ErrRepoNotFound{Repo: req.Repo}

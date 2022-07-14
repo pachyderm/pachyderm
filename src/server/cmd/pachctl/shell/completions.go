@@ -161,7 +161,7 @@ func FileCompletion(c *client.APIClient, flag, text string, maxCompletions int64
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s:%s", partialFile.Commit.Branch.Repo, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s:%s", partialFile.Commit.ID, fi.File.Path),
 			})
 			return nil
 		}); err != nil {
@@ -170,6 +170,7 @@ func FileCompletion(c *client.APIClient, flag, text string, maxCompletions int64
 	}
 	return &CompletionResult{
 		Suggestions: result,
+		Prefix:      fmt.Sprintf("%s@", partialFile.Commit.Branch.Repo.Name),
 		CacheFunc: AndCacheFunc(samePart(part), func(_, text string) (result bool) {
 			_partialFile := cmdutil.ParsePartialFile(text)
 			return path.Dir(_partialFile.Path) == path.Dir(partialFile.Path) &&
