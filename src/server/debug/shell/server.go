@@ -16,6 +16,7 @@ import (
 	"time"
 
 	globlib "github.com/pachyderm/ohmyglob"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -62,6 +63,10 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 
 	mock.PPS.GetLogs.Use(d.getLogs)
 	mock.Version.GetVersion.Use(d.getVersion)
+
+	mock.Auth.WhoAmI.Use(func(_ context.Context, _ *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
+		return &auth.WhoAmIResponse{Username: "debugUser"}, nil
+	})
 
 	return d
 }
@@ -393,6 +398,7 @@ func (d *debugDump) inspectJob(_ context.Context, req *pps.InspectJobRequest) (*
 		if proto.Equal(info.Job, req.Job) {
 			return errutil.ErrBreak
 		}
+		info.Job = nil
 		return nil
 	})
 	if err != nil {
