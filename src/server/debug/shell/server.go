@@ -18,6 +18,7 @@ import (
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -64,6 +65,10 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 	mock.PPS.GetLogs.Use(d.getLogs)
 	mock.Version.GetVersion.Use(d.getVersion)
 
+	// report that enterprise and auth are disabled, to support console
+	mock.Enterprise.GetState.Use(func(_ context.Context, _ *enterprise.GetStateRequest) (*enterprise.GetStateResponse, error) {
+		return &enterprise.GetStateResponse{State: enterprise.State_NONE}, nil
+	})
 	mock.Auth.WhoAmI.Use(func(_ context.Context, _ *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
 		return nil, auth.ErrNotActivated
 	})
