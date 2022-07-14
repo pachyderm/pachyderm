@@ -119,7 +119,8 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 				return err
 			}
 			defer contents.Close()
-			return fileFunc(rel, contents)
+			// ToSlash to support windows
+			return fileFunc(filepath.ToSlash(rel), contents)
 		}); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
