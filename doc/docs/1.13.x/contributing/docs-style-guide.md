@@ -13,6 +13,8 @@ Pachyderm has two main audiences:
 
 Although both audiences tend to be very technical, it's important to remember that tech is a broad landscape; your reader may not be familiar with all of the tools, frameworks, or concepts mentioned in your article. Be sure to provide links to pre-requisite or contextual materials whenever possible.
 
+---
+
 ## Voice & tone
 
 Pachyderm's voice in documentation should consistently convey a personality that is friendly, knowledgeable, and empathetic.
@@ -130,11 +132,6 @@ Avoid mixing objectives or use cases in one article; instead, organize and separ
 **Examples:**
 
 The below outlines are 4 articles, with the parent article linking to each modular sub-topic.
-
-- How to Manage Login Credentials Via the API
-  - GET User's ID From `/api/users`
-  - POST Password Change to  `/api/user/credentials`
-  - DELETE User's ID From `/api/users`
 
 - How to Locally Deploy Pachyderm
   - MacOS Local Deployment Guide
