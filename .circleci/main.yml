@@ -424,7 +424,7 @@ jobs:
     steps:
       - checkout
       - run: sudo npm install -g prettier
-      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
+      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circle/main.yml
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
