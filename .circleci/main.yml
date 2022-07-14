@@ -18,12 +18,6 @@ parameters:
   machine_image:
     type: string
     default: "ubuntu-2004:202201-02"
-  run_flaky_tests:
-    type: string
-    default: ""
-  retain_slots:
-    type: string
-    default: "0"
 
 jobs:
   test-go:
@@ -424,7 +418,7 @@ jobs:
     steps:
       - checkout
       - run: sudo npm install -g prettier
-      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
+      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
