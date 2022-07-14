@@ -84,9 +84,9 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-fuse
     ;;
-  PPS_AUTH)
+  S3_AUTH)
     export PACH_TEST_WITH_AUTH=1
-    go test -count=1 ./src/server/pps/server -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
+    go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
     ;;
   PPS?)
     # make docker-build-kafka

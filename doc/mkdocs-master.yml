@@ -25,6 +25,8 @@ pach_major_minor_version: '2.2'
 search_index_version: 'latest'
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.6.0'
+# Latest compatible version of Python-pachyderm
+python_pachyderm_version: '7.3.x'
 
 
 # Configuration

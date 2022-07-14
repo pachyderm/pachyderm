@@ -142,7 +142,6 @@ docker-pull:
 	$(SKIP) docker pull pachyderm/worker:$(VERSION)
 	$(SKIP) docker pull pachyderm/pachctl:$(VERSION)
 	$(SKIP) docker pull pachyderm/mount-server:$(VERSION)
-	$(SKIP) docker pull pachyderm/pachtf:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1

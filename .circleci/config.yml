@@ -482,9 +482,16 @@ jobs:
       - gh/setup:
           version: 2.13.0
       - run:
-          name: create github release
+          name: create github release draft
           command: |
-            gh release create --draft ${CIRCLE_TAG:1} -t ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+            if [[ $CIRCLE_TAG == *"-"* ]];
+            then
+                echo "git tag has - assuming prerelease."
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
+            else
+                echo "regular release."
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+            fi
   release-github:
     docker:
       - image: cimg/base:stable
@@ -497,12 +504,19 @@ jobs:
       - run:
           name: create github release
           command: |
-            gh release create ${CIRCLE_TAG:1} -t ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+            gh release edit ${CIRCLE_TAG} --draft=false
   release-docker-hub:
     docker:
       - image: cimg/base:stable
     steps:
       - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: "20.10.12"
+      - run:
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: pull docker images
           command: |
@@ -534,7 +548,7 @@ jobs:
             prefix=${v%%-*}
             index=${#prefix}
             additional=${v:index}
-            ./etc/build/update_homebrew.sh ${additional}
+            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   circleci:
     jobs:
@@ -563,7 +577,7 @@ workflows:
                 - PPS6
                 - PPS7
                 - PPS8
-                - PPS_AUTH
+                - S3_AUTH
                 - EXAMPLES
   helm-tests:
     jobs:
