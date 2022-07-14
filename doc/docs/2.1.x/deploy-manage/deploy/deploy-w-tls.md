@@ -1,6 +1,6 @@
 # Deploy Pachyderm with TLS (SSL, HTTPS)
 
-## Create A Certificate And Enable TLS
+## Obtain A Certificate And Enable TLS
 
 You can deploy your Pachyderm cluster with Transport Layer Security (TLS)
 enabled to secure internet browser connections and transactions through data encryption by means of a trusted certificate and a private key. 
