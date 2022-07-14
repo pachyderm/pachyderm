@@ -64,19 +64,11 @@ func getPachClient() *client.APIClient {
 	return pachClient
 }
 
-func closePachClient() error {
-	if pachClient == nil {
-		return nil
-	}
-	return pachClient.Close()
-}
-
 // RepoCompletion completes repo parameters of the form <repo>
-func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func RepoCompletion(c *client.APIClient, _, text string, maxCompletions int64) *CompletionResult {
 	ris, err := c.ListRepo()
 	if err != nil {
-		return nil, CacheNone
+		return nil
 	}
 	var result []prompt.Suggest
 	for _, ri := range ris {
@@ -85,27 +77,30 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 			Description: fmt.Sprintf("%s (<= %s)", ri.Description, units.BytesSize(float64(ri.SizeBytesUpperBound))),
 		})
 	}
-	return result, samePart(parsePart(text))
+	return &CompletionResult{
+		Suggestions: result,
+		CacheFunc:   samePart(parsePart(text)),
+	}
 }
 
 // BranchCompletion completes branch parameters of the form <repo>@<branch>
-func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func BranchCompletion(c *client.APIClient, flag, text string, maxCompletions int64) *CompletionResult {
 	partialFile := cmdutil.ParsePartialFile(text)
 	part := parsePart(text)
 	var result []prompt.Suggest
+	repo := partialFile.Commit.Branch.Repo
 	switch part {
 	case repoPart:
-		return RepoCompletion(flag, text, maxCompletions)
+		return RepoCompletion(c, flag, text, maxCompletions)
 	case commitOrBranchPart:
 		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
 			&pfs.ListBranchRequest{
-				Repo: partialFile.Commit.Branch.Repo,
+				Repo: repo,
 			},
 		)
 		if err != nil {
-			return nil, CacheNone
+			return nil
 		}
 		if err := clientsdk.ForEachBranchInfo(client, func(bi *pfs.BranchInfo) error {
 			head := "-"
@@ -113,22 +108,26 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 				head = bi.Head.ID
 			}
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo, bi.Branch.Name),
+				Text:        bi.Branch.Name,
 				Description: fmt.Sprintf("(%s)", head),
 			})
 			return nil
 		}); err != nil {
-			return nil, CacheNone
+			return nil
 		}
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Branch.Repo),
+				Text:        "master",
 				Description: "(nil)",
 			})
 		}
 	}
-	return result, samePart(part)
+	return &CompletionResult{
+		Suggestions: result,
+		Prefix:      repo.Name,
+		CacheFunc:   samePart(parsePart(text)),
+	}
 }
 
 const (
@@ -145,16 +144,15 @@ func abs(i int) int {
 }
 
 // FileCompletion completes file parameters of the form <repo>@<branch>:/file
-func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func FileCompletion(c *client.APIClient, flag, text string, maxCompletions int64) *CompletionResult {
 	partialFile := cmdutil.ParsePartialFile(text)
 	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
 	case repoPart:
-		return RepoCompletion(flag, text, maxCompletions)
+		return RepoCompletion(c, flag, text, maxCompletions)
 	case commitOrBranchPart:
-		return BranchCompletion(flag, text, maxCompletions)
+		return BranchCompletion(c, flag, text, maxCompletions)
 	case filePart:
 		if err := c.GlobFile(partialFile.Commit, partialFile.Path+"*", func(fi *pfs.FileInfo) error {
 			if maxCompletions > 0 {
@@ -163,27 +161,30 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Branch.Repo, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s:%s", partialFile.Commit.ID, fi.File.Path),
 			})
 			return nil
 		}); err != nil {
-			return nil, CacheNone
+			return nil
 		}
 	}
-	return result, AndCacheFunc(samePart(part), func(_, text string) (result bool) {
-		_partialFile := cmdutil.ParsePartialFile(text)
-		return path.Dir(_partialFile.Path) == path.Dir(partialFile.Path) &&
-			abs(len(_partialFile.Path)-len(partialFile.Path)) < filePathCacheLength
-
-	})
+	return &CompletionResult{
+		Suggestions: result,
+		Prefix:      fmt.Sprintf("%s@", partialFile.Commit.Branch.Repo.Name),
+		CacheFunc: AndCacheFunc(samePart(part), func(_, text string) (result bool) {
+			_partialFile := cmdutil.ParsePartialFile(text)
+			return path.Dir(_partialFile.Path) == path.Dir(partialFile.Path) &&
+				abs(len(_partialFile.Path)-len(partialFile.Path)) < filePathCacheLength
+		}),
+	}
 }
 
 // FilesystemCompletion completes file parameters from the local filesystem (not from pfs).
-func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+func FilesystemCompletion(_, text string, maxCompletions int64) *CompletionResult {
 	dir := filepath.Dir(text)
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, CacheNone
+		return nil
 	}
 	var result []prompt.Suggest
 	for _, fi := range fis {
@@ -191,17 +192,19 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 			Text: filepath.Join(dir, fi.Name()),
 		})
 	}
-	return result, func(_, text string) bool {
-		return filepath.Dir(text) == dir
+	return &CompletionResult{
+		Suggestions: result,
+		CacheFunc: func(_, text string) bool {
+			return filepath.Dir(text) == dir
+		},
 	}
 }
 
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
-func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func PipelineCompletion(c *client.APIClient, _, _ string, maxCompletions int64) *CompletionResult {
 	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{Details: true})
 	if err != nil {
-		return nil, CacheNone
+		return nil
 	}
 	var result []prompt.Suggest
 	if err := clientsdk.ForEachPipelineInfo(client, func(pi *pps.PipelineInfo) error {
@@ -211,9 +214,12 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 		})
 		return nil
 	}); err != nil {
-		return nil, CacheNone
+		return nil
 	}
-	return result, CacheAll
+	return &CompletionResult{
+		Suggestions: result,
+		CacheFunc:   samePart(repoPart),
+	}
 }
 
 func jobSetDesc(jsi *pps.JobSetInfo) string {
@@ -241,12 +247,11 @@ func jobSetDesc(jsi *pps.JobSetInfo) string {
 }
 
 // JobCompletion completes job parameters of the form <job-set>
-func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
+func JobSetCompletion(c *client.APIClient, _, text string, maxCompletions int64) *CompletionResult {
 	var result []prompt.Suggest
 	listJobSetClient, err := c.PpsAPIClient.ListJobSet(c.Ctx(), &pps.ListJobSetRequest{})
 	if err != nil {
-		return nil, CacheNone
+		return nil
 	}
 	if err := clientsdk.ForEachJobSet(listJobSetClient, func(jsi *pps.JobSetInfo) error {
 		result = append(result, prompt.Suggest{
@@ -255,9 +260,12 @@ func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, C
 		})
 		return nil
 	}); err != nil {
-		return nil, CacheNone
+		return nil
 	}
-	return result, CacheAll
+	return &CompletionResult{
+		Suggestions: result,
+		CacheFunc:   CacheAll,
+	}
 }
 
 func jobDesc(ji *pps.JobInfo) string {
@@ -270,23 +278,30 @@ func jobDesc(ji *pps.JobInfo) string {
 	return fmt.Sprintf("%s: %s - %s", ji.Job.Pipeline.Name, pps_pretty.Progress(ji), statusString)
 }
 
-// JobCompletion completes job parameters of the form <job>
-func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
-	c := getPachClient()
-	var result []prompt.Suggest
-	if err := c.ListJobF("", nil, 0, false, func(ji *pps.JobInfo) error {
-		if maxCompletions > 0 {
-			maxCompletions--
-		} else {
-			return errutil.ErrBreak
+// JobCompletion completes job parameters of the form <pipeline>@<job>
+func JobCompletion(c *client.APIClient, _, text string, maxCompletions int64) *CompletionResult {
+	partialFile := cmdutil.ParsePartialFile(text)
+	part := parsePart(text)
+	switch part {
+	case repoPart:
+		return PipelineCompletion(c, "", text, maxCompletions)
+	case commitOrBranchPart:
+		var result []prompt.Suggest
+		repo := partialFile.Commit.Branch.Repo.Name
+		if err := c.ListJobF(repo, nil, -1, false, func(ji *pps.JobInfo) error {
+			result = append(result, prompt.Suggest{
+				Text:        ji.Job.ID,
+				Description: jobDesc(ji),
+			})
+			return nil
+		}); err != nil {
+			return nil
 		}
-		result = append(result, prompt.Suggest{
-			Text:        ji.Job.ID,
-			Description: jobDesc(ji),
-		})
-		return nil
-	}); err != nil {
-		return nil, CacheNone
+		return &CompletionResult{
+			Suggestions: result,
+			Prefix:      fmt.Sprintf("%s@", repo),
+			CacheFunc:   samePart(commitOrBranchPart),
+		}
 	}
-	return result, CacheAll
+	return nil
 }
