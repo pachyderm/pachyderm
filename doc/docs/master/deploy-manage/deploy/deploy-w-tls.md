@@ -1,14 +1,20 @@
 # Deploy Pachyderm with TLS (SSL, HTTPS)
 
-## Create A Certificate And Enable TLS
+## Obtain A Certificate And Enable TLS
 
 You can deploy your Pachyderm cluster with Transport Layer Security (TLS)
 enabled to secure internet browser connections and transactions through data encryption by means of a trusted certificate and a private key. 
 
-Before enabling TLS, we recommend to install [Cert-Manager](https://cert-manager.io/docs/installation/){target=_blank} on your cluster. Cert-Manager simplifies the process of obtaining (No Certificate Signing Requests needed), renewing, and using certificates. 
-In particular, you will use cert-manager to:
+Before you can enable TLS:
 
-- **Talk to a certificate issuer** ([Let's Encrypt](https://letsencrypt.org/){target=_blank}, [HashiCorp Vault](https://www.vaultproject.io/){target=_blank}, [Venafi](https://www.venafi.com/){target=_blank}...). Cert-manager comes with a number of built-in certificate issuers. You can also install external issuers in addition to the built-in types.
+- Obtain a certificate from a trusted Certificate Authority such as [Let's Encrypt](https://letsencrypt.org/){target=_blank}, [HashiCorp Vault](https://www.vaultproject.io/){target=_blank}, [Venafi](https://www.venafi.com/){target=_blank}... 
+- Create a tls secret ( `kubectl create secret tls <name> --key=tls.key --cert=tls.cert`) with the  "tls.key" and "tls.crt" keys containing the PEM-encoded private key and certificate material.
+
+Optionally, you can install [Cert-Manager](https://cert-manager.io/docs/installation/){target=_blank} on your cluster to simplify the process of obtaining (No Certificate Signing Requests needed), renewing, and using certificates. 
+In particular, you can use cert-manager to:
+
+- **Talk to a certificate issuer**  Cert-manager comes with a number of built-in certificate issuers. You can also install external issuers in addition to the built-in types.
+
 - **Obtain your certificate**:
 
     You can verify that the certificate is issued correctly by running the following command:
@@ -20,14 +26,10 @@ In particular, you will use cert-manager to:
 
 - **Create the backing tls secret** holding your Certificate and private key automatically.
 
-!!! Note
-    The secret containing "tls.key" and "tls.crt" keys that contain PEM-encoded private key and
-    certificate material can be alternatively generated with `kubectl create secret tls <name> --key=tls.key --cert=tls.cert`. 
-
 Once your tls secret is created:
 
 - Enable tls in your helm values.
-- Reference this certificate object in your helm chart by setting its secret name in the proper tls section. The secret name should match the name set in your [certificate ressource](https://cert-manager.io/docs/usage/certificate/#creating-certificate-resources){target=_blank}.
+- Reference this certificate object in your helm chart by setting your tls secret name in the proper tls section. (For the Cert Manager users, the secret name should match the name set in your [certificate ressource](https://cert-manager.io/docs/usage/certificate/#creating-certificate-resources){target=_blank}.
 
 !!! Example
     In this example, you terminate tls at the cluster level by enabling tls directly on pachd:
@@ -40,7 +42,6 @@ Once your tls secret is created:
     ```
 
 Et voila!
-
 
 !!! Note
     When using self signed certificates or custom certificate authority, you will need to set `global.customCaCerts` to true to add Pachyderm's certificate and CA to the list of trusted authorities for console and enterprise, allowing Pachyderm components (pachd, Console, Enterprise Server) to communicate over SSL. 
