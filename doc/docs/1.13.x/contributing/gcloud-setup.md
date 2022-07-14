@@ -1,71 +1,69 @@
-# Gcloud cluster setup
+# Google Cloud Cluster Setup 
 
-In order to develop pachyderm against a gcloud-deployed cluster, follow these instructions.
+You can develop Pachyderm against a cluster deployed in Google Cloud using this guide. 
 
-## First steps
 
-First follow the [general setup instructions](https://github.com/pachyderm/pachyderm/blob/master/doc/contributing/setup.md).
+## Before You Start 
 
-## gcloud
+- [Install Pachyderm locally](/getting-started/local-installation/#local-installation). 
+- Download Google's [Cloud SDK](https://cloud.google.com/sdk/).
+- Get your GCP owner/admin to set up a project for you (e.g., `YOURNAME-dev`).
+    - This requires permissions from **Project** > **Settings** > **Permissions**. 
+  
+---
 
-[Download Page](https://cloud.google.com/sdk/)
+## 1. Set Up Google Cloud Platform (GCP)
 
-Setup Google Cloud Platform via the web
 
-- login with your Gmail or G Suite account
-  - click the silhouette in the upper right to make sure you're logged in with the right account
-- get your owner/admin to setup a project for you (e.g. YOURNAME-dev)
-- then they need to go into the project > settings > permissions and add you
-  - hint to owner/admin: its the permissions button in one of the left hand popin menus (GKE UI can be confusing)
-- you should have an email invite to accept
-- click 'use google APIS' (or something along the lines of enable/manage APIs)
-- click through to google compute engine API and enable it or click the 'get started' button to make it provision
+1. Go to [console.cloud.google.com](https://console.cloud.google.com/).
+2. Sign in via Gmail or G Suite.  
+3. Navigate to APIs and enable the Google Compute API.
+4. Open a terminal locally and each of the following commands individually:
+      ```
+      # Log in:
+      gcloud auth login 
+      gcloud init
 
-Then, locally, run the following commands one at a time:
+      # Connect to your project (requires permissions mentioned in previous section):
+      gcloud config set project YOURNAME-dev
+      gcloud compute instances list 
 
-    gcloud auth login
-    gcloud init
+      # Create an instance via the bash helper: 
+      create_docker_machine
 
-    # This should have you logged in / w gcloud
-    # The following will only work after your GKE owner/admin adds you to the right project on gcloud:
+      # Attach to Docker daemon: 
+      eval "$(docker-machine env dev)"
+      ```
 
-    gcloud config set project YOURNAME-dev
-    gcloud compute instances list
 
-    # Now create instance using our bash helper
-    create_docker_machine
+## 2. Set up and Launch Kubectl
 
-    # And attach to the right docker daemon
-    eval "$(docker-machine env dev)"
+1. Open a terminal and run the following commands:
+      ```
+      # Update kubectl 
+      gcloud components update kubectl
 
-Setup a project on gcloud
+      # Set up port forwarding
+      portforwarding
 
-- go to console.cloud.google.com/start
-- make sure you're logged in w your gmail account
-- create project 'YOURNAME-dev'
+      # View client version
+      kubectl version
 
-## kubectl
+      # Deploy Kubernetes 
+      make launch-kube 
 
-Now that you have gcloud, just do:
+      # View client & server version
+      kubectl version 
 
-    gcloud components update kubectl
-    # Now you need to start port forwarding to allow kubectl client talk to the kubernetes service on GCE
+      # Verify processes
+      docker ps 
+      ```
 
-    portfowarding
-    # To see this alias, look at the bash_helpers
 
-    kubectl version
-    # should report a client version, not a server version yet
+## 3. Deploy Pachyderm Cluster 
 
-    make launch-kube
-    # to deploy kubernetes service
-
-    kubectl version
-    # now you should see a client and server version
-
-    docker ps
-    # you should see a few processes
-
-## Pachyderm cluster deployment
-
-    make launch
+1. Open a terminal and run the following command:
+      ```
+      make launch
+      ```
+2. Start developing! 
