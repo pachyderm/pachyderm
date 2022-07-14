@@ -23,9 +23,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -3090,57 +3090,39 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
+func (a *apiServer) listPods(ctx context.Context, labels labels.Set) ([]v1.Pod, error) {
 	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{"app": "pachd"})),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return podList.Items, nil
+}
+
+func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
+	return a.listPods(ctx, map[string]string{"app": "pachd"})
 }
 
 func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
-	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{
-			"app":             "pipeline",
-			"pipelineName":    pipelineName,
-			"pipelineVersion": fmt.Sprint(pipelineVersion),
-		})),
-	})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return a.legacyRCPods(ctx, pipelineName, pipelineVersion)
-		}
-		return nil, errors.EnsureStack(err)
-	}
-	if len(podList.Items) == 0 {
-		return a.legacyRCPods(ctx, pipelineName, pipelineVersion)
-	}
-	return podList.Items, nil
-}
-
-func (a *apiServer) legacyRCPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
-	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
-	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{"app": rcName})),
+	pp, err := a.listPods(ctx, map[string]string{
+		"app":             "pipeline",
+		"pipelineName":    pipelineName,
+		"pipelineVersion": fmt.Sprint(pipelineVersion),
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return podList.Items, nil
+	if len(pp) == 0 {
+		return a.listPods(ctx, map[string]string{
+			"app": ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+		})
+	}
+	return pp, nil
 }
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
