@@ -18,12 +18,6 @@ parameters:
   machine_image:
     type: string
     default: "ubuntu-2004:202201-02"
-  run_flaky_tests:
-    type: string
-    default: ""
-  retain_slots:
-    type: string
-    default: "0"
 
 jobs:
   test-go:
