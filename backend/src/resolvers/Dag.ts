@@ -75,7 +75,12 @@ const deriveVertices = (
       },
     ];
 
-    if (p.details?.egress) {
+    if (
+      p.details?.egress &&
+      (p.details.egress.url ||
+        p.details.egress.sqlDatabase?.url ||
+        p.details.egress.objectStorage?.url)
+    ) {
       nodes.push({
         name:
           p.details.egress.url ||
