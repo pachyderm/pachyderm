@@ -39,7 +39,7 @@ func NewMockEnv(t testing.TB) *MockEnv {
 	mockEnv.Context = ctx
 
 	var err error
-	mockEnv.MockPachd, err = NewMockPachd(mockEnv.Context)
+	mockEnv.MockPachd, err = NewMockPachd(mockEnv.Context, 0)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, mockEnv.MockPachd.Close())

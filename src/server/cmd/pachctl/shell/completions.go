@@ -202,7 +202,7 @@ func PipelineCompletion(c *client.APIClient, _, _ string, maxCompletions int64) 
 	}); err != nil {
 		return nil, CacheNone
 	}
-	return result, CacheAll
+	return result, samePart(repoPart)
 }
 
 func jobSetDesc(jsi *pps.JobSetInfo) string {
@@ -281,7 +281,7 @@ func JobCompletion(c *client.APIClient, _, text string, maxCompletions int64) ([
 		}); err != nil {
 			return nil, CacheNone
 		}
-		return result, CacheAll
+		return result, samePart(commitOrBranchPart)
 	}
 	return nil, CacheNone
 }

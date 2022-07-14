@@ -333,7 +333,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 				cs, cf := shell.PipelineCompletion(c, flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}
-			return shell.JobSetCompletion(c, flag, text, maxCompletions)
+			cs, cf := shell.JobSetCompletion(c, flag, text, maxCompletions)
+			return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 		})
 	commands = append(commands, cmdutil.CreateAliases(listJob, "list job", jobs))
 	debugCommands = append(debugCommands, cmdutil.CreateAliases(listJob, "list job", jobs))
@@ -538,6 +539,7 @@ each datum.`,
 		}),
 	}
 	inspectDatum.Flags().AddFlagSet(outputFlags)
+	shell.RegisterCompletionFunc(inspectDatum, shell.JobCompletion)
 	commands = append(commands, cmdutil.CreateAliases(inspectDatum, "inspect datum", datums))
 
 	var (

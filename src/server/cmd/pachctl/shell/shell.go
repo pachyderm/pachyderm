@@ -110,7 +110,7 @@ func (s *shell) executor(in string) {
 }
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {
-	return SuggestFromCommand(s.rootCmd, in, s.maxCompletions, func(id, text, flag string, fn CompletionFunc) []prompt.Suggest {
+	return SuggestFromCommand(s.rootCmd, in, s.maxCompletions, func(id, flag, text string, fn CompletionFunc) []prompt.Suggest {
 		if s.completionID != id || s.cacheF == nil || !s.cacheF(flag, text) {
 			s.completionID = id
 			s.suggests, s.cacheF = fn(s.getClient(), flag, text, s.maxCompletions)
@@ -125,7 +125,7 @@ func SuggestFromCommand(
 	maxCompletions int64,
 	cache func(string, string, string, CompletionFunc) []prompt.Suggest) []prompt.Suggest {
 	args := strings.Fields(in.Text)
-	if len(strings.TrimSuffix(in.Text, " ")) < len(in.Text) {
+	if strings.HasSuffix(in.Text, " ") {
 		args = append(args, "")
 	}
 	text := ""

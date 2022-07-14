@@ -33,8 +33,8 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-func NewDumpServer(filePath string) *debugDump {
-	mock, err := testpachd.NewMockPachd(context.TODO())
+func NewDumpServer(filePath string, port uint16) *debugDump {
+	mock, err := testpachd.NewMockPachd(context.TODO(), port)
 	if err != nil {
 		panic(err)
 	}
@@ -70,6 +70,10 @@ func NewDumpServer(filePath string) *debugDump {
 type debugDump struct {
 	path string
 	mock *testpachd.MockPachd
+}
+
+func (d *debugDump) Address() string {
+	return d.mock.Addr.String()
 }
 
 func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error {
