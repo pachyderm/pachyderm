@@ -86,23 +86,30 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 		}); err != nil {
 			return err
 		}
-		resp, err := pachClient.PfsAPIClient.ComposeFileSet(
-			ctx,
-			&pfs.ComposeFileSetRequest{
-				FileSetIds: resultFileSetIDs,
-				TtlSeconds: int64(common.TTL),
-				Compact:    true,
-			},
-		)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		outputFileSetID = resp.FileSetId
-		return nil
+		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		return err
 	}); err != nil {
 		return "", err
 	}
 	return outputFileSetID, nil
+}
+
+func ComposeFileSets(ctx context.Context, taskDoer task.Doer, fileSetIDs []string) (string, error) {
+	input, err := serializeComposeTask(&ComposeTask{
+		FileSetIds: fileSetIDs,
+	})
+	if err != nil {
+		return "", err
+	}
+	output, err := task.DoOne(ctx, taskDoer, input)
+	if err != nil {
+		return "", err
+	}
+	result, err := deserializeComposeTaskResult(output)
+	if err != nil {
+		return "", err
+	}
+	return result.FileSetId, nil
 }
 
 func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
@@ -120,19 +127,9 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			}
 			fileSetIDs = append(fileSetIDs, fileSetID)
 		}
-		resp, err := pachClient.PfsAPIClient.ComposeFileSet(
-			ctx,
-			&pfs.ComposeFileSetRequest{
-				FileSetIds: fileSetIDs,
-				TtlSeconds: int64(common.TTL),
-				Compact:    true,
-			},
-		)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		outputFileSetID = resp.FileSetId
-		return nil
+		var err error
+		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, fileSetIDs)
+		return err
 	}); err != nil {
 		return "", err
 	}
@@ -198,26 +195,16 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		}); err != nil {
 			return err
 		}
-		resp, err := pachClient.PfsAPIClient.ComposeFileSet(
-			ctx,
-			&pfs.ComposeFileSetRequest{
-				FileSetIds: resultFileSetIDs,
-				TtlSeconds: int64(common.TTL),
-				Compact:    true,
-			},
-		)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		outputFileSetID = resp.FileSetId
-		return nil
+		var err error
+		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		return err
 	}); err != nil {
 		return "", err
 	}
 	return outputFileSetID, nil
 }
 
-// TODO: Convert to distributed.
+// TODO: Convert to distributed and cache.
 func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
@@ -324,7 +311,7 @@ func existingMetaHash(meta *Meta) string {
 	return meta.Hash
 }
 
-// TODO: Convert to distributed.
+// TODO: Convert to distributed and cache.
 func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
@@ -406,6 +393,25 @@ func serializeCrossTask(task *CrossTask) (*types.Any, error) {
 
 func deserializeCrossTaskResult(taskAny *types.Any) (*CrossTaskResult, error) {
 	task := &CrossTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeComposeTask(task *ComposeTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeComposeTaskResult(taskAny *types.Any) (*ComposeTaskResult, error) {
+	task := &ComposeTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

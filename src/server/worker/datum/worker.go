@@ -14,8 +14,37 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
+func IsTaskResult(output *types.Any) bool {
+	return types.Is(output, &PFSTaskResult{}) || types.Is(output, &CrossTaskResult{}) || types.Is(output, &ComposeTaskResult{})
+}
+
+func TaskResultFileSets(output *types.Any) ([]string, error) {
+	switch {
+	case types.Is(output, &PFSTaskResult{}):
+		taskResult, err := deserializePFSTaskResult(output)
+		if err != nil {
+			return nil, err
+		}
+		return []string{taskResult.FileSetId}, nil
+	case types.Is(output, &CrossTaskResult{}):
+		taskResult, err := deserializeCrossTaskResult(output)
+		if err != nil {
+			return nil, err
+		}
+		return []string{taskResult.FileSetId}, nil
+	case types.Is(output, &ComposeTaskResult{}):
+		taskResult, err := deserializeComposeTaskResult(output)
+		if err != nil {
+			return nil, err
+		}
+		return []string{taskResult.FileSetId}, nil
+	default:
+		return nil, errors.Errorf("unrecognized any type (%v) in datum worker", output.TypeUrl)
+	}
+}
+
 func IsTask(input *types.Any) bool {
-	return types.Is(input, &PFSTask{}) || types.Is(input, &CrossTask{})
+	return types.Is(input, &PFSTask{}) || types.Is(input, &CrossTask{}) || types.Is(input, &ComposeTask{})
 }
 
 func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, error) {
@@ -32,6 +61,12 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 			return nil, err
 		}
 		return processCrossTask(pachClient, task)
+	case types.Is(input, &ComposeTask{}):
+		task, err := deserializeComposeTask(input)
+		if err != nil {
+			return nil, err
+		}
+		return processComposeTask(pachClient, task)
 	default:
 		return nil, errors.Errorf("unrecognized any type (%v) in datum worker", input.TypeUrl)
 	}
@@ -107,6 +142,21 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 	return errors.EnsureStack(err)
 }
 
+func processComposeTask(pachClient *client.APIClient, task *ComposeTask) (*types.Any, error) {
+	resp, err := pachClient.PfsAPIClient.ComposeFileSet(
+		pachClient.Ctx(),
+		&pfs.ComposeFileSetRequest{
+			FileSetIds: task.FileSetIds,
+			TtlSeconds: int64(common.TTL),
+			Compact:    true,
+		},
+	)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return serializeComposeTaskResult(&ComposeTaskResult{FileSetId: resp.FileSetId})
+}
+
 func deserializePFSTask(taskAny *types.Any) (*PFSTask, error) {
 	task := &PFSTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
@@ -135,6 +185,25 @@ func deserializeCrossTask(taskAny *types.Any) (*CrossTask, error) {
 }
 
 func serializeCrossTaskResult(task *CrossTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeComposeTask(taskAny *types.Any) (*ComposeTask, error) {
+	task := &ComposeTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeComposeTaskResult(task *ComposeTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

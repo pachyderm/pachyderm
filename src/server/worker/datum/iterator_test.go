@@ -21,7 +21,6 @@ import (
 )
 
 func TestIterators(t *testing.T) {
-	t.Skip("TODO: reenable")
 	t.Parallel()
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	taskDoer := createTaskDoer(t, env)

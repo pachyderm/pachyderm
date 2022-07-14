@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
 type cache struct {
@@ -31,8 +32,13 @@ func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
 
 func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 	var fileSetIds []string
-	// TODO: Add caching for datum tasks.
 	switch {
+	case datum.IsTaskResult(output):
+		var err error
+		fileSetIds, err = datum.TaskResultFileSets(output)
+		if err != nil {
+			return err
+		}
 	case types.Is(output, &ComputeParallelDatumsTaskResult{}):
 		cpdt, err := deserializeComputeParallelDatumsTaskResult(output)
 		if err != nil {
@@ -45,6 +51,7 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 			return err
 		}
 		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.OutputDeleteFileSetId, csdt.MetaDeleteFileSetId)
+	case types.Is(output, &CreateDatumSetsTaskResult{}):
 	case types.Is(output, &DatumSet{}):
 		ds, err := deserializeDatumSet(output)
 		if err != nil {

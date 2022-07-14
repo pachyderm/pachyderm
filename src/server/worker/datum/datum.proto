@@ -53,3 +53,11 @@ message CrossTask {
 message CrossTaskResult {
   string file_set_id = 1;
 }
+
+message ComposeTask {
+  repeated string file_set_ids = 1;
+}
+
+message ComposeTaskResult {
+  string file_set_id = 1;
+}

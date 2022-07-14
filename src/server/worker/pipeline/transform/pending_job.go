@@ -248,20 +248,8 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			}); err != nil {
 				return err
 			}
-			// TODO: Make this a task for caching?
-			resp, err := pachClient.PfsAPIClient.ComposeFileSet(
-				ctx,
-				&pfs.ComposeFileSetRequest{
-					FileSetIds: resultFileSetIDs,
-					TtlSeconds: int64(common.TTL),
-					Compact:    true,
-				},
-			)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			outputFileSetID = resp.FileSetId
-			return nil
+			outputFileSetID, err = datum.ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+			return err
 		})
 	}); err != nil {
 		return "", errors.EnsureStack(err)
@@ -378,20 +366,8 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			}); err != nil {
 				return err
 			}
-			// TODO: Make this a task for caching?
-			resp, err := pachClient.PfsAPIClient.ComposeFileSet(
-				ctx,
-				&pfs.ComposeFileSetRequest{
-					FileSetIds: resultFileSetIDs,
-					TtlSeconds: int64(common.TTL),
-					Compact:    true,
-				},
-			)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			outputFileSetID = resp.FileSetId
-			return nil
+			outputFileSetID, err = datum.ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+			return err
 		})
 	}); err != nil {
 		return "", errors.EnsureStack(err)
