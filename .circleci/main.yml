@@ -30,7 +30,7 @@ commands:
     steps:
       - run:
           name: Shallow clone repo
-          command: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH"
+          command: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
 
 jobs:
   test-go:
