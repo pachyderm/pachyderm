@@ -31,6 +31,7 @@ message ComputeParallelDatumsTask {
 
 message ComputeParallelDatumsTaskResult {
   string file_set_id = 1;
+  datum.Stats stats = 2;
 }
 
 message ComputeSerialDatumsTask {
@@ -45,7 +46,7 @@ message ComputeSerialDatumsTaskResult {
   string file_set_id = 1;
   string output_delete_file_set_id = 2;
   string meta_delete_file_set_id = 3;
-  int64 skipped = 4;
+  datum.Stats stats = 4;
 } 
 
 message CreateDatumSetsTask {

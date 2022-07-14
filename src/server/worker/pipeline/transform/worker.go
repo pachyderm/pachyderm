@@ -80,18 +80,26 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.JobInfo.Job, &hasher{salt: task.JobInfo.Details.Salt})
 	dits = append(dits, dit)
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-parallel", func(outputSet *datum.Set) error {
 		return datum.Merge(dits, func(metas []*datum.Meta) error {
 			if len(metas) > 1 || !proto.Equal(metas[0].Job, task.JobInfo.Job) {
 				return nil
 			}
-			return outputSet.UploadMeta(metas[0], datum.WithPrefixIndex())
+			if err := outputSet.UploadMeta(metas[0], datum.WithPrefixIndex()); err != nil {
+				return err
+			}
+			stats.Total++
+			return nil
 		})
 	})
 	if err != nil {
 		return nil, err
 	}
-	return serializeComputeParallelDatumsTaskResult(&ComputeParallelDatumsTaskResult{FileSetId: outputFileSetID})
+	return serializeComputeParallelDatumsTaskResult(&ComputeParallelDatumsTaskResult{
+		FileSetId: outputFileSetID,
+		Stats:     stats,
+	})
 }
 
 func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeSerialDatumsTask) (*types.Any, error) {
@@ -102,7 +110,7 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 		dit,
 	}
 	var metaDeleteFileSetID, outputDeleteFileSetID string
-	var skipped int64
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-serial", func(outputSet *datum.Set) error {
 		var err error
 		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(pachClient, task.BaseMetaCommit, func(deleter datum.Deleter) error {
@@ -117,7 +125,8 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 				}
 				// Check if a skippable datum was successfully processed by the parent.
 				if !task.NoSkip && skippableDatum(metas[1], metas[0]) {
-					skipped++
+					stats.Skipped++
+					stats.Total++
 					return nil
 				}
 				if err := deleter(metas[0]); err != nil {
@@ -135,7 +144,7 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 		FileSetId:             outputFileSetID,
 		OutputDeleteFileSetId: outputDeleteFileSetID,
 		MetaDeleteFileSetId:   metaDeleteFileSetID,
-		Skipped:               skipped,
+		Stats:                 stats,
 	})
 }
 

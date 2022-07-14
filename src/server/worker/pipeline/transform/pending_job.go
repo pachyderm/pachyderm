@@ -44,6 +44,7 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 	datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats)
 	pj.ji.DataProcessed += stats.Processed
 	pj.ji.DataSkipped += stats.Skipped
+	pj.ji.DataTotal += stats.Total
 	pj.ji.DataFailed += stats.Failed
 	pj.ji.DataRecovered += stats.Recovered
 }
@@ -244,7 +245,8 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 					return err
 				}
 				resultFileSetIDs[i] = result.FileSetId
-				return nil
+				pj.saveJobStats(result.Stats)
+				return pj.writeJobInfo()
 			}); err != nil {
 				return err
 			}
@@ -358,10 +360,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 				); err != nil {
 					return errors.EnsureStack(err)
 				}
-				// Record the skipped datums.
-				stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-				stats.Skipped = result.Skipped
-				pj.saveJobStats(stats)
+				pj.saveJobStats(result.Stats)
 				return pj.writeJobInfo()
 			}); err != nil {
 				return err
