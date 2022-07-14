@@ -3118,6 +3118,9 @@ func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVer
 		return nil, errors.EnsureStack(err)
 	}
 	if len(pp) == 0 {
+		// Look for the pre-2.4–style pods labelled with the long name.
+		// This long name could exceed 63 characters, which is why 2.4
+		// and later use separate labels for each component.
 		return a.listPods(ctx, map[string]string{
 			appLabel: ppsutil.PipelineRcName(pipelineName, pipelineVersion),
 		})
