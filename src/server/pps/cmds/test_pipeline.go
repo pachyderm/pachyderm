@@ -3,11 +3,18 @@ package cmds
 import (
 	"os"
 	"os/exec"
+	"time"
 
+	"github.com/hanwen/go-fuse/v2/fs"
+	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+)
+
+const (
+	name = "pfs"
 )
 
 func testPipeline(client *pachdclient.APIClient, pipelinePath string) error {
@@ -35,14 +42,23 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) error {
 			}
 		}
 		unmount := make(chan struct{})
+		unmounted := make(chan struct{})
 		var mountErr error
 		go func() {
 			mountErr = fuse.Mount(client, "pfs", &fuse.Options{
 				RepoOptions: mountOpts,
 				Unmount:     unmount,
+				Fuse: &fs.Options{
+					MountOptions: gofuse.MountOptions{
+						FsName: name,
+						Name:   name,
+					}},
 			})
+			close(unmounted)
 		}()
-		defer close(unmount)
+		defer func() { <-unmounted }()
+		defer func() { close(unmount) }()
+		time.Sleep(time.Second)
 		cmd := exec.Command(request.Transform.Cmd[0], request.Transform.Cmd[1:]...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
