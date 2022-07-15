@@ -348,9 +348,50 @@ Note that you can run both Console and JupyterLab on your local installation.
   helm repo update 
   ```  
 
+* Start a Kubernetes environment
+
+=== minikube (OS X / Windows)
+
+https://minikube.sigs.k8s.io/docs/
+
+    ```shell
+    minikube start
+    ```
+
+  Later, we'll use `minikube tunnel` to make the proxy available on `localhost`.
+
+=== kind (Linux)
+
+https://kind.sigs.k8s.io/
+
+    ```shell
+    cat <<EOF | kind create cluster --name=kind --config=-
+    kind: Cluster
+    apiVersion: kind.x-k8s.io/v1alpha4
+    nodes:
+        - role: control-plane
+          kubeadmConfigPatches:
+              - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                      kubeletExtraArgs:
+                          node-labels: "ingress-ready=true"
+          extraPortMappings:
+              - containerPort: 30080
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 30443
+                hostPort: 443
+                protocol: TCP
+    EOF
+    ```
+
+  The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
+  This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
+
 * Create your values.yaml
 
-=== "Latest Community Edition"
+=== "Latest Community Edition" (minikube)
 
       ```yaml 
       deployTarget: LOCAL
@@ -359,7 +400,19 @@ Note that you can run both Console and JupyterLab on your local installation.
         enabled: true
         service:
           type: LoadBalancer
-      ```    
+      ```
+
+=== "Latest Community Edition" (kind)
+
+      ```yaml
+      deployTarget: LOCAL
+
+      proxy:
+        enabled: true
+        service:
+          type: NodePort
+      ```
+     
 === "Community Edition With Console"
 
       ```yaml 
@@ -481,4 +534,3 @@ The `pachyderm-proxy` service also routes Pachyderm's [**S3 gateway**](../../man
 **access Pachyderm's repo through the S3 protocol**) on port 80 (note the endpoint in the diagram below).
 
 ![Global S3 Gateway with Proxy](../../images/main-s3-gateway-with-proxy.png)
-  

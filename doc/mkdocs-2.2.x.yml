@@ -25,6 +25,8 @@ pach_major_minor_version: '2.2'
 search_index_version: 'latest'
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.6.0'
+# Latest compatible version of Python-pachyderm
+python_pachyderm_version: '7.3.x'
 
 
 # Configuration
@@ -327,8 +329,8 @@ nav:
             - reference/pachctl/pachctl_enterprise_deactivate.md
             - reference/pachctl/pachctl_enterprise_get-state.md
             - reference/pachctl/pachctl_enterprise_heartbeat.md
-            - reference/pachctl/pachctl_enterprise_pause.md
             - reference/pachctl/pachctl_enterprise_pause-status.md
+            - reference/pachctl/pachctl_enterprise_pause.md
             - reference/pachctl/pachctl_enterprise_register.md
             - reference/pachctl/pachctl_enterprise_sync-contexts.md
             - reference/pachctl/pachctl_enterprise_unpause.md
@@ -384,8 +386,8 @@ nav:
             - reference/pachctl/pachctl_list_secret.md
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
-            - reference/pachctl/pachctl_mount.md
             - reference/pachctl/pachctl_mount-server.md
+            - reference/pachctl/pachctl_mount.md
             - reference/pachctl/pachctl_port-forward.md
             - reference/pachctl/pachctl_put.md
             - reference/pachctl/pachctl_put_file.md
@@ -396,6 +398,7 @@ nav:
             - reference/pachctl/pachctl_run.md
             - reference/pachctl/pachctl_run_cron.md
             - reference/pachctl/pachctl_run_pfs-load-test.md
+            - reference/pachctl/pachctl_run_pps-load-test.md
             - reference/pachctl/pachctl_shell.md
             - reference/pachctl/pachctl_squash.md
             - reference/pachctl/pachctl_squash_commit.md
@@ -416,7 +419,7 @@ nav:
             - reference/pachctl/pachctl_version.md
             - reference/pachctl/pachctl_wait.md
             - reference/pachctl/pachctl_wait_commit.md
-            - reference/pachctl/pachctl_wait_job.md 
+            - reference/pachctl/pachctl_wait_job.md
         - Examples: examples/examples.md
     - Enterprise:
         - Overview: enterprise/index.md

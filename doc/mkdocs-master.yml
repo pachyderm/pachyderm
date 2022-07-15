@@ -27,6 +27,8 @@ search_index_version: '2.3.x'
 
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.6.0'
+# Latest compatible version of Python-pachyderm
+python_pachyderm_version: '7.3.x'
 
 
 # Configuration

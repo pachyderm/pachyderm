@@ -68,8 +68,12 @@ spec:
         matchLabels:
           suite: pachyderm
     kinds:
-      - apiGroups: [""]
-        kinds: ["Pod"]
+      - apiGroups: [ "" ]
+        kinds: [ "Pod", "ReplicationController" ]
+      - apiGroups: [ "apps" ]
+        kinds: [ "Deployment", "ReplicaSet",  "StatefulSet", "DaemonSet" ]
+      - apiGroups: [ "batch" ]
+        kinds: [ "Job", "CronJob" ]
   parameters:
     runAsUser:
       rule: MustRunAs # MustRunAsNonRoot # RunAsAny 
