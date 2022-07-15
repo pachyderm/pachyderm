@@ -9,7 +9,6 @@ You can develop Pachyderm against a cluster deployed in Google Cloud using this 
 - Download Google's [Cloud SDK](https://cloud.google.com/sdk/).
 - Get your GCP owner/admin to set up a project for you (e.g., `YOURNAME-dev`).
     - This requires permissions from **Project** > **Settings** > **Permissions**. 
-  
 ---
 
 ## 1. Set Up Google Cloud Platform (GCP)
@@ -17,8 +16,10 @@ You can develop Pachyderm against a cluster deployed in Google Cloud using this 
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com/).
 2. Sign in via Gmail or G Suite.  
-3. Navigate to APIs and enable the Google Compute API.
-4. Open a terminal locally and each of the following commands individually:
+3. Navigate to **APIs & Services** > **Enable APIs & Services** > **Library**.
+4. Find the **Compute Engine API**.
+5. Select **Enable**.
+6. Open a terminal locally and each of the following commands individually:
       ```
       # Log in:
       gcloud auth login 
@@ -34,7 +35,6 @@ You can develop Pachyderm against a cluster deployed in Google Cloud using this 
       # Attach to Docker daemon: 
       eval "$(docker-machine env dev)"
       ```
-
 
 ## 2. Set up and Launch Kubectl
 
@@ -58,8 +58,6 @@ You can develop Pachyderm against a cluster deployed in Google Cloud using this 
       # Verify processes
       docker ps 
       ```
-
-
 ## 3. Deploy Pachyderm Cluster 
 
 1. Open a terminal and run the following command:
