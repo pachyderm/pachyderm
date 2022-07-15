@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -276,7 +277,7 @@ func (a *apiServer) validateKube(ctx context.Context) {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
-	pods, err := a.rcPods(ctx, "pachd")
+	pods, err := a.pachdPods(ctx)
 	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
@@ -293,7 +294,7 @@ func (a *apiServer) validateKube(ctx context.Context) {
 		}
 	}
 	name := uuid.NewWithoutDashes()
-	labels := map[string]string{"app": name}
+	labels := map[string]string{appLabel: name}
 	rc := &v1.ReplicationController{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ReplicationController",
@@ -821,8 +822,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// If the job is running, we fill in WorkerStatus field, otherwise
 	// we just return the jobInfo.
 	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		workerPoolID := ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
-		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -991,8 +991,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	workerPoolID := ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := workerserver.Cancel(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1126,7 +1125,11 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
-	var rcName, containerName string
+	var (
+		rcName, containerName string
+		pods                  []v1.Pod
+		err                   error
+	)
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
@@ -1135,6 +1138,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return errors.EnsureStack(err)
 		}
 		containerName, rcName = "pachd", "pachd"
+		pods, err = a.pachdPods(apiGetLogsServer.Context())
 	} else if request.Job != nil && request.Job.GetPipeline().GetName() == "" {
 		return errors.Errorf("pipeline must be specified for the given job")
 	} else if request.Job != nil && request.Pipeline != nil && !proto.Equal(request.Job.Pipeline, request.Pipeline) {
@@ -1145,7 +1149,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
 		var pipelineInfo *pps.PipelineInfo
-		var err error
 		if request.Pipeline != nil && request.Job == nil {
 			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name, true)
 			if err != nil {
@@ -1170,15 +1173,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return err
 		}
 
-		// 3) Get rcName for this pipeline
+		// 3) Get pods for this pipeline
 		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(apiGetLogsServer.Context(), rcName)
 	if err != nil {
 		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
 	}
@@ -2298,8 +2300,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			}
 		}
 
-		workerPoolID := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
-		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -3089,18 +3090,42 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(ctx context.Context, rcName string) ([]v1.Pod, error) {
+func (a *apiServer) listPods(ctx context.Context, labels labels.Set) ([]v1.Pod, error) {
 	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{"app": rcName})),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return podList.Items, nil
+}
+
+func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
+	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
+}
+
+func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
+	pp, err := a.listPods(ctx, map[string]string{
+		appLabel:             "pipeline",
+		pipelineNameLabel:    pipelineName,
+		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+	})
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if len(pp) == 0 {
+		// Look for the pre-2.4–style pods labelled with the long name.
+		// This long name could exceed 63 characters, which is why 2.4
+		// and later use separate labels for each component.
+		return a.listPods(ctx, map[string]string{
+			appLabel: ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+		})
+	}
+	return pp, nil
 }
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
@@ -3117,11 +3142,22 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	return ci, nil
 }
 
-func labels(app string) map[string]string {
+func pipelineLabels(pipelineName string, pipelineVersion uint64) map[string]string {
 	return map[string]string{
-		"app":       app,
-		"suite":     suite,
-		"component": "worker",
+		appLabel:             "pipeline",
+		pipelineNameLabel:    pipelineName,
+		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		"suite":              suite,
+		"component":          "worker",
+	}
+}
+
+func spoutLabels(pipelineName string) map[string]string {
+	return map[string]string{
+		appLabel:          "spout",
+		pipelineNameLabel: pipelineName,
+		"suite":           suite,
+		"component":       "worker",
 	}
 }
 

@@ -54,7 +54,7 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
 
 * **Use a secure connection**
 
-    Make sure that you have [Transport Layer Security (TLS)](./deploy-w-tls){target=_blank} enabled for your incoming traffic. 
+    Make sure that you have [Transport Layer Security (TLS)](../deploy-w-tls){target=_blank} enabled for your incoming traffic. 
    
 * **Use Pachyderm authentication/authorization**
 
