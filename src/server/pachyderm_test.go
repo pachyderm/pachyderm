@@ -6558,27 +6558,27 @@ func TestCronPipeline(t *testing.T) {
 
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		repo := fmt.Sprintf("%s_%s", pipeline7, "time")
+		// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
+		time.Sleep(2 * time.Second)
+
+		nCronticks := 3
+		for i := 0; i < nCronticks; i++ {
+			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+			require.NoError(t, err)
+			_, err = c.WaitCommit(repo, "master", "")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(1)
 		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
-				time.Sleep(2 * time.Second)
-
-				_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-				countBreakFunc := newCountBreakFunc(4)
+				countBreakFunc := newCountBreakFunc(nCronticks + 1)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
 						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
