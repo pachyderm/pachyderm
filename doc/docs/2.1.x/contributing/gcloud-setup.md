@@ -1,11 +1,11 @@
 # Google Cloud Cluster Setup 
 
-You can develop Pachyderm against a cluster deployed in Google Cloud using this guide. 
+You can develop Pachyderm against a cluster deployed in Google Cloud using this guide.
 
 
 ## Before You Start 
 
-- [Install Pachyderm locally](/getting-started/local-installation/#local-installation). 
+- [Install Pachyderm locally](../../../getting-started/local-installation) 
 - Download Google's [Cloud SDK](https://cloud.google.com/sdk/).
 - Get your GCP owner/admin to set up a project for you (e.g., `YOURNAME-dev`).
     - This requires permissions from **Project** > **Settings** > **Permissions**. 
