@@ -21,12 +21,7 @@ jobs:
           tar xvf pulumi-v3.32.0-linux-x64.tar.gz
           echo "${PWD}/pulumi" >> $GITHUB_PATH
           pulumi stack select $CURRENT_BRANCH --non-interactive 
-          pulumi config set gcp:zone us-east1-b
-          pulumi config set gcp:project pulumi-ci-334619
-          pulumi config set branch $CURRENT_BRANCH
-          pulumi config set sha $GITHUB_SHA
-          pulumi preview
-          pulumi destroy --yes
+          pulumi destroy --yes --skip-preview
           pulumi stack rm --yes
         working-directory: infra
         env:
