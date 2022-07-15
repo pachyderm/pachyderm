@@ -144,6 +144,21 @@ func main() {
 					},
 				},
 				"hub": pulumi.Map{
+					"config": pulumi.Map{
+						"Auth0OAuthenticator": pulumi.Map{
+							"client_id":          pulumi.String(cfg.Require("client_id")),
+							"client_secret":      pulumi.String(cfg.Require("client_secret")),
+							"oauth_callback_url": pulumi.String("https://jh-" + currBranch + ".clusters-ci.pachyderm.io/hub/oauth_callback"),
+							"scope":              pulumi.StringArray{pulumi.String("openid"), pulumi.String("email")},
+							"auth0_subdomain":    pulumi.String(cfg.Require("auth0_domain")),
+						},
+						"Authenticator": pulumi.Map{
+							"auto_login": pulumi.Bool(true),
+						},
+						"JupyterHub": pulumi.Map{
+							"authenticator_class": pulumi.String("auth0"),
+						},
+					},
 					"extraConfig": pulumi.Map{
 						//"podRoot": pulumi.String(fileStr),
 						"volume": pulumi.String(volumeStr),
