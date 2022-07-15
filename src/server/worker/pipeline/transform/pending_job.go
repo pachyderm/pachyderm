@@ -137,7 +137,6 @@ func (pj *pendingJob) clearCache() {
 }
 
 // The datums that can be processed in parallel are the datums that exist in the current job and do not exist in the base job.
-// TODO: Count.
 func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Doer) (string, error) {
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	var outputFileSetID string

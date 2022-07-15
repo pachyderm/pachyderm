@@ -81,9 +81,9 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []files
 
 // TODO: The task length stuff could probably be simplified.
 func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, []int, error) {
-	var pathRanges []*index.PathRange
+	var shards []*index.PathRange
 	if err := c.storage.EstimateShards(ctx, ids, func(pathRange *index.PathRange) error {
-		pathRanges = append(pathRanges, pathRange)
+		shards = append(shards, pathRange)
 		return nil
 	}); err != nil {
 		return nil, nil, err
@@ -95,12 +95,12 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 			end = len(ids)
 		}
 		ids := ids[start:end]
-		for _, pathRange := range pathRanges {
+		for _, shard := range shards {
 			input, err := serializeShardTask(&ShardTask{
 				Inputs: fileset.IDsToHexStrings(ids),
 				PathRange: &PathRange{
-					Lower: pathRange.Lower,
-					Upper: pathRange.Upper,
+					Lower: shard.Lower,
+					Upper: shard.Upper,
 				},
 			})
 			if err != nil {
@@ -125,9 +125,9 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	}
 	var tasks []*CompactTask
 	var taskLens []int
-	for i := 0; i < len(results); i += len(pathRanges) {
+	for i := 0; i < len(results); i += len(shards) {
 		taskLen := len(tasks)
-		for j := range pathRanges {
+		for j := range shards {
 			tasks = append(tasks, results[i+j]...)
 		}
 		taskLens = append(taskLens, len(tasks)-taskLen)
@@ -209,22 +209,51 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 	return results, nil
 }
 
-func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (int64, string, error) {
-	input, err := serializeValidateTask(&ValidateTask{
-		Id: id.HexString(),
-	})
-	if err != nil {
-		return 0, "", err
+func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (string, int64, error) {
+	var shards []*index.PathRange
+	if err := c.storage.EstimateShards(ctx, []fileset.ID{id}, func(pathRange *index.PathRange) error {
+		shards = append(shards, pathRange)
+		return nil
+	}); err != nil {
+		return "", 0, err
 	}
-	output, err := task.DoOne(ctx, taskDoer, input)
-	if err != nil {
-		return 0, "", err
+	var inputs []*types.Any
+	for _, shard := range shards {
+		input, err := serializeValidateTask(&ValidateTask{
+			Id: id.HexString(),
+			PathRange: &PathRange{
+				Lower: shard.Lower,
+				Upper: shard.Upper,
+			},
+		})
+		if err != nil {
+			return "", 0, err
+		}
+		inputs = append(inputs, input)
 	}
-	result, err := deserializeValidateTaskResult(output)
-	if err != nil {
-		return 0, "", err
+	// TODO: Collect all of the errors or fail fast?
+	results := make([]*ValidateTaskResult, len(inputs))
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+		if err != nil {
+			return err
+		}
+		results[i], err = deserializeValidateTaskResult(output)
+		return err
+	}); err != nil {
+		return "", 0, err
 	}
-	return result.SizeBytes, result.Error, nil
+	var errStr string
+	var size int64
+	for i, result := range results {
+		if errStr == "" && i != 0 {
+			errStr = checkIndex(results[i-1].Last, result.First)
+		}
+		if errStr == "" {
+			errStr = result.Error
+		}
+		size += result.SizeBytes
+	}
+	return errStr, size, nil
 }
 
 func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
@@ -344,35 +373,45 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 		if err != nil {
 			return err
 		}
-		fs, err := storage.Open(ctx, []fileset.ID{*id})
+		pathRange := &index.PathRange{
+			Lower: task.PathRange.Lower,
+			Upper: task.PathRange.Upper,
+		}
+		fs, err := storage.Open(ctx, []fileset.ID{*id}, index.WithRange(pathRange))
 		if err != nil {
 			return err
 		}
 		var prev *index.Index
-		var size int64
-		var validationError string
 		if err := fs.Iterate(ctx, func(f fileset.File) error {
 			idx := f.Index()
-			if prev != nil && validationError == "" {
-				if idx.Path == prev.Path {
-					validationError = fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, idx.Path, idx.File.Datum)
-				} else if strings.HasPrefix(idx.Path, prev.Path+"/") {
-					validationError = fmt.Sprintf("file / directory path collision (%v)", idx.Path)
-				}
+			if result.First == nil {
+				result.First = idx
+			}
+			result.Last = idx
+			if prev != nil && result.Error == "" {
+				result.Error = checkIndex(prev, idx)
 			}
 			prev = idx
-			size += index.SizeBytes(idx)
+			result.SizeBytes += index.SizeBytes(idx)
 			return nil
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
-		result.SizeBytes = size
-		result.Error = validationError
 		return nil
 	}); err != nil {
 		return nil, err
 	}
 	return serializeValidateTaskResult(result)
+}
+
+func checkIndex(prev, curr *index.Index) string {
+	if curr.Path == prev.Path {
+		return fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, curr.Path, curr.File.Datum)
+	}
+	if strings.HasPrefix(curr.Path, prev.Path+"/") {
+		return fmt.Sprintf("file / directory path collision (%v)", curr.Path)
+	}
+	return ""
 }
 
 func serializeShardTask(task *ShardTask) (*types.Any, error) {

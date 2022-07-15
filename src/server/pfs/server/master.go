@@ -162,7 +162,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				var validationError string
 				if err := miscutil.LogStep(fmt.Sprintf("validating commit %v", commit), func() error {
 					var err error
-					details.SizeBytes, validationError, err = compactor.Validate(ctx, taskDoer, *totalId)
+					validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
 					return err
 				}); err != nil {
 					return err
