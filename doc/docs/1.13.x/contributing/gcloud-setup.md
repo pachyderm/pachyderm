@@ -11,7 +11,7 @@ You can develop Pachyderm against a cluster deployed in Google Cloud using this 
     - This requires permissions from **Project** > **Settings** > **Permissions**. 
 ---
 
-## 1. Set Up Google Cloud Platform (GCP)
+## 1. Set Up Google Cloud Platform
 
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com/).
@@ -20,48 +20,39 @@ You can develop Pachyderm against a cluster deployed in Google Cloud using this 
 4. Find the **Compute Engine API**.
 5. Select **Enable**.
 6. Open a terminal locally and each of the following commands individually:
+      1. **Log in**:
       ```
-      # Log in:
       gcloud auth login 
       gcloud init
-
-      # Connect to your project (requires permissions mentioned in previous section):
+      ```
+      2. **Connect to your project**:
+      ```
       gcloud config set project YOURNAME-dev
       gcloud compute instances list 
-
-      # Create an instance via the bash helper: 
+      ```
+      3. **Create an instance via the bash helper**: 
+      ```
       create_docker_machine
-
-      # Attach to Docker daemon: 
+      ```
+      4. **Attach to Docker daemon**: 
+      ```
       eval "$(docker-machine env dev)"
       ```
 
 ## 2. Set up and Launch Kubectl
 
-1. Open a terminal and run the following commands:
-      ```
-      # Update kubectl 
-      gcloud components update kubectl
+Open a terminal and run the following commands:
 
-      # Set up port forwarding
-      portforwarding
+1. **Update kubectl**: `gcloud components update kubectl`.
+2. **Set up port forwarding**: `portforwarding`.
+3. **View client version**: `kubectl version`.
+4. **Deploy Kubernetes**: `make launch-kube`.
+5. **View client & server version**:  `kubectl version`.
+6. **Verify processes**: `docker ps`.
 
-      # View client version
-      kubectl version
-
-      # Deploy Kubernetes 
-      make launch-kube 
-
-      # View client & server version
-      kubectl version 
-
-      # Verify processes
-      docker ps 
-      ```
 ## 3. Deploy Pachyderm Cluster 
 
-1. Open a terminal and run the following command:
+Open a terminal and run the following command:
       ```
       make launch
       ```
-2. Start developing! 
