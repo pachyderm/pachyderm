@@ -75,5 +75,6 @@ If you'd like to completely restart, use the following terminal commands:
 
 ```
 minikube delete
+kubectl delete pvc -l suite=pachyderm 
 minikube start --memory=10000mb --cpus=4 --disk-size=40000mb
 ```
