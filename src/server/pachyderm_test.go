@@ -6540,7 +6540,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true, nil), // every minute
 			"",
 			false,
 		))
@@ -6625,6 +6625,47 @@ func TestCronPipeline(t *testing.T) {
 		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(commits))
+	})
+
+	// Cron input with overwrite, and a start time in the past, so that the cron tick has to catch up.
+	// Ensure that the deletion of the previous cron tick file completes before the new cron tick file is created.
+	t.Run("CronOverwriteStartCatchup", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
+		pipeline := tu.UniqueString("testCron-")
+		start, err := types.TimestampProto(time.Now().Add(-10 * time.Hour))
+		require.NoError(t, err)
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInputOpts("in", "", "@every 1h", true, start),
+			"",
+			false,
+		))
+
+		repo := client.NewRepo(fmt.Sprintf("%s_in", pipeline))
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		count := 0
+		countBreakFunc := newCountBreakFunc(11)
+		require.NoError(t,
+			c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				return countBreakFunc(func() error {
+					commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+					require.NoError(t, err)
+					require.Equal(t, 4, len(commitInfos))
+
+					files, err := c.ListFileAll(ci.Commit, "")
+					require.NoError(t, err)
+					require.Equal(t, count, len(files))
+					count = 1
+					return nil
+				})
+			}))
 	})
 }
 
