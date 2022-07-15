@@ -354,12 +354,14 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
+		var unacceptablePachds []string
 		for _, p := range pachds.Items {
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
 				return nil
 			}
+			unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
 		}
-		return errors.Errorf("deployment in progress")
+		return errors.Errorf("deployment in progress: pachds: %v", strings.Join(unacceptablePachds, "; "))
 	})
 }
 
