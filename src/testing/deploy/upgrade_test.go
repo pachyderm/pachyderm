@@ -45,6 +45,13 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				&minikubetestenv.DeployOpts{
 					Version:     from,
 					DisableLoki: true,
+					// For 2.3 -> future upgrades, we'll want to delete these
+					// overrides.  They became the default (instead of random)
+					// in the 2.3 alpha cycle.
+					ValueOverrides: map[string]string{
+						"global.postgresql.postgresqlPassword":         "insecure-user-password",
+						"global.postgresql.postgresqlPostgresPassword": "insecure-root-password",
+					},
 				}))
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
