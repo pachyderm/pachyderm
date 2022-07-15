@@ -8,14 +8,14 @@ This style guide provides editorial guidelines for writing clear and consistent 
 
 Pachyderm has two main audiences:
 
-- **Data Engineers**: They install and configure Pachyderm to transform data using pipelines.
-- **Data Scientists**: They consume the outputs of Pachyderm's data processing to feed AI/ML models.
+- **MLOPs Engineers**: They install and configure Pachyderm to transform data using pipelines.
+- **Data Scientists & Data/ML Engineers**: They plan the development of pipelines and consume the outputs of Pachyderm's data processing to feed AI/ML models.
 
-Although both audiences tend to be very technical, it's important to remember that tech is a broad landscape; your reader may not be familiar with all of the tools, frameworks, or concepts mentioned in your article. Be sure to provide links to pre-requisite or contextual materials whenever possible.
+ Be sure to provide links to pre-requisite or contextual materials whenever possible, as everyone's experience level and career journey is different.
 
 ---
 
-## Voice & tone
+## Voice & Tone
 
 Pachyderm's voice in documentation should consistently convey a personality that is friendly, knowledgeable, and empathetic.
 
@@ -64,6 +64,10 @@ Be mindful of how you describe software behavior and users; in particular, avoid
 ---
 
 ## Formatting & Punctuation
+
+### Markdown
+
+All documentation is written using Markdown syntax in `.md` files. See this official [Markdown Cheat Sheet](https://www.markdownguide.org/cheat-sheet/) for a quick introduction to the syntax. 
 
 ### Code Blocks
 

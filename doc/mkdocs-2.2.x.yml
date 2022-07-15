@@ -245,11 +245,11 @@ nav:
     - Reference:
         - Overview: reference/index.md
         - COMMUNITY EDITION LIMITS: reference/scaling-limits.md
+        - Supported releases: reference/supported-releases.md
         - Pipeline Specification: reference/pipeline-spec.md
         - Pachyderm Config Specification: reference/config-spec.md
         - Pachyderm Helm Chart Values Specification: reference/helm-values.md
         - Pachyderm Language Clients: reference/clients.md
-        - Supported releases: reference/supported-releases.md
         - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md

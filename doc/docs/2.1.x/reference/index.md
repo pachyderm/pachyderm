@@ -8,17 +8,15 @@ your favorite programming language.
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text"> Pipeline Specification&nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
+        <h4 class="mdl-card__title-text"> Community Edition Limits &nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Read about all the options that you can
-        define in the pipeline specification
-        and view the examples of use.
+        Learn about the scaling limitations and parallelism thresholds for the community edition of Pachyderm. 
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="pipeline-spec/" class="md-typeset md-link">
-          Pipeline Specification
+          <li><a href="scaling-limits" class="md-typeset md-link">
+          Community Edition Limits
           </a>
           </li>
         </ul>
@@ -28,16 +26,15 @@ your favorite programming language.
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
-        <h4 class="mdl-card__title-text">Pachyderm Config Specification &nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
+        <h4 class="mdl-card__title-text"> Supported Releases &nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Learn how you can modify your cluster by setting up
-        the Pachyderm configuration file.
+        Check our list of supported Pachyderm release versions.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="config-spec" class="md-typeset md-link">
-          Pachyderm Config Specification
+          <li><a href="supported-releases" class="md-typeset md-link">
+          Supported Releases
           </a>
           </li>
         </ul>
@@ -47,6 +44,66 @@ your favorite programming language.
 </div>
 <div class="row">
   <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text"> Pipeline Spec&nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        Read about all the options that you can
+        define in the pipeline Spec
+        and view the examples of use.
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <ul>
+          <li><a href="pipeline-spec/" class="md-typeset md-link">
+          Pipeline Spec
+          </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Pachyderm Config Spec &nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        Learn how you can modify your cluster by setting up
+        the Pachyderm configuration file.
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <ul>
+          <li><a href="config-spec" class="md-typeset md-link">
+          Pachyderm Config Spec
+          </a>
+          </li>
+        </ul>
+       </div>
+     </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="column-2">
+    <div class="card-square mdl-card mdl-shadow--2dp">
+      <div class="mdl-card__title mdl-card--expand">
+        <h4 class="mdl-card__title-text">Pachyderm Helm Chart Values Spec  &nbsp;&nbsp;&nbsp;<i class="fa fa-terminal"></i></h4>
+      </div>
+      <div class="mdl-card__supporting-text">
+        Read about the available fields in the values.yaml file used to deploy with Helm.
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <ul>
+           <li><a href="helm-values/" class="md-typeset md-link">
+             Pachyderm Helm Chart Values Spec
+           </a>
+           </li>
+         </ul>
+      </div>
+    </div>
+  </div>
+<div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
         <h4 class="mdl-card__title-text">Pachyderm Language Clients &nbsp;&nbsp;&nbsp;<i class="fa fa-terminal"></i></h4>
@@ -65,6 +122,9 @@ your favorite programming language.
       </div>
     </div>
   </div>
+</div>
+
+<div class="row">
   <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
@@ -84,15 +144,13 @@ your favorite programming language.
       </div>
     </div>
   </div>
-<div class="row">
-  <div class="column-2">
+    <div class="column-2">
     <div class="card-square mdl-card mdl-shadow--2dp">
       <div class="mdl-card__title mdl-card--expand">
         <h4 class="mdl-card__title-text">Pachctl Reference &nbsp;&nbsp;&nbsp;<i class="fa fa-file-text-o"></i></h4>
       </div>
       <div class="mdl-card__supporting-text">
-        Pachctl is the CLI tool that enables you to
-        interact with Pachyderm. Read the <code>pachctl</code>
+         Read the <code>pachctl</code>
         reference to learn how to perform operations
         with repositories, pipelines, and other
         Pachyderm objects and primitives.
@@ -107,6 +165,8 @@ your favorite programming language.
       </div>
     </div>
   </div>
+</div>
+<div class="row">
   <div class="column-2">
      <div class="card-square mdl-card mdl-shadow--2dp">
        <div class="mdl-card__title mdl-card--expand">
