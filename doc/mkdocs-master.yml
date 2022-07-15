@@ -13,7 +13,7 @@ repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
-pach_branch: '2.3.x'
+pach_branch: 'master'
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
