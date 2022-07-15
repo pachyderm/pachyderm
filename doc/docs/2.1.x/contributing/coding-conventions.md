@@ -1,5 +1,7 @@
 # Coding Conventions
 
+Interested in contributing to Pachyderm's code? Learn the conventions here! For setup instructions, see [Setup for Contributors](./setup.md).
+
 ## Languages 
 
 The Pachyderm repository is written using **Go**, **Shell**, and **Make**. Exceptions to this are:
@@ -36,7 +38,8 @@ See the [Effective Go Style Guide](https://go.dev/doc/effective_go) for standard
 
 ## Review
 
-See the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments) guide for a list of common comments made on reviews for Go. 
+- See the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments) guide for a list of common comments. 
+- Make sure CI is passing for your branch.
 
 
 ### Checks 
@@ -46,7 +49,10 @@ See the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewCo
 ### Testing 
 
 - All packages and significant functionality must come with test coverage.
-- Avoid waiting for asynchronous things to happen (e.g. waiting 10 seconds and assuming that a service will be afterward). Instead you try, wait, retry, etc. with a limited number of tries. If possible use a method of waiting directly (e.g. 'flush commit' is much better than repeatedly trying to read from a commit).
+- Local unit tests should pass before pushing to GitHub (`make localtest` or `make integration-tests` for integrations).
+- Use short flag for local tests only. 
+- Avoid waiting for asynchronous things to happen; If possible, use a method of waiting directly (e.g. 'flush commit' is much better than repeatedly trying to read from a commit).
+- Run single tests or tests from a single package; the Go tool only supports tests that match a regular expression (for example, `go test -v ./src/path/to/package -run ^TestMyTest`).
 
 ---
 
