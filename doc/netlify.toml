@@ -564,6 +564,6 @@
 
 [[redirects]]
   from = "/:version/contributing/gcloud-setup"
-  to = "/:version/getting-started/local-installation"
+  to = "/:version/contributing/setup"
   status = 301
   force = true
