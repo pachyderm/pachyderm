@@ -281,10 +281,8 @@ func processShardTask(ctx context.Context, storage *fileset.Storage, task *Shard
 			result.CompactTasks = append(result.CompactTasks, &CompactTask{
 				Inputs: task.Inputs,
 				PathRange: &PathRange{
-					Lower:      pathRange.Lower,
-					LowerDatum: pathRange.LowerDatum,
-					Upper:      pathRange.Upper,
-					UpperDatum: pathRange.UpperDatum,
+					Lower: pathRange.Lower,
+					Upper: pathRange.Upper,
 				},
 			})
 			return nil
@@ -303,10 +301,8 @@ func processCompactTask(ctx context.Context, storage *fileset.Storage, task *Com
 			return err
 		}
 		pathRange := &index.PathRange{
-			Lower:      task.PathRange.Lower,
-			LowerDatum: task.PathRange.LowerDatum,
-			Upper:      task.PathRange.Upper,
-			UpperDatum: task.PathRange.UpperDatum,
+			Lower: task.PathRange.Lower,
+			Upper: task.PathRange.Upper,
 		}
 		id, err := storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
 		if err != nil {

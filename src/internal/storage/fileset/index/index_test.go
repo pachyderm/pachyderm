@@ -48,7 +48,7 @@ func expectedFiles(fileNames []string, prefix string) []string {
 func pathRange(fileNames []string) *PathRange {
 	return &PathRange{
 		Lower: fileNames[0],
-		Upper: fileNames[len(fileNames)-1],
+		Upper: fileNames[len(fileNames)-1] + "_",
 	}
 }
 

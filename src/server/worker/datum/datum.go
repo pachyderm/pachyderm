@@ -41,55 +41,55 @@ type SetSpec struct {
 
 func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
 	commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", fileSetID)
+	pathRange := &pfs.PathRange{
+		Lower: basePathRange.Lower,
+	}
 	shouldCreateSet := shouldCreateSetFunc(setSpec)
 	var sets []*pfs.PathRange
-	var pathRange *pfs.PathRange
 	if err := iterateMeta(pachClient, commit, basePathRange, func(path string, meta *Meta) error {
-		if pathRange == nil {
-			pathRange = &pfs.PathRange{Lower: path}
-		}
-		pathRange.Upper = path
 		if shouldCreateSet(meta) {
+			pathRange.Upper = path
 			sets = append(sets, pathRange)
-			pathRange = nil
+			pathRange = &pfs.PathRange{
+				Lower: path,
+			}
 		}
 		return nil
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if pathRange != nil {
-		sets = append(sets, pathRange)
-	}
-	return sets, nil
+	pathRange.Upper = basePathRange.Upper
+	return append(sets, pathRange), nil
 }
 
 func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
+	if setSpec.Number == 0 && setSpec.SizeBytes == 0 {
+		setSpec.Number = 1
+	}
 	switch {
-	case setSpec.Number > 0:
-		var num int64
-		return func(meta *Meta) bool {
-			num++
-			if num >= setSpec.Number {
-				num = 0
-				return true
-			}
-			return false
-		}
 	case setSpec.SizeBytes > 0:
 		var size int64
 		return func(meta *Meta) bool {
+			var shouldCreate bool
+			if size >= setSpec.SizeBytes {
+				shouldCreate = true
+				size = 0
+			}
 			for _, input := range meta.Inputs {
 				size += int64(input.FileInfo.SizeBytes)
 			}
-			if size >= setSpec.SizeBytes {
-				size = 0
-				return true
-			}
-			return false
+			return shouldCreate
 		}
 	default:
+		var num int64
 		return func(meta *Meta) bool {
-			return true
+			var shouldCreate bool
+			if num >= setSpec.Number {
+				shouldCreate = true
+				num = 0
+			}
+			num++
+			return shouldCreate
 		}
 	}
 }

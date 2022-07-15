@@ -15,8 +15,6 @@ message ShardTaskResult {
 message PathRange {
   string lower = 1;
   string upper = 2;
-  string lower_datum = 3;
-  string upper_datum = 4;
 }
 
 message CompactTask {

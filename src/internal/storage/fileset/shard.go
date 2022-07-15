@@ -32,26 +32,22 @@ func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRang
 // in size threshold or the file count is greater than or equal to the passed in count threshold.
 // For each shard, the callback is called with the path range for the shard.
 func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64, basePathRange *index.PathRange, cb index.ShardCallback) error {
-	var size, count int64
 	pathRange := &index.PathRange{
 		Lower: basePathRange.Lower,
 	}
+	var size, count int64
 	if err := fs.Iterate(ctx, func(f File) error {
-		// A shard is created when we have encountered more than shardThreshold content bytes.
 		if size >= sizeThreshold || count >= countThreshold {
+			pathRange.Upper = f.Index().Path
 			if err := cb(pathRange); err != nil {
 				return err
 			}
-			// set new lower bound to include everything after previous range
 			pathRange = &index.PathRange{
-				Lower:      pathRange.Upper,
-				LowerDatum: pathRange.UpperDatum + "_",
+				Lower: f.Index().Path,
 			}
 			size = 0
 			count = 0
 		}
-		pathRange.Upper = f.Index().Path
-		pathRange.UpperDatum = f.Index().File.Datum
 		size += index.SizeBytes(f.Index())
 		count++
 		return nil

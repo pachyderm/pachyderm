@@ -66,20 +66,14 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 				}
 			}
 		}
-		var indexDatum string
-		if idx.File != nil {
-			// a range index will include multiple datums,
-			// so only do datum range comparisons if we have a single file
-			indexDatum = idx.File.Datum
-		}
 		// Return if done.
-		if atEnd(idx.Path, indexDatum, r.filter) {
+		if atEnd(idx.Path, r.filter) {
 			return nil
 		}
 		// Handle lowest level index.
 		if idx.Range == nil {
 			// Skip to the starting index.
-			if !atStart(idx.Path, indexDatum, r.filter) {
+			if !atStart(idx.Path, r.filter) {
 				continue
 			}
 			if r.datum == "" || r.datum == idx.File.Datum {
@@ -93,7 +87,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			continue
 		}
 		// Skip to the starting index.
-		if !atStart(idx.Range.LastPath, indexDatum, r.filter) {
+		if !atStart(idx.Range.LastPath, r.filter) {
 			continue
 		}
 		lr := newLevelReader(ctx, r, pbr, idx)
@@ -112,29 +106,27 @@ func (r *Reader) topLevel() pbutil.Reader {
 }
 
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
-// For a range filter, this means the name is >= to the lower bound or the datum (if provided)
-// is >= the lower bound datum at the lower bound path itself
+// For a range filter, this means the name is >= to the lower bound.
 // For a prefix filter, this means the name is >= to the prefix.
-func atStart(name, datum string, filter *pathFilter) bool {
+func atStart(name string, filter *pathFilter) bool {
 	if filter == nil {
 		return true
 	}
 	if filter.pathRange != nil {
-		return filter.pathRange.atStart(name, datum)
+		return filter.pathRange.atStart(name)
 	}
 	return name >= filter.prefix
 }
 
 // atEnd returns true when the name is past the valid range for a filter (always false if no filter is set).
-// For a range filter, this means the name is > than the upper bound, or the datum (if provided)
-// is > the upper bound datum at the upper bound path
+// For a range filter, this means the name is >= to the upper bound.
 // For a prefix filter, this means the name does not have the prefix and a name with the prefix cannot show up after it.
-func atEnd(name, datum string, filter *pathFilter) bool {
+func atEnd(name string, filter *pathFilter) bool {
 	if filter == nil {
 		return false
 	}
 	if filter.pathRange != nil {
-		return filter.pathRange.atEnd(name, datum)
+		return filter.pathRange.atEnd(name)
 	}
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
 	// (use len(name) bytes for comparison when len(name) < len(prefix)).
@@ -238,19 +230,13 @@ Loop:
 		}
 		idxs = nextIdxs
 	}
-	var priorUpper string
 	for i, idx := range idxs {
-		pathRange := &PathRange{
-			// TODO: This is a hack to check if we need to change path range inclusive / exclusive
-			Lower: priorUpper + "_",
-			Upper: idx.Range.LastPath,
+		pathRange := &PathRange{}
+		if i != 0 {
+			pathRange.Lower = idx.Path
 		}
-		priorUpper = pathRange.Upper
-		if i == 0 {
-			pathRange.Lower = ""
-		}
-		if i == len(idxs)-1 {
-			pathRange.Upper = ""
+		if i != len(idxs)-1 {
+			pathRange.Upper = idxs[i+1].Path
 		}
 		if err := cb(pathRange); err != nil {
 			return err
