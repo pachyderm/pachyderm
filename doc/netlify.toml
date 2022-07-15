@@ -561,3 +561,9 @@
     to = "/latest/contributing/:splat"
     status = 301
     force = true
+
+[[redirects]]
+  from = "/:version/contributing/gcloud-setup"
+  to = "/:version/contributing/setup"
+  status = 301
+  force = true
