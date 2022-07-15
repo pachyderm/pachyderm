@@ -12,7 +12,8 @@ The Pachyderm repository is written using **Go**, **Shell**, and **Make**. Excep
 
 ### Shell
 
-See the [Shell Style Guide](https://google.github.io/styleguide/shellguide.html) for standard conventions. 
+- See the [Shell Style Guide](https://google.github.io/styleguide/shellguide.html) for standard conventions. 
+- Add [`set -eou pipefail`](https://explainshell.com/explain?cmd=set+-euo+pipefail) to your scripts.
 
 ### Go
 
@@ -24,7 +25,6 @@ See the [Effective Go Style Guide](https://go.dev/doc/effective_go) for standard
 - Do not use uppercase characters, underscores, or dashes in package names.
 - The `package foo` line should match the name of the directory in which the `.go` file exists.
 - Importers can use a different name if they need to disambiguate.
-- Locks should be called `lock` and should never be embedded (always `locksync.Mutex`).
 - When multiple locks are present, give each lock a distinct name following Go conventions (e.g., `stateLock`, `mapLock`).
 
 
@@ -39,6 +39,7 @@ See the [Effective Go Style Guide](https://go.dev/doc/effective_go) for standard
 ## Review
 
 - See the [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments) guide for a list of common comments. 
+- See the [Go Test Comments](https://github.com/golang/go/wiki/TestComments) guide for a list of common test code comments.
 - Make sure CI is passing for your branch.
 
 
@@ -58,6 +59,5 @@ See the [Effective Go Style Guide](https://go.dev/doc/effective_go) for standard
 
 ## Documentation
 
-- PRs for code must include documentation updates that reflect the changes that the code introduces.
 - When writing documentation, follow the [Style Guide](docs-style-guide.md) conventions.
 - PRs that have only documentation changes, such as typos, is a great place to start and we welcome your help!
