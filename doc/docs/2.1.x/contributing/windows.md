@@ -68,9 +68,10 @@ For posterity's sake, here are some of the problems I've encountered when trying
 
 ### Nuclear option
 
-If your setup is completely fucked, it may be worthwhile to blow away your minikube and start over, this is pretty simple with:
+When your setup is in an odd state, it might be worthwhile to delete your minikube and start over:
 
 ```
 minikube delete
+kubectl delete pvc -l suite=pachyderm 
 minikube start --memory=10000mb --cpus=4 --disk-size=40000mb
 ```
