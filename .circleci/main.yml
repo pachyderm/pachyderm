@@ -13,11 +13,15 @@ orbs:
   gcp-cli: circleci/gcp-cli@2.4.1
   gh: circleci/github-cli@2.1
   codecov: codecov/codecov@1.1.0
+  path-filtering: circleci/path-filtering@0.0.1
 
 parameters:
   machine_image:
     type: string
     default: "ubuntu-2004:202201-02"
+  update-images:
+    type: boolean
+    default: false
 
 jobs:
   test-go:
@@ -558,6 +562,16 @@ jobs:
             index=${#prefix}
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
+  update-vendor-images:
+    resource_class: large
+    docker:
+      - image: cimg/go:1.17.6
+    steps:
+      - when:
+          condition:
+            equal: [true, << pipeline.parameters.update-images >>]
+          steps:
+            - run: echo "update-images true"
 workflows:
   integration-tests:
     jobs:
@@ -716,3 +730,4 @@ workflows:
           filters: *only-release-tags
           requires:
             - sign-off
+

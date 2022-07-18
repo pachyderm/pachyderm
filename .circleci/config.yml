@@ -18,8 +18,12 @@ jobs:
       #    command: |
       - continuation/continue:
           configuration_path: .circleci/main.yml # use newly generated config to continue
+- path-filtering/filter:
+    base-revision: master
+    config-path: .circleci/main.yml
+    mapping: |
+      etc/vendor-image-versions/image-versions.yaml update-images true
 
-# our single workflow, that triggers the setup job defined above
 workflows:
   setup:
     jobs:
