@@ -137,7 +137,12 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			continue
 		}
 		parts := strings.Split(path, "/")
-		mfc, err := mfc(parts[0])
+		repo := parts[0]
+		ro := opts.RepoOptions[parts[0]]
+		if ro != nil {
+			repo = ro.File.Commit.Branch.Repo.Name
+		}
+		mfc, err := mfc(repo)
 		if err != nil {
 			return err
 		}
