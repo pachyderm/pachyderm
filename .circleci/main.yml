@@ -569,6 +569,11 @@ jobs:
       - run: 
           name: Install Docker
           command: sudo dpkg -i ./docker-ce-cli_20.10.17~3-0~ubuntu-focal_amd64.deb
+      - run:
+          name: Build Docker image
+          command: |
+            cd etc/test-images
+            docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
 workflows:
   docker-build:
     jobs:
