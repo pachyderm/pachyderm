@@ -439,7 +439,6 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				Env:             sidecarEnv,
 				EnvFrom:         envFrom,
 				VolumeMounts:    sidecarVolumeMounts,
-				},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
