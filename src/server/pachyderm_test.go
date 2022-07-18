@@ -6438,6 +6438,7 @@ func TestCronPipeline(t *testing.T) {
 			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
 			require.NoError(t, err)
 			_, err = c.WaitCommit(repo, "master", "")
+			require.NoError(t, err)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
