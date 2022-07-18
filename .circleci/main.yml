@@ -577,10 +577,26 @@ jobs:
           command: |
             cd etc/test-images
             docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
+  build-remote-docker:
+    resource_class: large
+    docker:
+      - image: cimg/go:1.18.3
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+          version: "20.10.12"
+      - run:
+          name: Build Docker image
+          command: |
+            cd etc/test-images
+            docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
+
 workflows:
   docker-build:
     jobs:
       - docker-build
+      - build-remote-docker
   #integration-tests:
   #  jobs:
   #    - build-docker-images
