@@ -13,9 +13,11 @@ import (
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 const (
@@ -50,6 +52,7 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr er
 	}
 	txnC := client.WithTransaction(txn)
 	outCommits := make(map[string]*pfs.Commit)
+	var commitID string
 	for _, request := range requests {
 		pipeline := request.Pipeline.Name
 		if err := txnC.UpdateRepo(pipeline); err != nil {
@@ -59,19 +62,23 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr er
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := client.FinishCommit(pipeline, "master", commit.ID); err != nil {
-				retErr = err
-			}
-		}()
+		commitID = commit.ID
 		outCommits[pipeline] = commit
 	}
 	if _, err := client.FinishTransaction(txn); err != nil {
 		return err
 	}
 	for _, request := range requests {
-		fmt.Printf("Running: %s\n", request.Pipeline.Name)
+		fmt.Printf("Running pipeline: %s\n", request.Pipeline.Name)
 		if err := client.ListDatumInput(request.Input, func(di *ppsclient.DatumInfo) error {
+			fmt.Printf("Running datum: %s with files:\n", di.Datum.ID)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeaderWithRepoAndCommit)
+			for _, fi := range di.Data {
+				pretty.PrintFileInfo(writer, fi, false, true, true)
+			}
+			if err := writer.Flush(); err != nil {
+				return err
+			}
 			mountOpts := make(map[string]*fuse.RepoOptions)
 			for _, fi := range di.Data {
 				mountOpts[fi.File.Commit.Branch.Repo.Name] = &fuse.RepoOptions{
@@ -111,6 +118,9 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr er
 			cmd.Stderr = os.Stderr
 			return cmd.Run()
 		}); err != nil {
+			return err
+		}
+		if err := client.FinishCommit(request.Pipeline.Name, "master", commitID); err != nil {
 			return err
 		}
 	}

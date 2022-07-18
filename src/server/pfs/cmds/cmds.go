@@ -1381,7 +1381,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 			header := pretty.FileHeader
 			writer := tabwriter.NewWriter(os.Stdout, header)
 			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps, false)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, false, false)
 				return nil
 			}); err != nil {
 				return err
@@ -1433,7 +1433,7 @@ $ {{alias}} "foo@master:data/*"`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
+				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false, false)
 			}
 			return writer.Flush()
 		}),

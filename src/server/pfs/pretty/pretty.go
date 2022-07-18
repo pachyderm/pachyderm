@@ -30,6 +30,8 @@ const (
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
 	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	// FileHeaderWithRepoAndCommit is the header for files that includes the repo and a commit field.
+	FileHeaderWithRepoAndCommit = "REPO\tCOMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 	// DiffFileHeader is the header for files produced by diff file.
 	DiffFileHeader = "OP\t" + FileHeader
 )
@@ -248,7 +250,10 @@ Size: {{prettySize .Details.SizeBytes}}{{end}}
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withCommit bool) {
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withRepo bool, withCommit bool) {
+	if withRepo {
+		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.Branch.Repo.Name)
+	}
 	if withCommit {
 		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	}
@@ -278,7 +283,7 @@ func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTime
 	} else {
 		fmt.Fprint(w, color.RedString("-\t"))
 	}
-	PrintFileInfo(w, fileInfo, fullTimestamps, false)
+	PrintFileInfo(w, fileInfo, fullTimestamps, false, false)
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.
