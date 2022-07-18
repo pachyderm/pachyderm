@@ -320,13 +320,18 @@ spec:
             command:
             - /pachd
             - --readiness
-        startupProbe:
+        livenessProbe:
           exec:
             command:
             - /pachd
             - --readiness
           failureThreshold: 10
           timeoutSeconds: 30
+        startupProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
