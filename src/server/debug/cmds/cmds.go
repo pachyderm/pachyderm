@@ -118,7 +118,6 @@ func Cmds() []*cobra.Command {
 			dump := shell.NewDumpServer(args[0], uint16(serverPort))
 			fmt.Println("listening on", dump.Address())
 			select {}
-			return nil
 		}),
 	}
 	analyze.Flags().IntVarP(&serverPort, "port", "p", 0,
