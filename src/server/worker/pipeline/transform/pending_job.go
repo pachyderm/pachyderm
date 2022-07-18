@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -105,7 +106,18 @@ func (pj *pendingJob) load() error {
 		}
 		// both commits must have succeeded - a validation error will only show up in the output
 		if metaCI.Error == "" && outputCI.Error == "" {
-			break
+			_, err := pachClient.InspectJob(pj.baseMetaCommit.Branch.Repo.Name, pj.baseMetaCommit.ID, false)
+			if err != nil {
+				if !errutil.IsNotFoundError(err) {
+					return err
+				}
+				// a missing job and will lead to failure creating the base job datum set
+				// it can happen due to manual job deletion or a bad meta commit due to
+				// provenance issues, so just skip and hope we can find a good past state
+				// TODO(pfedak): revisit when we settle on provenance fixes
+			} else {
+				break
+			}
 		}
 		pj.baseMetaCommit = metaCI.ParentCommit
 	}

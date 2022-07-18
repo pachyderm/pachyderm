@@ -10879,3 +10879,43 @@ func TestZombieCheck(t *testing.T) {
 	require.Equal(t, 1, len(messages))
 	require.Matches(t, "zombie", messages[0])
 }
+
+func TestDeletedJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name() + "data")
+	pipeline := tu.UniqueString(t.Name())
+
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), basicPipelineReq(pipeline, repo))
+	require.NoError(t, err)
+
+	toDelete, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(toDelete, "foo1", strings.NewReader("bar")))
+	require.NoError(t, c.FinishCommit(repo, "master", toDelete.ID))
+
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := c.WaitJob(pipeline, toDelete.ID, false)
+		return err
+	})
+	// delete the job that just ran
+	require.NoError(t, c.DeleteJob(pipeline, toDelete.ID))
+	// new job should complete successfully
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
+		"foo2", strings.NewReader("baz")))
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		info, err := c.WaitCommit(pipeline, "master", "")
+		if err != nil {
+			return err
+		}
+		if info.Error != "" {
+			return errors.Errorf("commit errored with %s", info.Error)
+		}
+		return nil
+	})
+}
