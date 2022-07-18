@@ -41,7 +41,7 @@ const PipelineInfo: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
       </Description>
 
       {pipeline?.reason && (
-        <Description term="Status Reason" loading={loading}>
+        <Description term="Failure Reason" loading={loading}>
           {extractAndShortenIds(pipeline.reason)}
         </Description>
       )}

@@ -1,5 +1,5 @@
 .base {
-  color: var(--pachyderm-plum);
+  color: var(--pachyderm-black);
   margin-right: 0.25rem;
 }
 
@@ -8,6 +8,10 @@
   align-items: center;
 }
 
-.icon.hide {
-  display: none;
+.copy, .copy:hover, .copy:focus {
+  color: var(--pachyderm-black) !important;
+}
+
+.icon {
+  /* color: var(--pachyderm-plum); */
 }

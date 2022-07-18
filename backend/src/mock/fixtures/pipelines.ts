@@ -52,6 +52,9 @@ const tutorial = [
             ]),
         ),
     )
+    .setReason(
+      'datum 64b95f0fe1a787b6c26ec7ede800be6f2b97616f3224592d91cbfe1cfccd00a1 failed',
+    )
     .setState(PipelineState.PIPELINE_FAILURE),
 
   new PipelineInfo()

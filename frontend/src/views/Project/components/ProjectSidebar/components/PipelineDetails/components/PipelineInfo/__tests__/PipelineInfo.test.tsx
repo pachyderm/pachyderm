@@ -42,6 +42,9 @@ describe('PipelineInfo', () => {
       getByText('Pipeline Type').parentElement?.nextElementSibling,
     ).toHaveTextContent('Standard');
     expect(
+      getByText('Failure Reason').parentElement?.nextElementSibling,
+    ).toHaveTextContent('failed');
+    expect(
       getByText('Description').parentElement?.nextElementSibling,
     ).toHaveTextContent('Not my favorite pipeline');
 

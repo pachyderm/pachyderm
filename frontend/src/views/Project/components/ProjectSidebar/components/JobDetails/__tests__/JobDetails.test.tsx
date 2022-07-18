@@ -179,6 +179,31 @@ describe('Job Details', () => {
     expect(queryByTestId('InfoPanel__durationDetails')).toMatchSnapshot();
   });
 
+  it('should display job failure', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      jobRoute({
+        projectId,
+        jobId,
+        pipelineId: 'likelihoods',
+      }),
+    );
+
+    const {queryByTestId, getByTestId} = render(<TestBed />);
+
+    await waitFor(() =>
+      expect(queryByTestId('JobDetails__loading')).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        queryByTestId('Description__InputsSkeleton'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(getByTestId('InfoPanel__state')).toHaveTextContent('Failure');
+    expect(getByTestId('InfoPanel__reason')).toHaveTextContent('failed');
+  });
+
   it('should correctly render extra details in JSON blob', async () => {
     window.history.replaceState(
       '',

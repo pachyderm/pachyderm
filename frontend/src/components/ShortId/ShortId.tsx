@@ -6,16 +6,16 @@ import {
   Tooltip,
   Icon,
 } from '@pachyderm/components';
-import classnames from 'classnames';
 import React, {useCallback} from 'react';
 
 import styles from './ShortId.module.css';
 
 interface ShortIdProps {
   inputString: string;
+  error?: boolean;
 }
 
-const ShortId: React.FC<ShortIdProps> = ({inputString}) => {
+const ShortId: React.FC<ShortIdProps> = ({inputString, error}) => {
   const shortId = inputString.slice(0, 8);
   inputString.replace(/[a-zA-Z0-9_-]{64}|[a-zA-Z0-9_-]{32}/, 'ID');
   const {copy, copied, reset} = useClipboardCopy(inputString);
@@ -38,11 +38,11 @@ const ShortId: React.FC<ShortIdProps> = ({inputString}) => {
           data-testid={`CommitPath_copy`}
         >
           {`${shortId} `}
-          <Icon small>
-            <CopySVG
-              className={classnames(styles.icon, {[styles.hide]: copied})}
-            />
-          </Icon>
+          {!copied && (
+            <Icon small color="plum">
+              <CopySVG className={styles.icon} />
+            </Icon>
+          )}
           <SuccessCheckmark
             show={copied}
             className={styles.icon}

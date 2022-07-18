@@ -17,6 +17,7 @@ import {
   PipelineLink,
   CommitLink,
 } from '@dash-frontend/components/ResourceLink';
+import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import {
   readableJobState,
   getJobStateHref,
@@ -101,6 +102,16 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
               ))}
             </div>
           </div>
+        )}
+        {job?.reason && (
+          <Description
+            term="Failure Reason"
+            loading={loading}
+            className={styles.inputs}
+            data-testid="InfoPanel__reason"
+          >
+            {extractAndShortenIds(job.reason)}
+          </Description>
         )}
       </div>
       <div className={styles.section}>

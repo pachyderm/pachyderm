@@ -96,6 +96,7 @@ const customerTeam = [
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'likelihoods'},
     },
+    reason: 'inputs failed: images',
     dataFailed: 100,
     dataTotal: 100,
   }),
@@ -124,6 +125,8 @@ const customerTeam = [
       id: '23b9af7d5d4343219bc8e02ff4acd33a',
       pipeline: {name: 'joint_call'},
     },
+    reason:
+      'datum 64b95f0fe1a787b6c26ec7ede800be6f2b97616f3224592d91cbfe1cfccd00a1 failed',
     dataFailed: 0,
     dataTotal: 0,
   }),
