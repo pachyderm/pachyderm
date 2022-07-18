@@ -120,7 +120,6 @@ nav:
         - Contributing:
             - Setup for Contributors: contributing/setup.md
             - Repo Layout: contributing/repo-layout.md
-            - Supported releases: contributing/supported-releases.md   
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
@@ -253,6 +252,7 @@ nav:
         - Pachyderm Config Specification: reference/config-spec.md
         - Pachyderm Helm Chart Values Specification: reference/helm-values.md
         - Pachyderm Language Clients: reference/clients.md
+        - Supported releases: reference/supported-releases.md   
         - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md

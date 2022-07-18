@@ -65,7 +65,7 @@ in Pachyderm 1.12. Please take a look at our examples:
 - More extensive - Pachyderm's integration of spouts with RabbitMQ: https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/spouts/go-rabbitmq-spout 
 
 !!! Warning
-    The following examples are based on our previous version of spout. That implementation is now [deprecated](../../contributing/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
+    The following examples are based on our previous version of spout. That implementation is now [deprecated](../../reference/supported-releases/#deprecated). Those examples will be adapted to spout 2.0 shortly.
 
 * [Email Sentiment Analyzer](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/spouts/EmailSentimentAnalyzer)
 * [Commit Messages from a Kafka Queue](https://github.com/pachyderm/pachyderm/tree/1.13.x/examples/spouts/go-kafka-spout)

@@ -29,6 +29,12 @@
   followSourceMaps = false
 
 [[redirects]]
+  from = "/:version/contributing/supported-releases"
+  to = "/:version/reference/supported-releases"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "/"
   to = "/latest/"
   status = 301

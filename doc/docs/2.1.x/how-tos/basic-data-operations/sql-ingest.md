@@ -2,7 +2,7 @@
 # Data Warehouse Integration
 
 !!! Warning
-    SQL Ingest is an [experimental feature](../../../contributing/supported-releases/#experimental).
+    SQL Ingest is an [experimental feature](../../../reference/supported-releases/#experimental).
 
 Part of your data might live in databases requiring some level of integration with your warehouse to retrieve and inject them into Pachyderm.
 
