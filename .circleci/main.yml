@@ -138,7 +138,7 @@ jobs:
           path: /tmp/test-results
   helm-tests:
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -339,7 +339,7 @@ jobs:
         default: ${CIRCLE_SHA1}
     resource_class: large
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - setup_remote_docker:
@@ -448,7 +448,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - setup_remote_docker:
