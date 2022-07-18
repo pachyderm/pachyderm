@@ -479,8 +479,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 }
 
 func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
-	uw.Delete(request.Path, request.Datum)
-	return nil
+	return uw.Delete(request.Path, request.Datum)
 }
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC

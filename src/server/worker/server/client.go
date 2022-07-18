@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
@@ -26,13 +27,12 @@ const (
 	defaultTimeout = time.Second * 5
 )
 
-// Status returns the statuses of workers referenced by pipelineRcName.
-// pipelineRcName is the name of the pipeline's RC and can be gotten with
-// ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
-// clients for all workers.
-func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
+// Status returns the statuses of workers referenced by pipelineRcName.  Pass ""
+// for pipelineName and zero for pipelineVersion to get all clients for all
+// workers.
+func Status(ctx context.Context, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
 	var result []*pps.WorkerStatus
-	if err := ForEachWorker(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+	if err := forEachWorker(ctx, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 		defer cancel()
 		status, err := c.Status(ctx, &types.Empty{})
@@ -48,13 +48,12 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	return result, nil
 }
 
-// Cancel cancels a set of datums running on workers.
-// pipelineRcName is the name of the pipeline's RC and can be gotten with
-// ppsutil.PipelineRcName.
-func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
+// Cancel cancels a set of datums running on workers.  Pass an empty string and
+// zero version to cancel ALL workers.
+func Cancel(ctx context.Context, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client,
 	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) (retErr error) {
 	success := false
-	if err := ForEachWorker(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
+	if err := forEachWorker(ctx, pipelineName, pipelineVersion, etcdClient, etcdPrefix, workerGrpcPort, func(c Client) error {
 		resp, err := c.Cancel(ctx, &CancelRequest{
 			JobID:       jobID,
 			DataFilters: dataFilter,
@@ -110,22 +109,33 @@ func NewClient(address string) (Client, error) {
 	return newClient(conn), nil
 }
 
-// TODO: It may make sense to parallelize this, but we have to consider that this operation can have multiple instances running in parallel.
-func ForEachWorker(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
+// forEachWorker executes a callback for each worker, identified by the
+// pipelineName and pipelineVersion.  Callers may pass an empty name and zero
+// version for all workers.
+//
+// TODO: It may make sense to parallelize this, but we have to consider that
+// this operation can have multiple instances running in parallel.
+//
+// TODO: Consider switching to more-idiomatic Go iterator pattern.
+func forEachWorker(ctx context.Context, pipelineName string, pipelineVersion uint64, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16, cb func(Client) error) error {
+	var pipelineRcName string
+	if pipelineName != "" && pipelineVersion != 0 {
+		pipelineRcName = ppsutil.PipelineRcName(pipelineName, pipelineVersion)
+	}
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	for _, kv := range resp.Kvs {
 		workerIP := path.Base(string(kv.Key))
-		if err := WithClient(ctx, workerIP, workerGrpcPort, cb); err != nil {
+		if err := withClient(ctx, workerIP, workerGrpcPort, cb); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func WithClient(ctx context.Context, address string, port uint16, cb func(Client) error) (retErr error) {
+func withClient(ctx context.Context, address string, port uint16, cb func(Client) error) (retErr error) {
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),

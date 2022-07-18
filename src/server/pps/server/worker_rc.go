@@ -28,7 +28,9 @@ import (
 )
 
 const (
+	appLabel                     = "app"
 	pipelineNameLabel            = "pipelineName"
+	pipelineVersionLabel         = "pipelineVersion"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
@@ -597,8 +599,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	transform := pipelineInfo.Details.Transform
-	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
-	labels := labels(rcName)
+	labels := pipelineLabels(pipelineName, pipelineVersion)
 	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
@@ -742,7 +743,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                rcName,
+		rcName:                ppsutil.PipelineRcName(pipelineName, pipelineVersion),
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,
@@ -788,7 +789,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "spout-pachctl-secret-" + pipelineInfo.Pipeline.Name,
-			Labels: labels(pipelineInfo.Pipeline.Name),
+			Labels: spoutLabels(pipelineInfo.Pipeline.Name),
 		},
 		Data: map[string][]byte{
 			"config.json": rawConfig,
