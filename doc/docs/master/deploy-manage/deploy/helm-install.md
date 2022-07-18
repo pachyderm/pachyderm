@@ -199,14 +199,24 @@ You can provide credentials and configuration values directly in your values.yam
 
     The rest of the values will be generated for you.
 
+!!! Note
+    In the case where you have activated Enterprise and configured your IdP, note that you have the option to set roles at the Cluster level when deploying.
+
 - *A-2 - Choose and set your values rather than rely on autogeneration*
         
     For example, by using:
 
+    - For a root token:
     ```shell
     openssl rand -hex 16
     f438329fc98302779be65eef226d32c1
     ```
+    - For other values:
+    ```shell
+    openssl rand -base64 42
+    tJkHm0+8niOtP1F8lAPryO9dGwMV7SL/u/uCZQi24kFuRj+7VYvtj01q
+    ```
+
 !!! Note
     Note that those values will be injected into platform secrets at the time of the installation.
 #### **B - Use Secret(s)** 
@@ -245,7 +255,7 @@ In the following table, you will find the complete list of:
 
 |Secret KEY name| <div style="width:290px"> Description </div>| A - Create your secrets ahead <br> of your cluster creation| B - Pass credentials in values.yaml| <div style="width:250px"> C - Corresponding (Platform Secret, Key) in which the values provided in A or B will be injected.</div>| 
 |------------|------------|-----|--------|---------|
-|root-token| Root clusterAdmin| pachd.rootTokenSecretName |pachd.rootToken|(pachyderm-auth, rootToken)|
+|root-token| Root user Password| pachd.rootTokenSecretName |pachd.rootToken|(pachyderm-auth, rootToken)|
 |root-token|Users give this token in their values.yaml when they install a cluster that is under an [Enterprise Server's](../../enterprise/auth/enterprise-server/setup) umbrella.|pachd.enterpriseRootTokenSecretName|pachd.enterpriseRootToken|????|
 |postgresql-password|Password to your database|global.postgresql.postgresqlExistingSecretName <br> global.postgresql.postgresqlExistingSecretKey |global.postgresql.postgresqlPassword|(postgres, postgresql-password) , (postgres, postgresql-postgres-password)|
 |OAUTH_CLIENT_SECRET|Oauth client secret for Console <br> Required if you set Console|console.config.oauthClientSecretSecretName |console.config.oauthClientSecret|(pachyderm-console-secret, OAUTH_CLIENT_SECRET)|
