@@ -332,6 +332,8 @@ spec:
             command:
             - /pachd
             - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
