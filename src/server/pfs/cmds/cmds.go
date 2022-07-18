@@ -1395,7 +1395,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
 	globFile := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
+		Use:   `{{alias}} "<repo>@<branch-or-commit>:<pattern>"`,
 		Short: "Return files that match a glob pattern in a commit.",
 		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
 		Example: `
