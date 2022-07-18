@@ -13,7 +13,7 @@ For each cloud provider, we will give you the option to "quick deploy" Pachyderm
 
     Then find your targeted Cloud provider in the [Deploy and Manage](../) section of this documentation.
 
-!!! Attention "Interested in deploying with an embedded proxy and expose one single external port?"
+!!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     

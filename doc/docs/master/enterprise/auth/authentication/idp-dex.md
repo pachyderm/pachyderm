@@ -186,8 +186,28 @@ and your IdP-Pachyderm connector config file created (here with the Auth0 parame
 
 - Reference your connector in Helm
 
-!!! Note
-    Coming Soon
+    Provide your connector info in the [oidc.upstreamIDPs](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L706){target=_blank} field of your helm values. Pachyderm will store this value in the platform secret `pachyderm-identity` in the key upstream-idps.
+
+    Alternatively, you can [create a secret](../../../../how-tos/advanced-data-operations/secrets/#generate-your-secret-configuration-file){target=_blank} containing your dex connectors (Key: upstream-idps) and reference its name in the field [oidc.upstreamIDPsSecretName](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L737){target=_blank}.
+
+!!! Example 
+    Below, a yaml example of the `stringData` section of an IdP generic secret.
+
+    ```yaml
+    stringData:
+    upstream-idps: |
+        - type: github
+        id: github
+        name: GitHub
+        jsonConfig: >-
+            {
+            "clientID": "xxx",
+            "clientSecret": "xxx",
+            "redirectURI": "https://pach.pachdemo.cloud/dex/callback",
+            "loadAllGroups": true
+            }
+    ```
+
 
 - Alternatively, use `pachctl`
 
