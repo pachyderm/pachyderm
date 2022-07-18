@@ -117,12 +117,46 @@ describe('grpc/builders/pps', () => {
     expect(parallelismSpec.getConstant()).toBe(1);
   });
 
-  it('should create Egress from an object', () => {
+  it('should create Egress from url', () => {
     const egress = egressFromObject({
       url: 's3://bucket/dir',
     });
 
     expect(egress.getUrl()).toBe('s3://bucket/dir');
+  });
+
+  it('should create Egress from a sql database', () => {
+    const egress = egressFromObject({
+      sqlDatabase: {
+        fileFormat: {
+          type: 1,
+          columnsList: ['columnA'],
+        },
+        url: 's3://bucket/dir',
+        secret: {
+          name: 'secret',
+          key: 'abcd',
+        },
+      },
+    });
+
+    expect(egress.getSqlDatabase()?.getUrl()).toBe('s3://bucket/dir');
+    expect(egress.getSqlDatabase()?.getFileFormat()?.getType()).toBe(1);
+    expect(egress.getSqlDatabase()?.getFileFormat()?.getColumnsList()[0]).toBe(
+      'columnA',
+    );
+    expect(egress.getSqlDatabase()?.getSecret()?.getName()).toBe('secret');
+    expect(egress.getSqlDatabase()?.getSecret()?.getKey()).toBe('abcd');
+  });
+
+  it('should create Egress from object storage', () => {
+    const egress = egressFromObject({
+      objectStorage: {
+        url: 's3://bucket/dir',
+      },
+    });
+
+    expect(egress.getObjectStorage()?.getUrl()).toBe('s3://bucket/dir');
   });
 
   it('should create GPUSpec from an object', () => {

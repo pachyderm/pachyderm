@@ -11,6 +11,7 @@ import {
   TimestampObject,
 } from '../builders/protobuf';
 import {GetLogsRequestArgs} from '../lib/types';
+import {ObjectStorageEgress, SQLDatabaseEgress} from '../proto/pfs/pfs_pb';
 import {
   CronInput,
   DatumSetSpec,
@@ -74,7 +75,9 @@ export type ParallelismSpecObject = {
 };
 
 export type EgressObject = {
-  url: Egress.AsObject['url'];
+  url?: Egress.AsObject['url'];
+  objectStorage?: Egress.AsObject['objectStorage'];
+  sqlDatabase?: Egress.AsObject['sqlDatabase'];
 };
 
 export type GPUSpecObject = {
@@ -291,9 +294,50 @@ export const parallelismSpecFromObject = ({
   return parallelismSpec;
 };
 
-export const egressFromObject = ({url}: EgressObject) => {
+export const egressFromObject = ({
+  url,
+  sqlDatabase,
+  objectStorage,
+}: EgressObject) => {
   const egress = new Egress();
-  egress.setUrl(url);
+  if (url) {
+    egress.setUrl(url);
+  }
+
+  if (sqlDatabase) {
+    const sqlDatabaseEgress = new SQLDatabaseEgress();
+
+    if (sqlDatabase.url) {
+      sqlDatabaseEgress.setUrl(sqlDatabase.url);
+    }
+
+    if (sqlDatabase.fileFormat) {
+      const fileFormat = new SQLDatabaseEgress.FileFormat();
+      if (sqlDatabase.fileFormat.type) {
+        fileFormat.setType(sqlDatabase.fileFormat.type);
+      }
+      if (sqlDatabase.fileFormat.columnsList) {
+        fileFormat.setColumnsList(sqlDatabase.fileFormat.columnsList);
+      }
+      sqlDatabaseEgress.setFileFormat(fileFormat);
+    }
+
+    if (sqlDatabase.secret) {
+      const secret = new SQLDatabaseEgress.Secret();
+      if (sqlDatabase.secret.key) {
+        secret.setKey(sqlDatabase.secret.key);
+      }
+      if (sqlDatabase.secret.name) {
+        secret.setName(sqlDatabase.secret.name);
+      }
+      sqlDatabaseEgress.setSecret(secret);
+    }
+    egress.setSqlDatabase(sqlDatabaseEgress);
+  } else if (objectStorage?.url) {
+    const objectStorageEgress = new ObjectStorageEgress();
+    objectStorageEgress.setUrl(objectStorage?.url);
+    egress.setObjectStorage(objectStorageEgress);
+  }
 
   return egress;
 };
