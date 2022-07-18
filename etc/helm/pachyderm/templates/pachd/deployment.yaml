@@ -325,6 +325,8 @@ spec:
             command:
             - /pachd
             - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
         startupProbe:
           exec:
             command:

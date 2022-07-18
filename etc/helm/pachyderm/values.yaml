@@ -579,7 +579,7 @@ kubeEventTail:
     tag: "v0.0.6"
   resources:
     limits:
-      cpu: 1
+      cpu: "1"
       memory: 45Mi
     requests:
       cpu: 100m
