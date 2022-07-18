@@ -16,7 +16,7 @@ This page gives a high level view of the steps to follow to install Pachyderm us
 !!! Important "Before your start your installation process." 
       - Refer to this generic page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on setting up an ingress controller, a TCP load balancer, or connecting an Identity Provider for access control. 
-      
+
       - If you are planning to use Pachyderm UI with authentication, read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires the set up of a DNS, an Ingress, and the activation of authentication.
 
 ## Install
@@ -222,7 +222,7 @@ Find the complete list of secrets in the table below:
 
 |Secret Name  <div style="width:190px"> | Key |	Description <div style="width:290px">|
 |---------------------------------|-----|-------------|
-|`pachyderm-auth`                 |	- root-token <div> - auth-config <div> - cluster-role-bindings | - Password of the "root" user of your cluster. <div> - Pachd oidc config to connect to dex.<div> - [Role Based Access declaration](../../enterprise/auth/authorization/index) at the cluster level. Used to define access control at the cluster level when deploying. For example: Give a specific group `ClusterAdmin` access at once, or give an entire company a default `RepoReader` access to all repos on this cluster.|
+|`pachyderm-auth`                 |	- root-token <div> - auth-config <div> - cluster-role-bindings | - "root" user password of your cluster. <div> - Pachd oidc config to connect to dex.<div> - [Role Based Access declaration](../../enterprise/auth/authorization/index) at the cluster level. Used to define access control at the cluster level when deploying. For example: Give a specific group `ClusterAdmin` access at once, or give an entire company a default `RepoReader` access to all repos on this cluster.|
 |**`pachyderm-console-secret`**     | OAUTH_CLIENT_SECRET | Oauth client secret for Console. Required if you set Console Enterprise. |
 |**`pachyderm-deployment-id-secret`** | CLUSTER_DEPLOYMENT_ID | Internal Cluster identifier. |
 |**`pachyderm-enterprise`** | enterprise-secret | For internal use. Used as a shared secret between an Enterprise Server and a Cluster to communicate. Always present when enterprise is on but used only when an Enterprise Server is set.|
@@ -231,7 +231,7 @@ Find the complete list of secrets in the table below:
 |`pachyderm-storage-secret` | *This content depends on what object store backs your installation of Pachyderm.*|Credentials for Pachyderm to access your object store.|
 |`postgres` | - postgresql-password <div> - postgresql-postgres-password| Password for Pachyderm to Access Postgres. |
 
-*Secrets in bold do not need to be set by users*
+*Secrets in bold do not need to be set by users.*
 ### Mapping External Secrets Fields, Values Fields, and Pachyderm Platform Secrets
 
 In the following table, you will find the complete list of:
