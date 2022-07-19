@@ -173,9 +173,9 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 	if err := func() error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
-		return db.PingContext(ctx)
+		return errors.EnsureStack(db.PingContext(ctx))
 	}(); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	log.Info("Connected to DB")
 
