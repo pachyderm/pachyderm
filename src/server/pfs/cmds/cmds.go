@@ -1407,7 +1407,7 @@ $ {{alias}} "foo@master:A*"
 # Return files in repo "foo" on branch "master" under directory "data".
 $ {{alias}} "foo@master:data/*" 
 
-# If you only want to list files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
+# If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
