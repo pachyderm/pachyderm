@@ -63,14 +63,14 @@
       );
     }
 
-    $(function() {
-      $("[data-clickid]").click(function () {
+    jQuery(function() {
+      jQuery("[data-clickid]").click(function () {
           rudderanalytics.track(
               "Click",
               {
                   context: {
                       traits: {
-                          clickid: $(this).attr("data-clickid")
+                          clickid: jQuery(this).attr("data-clickid")
                       }
                   }
               }
