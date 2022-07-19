@@ -62,67 +62,39 @@ describe('lib/analytics', () => {
     });
   });
 
-  it('should fire an identify event for an authenticated user', () => {
+  it('should fire an identify event', () => {
     window.history.pushState({}, '', '?utm_source=shinra&utm_content=mako');
     captureTrackingCookies();
 
     fireIdentify(
-      identify,
-      track,
-      getAnonymousId,
       '7',
       'cloud@avalanche.org',
       new Date(1605719038392).getTime() / 1000,
-      '123abc',
+      identify,
+      track,
+      getAnonymousId,
     );
 
     expect(identify).toHaveBeenCalledWith('7', {
       anonymous_id: 'mock-anonymous-id',
       email: 'cloud@avalanche.org',
-      created_at: '2020-11-18T17:03:58.392Z',
-      cluster_id: '123abc',
+      hub_created_at: '2020-11-18T17:03:58.392Z',
+      hub_user_id: '7',
       latest_utm_source: 'shinra',
       latest_utm_content: 'mako',
       source_utm_source: 'shinra',
       source_utm_content: 'mako',
     });
-
     expect(track).toHaveBeenCalledWith('authenticated', {
       anonymousId: 'mock-anonymous-id',
       authCreatedAt: '2020-11-18T17:03:58.392Z',
       authEmail: 'cloud@avalanche.org',
       authId: '7',
-      clusterId: '123abc',
       latest_utm_source: 'shinra',
       latest_utm_content: 'mako',
       source_utm_source: 'shinra',
       source_utm_content: 'mako',
     });
-  });
-
-  it('should fire an identify event for an unauthenticated user', () => {
-    window.history.pushState({}, '', '?utm_source=shinra&utm_content=mako');
-    captureTrackingCookies();
-
-    fireIdentify(
-      identify,
-      track,
-      getAnonymousId,
-      undefined,
-      undefined,
-      undefined,
-      '123abc',
-    );
-
-    expect(identify).toHaveBeenCalledWith(null, {
-      cluster_id: '123abc',
-      anonymous_id: 'mock-anonymous-id',
-      latest_utm_source: 'shinra',
-      latest_utm_content: 'mako',
-      source_utm_source: 'shinra',
-      source_utm_content: 'mako',
-    });
-    expect(track).toHaveBeenCalledTimes(0);
   });
 
   it('should fire a page event', () => {
@@ -209,12 +181,12 @@ describe('lib/analytics', () => {
     });
 
     fireIdentify(
-      identify,
-      track,
-      getAnonymousId,
       '7',
       'cloud@avalanche.org',
       new Date(1605719038392).getTime() / 1000,
+      identify,
+      track,
+      getAnonymousId,
     );
     expect(captureException).toHaveBeenCalledWith(
       '[Analytics Error]: Operation: track, Event: identify, ID: 7, Error: Analytics exploded!',

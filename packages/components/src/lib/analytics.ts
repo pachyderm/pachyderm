@@ -87,43 +87,34 @@ export const fireClick = (clickId: string, track: Track) => {
 };
 
 export const fireIdentify = (
+  authId: string,
+  authEmail: string,
+  authCreatedAt: number,
   identify: Identify,
   track: Track,
   getAnonymousId: GetAnonymousId,
-  authId?: string,
-  authEmail?: string,
-  authCreatedAt?: number,
-  clusterId?: string,
 ) => {
   try {
     const trackingCookies = getTrackingCookies();
     const anonymousId = getAnonymousId();
+    const createdAt = new Date(authCreatedAt * 1000).toISOString();
 
-    if (authId && authEmail && authCreatedAt) {
-      const createdAt = new Date(authCreatedAt * 1000).toISOString();
-      identify(authId, {
-        anonymous_id: anonymousId,
-        email: authEmail,
-        cluster_id: clusterId,
-        created_at: createdAt,
-        ...trackingCookies,
-      });
+    identify(authId, {
+      anonymous_id: anonymousId,
+      email: authEmail,
+      hub_created_at: createdAt,
+      hub_promo_code: undefined,
+      hub_user_id: authId,
+      ...trackingCookies,
+    });
 
-      track('authenticated', {
-        authCreatedAt: createdAt,
-        authEmail,
-        authId,
-        anonymousId,
-        clusterId,
-        ...trackingCookies,
-      });
-    } else {
-      identify(null, {
-        anonymous_id: anonymousId,
-        cluster_id: clusterId,
-        ...trackingCookies,
-      });
-    }
+    track('authenticated', {
+      authCreatedAt: createdAt,
+      authEmail,
+      authId,
+      anonymousId,
+      ...trackingCookies,
+    });
   } catch (err) {
     captureException(
       `[Analytics Error]: Operation: track, Event: identify, ID: ${authId}, ${err}`,

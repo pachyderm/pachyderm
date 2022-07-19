@@ -12,7 +12,6 @@ export type UseAnalyticsProps = {
   createdAt?: number;
   email?: string;
   id?: string;
-  clusterId?: string;
   provider: {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     getAnonymousId: (...args: any[]) => void;
@@ -23,13 +22,7 @@ export type UseAnalyticsProps = {
   };
 };
 
-const useAnalytics = ({
-  createdAt,
-  email,
-  id,
-  clusterId,
-  provider,
-}: UseAnalyticsProps) => {
+const useAnalytics = ({createdAt, email, id, provider}: UseAnalyticsProps) => {
   const init = useCallback(() => {
     if (window.analyticsInitialized) {
       return;
@@ -55,17 +48,18 @@ const useAnalytics = ({
       return;
     }
 
-    window.analyticsIdentified = true;
-    fireIdentify(
-      provider.identify,
-      provider.track,
-      provider.getAnonymousId,
-      id,
-      email,
-      createdAt,
-      clusterId,
-    );
-  }, [createdAt, id, email, clusterId, provider]);
+    if (createdAt && email && id) {
+      window.analyticsIdentified = true;
+      fireIdentify(
+        id,
+        email,
+        createdAt,
+        provider.identify,
+        provider.track,
+        provider.getAnonymousId,
+      );
+    }
+  }, [createdAt, id, email, provider]);
 
   return {init};
 };

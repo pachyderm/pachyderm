@@ -75,4 +75,28 @@ describe('hooks/useAnalytics', () => {
     expect(fireUTM).toHaveBeenCalledTimes(1);
     expect(fireIdentify).toHaveBeenCalledTimes(1);
   });
+
+  it('should not fire identify when not given account info', () => {
+    render(<AnalyticsComponent />);
+
+    expect(captureTrackingCookies).toHaveBeenCalledTimes(1);
+    expect(initPageTracker).toHaveBeenCalledTimes(1);
+    expect(initClickTracker).toHaveBeenCalledTimes(1);
+    expect(fireUTM).toHaveBeenCalledTimes(1);
+    expect(fireIdentify).toHaveBeenCalledTimes(0);
+
+    render(
+      <AnalyticsComponent
+        createdAt={1629823988932}
+        email="cloud@avalanche.org"
+        id="1"
+      />,
+    );
+
+    expect(captureTrackingCookies).toHaveBeenCalledTimes(1);
+    expect(initPageTracker).toHaveBeenCalledTimes(1);
+    expect(initClickTracker).toHaveBeenCalledTimes(1);
+    expect(fireUTM).toHaveBeenCalledTimes(1);
+    expect(fireIdentify).toHaveBeenCalledTimes(1);
+  });
 });
