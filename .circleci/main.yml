@@ -19,6 +19,13 @@ parameters:
     type: string
     default: "ubuntu-2004:202201-02"
 
+commands:
+  shallow-checkout:
+    steps:
+      - run:
+          name: Shallow clone repo
+          command: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
+
 jobs:
   test-go:
     machine:
@@ -27,7 +34,7 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
-      - checkout
+      - shallow-checkout
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
@@ -70,7 +77,7 @@ jobs:
       GOPROXY: https://proxy.golang.org
       BUCKET: << parameters.bucket >>
     steps:
-      - checkout
+      - shallow-checkout
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
@@ -169,7 +176,7 @@ jobs:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
     steps:
-      - checkout
+      - shallow-checkout
       - run:
           name: install yq
           command: |
@@ -262,7 +269,7 @@ jobs:
       GOOGLE_COMPUTE_ZONE: us-east1-b
       GOOGLE_COMPUTE_REGION: us-east1
     steps:
-      - checkout
+      - shallow-checkout
       - gcp-cli/initialize
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -277,7 +284,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
-      - checkout
+      - shallow-checkout
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -293,7 +300,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
-      - checkout
+      - shallow-checkout
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -343,7 +350,7 @@ jobs:
     docker:
       - image: cimg/go:1.18.4
     steps:
-      - checkout
+      - shallow-checkout
       - setup_remote_docker:
           docker_layer_caching: true
           version: "20.10.12"
@@ -380,7 +387,7 @@ jobs:
     docker:
       - image: cimg/go:1.18.4
     steps:
-      - checkout
+      - shallow-checkout
       - run:
           name: Download utilities
           command: |
@@ -433,7 +440,7 @@ jobs:
     docker:
       - image: cimg/node:16.11.0
     steps:
-      - checkout
+      - shallow-checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
   test-envoy:
@@ -443,7 +450,7 @@ jobs:
     steps:
       - run: apt update
       - run: apt install -y make wget git ssh
-      - checkout
+      - shallow-checkout
       - run: wget https://github.com/google/jsonnet/releases/download/v0.17.0/jsonnet-bin-v0.17.0-linux.tar.gz
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
       - run: mv jsonnet jsonnetfmt /usr/local/bin
@@ -452,7 +459,7 @@ jobs:
     docker:
       - image: cimg/go:1.18.4
     steps:
-      - checkout
+      - shallow-checkout
       - setup_remote_docker:
           docker_layer_caching: true
           version: "20.10.12"
@@ -466,7 +473,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     steps:
-      - checkout
+      - shallow-checkout
       - attach_workspace:
           at: ./
       - run:
@@ -487,7 +494,7 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
-      - checkout
+      - shallow-checkout
       - attach_workspace:
           at: ./
       - gh/setup:
@@ -507,7 +514,7 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
-      - checkout
+      - shallow-checkout
       - attach_workspace:
           at: ./
       - gh/setup:
@@ -520,7 +527,7 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
-      - checkout
+      - shallow-checkout
       - setup_remote_docker:
           docker_layer_caching: true
           version: "20.10.12"
@@ -540,7 +547,7 @@ jobs:
     docker:
       - image: cimg/go:1.18.4
     steps:
-      - checkout
+      - shallow-checkout
       - add_ssh_keys:
           fingerprints:
             - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
