@@ -1321,6 +1321,7 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
+// A port value of 0 will choose a free port automatically
 func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
 	mock := &MockPachd{
 		errchan: make(chan error),

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	globlib "github.com/pachyderm/ohmyglob"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -74,6 +75,9 @@ func NewDumpServer(filePath string, port uint16) *debugDump {
 	})
 	mock.Auth.WhoAmI.Use(func(_ context.Context, _ *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
 		return nil, auth.ErrNotActivated
+	})
+	mock.Admin.InspectCluster.Use(func(_ context.Context, _ *types.Empty) (*admin.ClusterInfo, error) {
+		return &admin.ClusterInfo{ID: "debug"}, nil
 	})
 
 	return d
@@ -162,11 +166,10 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 	return nil
 }
 
-func (d *debugDump) globTarProtos(glob string, template proto.Message, onFile func(string) error, onProto func() error) error {
-	return d.globTar(glob, func(path string, r io.Reader) error {
-		if err := onFile(path); err != nil {
-			return err
-		}
+func (d *debugDump) globTarProtos(glob string, template proto.Message, onProto func() error) (bool, error) {
+	var found bool
+	err := d.globTar(glob, func(path string, r io.Reader) error {
+		found = true
 		dec := json.NewDecoder(r)
 		for dec.More() {
 			if err := jsonpb.UnmarshalNext(dec, template); err != nil {
@@ -181,6 +184,7 @@ func (d *debugDump) globTarProtos(glob string, template proto.Message, onFile fu
 		}
 		return nil
 	})
+	return found, err
 }
 
 const commitPatternFormatString = `{{source,input}-repos,pipelines}/%s/commits{,\.json}`
@@ -189,12 +193,8 @@ const pipelineSpecPatternFormatString = `pipelines/%s/spec{,\.json}`
 
 func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommitServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, req.Repo.Name)
-	var found bool
 	var ci pfs.CommitInfo
-	if err := d.globTarProtos(glob, &ci, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	if found, err := d.globTarProtos(glob, &ci, func() error {
 		if req.All ||
 			(req.OriginKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN && ci.Origin.Kind == req.OriginKind) ||
 			ci.Origin.Kind != pfs.OriginKind_ALIAS {
@@ -203,8 +203,7 @@ func (d *debugDump) listCommit(req *pfs.ListCommitRequest, srv pfs.API_ListCommi
 		return nil
 	}); err != nil {
 		return err
-	}
-	if !found {
+	} else if !found {
 		return pfsserver.ErrRepoNotFound{Repo: req.Repo}
 	}
 	return nil
@@ -223,11 +222,8 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 	}
 	glob := fmt.Sprintf(commitPatternFormatString, req.Commit.Branch.Repo.Name)
 	var info pfs.CommitInfo
-	var found bool
-	if err := d.globTarProtos(glob, &info, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	var foundCommit bool
+	if found, err := d.globTarProtos(glob, &info, func() error {
 		// check for match and traverse ancestry
 		var match bool
 		if targetBranch != "" {
@@ -238,6 +234,7 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 		}
 		if match {
 			if ancestors == 0 {
+				foundCommit = true
 				return errutil.ErrBreak
 			} else {
 				// this will fail for negative/future ancestry, but I doubt people use that anyway
@@ -249,11 +246,10 @@ func (d *debugDump) inspectCommit(_ context.Context, req *pfs.InspectCommitReque
 		return nil
 	}); err != nil {
 		return nil, err
-	}
-	if !found {
+	} else if !found {
 		return nil, pfsserver.ErrRepoNotFound{Repo: req.Commit.Branch.Repo}
 	}
-	if info.Commit == nil {
+	if !foundCommit {
 		return nil, pfsserver.ErrCommitNotFound{Commit: req.Commit}
 	}
 	return &info, nil
@@ -274,12 +270,8 @@ func (d *debugDump) inspectRepo(_ context.Context, req *pfs.InspectRepoRequest) 
 	var info pfs.RepoInfo
 	info.Repo = req.Repo
 	seenBranches := make(map[string]struct{})
-	var found bool
 	var ci pfs.CommitInfo
-	if err := d.globTarProtos(glob, &ci, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	if found, err := d.globTarProtos(glob, &ci, func() error {
 		if _, ok := seenBranches[ci.Commit.Branch.Name]; !ok {
 			seenBranches[ci.Commit.Branch.Name] = struct{}{}
 			info.Branches = append(info.Branches, ci.Commit.Branch)
@@ -292,8 +284,7 @@ func (d *debugDump) inspectRepo(_ context.Context, req *pfs.InspectRepoRequest) 
 		return nil
 	}); err != nil {
 		return nil, err
-	}
-	if !found {
+	} else if !found {
 		return nil, pfsserver.ErrRepoNotFound{Repo: req.Repo}
 	}
 	return &info, nil
@@ -305,7 +296,7 @@ func (d *debugDump) listCommitSet(req *pfs.ListCommitSetRequest, srv pfs.API_Lis
 	var info pfs.CommitInfo
 	commitMap := make(map[string][]*pfs.CommitInfo)
 	latestMap := make(map[string]time.Time)
-	if err := d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+	if _, err := d.globTarProtos(glob, &info, func() error {
 		commitMap[info.Commit.ID] = append(commitMap[info.Commit.ID], proto.Clone(&info).(*pfs.CommitInfo))
 		asTime, _ := types.TimestampFromProto(info.Started)
 		if latestMap[info.Commit.ID].Before(asTime) {
@@ -336,27 +327,26 @@ func (d *debugDump) listCommitSet(req *pfs.ListCommitSetRequest, srv pfs.API_Lis
 func (d *debugDump) inspectCommitSet(req *pfs.InspectCommitSetRequest, srv pfs.API_InspectCommitSetServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, "*")
 	var info pfs.CommitInfo
-	return d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+	_, err := d.globTarProtos(glob, &info, func() error {
 		if info.Commit.ID != req.CommitSet.ID {
 			return nil
 		}
 		return srv.Send(&info)
 	})
+	return err
 }
 
 func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranchServer) error {
 	glob := fmt.Sprintf(commitPatternFormatString, req.Repo.Name)
 	var ci pfs.CommitInfo
-	var found bool
-	branchSet := make(map[string]bool)
-	if err := d.globTarProtos(glob, &ci, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
-		if branchSet[ci.Commit.Branch.Name] {
+	branchSet := make(map[string]struct{})
+	// we don't currently dump branches, so iterate over the commits
+	// and just return the first we find for each branch
+	if found, err := d.globTarProtos(glob, &ci, func() error {
+		if _, ok := branchSet[ci.Commit.Branch.Name]; ok {
 			return nil
 		}
-		branchSet[ci.Commit.Branch.Name] = true
+		branchSet[ci.Commit.Branch.Name] = struct{}{}
 		return srv.Send(&pfs.BranchInfo{
 			Branch:           ci.Commit.Branch,
 			Head:             ci.Commit,
@@ -364,8 +354,7 @@ func (d *debugDump) listBranch(req *pfs.ListBranchRequest, srv pfs.API_ListBranc
 		})
 	}); err != nil {
 		return err
-	}
-	if !found {
+	} else if !found {
 		return pfsserver.ErrRepoNotFound{Repo: req.Repo}
 	}
 	return nil
@@ -375,11 +364,7 @@ func (d *debugDump) inspectBranch(_ context.Context, req *pfs.InspectBranchReque
 	glob := fmt.Sprintf(commitPatternFormatString, req.Branch.Repo.Name)
 	var ci pfs.CommitInfo
 	var bi *pfs.BranchInfo
-	var found bool
-	err := d.globTarProtos(glob, &ci, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	if found, err := d.globTarProtos(glob, &ci, func() error {
 		if ci.Commit.Branch.Name != req.Branch.Name {
 			return nil
 		}
@@ -389,11 +374,9 @@ func (d *debugDump) inspectBranch(_ context.Context, req *pfs.InspectBranchReque
 			DirectProvenance: ci.DirectProvenance,
 		}
 		return errutil.ErrBreak
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
-	}
-	if !found {
+	} else if !found {
 		return nil, pfsserver.ErrRepoNotFound{Repo: req.Branch.Repo}
 	}
 	if bi == nil {
@@ -405,11 +388,19 @@ func (d *debugDump) inspectBranch(_ context.Context, req *pfs.InspectBranchReque
 func (d *debugDump) getLogs(req *pps.GetLogsRequest, srv pps.API_GetLogsServer) error {
 	var glob string
 	var plainText bool
+
 	if req.Pipeline == nil && req.Job == nil {
 		glob = "pachd/*/pachd/logs.txt"
 		plainText = true
 	} else {
-		glob = fmt.Sprintf("pipelines/%s/pods/*/user/logs.txt", req.Pipeline.Name)
+		name := req.Pipeline.GetName()
+		if name == "" {
+			name = req.Job.GetPipeline().GetName()
+		}
+		if name == "" {
+			return errors.New("must provide a pipeline name")
+		}
+		glob = fmt.Sprintf("pipelines/%s/pods/*/user/logs.txt", name)
 	}
 	return d.globTar(glob, func(_ string, r io.Reader) error {
 		return ppsutil.FilterLogLines(req, r, plainText, srv.Send)
@@ -418,17 +409,12 @@ func (d *debugDump) getLogs(req *pps.GetLogsRequest, srv pps.API_GetLogsServer) 
 
 func (d *debugDump) listJob(req *pps.ListJobRequest, srv pps.API_ListJobServer) error {
 	glob := fmt.Sprintf(jobPatternFormatString, req.Pipeline.Name)
-	var found bool
 	var info pps.JobInfo
-	if err := d.globTarProtos(glob, &info, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	if found, err := d.globTarProtos(glob, &info, func() error {
 		return srv.Send(&info)
 	}); err != nil {
 		return err
-	}
-	if !found {
+	} else if !found {
 		return ppsserver.ErrPipelineNotFound{Pipeline: req.Pipeline}
 	}
 	return nil
@@ -437,24 +423,19 @@ func (d *debugDump) listJob(req *pps.ListJobRequest, srv pps.API_ListJobServer) 
 func (d *debugDump) inspectJob(_ context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
 	glob := fmt.Sprintf(jobPatternFormatString, req.Job.Pipeline.Name)
 	var info pps.JobInfo
-	var found bool
-	err := d.globTarProtos(glob, &info, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	var foundJob bool
+	if found, err := d.globTarProtos(glob, &info, func() error {
 		if proto.Equal(info.Job, req.Job) {
+			foundJob = true
 			return errutil.ErrBreak
 		}
-		info.Job = nil
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
-	}
-	if !found {
+	} else if !found {
 		return nil, ppsserver.ErrPipelineNotFound{Pipeline: req.Job.Pipeline}
 	}
-	if info.Job == nil {
+	if !foundJob {
 		return nil, fmt.Errorf("job %v not found", req.Job)
 	}
 	return &info, nil
@@ -468,10 +449,12 @@ func (d *debugDump) listPipeline(req *pps.ListPipelineRequest, srv pps.API_ListP
 	glob := fmt.Sprintf(pipelineSpecPatternFormatString, target)
 	var info pps.PipelineInfo
 	var counter int
-	return d.globTarProtos(glob, &info, func(_ string) error {
-		counter = 0
-		return nil
-	}, func() error {
+	var prevPipeline string
+	_, err := d.globTarProtos(glob, &info, func() error {
+		if info.Pipeline.Name != prevPipeline {
+			prevPipeline = info.Pipeline.Name
+			counter = 0
+		}
 		if err := srv.Send(&info); err != nil {
 			return err
 		}
@@ -481,6 +464,7 @@ func (d *debugDump) listPipeline(req *pps.ListPipelineRequest, srv pps.API_ListP
 		}
 		return nil
 	})
+	return err
 }
 
 func (d *debugDump) inspectPipeline(_ context.Context, req *pps.InspectPipelineRequest) (*pps.PipelineInfo, error) {
@@ -490,11 +474,7 @@ func (d *debugDump) inspectPipeline(_ context.Context, req *pps.InspectPipelineR
 	}
 	glob := fmt.Sprintf(pipelineSpecPatternFormatString, name)
 	var info pps.PipelineInfo
-	var found bool
-	if err := d.globTarProtos(glob, &info, func(_ string) error {
-		found = true
-		return nil
-	}, func() error {
+	if found, err := d.globTarProtos(glob, &info, func() error {
 		if ancestors == 0 {
 			return errutil.ErrBreak
 		}
@@ -502,8 +482,7 @@ func (d *debugDump) inspectPipeline(_ context.Context, req *pps.InspectPipelineR
 		return nil
 	}); err != nil {
 		return nil, err
-	}
-	if !found {
+	} else if !found {
 		return nil, ppsserver.ErrPipelineNotFound{Pipeline: req.Pipeline}
 	}
 	return &info, nil
@@ -515,7 +494,7 @@ func (d *debugDump) listJobSet(req *pps.ListJobSetRequest, srv pps.API_ListJobSe
 	var info pps.JobInfo
 	jobMap := make(map[string][]*pps.JobInfo)
 	latestMap := make(map[string]time.Time)
-	if err := d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+	if _, err := d.globTarProtos(glob, &info, func() error {
 		jobMap[info.Job.ID] = append(jobMap[info.Job.ID], proto.Clone(&info).(*pps.JobInfo))
 		asTime, _ := types.TimestampFromProto(info.Started)
 		if latestMap[info.Job.ID].Before(asTime) {
@@ -546,12 +525,13 @@ func (d *debugDump) listJobSet(req *pps.ListJobSetRequest, srv pps.API_ListJobSe
 func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_InspectJobSetServer) error {
 	glob := fmt.Sprintf(jobPatternFormatString, "*")
 	var info pps.JobInfo
-	return d.globTarProtos(glob, &info, func(_ string) error { return nil }, func() error {
+	_, err := d.globTarProtos(glob, &info, func() error {
 		if info.Job.ID != req.JobSet.ID {
 			return nil
 		}
 		return srv.Send(&info)
 	})
+	return err
 }
 
 func (d *debugDump) getVersion(context.Context, *types.Empty) (*versionpb.Version, error) {

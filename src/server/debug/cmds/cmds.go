@@ -121,7 +121,7 @@ func Cmds() []*cobra.Command {
 		}),
 	}
 	analyze.Flags().IntVarP(&serverPort, "port", "p", 0,
-		"launch a debug server on the given port")
+		"launch a debug server on the given port. If unset, choose a free port automatically")
 	commands = append(commands, cmdutil.CreateAlias(analyze, "debug analyze"))
 
 	debug := &cobra.Command{
