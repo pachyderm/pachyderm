@@ -123,7 +123,7 @@ type SQLQueryGenerationParams struct {
 }
 
 // SQLQueryGeneration generates queries with a timestamp in the comments
-func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) error {
+func SQLQueryGeneration(_ context.Context, params SQLQueryGenerationParams) error {
 	timestamp, err := readCronTimestamp(params.Logger, params.InputDir)
 	if err != nil {
 		return err
@@ -170,33 +170,36 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 		return err
 	}
 	defer db.Close()
-	if err := db.PingContext(ctx); err != nil {
+	if err := func() error {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		return db.PingContext(ctx)
+	}(); err != nil {
 		return errors.EnsureStack(err)
 	}
+	log.Info("Connected to DB")
 
 	writerFactory, err := makeWriterFactory(params.Format, params.HasHeader)
 	if err != nil {
 		return err
 	}
-
 	w, err := os.OpenFile(filepath.Join(params.OutputDir, params.OutputFile), os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	defer w.Close()
-
+	log.Infof("Running query: %q", params.Query)
 	rows, err := db.QueryContext(ctx, params.Query)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-
+	log.Info("Query complete, reading rows...")
 	columns, err := rows.Columns()
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-
+	log.Infof("Column names: %v", columns)
 	tw := writerFactory(w, columns)
-
 	res, err := sdata.MaterializeSQL(tw, rows)
 	if err != nil {
 		return err

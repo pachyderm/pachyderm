@@ -49,6 +49,7 @@ func main() {
 
 type Entrypoint = func(ctx context.Context, log *logrus.Logger, args []string) error
 
+// sql-gen-queries and sql-ingest are deprecated, and users should prefer sql-run instead.
 var entrypoints = map[string]Entrypoint{
 	"sql-ingest":      sqlIngest,
 	"sql-gen-queries": sqlGenQueries,
@@ -120,8 +121,8 @@ func sqlGenQueries(ctx context.Context, log *logrus.Logger, args []string) error
 }
 
 func sqlRun(ctx context.Context, log *logrus.Logger, args []string) error {
-	if len(args) < 4 {
-		return errors.Errorf("must provide [url, fileFormat, query, outputFile, hasHeader]")
+	if len(args) < 5 {
+		return errors.Errorf("must provide url fileFormat query outputFile and hasHeader")
 	}
 	url, fileFormat, query, oFname := args[0], args[1], args[2], args[3]
 	hasHeader, err := strconv.ParseBool(args[4])
