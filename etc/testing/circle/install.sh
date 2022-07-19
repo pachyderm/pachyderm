@@ -5,16 +5,17 @@ set -ex
 mkdir -p cached-deps
 
 # Install deps
-sudo apt update -y
-sudo apt-get install -y -qq \
 #  silversearcher-ag \
 #  python3 \
 #  python3-pip \
 #  python3-setuptools \
 #  pkg-config \
-   fuse \
 #  conntrack \
 #  pv \
+
+sudo apt update -y
+sudo apt-get install -y -qq \
+   fuse \
    shellcheck \
    moreutils #Needed for ts command
 
