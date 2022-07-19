@@ -18,6 +18,13 @@ parameters:
   RELEASE_TYPE:
     type: string
     default: ""
+  # Update these along with other version bumps for remaining 2.2.x releases.
+  CHART_VERSION:
+    type: string
+    default: "2.2.6"
+  REDHAT_IMAGE_VERSION:
+    type: string
+    default: "v2.2.6"
   ADDITIONAL_VERSION:
     type: string
     default: ""
@@ -118,15 +125,13 @@ jobs:
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run: git config --global user.email buildbot@pachyderm.io
       - run: git config --global user.name buildbot
-      - run:
-          name: Clone Pachyderm
-          command: git clone -b ${CIRCLE_TAG} --depth 1 https://github.com/pachyderm/pachyderm.git pachyderm
+      - checkout
       - run:
           # the helmchart git repo hosts the helm repository (gh-pages) Chart releaser only supports https clone, not ssh
           name: Clone Helmchart
           command: git clone https://github.com/pachyderm/helmchart.git helmchart
       - run: mkdir -p .cr-release-packages
-      - run: helm package -d .cr-release-packages/ --version ${CIRCLE_TAG:1} --app-version ${CIRCLE_TAG:1} pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
+      - run: helm package -d .cr-release-packages/ --version  << pipeline.parameters.CHART_VERSION >> --app-version  << pipeline.parameters.CHART_VERSION >> pachyderm/etc/helm/pachyderm # cr package did not work with embedded chart
       - run: cr upload -o pachyderm -r helmchart --skip-existing
       - run: cd helmchart && cr index -o pachyderm -r helmchart -c https://helm.pachyderm.com --package-path ../.cr-release-packages --push
   nightly-load:
@@ -290,7 +295,7 @@ jobs:
           name: Install Goreleaser
           command: |
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
-      - run: etc/redhat/push_images.sh
+      - run: etc/redhat/push_images.sh << pipeline.parameters.REDHAT_IMAGE_VERSION >>
 workflows:
   circleci:
     when:
@@ -378,6 +383,11 @@ workflows:
               only:
                 - 2.1.x
                 - 2.2.x
+      - helm-build
+      - helm-publish:
+          requires:
+            - helm-build
+      - push_redhat
   red_hat:
     jobs:
       - push_redhat:
