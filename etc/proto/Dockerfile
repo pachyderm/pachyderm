@@ -1,4 +1,4 @@
-FROM golang:1.17.3
+FROM golang:1.18.4
 
 LABEL maintainer="msteffen@pachyderm.io"
 

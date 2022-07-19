@@ -84,6 +84,8 @@ jobs:
           key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
+      - go/install:
+          version: 1.18.4
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -138,7 +140,7 @@ jobs:
           path: /tmp/test-results
   helm-tests:
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -339,7 +341,7 @@ jobs:
         default: ${CIRCLE_SHA1}
     resource_class: large
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - setup_remote_docker:
@@ -376,7 +378,7 @@ jobs:
         default: false
     resource_class: large
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - run:
@@ -448,7 +450,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - setup_remote_docker:
@@ -536,7 +538,7 @@ jobs:
             make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - add_ssh_keys:
