@@ -52,6 +52,7 @@ message ComputeSerialDatumsTaskResult {
 message CreateDatumSetsTask {
   string file_set_id = 1;
   pfs_v2.PathRange path_range = 2;
+  datum.SetSpec set_spec = 3;
 } 
 
 message CreateDatumSetsTaskResult {

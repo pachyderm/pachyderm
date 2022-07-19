@@ -378,6 +378,10 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 }
 
 func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string) ([]*pfs.PathRange, error) {
+	setSpec, err := createSetSpec(pj)
+	if err != nil {
+		return nil, err
+	}
 	var datumSets []*pfs.PathRange
 	if err := pj.logger.LogStep("creating datum sets", func() error {
 		shards, err := pachClient.ShardFileSet(fileSetID)
@@ -389,6 +393,7 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 			input, err := serializeCreateDatumSetsTask(&CreateDatumSetsTask{
 				FileSetId: fileSetID,
 				PathRange: shard,
+				SetSpec:   setSpec,
 			})
 			if err != nil {
 				return err
@@ -410,6 +415,31 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 		return nil, errors.EnsureStack(err)
 	}
 	return datumSets, nil
+}
+
+func createSetSpec(pj *pendingJob) (*datum.SetSpec, error) {
+	var setSpec *datum.SetSpec
+	datumSetsPerWorker := defaultDatumSetsPerWorker
+	if pj.driver.PipelineInfo().Details.DatumSetSpec != nil {
+		setSpec = &datum.SetSpec{
+			Number:    pj.driver.PipelineInfo().Details.DatumSetSpec.Number,
+			SizeBytes: pj.driver.PipelineInfo().Details.DatumSetSpec.SizeBytes,
+		}
+		datumSetsPerWorker = pj.driver.PipelineInfo().Details.DatumSetSpec.PerWorker
+	}
+	// When the datum set spec is not set, evenly distribute the datums.
+	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
+		concurrency, err := pj.driver.ExpectedNumWorkers()
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		numDatums := pj.ji.DataTotal - pj.ji.DataSkipped
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(concurrency) * datumSetsPerWorker)}
+		if setSpec.Number == 0 {
+			setSpec.Number = 1
+		}
+	}
+	return setSpec, nil
 }
 
 func serializeCreateDatumSetsTask(task *CreateDatumSetsTask) (*types.Any, error) {

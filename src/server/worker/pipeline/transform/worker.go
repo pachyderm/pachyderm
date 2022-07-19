@@ -193,51 +193,13 @@ func withDeleter(pachClient *client.APIClient, baseMetaCommit *pfs.Commit, cb fu
 }
 
 func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*types.Any, error) {
-	setSpec, err := createSetSpec(driver, task.FileSetId, task.PathRange)
-	if err != nil {
-		return nil, err
-	}
-	datumSets, err := datum.CreateSets(driver.PachClient(), setSpec, task.FileSetId, task.PathRange)
+	datumSets, err := datum.CreateSets(driver.PachClient(), task.SetSpec, task.FileSetId, task.PathRange)
 	if err != nil {
 		return nil, err
 	}
 	return serializeCreateDatumSetsTaskResult(&CreateDatumSetsTaskResult{
 		DatumSets: datumSets,
 	})
-}
-
-// TODO: The heuristic based sets don't make as much sense with the datum sharding.
-func createSetSpec(driver driver.Driver, fileSetID string, pathRange *pfs.PathRange) (*datum.SetSpec, error) {
-	pachClient := driver.PachClient()
-	dit := datum.NewFileSetIterator(pachClient, fileSetID, pathRange)
-	var numDatums int64
-	if err := dit.Iterate(func(_ *datum.Meta) error {
-		numDatums++
-		return nil
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	// When the datum set spec is not set, evenly distribute the datums.
-	var setSpec *datum.SetSpec
-	datumSetsPerWorker := defaultDatumSetsPerWorker
-	if driver.PipelineInfo().Details.DatumSetSpec != nil {
-		setSpec = &datum.SetSpec{
-			Number:    driver.PipelineInfo().Details.DatumSetSpec.Number,
-			SizeBytes: driver.PipelineInfo().Details.DatumSetSpec.SizeBytes,
-		}
-		datumSetsPerWorker = driver.PipelineInfo().Details.DatumSetSpec.PerWorker
-	}
-	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
-		concurrency, err := driver.ExpectedNumWorkers()
-		if err != nil {
-			return nil, errors.EnsureStack(err)
-		}
-		setSpec = &datum.SetSpec{Number: numDatums / (int64(concurrency) * datumSetsPerWorker)}
-		if setSpec.Number == 0 {
-			setSpec.Number = 1
-		}
-	}
-	return setSpec, nil
 }
 
 // Worker handles a transform pipeline work subtask, then returns.

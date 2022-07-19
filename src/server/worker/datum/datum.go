@@ -33,12 +33,6 @@ const (
 	defaultNumRetries = 3
 )
 
-// SetSpec specifies criteria for creating datum sets.
-type SetSpec struct {
-	Number    int64
-	SizeBytes int64
-}
-
 func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
 	commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", fileSetID)
 	pathRange := &pfs.PathRange{

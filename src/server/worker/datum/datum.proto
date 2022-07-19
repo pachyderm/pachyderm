@@ -64,3 +64,8 @@ message ComposeTask {
 message ComposeTaskResult {
   string file_set_id = 1;
 }
+
+message SetSpec {
+  int64 number = 1;
+  int64 size_bytes = 2;
+}
