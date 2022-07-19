@@ -561,17 +561,11 @@ jobs:
   docker-build:
     resource_class: large
     machine:
-      image: << pipeline.parameters.machine_image >>
+      image: ubuntu-2004:2022.04.2
     steps:
       - run: 
           name: Shallow checkout
           command: git clone --depth 5 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
-      - run:
-          name: Download Docker
-          command: wget https://download.docker.com/linux/ubuntu/dists/focal/pool/stable/amd64/docker-ce-cli_20.10.17~3-0~ubuntu-focal_amd64.deb
-      - run: 
-          name: Install Docker
-          command: sudo dpkg -i ./docker-ce-cli_20.10.17~3-0~ubuntu-focal_amd64.deb
       - run:
           name: Build Docker image
           command: |
