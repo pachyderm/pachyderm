@@ -5,8 +5,6 @@ run:
 linters:
   enable:
     - wrapcheck
-  disable:
-    - errcheck
 linters-settings:
   wrapcheck:
     ignoreSigs:
