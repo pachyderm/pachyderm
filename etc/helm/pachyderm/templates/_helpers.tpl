@@ -142,8 +142,8 @@ localhost:30658
   name: test
   type: mockPassword
   config:
-    username: "admin"
-    password: "password"
+    username: admin
+    password: password
 {{- else }}
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}

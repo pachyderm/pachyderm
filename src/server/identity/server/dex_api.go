@@ -1,21 +1,22 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"strconv"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
-	"github.com/ghodss/yaml"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_api "github.com/dexidp/dex/api/v2"
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
 	logrus "github.com/sirupsen/logrus"
-
-	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // dexAPI wraps an api.DexServer and extends it with CRUD operations
@@ -115,7 +116,7 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 
 	// dexidp doesn't support unmarshalling from yaml, so we have to convert to json.
 	// If config is already json, then this is a no-op under the hood.
-	config, err := yaml.YAMLToJSON(PickConfig(req.Connector.Config, req.Connector.JsonConfig))
+	config, err := identityutil.PickConfig(req.Connector.Config, req.Connector.JsonConfig)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -151,7 +152,7 @@ func (a *dexAPI) getConnector(id string) (*identity.IDPConnector, error) {
 		return nil, errors.EnsureStack(err)
 	}
 
-	return dexConnectorToPach(conn), nil
+	return dexConnectorToPach(conn)
 }
 
 func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
@@ -171,17 +172,14 @@ func (a *dexAPI) updateConnector(in *identity.UpdateIDPConnectorRequest) error {
 			c.Type = in.Connector.Type
 		}
 
-		// dexidp doesn't support unmarshalling from yaml, so we have to convert to json.
-		// If config is already json, then this is a no-op under the hood.
-		config, err := yaml.YAMLToJSON(PickConfig(in.Connector.Config, in.Connector.JsonConfig))
-		if err != nil {
+		config, err := identityutil.PickConfig(in.Connector.Config, in.Connector.JsonConfig)
+		if err != nil && err.Error() != identityutil.NoConfigErr {
 			return dex_storage.Connector{}, errors.EnsureStack(err)
 		}
-
-		if string(config) != "" && string(config) != "null" {
+		// override the current config only if a config is defined.
+		if err == nil {
 			c.Config = config
 		}
-
 		if err := a.validateConnector(c.ID, c.Type, c.Config); err != nil {
 			return dex_storage.Connector{}, err
 		}
@@ -202,7 +200,11 @@ func (a *dexAPI) listConnectors() ([]*identity.IDPConnector, error) {
 
 	connectors := make([]*identity.IDPConnector, len(dexConnectors))
 	for i, c := range dexConnectors {
-		connectors[i] = dexConnectorToPach(c)
+		conn, err := dexConnectorToPach(c)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		connectors[i] = conn
 	}
 	return connectors, nil
 }
@@ -236,7 +238,6 @@ func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error
 	if !ok {
 		return errors.Errorf("unknown connector type %q", connType)
 	}
-
 	conf := typeConf()
 	if err := json.Unmarshal(jsonConfig, conf); err != nil {
 		return errors.Errorf("unable to deserialize JSON: %v", err)
@@ -249,19 +250,6 @@ func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error
 	return nil
 }
 
-// PickConfig determines whether to use the config or jsonConfig.
-// JsonConfig should only be used for backwards compatibility.
-func PickConfig(config *types.Any, jsonConfig string) []byte {
-	switch {
-	case config != nil && config.Value != nil && string(config.Value) != "" && string(config.Value) != "null":
-		return config.Value
-	case jsonConfig != "" && jsonConfig != "null":
-		return []byte(jsonConfig)
-	default:
-		return []byte("")
-	}
-}
-
 func storageClientToPach(c dex_storage.Client) *identity.OIDCClient {
 	return &identity.OIDCClient{
 		Id:           c.ID,
@@ -272,7 +260,14 @@ func storageClientToPach(c dex_storage.Client) *identity.OIDCClient {
 	}
 }
 
-func dexConnectorToPach(c dex_storage.Connector) *identity.IDPConnector {
+func dexConnectorToPach(c dex_storage.Connector) (*identity.IDPConnector, error) {
+	config := &types.Struct{}
+	if c.Config != nil && len(c.Config) != 0 {
+		err := jsonpb.Unmarshal(bytes.NewBuffer(c.Config), config)
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+	}
 	// If the version isn't an int, set it to zero
 	version, _ := strconv.Atoi(c.ResourceVersion)
 	return &identity.IDPConnector{
@@ -280,10 +275,8 @@ func dexConnectorToPach(c dex_storage.Connector) *identity.IDPConnector {
 		Name:          c.Name,
 		Type:          c.Type,
 		ConfigVersion: int64(version),
-		Config: &types.Any{
-			Value: c.Config,
-		},
-	}
+		Config:        config,
+	}, nil
 }
 
 func dexClientToPach(c *dex_api.Client) *identity.OIDCClient {

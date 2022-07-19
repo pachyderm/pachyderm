@@ -133,7 +133,7 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/CreateIDPConnector": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.CreateIDPConnectorRequest)).(*identity.CreateIDPConnectorRequest)
-			copyReq.Connector.Config = &types.Any{Value: []byte("")}
+			copyReq.Connector.Config = &types.Struct{}
 			copyReq.Connector.JsonConfig = ""
 			return copyReq
 		},
@@ -142,7 +142,7 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/GetIDPConnector": {
 		transformResponse: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.GetIDPConnectorResponse)).(*identity.GetIDPConnectorResponse)
-			copyReq.Connector.Config = &types.Any{Value: []byte("")}
+			copyReq.Connector.Config = &types.Struct{}
 			copyReq.Connector.JsonConfig = ""
 			return copyReq
 		},
@@ -151,7 +151,7 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/UpdateIDPConnector": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.UpdateIDPConnectorRequest)).(*identity.UpdateIDPConnectorRequest)
-			copyReq.Connector.Config = &types.Any{Value: []byte("")}
+			copyReq.Connector.Config = &types.Struct{}
 			copyReq.Connector.JsonConfig = ""
 			return copyReq
 		},
@@ -161,7 +161,7 @@ var endpoints = map[string]logConfig{
 		transformResponse: func(r interface{}) interface{} {
 			copyResp := proto.Clone(r.(*identity.ListIDPConnectorsResponse)).(*identity.ListIDPConnectorsResponse)
 			for _, c := range copyResp.Connectors {
-				c.Config = &types.Any{Value: []byte("")}
+				c.Config = &types.Struct{}
 				c.JsonConfig = ""
 			}
 			return copyResp

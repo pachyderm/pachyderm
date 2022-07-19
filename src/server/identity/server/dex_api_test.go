@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_memory "github.com/dexidp/dex/storage/memory"
 	logrus "github.com/sirupsen/logrus"
@@ -28,8 +29,8 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 		Name:          "name2",
 		Type:          "github",
 		ConfigVersion: 0,
-		Config: &types.Any{
-			Value: []byte("{}"),
+		Config: &types.Struct{
+			Fields: map[string]*types.Value{},
 		},
 	}
 
@@ -81,16 +82,35 @@ func TestCreateConnector(t *testing.T) {
 		{
 			Id:            "id1",
 			Name:          "name",
-			ConfigVersion: 0,
 			Type:          "github",
-			Config:        &types.Any{Value: []byte("---\nusername: username\npassword: password")},
+			ConfigVersion: 0,
+			Config:        &types.Struct{}, // equivalent to an empty config, in which case jsonConfig should be used.
+			JsonConfig:    `{"username": "username", "password": "password"}`,
 		},
 		{
 			Id:            "id1",
 			Name:          "name",
-			Type:          "github",
 			ConfigVersion: 0,
-			Config:        &types.Any{Value: []byte(`{"username": "username", "password": "password"}`)},
+			Type:          "github",
+			Config: &types.Struct{
+				Fields: map[string]*types.Value{
+					"password": {Kind: &types.Value_StringValue{StringValue: "password"}},
+					"username": {Kind: &types.Value_StringValue{StringValue: "username"}},
+				},
+			},
+		},
+		{
+			Id:            "id1",
+			Name:          "name",
+			ConfigVersion: 0,
+			Type:          "github",
+			Config: &types.Struct{
+				Fields: map[string]*types.Value{
+					"password": {Kind: &types.Value_StringValue{StringValue: "password"}},
+					"username": {Kind: &types.Value_StringValue{StringValue: "username"}},
+				},
+			},
+			JsonConfig: "{ invalid values in jsonConfig should be ignored if a valid json config is defined.",
 		},
 	}
 
@@ -158,7 +178,7 @@ func TestCreateInvalidConnector(t *testing.T) {
 				Type:          "github",
 				JsonConfig:    "{",
 			},
-			err: `yaml: line 1: did not find expected node content`,
+			err: `unable to deserialize JSON: unexpected end of JSON input`,
 		},
 		{
 			conn: &identity.IDPConnector{
@@ -166,9 +186,9 @@ func TestCreateInvalidConnector(t *testing.T) {
 				Name:          "name",
 				ConfigVersion: 0,
 				Type:          "github",
-				Config:        &types.Any{Value: []byte("{")},
+				Config:        &types.Struct{},
 			},
-			err: `yaml: line 1: did not find expected node content`,
+			err: identityutil.NoConfigErr,
 		},
 		{
 			conn: &identity.IDPConnector{
@@ -176,20 +196,10 @@ func TestCreateInvalidConnector(t *testing.T) {
 				Name:          "name",
 				ConfigVersion: 0,
 				Type:          "github",
-				Config:        &types.Any{Value: []byte("---\n\tusername: username")},
+				Config:        &types.Struct{}, // this 'empty' value should be overridden by jsonConfig.
+				JsonConfig:    "{",
 			},
-			err: `yaml: line 2: found character that cannot start any token`,
-		},
-		{ // 'JsonConfig' is valid here, but it is ignored if 'Config' is defined.
-			conn: &identity.IDPConnector{
-				Id:            "id1",
-				Name:          "name",
-				ConfigVersion: 0,
-				Type:          "github",
-				JsonConfig:    `{"username": "username", "password": "password"}`,
-				Config:        &types.Any{Value: []byte("---\n\tusername: username")},
-			},
-			err: `yaml: line 2: found character that cannot start any token`,
+			err: `unable to deserialize JSON: unexpected end of JSON input`,
 		},
 	}
 
@@ -231,7 +241,9 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "github",
 				ConfigVersion: 1,
-				Config:        &types.Any{Value: []byte("{}")},
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{},
+				},
 			},
 		},
 		{
@@ -255,7 +267,7 @@ func TestUpdateConnector(t *testing.T) {
 				JsonConfig:    "{",
 				ConfigVersion: 2,
 			},
-			err: "yaml: line 1: did not find expected node content",
+			err: "unable to deserialize JSON: unexpected end of JSON input",
 		},
 		{
 			req: &identity.IDPConnector{
@@ -268,7 +280,11 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "github",
 				ConfigVersion: 2,
-				Config:        &types.Any{Value: []byte(`{"client_id":"1234"}`)},
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"client_id": {Kind: &types.Value_StringValue{StringValue: "1234"}},
+					},
+				},
 			},
 		},
 		{
@@ -291,14 +307,24 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "mockPassword",
 				ConfigVersion: 3,
-				Config:        &types.Any{Value: []byte(`{"password":"pass","username":"user"}`)},
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
+						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+					},
+				},
 			},
 		},
 		{
 			req: &identity.IDPConnector{
-				Id:            "conn",
-				Type:          "mockPassword",
-				Config:        &types.Any{Value: []byte("---\nusername: user\npassword: pass")},
+				Id:   "conn",
+				Type: "mockPassword",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
+						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+					},
+				},
 				ConfigVersion: 4,
 			},
 			expected: &identity.IDPConnector{
@@ -306,32 +332,26 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "mockPassword",
 				ConfigVersion: 4,
-				Config:        &types.Any{Value: []byte(`{"password":"pass","username":"user"}`)},
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
+						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+					},
+				},
 			},
 		},
 		{
 			req: &identity.IDPConnector{
-				Id:            "conn",
-				Type:          "mockPassword",
-				Config:        &types.Any{Value: []byte("---\nusername: user\n  password: pass")},
+				Id:   "conn",
+				Type: "mockPassword",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"garbageIn": {Kind: &types.Value_StringValue{StringValue: "garbageOut"}},
+					},
+				},
 				ConfigVersion: 5,
 			},
-			err: "yaml: line 3: mapping values are not allowed in this context",
-		},
-		{
-			req: &identity.IDPConnector{
-				Id:            "conn",
-				Type:          "mockPassword",
-				Config:        &types.Any{Value: []byte(`{"username": "user", "password": "pass"}`)},
-				ConfigVersion: 5,
-			},
-			expected: &identity.IDPConnector{
-				Id:            "conn",
-				Name:          "newname",
-				Type:          "mockPassword",
-				ConfigVersion: 5,
-				Config:        &types.Any{Value: []byte(`{"password":"pass","username":"user"}`)},
-			},
+			err: "unable to open connector: no username supplied",
 		},
 	}
 

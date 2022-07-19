@@ -699,7 +699,7 @@ oidc:
   ## See the example below or https://dexidp.io/docs/connectors/
   # upstreamIDPs:
   #   - id: idpConnector
-  #     Config:
+  #     config:
   #       issuer: ""
   #       clientID: ""
   #       clientSecret: ""

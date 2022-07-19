@@ -4,7 +4,7 @@ package identity_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/identity";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/any.proto";
+import "google/protobuf/struct.proto";
 import "gogoproto/gogo.proto";
 
 // User represents an IDP user that has authenticated via OIDC
@@ -55,7 +55,7 @@ message IDPConnector {
 
   // Config is the configuration for the upstream IDP, which varies based on the type.
   // We make the assumption that this is either yaml or JSON.
-  google.protobuf.Any config = 6;
+  google.protobuf.Struct config = 6;
 }
 
 message CreateIDPConnectorRequest {

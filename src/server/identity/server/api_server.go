@@ -1,15 +1,18 @@
 package server
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 
-	logrus "github.com/sirupsen/logrus"
-
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/jsonpb"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
+
+	logrus "github.com/sirupsen/logrus"
 )
 
 const (
@@ -54,24 +57,15 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}
 	if a.env.Config.IdentityConnectors != "" {
 		a.env.Logger.Info("Started to configure identity connectors via environment")
-		var connectors []identity.IDPConnector
-		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConnectors), &connectors); err != nil {
-			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
+		var connectors identityutil.IDPConnectors
+		// this is a no-op if the config.IdentityConnectors is already json.
+		jsonBytes, err := yaml.YAMLToJSON([]byte(a.env.Config.IdentityConnectors))
+		if err != nil {
+			return errors.Wrapf(err, "convert IdentityConnectors from YAML to JSON: %q", a.env.Config.IdentityConfig)
 		}
-		// IDPConnector.Config can't be unmarshalled to directly, so it has to be manually unmarshalled.
-		var tmpConnectors []map[string]interface{}
-		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConnectors), &tmpConnectors); err != nil {
+		err = jsonpb.Unmarshal(bytes.NewReader(jsonBytes), &connectors)
+		if err != nil {
 			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
-		}
-		for i, connector := range connectors {
-			config, ok := tmpConnectors[i]["config"]
-			if ok {
-				configBytes, err := json.Marshal(config)
-				if err != nil {
-					return errors.Wrapf(err, "unmarshal intermediate IdentityConnector config")
-				}
-				connector.Config.Value = configBytes
-			}
 		}
 		existing, err := a.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})
 		if err != nil {
