@@ -105,6 +105,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		case <-sigChan:
 		case <-opts.getUnmount():
 		}
+		// nolint:errcheck
 		server.Unmount()
 	}()
 	server.Wait()

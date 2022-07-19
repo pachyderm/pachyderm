@@ -760,9 +760,13 @@ func (a *apiServer) listJob(
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert jobInfo to a map[string]interface{} for use with gojq
-			enc.EncodeProto(jobInfo)
+			if err := enc.EncodeProto(jobInfo); err != nil {
+				return errors.EnsureStack(err)
+			}
 			var jobInterface interface{}
-			json.Unmarshal(jsonBuffer.Bytes(), &jobInterface)
+			if err := json.Unmarshal(jsonBuffer.Bytes(), &jobInterface); err != nil {
+				return errors.EnsureStack(err)
+			}
 			iter := jqCode.Run(jobInterface)
 			// treat either jq false-y value as rejection
 			if v, _ := iter.Next(); v == false || v == nil {
@@ -1650,6 +1654,7 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 
 func branchProvenance(input *pps.Input) []*pfs.Branch {
 	var result []*pfs.Branch
+	// nolint:errcheck
 	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			result = append(result, client.NewBranch(input.Pfs.Repo, input.Pfs.Branch))
@@ -1670,7 +1675,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
 		pipelineName = prevPipelineInfo.Pipeline.Name
-		pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
+		if err := pps.VisitInput(prevPipelineInfo.Details.Input, func(input *pps.Input) error {
 			var repo string
 			switch {
 			case input.Pfs != nil:
@@ -1682,7 +1687,9 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 			}
 			remove[repo] = struct{}{}
 			return nil
-		})
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
 	}
 
 	// Figure out which repos 'pipeline' is using
@@ -1698,7 +1705,7 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 
 		// collect inputs (remove redundant inputs from 'remove', but don't
 		// bother authorizing 'pipeline' twice)
-		pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
+		if err := pps.VisitInput(pipelineInfo.Details.Input, func(input *pps.Input) error {
 			var repo string
 			switch {
 			case input.Pfs != nil:
@@ -1717,7 +1724,9 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 				}
 			}
 			return nil
-		})
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
 	}
 	if pipelineName == "" {
 		return errors.Errorf("fixPipelineInputRepoACLs called with both current and " +
@@ -2167,7 +2176,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	now := time.Now()
 	nCreatedBranches := make(map[string]int)
-	pps.VisitInput(input, func(input *pps.Input) error {
+	if err := pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
 				if input.Pfs.Trigger != nil {
@@ -2201,7 +2210,9 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		logrus.Errorf("error while visiting inputs: %v", err)
+	}
 }
 
 func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) error {
@@ -2375,9 +2386,13 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		if jqCode != nil {
 			jsonBuffer.Reset()
 			// convert pipelineInfo to a map[string]interface{} for use with gojq
-			enc.EncodeProto(pipelineInfo)
+			if err := enc.EncodeProto(pipelineInfo); err != nil {
+				logrus.Errorf("error encoding pipelineInfo to JSON: %v", err)
+			}
 			var pipelineInterface interface{}
-			json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface)
+			if err := json.Unmarshal(jsonBuffer.Bytes(), &pipelineInterface); err != nil {
+				logrus.Errorf("error parsing JSON encoded pipeline info: %v", err)
+			}
 			iter := jqCode.Run(pipelineInterface)
 			// treat either jq false-y value as rejection
 			if v, _ := iter.Next(); v == false || v == nil {
@@ -2710,12 +2725,14 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 
 	// find any cron inputs
 	var crons []*pps.CronInput
-	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error {
+	if err := pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			crons = append(crons, in.Cron)
 		}
 		return nil
-	})
+	}); err != nil {
+		return nil, errors.Errorf("error visiting pps inputs: %v", err)
+	}
 
 	if len(crons) < 1 {
 		return nil, errors.Errorf("pipeline doesn't have a cron input")

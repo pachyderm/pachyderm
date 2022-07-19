@@ -16,9 +16,7 @@ func WithPipe(wcb func(w io.Writer) error, rcb func(r io.Reader) error) error {
 	pr, pw := io.Pipe()
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		err := wcb(pw)
-		pw.CloseWithError(err)
-		return errors.EnsureStack(err)
+		return errors.EnsureStack(pw.CloseWithError(wcb(pw)))
 	})
 	eg.Go(func() error {
 		err := rcb(pr)

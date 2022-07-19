@@ -163,7 +163,7 @@ func (c APIClient) ExecuteInTransaction(f func(c *APIClient) error) (*transactio
 		return nil, err
 	}
 	if err := f(c.WithTransaction(txn)); err != nil {
-		// We ignore the delete error, because we are more interested in the error from the callback.
+		// nolint:errcheck // We ignore the delete error, because we are more interested in the error from the callback.
 		c.DeleteTransaction(txn)
 		return nil, err
 	}

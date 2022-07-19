@@ -138,6 +138,7 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	require.NoError(t, err)
 
 	go func() {
+		// nolint:errcheck
 		server.Serve(listener)
 	}()
 

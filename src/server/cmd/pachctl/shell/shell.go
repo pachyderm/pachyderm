@@ -101,6 +101,7 @@ func (s *shell) executor(in string) {
 	cmd.Stdin = strings.NewReader("pachctl " + in)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	// nolint:errcheck
 	cmd.Run()
 }
 

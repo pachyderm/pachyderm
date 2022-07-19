@@ -23,6 +23,7 @@ func newSegmentClient() *analytics.Client {
 func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 	// We're intentionally ignoring an error here because metrics code is
 	// non-critical
+	// nolint:errcheck
 	client.Track(&analytics.Track{
 		Event:       "cluster.metrics",
 		AnonymousId: metrics.ClusterID,
@@ -86,7 +87,7 @@ before every `Track()` call containing user data.
 */
 func identifyUser(client *analytics.Client, userID string) {
 	// We're intentionally ignoring an error here because metrics code is
-	// non-critical
+	// nolint:errcheck // non-critical
 	client.Identify(&analytics.Identify{
 		UserId: userID,
 	})
@@ -100,6 +101,7 @@ func reportUserMetricsToSegment(client *analytics.Client, userID string, prefix 
 	properties[action] = value
 	// We're intentionally ignoring an error here because metrics code is
 	// non-critical
+	// nolint:errcheck
 	client.Track(&analytics.Track{
 		Event:      fmt.Sprintf("%v.usage", prefix),
 		UserId:     userID,

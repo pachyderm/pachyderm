@@ -94,6 +94,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 func (r *Reader) topLevel() pbutil.Reader {
 	buf := bytes.Buffer{}
 	pbw := pbutil.NewWriter(&buf)
+	// nolint:errcheck
 	pbw.Write(r.topIdx)
 	return pbutil.NewReader(&buf)
 }

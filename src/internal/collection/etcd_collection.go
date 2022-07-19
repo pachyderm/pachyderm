@@ -604,6 +604,7 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...
 	if err != nil {
 		return nil, err
 	}
+	// nolint:errcheck
 	go func() (retErr error) {
 		defer func() {
 			if retErr != nil {

@@ -202,6 +202,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 		if resp.Count == 0 {
 			// This might error if it races with another pachd trying to set the
 			// cluster id so we ignore the error.
+			// nolint:errcheck
 			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
 		} else if err != nil {
 			return errors.EnsureStack(err)

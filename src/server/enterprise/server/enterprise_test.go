@@ -356,6 +356,7 @@ func TestPauseUnpauseNoWait(t *testing.T) {
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
 	bo := backoff.NewExponentialBackOff()
+	// nolint:errcheck
 	backoff.Retry(func() error {
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {

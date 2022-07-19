@@ -115,7 +115,9 @@ which match >/dev/null || {
 	buf.WriteRune('\n')
 
 	// do the substitution
-	template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap)
+	if err := template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap); err != nil {
+		panic(err)
+	}
 	return buf
 }
 
@@ -135,7 +137,8 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...strin
 	t.Helper()
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(bashCmd(cmd, subs...))
+	_, err := buf.ReadFrom(bashCmd(cmd, subs...))
+	require.NoError(t, err)
 
 	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
 	if _, err := os.Open(config); err != nil {

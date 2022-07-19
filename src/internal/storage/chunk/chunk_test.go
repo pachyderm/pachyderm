@@ -50,7 +50,8 @@ func BenchmarkRollingHash(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		hash.Reset()
-		hash.Write(initialWindow)
+		_, err := hash.Write(initialWindow)
+		require.NoError(b, err)
 		for _, bt := range data {
 			hash.Roll(bt)
 			// nolint:staticcheck // benchmark is simulating exact usecase

@@ -121,6 +121,7 @@ func (s *sidecarS3G) createK8sServices() {
 	logrus.Infof("Launching sidecar s3 gateway master process")
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
+	// nolint:errcheck
 	backoff.RetryNotify(func() error {
 		masterLock := dlock.NewDLock(s.apiServer.env.EtcdClient,
 			path.Join(s.apiServer.etcdPrefix,
@@ -168,7 +169,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 
 	// Initialize new S3 gateway
 	var inputBuckets []*s3.Bucket
-	pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
+	err := pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
 				Commit: client.NewSystemRepo(in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
@@ -177,6 +178,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		}
 		return nil
 	})
+	logrus.Errorf("could not visit pps input: %v", err)
 	var outputBucket *s3.Bucket
 	if s.s.pipelineInfo.Details.S3Out {
 		outputBucket = &s3.Bucket{
@@ -292,6 +294,7 @@ func (h *handleJobsCtx) start() {
 	}()
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
+		// nolint:errcheck
 		backoff.Retry(func() error {
 			var err error
 			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(

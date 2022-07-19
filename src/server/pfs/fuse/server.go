@@ -450,9 +450,11 @@ func (mm *MountManager) Run() error {
 	}
 	go func() {
 		<-mm.opts.getUnmount()
+		// nolint:errcheck
 		server.Unmount()
 	}()
 	server.Wait()
+	// nolint:errcheck
 	defer mm.FinishAll()
 	err = mm.uploadFiles("")
 	if err != nil {
@@ -507,6 +509,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -526,6 +529,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").
@@ -593,7 +597,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			w.Write(marshalled)
+			if _, err := w.Write(marshalled); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		})
 	router.Methods("PUT").
 		Queries("name", "{name}").
@@ -635,6 +641,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").
@@ -677,6 +684,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -701,6 +709,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -723,6 +732,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -769,6 +779,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -798,6 +809,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 
 		go func() {
@@ -806,6 +818,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			// nolint:errcheck
 			config.WritePachTokenToConfig(resp.PachToken, false)
 			mm.Client.SetAuthToken(resp.PachToken)
 		}()
@@ -834,6 +847,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		context.SessionToken = ""
+		// nolint:errcheck
 		cfg.Write()
 		mm.Client.SetAuthToken("")
 	})
@@ -844,6 +858,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// nolint:errcheck
 		w.Write(marshalled)
 	})
 
@@ -863,6 +878,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
 		}
+		// nolint:errcheck
 		srv.Shutdown(context.Background())
 	}()
 

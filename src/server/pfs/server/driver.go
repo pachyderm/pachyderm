@@ -129,6 +129,7 @@ func newDriver(env Env) (*driver, error) {
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
 	// Set up compaction worker.
 	taskSource := env.TaskService.NewSource(storageTaskNamespace)
+	// nolint:errcheck
 	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
@@ -1871,9 +1872,11 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 
 	lastRev := int64(-1)
 	branchInfo := &pfs.BranchInfo{}
-	listCallback := func(key string, createRev int64) error {
+	listCallback := func(_ string, createRev int64) error {
 		if createRev != lastRev {
-			sendBis()
+			if err := sendBis(); err != nil {
+				return errors.EnsureStack(err)
+			}
 			lastRev = createRev
 		}
 		bis = append(bis, proto.Clone(branchInfo).(*pfs.BranchInfo))

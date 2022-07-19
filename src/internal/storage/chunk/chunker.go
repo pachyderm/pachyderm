@@ -67,5 +67,6 @@ func ComputeChunks(r io.Reader, cb func([]byte) error) error {
 
 func resetHash(hash *buzhash64.Buzhash64) {
 	hash.Reset()
+	// nolint:errcheck
 	hash.Write(initialWindow)
 }

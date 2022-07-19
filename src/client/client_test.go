@@ -37,6 +37,7 @@ func TestInterceptors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server: %v", err)
 	}
+	// nolint:errcheck
 	defer server.Wait()
 
 	listener, err := server.ListenTCP("localhost", 0)

@@ -60,6 +60,7 @@ func NewWorker(
 	}
 
 	if pipelineInfo.Details.Transform.Image != "" && pipelineInfo.Details.Transform.Cmd == nil {
+		// nolint:errcheck
 		ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
 			pipelineInfo.SpecCommit,
 			"nothing to run: no transform.cmd")
@@ -80,7 +81,7 @@ func NewWorker(
 func (w *Worker) worker() {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
-
+	// nolint:errcheck
 	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
@@ -117,6 +118,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
 	b.InitialInterval = 10 * time.Second
+	// nolint:errcheck
 	backoff.RetryNotify(func() error {
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := context.WithCancel(w.driver.PachClient().Ctx())
@@ -125,6 +127,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 		if err != nil {
 			return errors.Wrap(err, "locking master lock")
 		}
+		// nolint:errcheck
 		defer masterLock.Unlock(ctx)
 
 		// Create a new driver that uses a new cancelable pachClient

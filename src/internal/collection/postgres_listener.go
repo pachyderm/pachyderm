@@ -103,6 +103,7 @@ func (pw *postgresWatcher) Close() {
 	pw.closer.Do(func() {
 		// Close the 'done' channel to interrupt any waiting writes
 		close(pw.done)
+		// nolint:errcheck
 		pw.listener.Unregister(pw)
 	})
 }
@@ -123,6 +124,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 				// unregister the watcher and stop forwarding notifications.
 				select {
 				case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+					// nolint:errcheck
 					pw.listener.Unregister(pw)
 				case <-pw.done:
 				}
@@ -136,6 +138,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 			// unregister the watcher and stop forwarding notifications.
 			select {
 			case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
+				// nolint:errcheck
 				pw.listener.Unregister(pw)
 			case <-pw.done:
 			}
@@ -192,6 +195,7 @@ func (pw *postgresWatcher) send(event *postgresEvent) {
 		go func() {
 			// Unregister the watcher first, so we stop attempting to send it events
 			// (this will happen again in pw.Close(), but it will be a no-op).
+			// nolint:errcheck
 			pw.listener.Unregister(pw)
 
 			select {
@@ -379,7 +383,7 @@ func (l *postgresListener) reset(err error) {
 	l.channels = make(map[string]notifierSet)
 	l.channelMu.Unlock()
 	if !l.closed {
-		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
+		// nolint:errcheck // `reset` is only ever called in the case of an error, so it should be fine to discard this error
 		l.getPQL().UnlistenAll()
 	}
 }

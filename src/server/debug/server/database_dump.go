@@ -124,6 +124,7 @@ func (s *debugServer) writeRowsToJSON(rows *sql.Rows, w io.Writer) error {
 	if err := rows.Err(); err != nil {
 		truncation := fmt.Sprintf("\n\t{\"message\": \"result set was truncated.\", \"error\":%q}\n]",
 			err.Error())
+		// nolint:errcheck
 		w.Write([]byte(truncation))
 		return nil
 	}

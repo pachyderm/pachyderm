@@ -83,6 +83,7 @@ func init() {
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
+	// nolint:errcheck
 	maxprocs.Set(maxprocs.Logger(log.Printf))
 
 	switch {
@@ -208,6 +209,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
+			// nolint:errcheck
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
@@ -359,6 +361,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 func doSidecarMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
+			// nolint:errcheck
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
@@ -483,6 +486,7 @@ func doFullMode(config interface{}) (retErr error) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
+			// nolint:errcheck
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
@@ -732,8 +736,11 @@ func doFullMode(config interface{}) (retErr error) {
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
+		if err := g.Wait(); err != nil {
+			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
 	}(interruptChan)
 	return <-errChan
 }
@@ -744,6 +751,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
+			// nolint:errcheck
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
@@ -922,8 +930,11 @@ func doPausedMode(config interface{}) (retErr error) {
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
+		if err := g.Wait(); err != nil {
+			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
 	}(interruptChan)
 	return <-errChan
 }

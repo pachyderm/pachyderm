@@ -56,6 +56,7 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	// nolint:errcheck
 	defer tx.Rollback()
 
 	// cache tableInfos because multiple files can belong to the same table

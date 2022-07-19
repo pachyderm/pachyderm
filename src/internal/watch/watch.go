@@ -102,6 +102,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 
 	rch := internalWatcher.Watch(ctx, prefix, watchOptions(nextRevision)...)
 
+	// nolint:errcheck
 	go func() (retErr error) {
 		defer func() {
 			if retErr != nil {

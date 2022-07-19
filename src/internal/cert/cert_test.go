@@ -52,14 +52,18 @@ func TestTLS(t *testing.T) {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			b, err := ioutil.ReadAll(req.Body)
 			if err != nil {
-				w.Write([]byte("err: " + err.Error()))
+				_, err := w.Write([]byte("err: " + err.Error()))
+				require.NoError(t, err)
 				return
 			}
-			w.Write(b)
+			_, err = w.Write(b)
+			require.NoError(t, err)
 		}),
 	}
 	// Note: no need to provide cert/key files, as they're set in the TLSConfig
-	go server.ServeTLS(l, "", "")
+	go func() {
+		require.NoError(t, server.ServeTLS(l, "", ""))
+	}()
 
 	// Create a client for the server above
 	c := http.Client{

@@ -14,6 +14,7 @@ import (
 // New returns a new uuid.
 func New() string {
 	var result string
+	// nolint:errcheck
 	backoff.RetryNotify(func() error {
 		uuid, err := uuid.NewV4()
 		if err != nil {

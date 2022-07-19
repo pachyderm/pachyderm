@@ -126,6 +126,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 		ctx, cancel := context.WithCancel(ctx)
 		defer func() {
 			cancel()
+			// nolint:errcheck
 			eg.Wait()
 		}()
 		eg.Go(func() error {

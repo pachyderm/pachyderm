@@ -506,10 +506,15 @@ func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionCo
 // Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+		// nolint:errcheck
 		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
+		// nolint:errcheck
 		a.deleteAllAuthTokens(ctx, sqlTx)
+		// nolint:errcheck
 		a.members.ReadWrite(sqlTx).DeleteAll()
+		// nolint:errcheck
 		a.groups.ReadWrite(sqlTx).DeleteAll()
+		// nolint:errcheck
 		a.authConfig.ReadWrite(sqlTx).DeleteAll()
 		return nil
 	}); err != nil {
@@ -1114,6 +1119,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
+	// nolint:errcheck
 	a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
@@ -1554,6 +1560,7 @@ func (a *apiServer) deleteExpiredTokensRoutine() {
 	go func(ctx context.Context) {
 		for {
 			time.Sleep(time.Duration(cleanupIntervalHours) * time.Hour)
+			// nolint:errcheck
 			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{})
 		}
 	}(context.Background())
