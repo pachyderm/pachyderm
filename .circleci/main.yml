@@ -365,7 +365,7 @@ jobs:
             make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
       - run:
           name: Push docker
-          command: make docker-push VERSION=${CIRCLE_SHA1}
+          command: make docker-push VERSION=${CIRCLE_SHA1} # Shouldn't this be v from above step? (May be tag?)
   build-pachctl-bin:
     parameters:
       version:
@@ -559,38 +559,58 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
   docker-build:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:2022.04.2
     steps:
+      #- run:
+      #    name: setup env
+      #    command: |
+      #      echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
       - run: 
           name: Shallow checkout
           command: git clone --depth 5 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
       - run:
-          name: Build Docker image
+          name: Install Goreleaser
           command: |
-            cd etc/test-images
-            docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
-  build-remote-docker:
-    resource_class: large
-    docker:
-      - image: cimg/go:1.18.3
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
+            curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      ##- run: "echo $(($(date +%s)/604800)) > current_week"
+      ##- restore_cache:
+      ##    keys:
+      ##      - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
+      ##      - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      ##- restore_cache:
+      ##    keys:
+      ##      - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
       - run:
           name: Build Docker image
           command: |
-            cd etc/test-images
-            docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
+            make docker-build VERSION=${v}
+  #build-remote-docker:
+  #  resource_class: large
+  #  docker:
+  #    - image: cimg/go:1.18.3
+  #  steps:
+  #    - checkout
+  #    - setup_remote_docker:
+  #        docker_layer_caching: true
+  #        version: "20.10.12"
+  #    - run:
+  #        name: Build Docker image
+  #        command: |
+  #          cd etc/test-images
+  #          docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
 
 workflows:
   docker-build:
     jobs:
       - docker-build
-      - build-remote-docker
+      #- build-remote-docker
   #integration-tests:
   #  jobs:
   #    - build-docker-images
