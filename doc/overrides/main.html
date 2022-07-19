@@ -62,6 +62,25 @@
         }
       );
     }
+
+    $(function() {
+      $("[data-clickid]").click(function () {
+          rudderanalytics.track(
+              "Click",
+              {
+                  context: {
+                      traits: {
+                          clickid: $(this).attr("data-clickid")
+                      }
+                  }
+              }
+          );
+      });
+
+  });
+
+    
+
   </script>
   <script src="https://cdn.rudderlabs.com/sm/rudder-analytics.min.js"></script>
   
