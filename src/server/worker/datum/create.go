@@ -3,6 +3,7 @@ package datum
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -19,7 +20,6 @@ import (
 )
 
 func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
-	// TODO: Prefix index.
 	switch {
 	case input.Pfs != nil:
 		return createPFS(pachClient, taskDoer, input.Pfs)
@@ -59,10 +59,11 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 			return err
 		}
 		var inputs []*types.Any
-		for _, shard := range shards {
+		for i, shard := range shards {
 			input, err := serializePFSTask(&PFSTask{
 				Input:     input,
 				PathRange: shard,
+				BaseIndex: createBaseIndex(int64(i)),
 			})
 			if err != nil {
 				return err
@@ -92,6 +93,10 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 		return "", err
 	}
 	return outputFileSetID, nil
+}
+
+func createBaseIndex(index int64) int64 {
+	return index * int64(math.Pow(float64(10), float64(16)))
 }
 
 func ComposeFileSets(ctx context.Context, taskDoer task.Doer, fileSetIDs []string) (string, error) {
@@ -167,11 +172,12 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		}
 		fileSetIDs = append(fileSetIDs[:maxIdx], fileSetIDs[maxIdx+1:]...)
 		var inputs []*types.Any
-		for _, shard := range baseFileSetShards {
+		for i, shard := range baseFileSetShards {
 			input, err := serializeCrossTask(&CrossTask{
 				BaseFileSetId:        baseFileSetID,
 				BaseFileSetPathRange: shard,
 				FileSetIds:           fileSetIDs,
+				BaseIndex:            createBaseIndex(int64(i)),
 			})
 			if err != nil {
 				return err

@@ -86,13 +86,14 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
+		index := task.BaseIndex
 		return clientsdk.ForEachGlobFile(client, func(fi *pfs.FileInfo) error {
 			g := glob.MustCompile(pfsfile.CleanPath(task.Input.Glob), '/')
 			// Remove the trailing slash to support glob replace on directory paths.
 			p := strings.TrimRight(fi.File.Path, "/")
 			joinOn := g.Replace(p, task.Input.JoinOn)
 			groupBy := g.Replace(p, task.Input.GroupBy)
-			return s.UploadMeta(&Meta{
+			meta := &Meta{
 				Inputs: []*common.Input{
 					&common.Input{
 						FileInfo:   fi,
@@ -106,7 +107,10 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 						S3:         task.Input.S3,
 					},
 				},
-			})
+				Index: index,
+			}
+			index++
+			return s.UploadMeta(meta)
 		})
 	})
 	if err != nil {
@@ -116,12 +120,15 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*types.Any, er
 }
 
 func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*types.Any, error) {
+	index := task.BaseIndex
 	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
 		iterators := []Iterator{NewFileSetIterator(pachClient, task.BaseFileSetId, task.BaseFileSetPathRange)}
 		for _, fileSetID := range task.FileSetIds {
 			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
 		}
 		return iterate(nil, iterators, func(meta *Meta) error {
+			meta.Index = index
+			index++
 			return s.UploadMeta(meta)
 		})
 	})
