@@ -5,18 +5,18 @@ set -ex
 mkdir -p cached-deps
 
 # Install deps
-#sudo apt update -y
-#sudo apt-get install -y -qq \
+sudo apt update -y
+sudo apt-get install -y -qq \
 #  silversearcher-ag \
 #  python3 \
 #  python3-pip \
 #  python3-setuptools \
 #  pkg-config \
-#  fuse \
+   fuse \
 #  conntrack \
 #  pv \
-#  shellcheck \
-#  moreutils \
+   shellcheck \
+   moreutils #Needed for ts command
 
 # Install fuse
 sudo modprobe fuse
