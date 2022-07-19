@@ -5,19 +5,18 @@ set -ex
 mkdir -p cached-deps
 
 # Install deps
-sudo apt update -y
-sudo apt-get install -y -qq \
-  silversearcher-ag \
-  python3 \
-  python3-pip \
-  python3-setuptools \
-  pkg-config \
-  fuse \
-  conntrack \
-  pv \
-  shellcheck \
-  moreutils \
-  docker-ce-cli
+#sudo apt update -y
+#sudo apt-get install -y -qq \
+#  silversearcher-ag \
+#  python3 \
+#  python3-pip \
+#  python3-setuptools \
+#  pkg-config \
+#  fuse \
+#  conntrack \
+#  pv \
+#  shellcheck \
+#  moreutils \
 
 # Install fuse
 sudo modprobe fuse
@@ -26,8 +25,8 @@ sudo cp etc/build/fuse.conf /etc/fuse.conf
 sudo chown root:root /etc/fuse.conf
 
 # Install aws CLI (for TLS test)
-pip3 install --upgrade --user wheel
-#pip3 install --upgrade --user awscli s3transfer==0.3.4
+# pip3 install --upgrade --user wheel
+# pip3 install --upgrade --user awscli s3transfer==0.3.4
 
 # Install kubectl
 # To get the latest kubectl version:
@@ -52,12 +51,12 @@ fi
 # Install etcdctl
 # To get the latest etcd version:
 # curl -Ls https://api.github.com/repos/etcd-io/etcd/releases | jq -r .[].tag_name
-if [ ! -f cached-deps/etcdctl ] ; then
-    ETCD_VERSION=v3.3.12
-    curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
-        | tar xzf - --strip-components=1
-        mv ./etcdctl cached-deps/etcdctl
-fi
+#if [ ! -f cached-deps/etcdctl ] ; then
+#    ETCD_VERSION=v3.3.12
+#    curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz \
+#        | tar xzf - --strip-components=1
+#        mv ./etcdctl cached-deps/etcdctl
+#fi
 
 # Install kubeval
 if [ ! -f cached-deps/kubeval ]; then
@@ -80,10 +79,4 @@ if [ ! -f cached-deps/goreleaser ]; then
   GORELEASER_VERSION=0.169.0
   curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
       | tar xzf - -C cached-deps goreleaser
-fi
-
-# Install jq
-if [ ! -f cached-deps/jq ]; then
-  JQ_VERSION=1.6
-  curl -L https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64 > cached-deps/jq
 fi
