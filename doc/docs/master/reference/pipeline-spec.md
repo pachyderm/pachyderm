@@ -893,7 +893,7 @@ Let's compare `"until_success"` and `"every_job"`:
 ### Service (optional)
 
 !!! Warning
-    Service Pipelines are an [experimental feature](../../contributing/supported-releases/#experimental).
+    Service Pipelines are an [experimental feature](../../reference/supported-releases/#experimental).
 
 `service` specifies that the pipeline should be treated as a long running
 service rather than a data transformation. This means that `transform.cmd` is

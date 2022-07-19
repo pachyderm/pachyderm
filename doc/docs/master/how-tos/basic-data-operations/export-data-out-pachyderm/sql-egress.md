@@ -2,7 +2,7 @@
 # Egress To An SQL Database
 
 !!! Warning
-    SQL Egress is an [experimental feature](../../../../contributing/supported-releases/#experimental){target=_blank}.
+    SQL Egress is an [experimental feature](../../../../reference/supported-releases/#experimental){target=_blank}.
 
 Pachyderm already implements [egress to object storage](../export-data-egress){target=_blank} as an optional egress field in the pipeline specification. 
 Similarly, our **SQL egress** lets you seamlessly export data from a Pachyderm-powered pipeline output repo to an SQL database.

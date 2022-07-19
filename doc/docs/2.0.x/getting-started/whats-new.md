@@ -42,7 +42,7 @@ The most important change in Pachyderm 2 is its **storage architecture**.
 
 Read about the general [principles of a deployment with Helm](../../deploy-manage/deploy/helm-install/) in Pachyderm in our Deployment section.
 
-All existing `pachctl deploy` commands are [EOL](../../contributing/supported-releases/#end-of-life-eol). You can now configure the Helm values passed to [Pachyderm's chart](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} depending on your targeted setup.
+All existing `pachctl deploy` commands are [EOL](../../reference/supported-releases/#end-of-life-eol). You can now configure the Helm values passed to [Pachyderm's chart](https://artifacthub.io/packages/helm/pachyderm/pachyderm){target=_blank} depending on your targeted setup.
 
 - Look at how to configure your Helm values:
 
