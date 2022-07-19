@@ -19,8 +19,6 @@ sudo apt-get install -y -qq \
   moreutils \
   docker-ce-cli
 
-# bump
-
 # Install fuse
 sudo modprobe fuse
 sudo chmod 666 /dev/fuse
