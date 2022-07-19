@@ -17,7 +17,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: "ubuntu-2004:202201-02"
+    default: ubuntu-2004:2022.04.2
 
 jobs:
   test-go:
