@@ -88,15 +88,20 @@ jobs:
             chmod +x ./minikube
             sudo mv ./minikube /usr/local/bin
       - run:
+          name: Build other images
+          command: |
+            	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+            	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
+      - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
           #background: true
       - run:
           name: Install minio
           command:  kubectl apply -f etc/testing/minio.yaml
-       #- run:
-       #   no_output_timeout: 20m
-       #   command: etc/testing/circle/run_tests.sh
+       - run:
+          no_output_timeout: 20m
+          command: TESTSHA=$CIRCLE_SHA1 etc/testing/circle/run_tests.sh
 
   integration-tests:
     parameters:
