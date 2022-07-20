@@ -596,6 +596,9 @@ jobs:
       #    key: pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
       #    paths:
       #      - /home/circleci/.go_workspace/pkg/mod
+      - run:
+          name: Push docker
+          command: make docker-push VERSION=${CIRCLE_SHA1}
   #build-remote-docker:
   #  resource_class: large
   #  docker:
