@@ -1,9 +1,5 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
-parameters:
-  go-version:
-    type: string
-    default: "1.18.4"
 
 aliases:
   - &only-release-tags
@@ -22,6 +18,9 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
+  go-version:
+    type: string
+    default: "1.18.4"
 
 jobs:
   test-go:
