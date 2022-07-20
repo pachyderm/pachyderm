@@ -2,7 +2,10 @@ module github.com/pachyderm/pachyderm/examples/spouts/go-rabbitmq-spout/source
 
 go 1.18
 
-require github.com/pachyderm/pachyderm/v2 v2.2.5
+require (
+	github.com/pachyderm/pachyderm/v2 v2.2.5
+	github.com/streadway/amqp v1.0.0
+)
 
 require (
 	cloud.google.com/go/compute v1.6.1 // indirect
@@ -90,7 +93,6 @@ require (
 	github.com/snowflakedb/gosnowflake v1.6.7 // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/streadway/amqp v1.0.0
 	github.com/stretchr/testify v1.7.2 // indirect
 	github.com/uber/jaeger-client-go v2.28.0+incompatible // indirect
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
