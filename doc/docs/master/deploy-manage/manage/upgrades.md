@@ -16,7 +16,7 @@ section of this documentation.
 
 ## 2- Update Your Helm Values
 
-This phase depends on whether you need to modify your existing configuration (for example, enter an enterprise key, plug an Identity Provider, reference an Enterprise Server, etc...).
+This phase depends on whether you need to modify your existing configuration (for example, enter an enterprise key, plug an identity provider, reference an enterprise server, etc...).
 
 In the case of a simple upgrade of version on a cluster, and provided that you do not need to change any additional configuration, no change in the values.yaml should be required. The new version of Pachyderm will be directly set in the `helm upgrade` command.
 
