@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	gotls "crypto/tls"
 	"fmt"
 	"net/http"
@@ -45,7 +46,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"

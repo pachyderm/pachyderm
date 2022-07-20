@@ -6,9 +6,10 @@
 
 package server
 
-import (
+import 
 	"bytes"
-	"fmt"
+        "context"
+        "fmt"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 )
 
 func RepoInfoToName(repoInfo interface{}) interface{} {

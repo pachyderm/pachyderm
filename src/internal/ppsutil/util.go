@@ -13,6 +13,7 @@ package ppsutil
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"fmt"
 	"strings"
@@ -21,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 

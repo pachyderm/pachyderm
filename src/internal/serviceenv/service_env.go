@@ -1,6 +1,7 @@
 package serviceenv
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -18,7 +19,6 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"

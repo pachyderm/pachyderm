@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
