@@ -79,14 +79,14 @@ jobs:
             KUBECTL_VERSION=v1.23.5
             curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
             chmod +x ./kubectl
-            mv ./kubectl cached-deps/kubectl
+            mv kubectl /usr/local/bin
       - run:
           name: install minikube
           command: |
             MINIKUBE_VERSION=v1.25.2 # If changed, also do etc/kube/start-minikube.sh
             curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
             chmod +x ./minikube
-            mv ./minikube cached-deps/minikube
+            mv ./minikube /usr/local/bin
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
