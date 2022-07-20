@@ -194,8 +194,6 @@ This section is to configure the pachd deployment.
 
 - `pachd.externalService.annotations` add your service annotations.
 
-- `pachd.activateEnterprise` instruct the config-pod to bootstrap enterprise on the cluster, even in upgrade releases. Default to false.
-
 - `pachd.activateEnterpriseMember` specifies whether to activate with an enterprise server.
   If pachd.activateEnterpriseMember is set, enterprise will be activated and connected to an existing enterprise server.
 

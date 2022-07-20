@@ -239,16 +239,16 @@ Find the complete list of secrets in the table below:
 |`pachyderm-identity` | upstream-idps | The list of dex connectors, each containing Oauth client info connecting to an upstream IDP. |
 |`pachyderm-license` | enterprise-license-key | Your enterprise license. |
 |`pachyderm-storage-secret` | *This content depends on what object store backs your installation of Pachyderm.*|Credentials for Pachyderm to access your object store.|
-|`postgres` | - postgresql-password <div> - postgresql-postgres-password| Password for Pachyderm to Access Postgres. |
+|`postgres` | postgresql-password | Password for Pachyderm to Access Postgres. |
 
 *Secrets in bold do not need to be set by users.*
 ### Mapping External Secrets Fields, Values Fields, and Pachyderm Platform Secrets
 
 In the following table, you will find the complete list of:
 
-- the secret keys and the secret name fields to reference a secret in a values.yaml.
+- the secret keys and the secret name fields needed to reference a secret in a values.yaml.
 - the secret values fields if you chose to hard code your values rather than pass them in a secret.
-- Pachyderm's platform secrets and keys those values will be injected into.
+- Pachyderm's platform secrets and keys those values will be injected into in the latter case.
 
 !!! Important "Order of operations."
        Note that if no secret name is provided for the fields mentioned in **A** (see table above), Pachyderm will retrieve the dedicated plain-text secret values in the helm values (Column **B**) and populate (or autogenerate when left blank) its own platform secrets at the time of the installation/upgrade (Column **C**). 
@@ -256,13 +256,15 @@ In the following table, you will find the complete list of:
 |Secret KEY name| <div style="width:290px"> Description </div>| A - Create your secrets ahead <br> of your cluster creation| B - Pass credentials in values.yaml| <div style="width:250px"> C - Corresponding (Platform Secret, Key) in which the values provided in A or B will be injected.</div>| 
 |------------|------------|-----|--------|---------|
 |root-token| Root user Password| pachd.rootTokenSecretName |pachd.rootToken|(pachyderm-auth, rootToken)|
-|root-token|Users give this token in their values.yaml when they install a cluster that is under an [Enterprise Server's](../../enterprise/auth/enterprise-server/setup) umbrella.|pachd.enterpriseRootTokenSecretName|pachd.enterpriseRootToken|????|
-|postgresql-password|Password to your database|global.postgresql.postgresqlExistingSecretName <br> global.postgresql.postgresqlExistingSecretKey |global.postgresql.postgresqlPassword|(postgres, postgresql-password) , (postgres, postgresql-postgres-password)|
-|OAUTH_CLIENT_SECRET|Oauth client secret for Console <br> Required if you set Console|console.config.oauthClientSecretSecretName |console.config.oauthClientSecret|(pachyderm-console-secret, OAUTH_CLIENT_SECRET)|
-|enterprise-license-key|Your enterprise license|pachd.enterpriseLicenseKeySecretName |pachd.enterpriseLicenseKey|(pachyderm-license, enterprise-license-key)|
 |auth-config| Oauth client secret for pachd| pachd.oauthClientSecretSecretName|pachd.oauthClientSecret|(pachyderm-auth, auth-config)|
-|enterprise-secret|Needed if you connect to an enterprise server|pachd.enterpriseSecretSecretName  |pachd.enterpriseSecret| (pachyderm-enterprise, enterprise-secret)  |
+|cluster-role-bindings| Role Based Access declaration at the cluster level.| No specific secret to pass role based access information. Use plain text in your values.yaml (see `pachAuthClusterRoleBindings`)| pachd.pachAuthClusterRoleBindings|(pachyderm-auth, cluster-role-bindings)|
+|enterprise-license-key|Your enterprise license|pachd.enterpriseLicenseKeySecretName |pachd.enterpriseLicenseKey|(pachyderm-license, enterprise-license-key)|
+|postgresql-password|Password to your database| global.postgresql.postgresqlExistingSecretName |global.postgresql.postgresqlPassword|(postgres, postgresql-password)|
+|OAUTH_CLIENT_SECRET|Oauth client secret for Console <br> Required if you set Console|console.config.oauthClientSecretSecretName |console.config.oauthClientSecret|(pachyderm-console-secret, OAUTH_CLIENT_SECRET)|
 |upstream-idps|The list of dex connectors, each containing Oauth client info connecting to an upstream IDP|oidc.upstreamIDPsSecretName|oidc.upstreamIDPs|(pachyderm-identity, upstream-idps)|
+|enterprise-server-token|Users set this value when they install a cluster that is under an [Enterprise Server's](../../enterprise/auth/enterprise-server/setup) umbrella. <br> Pachyderm (pachd) uses this token to instruct the enterprise server to add it to its registry. This token must be tied to a user on the enterprise server that has the clusterAdmin role.|pachd.enterpriseServerTokenSecretName|pachd.enterpriseServerToken| Not injected into any platform secret. It is passed into the deployment manifest if set as plaintext.|
+|enterprise-secret|Needed if you connect to an enterprise server|pachd.enterpriseSecretSecretName  |pachd.enterpriseSecret| (pachyderm-enterprise, enterprise-secret) |
 
 
-        
+
+
