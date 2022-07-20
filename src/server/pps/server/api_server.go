@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -1233,44 +1232,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				}()
 
 				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(stream)
-				for scanner.Scan() {
-					msg := new(pps.LogMessage)
-					if containerName == "pachd" {
-						msg.Message = scanner.Text()
-					} else {
-						logBytes := scanner.Bytes()
-						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-							continue
-						}
-
-						// Filter out log lines that don't match on pipeline or job
-						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-							continue
-						}
-						if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
-							continue
-						}
-						if request.Datum != nil && request.Datum.ID != msg.DatumID {
-							continue
-						}
-						if request.Master != msg.Master {
-							continue
-						}
-						if !common.MatchDatum(request.DataFilters, msg.Data) {
-							continue
-						}
-					}
-					msg.Message = strings.TrimSuffix(msg.Message, "\n")
-
-					// Log message passes all filters -- return it
+				return ppsutil.FilterLogLines(request, stream, containerName == "pachd", func(msg *pps.LogMessage) error {
 					select {
 					case logCh <- msg:
-					case <-apiGetLogsServer.Context().Done():
 						return nil
+					case <-apiGetLogsServer.Context().Done():
+						return errutil.ErrBreak
 					}
-				}
-				return nil
+				})
 			})
 		}
 		return nil
