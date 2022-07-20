@@ -2,11 +2,9 @@
 
 !!! Note
     - Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/){target=_blank} if you do not have an enterprise key.
-    - Before connecting your IdP to Pachyderm, verify that
-    the [Authentication](../../#activate-user-access-management) is enabled by running `pachctl auth whoami`. The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges). 
-    Alternatively, [**you have the option to set your IdP values directly through Helm**](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L489){target=_blank}. 
-    In any case, we recommend going through this page to understand the specifics of all the fields you will need to set up.
-    - Run `pachctl auth use-auth-token` to login as a Root User.
+    - Helm users, **you have the option to set your IdP values directly through Helm (Recommended)**. See below.
+    - Alternatively, you can use `pachctl` to connect your IdP to Pachyderm. First, verify that
+    the [Authentication](../../#authentication-and-authorization) is enabled by running `pachctl auth whoami`. The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges).  Run `pachctl auth use-auth-token` and enter your rootToken to login as a Root User if you are not.
     
 !!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
@@ -197,8 +195,36 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
     Note that Pachyderm's YAML format is **a simplified version** of Dex's [sample config](https://dexidp.io/docs/connectors/oidc/){target=_blank}.
 
 #### Create Your Idp-Pachyderm Connection
+
 Once your Pachyderm application is registered with your IdP (here Auth0), 
-and your IdP-Pachyderm connector config file created (here with the Auth0 parameters), **connect your IdP to Pachyderm** by running the following command:
+and your IdP-Pachyderm connector config file created (here with the Auth0 parameters), **connect your IdP to Pachyderm** in your Helm values (recommended) or by using `pachctl`:
+
+- Reference your connector in Helm
+
+    Provide your connector info in the [oidc.upstreamIDPs](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L706){target=_blank} field of your helm values. Pachyderm will store this value in the platform secret `pachyderm-identity` in the key upstream-idps.
+
+    Alternatively, you can [create a secret](../../../../how-tos/advanced-data-operations/secrets/#generate-your-secret-configuration-file){target=_blank} containing your dex connectors (Key: upstream-idps) and reference its name in the field [oidc.upstreamIDPsSecretName](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L737){target=_blank}.
+
+!!! Example 
+    Below, a yaml example of the `stringData` section of an IdP generic secret.
+
+    ```yaml
+    stringData:
+    upstream-idps: |
+        - type: github
+        id: github
+        name: GitHub
+        jsonConfig: >-
+            {
+            "clientID": "xxx",
+            "clientSecret": "xxx",
+            "redirectURI": "https://pach.pachdemo.cloud/dex/callback",
+            "loadAllGroups": true
+            }
+    ```
+
+
+- Alternatively, use `pachctl`
 
 ```shell
 pachctl idp create-connector --config oidc-dex-connector.json
@@ -240,7 +266,7 @@ Use the `pachctl auth revoke` command to revoke access for an existing Pachyderm
 !!! Note
     Note that a user whose Pachyderm token has been revoked can technically log in to Pachyderm again unless **you have removed that user from the user registry of your IdP**.
 
-Take a look at the sequence diagram below illustrating the OIDC login flow. It highlights the exchange of the original OIDC ID Token for a Pachyderm Token.
+For the curious mind: Take a look at the sequence diagram below illustrating the OIDC login flow. It highlights the exchange of the original OIDC ID Token for a Pachyderm Token.
 
 ![OIDC Login Flow](../../images/pachyderm-oidc-dex-flow.png)
 
