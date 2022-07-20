@@ -217,7 +217,7 @@ etcd and PostgreSQL (metadata storage) each claim the creation of a pv.
 If you plan on using **gp2** EBS volumes:
 
 - For deployments in **production**, [go to the AWS-managed PostgreSQL deployment and setup section](#5-create-an-aws-managed-postgresql-database)
-- Otherwise, you will be using the default bundled version of PostgreSQL: [Go to the deployment of Pachyderm](#6-deploy-pachyderm) 
+- For non production deployments, you will be using the default bundled version of PostgreSQL: [Go to the deployment of Pachyderm](#6-deploy-pachyderm) 
 
 For gp3 volumes, you will need to **deploy an Amazon EBS CSI driver to your cluster as detailed below**.
 
@@ -293,6 +293,8 @@ global:
     postgresqlUsername: "username"
     postgresqlPassword: "password" 
     # The name of the database should be Pachyderm's ("pachyderm" in the example above), not "dex" 
+    # See also 
+    # postgresqlExistingSecretName: "<yoursecretname>"
     postgresqlDatabase: "databasename"
     # The postgresql database host to connect to. Defaults to postgres service in subchart
     postgresqlHost: "RDS CNAME"
