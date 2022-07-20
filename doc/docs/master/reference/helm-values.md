@@ -18,12 +18,12 @@ To see how to use a helm values files to customize your deployment, refer to our
     Take a look at our deployment instructions [locally](../../getting-started/local-installation/) or [in the cloud](../../deploy-manage/deploy/quickstart/) to identify which of those are required for your deployment target.
 
 ## Values.yaml
-The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/2.2.x/etc/helm/pachyderm/values.yaml). 
+The following section displays the complete list of fields available in the [values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml). 
 Each section is further detailed in its own sub-chapter. 
 
 
 ```yaml
-{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', '2.2.x') }}
+{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', 'master') }}
 ```
 ### deployTarget
 
@@ -68,7 +68,7 @@ This section is to configure the Pachyderm UI (`console`). It is enabled by defa
 
 - `console.image` sets the image to use for the console. This can be left at the defaults unless instructed.
 
-- `console.podLables` specifies lables to add to the console pod.
+- `console.podLabels` specifies labels to add to the console pod.
 
 - `console.resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 
@@ -98,7 +98,7 @@ This section is to configure the etcd cluster in the deployment.
 
 - `etcd.image` sets the image to use for the etcd. This can be left at the defaults unless instructed.
 
-- `etcd.podLables` specifies lables to add to the etcd pods.
+- `etcd.podLabels` specifies labels to add to the etcd pods.
 
 - `etcd.resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 
@@ -122,7 +122,7 @@ This section is to configure the Enterprise Server deployment (if desired).
 
 - `enterpriseServer.resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 
-- `enterpriseServer.podLables` specifies lables to add to the enterpriseServer pod.
+- `enterpriseServer.podLabels` specifies labels to add to the enterpriseServer pod.
 
 - `enterpriseServer.image` sets the image to use for the etcd. This can be left at the defaults unless instructed.
 
@@ -135,6 +135,9 @@ There are three options for configuring TLS on the Enterprise Server under `ente
 1. `enabled`, using a new secret. You must set enabled to true and `newSecret.create` to true and specify a secret name, and a cert and key in string format
 
 ### ingress
+
+!!! Attention
+    `ingress` will be removed from the helm chart once the deployment of Pachyderm with a proxy becomes mandatory.
 
 This section is to configure an ingress resource for an existing ingress controller.
 
@@ -162,12 +165,12 @@ This section is to configure the pachd deployment.
 - `pachd.image` sets the image to use for pachd. This can be left at the defaults unless instructed.
 
 - `pachd.logFormat` sets the logging format (`text` or `json`). `json` is default.
--
+
 - `pachd.logLevel` sets the logging level. `info` is default.
 
 - `pachd.lokiLogging` enables Loki logging if set.
 
-- `pachd.podLables` specifies lables to add to the pachd pod.
+- `pachd.podLabels` specifies labels to add to the pachd pod.
 
 - `pachd.resources` specifies resources and limits in standard kubernetes format. It is left unset by default.
 
@@ -176,6 +179,9 @@ This section is to configure the pachd deployment.
 - `pachd.service.labels` specifies labels to add to the pachd service.
 
 - `pachd.service.type` specifies the Kubernetes type of the pachd service. The default is `ClusterIP`.
+
+!!! Attention
+    `pachd.externalService` will be removed from the helm chart once the deployment of Pachyderm with a proxy becomes mandatory.
 
 - `pachd.externalService.enabled` creates a kubernetes service of type `loadBalancer` that is safe to expose externally.
 
@@ -399,3 +405,61 @@ This section is to configure the oidc settings within pachyderm.
 - `oidc.mockIDP` when set to `true`, specifes to ignore `upstreamIDPs` in favor of a placeholder IDP with a username/password preset to "admin" and "password".
 
 - `oidc.userAccessibleOauthIssuerHost` specifies the Oauth issuer's address host that's used in the Oauth authorization redirect URI. This value is only necessary in local settings or anytime the registered Issuer address isn't accessible outside the cluster.
+
+### proxy
+
+The proxy is a service to handle all Pachyderm traffic (S3, Console, OIDC, Dex, GRPC) on a single
+port exposed directly to the Internet.
+
+  - `proxy.enabled` when set to `true`, create a proxy deployment and a service to expose it. If
+  ingress is also enabled, any ingress traffic will be routed through the proxy before being sent.
+  
+  - `proxy.replicas` : The number of proxy replicas to run.  1 is a default but can be increased
+  for higher availability. Each replica can handle 50,000 concurrent connections.There is an affinity rule to prefer scheduling the proxy pods **on the same node as pachd**, so a number here that matches the number of pachd replicas is a fine configuration.
+  
+!!! Note 
+      We don't guarantee to keep the proxy<->pachd traffic on-node or even in-region.
+  
+  - `proxy.image` specifies the details of the proxy image to pull.  THe following fields can be left at the defaults unless instructed.
+
+    - `proxy.image.repository` the proxy image repository. Defaults to "envoyproxy/envoy".
+    - `proxy.image. tag` the tag of the proxy image.
+    - `proxy.image.pullPolicy` the proxy image pull policy. Defaults to "IfNotPresent".
+  
+  - `proxy.resources` specifies the proxy ressources. The proxy is configured to shed traffic before using 500MB of RAM, so that's a resonable memory limit.  It doesn't need much CPU.
+
+    - `proxy.resources.requests`
+
+      - `proxy.resources.requests.cpu` defaults to 100m
+      - `proxy.resources.requests.memory` defaults to 512Mi
+
+    - `proxy.resources.limits.memory` sets the proxy memory limit. defaults to 512Mi.
+
+  - `proxy.labels`  list any additional labels to add to the pods.  These are also added to the deployment and service selectors.
+
+  - `proxy.annotations` list any additional annotations to add to the pods.
+
+  - `proxy.service` this section configure the service that routes traffic to the proxy.
+
+     - `proxy.service.type` The type of service can be **ClusterIP**, **NodePort**, or **LoadBalancer**. Defaults to ClusterIP.
+
+         - If the service is a **LoadBalancer**, you can specify the IP `proxy.service.loadBalancerIP` address to use, the port to serve plain HTTP traffic on `proxy.service.httpPort` (defaults to 80), the port to serve HTTPS traffic on `proxy.service.httpsPort` (defaults to 443), if enabled below.
+         - If the service is a **NodePort**, you can specify the port to receive HTTP traffic on `proxy.service.httpNodePort` (defaults to 30080), and `proxy.service.httpsNodePort` (defaults to 30443).
+
+     - `proxy.service.annotations` list any additional annotations to add.
+
+     - `proxy.service.labels` list any additional labels to add to the service itself (not the selector!).
+
+     - `proxy.service.legacyPorts` The proxy can also serve each backend service on a numbered port, and will do so for any port not numbered 0.  If this service is of type NodePort, the port numbers will be used for the node port, and will need to be in the node port range.
+    
+        - `proxy.service.legacyPorts.console` defaults to 0, legacy 30080, conflicts with default httpNodePort
+        - `proxy.service.legacyPorts.grpc` defaults to 0, legacy 30650
+        - `proxy.service.legacyPorts.s3Gateway` defaults to 0, legacy 30600
+        - `proxy.service.legacyPorts.oidc` defaults to 0, legacy 30657
+        - `proxy.service.legacyPorts.identity` defaults to 0, legacy 30658
+        - `proxy.service.legacyPorts.metrics` defaults to 0, legacy 30656
+
+  - `proxy.tls.enabled` enable TLS (SSL, HTTPS) serving when `true`.  Enabling TLS is incompatible with support for legacy ports (you can't get a generally-trusted certificate for port numbers), and disables support for cleartext communication (cleartext requests will redirect to the secure server, and HSTS headers are set to prevent downgrade attacks).
+
+  - `proxy.tls.secretName` The secret containing "tls.key" and "tls.crt" keys that contain PEM-encoded private key and certificate material.  Generate one with "kubectl create secret tls <name> --key=tls.key --cert=tls.cert".  This format is compatible with the secrets produced by cert-manager.
+ 

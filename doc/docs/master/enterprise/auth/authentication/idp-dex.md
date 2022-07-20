@@ -8,6 +8,15 @@
     In any case, we recommend going through this page to understand the specifics of all the fields you will need to set up.
     - Run `pachctl auth use-auth-token` to login as a Root User.
     
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy:
+    
+    - Check out our new recommended architecture and [deployment instructions](../../../../deploy-manage/deploy/deploy-w-proxy/).
+    - **Update your Callback URL**. Details below.
+    
 
 ## Enable your users to authenticate to Pachyderm by logging into their favorite Identity Provider in 3 steps:
 
@@ -67,12 +76,15 @@ Then, complete the following steps:
 
     ```shell
     # Dex's issuer URL + "/callback"
-    http://<ip>:30658/callback
+    http://<insert-external-ip-or-dns-name>:30658/callback
     ```
 
     The IP address is the address of your Pachyderm host. For example,
     if you are running Pachyderm in Minikube, you can find the IP
     address by running `minikube ip`. 
+
+    !!! Attention "Attention Proxy users"
+            Your Callback URL must be set to `http(s)://<insert-external-ip-or-dns-name>/dex/callback`. 
 
 1. Scroll down to **Show Advanced Settings**.
 1. Select **Grant Types**.
@@ -175,8 +187,10 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
                 "email": "preferred_username"
             } 
         }      
+     
         ```
-
+!!! Attention "Attention Proxy users"
+    Your `redirect_uri` must be set to `http(s)://<insert-external-ip-or-dns-name>/dex/callback`. 
 
 !!! Note
 

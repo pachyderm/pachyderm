@@ -457,6 +457,28 @@ global:
     postgresqlUsername: "postgres"
     postgresqlPassword: "<InstanceRootPassword>"
 ```
+!!! Attention "Attention Proxy users" 
+    Replace the `pachd.externalService` section:
+
+    ```yaml
+    pachd:
+      enabled: true
+      externalService:
+        enabled: true
+        apiGRPCport:    31400
+        loadBalancerIP: "<STATIC_IP_ADDR>"
+    ```
+    with:
+
+    ```yaml
+    proxy:
+      enabled: true
+      service:
+        type: LoadBalancer
+        loadBalancerIP:  "<STATIC_IP_ADDR>"
+    pachd:
+      enabled: true
+    ```
 
 !!! Note
     Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
@@ -548,7 +570,7 @@ You are done! You can make sure that your cluster is working
 by running `pachctl version` or creating a new repo.
 
 !!! Attention
-    If Authentication is activated (When you deploy with an enterprise key already set, for example), you need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
+    If Authentication is activated (When you deploy with an enterprise key, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
 pachctl version
