@@ -24,7 +24,7 @@ This page is an add-on to existing installation instructions in the case where y
 The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../images/infra-recommendations-with-proxy.png)
 
 !!! Note 
-    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L699){target=_blank} for all available configurable fields of the proxy.
+    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml#L744){target=_blank} for all available configurable fields of the proxy.
 
 Before any deployment in production, we recommend reading the following section to [set up your production infrastructure](#deploy-pachyderm-in-production-with-a-proxy). 
 
@@ -380,6 +380,47 @@ Follow all the default [Prerequisites](../../../getting-started/local-installati
   helm repo update 
   ```  
 
+* Start a Kubernetes environment
+
+=== minikube (OS X / Windows)
+
+https://minikube.sigs.k8s.io/docs/
+
+    ```shell
+    minikube start
+    ```
+
+  Later, we'll use `minikube tunnel` to make the proxy available on `localhost`.
+
+=== kind (Linux)
+
+https://kind.sigs.k8s.io/
+
+    ```shell
+    cat <<EOF | kind create cluster --name=kind --config=-
+    kind: Cluster
+    apiVersion: kind.x-k8s.io/v1alpha4
+    nodes:
+        - role: control-plane
+          kubeadmConfigPatches:
+              - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                      kubeletExtraArgs:
+                          node-labels: "ingress-ready=true"
+          extraPortMappings:
+              - containerPort: 30080
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 30443
+                hostPort: 443
+                protocol: TCP
+    EOF
+    ```
+
+  The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
+  This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
+
 * Create your values.yaml
 
 !!! Attention "Attention Kind users"
@@ -390,8 +431,7 @@ Follow all the default [Prerequisites](../../../getting-started/local-installati
         service:
           type: NodePort
       ```
-
-     
+          
 === "Community Edition With Console"
 
       ```yaml 

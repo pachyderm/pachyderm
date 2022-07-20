@@ -34,7 +34,7 @@ enabling Enterprise allows you to benefit
 from the full Authentication and Role-Based Access Control capabilities 
 by restricting the access to specific resources to authorized users only. 
 Unauthorized users will not be able to visualize the content 
-of given clusters, repo, and pipelines.
+of given clusters, repos, and pipelines.
 
 Additionally, the Enterprise feature allows you to access Pachyderm's 
 logs via [Loki](../../deploy-manage/deploy/loki/){target=_blank}, 

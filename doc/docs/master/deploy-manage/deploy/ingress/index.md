@@ -30,15 +30,12 @@ we recommend that you:
     if required. Self-signed certificates might require additional configuration.
     For instructions on deployment with TLS, 
     see [Deploy Pachyderm with TLS](../deploy-w-tls/).
-
-    !!! Note
-        Optionally, you can use a certificate manager such as [cert-manager](https://cert-manager.io/docs/){target=_blank} to refresh certificates and inject them as kubernetes secrets into your cluster for the ingress and load balancer to use.
    
 * **Use Pachyderm authentication/authorization**
 
     Pachyderm authentication is an additional
     security layer to protect your data from unauthorized access.
-    See the [authentication and authorization section](../../../enterprise/auth/) to activate access control and set up an IdP.
+    See the [authentication and authorization section](../../../enterprise/auth/) to activate access control and set up an IdP (Identity Provider).
 
 * **Add an [Ingress Controller](#ingress) to your cluster** for HTTP/HTTPS incoming traffic.
 

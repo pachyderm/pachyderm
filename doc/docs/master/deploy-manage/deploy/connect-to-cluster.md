@@ -1,14 +1,15 @@
 # Connect to a Pachyderm cluster
 
-After you deploy a Pachyderm cluster, you can continue to use
-the command-line interface, connect to the Pachyderm console, or
+After you deploy a Pachyderm cluster, you can interact with Pachyderm using
+the command-line interface `pachctl` in a terminal, connect to the [Pachyderm Console](../console){target=_blank}, use [Notebooks via Pachyderm's Mount Extension](../../../how-tos/jupyterlab-extension/){target=_blank}, or
 configure third-party applications to access your cluster programmatically.
+
 Often all you need to do is just continue to use the command-line
 interface to create repositories, pipelines, and upload your data.
 At other times, you might have multiple Pachyderm clusters deployed
 and need to switch between them.
 
-You do not need to configure anything specific to start using the
+You might not need to configure anything specific to start using the
 Pachyderm CLI right after deployment. However, the Pachyderm
 console and the S3 gateway require
 explicit port-forwarding or direct access through an externally
@@ -16,6 +17,12 @@ exposed IP address and port.
 
 This section describes the various options available for you to connect
 to your Pachyderm cluster.
+
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/) as they alter the way you connect to a cluster.
 
 ## Connect to a Local Cluster
 

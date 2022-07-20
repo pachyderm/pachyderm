@@ -13,16 +13,18 @@ repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
-pach_branch: '2.2.x'
+pach_branch: 'master'
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
+
 pach_featured_version: '2.2.5'
 # Latest version of Pachyderm
 pach_latest_version: '2.2.5'
 pach_major_minor_version: '2.2'
-search_index_version: 'latest'
+search_index_version: '2.2.x'
+
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.6.0'
 # Latest compatible version of Python-pachyderm
