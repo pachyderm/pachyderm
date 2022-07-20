@@ -580,9 +580,10 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-build-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
-      - restore_cache:
-          keys:
-            - pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
+      # It doesn't seem worth it to cache go modules here, it takes 20s to restore, but doesn't affect build times that much
+      #- restore_cache:
+      #    keys:
+      #      - pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
       - run:
           name: Build Docker image
           command: |
@@ -591,10 +592,10 @@ jobs:
           key: pach-go-build-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.cache/go-build
-      - save_cache:
-          key: pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
-          paths:
-            - /home/circleci/.go_workspace/pkg/mod
+      #- save_cache:
+      #    key: pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
+      #    paths:
+      #      - /home/circleci/.go_workspace/pkg/mod
   #build-remote-docker:
   #  resource_class: large
   #  docker:
