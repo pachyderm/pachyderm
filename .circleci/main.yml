@@ -98,10 +98,12 @@ jobs:
           #background: true
       - run:
           name: Install minio
-          command:  kubectl apply -f etc/testing/minio.yaml
-       - run:
+          command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: run tests
           no_output_timeout: 20m
-          command: TESTSHA=$CIRCLE_SHA1 etc/testing/circle/run_tests.sh
+          command: |
+            TESTSHA=$CIRCLE_SHA1 etc/testing/circle/run_tests.sh
 
   integration-tests:
     parameters:
