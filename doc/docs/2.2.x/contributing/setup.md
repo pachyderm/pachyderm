@@ -79,7 +79,7 @@ See the [Pipe Viewer documentation](https://www.ivarch.com/programs/pv.shtml) fo
 
 ## 2. Launch Development Cluster
 
-### Update Binary Access 
+### Update Binary Access & Install Latest pachctl 
 
 1. Open a terminal.
 2. Navigate to your `/pachyderm` directory.
@@ -100,19 +100,7 @@ See the [Pipe Viewer documentation](https://www.ivarch.com/programs/pv.shtml) fo
 You can also run `make clean-launch-kube`.
 ---
 
-## 3. Install Latest pachctl
-
-1. Open a terminal. 
-2. Navigate into your `/pachyderm` directory.
-3. Run the following Makefile command:
-   ```shell
-    make install
-    pachctl version
-   ```
-
----
-
-## 4. Load Images to Minikube Cluster
+## 3. Load Images to Minikube Cluster
 
 Pachyderm's tests rely on a few images you'll need to load the into Minikube cluster.
 
