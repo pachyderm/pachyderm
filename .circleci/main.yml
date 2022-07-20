@@ -579,15 +579,15 @@ jobs:
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-new-v1-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
       - run:
           name: Build Docker image
           command: |
             DOCKER_BUILDKIT=1 VERSION=$CIRCLE_SHA1 goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml
       - save_cache:
-          key: pach-go-build-cache-new-v1-{{ .Branch }}-{{ checksum "current_week" }}
+          key: pach-go-build-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
-            - /home/circleci/.gocache
+            - /home/circleci/.cache/go-build
   #build-remote-docker:
   #  resource_class: large
   #  docker:
