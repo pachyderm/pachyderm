@@ -21,6 +21,9 @@ parameters:
   ADDITIONAL_VERSION:
     type: string
     default: ""
+  go-version:
+    type: string
+    default: "1.18.4"
 
 jobs:
   circleci:
@@ -45,6 +48,8 @@ jobs:
           key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
+      - go/install:
+        version: << pipeline.parameters.go-version >
       - run: etc/testing/circle/start-minikube.sh
 
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -176,7 +181,7 @@ jobs:
   build:
     resource_class: large
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - setup_remote_docker:
@@ -215,7 +220,7 @@ jobs:
             rm /home/circleci/gcpcreds.json
   release_job:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - run:
@@ -280,7 +285,7 @@ jobs:
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml
   push_redhat:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - setup_remote_docker:

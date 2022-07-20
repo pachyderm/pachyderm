@@ -74,7 +74,7 @@ if [ ! -f cached-deps/helm ]; then
       mv ./linux-amd64/helm cached-deps/helm
 fi
 
-# Install goreleaser 
+# Install goreleaser
 if [ ! -f cached-deps/goreleaser ]; then
   GORELEASER_VERSION=0.169.0
   curl -L https://github.com/goreleaser/goreleaser/releases/download/v${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz \
@@ -86,6 +86,3 @@ if [ ! -f cached-deps/jq ]; then
   JQ_VERSION=1.6
   curl -L https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-linux64 > cached-deps/jq
 fi
-
-sudo rm -rf /usr/local/go
-curl -L https://golang.org/dl/go1.17.3.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
