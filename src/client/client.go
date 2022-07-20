@@ -16,6 +16,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	// Import registers the grpc GZIP encoder
@@ -785,7 +786,7 @@ func DefaultDialOptions() []grpc.DialOption {
 func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
 	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
