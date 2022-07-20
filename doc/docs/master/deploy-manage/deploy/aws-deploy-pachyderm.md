@@ -8,7 +8,8 @@ For deployments in production, refer to the following diagram and follow these s
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](../helm-install/){target=_blank} page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/){target=_blank}. You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/){target=_blank} instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an [Ingress](../ingress/#ingress).
+      - Pachyderm comes with a [web UI (Console)](../console) for visualizing running pipelines and exploring your data. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+    
 
 !!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
@@ -310,9 +311,6 @@ postgresql:
 ## 6. Deploy Pachyderm
 
 You have set up your infrastructure, created your S3 bucket and an AWS Managed PostgreSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
-
-!!! Warning "Optional: If you plan to deploy with Console"
-    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 
 ### Update Your Values.yaml  
 

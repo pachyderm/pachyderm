@@ -6,7 +6,8 @@ For a quick test installation of Pachyderm on Azure (suitable for development), 
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm-install.md) page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+      - Pachyderm comes with a [web UI (Console)](../console) for visualizing running pipelines and exploring your data. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+    
 
 !!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
@@ -321,12 +322,9 @@ postgresql:
   enabled: false
 ```
 
-
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your data container and a Managed PostgreSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
 
-!!! Warning "Optional: If you plan to deploy with Console"
-    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 ### Update Your Values.yaml  
 
 !!! Note 
