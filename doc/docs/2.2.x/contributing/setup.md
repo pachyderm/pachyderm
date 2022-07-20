@@ -15,8 +15,8 @@ Already have a Go workspace set up? Skip to the download section.
 6. Define your Go settings:
     ```
     export GOROOT="/usr/local/go"
-    export GOPATH="~/Documents/GitHub/go-workspace"
-    export GOBIN="$GOPATH:/bin"
+    export GOPATH="$HOME/Desktop/go"
+
     source $GOPATH/src/pachyderm/etc/contributing/bash_helpers
     ```
 7. Save the file (`ctr-x` > `y`).
@@ -25,7 +25,7 @@ Already have a Go workspace set up? Skip to the download section.
 
 1. Open a terminal.
 2. Navigate to your workspace's `/src` director, such as `~/Documents/GitHub/go-workspace/src`.
-3. Clone the repo using `git clone git@github.com:pachyderm/pachyderm`.
+3. Clone the repo using `https://github.com/pachyderm/pachyderm.git`.
 
 
 ### Increase File Descriptor Limit (MacOs)
@@ -135,7 +135,7 @@ Instead of having to run makefile targets to recompile `pachctl`and redeploy a d
 
 - Delete all existing cluster data
 - Wipe the VM the cluster is running on 
-- Recompile `pachctl` 
+- Re-compile `pachctl` 
 - Re-deploy the development cluster 
 
 This reset is a bit more time consuming than running one-off Makefile targets,
