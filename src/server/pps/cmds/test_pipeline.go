@@ -68,6 +68,16 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr er
 	if _, err := client.FinishTransaction(txn); err != nil {
 		return err
 	}
+	finishedCommits := make(map[string]bool)
+	defer func() {
+		for pipeline, outC := range outCommits {
+			if !finishedCommits[pipeline] {
+				if err := client.FinishCommit(outC.Branch.Repo.Name, outC.Branch.Name, outC.ID); err != nil && retErr == nil {
+					retErr = err
+				}
+			}
+		}
+	}()
 	for _, request := range requests {
 		fmt.Printf("Running pipeline: %s\n", request.Pipeline.Name)
 		if err := client.ListDatumInput(request.Input, func(di *ppsclient.DatumInfo) error {
@@ -123,6 +133,22 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr er
 		if err := client.FinishCommit(request.Pipeline.Name, "master", commitID); err != nil {
 			return err
 		}
+		finishedCommits[request.Pipeline.Name] = true
 	}
-	return nil
+	mountOpts := make(map[string]*fuse.RepoOptions)
+	for _, outC := range outCommits {
+		mountOpts[outC.Branch.Repo.Name] = &fuse.RepoOptions{
+			Name: outC.Branch.Repo.Name,
+			File: &pfs.File{Commit: outC},
+		}
+	}
+	fmt.Println("Mounting output at /pfs, CTRL-c to unmount.")
+	return fuse.Mount(client, "/pfs", &fuse.Options{
+		RepoOptions: mountOpts,
+		Fuse: &fs.Options{
+			MountOptions: gofuse.MountOptions{
+				FsName: name,
+				Name:   name,
+			}},
+	})
 }
