@@ -344,7 +344,7 @@ Follow all the default [Prerequisites](../../../getting-started/local-installati
 
 === "Linux Users"
 
-    For Linus Users looking to set up a Local Kubernetes, we recommend installing [Kind](https://kind.sigs.k8s.io/){target=_blank} then run the following:
+    For Linux Users looking to set up a Local Kubernetes, we recommend installing [Kind](https://kind.sigs.k8s.io/){target=_blank} then run the following:
 
     ```shell
     cat <<EOF | kind create cluster --name=kind --config=-

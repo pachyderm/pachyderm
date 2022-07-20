@@ -1395,7 +1395,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
 	globFile := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
+		Use:   `{{alias}} "<repo>@<branch-or-commit>:<pattern>"`,
 		Short: "Return files that match a glob pattern in a commit.",
 		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
 		Example: `
@@ -1405,7 +1405,9 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 $ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-$ {{alias}} "foo@master:data/*"`,
+$ {{alias}} "foo@master:data/*" 
+
+# If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
