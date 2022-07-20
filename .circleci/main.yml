@@ -1,5 +1,9 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
+parameters:
+  go-version:
+    type: string
+    default: "1.18.4"
 
 aliases:
   - &only-release-tags
@@ -85,7 +89,7 @@ jobs:
           paths:
             - cached-deps/
       - go/install:
-          version: 1.18.4
+          version: << pipeline.parameters.go-version >>
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -140,7 +144,7 @@ jobs:
           path: /tmp/test-results
   helm-tests:
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -341,7 +345,7 @@ jobs:
         default: ${CIRCLE_SHA1}
     resource_class: large
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - setup_remote_docker:
@@ -378,7 +382,8 @@ jobs:
         default: false
     resource_class: large
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
+
     steps:
       - checkout
       - run:
@@ -450,7 +455,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - setup_remote_docker:
@@ -538,7 +543,7 @@ jobs:
             make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - add_ssh_keys:
