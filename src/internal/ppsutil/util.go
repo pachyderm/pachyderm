@@ -12,12 +12,15 @@
 package ppsutil
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
@@ -40,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -512,4 +516,45 @@ func ListPipelineInfo(ctx context.Context,
 		return nil
 	}
 	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+}
+
+func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		msg := new(pps.LogMessage)
+		if plainText {
+			msg.Message = scanner.Text()
+		} else {
+			logBytes := scanner.Bytes()
+			if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+				continue
+			}
+
+			// Filter out log lines that don't match on pipeline or job
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				continue
+			}
+			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+				continue
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				continue
+			}
+			if request.Master != msg.Master {
+				continue
+			}
+			if !common.MatchDatum(request.DataFilters, msg.Data) {
+				continue
+			}
+		}
+		// Log message passes all filters -- return it
+		msg.Message = strings.TrimSuffix(msg.Message, "\n")
+		if err := send(msg); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
 }
