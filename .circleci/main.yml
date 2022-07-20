@@ -590,7 +590,7 @@ jobs:
       - run:
           name: Build Docker image
           command: |
-            make docker-build VERSION=${v}
+            DOCKER_BUILDKIT=1 VERSION=$CIRCLE_SHA1 goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml 
   #build-remote-docker:
   #  resource_class: large
   #  docker:
