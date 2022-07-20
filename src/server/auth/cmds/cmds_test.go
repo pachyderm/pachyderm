@@ -128,7 +128,7 @@ func TestLogin(t *testing.T) {
 			break
 		}
 	}
-	require.NoError(cmd.Wait())
+	require.NoError(t, cmd.Wait())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,

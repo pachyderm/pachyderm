@@ -607,12 +607,12 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	commitA, err := c.StartCommit(dataRepo, branchA)
 	require.NoError(t, err)
 	c.PutFile(commitA, "/file", strings.NewReader("data A\n"), client.WithAppendPutFile())
-	require.NoError(c.FinishCommit(dataRepo, commitA.Branch.Name, commitA.ID))
+	require.NoError(t, c.FinishCommit(dataRepo, commitA.Branch.Name, commitA.ID))
 
 	commitB, err := c.StartCommit(dataRepo, branchB)
 	require.NoError(t, err)
 	c.PutFile(commitB, "/file", strings.NewReader("data B\n"), client.WithAppendPutFile())
-	require.NoError(c.FinishCommit(dataRepo, commitB.Branch.Name, commitB.ID))
+	require.NoError(t, c.FinishCommit(dataRepo, commitB.Branch.Name, commitB.ID))
 
 	commitInfos, err := c.WaitCommitSetAll(commitB.ID)
 	require.NoError(t, err)
