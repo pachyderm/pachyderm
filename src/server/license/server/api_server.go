@@ -232,7 +232,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 	}
 
 	if count != 1 {
-		return nil, lc.ErrInvalidIDOrSecret
+		return nil, errors.Wrapf(lc.ErrInvalidIDOrSecret, "got %d, want 1 for cluster id %q", count, req.Id)
 	}
 
 	if _, err := a.env.DB.ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, client_id=$3, last_heartbeat=NOW() WHERE id=$4`, req.Version, req.AuthEnabled, req.ClientId, req.Id); err != nil {
