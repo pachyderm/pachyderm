@@ -80,6 +80,9 @@ jobs:
             curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
             chmod +x ./kubectl
             sudo mv kubectl /usr/local/bin
+      - restore_cache:
+          keys:
+            - minikube-v1-1.25.2
       - run:
           name: install minikube
           command: |
@@ -87,6 +90,16 @@ jobs:
             curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
             chmod +x ./minikube
             sudo mv ./minikube /usr/local/bin
+      - run:
+          name: install helm
+          command: |
+            HELM_VERSION=3.5.4
+            curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz | tar xzf - linux-amd64/helm
+            sudo mv ./linux-amd64/helm /usr/local/bin
+      - save_cache:
+          key: minikube-v1-1.25.2
+          paths:
+            - /home/circleci/.minikube/cache
       - run:
           name: Build other images
           command: |
