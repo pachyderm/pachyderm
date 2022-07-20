@@ -1,137 +1,156 @@
-# Setup for contributors
+# Developer Setup Guide 
 
-## General requirements
+## 1. Set Up Go Workspace
 
-First, go through the general [Local Installation Instructions](https://docs.pachyderm.com/latest/getting-started/local-installation/){target=_blank}. Additionally, make sure you have the following installed:
+Already have a Go workspace set up? Skip to the download section. 
 
-- golang 1.12+
-- docker
-- [jq](https://stedolan.github.io/jq/){target=_blank}
-- [pv](http://ivarch.com/programs/pv.shtml){target=_blank}
-- shellcheck
+1. [Install Go](https://go.dev/doc/install).
+2. Create a workspace directory (for example, `/Documents/GitHub/go-workspace`).
+3. Open your `/go-workspace` directory and create the following sub-directories:
+      - `/src`
+      - `/pkg`
+      - `/bin` 
+4. Open a terminal. 
+5. Navigate to your home folder's `~/.zshrc` file (`nano ~/.zshrc`).
+6. Define your Go settings:
+    ```
+    export GOROOT="/usr/local/go"
+    export GOPATH="~/Documents/GitHub/go-workspace"
+    export GOBIN="$GOPATH:/bin"
+    source $GOPATH/src/pachyderm/etc/contributing/bash_helpers
+    ```
+7. Save the file (`ctr-x` > `y`).
 
-## Bash helpers
+### Download Pachyderm
 
-To stay up to date, we recommend doing the following.
+1. Open a terminal.
+2. Navigate to your workspace's `/src` director, such as `~/Documents/GitHub/go-workspace/src`.
+3. Clone the repo using `git clone git@github.com:pachyderm/pachyderm`.
 
-First clone the code:
-(Note, as of 07/11/19 pachyderm is using go modules and recommends cloning the code outside of the $GOPATH, we use the location ~/workspace as an example, but the code can live anywhere)
-```shell
-    cd ~/workspace
-    git clone git@github.com:pachyderm/pachyderm
-```
-Then update your `~/.bash_profile` by adding the line:
-```shell
-    source ~/workspace/pachyderm/etc/contributing/bash_helpers
-```
-And you'll stay up to date!
 
-## Special macOS configuration
+### Increase File Descriptor Limit (MacOs)
 
-### File descriptor limit
+Running local tests requires an update to your file descriptor limit.
 
-If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
-```shell
-    sudo cp ~/workspace/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
-```
-Once you restart, this will take effect. To see the limits, run:
-```shell
+1.  Open a terminal.
+2.  Run the following to set up a LaunchDaemon:
+   ```shell
+   sudo cp ~/go-workspace/src/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
+   ```
+3.  Check your limits:
+    ```shell
     launchctl limit maxfiles
-```
-Before the change is in place you'll see something like `256    unlimited`. After the change you'll see a much bigger number in the first field. This ups the system wide limit, but you'll also need to set a per-process limit.
-
-Second, up the per process limit by adding something like this to your `~/.bash_profile` :
-```shell
-    ulimit -n 12288
-```
-Unfortunately, even after setting that limit it never seems to report the updated version. So if you try
-```shell
-    ulimit
-```
-And just see `unlimited`, don't worry, it took effect.
-
-To make sure all of these settings are working, you can test that you have the proper setup by running:
-```shell
+    ```
+4.  Open your `/.zshrc` file an increase the per-process limit by adding:
+    ```shell
+     ulimit -n 12288
+    ```
+5.  Navigate to your `/pachyderm` directory.
+6.  Test your setup:
+    ```shell
     make test-pfs-server
-```
+    ```
+
 If this fails with a timeout, you'll probably also see 'too many files' type of errors. If that test passes, you're all good!
 
-### Timeout helper
+### Install Coreutils
 
-You'll need the `timeout` utility to run the `make launch` task. To install on mac, do:
-```shell
+To run the makefile `make launch` task, you will need the `timeout` utility found in [Coreutils](https://www.gnu.org/software/coreutils/).
+
+1. Open a terminal.
+2. Run the following:
+    ```shell
     brew install coreutils
-```
-And then make sure to prepend the following to your path:
-```shell
-    PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
-```
-## Dev cluster
+    ```
+3. Open your `/.zshrc` file and add:
+   ```shell
+   PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+   ```
+### Install Pipe Viewer (PV)
 
-Now launch the dev cluster: `make launch-dev-vm`.
+1. Open a terminal.
+2. Input the following command:
+   ```shell
+   brew install pv 
+   ```
+See the [Pipe Viewer documentation](https://www.ivarch.com/programs/pv.shtml) for details on this monitoring tool.
 
-And check it's status: `kubectl get all`.
+--- 
 
-## pachctl
+## 2. Launch Development Cluster
 
-This will install the dev version of `pachctl`:
+### Update Binary Access 
 
-```shell
-    cd ~/workspace/pachyderm
+1. Open a terminal.
+2. Navigate to your `/pachyderm` directory.
+3. Run `make install-clean` 
+
+### Launch Cluster
+
+1. Open a terminal. 
+2. Navigate into your `/pachyderm` directory.
+3. Run the following Makefile command:
+   ```shell
+   make launch-dev-vm 
+   ```
+4. Check the status:
+    ```shell 
+    kubectl get all
+    ```
+You can also run `make clean-launch-kube`.
+---
+
+## 3. Install Latest pachctl
+
+1. Open a terminal. 
+2. Navigate into your `/pachyderm` directory.
+3. Run the following Makefile command:
+   ```shell
     make install
     pachctl version
-```
+   ```
 
-And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
+---
 
-## Getting some images in place for local test runs
+## 4. Load Images to Minikube Cluster
 
-The following commands will put some images that some of the tests rely on in
-place in your minikube cluster:
+Pachyderm's tests rely on a few images you'll need to load the into Minikube cluster.
 
-For `pachyderm_entrypoint` container:
+1. Open a terminal. 
+2. Navigate into your `/pachyderm` directory.
+3. Install for the `pachyderm_entrypoint` container:
+    ```shell
+    make docker-build-test-entrypoint
+    ./etc/kube/push-to-minikube.sh pachyderm_entrypoint
+    ```
+4. Install for the `pachyderm/python-build` container: 
+    ```shell
+    (cd etc/pipeline-build; make push-to-minikube)
+    ```
+---
 
-```shell
-make docker-build-test-entrypoint
-./etc/kube/push-to-minikube.sh pachyderm_entrypoint
-```
+## How to Run Tests
 
-For `pachyderm/python-build` container:
+You can run specific tests by using `go test` directly. For example: 
 
-```shell
-(cd etc/pipeline-build; make push-to-minikube)
-```
+   ```shell
+   go test -v ./src/server/cmd/pachctl/cmd
+   ```
 
-## Running tests
+Running *all* of your tests locally can take a while; instead, use [CircleCI](https://circleci.com/). 
 
-Now that we have a dev cluster, it's nice to be able to run some tests locally
-as we are developing.
+---
 
-To run some specific tests, just use `go test` directly, e.g:
-```shell
-go test -v ./src/server/cmd/pachctl/cmd
-```
+## How to Fully Reset Pachyderm Environment 
 
-We don't recommend trying to run all the tests locally, they take a while. Use
-CI for that.
+Instead of having to run makefile targets to recompile `pachctl`and redeploy a development cluster, you can use the following script to:
 
-## Fully resetting
-
-Instead of running the makefile targets to re-compile `pachctl` and redeploy
-a dev cluster, we have a script that you can use to fully reset your pachyderm
-environment:
-
-1. All existing cluster data is deleted
-1. If possible, the virtual machine that the cluster is running on is wiped
-out
-1. `pachctl` is recompiled
-1. The dev cluster is re-deployed
+- Delete all existing cluster data
+- Wipe the VM the cluster is running on 
+- Recompile `pachctl` 
+- Re-deploy the development cluster 
 
 This reset is a bit more time consuming than running one-off Makefile targets,
-but comprehensively ensures that the cluster is in its expected state, and is
-especially helpful when you're first getting started with contributions and
-don't yet have a complete intuition on the various ways a cluster may get in
-an unexpected state. It's been tested on docker for mac and minikube, but
-likely works in other kubernetes environments as well.
+but comprehensively ensures that the cluster is in its expected state.
 
 To run it, simply call `./etc/reset.py` from the pachyderm repo root.
