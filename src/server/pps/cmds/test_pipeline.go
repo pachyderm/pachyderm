@@ -12,6 +12,7 @@ import (
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -24,7 +25,7 @@ const (
 	name = "pfs"
 )
 
-func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr error) {
+func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit int) (retErr error) {
 	if pipelinePath == "" {
 		pipelinePath = "-"
 	}
@@ -80,7 +81,12 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string) (retErr er
 	}()
 	for _, request := range requests {
 		fmt.Printf("Running pipeline: %s\n", request.Pipeline.Name)
+		datums := 0
 		if err := client.ListDatumInput(request.Input, func(di *ppsclient.DatumInfo) error {
+			datums++
+			if datumLimit != 0 && datums > datumLimit {
+				return errutil.ErrBreak
+			}
 			fmt.Printf("Running datum: %s with files:\n", di.Datum.ID)
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeaderWithRepoAndCommit)
 			for _, fi := range di.Data {
