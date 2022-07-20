@@ -15,7 +15,7 @@ Already have a Go workspace set up? Skip to the download section.
 6. Define your Go settings:
     ```
     export GOROOT="/usr/local/go"
-    export GOPATH="$HOME/Desktop/go"
+    export GOPATH="$HOME/Documents/GitHub`/go-workspace"
 
     source $GOPATH/src/pachyderm/etc/contributing/bash_helpers
     ```
