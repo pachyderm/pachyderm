@@ -661,8 +661,8 @@ workflows:
     jobs:
       - docker-build
       - integration-tests-small:
-          requires:
-            - docker-build
+          #requires:
+          #  - docker-build
           matrix:
             parameters:
               bucket:
