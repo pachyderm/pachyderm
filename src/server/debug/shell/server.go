@@ -100,15 +100,6 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 		return err
 	}
 
-	fileFunc := func(name string, r io.Reader) error {
-		if g.Match(name) {
-			if err := cb(name, r); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
 	if info.IsDir() {
 		if err := filepath.WalkDir(d.path, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
@@ -121,13 +112,17 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 			if err != nil {
 				return err
 			}
+			// ToSlash to support windows
+			rel = filepath.ToSlash(rel)
+			if !g.Match(rel) {
+				return nil
+			}
 			contents, err := os.Open(path)
 			if err != nil {
 				return err
 			}
 			defer contents.Close()
-			// ToSlash to support windows
-			return fileFunc(filepath.ToSlash(rel), contents)
+			return cb(rel, contents)
 		}); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				return nil
@@ -156,7 +151,10 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 			}
 			return err
 		}
-		if err := fileFunc(hdr.Name, tr); err != nil {
+		if !g.Match(hdr.Name) {
+			continue
+		}
+		if err := cb(hdr.Name, tr); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
 				break
 			}
