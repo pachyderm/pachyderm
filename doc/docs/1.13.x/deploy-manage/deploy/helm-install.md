@@ -5,7 +5,7 @@ However, you can now deploy Pachyderm using the package manager [Helm](https://h
 
 !!! Note
      - Helm support for Pachyderm is a **beta** release. 
-        See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
+        See our [supported releases documentation](https://docs.pachyderm.com/latest/reference/supported-releases/#release-status) for details.
      - Changes coming with Helm:
         For improved security, **Pachyderm services are now exposed on the cluster internal IP (ClusterIP) instead of each node’s IP (Nodeport)**. These changes do not apply to LOCAL Helm installations (i.e. Services are still accessible through Nodeports on Local installations)
 

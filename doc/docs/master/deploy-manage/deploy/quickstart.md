@@ -202,7 +202,7 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
 Jump to [Helm install](#3-helm-install)
 
 ## 3. [Helm Install](../helm-install/#install-pachyderms-helm-chart)
-- You will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
+- You will be deploying the [latest GA release](../../../reference/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell
     helm repo add pach https://helm.pachyderm.com

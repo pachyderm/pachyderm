@@ -441,12 +441,6 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 				Env:             sidecarEnv,
 				EnvFrom:         envFrom,
 				VolumeMounts:    sidecarVolumeMounts,
-				ReadinessProbe: &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
-					Command: []string{"/pachd", "--readiness"}}},
-				},
-				LivenessProbe: &v1.Probe{ProbeHandler: v1.ProbeHandler{Exec: &v1.ExecAction{
-					Command: []string{"/pachd", "--readiness"}}},
-				},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						v1.ResourceCPU:    cpuZeroQuantity,
@@ -884,7 +878,8 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 			Annotations: serviceAnnotations,
 		},
 		Spec: v1.ServiceSpec{
-			Selector: options.labels,
+			Selector:  options.labels,
+			ClusterIP: "None", // headless, so as not to consume an IP address in the cluster
 			Ports: []v1.ServicePort{
 				{
 					Port: int32(kd.config.PPSWorkerPort),

@@ -6,6 +6,16 @@
     - Alternatively, you can use `pachctl` to connect your IdP to Pachyderm. First, verify that
     the [Authentication](../../#authentication-and-authorization) is enabled by running `pachctl auth whoami`. The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges).  Run `pachctl auth use-auth-token` and enter your rootToken to login as a Root User if you are not.
     
+!!! Attention 
+    We are now shipping Pachyderm with an **optional embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy:
+    
+    - Check out our new recommended architecture and [deployment instructions](../../../../deploy-manage/deploy/deploy-w-proxy/).
+    - **Update your Callback URL**. Details below.
+    
+
 ## Enable your users to authenticate to Pachyderm by logging into their favorite Identity Provider in 3 steps:
 
 1. [Register the Pachyderm Application with your IdP](#1-register-a-pachyderm-application-with-your-idp).
@@ -64,12 +74,15 @@ Then, complete the following steps:
 
     ```shell
     # Dex's issuer URL + "/callback"
-    http://<ip>:30658/callback
+    http://<insert-external-ip-or-dns-name>:30658/callback
     ```
 
     The IP address is the address of your Pachyderm host. For example,
     if you are running Pachyderm in Minikube, you can find the IP
     address by running `minikube ip`. 
+
+    !!! Attention "Attention Proxy users"
+            Your Callback URL must be set to `http(s)://<insert-external-ip-or-dns-name>/dex/callback`. 
 
 1. Scroll down to **Show Advanced Settings**.
 1. Select **Grant Types**.
@@ -172,8 +185,10 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
                 "email": "preferred_username"
             } 
         }      
+     
         ```
-
+!!! Attention "Attention Proxy users"
+    Your `redirect_uri` must be set to `http(s)://<insert-external-ip-or-dns-name>/dex/callback`. 
 
 !!! Note
 

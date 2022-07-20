@@ -18,7 +18,7 @@ We offer two ways to deploy Pachyderm on a local Kubernetes cluster.
 
 !!! Info
       - Helm support in Pachyderm is a **beta** release. 
-      See our [supported releases documentation](https://docs.pachyderm.com/latest/contributing/supported-releases/#release-status) for details.
+      See our [supported releases documentation](https://docs.pachyderm.com/latest/reference/supported-releases/#release-status) for details.
       - `pachctl deploy local` is designed for a **single-node cluster**.
       This cluster uses local storage on disk and does not create a
       PersistentVolume (PV). If you want to deploy a production multi-node
