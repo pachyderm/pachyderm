@@ -8,7 +8,7 @@ For deployments in production, refer to the following diagram and follow these s
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](../helm-install/){target=_blank} page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/){target=_blank}. You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - Pachyderm comes with a [web UI (Console)](../console) for visualizing running pipelines and exploring your data. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+      - Pachyderm comes with a [web UI (Console)](../console) for visualizing running pipelines and exploring your data. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up of an Ingress.
     
 
 !!! Attention 
@@ -287,7 +287,6 @@ Configure your DB instance as follows.
 
 ### Update your values.yaml 
 Once your databases have been created, add the following fields to your Helm values:
-
 
 ```yaml
 global:
