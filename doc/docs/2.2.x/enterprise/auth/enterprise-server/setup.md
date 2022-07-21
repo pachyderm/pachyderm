@@ -4,6 +4,11 @@ and the integration with a company's Identity Providers (IDPs).
 
 An organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
 
+An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../../deploy-manage) section) with minor differences:
+
+- **No Object store**: It is **not backed by an object store**. In other words, you won't need to set up an object store, so you don't need any deployment target in your helm chart.
+- **The PostgreSQL Instance requires one database only that is `dex`**. When deployed as a standalone cluster as part of a multi-cluster deployment, it **requires one PostgreSQL database only to set up Pachyderm's authentication service: `dex`**. Note that all the clusters than will be registered to this enterprise server will each require one PostgreSQL database as well: `pachyderm`.
+
 The following diagram gives you a quick overview of an organization with multiple Pachyderm clusters behind a single Enterprise Server.
 ![Enterprise Server General Deployment](../images/enterprise-server.png)
 
@@ -18,13 +23,14 @@ The setup of an Enterprise Server requires to:
 1. Optional: Enable Auth on each cluster.
 
 ## 1 - Deploy An Enterprise Server
+
 Deploying and configuring an enterprise server can be done in one of two flavors:
 
 1. Provide all licensing and authentication configurations as a part of the Helm deployment.
 1. Or, [install a bare-bones version of Pachyderm with Helm](../../../../deploy-manage/deploy/helm-install/), then use `pachctl` commands to set up licensing and authentication.
 
 ### As Part Of A Regular Pachyderm Helm Deployment
-Update your values.yaml with your enterprise license key and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml){target=_blank}) or insert our minimal example below to your values.yaml.
+Update your values.yaml with your enterprise license key and auth configurations ([for an example on localhost, see the example values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/local-dev-values.yaml){target=_blank}) or check our minimal example below to your values.yaml.
 
 !!! Warning
 		- If a pachyderm cluster will also be installed in the same kubernetes cluster, they should be installed in **different namespaces**:
@@ -49,6 +55,7 @@ Update your values.yaml with your enterprise license key and auth configurations
 			pod/postgres-6bfd7bfc47-9mz28          1/1     Running   0          113m
 
 			```
+
 
 === "values.yaml for an **embedded single-cluster deployment**"
 

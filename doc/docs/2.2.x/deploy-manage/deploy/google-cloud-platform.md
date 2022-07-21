@@ -5,7 +5,8 @@ For a quick test installation of Pachyderm on GCP (suitable for development), ju
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm-install.md) page for more information on how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+      - Pachyderm comes with a [web UI (Console)](../console) for visualizing running pipelines and exploring your data. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up of an Ingress.
+    
 
 The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/){target=_blank} (GKE). 
 
@@ -295,7 +296,7 @@ For production environments, it is **strongly recommended that you disable the b
 This section will provide guidance on the configuration settings you will need to: 
 
 - Create a GCP CloudSQL Instance.
-- Create **two databases** (`pachyderm` and `dex`).
+- Create one or **two databases** (`pachyderm` and, depending on whether your cluster is standalone or managed by an enterprise server, a second database, `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note
@@ -328,11 +329,19 @@ When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](
 Check out Google documentation for more information on how to [Create and Manage PostgreSQL Users](https://cloud.google.com/sql/docs/postgres/create-manage-users){target=_blank}.
 
 ### Create Your Databases
-After the instance is created, those two commands create the databases that pachyderm uses.
+
+After your instance is created, you will need to create Pachyderm's database(s).
+      
+If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your Cloud SQL instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
+
+!!! Note
+    Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+
+Run the first or both commands depending on your use case.
 
 ```shell
-gcloud sql databases create dex -i ${INSTANCE_NAME}
 gcloud sql databases create pachyderm -i ${INSTANCE_NAME}
+gcloud sql databases create dex -i ${INSTANCE_NAME}
 ```
 Pachyderm will use the same user "postgres" to connect to `pachyderm` as well as to `dex`. 
 
@@ -380,9 +389,6 @@ global:
 
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your GCP bucket and a CloudSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
-
-!!! Warning "Optional: If you plan to deploy with Console"
-    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 
 ### Update Your Values.yaml   
 

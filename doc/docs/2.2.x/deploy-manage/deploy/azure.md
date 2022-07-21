@@ -6,7 +6,9 @@ For a quick test installation of Pachyderm on Azure (suitable for development), 
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm-install.md) page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+      - Pachyderm comes with a [web UI (Console)](../console) for visualizing running pipelines and exploring your data. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up of an Ingress.
+    
+
 
 The following section walks you through deploying a Pachyderm cluster on Microsoft® Azure® Kubernetes
 Service environment (AKS). 
@@ -117,7 +119,6 @@ You can choose to follow the guided steps in [Azure Service Portal's Kubernetes 
 
 Once your Kubernetes cluster is up, and your infrastructure configured, you are ready to prepare for the installation of Pachyderm. Some of the steps below will require you to keep updating the values.yaml started during the setup of the recommended infrastructure:
 
-
 ## 3. Create an Azure Storage Container For Your Data
 
 Pachyderm needs an [Azure Storage Container](https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/azure-storage){target=_blank} (Object store) to store your data. 
@@ -217,7 +218,7 @@ For production environments, we strongly recommend that you disable the bundled 
 This section will provide guidance on the configuration settings you will need to:
 
 - Create an environment to run your Azure PostgreSQL Server databases.
-- Create two databases (pachyderm and dex).
+- Create one or **two databases** (`pachyderm` and, depending on whether your cluster is standalone or managed by an enterprise server, a second database, `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note
@@ -281,14 +282,12 @@ Once created, go back to your newly created database, and:
 ![Instance overview page](../images/azure_postgresql_overview.png)
 
 ### Create Your Databases
-After the instance is created, those two commands create the databases that pachyderm uses.
+After your instance is created, you will need to create Pachyderm's database(s).
+      
+If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
 
-```shell
-az postgres db create -g <your_group> -s <server_name> -n pachyderm
-az postgres db create -g <your_group> -s <server_name> -n dex
-```
 !!! Note
-    Note that the second database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+    Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
 
 Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
 
@@ -315,12 +314,8 @@ postgresql:
   enabled: false
 ```
 
-
 ## 6. Deploy Pachyderm
 You have set up your infrastructure, created your data container and a Managed PostgreSQL instance, and granted your cluster access to both: you can now finalize your values.yaml and deploy Pachyderm.
-
-!!! Warning "Optional: If you plan to deploy with Console"
-    If you plan to deploy Pachyderm with Console, follow these [additional instructions](../console) and **add the relevant fields in your values.yaml**.
 ### Update Your Values.yaml  
 
 !!! Note 

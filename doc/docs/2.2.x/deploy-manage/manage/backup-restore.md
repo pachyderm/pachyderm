@@ -14,13 +14,13 @@ Pachyderm state is stored in two main places
 (See our high-level [architecture diagram](../../../deploy-manage/#overview)):
 
 - an **object-store** holding Pachyderm's data.
-- a PostgreSQL instance made up of **two databases**: `pachyderm` holding Pachyderm's metadata and `dex` holding authentication data. 
+- a PostgreSQL instance made up of **one or two databases**: `pachyderm` holding Pachyderm's metadata and `dex` holding authentication data. 
 
 Backing up a Pachyderm cluster involves snapshotting both
-the object store and the PostgreSQL databases (see above),
+the object store and the PostgreSQL database(s) (see above),
 in a consistent state, at a given point in time.
 
-Restoring it involves re-populating the databases and the object store using those backups, then recreating a Pachyderm cluster.
+Restoring it involves re-populating the database(s) and the object store using those backups, then recreating a Pachyderm cluster.
 
 !!! Note
     - Make sure that you have a bucket for backup use, 
@@ -134,7 +134,7 @@ There are two primary use cases for restoring a cluster:
 
 Depending on your scenario, pick all or a subset of the following steps:
 
-- Populate new `pachyderm` and `dex` databases on your PostgreSQL instance
+- Populate new `pachyderm` and `dex` (if required) databases on your PostgreSQL instance
 - Populate a new bucket or use the backed-up object-store (note that, in that case, it will no longer be a backup)
 - Create a new empty Kubernetes cluster and give it access to your databases and bucket
 - Deploy Pachyderm into your new cluster
@@ -165,7 +165,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 1. The name of its Kubernetes deployment is `pach-enterprise` versus `pachd` in the case of a regular cluster.
 1. The Enterprise Server does not use an Object Store.
-
+1. An Enterprise server only requires a `dex` database.
 
 ### Backup A Standalone Enterprise Server
 
@@ -183,7 +183,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
          There is no need to pause all the Pachyderm clusters registered to the Enterprise Server to backup the enterprise server; however, pausing the Enterprise server will result in your clusters becoming unavailable.
 
-- As a reminder, the Enterprise Server does not use any object-store. Therefore, the [backup of the Enterprise Server](#back-up-the-databases-and-the-object-store) only consists in backing up the databases.
+- As a reminder, the Enterprise Server does not use any object-store. Therefore, the [backup of the Enterprise Server](#back-up-the-databases-and-the-object-store) only consists in backing up the database `dex`.
 
 - [Resume the operations on your Enterprise Server](#resuming-operations) by running `pachctl enterprise unpause`  (Enterprise users) to scale the `pach-enterprise` deployment back up. Alternatively, if you used `kubectl`, run:
 
