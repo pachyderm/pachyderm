@@ -18,6 +18,11 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
+  # If you want to update the number of PPS buckets, you'll need to
+  # update the value of PPS_BUCKETS below
+  test_buckets:
+    type: enum
+    default: [ "MISC", "AUTH", "ENTERPRISE", "PFS", "PPS1", "PPS2", "PPS3", "PPS4", "PPS5", "PPS6", "PPS7", "PPS8", "S3_AUTH", "EXAMPLES" ]
 
 jobs:
   test-go:
@@ -570,23 +575,7 @@ workflows:
       - integration-tests:
           matrix:
             parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
-                - S3_AUTH
-                - EXAMPLES
+              bucket: << pipeline.parameters.test_buckets >>
   helm-tests:
     jobs:
       - helm-tests
@@ -634,23 +623,7 @@ workflows:
       - integration-tests:
           matrix:
             parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
-                - PPS_AUTH
-                - EXAMPLES
+              bucket: << pipeline.parameters.test_buckets >>
           filters: *only-release-tags
       - helm-build:
           filters: *only-release-tags
