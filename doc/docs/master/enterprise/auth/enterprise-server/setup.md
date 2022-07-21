@@ -218,9 +218,9 @@ Add the enterprise server's root token, and network addresses to the values.yaml
 	    activateEnterpriseMember: true
   		enterpriseServerAddress: "grpc://<ENTERPRISE_SERVER_ADDRESS>"
   		enterpriseCallbackAddress: "grpc://<PACHD_ADDRESS>"
-  		enterpriseRootToken: "<ENTERPRISE-ROOT-TOKEN>" # the same root token of the enterprise cluster
+  		enterpriseServerToken: "<ENTERPRISE-SERVER-TOKEN>" # the same root token of the enterprise cluster
 		# Alternatively, use a secret
-		enterpriseRootTokenSecretName: "<Name of you secret containing enterpriseRootToken>" 
+		enterpriseServerTokenSecretName: "<Name of you secret containing enterpriseRootToken>" 
 
 	```
 
