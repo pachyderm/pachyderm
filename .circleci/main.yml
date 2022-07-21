@@ -649,7 +649,7 @@ workflows:
                 - PPS6
                 - PPS7
                 - PPS8
-                - PPS_AUTH
+                - S3_AUTH
                 - EXAMPLES
           filters: *only-release-tags
       - helm-build:
