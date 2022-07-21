@@ -3,21 +3,28 @@ version: 2.1
 # this allows you to use CircleCI's dynamic configuration feature
 setup: true
 
-# the continuation orb is required in order to use dynamic configuration
 orbs:
-  continuation: circleci/continuation@0.1.2
+#  continuation: circleci/continuation@0.1.2 # the continuation orb is required in order to use dynamic configuration
+  path-filtering: circleci/path-filtering@0.1.1
 
 # our defined job, and its steps
 jobs:
   setup:
     executor: continuation/default
     steps:
-      - checkout # checkout code
-      #- run: # run a command
-      #    name: Generate config
-      #    command: |
-      - continuation/continue:
-          configuration_path: .circleci/main.yml # use newly generated config to continue
+      - path-filtering/filter:
+          name: check-updated-files
+          # 3-column, whitespace-delimited mapping. One mapping per
+          # line:
+          # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
+          mapping: |
+            jupyterlab-extension/.* run-jupyter-jobs true
+          base-revision: master
+          # this is the path of the configuration we should trigger once
+          # path filtering and pipeline parameter value updates are
+          # complete. In this case, we are using the parent dynamic
+          # configuration itself.
+          config-path: .circleci/main.yml
 
 # our single workflow, that triggers the setup job defined above
 workflows:

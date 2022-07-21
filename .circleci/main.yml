@@ -18,6 +18,9 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
+  run-jupyter-jobs:
+    type: boolean
+    default: false
 
 jobs:
   test-go:
@@ -614,6 +617,7 @@ jobs:
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   python:
+    when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - jupyter-python-tests:
           matrix:
