@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	gotls "crypto/tls"
 	"fmt"
 	"net/http"
@@ -59,7 +60,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"

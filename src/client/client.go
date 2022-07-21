@@ -2,6 +2,7 @@
 package client
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
@@ -11,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

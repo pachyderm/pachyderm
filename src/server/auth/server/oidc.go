@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 
 	oidc "github.com/coreos/go-oidc"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 )
 

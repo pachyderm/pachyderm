@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"path"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	log "github.com/sirupsen/logrus"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"

@@ -1,7 +1,7 @@
 package testing
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"

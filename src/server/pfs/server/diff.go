@@ -2,11 +2,11 @@ package server
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 )
 

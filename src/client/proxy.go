@@ -2,13 +2,13 @@
 package client
 
 import (
+	"context"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
-	"golang.org/x/net/context"
 )
 
 type channelInfo struct {

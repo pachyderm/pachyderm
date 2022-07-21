@@ -1,12 +1,12 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
