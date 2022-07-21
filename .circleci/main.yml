@@ -22,6 +22,11 @@ parameters:
     type: boolean
     default: false
 
+executors:
+  python:
+    docker:
+      - image: cimg/python:3.10-node
+
 jobs:
   test-go:
     machine:
@@ -238,6 +243,14 @@ jobs:
           root: .
           paths:
             - dist
+  jupyter-frontend-tests:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.11.0
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run test
   helm-tests:
     docker:
       - image: cimg/go:1.18.4
@@ -660,7 +673,7 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
-  python:
+  jupyterlab-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - jupyter-python-tests:
@@ -668,7 +681,8 @@ workflows:
             parameters:
               python-version: ['3.10']
       - jupyter-build
-      
+      - jupyter-frontend-tests
+
   integration-tests:
     when:
       not: << pipeline.parameters.run-jupyter-jobs >>
