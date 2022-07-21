@@ -85,6 +85,9 @@ jobs:
             - cached-deps/
       - go/install:
           version: 1.18.4
+      - restore_cache:
+          keys:
+            - minikube-v1
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -118,6 +121,10 @@ jobs:
                 paths:
                   - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
+      - save_cache:
+          key: minikube-v1
+          paths:
+            - ~/.minikube/cache
       - run:
           name: Collect kube events
           command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
