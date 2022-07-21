@@ -9,10 +9,10 @@ For a quick test installation of Pachyderm on GCP (suitable for development), ju
     
 
 !!! Attention 
-    We are now shipping Pachyderm with an **optional embedded proxy** 
+    We are now shipping Pachyderm with an **embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/) as they alter the instructions below.
 
 The following section walks you through deploying a Pachyderm cluster on [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine/){target=_blank} (GKE). 
 
@@ -302,7 +302,7 @@ For production environments, it is **strongly recommended that you disable the b
 This section will provide guidance on the configuration settings you will need to: 
 
 - Create a GCP CloudSQL Instance.
-- Create **two databases** (`pachyderm` and `dex`).
+- Create one or **two databases** (`pachyderm` and, depending on whether your cluster is standalone or managed by an enterprise server, a second database, `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note
@@ -335,11 +335,19 @@ When you create a new Cloud SQL for PostgreSQL instance, a [default admin user](
 Check out Google documentation for more information on how to [Create and Manage PostgreSQL Users](https://cloud.google.com/sql/docs/postgres/create-manage-users){target=_blank}.
 
 ### Create Your Databases
-After the instance is created, those two commands create the databases that pachyderm uses.
+
+After your instance is created, you will need to create Pachyderm's database(s).
+      
+If you plan to deploy a standalone cluster (if your cluster is not deployed in front of an [enterprise server](../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your Cloud SQL instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
+
+!!! Note
+    Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+    
+Run the first or both commands depending on your use case.
 
 ```shell
-gcloud sql databases create dex -i ${INSTANCE_NAME}
 gcloud sql databases create pachyderm -i ${INSTANCE_NAME}
+gcloud sql databases create dex -i ${INSTANCE_NAME}
 ```
 Pachyderm will use the same user "postgres" to connect to `pachyderm` as well as to `dex`. 
 

@@ -240,7 +240,8 @@ For production environments, it is **strongly recommended that you disable the b
 
 This section will provide guidance on the configuration settings you will need to: 
 
-- Create an environment to run your AWS PostgreSQL databases. Note that you will be creating **two databases** (`pachyderm` and `dex`).
+- Create an environment to run your AWS PostgreSQL databases. Note that you might need to 
+create **two databases** (`pachyderm` and, depending on whether your cluster is standalone or managed by an enterprise server, a second database, `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note

@@ -10,10 +10,10 @@ For a quick test installation of Pachyderm on Azure (suitable for development), 
     
 
 !!! Attention 
-    We are now shipping Pachyderm with an **optional embedded proxy** 
+    We are now shipping Pachyderm with an **embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/) as they alter the instructions below.
 
 The following section walks you through deploying a Pachyderm cluster on Microsoft® Azure® Kubernetes
 Service environment (AKS). 
@@ -46,12 +46,10 @@ latest available version of the components listed below.
 
 ## 2. Deploy Kubernetes
 
-
 You can deploy Kubernetes on Azure by following the official [Azure Kubernetes Service documentation](https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-deploy-cluster?tabs=azure-cli){target=_blank}, [use the quickstart walkthrough](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough){target=_blank}, or follow the steps in this section.
 
 !!! Attention 
       Pachyderm recommends running your cluster on Kubernetes 1.19.0 and above.
-
 
 At a minimum, you will need to specify the parameters below:
 
@@ -224,7 +222,7 @@ For production environments, we strongly recommend that you disable the bundled 
 This section will provide guidance on the configuration settings you will need to:
 
 - Create an environment to run your Azure PostgreSQL Server databases.
-- Create two databases (pachyderm and dex).
+- Create one or **two databases** (`pachyderm` and, depending on whether your cluster is standalone or managed by an enterprise server, a second database, `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note
@@ -288,14 +286,12 @@ Once created, go back to your newly created database, and:
 ![Instance overview page](../images/azure_postgresql_overview.png)
 
 ### Create Your Databases
-After the instance is created, those two commands create the databases that pachyderm uses.
+After your instance is created, you will need to create Pachyderm's database(s).
+      
+If you plan to deploy a standalone cluster (if your cluster is not deployed in front of an [enterprise server](../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
 
-```shell
-az postgres db create -g <your_group> -s <server_name> -n pachyderm
-az postgres db create -g <your_group> -s <server_name> -n dex
-```
 !!! Note
-    Note that the second database must be named `dex`. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+    Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
 
 Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
 

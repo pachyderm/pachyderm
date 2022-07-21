@@ -12,10 +12,10 @@ For deployments in production, refer to the following diagram and follow these s
     
 
 !!! Attention 
-    We are now shipping Pachyderm with an **optional embedded proxy** 
+    We are now shipping Pachyderm with an **embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/). 
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/) as they alter the instructions below.
 
 The following section walks you through deploying a Pachyderm cluster on [Amazon Elastic Kubernetes Service](https://aws.amazon.com/eks/){target=_blank} (EKS). 
 
@@ -246,7 +246,8 @@ For production environments, it is **strongly recommended that you disable the b
 
 This section will provide guidance on the configuration settings you will need to: 
 
-- Create an environment to run your AWS PostgreSQL databases. Note that you will be creating **two databases** (`pachyderm` and `dex`).
+- Create an environment to run your AWS PostgreSQL databases. Note that you might need to 
+create **two databases** (`pachyderm` and, depending on whether your cluster is standalone or managed by an enterprise server, a second database, `dex`).
 - Update your values.yaml to turn off the installation of the bundled postgreSQL and provide your new instance information.
 
 !!! Note
@@ -281,7 +282,7 @@ Configure your DB instance as follows.
 !!! Warning "One last step"
       Once your instance is created:
 
-      - You will need to create a second database named "dex" in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL on Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
+      - If you plan to deploy a standalone cluster (if your cluster is not deployed in front of an [enterprise server](../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}. This second database is not needed when your cluster is managed by an enterprise server.
       - Additionally, create a new user account and **grant it full CRUD permissions to both `pachyderm` and `dex` databases**. Read about managing PostgreSQL users and roles in this [blog](https://aws.amazon.com/blogs/database/managing-postgresql-users-and-roles/). Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
 
 ### Update your values.yaml 

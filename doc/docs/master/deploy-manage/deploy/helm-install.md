@@ -70,7 +70,6 @@ Create a personalized `my_pachyderm_values.yaml` out of this [example repository
 
         For example: When the 2.0 version of Pachyderm was a release candidate, using the flag `--devel` would let you install the latest RC of 2.0 while no flag would retrieve the newest GA (1.13.4). 
      
-    
 
 1. Check your deployment
     ```shell
