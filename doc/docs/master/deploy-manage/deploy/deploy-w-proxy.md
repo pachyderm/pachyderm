@@ -24,7 +24,7 @@ This page is an add-on to existing installation instructions in the case where y
 The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../images/infra-recommendations-with-proxy.png)
 
 !!! Note 
-    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L699){target=_blank} for all available configurable fields of the proxy.
+    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml#L744){target=_blank} for all available configurable fields of the proxy.
 
 Before any deployment in production, we recommend reading the following section to [set up your production infrastructure](#deploy-pachyderm-in-production-with-a-proxy). 
 
@@ -333,11 +333,43 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
 
 This section is an alternative to the default [local deployment instructions](../../../getting-started/local-installation){target=_blank}. It uses a variant of the original local values.yaml to enable a proxy. 
 
-When done with the [Prerequisites](../../../getting-started/local-installation/#prerequisites){target=_blank}, [deploy Pachyderm](#deploy-pachyderm-community-edition-or-enterprise-with-console) (with or without Console) on your local cluster by using the following values.yaml rather than the one provided in the original installation steps, then [Connect 'pachctl' To Your Cluster](#connect-pachctl-to-your-cluster).
+Follow the [Prerequisites](#prerequisites){target=_blank} before [deploying Pachyderm](#deploy-pachyderm-community-edition-or-enterprise-with-console) (with or without Console) on your local cluster by using the following values.yaml rather than the one provided in the original installation steps, then [Connect 'pachctl' To Your Cluster](#connect-pachctl-to-your-cluster).
 
 JupyterLab users, [**you can also install Pachyderm JupyterLab Mount Extension**](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
 Note that you can run both Console and JupyterLab on your local installation.
+### Prerequisites
+
+Follow all the default [Prerequisites](../../../getting-started/local-installation/#prerequisites){target=_blank}  installation instructions with the **exception of local installations of a Kubernetes environment on Linux**.
+
+=== "Linux Users"
+
+    For Linux Users looking to set up a Local Kubernetes, we recommend installing [Kind](https://kind.sigs.k8s.io/){target=_blank} then run the following:
+
+    ```shell
+    cat <<EOF | kind create cluster --name=kind --config=-
+    kind: Cluster
+    apiVersion: kind.x-k8s.io/v1alpha4
+    nodes:
+        - role: control-plane
+          kubeadmConfigPatches:
+              - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                      kubeletExtraArgs:
+                          node-labels: "ingress-ready=true"
+          extraPortMappings:
+              - containerPort: 30080
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 30443
+                hostPort: 443
+                protocol: TCP
+    EOF
+    ```
+
+  The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
+  This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
 
 ### Deploy Pachyderm Community Edition Or Enterprise
 
@@ -348,18 +380,58 @@ Note that you can run both Console and JupyterLab on your local installation.
   helm repo update 
   ```  
 
+* Start a Kubernetes environment
+
+=== minikube (OS X / Windows)
+
+https://minikube.sigs.k8s.io/docs/
+
+    ```shell
+    minikube start
+    ```
+
+  Later, we'll use `minikube tunnel` to make the proxy available on `localhost`.
+
+=== kind (Linux)
+
+https://kind.sigs.k8s.io/
+
+    ```shell
+    cat <<EOF | kind create cluster --name=kind --config=-
+    kind: Cluster
+    apiVersion: kind.x-k8s.io/v1alpha4
+    nodes:
+        - role: control-plane
+          kubeadmConfigPatches:
+              - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                      kubeletExtraArgs:
+                          node-labels: "ingress-ready=true"
+          extraPortMappings:
+              - containerPort: 30080
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 30443
+                hostPort: 443
+                protocol: TCP
+    EOF
+    ```
+
+  The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
+  This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
+
 * Create your values.yaml
 
-=== "Latest Community Edition"
-
-      ```yaml 
-      deployTarget: LOCAL
-
+!!! Attention "Attention Kind users"
+    Make sure to set your Service type to NodePort in the values files below:
+      ```yaml hl_lines="4"    
       proxy:
         enabled: true
         service:
-          type: LoadBalancer
-      ```    
+          type: NodePort
+      ```
+          
 === "Community Edition With Console"
 
       ```yaml 
@@ -481,4 +553,3 @@ The `pachyderm-proxy` service also routes Pachyderm's [**S3 gateway**](../../man
 **access Pachyderm's repo through the S3 protocol**) on port 80 (note the endpoint in the diagram below).
 
 ![Global S3 Gateway with Proxy](../../images/main-s3-gateway-with-proxy.png)
-  

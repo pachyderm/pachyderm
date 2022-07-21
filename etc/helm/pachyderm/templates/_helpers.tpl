@@ -128,7 +128,7 @@ false
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
 {{- else if .Values.ingress.host -}}
-{{- printf "%s://%s" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- .Values.ingress.host -}}
 {{- else  -}}
 localhost:30658
 {{- end -}}

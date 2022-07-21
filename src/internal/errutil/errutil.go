@@ -62,5 +62,6 @@ func IsInvalidPathError(err error) bool {
 // IsNetRetryable returns true if the error is a temporary network error.
 func IsNetRetryable(err error) bool {
 	var netErr net.Error
+	// nolint:staticcheck
 	return errors.As(err, &netErr) && netErr.Temporary()
 }

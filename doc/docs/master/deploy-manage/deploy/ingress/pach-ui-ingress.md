@@ -2,6 +2,12 @@
 
 Before completing the following steps, read the [Infrastructure Recommendation page](../).
 
+!!! Attention 
+    We are now shipping Pachyderm with an **embedded proxy** 
+    allowing your cluster to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy Pachyderm with a Proxy, our new recommended architecture and [deployment instructions](../../deploy-w-proxy/) overwrite the following instructions.
+
 This section provides an example of how to route
 cluster-external HTTP/HTTPS requests to cluster-internal services
 (here Pachyderm UI `console` service and `authentication` services

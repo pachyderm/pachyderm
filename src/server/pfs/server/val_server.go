@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -8,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"golang.org/x/net/context"
 )
 
 // TODO: Block tmp repo writes.

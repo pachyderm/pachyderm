@@ -19,6 +19,7 @@ package collection
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -27,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	v3 "go.etcd.io/etcd/client/v3"
-	"golang.org/x/net/context"
 )
 
 // STM is an interface for software transactional memory.

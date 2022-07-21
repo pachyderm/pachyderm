@@ -17,7 +17,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: "ubuntu-2004:202201-02"
+    default: ubuntu-2004:2022.04.2
 
 jobs:
   test-go:
@@ -58,7 +58,7 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
-  circleci:
+  integration-tests:
     parameters:
       bucket:
         type: string
@@ -78,12 +78,13 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - save_cache:
           key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
+      - go/install:
+          version: 1.18.4
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -138,7 +139,7 @@ jobs:
           path: /tmp/test-results
   helm-tests:
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -277,7 +278,15 @@ jobs:
     steps:
       - checkout
       - run: etc/testing/circle/install.sh
-      - run: etc/testing/circle/rootless_test.sh
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
+      - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: etc/testing/circle/kube_debug.sh
   deploy-tests:
     resource_class: xlarge
     machine:
@@ -287,8 +296,11 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
       - run: etc/testing/circle/start-minikube.sh
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
@@ -297,7 +309,6 @@ jobs:
           keys:
             - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
             - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
-
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       # Note: This gets saves in the main test runs, no need to save here
@@ -309,10 +320,14 @@ jobs:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - run: etc/testing/circle/deploy_test.sh
+      - run: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
+      - run:
+          name: Dump debugging info in case of failure
+          when: on_fail
+          command: etc/testing/circle/kube_debug.sh
       - store_test_results:
           path: /tmp/test-results
   # build pachctl and push to GCS bucket, so that it can be bundled into the
@@ -324,7 +339,7 @@ jobs:
         default: ${CIRCLE_SHA1}
     resource_class: large
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - setup_remote_docker:
@@ -361,7 +376,7 @@ jobs:
         default: false
     resource_class: large
     docker:
-      - image: cimg/go:1.17.6
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - run:
@@ -433,7 +448,7 @@ jobs:
       - run: make -C etc/generate-envoy-config test
   push_redhat:
     docker:
-      - image: cimg/go:1.18.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - setup_remote_docker:
@@ -520,7 +535,7 @@ jobs:
             make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     docker:
-      - image: cimg/go:1.17.3
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - add_ssh_keys:
@@ -543,7 +558,7 @@ jobs:
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
-  circleci:
+  integration-tests:
     jobs:
       - build-docker-images
       - build-pachctl-bin:
@@ -552,7 +567,7 @@ workflows:
       - check-prettier
       - test-go
       - test-envoy
-      - circleci:
+      - integration-tests:
           matrix:
             parameters:
               bucket:
@@ -616,7 +631,7 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
-      - circleci:
+      - integration-tests:
           matrix:
             parameters:
               bucket:
@@ -641,19 +656,19 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
-            - circleci
+            - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
-            - circleci
+            - integration-tests
       - build-pachctl-bin:
           version: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - helm-tests
-            - circleci
+            - integration-tests
       - helm-publish:
           name: publish-chart-preview
           preview: true

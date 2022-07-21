@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -102,7 +103,7 @@ func NewClient(address string) (Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
-		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+		append(client.DefaultDialOptions(), grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
 		return Client{}, errors.EnsureStack(err)
 	}
@@ -139,7 +140,7 @@ func withClient(ctx context.Context, address string, port uint16, cb func(Client
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
-		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+		append(client.DefaultDialOptions(), grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

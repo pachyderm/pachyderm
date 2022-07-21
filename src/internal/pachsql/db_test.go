@@ -1,11 +1,11 @@
 package pachsql
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 

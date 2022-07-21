@@ -2,7 +2,7 @@
 
 On this page, you will find simplified deployment instructions and Helm values to get you started with the latest release of Pachyderm on the Kubernetes Engine of your choice (AWS (EKS), Google (GKS), and Azure (AKS)).
 
-For each cloud provider, we will give you the option to "quick deploy" Pachyderm with or without Console (Pachyderm Web UI).
+For each cloud provider, we will give you the option to "quick deploy" Pachyderm with or without an enterprise key. A quick deployment allows you to experiment with Pachyderm without having to go through any infrastructure setup. In particular, you do not need to set up any object store or PostgreSQL instance.
 
 !!! Important 
     The deployment steps highlighted in this document are **not intended for production**. For production settings, please read our [infrastructure recommendations](../ingress/). In particular, we recommend:
@@ -13,7 +13,7 @@ For each cloud provider, we will give you the option to "quick deploy" Pachyderm
 
     Then find your targeted Cloud provider in the [Deploy and Manage](../) section of this documentation.
 
-!!! Attention "Interested in deploying with an embedded proxy and expose one single external port?"
+!!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
@@ -47,7 +47,8 @@ Select your favorite cloud provider.
 ## 2. Create Your Values.yaml
 
 !!! Note
-    For a better understanding of the additional steps and helm values needed when deploying with Console, read about the [deployment of Pachyderm with Console](../console/#deploy-in-the-cloud) page. 
+    Pachyderm comes with a [Web UI (Console)](../console/#deploy-in-the-cloud) per default.
+
 ### AWS
 
 1. Additional client installation:
@@ -202,7 +203,7 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
 Jump to [Helm install](#3-helm-install)
 
 ## 3. [Helm Install](../helm-install/#install-pachyderms-helm-chart)
-- You will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
+- You will be deploying the [latest GA release](../../../reference/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell
     helm repo add pach https://helm.pachyderm.com
