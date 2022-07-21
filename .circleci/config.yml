@@ -4,14 +4,12 @@ version: 2.1
 setup: true
 
 orbs:
-#  continuation: circleci/continuation@0.1.2 # the continuation orb is required in order to use dynamic configuration
-  path-filtering: circleci/path-filtering@0.1.1
+  path-filtering: circleci/path-filtering@0.1.3
 
-# our defined job, and its steps
-jobs:
-  setup:
-    executor: continuation/default
-    steps:
+# our single workflow, that triggers the setup job defined above
+workflows:
+  generate-config:
+    jobs:
       - path-filtering/filter:
           name: check-updated-files
           # 3-column, whitespace-delimited mapping. One mapping per
@@ -25,9 +23,3 @@ jobs:
           # complete. In this case, we are using the parent dynamic
           # configuration itself.
           config-path: .circleci/main.yml
-
-# our single workflow, that triggers the setup job defined above
-workflows:
-  setup:
-    jobs:
-      - setup
