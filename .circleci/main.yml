@@ -58,6 +58,66 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
+  integration-tests-small:
+    parameters:
+      bucket:
+        type: string
+    resource_class: xlarge
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      PPS_BUCKETS: "8"
+      GOPROXY: https://proxy.golang.org
+      BUCKET: << parameters.bucket >>
+    steps:
+      - run: 
+          name: Shallow checkout
+          command: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
+      - run:
+          name: install minikube
+          command: |
+            KUBECTL_VERSION=v1.23.5
+            curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
+            chmod +x ./kubectl
+            sudo mv kubectl /usr/local/bin
+      - restore_cache:
+          keys:
+            - minikube-v1-1.25.2
+      - run:
+          name: install minikube
+          command: |
+            MINIKUBE_VERSION=v1.25.2 # If changed, also do etc/kube/start-minikube.sh
+            curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
+            chmod +x ./minikube
+            sudo mv ./minikube /usr/local/bin
+      - run:
+          name: install helm
+          command: |
+            HELM_VERSION=3.5.4
+            curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz | tar xzf - linux-amd64/helm
+            sudo mv ./linux-amd64/helm /usr/local/bin
+      - run:
+          name: Build other images
+          command: |
+            	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+            	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
+      - run:
+          name: Start minikube
+          command: etc/testing/circle/start-minikube.sh
+          #background: true
+      - save_cache:
+          key: minikube-v1-1.25.2
+          paths:
+            - /home/circleci/.minikube/cache
+      - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: run tests
+          no_output_timeout: 20m
+          command: |
+            TESTSHA=$CIRCLE_SHA1 etc/testing/circle/run_tests.sh
+
   integration-tests:
     parameters:
       bucket:
@@ -365,7 +425,7 @@ jobs:
             make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
       - run:
           name: Push docker
-          command: make docker-push VERSION=${CIRCLE_SHA1}
+          command: make docker-push VERSION=${CIRCLE_SHA1} # Shouldn't this be v from above step? (May be tag?)
   build-pachctl-bin:
     parameters:
       version:
@@ -558,21 +618,75 @@ jobs:
             index=${#prefix}
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
+  docker-build:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:2022.04.2
+    steps:
+      #- run:
+      #    name: setup env
+      #    command: |
+      #      echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+      - run: 
+          name: Shallow checkout
+          command: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
+      - run:
+          name: Install Goreleaser
+          command: |
+            curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
+      # It doesn't seem worth it to cache go modules here, it takes 20s to restore, but doesn't affect build times that much
+      #- restore_cache:
+      #    keys:
+      #      - pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
+      - run:
+          name: Build Docker image
+          command: |
+            DOCKER_BUILDKIT=1 VERSION=$CIRCLE_SHA1 goreleaser release -p 1 --snapshot --skip-publish --rm-dist -f goreleaser/docker.yml
+      - save_cache:
+          key: pach-go-build-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.cache/go-build
+      #- save_cache:
+      #    key: pach-go-mod-cache-new-v2-{{ .Branch }}-{{ checksum "current_week" }}
+      #    paths:
+      #      - /home/circleci/.go_workspace/pkg/mod
+      - run: |
+          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Push docker
+          command: make docker-push VERSION=${CIRCLE_SHA1}
+  #build-remote-docker:
+  #  resource_class: large
+  #  docker:
+  #    - image: cimg/go:1.18.3
+  #  steps:
+  #    - checkout
+  #    - setup_remote_docker:
+  #        docker_layer_caching: true
+  #        version: "20.10.12"
+  #    - run:
+  #        name: Build Docker image
+  #        command: |
+  #          cd etc/test-images
+  #          docker build -t pachyderm/testuser:latest -f Dockerfile.testuser .
+
 workflows:
-  integration-tests:
+  docker-build:
     jobs:
-      - build-docker-images
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
-          upload: true
-      - check-prettier
-      - test-go
-      - test-envoy
-      - integration-tests:
+      - docker-build
+      - integration-tests-small:
+          #requires:
+          #  - docker-build
           matrix:
             parameters:
               bucket:
-                - MISC
+                #- MISC
                 # If you want to update the number of PPS buckets, you'll need to
                 # update the value of PPS_BUCKETS above
                 - AUTH
@@ -588,131 +702,162 @@ workflows:
                 - PPS8
                 - S3_AUTH
                 - EXAMPLES
-  helm-tests:
-    jobs:
-      - helm-tests
-  nightly_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - 2.1.x
-                - 2.2.x
-    jobs:
-      - nightly-load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-                - LOAD11
-                - LOAD12
-                  # Disabled for now since they take too long, may consider reenabling later.
-                  #- LOAD13
-                  #- LOAD14
-                  #- LOAD15
-  rootless-tests:
-    jobs:
-      - rootless
-  deploy-tests:
-    jobs:
-      - deploy-tests
-  release:
-    jobs:
-      - helm-tests:
-          filters: *only-release-tags
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
-                - PPS_AUTH
-                - EXAMPLES
-          filters: *only-release-tags
-      - helm-build:
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - build-docker-images:
-          appVersion: ${CIRCLE_TAG:1}
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - build-pachctl-bin:
-          version: ${CIRCLE_TAG:1}
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - helm-publish:
-          name: publish-chart-preview
-          preview: true
-          filters: *only-release-tags
-          requires:
-            - helm-build
-      - release-github-draft:
-          filters: *only-release-tags
-          requires:
-            - build-pachctl-bin
-      - pachyderm-prerelease-testing:
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - sign-off:
-          filters: *only-release-tags
-          type: approval
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - release-docker-hub:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - push_redhat:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-github:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-hombrew-tap:
-          filters: *only-release-tags
-          requires:
-            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-      - helm-publish:
-          name: publish-helm-chart
-          filters: *only-release-tags
-          requires:
-            - sign-off
+      #- build-remote-docker
+  #integration-tests:
+  #  jobs:
+  #    - build-docker-images
+  #    - build-pachctl-bin:
+  #        version: $CIRCLE_SHA1
+  #        upload: true
+  #    - check-prettier
+  #    - test-go
+  #    - test-envoy
+  #    - integration-tests:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - MISC
+  #              # If you want to update the number of PPS buckets, you'll need to
+  #              # update the value of PPS_BUCKETS above
+  #              - AUTH
+  #              - ENTERPRISE
+  #              - PFS
+  #              - PPS1
+  #              - PPS2
+  #              - PPS3
+  #              - PPS4
+  #              - PPS5
+  #              - PPS6
+  #              - PPS7
+  #              - PPS8
+  #              - S3_AUTH
+  #              - EXAMPLES
+  #helm-tests:
+  #  jobs:
+  #    - helm-tests
+  #nightly_load_tests:
+  #  triggers:
+  #    - schedule:
+  #        cron: "0 6 * * *"
+  #        filters:
+  #          branches:
+  #            only:
+  #              - master
+  #              - 2.1.x
+  #              - 2.2.x
+  #  jobs:
+  #    - nightly-load:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - LOAD1
+  #              - LOAD2
+  #              - LOAD3
+  #              - LOAD4
+  #              - LOAD5
+  #              - LOAD6
+  #              - LOAD7
+  #              - LOAD8
+  #              - LOAD9
+  #              - LOAD10
+  #              - LOAD11
+  #              - LOAD12
+  #                # Disabled for now since they take too long, may consider reenabling later.
+  #                #- LOAD13
+  #                #- LOAD14
+  #                #- LOAD15
+  #rootless-tests:
+  #  jobs:
+  #    - rootless
+  #deploy-tests:
+  #  jobs:
+  #    - deploy-tests
+  #release:
+  #  jobs:
+  #    - helm-tests:
+  #        filters: *only-release-tags
+  #    - integration-tests:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - MISC
+  #              # If you want to update the number of PPS buckets, you'll need to
+  #              # update the value of PPS_BUCKETS above
+  #              - AUTH
+  #              - ENTERPRISE
+  #              - PFS
+  #              - PPS1
+  #              - PPS2
+  #              - PPS3
+  #              - PPS4
+  #              - PPS5
+  #              - PPS6
+  #              - PPS7
+  #              - PPS8
+  #              - PPS_AUTH
+  #              - EXAMPLES
+  #        filters: *only-release-tags
+  #    - helm-build:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-tests
+  #          - integration-tests
+  #    - build-docker-images:
+  #        appVersion: ${CIRCLE_TAG:1}
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-tests
+  #          - integration-tests
+  #    - build-pachctl-bin:
+  #        version: ${CIRCLE_TAG:1}
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-tests
+  #          - integration-tests
+  #    - helm-publish:
+  #        name: publish-chart-preview
+  #        preview: true
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-build
+  #    - release-github-draft:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - build-pachctl-bin
+  #    - pachyderm-prerelease-testing:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - build-docker-images
+  #          - build-pachctl-bin
+  #          - publish-chart-preview
+  #          - release-github-draft
+  #    - sign-off:
+  #        filters: *only-release-tags
+  #        type: approval
+  #        requires:
+  #          - build-docker-images
+  #          - build-pachctl-bin
+  #          - publish-chart-preview
+  #          - release-github-draft
+  #    - release-docker-hub:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+  #    - push_redhat:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+  #    - release-github:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+  #    - release-hombrew-tap:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+  #    - helm-publish:
+  #        name: publish-helm-chart
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+#

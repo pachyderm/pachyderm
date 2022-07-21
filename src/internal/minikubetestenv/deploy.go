@@ -226,6 +226,15 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 	}
 }
 
+func getLocalImage() string {
+	sha := os.Getenv("TESTSHA")
+	if sha == "" {
+		return localImage
+	} else {
+		return sha
+	}
+}
+
 func withEnterpriseServer(image, host string) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
 		"pachd.enabled":                      "false",
@@ -461,7 +470,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
-	version := localImage
+	version := getLocalImage()
 	chartPath := helmChartLocalPath(t)
 	helmOpts := withBase(namespace)
 	if opts.Version != "" {
