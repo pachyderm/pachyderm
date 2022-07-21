@@ -109,7 +109,7 @@ spec:
               name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
               key: "enterprise-secret"
         {{- end }}
-        {{- if and (include "pachyderm.enterpriseLicenseKeySecretName" .) .Values.pachd.activateAuth }}
+        {{- if and (include "pachyderm.withEnterprise" .) .Values.pachd.activateAuth }}
         - name: ACTIVATE_AUTH
           value: "true"
         - name: AUTH_ROOT_TOKEN

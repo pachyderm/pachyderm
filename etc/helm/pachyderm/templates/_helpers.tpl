@@ -149,6 +149,10 @@ localhost:30658
 {{- end }}
 {{- end }}
 
+{{- define "pachyderm.withEnterprise" }}
+{{ or (include "pachyderm.enterpriseLicenseKeySecretName" . ) .Values.pachd.activateEnterpriseMember }}
+{{- end }}
+
 {{- define "pachyderm.enterpriseLicenseKeySecretName" -}}
 {{- if .Values.pachd.enterpriseLicenseKeySecretName }}
 {{ .Values.pachd.enterpriseLicenseKeySecretName }}

@@ -341,6 +341,9 @@
                         "postgresqlPort": {
                             "type": "string"
                         },
+                        "postgresqlPostgresPassword": {
+                            "type": "string"
+                        },
                         "postgresqlSSL": {
                             "type": "string"
                         },
@@ -674,6 +677,12 @@
                     "type": "string"
                 },
                 "enterpriseServerAddress": {
+                    "type": "string"
+                },
+                "enterpriseServerToken": {
+                    "type": "string"
+                },
+                "enterpriseServerTokenSecretName": {
                     "type": "string"
                 },
                 "externalService": {
