@@ -141,7 +141,9 @@ localhost:30658
 - id: test
   name: test
   type: mockPassword
-  jsonConfig: '{"username": "admin", "password": "password"}'
+  config:
+    username: admin
+    password: password
 {{- else }}
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}
