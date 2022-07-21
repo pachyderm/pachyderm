@@ -184,7 +184,7 @@ jobs:
             npm run eslint:check
             python -m pip install -e '.[dev]'
 
-            tail -F /tmp/pachctl-mount-server.log &
+            # tail -F /tmp/pachctl-mount-server.log &
 
             # Run Python unit tests
             pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
