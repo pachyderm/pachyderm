@@ -1,5 +1,9 @@
 
 # Changelog
+## 2.2.6
+- Fix swallowed error in PFS DeleteFile - #7921
+- snowflake fixes - #7892
+
 ## 2.2.5
 - Fix upgrade for 2.2.x to 2.2.3+ without console #7874
 
