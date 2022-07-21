@@ -1,7 +1,0 @@
-{
-  "title": "Telemetry for Pachyderm Notebooks",
-  "description": "Telemetry for Pachyderm Notebooks.",
-  "properties": {},
-  "additionalProperties": false,
-  "type": "object"
-}
