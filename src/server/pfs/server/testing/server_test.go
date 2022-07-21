@@ -4340,16 +4340,16 @@ func TestPFS(suite *testing.T) {
 
 		var readyCommitsB, readyCommitsC int64
 		go func() {
-			require.NoError(t, pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			_ = pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommitsB, 1)
 				return nil
-			}))
+			})
 		}()
 		go func() {
-			require.NoError(t, pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			_ = pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommitsC, 1)
 				return nil
-			}))
+			})
 		}()
 		_, err := pachClient.StartCommit("A", "master")
 		require.NoError(t, err)
