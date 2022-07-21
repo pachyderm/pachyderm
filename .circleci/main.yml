@@ -96,10 +96,6 @@ jobs:
             HELM_VERSION=3.5.4
             curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz | tar xzf - linux-amd64/helm
             sudo mv ./linux-amd64/helm /usr/local/bin
-      - save_cache:
-          key: minikube-v1-1.25.2
-          paths:
-            - /home/circleci/.minikube/cache
       - run:
           name: Build other images
           command: |
@@ -109,6 +105,10 @@ jobs:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
           #background: true
+      - save_cache:
+          key: minikube-v1-1.25.2
+          paths:
+            - /home/circleci/.minikube/cache
       - run:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml

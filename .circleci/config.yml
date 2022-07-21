@@ -12,7 +12,10 @@ jobs:
   setup:
     executor: continuation/default
     steps:
-      - checkout # checkout code
+      # - checkout # checkout code
+      - run: 
+          name: Shallow checkout
+          command: git clone --depth 1 "$CIRCLE_REPOSITORY_URL" --branch "$CIRCLE_BRANCH" .
       #- run: # run a command
       #    name: Generate config
       #    command: |
