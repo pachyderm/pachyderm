@@ -19,6 +19,11 @@ parameters:
     type: string
     default: ubuntu-2004:2022.04.2
 
+executors:
+  docker-go:
+    docker:
+      - image: cimg/go:1.18.4
+
 jobs:
   test-go:
     machine:
@@ -138,8 +143,7 @@ jobs:
       - store_artifacts:
           path: /tmp/test-results
   helm-tests:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -338,8 +342,7 @@ jobs:
         type: string
         default: ${CIRCLE_SHA1}
     resource_class: large
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - setup_remote_docker:
@@ -375,8 +378,7 @@ jobs:
         type: boolean
         default: false
     resource_class: large
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - run:
@@ -447,8 +449,7 @@ jobs:
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
   push_redhat:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - setup_remote_docker:
@@ -534,8 +535,7 @@ jobs:
           command: |
             make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - add_ssh_keys:
