@@ -193,7 +193,51 @@ jobs:
             pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
 
             check-manifest -v
+  jupyter-build:
+    executor: python
+    steps:
+      - checkout
 
+      # Install and cache Python dependencies
+      - restore_cache:
+          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -r ci-requirements.txt
+      - save_cache:
+          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          paths:
+            - 'venv'
+
+      # Install and cache Node dependencies
+      - restore_cache:
+          keys:
+            - node-cache-v3-{{ checksum "package-lock.json" }}
+            - node-cache-v3
+      - run:
+          name: 'Install npm packages'
+          command: |
+            npm ci
+      - save_cache:
+          key: node-cache-v3-{{ checksum "package-lock.json" }}
+          paths:
+            - 'node_modules'
+
+      - run:
+          name: build
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m build
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
   helm-tests:
     docker:
       - image: cimg/go:1.18.4
@@ -623,6 +667,8 @@ workflows:
           matrix:
             parameters:
               python-version: ['3.10']
+      - jupyter-build
+      
   integration-tests:
     when:
       not: << pipeline.parameters.run-jupyter-jobs >>
