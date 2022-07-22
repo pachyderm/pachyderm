@@ -8,6 +8,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// LogStep logs how long it takes to perform an operation.  If ctx comes from a
+// gRPC method intercepted by a logging.LoggingInterceptor, the method name will
+// be included in the structured log.
+//
 // TODO: refactor into a common logging utility.
 func LogStep(ctx context.Context, name string, cb func() error) (retErr error) {
 	var logger = log.NewEntry(log.New())

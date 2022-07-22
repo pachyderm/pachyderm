@@ -46,13 +46,14 @@ type LoggingInterceptor struct {
 type loggingKey int
 
 const (
-	methodNameKey = iota
+	methodNameKey loggingKey = iota
 )
 
 func withMethodName(ctx context.Context, name string) context.Context {
 	return context.WithValue(ctx, methodNameKey, name)
 }
 
+// MethodName returns the gRPC method name from a context in an intercepted call.
 func MethodNameFromContext(ctx context.Context) (string, bool) {
 	v := ctx.Value(methodNameKey)
 	s, ok := v.(string)
