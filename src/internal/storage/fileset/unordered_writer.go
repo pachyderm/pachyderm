@@ -97,7 +97,7 @@ func (uw *UnorderedWriter) serialize(ctx context.Context) error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return miscutil.LogStep(ctx, "UnorderedWriter.serialize during %s", func() error {
+	return miscutil.LogStep(ctx, "UnorderedWriter.serialize", func() error {
 		return uw.withWriter(func(w *Writer) error {
 			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 				return w.Add(path, datum, r)
