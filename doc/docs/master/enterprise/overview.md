@@ -36,11 +36,6 @@ by restricting the access to specific resources to authorized users only.
 Unauthorized users will not be able to visualize the content 
 of given clusters, repos, and pipelines.
 
-Additionally, the Enterprise feature allows you to access Pachyderm's 
-logs via [Loki](../../deploy-manage/deploy/loki/){target=_blank}, 
-provided that you have activated the feature in your values.yaml.
-
-
 
 
 
