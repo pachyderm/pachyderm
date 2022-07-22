@@ -576,6 +576,7 @@ message ListDatumRequest {
   // The datums listed are the ones that would be run if a pipeline was created
   // with the provided input.
   Input input = 2;
+  Filter filter = 3;
   // TODO:
   //int64 page_size = 2;
   //int64 page = 3;
@@ -783,4 +784,31 @@ service API {
 
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
+}
+
+// Filter is used to filter a set of results.
+message Filter {
+  oneof filter {
+    // when implementing a new filter, be sure to add it below
+    NotFilter notFilter = 1;
+    AndFilter andFilter = 2;
+    OrFilter orFilter = 3;
+    DatumStateFilter datumStateFilter = 4;
+  }
+}
+
+message NotFilter {
+  Filter operand = 1;
+}
+
+message AndFilter {
+  repeated Filter operands = 1;
+}
+
+message OrFilter {
+  repeated Filter operands = 1;
+}
+
+message DatumStateFilter {
+  DatumState value = 1;
 }
