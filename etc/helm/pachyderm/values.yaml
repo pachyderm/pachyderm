@@ -211,9 +211,11 @@ ingress:
       crt: ""
       key: ""
 
-# locki-stack contains values that will be passed to the loki-stack subchart
+# loki-stack contains values that will be passed to the loki-stack subchart
 loki-stack:
   loki:
+    serviceAccount:
+      automountServiceAccountToken: false
     persistence:
       enabled: true
       accessModes:

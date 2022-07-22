@@ -7,7 +7,7 @@ An organization can have **many Pachyderm clusters registered with one single En
 An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../../deploy-manage) section) with minor differences:
 
 - **No Object store**: It is **not backed by an object store**. In other words, you won't need to set up an object store, so you don't need any deployment target in your helm chart.
-- **The PostgreSQL Instance requires one database only that is `dex`**. When deployed as a standalone cluster as part of a multi-cluster deployment, it **requires one PostgreSQL database only to set up Pachyderm's authentication service: `dex`**. Note that all the clusters than will be registered to this enterprise server will each require one PostgreSQL database as well: `pachyderm`.
+- **The PostgreSQL Instance requires two databases: `dex` and `pachyderm`**. Note that when the enterprise server is deployed as a standalone cluster as part of a multi-cluster deployment, all the clusters than will be registered to this enterprise server will each require one PostgreSQL database only: `pachyderm` (`dex` being at the enterprise server already).
 
 The following diagram gives you a quick overview of an organization with multiple Pachyderm clusters behind a single Enterprise Server.
 ![Enterprise Server General Deployment](../images/enterprise-server.png)
@@ -21,6 +21,12 @@ The setup of an Enterprise Server requires to:
 1. Activate your Enterprise Key and enable Auth.
 1. Register your newly created or existing Pachyderm clusters with your enterprise server.
 1. Optional: Enable Auth on each cluster.
+
+!!! Attention 
+    We are now shipping Pachyderm with an **embedded proxy** 
+    allowing your nterprise server to expose one single port externally. This deployment setup is optional.
+    
+    If you choose to deploy your enterprise server with a Proxy, check out our new recommended architecture and [deployment instructions](../../../../deploy-manage/deploy/deploy-w-proxy/) as they alter the instructions below.
 
 ## 1 - Deploy An Enterprise Server
 Deploying and configuring an enterprise server can be done in one of two flavors:
@@ -55,53 +61,7 @@ Update your values.yaml with your enterprise license key and auth configurations
 
 			```
 
-=== "values.yaml for an **embedded single-cluster deployment**"
 
-	```yaml
-	pachd:
-		enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"
-		# Alternatively, you can pass your license in a secret
-		enterpriseLicenseKeySecretName: "<enterprise License key secret name>"
-		oauthClientID: "pachd"
-		oauthRedirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"
-		## if a secret name is not provided in `oauthClientSecretSecretName`, a secret containing `oauthClientSecret` (or a randomly generated value if empty) will be created on install and stored in the k8s secret 'pachyderm-auth` under the key `auth-config'
-		oauthClientSecret: ""
-		oauthClientSecretSecretName: ""
-		## if a secret name is not provided in `enterpriseSecretSecretName`, a secret containing `enterpriseSecret` (or a randomly generated value if empty) will be created on install and stored in the k8s secret 'pachyderm-enterprise` under the key `enterprise-secret'
-		enterpriseSecretSecretName: ""
-		enterpriseSecret: ""
-		activateAuth: true
-		## if a secret name is not provided in `rootTokenSecretName`, a secret containing `rootToken` (or a randomly generated value if empty) will be created on install and stored in the k8s secret 'pachyderm-auth` under the key `rootToken'
-		rootTokenSecretName: ""
-		rootToken: ""
-    externalService:
-      enabled: true
-	oidc:
-		issuerURI: "http://<PACHD-IP>:30658/"
-		## userAccessibleOauthIssuerHost is necessary in localhost settings or anytime the registered Issuer address isn't accessible outside the cluster
-		# userAccessibleOauthIssuerHost: "localhost:30658"
-		## if `mockIDP` is set to true, `pachd.upstreamIDPs` will be ignored in favor of a testing placeholder IDP with username/password: admin/password
-		mockIDP: false
-		## to set up upstream IDPs, set pachd.mockIDP to false,
-		## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
-		## See the example below or https://dexidp.io/docs/connectors/
-		upstreamIDPs:
-		  - id: idpConnector
-		    jsonConfig: >-
-		      {
-		          "issuer": "<ISSUER>",
-		          "clientID": "<CLIENT-ID>",
-		          "clientSecret": "<CLIENT-SECRET>",
-		          "redirectURI": "http://<PACHD-IP>:30658/callback",
-		          "insecureEnableGroups": true,
-		          "insecureSkipEmailVerified": true,
-		          "insecureSkipIssuerCallbackDomainCheck": true,
-		          "forwardedLoginParams": ["login_hint"]
-		      }
-		    name: idpConnector
-		    type: oidc
-	```
-	This results in a single pachd pod, with authentication enabled, and an IDP integration configured.
 === "values.yaml for a **stand-alone Enterprise Server as part of a multi-cluster deployment**"
 		
 	Deploying a stand-alone enterprise server requires setting the helm parameter `enterpriseServer.enabled` to `true` and the `pachd.enabled` to `false`. 
@@ -154,6 +114,54 @@ Update your values.yaml with your enterprise license key and auth configurations
 		    type: oidc
 	```
 
+=== "values.yaml for an **embedded single-cluster deployment**"
+
+	```yaml
+	pachd:
+		enterpriseLicenseKey: "<ENTERPRISE-LICENSE-KEY>"
+		# Alternatively, you can pass your license in a secret
+		enterpriseLicenseKeySecretName: "<enterprise License key secret name>"
+		oauthClientID: "pachd"
+		oauthRedirectURI: "http://<PACHD-IP>:30657/authorization-code/callback"
+		## if a secret name is not provided in `oauthClientSecretSecretName`, a secret containing `oauthClientSecret` (or a randomly generated value if empty) will be created on install and stored in the k8s secret 'pachyderm-auth` under the key `auth-config'
+		oauthClientSecret: ""
+		oauthClientSecretSecretName: ""
+		## if a secret name is not provided in `enterpriseSecretSecretName`, a secret containing `enterpriseSecret` (or a randomly generated value if empty) will be created on install and stored in the k8s secret 'pachyderm-enterprise` under the key `enterprise-secret'
+		enterpriseSecretSecretName: ""
+		enterpriseSecret: ""
+		activateAuth: true
+		## if a secret name is not provided in `rootTokenSecretName`, a secret containing `rootToken` (or a randomly generated value if empty) will be created on install and stored in the k8s secret 'pachyderm-auth` under the key `rootToken'
+		rootTokenSecretName: ""
+		rootToken: ""
+    externalService:
+      enabled: true
+	oidc:
+		issuerURI: "http://<PACHD-IP>:30658/"
+		## userAccessibleOauthIssuerHost is necessary in localhost settings or anytime the registered Issuer address isn't accessible outside the cluster
+		# userAccessibleOauthIssuerHost: "localhost:30658"
+		## if `mockIDP` is set to true, `pachd.upstreamIDPs` will be ignored in favor of a testing placeholder IDP with username/password: admin/password
+		mockIDP: false
+		## to set up upstream IDPs, set pachd.mockIDP to false,
+		## and populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
+		## See the example below or https://dexidp.io/docs/connectors/
+		upstreamIDPs:
+		  - id: idpConnector
+		    jsonConfig: >-
+		      {
+		          "issuer": "<ISSUER>",
+		          "clientID": "<CLIENT-ID>",
+		          "clientSecret": "<CLIENT-SECRET>",
+		          "redirectURI": "http://<PACHD-IP>:30658/callback",
+		          "insecureEnableGroups": true,
+		          "insecureSkipEmailVerified": true,
+		          "insecureSkipIssuerCallbackDomainCheck": true,
+		          "forwardedLoginParams": ["login_hint"]
+		      }
+		    name: idpConnector
+		    type: oidc
+	```
+	This results in a single pachd pod, with authentication enabled, and an IDP integration configured.
+
 
 !!! Note
      Update the following values as follow:
@@ -198,7 +206,7 @@ To enable the Enterprise Server on an existing cluster:
 		They should all be stored securely.
 
 Once the enterprise server is deployed, 
-deploy your cluster(s) (`helm install...`) and [register it(them) with the enterprise server](#3-register-your-cluster-with-the-enterprise-server). Note that you have the option to register your clusters directly in your values.yaml when deploying or after its deployment, using `pachctl`.
+deploy your cluster(s) [`helm install...`](../../../../deploy-manage/deploy/helm-install/#install-pachyderms-helm-chart) and [register it(them) with the enterprise server](#3-register-your-cluster-with-the-enterprise-server). Note that you have the option to register your clusters directly in your values.yaml when deploying or after its deployment, using `pachctl`.
 
 You migh want to expose your cluster(s) to the internet. Check the setup of a Load Balancer in our [deployment section](../../../../deploy-manage/deploy/ingress/#loadbalancer).
 
@@ -220,7 +228,7 @@ Add the enterprise server's root token, and network addresses to the values.yaml
   		enterpriseCallbackAddress: "grpc://<PACHD_ADDRESS>"
   		enterpriseServerToken: "<ENTERPRISE-SERVER-TOKEN>" # the same root token of the enterprise cluster
 		# Alternatively, use a secret
-		enterpriseServerTokenSecretName: "<Name of you secret containing enterpriseRootToken>" 
+		enterpriseServerTokenSecretName: "<Name of you secret containing enterpriseServerToken>" 
 
 	```
 
@@ -269,6 +277,7 @@ Add the enterprise server's root token, and network addresses to the values.yaml
 	```
 
 ## 4- Enable Auth On Each Cluster
+
 Finally, if your clusters were registered with the Enterprise Server using `pachctl`, you might choose to activate auth on each (or some) of them. 
 This is an **optional step**. Clusters can be registered with the enterprise server without authentication being enabled.
 
