@@ -553,3 +553,68 @@ The `pachyderm-proxy` service also routes Pachyderm's [**S3 gateway**](../../man
 **access Pachyderm's repo through the S3 protocol**) on port 80 (note the endpoint in the diagram below).
 
 ![Global S3 Gateway with Proxy](../../images/main-s3-gateway-with-proxy.png)
+
+## Changes to the Enterprise Server Setup
+
+Your enterprise server is [deployed in the same way as any regular cluster](#deploy-pachyderm-in-production-with-a-proxy) with a few differences (no object-store and one unique PostgreSQL database required: `dex`). The same applies when deploying an enterprise server with a proxy. 
+
+Note that the enterprise server will be deployed behind its proxy, as will each cluster registered to this enterprise server.
+
+Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, but for those few steps:
+
+- [Section 1: Deploy an enterprise server](#1-deploy-an-enterprise-server), in the values.yaml provided as examples:
+
+    - Remove the `externalService` section and replace it with `proxy`:
+
+        ```yaml
+        proxy:
+          enabled: true
+          service:
+            type: LoadBalancer
+        ```
+
+    - Update all mentions of `http://<PACHD-IP>:30657/` and `http://<PACHD-IP>:30658/` with `http://<Enterprise-server-external-IP-or-DNS>:80/` or `https://<Enterprise-server-external-IP-or-DNS>:443/`
+
+    - Your `redirect_uri` must be set to `http(s)://<insert-external-ip-or-dns-name>/dex/callback` in your IdP connector as mentioned in the [IdP section of the documentation](../../../enterprise/auth/authentication/idp-dex/#pachyderm-integration-with-identity-providers){target=_blank}
+
+
+- [Section 3: Register your cluster with the enterprise server](../../../enterprise/auth/enterprise-server/setup/#3-register-your-cluster-with-the-enterprise-server){target=_blank}:
+
+    If you chose to [register a cluster to an enterprise server using pachctl](../../../enterprise/auth/enterprise-server/setup/#register-clusters-with-pachctl){target=_blank}, change all the port numbers to 80(http)/443(https) in the `pachctl enterprise register` command:
+
+    ```shell
+    pachctl enterprise register --id <my-pachd-config-name> --enterprise-server-address <pach-enterprise-IP>:80 --pachd-address <pachd-IP>:80
+    ```
+
+- [Section 4: Enable auth on each cluster](../../../enterprise/auth/enterprise-server/setup/#4-enable-auth-on-each-cluster){target=_blank}, use these instructions to:
+
+    - Set up the issuer in the idp config between the enterprise server and your cluster:
+    
+    ```shell
+    echo "issuer: http://<enterprise-external-IP-or-dns>" | pachctl idp set-config --config -
+    ```
+
+    - For each registered cluster, enable auth:
+
+        ```shell
+        pachctl auth activate --client-id <my-pachd-config-name> --redirect http://<pachd-rxternal-IP-or-DNS>:80/authorization-code/callback 
+        ```
+
+    - Then resume the last part of instructions:
+    
+        - Make sure than your enterprise context is set up properly:
+
+        ```shell
+        pachctl config get active-enterprise-context
+        ```
+
+        If not:
+
+        ```shell
+        pachctl config set active-enterprise-context <my-enterprise-context-name>
+        ```
+
+
+
+
+
