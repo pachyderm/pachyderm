@@ -537,6 +537,14 @@
                                     "type": "array"
                                 }
                             }
+                        },
+                        "serviceAccount": {
+                            "type": "object",
+                            "properties": {
+                                "automountServiceAccountToken": {
+                                    "type": "boolean"
+                                }
+                            }
                         }
                     }
                 },
