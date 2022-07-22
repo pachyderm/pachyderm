@@ -137,6 +137,17 @@ docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
 
+docker-retag-push:
+	docker tag pachyderm/pachd:$(PREVIOUS_VERSION) pachyderm/pachd:$(VERSION)
+	docker tag pachyderm/worker:$(PREVIOUS_VERSION) pachyderm/worker:$(VERSION)
+	docker tag pachyderm/pachctl:$(PREVIOUS_VERSION) pachyderm/pachctl:$(VERSION)
+	docker tag pachyderm/mount-server:$(PREVIOUS_VERSION) pachyderm/mount-server:$(VERSION)
+
+	docker push pachyderm/pachd:$(VERSION)
+	docker push pachyderm/worker:$(VERSION)
+	docker push pachyderm/pachctl:$(VERSION)
+	docker push pachyderm/mount-server:$(VERSION)
+
 docker-pull:
 	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
 	$(SKIP) docker pull pachyderm/worker:$(VERSION)
@@ -426,6 +437,7 @@ check-buckets:
 	docker-build-test-entrypoint \
 	docker-tag \
 	docker-push \
+	docker-retag-push \
 	docker-push-release \
 	check-buckets \
 	check-kubectl \
