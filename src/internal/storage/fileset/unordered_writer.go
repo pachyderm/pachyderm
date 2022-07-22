@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -51,7 +52,7 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold, fil
 	return uw, nil
 }
 
-func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (retErr error) {
+func (uw *UnorderedWriter) Put(ctx context.Context, p, datum string, appendFile bool, r io.Reader) (retErr error) {
 	if err := uw.validate(p); err != nil {
 		return err
 	}
@@ -72,14 +73,14 @@ func (uw *UnorderedWriter) Put(p, datum string, appendFile bool, r io.Reader) (r
 			return errors.EnsureStack(err)
 		}
 		if uw.memAvailable == 0 {
-			if err := uw.serialize(); err != nil {
+			if err := uw.serialize(ctx); err != nil {
 				return err
 			}
 			w = uw.buffer.Add(p, datum)
 		}
 	}
 	if int64(uw.buffer.Count()) >= uw.fileThreshold {
-		return uw.serialize()
+		return uw.serialize(ctx)
 	}
 	return nil
 }
@@ -93,11 +94,15 @@ func (uw *UnorderedWriter) validate(p string) error {
 
 // serialize will be called whenever the in-memory file set is past the memory threshold.
 // A new in-memory file set will be created for the following operations.
-func (uw *UnorderedWriter) serialize() error {
+func (uw *UnorderedWriter) serialize(ctx context.Context) error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return miscutil.LogStep("UnorderedWriter.serialize", func() error {
+	methodName, ok := logging.MethodNameFromContext(ctx)
+	if !ok {
+		methodName = "unknown gRPC method"
+	}
+	return miscutil.LogStep(ctx, fmt.Sprintf("UnorderedWriter.serialize during %s", methodName), func() error {
 		return uw.withWriter(func(w *Writer) error {
 			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 				return w.Add(path, datum, r)
@@ -141,7 +146,7 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 }
 
 // Delete deletes a file from the file set.
-func (uw *UnorderedWriter) Delete(p, datum string) error {
+func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 	if err := uw.validate(p); err != nil {
 		return err
 	}
@@ -164,13 +169,13 @@ func (uw *UnorderedWriter) Delete(p, datum string) error {
 			return err
 		}
 		err = fs.Iterate(uw.ctx, func(f File) error {
-			return uw.Delete(f.Index().Path, datum)
+			return uw.Delete(ctx, f.Index().Path, datum)
 		})
 		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
 	if int64(uw.buffer.Count()) >= uw.fileThreshold {
-		return uw.serialize()
+		return uw.serialize(ctx)
 	}
 	return nil
 }
@@ -185,19 +190,19 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 		}
 		uw.buffer.Copy(f, datum)
 		if int64(uw.buffer.Count()) >= uw.fileThreshold {
-			return uw.serialize()
+			return uw.serialize(ctx)
 		}
 		return nil
 	}))
 }
 
 // Close closes the writer.
-func (uw *UnorderedWriter) Close() (*ID, error) {
+func (uw *UnorderedWriter) Close(ctx context.Context) (*ID, error) {
 	defer uw.storage.filesetSem.Release(1)
-	if err := uw.serialize(); err != nil {
+	if err := uw.serialize(ctx); err != nil {
 		return nil, err
 	}
-	if err := miscutil.LogStep(fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
+	if err := miscutil.LogStep(ctx, fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
 		return uw.compact()
 	}); err != nil {
 		return nil, err

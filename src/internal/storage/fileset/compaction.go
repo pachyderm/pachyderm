@@ -83,7 +83,7 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, ttl time.Dura
 	}
 	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
 	var id *ID
-	if err := miscutil.LogStep(fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
+	if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
 		id, err = compact(ctx, ids[i:], ttl)
 		return err
 	}); err != nil {

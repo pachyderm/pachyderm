@@ -43,6 +43,22 @@ type LoggingInterceptor struct {
 	mutex     *sync.Mutex // synchronizes access to both histogram and counter maps
 }
 
+type loggingKey int
+
+const (
+	methodNameKey = iota
+)
+
+func withMethodName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, methodNameKey, name)
+}
+
+func MethodNameFromContext(ctx context.Context) (string, bool) {
+	v := ctx.Value(methodNameKey)
+	s, ok := v.(string)
+	return s, ok
+}
+
 // NewLoggingInterceptor creates a new interceptor that logs method start and end
 func NewLoggingInterceptor(logger *logrus.Logger, opts ...Option) *LoggingInterceptor {
 	cfg := &config{}
