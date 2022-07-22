@@ -90,7 +90,7 @@ jobs:
             - minikube-v2
       - run:
           name: Start minikube
-          command: etc/testing/circle/start-minikube.sh
+          command: etc/testing/circle/start-minikube.sh | ts '%Y-%m-%dT%H:%M:%S'
           background: true
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
