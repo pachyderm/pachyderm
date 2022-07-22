@@ -560,6 +560,10 @@ Your enterprise server is [deployed in the same way as any regular cluster](#dep
 
 Note that the enterprise server will be deployed behind its proxy, as will each cluster registered to this enterprise server.
 
+!!! Attention
+    Enabling an embedded enterprise server with your pachd as part of the same helm installation will not work with the proxy. 
+    You can use a standalone enterprise server instead.
+
 Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, but for those few steps:
 
 - [Section 1: Deploy an enterprise server](#1-deploy-an-enterprise-server), in the values.yaml provided as examples:
@@ -601,7 +605,7 @@ Follow your regular [enterprise server deployment and configuration instructions
         ```
 
     - Then resume the last part of instructions:
-    
+
         - Make sure than your enterprise context is set up properly:
 
         ```shell
