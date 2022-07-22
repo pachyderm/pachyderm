@@ -1,8 +1,4 @@
-
-!!! note 
-    To deploy and configure a Pachyderm cluster
-    to read logs from Loki,
-    a ***Pachyderm Enterprise License*** is required. 
+# Enable Logs Aggregation With Loki
 
 ## Shipping logs to Loki
 
