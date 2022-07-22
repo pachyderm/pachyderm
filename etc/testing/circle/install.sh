@@ -25,7 +25,7 @@ sudo chown root:root /etc/fuse.conf
 # To get the latest kubectl version:
 # curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
 if [ ! -f cached-deps/kubectl ] ; then
-    KUBECTL_VERSION=v1.25.2 # If changed, also do etc/kube/start-minikube.sh
+    KUBECTL_VERSION=v1.24.0 # If changed, also do etc/kube/start-minikube.sh
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
         chmod +x ./kubectl
         mv ./kubectl cached-deps/kubectl
