@@ -195,7 +195,7 @@ jobs:
             tail -F /tmp/pachctl-mount-server.log &
 
             # Run Python unit tests
-            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
+            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm --log-file=log.txt --full-trace
 
             check-manifest -v
   jupyter-build:
