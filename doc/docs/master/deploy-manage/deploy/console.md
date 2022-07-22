@@ -7,7 +7,7 @@
 Pachyderm **Console is a complete web UI for visualizing running pipelines and exploring your data**. By clicking on individual pipeline segments, users can check their jobs' status, visualize their commits' content, access logs, and much more! It is a valuable companion when troubleshooting pipelines.
 
 !!! Warning
-     Console has been part of Pachyderm Community Edition since Pachyderm `2.2.3`. Refer to an [earlier version of the deployment instructions](https://docs.pachyderm.com/2.1.x/deploy-manage/deploy/console/#console){target=_blank} for previous versions of Pachyderm (`2.2.2` and under).
+     Console has been part of Pachyderm Community Edition since Pachyderm `2.2.3`. Refer to an [earlier version of the deployment instructions](https://docs.pachyderm.com/2.1.x/deploy-manage/deploy/console/){target=_blank} for previous versions of Pachyderm (`2.2.2` and under).
 
 Pachyderm Community Edition comes with Console per default. Upon upgrading to Pachyderm Enterprise, you will be able to:
 
