@@ -443,6 +443,7 @@ jobs:
       - run:
           name: Install go-jsonnet
           command: |
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             brew install go-jsonnet
       - run: jsonnet-lint src/templates/sql_ingest_cron.jsonnet
   test-envoy:
