@@ -444,7 +444,7 @@ jobs:
           name: Install go-jsonnet
           command: |
             curl -Lo - https://github.com/google/go-jsonnet/releases/download/v0.18.0/go-jsonnet_0.18.0_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - go-jsonnet
-      - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
+      - run: jsonnet-lint src/templates/sql_ingest_cron.jsonnet
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
