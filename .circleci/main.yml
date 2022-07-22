@@ -87,7 +87,7 @@ jobs:
           version: 1.18.4
       - restore_cache:
           keys:
-            - minikube-v1
+            - minikube-v2
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -122,7 +122,7 @@ jobs:
                   - /home/circleci/.gocache
       - run: etc/testing/circle/wait-minikube.sh
       - save_cache:
-          key: minikube-v1
+          key: minikube-v2
           paths:
             - ~/.minikube/cache
       - run:
