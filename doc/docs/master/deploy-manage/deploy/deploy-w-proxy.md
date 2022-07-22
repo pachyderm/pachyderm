@@ -556,7 +556,7 @@ The `pachyderm-proxy` service also routes Pachyderm's [**S3 gateway**](../../man
 
 ## Changes to the Enterprise Server Setup
 
-Your enterprise server is [deployed in the same way as any regular cluster](#deploy-pachyderm-in-production-with-a-proxy) with a few differences (no object-store and one unique PostgreSQL database required: `dex`). The same applies when deploying an enterprise server with a proxy. 
+Your enterprise server is [deployed in the same way as any regular cluster](#deploy-pachyderm-in-production-with-a-proxy) with a few differences (no object-store and two PostgreSQL databases required: `dex` and `pachyderm`). The same applies when deploying an enterprise server with a proxy. 
 
 Note that the enterprise server will be deployed behind its proxy, as will each cluster registered to this enterprise server.
 
@@ -568,7 +568,7 @@ Follow your regular [enterprise server deployment and configuration instructions
 
 - [Section 1: Deploy an enterprise server](#1-deploy-an-enterprise-server), in the values.yaml provided as examples:
 
-    - Remove the `externalService` section and replace it with `proxy`:
+    - Remove the `pachd.externalService` section and replace it with `proxy`:
 
         ```yaml
         proxy:
@@ -601,7 +601,7 @@ Follow your regular [enterprise server deployment and configuration instructions
     - For each registered cluster, enable auth:
 
         ```shell
-        pachctl auth activate --client-id <my-pachd-config-name> --redirect http://<pachd-rxternal-IP-or-DNS>:80/authorization-code/callback 
+        pachctl auth activate --client-id <my-pachd-config-name> --redirect http://<pachd-external-IP-or-DNS>/authorization-code/callback 
         ```
 
     - Then resume the last part of instructions:
