@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
@@ -98,11 +97,7 @@ func (uw *UnorderedWriter) serialize(ctx context.Context) error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	methodName, ok := logging.MethodNameFromContext(ctx)
-	if !ok {
-		methodName = "unknown gRPC method"
-	}
-	return miscutil.LogStep(ctx, fmt.Sprintf("UnorderedWriter.serialize during %s", methodName), func() error {
+	return miscutil.LogStep(ctx, "UnorderedWriter.serialize during %s", func() error {
 		return uw.withWriter(func(w *Writer) error {
 			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 				return w.Add(path, datum, r)
