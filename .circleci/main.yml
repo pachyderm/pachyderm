@@ -444,7 +444,10 @@ jobs:
           name: Install go-jsonnet
           command: |
             go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
-      - run: jsonnet-lint src/templates/sql_ingest_cron.jsonnet
+      - run:
+          name: lint all jsonnet files
+          command: |
+             find . -maxdepth 10 -name \*.jsonnet -exec jsonnet-lint {} \;
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
