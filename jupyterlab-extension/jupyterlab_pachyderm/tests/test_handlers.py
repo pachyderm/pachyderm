@@ -242,15 +242,16 @@ def jp_server_config():
 #     assert e.value.response.reason == f"Error repo {repo} not found."
 
 
+async def test_bare():
+    assert True
+
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-async def test_mount_without_name(jp_fetch):
-    # checked by client side path parser, so no mock is needed
-    with pytest.raises(tornado.httpclient.HTTPClientError) as e:
-        await jp_fetch(
-            f"/{NAMESPACE}/{VERSION}/repos/images/_mount", method="PUT", body="{}"
-        )
-        # note must exit context to capture response
-    assert e.value.code >= 400
+async def test_with_pytest():
+    assert True
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+async def test_with_both(jp_fetch):
+    assert True
 
 
 # @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
