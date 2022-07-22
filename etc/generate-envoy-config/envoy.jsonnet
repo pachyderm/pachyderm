@@ -16,7 +16,7 @@ Envoy.bootstrap(
     // will tell them why it isn't.
     Envoy.httpListener(
       port=8443,
-      name='https-warning',
+      name='https-warning,
       routes=[
         Envoy.messageRoute(500, 'This is the cleartext installation of pachyderm-proxy; enable TLS in the helm chart and reinstall.'),
       ],

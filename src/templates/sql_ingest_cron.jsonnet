@@ -8,7 +8,7 @@ function(name, url, query, format, cronSpec, secretName, outputFile='0000', hasH
       secrets: [
         {
           name: secretName,
-          env_var: 'PACHYDERM_SQL_PASSWORD',
+          env_var: 'PACHYDERM_SQL_PASSWORD,
           key: 'PACHYDERM_SQL_PASSWORD',
         },
       ],
