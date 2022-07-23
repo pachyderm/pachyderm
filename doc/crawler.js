@@ -7,6 +7,7 @@ new Crawler({
     "https://docs.pachyderm.com/2.0.x/",
     "https://docs.pachyderm.com/2.1.x/",
     "https://docs.pachyderm.com/latest/",
+    "https://docs.pachyderm.com/2.3.x/",
   ],
   renderJavaScript: false,
   sitemaps: [
@@ -14,6 +15,7 @@ new Crawler({
     "https://docs.pachyderm.com/2.0.x/sitemap.xml",
     "https://docs.pachyderm.com/2.1.x/sitemap.xml",
     "https://docs.pachyderm.com/latest/sitemap.xml",
+    "https://docs.pachyderm.com/2.3.x/sitemap.xml",
   ],
   exclusionPatterns: [],
   ignoreCanonicalTo: false,
@@ -266,6 +268,190 @@ new Crawler({
             lvl2: "article h2",
             version: {
               defaultValue: ["latest"],
+            },
+            pageRank: "1",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/concepts/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "10",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/how-tos/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "5",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/getting-started/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "10",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/deploy-manage/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "10",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/reference/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "5",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/enterprise/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "5",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/troubleshooting/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
+            },
+            pageRank: "1",
+          },
+          indexHeadings: true,
+        });
+      },
+    },
+    {
+      indexName: "pachyderm",
+      pathsToMatch: ["https://docs.pachyderm.com/2.3.x/contributing/**"],
+      recordExtractor: ({ $, helpers }) => {
+        return helpers.docsearch({
+          recordProps: {
+            lvl1: "article h1",
+            content:
+              "article h3, article h4, article h5, article p, article li",
+            lvl0: {
+              selectors: ".md-tabs__link.md-tabs__link--active",
+              defaultValue: "Documentation",
+            },
+            lvl2: "article h2",
+            version: {
+              defaultValue: ["2.3.x"],
             },
             pageRank: "1",
           },
