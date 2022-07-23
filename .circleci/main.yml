@@ -437,7 +437,7 @@ jobs:
   jsonnet-lint:
     resource_class: small
     docker:
-      - image: cimg/base:stable 
+      - image: cimg/go:1.18.4
     steps:
       - checkout
       - run:
