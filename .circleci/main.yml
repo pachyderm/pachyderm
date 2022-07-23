@@ -447,7 +447,7 @@ jobs:
       - run:
           name: lint all jsonnet files
           command: |
-            find . -maxdepth 10 -name \*.jsonnet -exec jsonnet-lint {} \;
+            find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
