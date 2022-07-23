@@ -436,8 +436,8 @@ jobs:
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
   jsonnet-lint:
     resource_class: small
-    machine:
-      image: << pipeline.parameters.machine_image >>
+    docker:
+      - image: cimg/base:stable 
     steps:
       - checkout
       - run:
