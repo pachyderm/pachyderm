@@ -102,7 +102,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 	if err := cb(uw); err != nil {
 		return nil, err
 	}
-	id, err := uw.Close()
+	id, err := uw.Close(ctx)
 	if err != nil {
 		return nil, err
 	}

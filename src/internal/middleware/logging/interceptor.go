@@ -361,6 +361,7 @@ func isNilInterface(x interface{}) bool {
 }
 
 func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
+	ctx = withMethodName(ctx, info.FullMethod)
 	start := time.Now()
 	config := getConfig(info.FullMethod)
 	level := defaultLevel(nil)
@@ -393,7 +394,9 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
 	start := time.Now()
 	config := getConfig(info.FullMethod)
-	wrapper := &streamWrapper{stream: stream}
+	wrapper := &streamWrapper{stream: stream,
+		ctx: withMethodName(stream.Context(), info.FullMethod),
+	}
 
 	// Log the first received message as the request
 	var req interface{}
@@ -440,6 +443,7 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 
 type streamWrapper struct {
 	stream      grpc.ServerStream
+	ctx         context.Context
 	received    int
 	sent        int
 	onFirstSend func(interface{})
@@ -459,7 +463,7 @@ func (sw *streamWrapper) SetTrailer(m metadata.MD) {
 }
 
 func (sw *streamWrapper) Context() context.Context {
-	return sw.stream.Context()
+	return sw.ctx
 }
 
 func (sw *streamWrapper) SendMsg(m interface{}) error {
