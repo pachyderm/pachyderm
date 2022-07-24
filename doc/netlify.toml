@@ -19,7 +19,7 @@
   # You can mark some check as skipped, which will block checklinks
   # from ever attempting to execute them.
   # skipPatterns is an array of strings you can match against failing reports
-  skipPatterns = ["404.html",".svg","/blob/", "linkedin", "file", "127.0.0.1", "localhost", "portal.azure.com", "reference/pachctl/"]
+  skipPatterns = ["404.html",".svg","/blob/", "linkedin", "file", "127.0.0.1", "localhost", "portal.azure.com", "reference/pachctl/", "fonts.googleapis.com"]
  
   # You can mark some check as todo, which will execute the check, but allow failures.
   # todoPatterns is an array of strings you can match against failing reports
@@ -27,6 +27,12 @@
 
   checkExternal = false
   followSourceMaps = false
+
+[[redirects]]
+  from = "/:version/contributing/supported-releases"
+  to = "/:version/reference/supported-releases"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/"
@@ -561,3 +567,9 @@
     to = "/latest/contributing/:splat"
     status = 301
     force = true
+
+[[redirects]]
+  from = "/:version/contributing/gcloud-setup"
+  to = "/:version/contributing/setup"
+  status = 301
+  force = true

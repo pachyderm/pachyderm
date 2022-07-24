@@ -1,3 +1,5 @@
+//go:build k8s
+
 package main
 
 import (
@@ -26,8 +28,8 @@ const (
 var (
 	fromVersions = []string{
 		"2.0.4",
-		"2.0.5",
 		"2.1.0",
+		"2.2.0",
 	}
 )
 
@@ -41,7 +43,15 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				"default",
 				k,
 				&minikubetestenv.DeployOpts{
-					Version: from,
+					Version:     from,
+					DisableLoki: true,
+					// For 2.3 -> future upgrades, we'll want to delete these
+					// overrides.  They became the default (instead of random)
+					// in the 2.3 alpha cycle.
+					ValueOverrides: map[string]string{
+						"global.postgresql.postgresqlPassword":         "insecure-user-password",
+						"global.postgresql.postgresqlPostgresPassword": "insecure-root-password",
+					},
 				}))
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),

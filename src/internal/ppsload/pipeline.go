@@ -12,7 +12,7 @@ import (
 )
 
 func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.RunLoadTestResponse, error) {
-	branch, err := createPipelines(pachClient, req.DagSpec)
+	branch, err := createPipelines(pachClient, req.DagSpec, req.PodPatch)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.R
 	}, nil
 }
 
-func createPipelines(pachClient *client.APIClient, spec string) (*pfs.Branch, error) {
+func createPipelines(pachClient *client.APIClient, spec string, podPatch string) (*pfs.Branch, error) {
 	namespace := "-" + uuid.NewWithoutDashes()[:5]
 	var retBranch *pfs.Branch
 	for _, pipelineStr := range strings.Split(spec, "\n") {
@@ -54,14 +54,14 @@ func createPipelines(pachClient *client.APIClient, spec string) (*pfs.Branch, er
 		for i := range inputs {
 			inputs[i] = strings.TrimSpace(inputs[i]) + namespace
 		}
-		if err := createPipeline(pachClient, repo, inputs); err != nil {
+		if err := createPipeline(pachClient, repo, inputs, podPatch); err != nil {
 			return nil, err
 		}
 	}
 	return retBranch, nil
 }
 
-func createPipeline(pachClient *client.APIClient, repo string, inputRepos []string) error {
+func createPipeline(pachClient *client.APIClient, repo string, inputRepos []string, podPatch string) error {
 	var inputs []*pps.Input
 	for i, inputRepo := range inputRepos {
 		inputs = append(inputs, &pps.Input{
@@ -75,20 +75,18 @@ func createPipeline(pachClient *client.APIClient, repo string, inputRepos []stri
 			},
 		})
 	}
-	return pachClient.CreatePipeline(
-		repo,
-		"",
-		[]string{"bash"},
-		[]string{
-			"cp -r /pfs/input-*/* /pfs/out/",
+	_, err := pachClient.PpsAPIClient.CreatePipeline(
+		pachClient.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(repo),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp -r /pfs/input-*/* /pfs/out/"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input:           &pps.Input{Join: inputs},
+			PodPatch:        podPatch,
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
-			Join: inputs,
-		},
-		"",
-		false,
 	)
+	return errors.EnsureStack(err)
 }

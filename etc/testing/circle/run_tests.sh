@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -exo pipefail
 
 # shellcheck disable=SC1090
 source "$(dirname "$0")/env.sh"
@@ -39,7 +39,7 @@ function test_bucket {
 
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
-    tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+    tests=( $(go test -v -tags=k8s  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
     # Add anchors for the regex so we don't run collateral tests
     tests=( "${tests[@]/#/^}" )
     tests=( "${tests[@]/%/\$\$}" )
@@ -76,10 +76,6 @@ case "${BUCKET}" in
     # disable them
     # make test-tls
     ;;
-  INTERNAL)
-    go install -v ./src/testing/match
-    bash -ceo pipefail "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
-    ;;
   EXAMPLES)
     echo "Running the example test suite"
     ./etc/testing/examples.sh
@@ -88,9 +84,9 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-fuse
     ;;
-  PPS_AUTH)
+  S3_AUTH)
     export PACH_TEST_WITH_AUTH=1
-    go test -count=1 ./src/server/pps/server -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
+    go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
     ;;
   PPS?)
     # make docker-build-kafka

@@ -475,18 +475,19 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(sopts *ServerOptions, testClient *client.APIClient) error {
+func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	logrus.Infof("Dynamically mounting pfs to %s", sopts.MountDir)
 
 	// This variable points to the MountManager for each connected cluster.
 	// Updated when the config is updated.
 	var mm *MountManager = &MountManager{}
-	if testClient != nil {
+	if existingClient != nil {
 		var err error
-		mm, err = CreateMount(testClient, sopts.MountDir)
+		mm, err = CreateMount(existingClient, sopts.MountDir)
 		if err != nil {
 			return err
 		}
+		logrus.Infof("Connected to %s", existingClient.GetAddress().Qualified())
 	}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -1293,10 +1294,9 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
-			Name:   m.Name,
-			Repo:   m.MountKey.Repo,
-			Branch: m.MountKey.Branch,
-			Write:  m.Mode == "rw",
+			Name:  m.Name,
+			File:  client.NewFile(m.MountKey.Repo, m.MountKey.Branch, "", ""),
+			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.MountKey.Branch
 	}()
@@ -1535,7 +1535,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 		// on their name
 		repoName = name
 	} else {
-		repoName = opts.Repo
+		repoName = opts.File.Commit.Branch.Repo.Name
 	}
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
 	if err != nil {

@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -50,7 +52,6 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 
 	"golang.org/x/sync/errgroup"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -4130,13 +4131,17 @@ func TestStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestGetLogs(t *testing.T) {
+func testGetLogs(t *testing.T, useLoki bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	var opts []minikubetestenv.Option
+	if !useLoki {
+		opts = append(opts, minikubetestenv.SkipLokiOption)
+	}
+	c, _ := minikubetestenv.AcquireCluster(t, opts...)
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -4339,6 +4344,14 @@ func TestGetLogs(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestGetLogsWithoutLoki(t *testing.T) {
+	testGetLogs(t, false)
+}
+
+func TestGetLogs(t *testing.T) {
+	testGetLogs(t, true)
+}
+
 func TestManyLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4378,7 +4391,7 @@ func TestManyLogs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		iter := c.GetLogs(pipelineName, jis[0].Job.ID, nil, "", false, false, 0)
 		logsReceived := 0
 		for iter.Next() {
@@ -4401,7 +4414,7 @@ func TestLokiLogs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -4702,14 +4715,17 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
 				)),
 			})
 		if err != nil {
@@ -4774,14 +4790,17 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -4840,14 +4859,17 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -5095,14 +5117,17 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -5157,14 +5182,17 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -6527,7 +6555,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true, nil), // every minute
 			"",
 			false,
 		))
@@ -6545,27 +6573,27 @@ func TestCronPipeline(t *testing.T) {
 
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		repo := fmt.Sprintf("%s_%s", pipeline7, "time")
+		// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
+		time.Sleep(2 * time.Second)
+
+		nCronticks := 3
+		for i := 0; i < nCronticks; i++ {
+			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+			require.NoError(t, err)
+			_, err = c.WaitCommit(repo, "master", "")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(1)
 		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
-				time.Sleep(2 * time.Second)
-
-				_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-				countBreakFunc := newCountBreakFunc(4)
+				countBreakFunc := newCountBreakFunc(nCronticks + 1)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
 						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
@@ -6612,6 +6640,47 @@ func TestCronPipeline(t *testing.T) {
 		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(commits))
+	})
+
+	// Cron input with overwrite, and a start time in the past, so that the cron tick has to catch up.
+	// Ensure that the deletion of the previous cron tick file completes before the new cron tick file is created.
+	t.Run("CronOverwriteStartCatchup", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
+		pipeline := tu.UniqueString("testCron-")
+		start, err := types.TimestampProto(time.Now().Add(-10 * time.Hour))
+		require.NoError(t, err)
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInputOpts("in", "", "@every 1h", true, start),
+			"",
+			false,
+		))
+
+		repo := client.NewRepo(fmt.Sprintf("%s_in", pipeline))
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		count := 0
+		countBreakFunc := newCountBreakFunc(11)
+		require.NoError(t,
+			c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				return countBreakFunc(func() error {
+					commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+					require.NoError(t, err)
+					require.Equal(t, 4, len(commitInfos))
+
+					files, err := c.ListFileAll(ci.Commit, "")
+					require.NoError(t, err)
+					require.Equal(t, count, len(files))
+					count = 1
+					return nil
+				})
+			}))
 	})
 }
 
@@ -8199,14 +8268,19 @@ func TestDatumTries(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
-	var observedTries int64
-	for iter.Next() {
-		if strings.Contains(iter.Message().Message, "errored running user code after") {
-			observedTries++
+	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+		iter := c.GetLogs(pipeline, jobInfos[0].Job.ID, nil, "", false, false, 0)
+		var observedTries int64
+		for iter.Next() {
+			if strings.Contains(iter.Message().Message, "errored running user code after") {
+				observedTries++
+			}
 		}
-	}
-	require.Equal(t, tries, observedTries)
+		if tries != observedTries {
+			return errors.Errorf("got %d but expected %d", observedTries, tries)
+		}
+		return nil
+	})
 }
 
 func TestInspectJob(t *testing.T) {
@@ -8988,14 +9062,17 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 
 	// make sure 'vol0' is correct in the pod spec
 	var volumes []v1.Volume
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
 				)),
 			})
 		if err != nil {
@@ -9581,7 +9658,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WaitForLokiOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -10580,23 +10657,23 @@ func TestMissingSecretFailure(t *testing.T) {
 		return nil
 	})
 }
-
 func TestDatabaseStats(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	type rowCountResults struct {
-		IdxScan    int    `json:"idx_scan"`
-		NLiveTup   int    `json:"n_live_tup"`
-		RelName    string `json:"relname"`
-		SchemaName string `json:"schemaname"`
-		SeqScan    int    `json:"seq_scan"`
+		NLiveTup int    `json:"n_live_tup"`
+		RelName  string `json:"relname"`
+	}
+
+	type commitResults struct {
+		Key string `json:"key"`
 	}
 
 	repoName := tu.UniqueString("TestDatabaseStats-repo")
 	branchName := "master"
-	numCommits := 5
+	numCommits := 100
 	buf := &bytes.Buffer{}
 	filter := &debug.Filter{
 		Filter: &debug.Filter_Database{Database: true},
@@ -10607,10 +10684,11 @@ func TestDatabaseStats(t *testing.T) {
 	createTestCommits(t, repoName, branchName, numCommits, c)
 	time.Sleep(5 * time.Second) // give some time for the stats collector to run.
 	require.NoError(t, c.Dump(filter, 100, buf), "dumping database files should succeed")
-
 	gr, err := gzip.NewReader(buf)
 	require.NoError(t, err)
 
+	var rows []commitResults
+	foundCommitsJSON, foundRowCounts := false, false
 	require.NoError(t, tarutil.Iterate(gr, func(f tarutil.File) error {
 		fileContents := &bytes.Buffer{}
 		if err := f.Content(fileContents); err != nil {
@@ -10620,23 +10698,184 @@ func TestDatabaseStats(t *testing.T) {
 		hdr, err := f.Header()
 		require.NoError(t, err, "getting database tar file header should succeed")
 		require.NotMatch(t, "^[a-zA-Z0-9_\\-\\/]+\\.error$", hdr.Name)
-
-		if hdr.Name == "database/row-counts.json" {
+		switch hdr.Name {
+		case "database/row-counts.json":
 			var rows []rowCountResults
-			commitsFound := false
-			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows), "unmarshalling row-counts.json should succeed")
+			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
+				"unmarshalling row-counts.json should succeed")
 
 			for _, row := range rows {
 				if row.RelName == "commits" {
 					require.NotEqual(t, 0, row.NLiveTup,
 						"some commits from createTestCommits should be accounted for")
-					commitsFound = true
+					foundRowCounts = true
 				}
 			}
-
-			require.Equal(t, true, commitsFound, "we should have an entry in row-counts.json for commits")
+		case "database/tables/collections/commits.json":
+			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
+				"unmarshalling commits.json should succeed")
+			require.Equal(t, numCommits, len(rows), "number of commits should match number of rows")
+			foundCommitsJSON = true
 		}
 
 		return nil
 	}))
+
+	require.Equal(t, true, foundRowCounts,
+		"we should have an entry in row-counts.json for commits")
+	require.Equal(t, true, foundCommitsJSON,
+		"checks for commits.json should succeed")
+}
+
+func TestSimplePipelineNonRoot(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	req := basicPipelineReq(pipeline, dataRepo)
+	req.Transform.User = "65534"
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
+func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	req := basicPipelineReq(pipeline, dataRepo)
+
+	req.PodPatch = "[{\"op\":\"add\",\"path\":\"/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/securityContext\",\"value\":{\"runAsGroup\":1000,\"runAsUser\":1000,\"fsGroup\":1000,\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}}},{\"op\":\"add\",\"path\":\"/containers/0/securityContext\",\"value\":{}},{\"op\":\"add\",\"path\":\"/containers/0/securityContext\",\"value\":{\"runAsGroup\":1000,\"runAsUser\":1000,\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"all\"]},\"readOnlyRootFilesystem\":true}}]"
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+
+	commitInfo, err := c.InspectCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	// The commitset should have a commit in: data, spec, pipeline, meta
+	// the last two are dependent upon the first two, so should come later
+	// in topological ordering
+	require.Equal(t, 4, len(commitInfos))
+	var commitRepos []*pfs.Repo
+	for _, info := range commitInfos {
+		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+	}
+	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+
+	var buf bytes.Buffer
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	}
+}
+
+func TestZombieCheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString(t.Name() + "-data")
+	pipeline := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+
+	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
+		"foo", strings.NewReader("baz")))
+
+	req := basicPipelineReq(pipeline, repo)
+	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := c.WaitCommit(pipeline, "master", "")
+		return err
+	})
+	// fsck should succeed (including zombie check, on by default)
+	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
+		return errors.Errorf("got fsck error: %s", response.Error)
+	}, client.WithZombieCheckAll()))
+
+	// stop pipeline so we can modify
+	require.NoError(t, c.StopPipeline(pipeline))
+	// create new commits on output and meta
+	_, err = c.ExecuteInTransaction(func(c *client.APIClient) error {
+		if _, err := c.StartCommit(pipeline, "master"); err != nil {
+			return errors.EnsureStack(err)
+		}
+		metaBranch := client.NewSystemRepo(pipeline, pfs.MetaRepoType).NewBranch("master")
+		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
+			return errors.EnsureStack(err)
+		}
+		_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), &pfs.FinishCommitRequest{Commit: metaBranch.NewCommit("")})
+		return errors.EnsureStack(err)
+	})
+	require.NoError(t, err)
+	// add a file to the output with a datum that doesn't exist
+	require.NoError(t, c.PutFile(client.NewCommit(pipeline, "master", ""),
+		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
+	require.NoError(t, c.FinishCommit(pipeline, "master", ""))
+	_, err = c.WaitCommit(pipeline, "master", "")
+	require.NoError(t, err)
+	var messages []string
+	// fsck should notice the zombie file
+	require.NoError(t, c.Fsck(false, func(response *pfs.FsckResponse) error {
+		messages = append(messages, response.Error)
+		return nil
+	}, client.WithZombieCheckAll()))
+	require.Equal(t, 1, len(messages))
+	require.Matches(t, "zombie", messages[0])
 }

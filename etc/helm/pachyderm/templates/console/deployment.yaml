@@ -31,11 +31,32 @@ spec:
       annotations: {{ toYaml .Values.console.annotations | nindent 4 }}
       {{- end }}
     spec:
+      {{- if .Values.console.priorityClassName }}
+      priorityClassName: {{ .Values.console.priorityClassName }}
+      {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
       - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}
         name: console
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: console-http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: console-http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
         ports:
         - containerPort: {{ .Values.console.config.graphqlPort }}
           name: console-http
@@ -65,6 +86,10 @@ spec:
             secretKeyRef:
               name: {{ .Values.console.config.oauthClientSecretSecretName | default "pachyderm-console-secret"}}
               key: OAUTH_CLIENT_SECRET
+        {{- if .Release.IsUpgrade }}
+        - name: UPGRADE_NO_OP
+          value: {{ randAlphaNum 32 }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: NODE_EXTRA_CA_CERTS
           value:  /pach-tls/certs/root.crt
@@ -89,10 +114,29 @@ spec:
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
+        - mountPath: /home/
+          name: tmp
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - mountPath: /pach-tls/certs
           name: pachd-tls-cert
         {{- end }}
+      {{- if .Values.global.securityContexts.enabled }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
       {{- if .Values.console.nodeSelector }}
       nodeSelector: {{ toYaml .Values.console.nodeSelector | nindent 8 }}
       {{- end }}
@@ -100,6 +144,8 @@ spec:
       tolerations: {{ toYaml .Values.console.tolerations | nindent 8 }}
       {{- end }}
       volumes:
+      - emptyDir: {}
+        name: tmp
       {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
       - name: pachd-tls-cert
         secret:

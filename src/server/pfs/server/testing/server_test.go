@@ -3398,10 +3398,6 @@ func TestPFS(suite *testing.T) {
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		err = env.PachClient.DeleteFile(commit, "dir2/dir3/*")
-		require.NoError(t, err)
-		err = env.PachClient.DeleteFile(commit, "dir?/*")
-		require.NoError(t, err)
 		err = env.PachClient.DeleteFile(commit, "/")
 		require.NoError(t, err)
 		checks = func() {

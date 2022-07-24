@@ -16,11 +16,11 @@ pachctl diff file <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-
 
 # Return the diff of the file "path" of the input repo "foo" between the head of the
 # "master" branch and its parent.
-$ pachctl diff file foo@master:path
+pachctl diff file foo@master:path
 
 # Return the diff between the master branches of input repos foo and bar at paths
 # path1 and path2, respectively.
-$ pachctl diff file foo@master:path1 bar@master:path2
+pachctl diff file foo@master:path1 bar@master:path2
 ```
 
 ### Options

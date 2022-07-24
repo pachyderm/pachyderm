@@ -15,6 +15,10 @@ export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.A
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
+# default version for goreleaser binary ldflags (used when build locally or just CI).
+# is overwritten a release time by automation.
+export VERSION=0.0.0
+
 CLUSTER_NAME ?= pachyderm
 CLUSTER_MACHINE_TYPE ?= n1-standard-4
 CLUSTER_SIZE ?= 4
@@ -32,7 +36,7 @@ GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
 # You can specify your own, but this is what CI uses
 TIMEOUT ?= 3600s
 CLUSTERS_REUSE ?= true
-PARALLELISM ?= 5
+PARALLELISM ?= 3
 
 install:
 	# GOBIN (default: GOPATH/bin) must be on your PATH to access these binaries:
@@ -86,6 +90,9 @@ release-docker-images:
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/pachctl.yml
 
+release-mount-server:
+	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/mount-server.yml
+
 docker-build:
 	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
@@ -123,14 +130,18 @@ docker-tag:
 	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
 	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
 	docker tag pachyderm/mount-server pachyderm/mount-server:$(VERSION)
-	docker tag pachyderm/pachtf pachyderm/pachtf:$(VERSION)
 
 docker-push: docker-tag
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
 	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
-	$(SKIP) docker push pachyderm/pachtf:$(VERSION)
+
+docker-pull:
+	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
+	$(SKIP) docker pull pachyderm/worker:$(VERSION)
+	$(SKIP) docker pull pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker pull pachyderm/mount-server:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
@@ -149,9 +160,6 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-kube: check-kubectl
-	etc/kube/start-minikube.sh
-
 launch-dev-vm: check-kubectl
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
@@ -161,22 +169,9 @@ launch-dev-vm: check-kubectl
 	fi
 	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
-# launch-release-vm is like launch-dev-vm but it doesn't build pachctl locally, and uses the same
-# version of pachd associated with the current pachctl (useful if you want to start a VM with a
-# point-release version of pachd, instead of whatever's in the current branch)
-launch-release-vm:
-	# Making sure minikube isn't still up from a previous run...
-	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
-	then \
-	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
-	  exit 1; \
-	fi
-	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$($(PACHCTL) version --client-only)
-
 clean-launch-kube:
 	@# clean up both of the following cases:
 	@# make launch-dev-vm - minikube config is owned by $USER
-	@# make launch-kube - minikube config is owned by root
 	minikube ip 2>/dev/null && minikube delete || true
 	sudo minikube ip 2>/dev/null && sudo minikube delete || true
 	killall kubectl || true
@@ -251,25 +246,25 @@ test-pfs-server:
 test-pps: launch-stats docker-build-spout-test
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
+	  go test -v -count=1 -tags=k8s ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
 
 test-cmds:
 	go install -v ./src/testing/match
-	CGOENABLED=0 go test -v -count=1 ./src/server/cmd/pachctl/cmd
-	go test -v -count=1 ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
+	CGOENABLED=0 go test -v -count=1 -tags=k8s ./src/server/cmd/pachctl/cmd
+	go test -v -count=1 -tags=k8s ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
-	go test -v -count=1 ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/identity/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/license/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-transaction:
-	go test -count=1 ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -count=1 -tags=k8s ./src/server/transaction/server/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-client:
-	go test -count=1 -cover $$(go list ./src/client/...) $(TESTFLAGS)
+	go test -count=1 -tags=k8s -cover $$(go list ./src/client/...) $(TESTFLAGS)
 
 test-s3gateway-conformance:
 	@if [ -z $$CONFORMANCE_SCRIPT_PATH ]; then \
@@ -286,33 +281,33 @@ test-s3gateway-integration:
 	$(INTEGRATION_SCRIPT_PATH) http://localhost:30600 --access-key=none --secret-key=none
 
 test-s3gateway-unit:
-	go test -v -count=1 ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/pfs/s3 -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-fuse:
-	CGOENABLED=0 go test -count=1 -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
+	CGOENABLED=0 go test -count=1 -tags=k8s -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse') $(TESTFLAGS)
 
 test-local:
-	CGOENABLED=0 go test -count=1 -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
+	CGOENABLED=0 go test -count=1 -tags=k8s -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-auth:
-	go test -v -count=1 ./src/server/auth/server/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/auth/server/testing -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-identity:
 	etc/testing/forward-postgres.sh
-	go test -v -count=1 ./src/server/identity/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/identity/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-license:
-	go test -v -count=1 ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/license/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-admin:
-	go test -v -count=1 ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/admin/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(RUN) $(TESTFLAGS)
 
 test-enterprise:
-	go test -v -count=1 ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/enterprise/server -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 test-enterprise-integration:
 	go install ./src/testing/match
-	go test -v -count=1 ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/enterprise/testing -timeout $(TIMEOUT) $(TESTFLAGS)
 
 test-tls:
 	./etc/testing/test_tls.sh
@@ -321,7 +316,7 @@ test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v -count=1 ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
+	  go test -v -count=1 -tags=k8s ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 
@@ -406,6 +401,10 @@ spellcheck:
 check-buckets:
 	./etc/testing/circle/check_buckets.sh
 
+validate-circle:
+	circleci config validate .circleci/main.yml
+	circleci config validate .circleci/config.yml
+
 .PHONY: \
 	install \
 	install-clean \
@@ -435,9 +434,7 @@ check-buckets:
 	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
-	launch-kube \
 	launch-dev-vm \
-	launch-release-vm \
 	clean-launch-kube \
 	launch \
 	launch-dev \
@@ -487,4 +484,5 @@ check-buckets:
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \
-	spellcheck
+	spellcheck \
+	validate-circle

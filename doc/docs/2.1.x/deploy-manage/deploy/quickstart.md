@@ -37,6 +37,9 @@ Use the latest available version of the components listed below.
 
 Select your favorite cloud provider.
 
+!!! Important "Definition"
+    Note that we often use the acronym `CE` for Community Edition.
+
 ## 2. Create Your Values.yaml
 ### AWS
 
@@ -184,7 +187,7 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
 Jump to [Helm install](#3-helm-install)
 
 ## 3. [Helm Install](../helm-install/#install-pachyderms-helm-chart)
-- You will be deploying the [latest GA release](../../../contributing/supported-releases/#generally-available-ga) of Pachyderm:
+- You will be deploying the [latest GA release](../../../reference/supported-releases/#generally-available-ga) of Pachyderm:
 
     ```shell
     helm repo add pach https://helm.pachyderm.com

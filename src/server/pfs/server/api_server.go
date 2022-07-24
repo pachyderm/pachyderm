@@ -59,21 +59,33 @@ func newAPIServer(env Env) (*apiServer, error) {
 
 // ActivateAuth implements the protobuf pfs.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
-	var repoInfo pfs.RepoInfo
+	var resp *pfs.ActivateAuthResponse
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		err := a.driver.repos.ReadOnly(ctx).List(&repoInfo, col.DefaultOptions(), func(string) error {
-			err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
-				Type: auth.ResourceType_REPO,
-				Name: repoInfo.Repo.Name,
-			})
-			if err != nil && !col.IsErrExists(err) {
-				return errors.EnsureStack(err)
-			}
-			return nil
-		})
-		return errors.EnsureStack(err)
+		var err error
+		resp, err = a.ActivateAuthInTransaction(txnCtx, request)
+		if err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return nil, err
+	}
+	return resp, nil
+}
+
+func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
+	var repoInfo pfs.RepoInfo
+	if err := a.driver.repos.ReadWrite(txnCtx.SqlTx).List(&repoInfo, col.DefaultOptions(), func(string) error {
+		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: repoInfo.Repo.Name,
+		})
+		if err != nil && !col.IsErrExists(err) {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	return &pfs.ActivateAuthResponse{}, nil
 }
@@ -381,19 +393,19 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			t := mod.AddFile.Datum
 			switch src := mod.AddFile.Source.(type) {
 			case *pfs.AddFile_Raw:
-				n, err = putFileRaw(uw, p, t, src.Raw)
+				n, err = putFileRaw(ctx, uw, p, t, src.Raw)
 			case *pfs.AddFile_Url:
 				n, err = putFileURL(ctx, uw, p, t, src.Url)
 			default:
 				// need to write empty data to path
-				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
+				n, err = putFileRaw(ctx, uw, p, t, &types.BytesValue{})
 			}
 			if err != nil {
 				return bytesRead, err
 			}
 			bytesRead += n
 		case *pfs.ModifyFileRequest_DeleteFile:
-			if err := deleteFile(uw, mod.DeleteFile); err != nil {
+			if err := deleteFile(ctx, uw, mod.DeleteFile); err != nil {
 				return bytesRead, err
 			}
 		case *pfs.ModifyFileRequest_CopyFile:
@@ -410,8 +422,8 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 	return bytesRead, nil
 }
 
-func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesValue) (int64, error) {
-	if err := uw.Put(path, tag, true, bytes.NewReader(src.Value)); err != nil {
+func putFileRaw(ctx context.Context, uw *fileset.UnorderedWriter, path, tag string, src *types.BytesValue) (int64, error) {
+	if err := uw.Put(ctx, path, tag, true, bytes.NewReader(src.Value)); err != nil {
 		return 0, err
 	}
 	return int64(len(src.Value)), nil
@@ -437,7 +449,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 				retErr = err
 			}
 		}()
-		return 0, uw.Put(dstPath, tag, true, resp.Body)
+		return 0, uw.Put(ctx, dstPath, tag, true, resp.Body)
 	default:
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
@@ -453,7 +465,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 				return miscutil.WithPipe(func(w io.Writer) error {
 					return errors.EnsureStack(objClient.Get(ctx, name, w))
 				}, func(r io.Reader) error {
-					return uw.Put(filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
+					return uw.Put(ctx, filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
 				})
 			})
 			return 0, errors.EnsureStack(err)
@@ -461,14 +473,13 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 		return 0, miscutil.WithPipe(func(w io.Writer) error {
 			return errors.EnsureStack(objClient.Get(ctx, url.Object, w))
 		}, func(r io.Reader) error {
-			return uw.Put(dstPath, tag, true, r)
+			return uw.Put(ctx, dstPath, tag, true, r)
 		})
 	}
 }
 
-func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
-	uw.Delete(request.Path, request.Datum)
-	return nil
+func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
+	return uw.Delete(ctx, request.Path, request.Datum)
 }
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
@@ -629,10 +640,37 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
-	if err := a.driver.fsck(fsckServer.Context(), request.Fix, func(resp *pfs.FsckResponse) error {
+	ctx := fsckServer.Context()
+	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
 		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
 		return err
+	}
+
+	if target := request.GetZombieTarget(); target != nil {
+		return a.driver.detectZombie(ctx, target, fsckServer.Send)
+	}
+	if request.GetZombieAll() {
+		// list meta repos as a proxy for finding pipelines
+		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
+			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
+			output := client.NewCommit(info.Repo.Name, "master", "")
+			for output != nil {
+				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				if err != nil {
+					return err
+				}
+				// we will be reading the whole file system, so unfinished commits would be very slow
+				if info.Error == "" && info.Finished != nil && info.Origin.Kind != pfs.OriginKind_ALIAS {
+					break
+				}
+				output = info.ParentCommit
+			}
+			if output == nil {
+				return nil
+			}
+			return a.driver.detectZombie(ctx, output, fsckServer.Send)
+		})
 	}
 	return nil
 }

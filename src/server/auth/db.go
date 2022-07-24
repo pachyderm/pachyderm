@@ -1,8 +1,9 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )

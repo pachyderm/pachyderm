@@ -15,19 +15,19 @@ pachctl list job [flags]
 ```
 
 # Return all jobs
-$ pachctl list job
+pachctl list job
 
 # Return all jobs from the most recent version of pipeline "foo"
-$ pachctl list job -p foo
+pachctl list job -p foo
 
 # Return all jobs from all versions of pipeline "foo"
-$ pachctl list job -p foo --history all
+pachctl list job -p foo --history all
 
 # Return all jobs whose input commits include foo@XXX and bar@YYY
-$ pachctl list job -i foo@XXX -i bar@YYY
+pachctl list job -i foo@XXX -i bar@YYY
 
 # Return all jobs in pipeline foo and whose input commits include bar@YYY
-$ pachctl list job -p foo -i bar@YYY
+pachctl list job -p foo -i bar@YYY
 ```
 
 ### Options

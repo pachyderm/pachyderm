@@ -50,18 +50,16 @@ http
 {{ fail (printf "With the proxy enabled, oidc.issuerURI must end with /dex, not %s" .Values.oidc.issuerURI) }}
 {{- end -}}
 {{ .Values.oidc.issuerURI }}
-{{- else if .Values.ingress.host -}}
+{{- else if and .Values.ingress.host .Values.ingress.enabled -}}
 {{- printf "%s://%s/dex" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
 {{- else if .Values.proxy.enabled -}}
 http://pachd:30658/dex
-{{- else if not .Values.ingress.enabled -}}
+{{- else -}}
 {{- if eq .Values.pachd.service.type "NodePort" -}}
 http://pachd:1658
 {{- else -}}
 http://pachd:30658
 {{- end -}}
-{{- else -}}
-{{ fail "For Authentication, an OIDC Issuer for this pachd must be set." }}
 {{- end -}}
 {{- end }}
 
@@ -129,7 +127,9 @@ false
 {{- define "pachyderm.userAccessibleOauthIssuerHost" -}}
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
-{{- else if not .Values.ingress.enabled -}}
+{{- else if .Values.ingress.host -}}
+{{- .Values.ingress.host -}}
+{{- else  -}}
 localhost:30658
 {{- end -}}
 {{- end }}
@@ -141,7 +141,9 @@ localhost:30658
 - id: test
   name: test
   type: mockPassword
-  jsonConfig: '{"username": "admin", "password": "password"}'
+  config:
+    username: admin
+    password: password
 {{- else }}
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}
@@ -168,5 +170,12 @@ pachyderm-enterprise
 {{ .Values.oidc.upstreamIDPsSecretName }}
 {{- else if or .Values.oidc.upstreamIDPs .Values.oidc.mockIDP }}
 pachyderm-identity
+{{- end }}
+{{- end }}
+
+{{- define "pachyderm.mockIDPRoleBindings" -}}
+{{- if and .Values.oidc.mockIDP (not .Values.oidc.upstreamIDPsSecretName) (not .Values.oidc.upstreamIDPs) }}
+user:kilgore@kilgore.trout:
+- clusterAdmin
 {{- end }}
 {{- end }}

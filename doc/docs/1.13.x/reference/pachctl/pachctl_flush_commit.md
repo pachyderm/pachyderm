@@ -15,10 +15,10 @@ pachctl flush commit <repo>@<branch-or-commit> ... [flags]
 ```
 
 # return commits caused by foo@XXX and bar@YYY
-$ pachctl flush commit foo@XXX bar@YYY
+pachctl flush commit foo@XXX bar@YYY
 
 # return commits caused by foo@XXX leading to repos bar and baz
-$ pachctl flush commit foo@XXX -r bar -r baz
+pachctl flush commit foo@XXX -r bar -r baz
 ```
 
 ### Options

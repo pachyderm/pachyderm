@@ -116,11 +116,14 @@ type SQLQueryGenerationParams struct {
 	Logger              *logrus.Logger
 	InputDir, OutputDir string
 
-	Query string
+	URL      string
+	Query    string
+	Password secrets.Secret
+	Format   string
 }
 
 // SQLQueryGeneration generates queries with a timestamp in the comments
-func SQLQueryGeneration(ctx context.Context, params SQLQueryGenerationParams) error {
+func SQLQueryGeneration(_ context.Context, params SQLQueryGenerationParams) error {
 	timestamp, err := readCronTimestamp(params.Logger, params.InputDir)
 	if err != nil {
 		return err
@@ -148,4 +151,59 @@ func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {
 		return uint64(timestamp.Unix()), nil
 	}
 	return 0, errors.Errorf("missing timestamp file")
+}
+
+type SQLRunParams struct {
+	Logger                *logrus.Logger
+	OutputDir, OutputFile string
+	Query                 string
+	Password              secrets.Secret
+	URL                   pachsql.URL
+	HasHeader             bool
+	Format                string
+}
+
+func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
+	log := params.Logger
+	db, err := pachsql.OpenURL(params.URL, string(params.Password))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err := func() error {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		return errors.EnsureStack(db.PingContext(ctx))
+	}(); err != nil {
+		return err
+	}
+	log.Info("Connected to DB")
+
+	writerFactory, err := makeWriterFactory(params.Format, params.HasHeader)
+	if err != nil {
+		return err
+	}
+	w, err := os.OpenFile(filepath.Join(params.OutputDir, params.OutputFile), os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer w.Close()
+	log.Infof("Running query: %q", params.Query)
+	rows, err := db.QueryContext(ctx, params.Query)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	log.Info("Query complete, reading rows...")
+	columns, err := rows.Columns()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	log.Infof("Column names: %v", columns)
+	tw := writerFactory(w, columns)
+	res, err := sdata.MaterializeSQL(tw, rows)
+	if err != nil {
+		return err
+	}
+	log.Infof("Sucessfully materialized %d rows", res.RowCount)
+	return nil
 }

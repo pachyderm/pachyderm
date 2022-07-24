@@ -105,7 +105,7 @@
       codec_type: 'auto',
       common_http_protocol_options: {
         headers_with_underscores_action: 'REJECT_REQUEST',
-        idle_timeout: '60s',
+        idle_timeout: '3600s',
       },
       http2_protocol_options: {
         initial_connection_window_size: 1048576,

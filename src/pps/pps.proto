@@ -728,6 +728,7 @@ message RunLoadTestRequest {
   string dag_spec = 1; 
   string load_spec = 2;
   int64 seed = 3;
+  string pod_patch = 4;  
 }
 
 message RunLoadTestResponse {

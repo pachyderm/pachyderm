@@ -50,6 +50,7 @@ var (
 type DeployOpts struct {
 	Version            string
 	Enterprise         bool
+	Console            bool
 	AuthUser           string
 	CleanupAfter       bool
 	UseLeftoverCluster bool
@@ -57,7 +58,7 @@ type DeployOpts struct {
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset       uint16
-	Loki             bool
+	DisableLoki      bool
 	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
@@ -124,6 +125,16 @@ func exposedServiceType() string {
 	return serviceType
 }
 
+func withoutLokiOptions(namespace string, port int) *helm.Options {
+	return &helm.Options{
+		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
+		SetValues: map[string]string{
+			"pachd.lokiDeploy":  "false",
+			"pachd.lokiLogging": "false",
+		},
+	}
+}
+
 func withLokiOptions(namespace string, port int) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
@@ -148,13 +159,12 @@ func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.clusterDeploymentID":                    "dev",
-			"global.postgresql.postgresqlPassword":         "pachyderm",
-			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
-			"pachd.resources.requests.cpu":                 "250m",
-			"pachd.resources.requests.memory":              "512M",
-			"etcd.resources.requests.cpu":                  "250m",
-			"etcd.resources.requests.memory":               "512M",
+			"pachd.clusterDeploymentID":       "dev",
+			"pachd.resources.requests.cpu":    "250m",
+			"pachd.resources.requests.memory": "512M",
+			"etcd.resources.requests.cpu":     "250m",
+			"etcd.resources.requests.memory":  "512M",
+			"console.enabled":                 "false",
 		},
 	}
 }
@@ -206,9 +216,9 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      rootToken,
-			"pachd.oauthClientSecret":              "oidc-client-secret",
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
+			"oidc.issuerURI":                     "http://pachd:30658/dex",
 			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
@@ -226,8 +236,7 @@ func withEnterpriseServer(image, host string) *helm.Options {
 		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 		"pachd.oauthClientID":                "enterprise-pach",
 		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
-
-		"enterpriseServer.service.type": "ClusterIP",
+		"enterpriseServer.service.type":      "ClusterIP",
 		// For tests, traffic from outside the cluster is routed through the proxy,
 		// but we bind the internal k8s service ports to the same numbers for
 		// in-cluster traffic, like enterprise registration.
@@ -345,12 +354,14 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
+		var unacceptablePachds []string
 		for _, p := range pachds.Items {
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
 				return nil
 			}
+			unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
 		}
-		return errors.Errorf("deployment in progress")
+		return errors.Errorf("deployment in progress: pachds: %v", strings.Join(unacceptablePachds, "; "))
 	})
 }
 
@@ -460,6 +471,14 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
+	if opts.Enterprise || opts.EnterpriseServer {
+		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
+		issuerPort := int(pachAddress.Port) + 8
+		if opts.EnterpriseMember {
+			issuerPort = 31658
+		}
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
+	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
 		pachAddress.Port = uint16(31650)
@@ -472,18 +491,15 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))
 	}
-	if opts.Enterprise || opts.EnterpriseServer {
-		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		issuerPort := int(pachAddress.Port) + 8
-		if opts.EnterpriseMember {
-			issuerPort = 31658
-		}
-		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
-	}
 	if opts.EnterpriseMember {
 		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
 	}
-	if opts.Loki {
+	if opts.Console {
+		helmOpts.SetValues["console.enabled"] = "true"
+	}
+	if opts.DisableLoki {
+		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
+	} else {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
@@ -506,7 +522,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
 	}
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
-	if opts.Loki {
+	if !opts.DisableLoki {
 		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 	}
 	waitForPgbouncer(t, ctx, kubeClient, namespace)

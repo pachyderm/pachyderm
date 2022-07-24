@@ -1,13 +1,13 @@
 package chunk
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
@@ -45,35 +45,24 @@ func newReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *
 	for _, opt := range opts {
 		opt(r)
 	}
-	return r
-}
-
-// Iterate iterates over the data readers for the data references.
-func (r *Reader) Iterate(cb func(*DataReader) error) error {
-	offset := r.offsetBytes
-	for _, dataRef := range r.dataRefs {
-		if dataRef.SizeBytes <= offset {
-			offset -= dataRef.SizeBytes
-			continue
+	for len(r.dataRefs) > 0 {
+		if r.dataRefs[0].SizeBytes > r.offsetBytes {
+			break
 		}
-		dr := newDataReader(r.ctx, r.client, r.memCache, r.deduper, dataRef, offset)
-		offset = 0
-		if err := cb(dr); err != nil {
-			if errors.Is(err, errutil.ErrBreak) {
-				return nil
-			}
-			return err
-		}
+		r.offsetBytes -= r.dataRefs[0].SizeBytes
+		r.dataRefs = r.dataRefs[1:]
 	}
-	return nil
+	return r
 }
 
 // Get writes the concatenation of the data referenced by the data references.
 func (r *Reader) Get(w io.Writer) (retErr error) {
-	if len(r.dataRefs) <= 1 {
-		return r.Iterate(func(dr *DataReader) error {
-			return dr.Get(w)
-		})
+	if len(r.dataRefs) == 0 {
+		return nil
+	}
+	if len(r.dataRefs) == 1 {
+		_, err := io.Copy(w, newDataReader(r.ctx, r.client, r.memCache, r.deduper, r.dataRefs[0], r.offsetBytes))
+		return errors.EnsureStack(err)
 	}
 	ctx, cancel := context.WithCancel(r.ctx)
 	defer cancel()
@@ -86,16 +75,25 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 			retErr = err
 		}
 	}()
-	return r.Iterate(func(dr *DataReader) error {
-		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
-			if err := dr.Prefetch(); err != nil {
+	for i, dataRef := range r.dataRefs {
+		var offset int64
+		if i == 0 {
+			offset = r.offsetBytes
+		}
+		dr := newDataReader(r.ctx, r.client, r.memCache, r.deduper, dataRef, offset)
+		if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
+			if err := dr.fetchData(); err != nil {
 				return nil, err
 			}
 			return func() error {
-				return dr.Get(w)
+				_, err := io.Copy(w, dr)
+				return errors.EnsureStack(err)
 			}, nil
-		})
-	})
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DataReader is an abstraction that lazily reads data referenced by a data reference.
@@ -106,6 +104,7 @@ type DataReader struct {
 	deduper  *miscutil.WorkDeduper
 	dataRef  *DataRef
 	offset   int64
+	r        io.Reader
 }
 
 func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, deduper *miscutil.WorkDeduper, dataRef *DataRef, offset int64) *DataReader {
@@ -119,28 +118,26 @@ func newDataReader(ctx context.Context, client Client, memCache kv.GetPut, dedup
 	}
 }
 
-// DataRef returns the data reference associated with this data reader.
-func (dr *DataReader) DataRef() *DataRef {
-	return dr.dataRef
+func (dr *DataReader) Read(data []byte) (int, error) {
+	if err := dr.fetchData(); err != nil {
+		return 0, err
+	}
+	n, err := dr.r.Read(data)
+	return n, errors.EnsureStack(err)
 }
 
-func (dr *DataReader) Prefetch() error {
-	return dr.Get(io.Discard)
-}
-
-// Get writes the data referenced by the data reference.
-func (dr *DataReader) Get(w io.Writer) error {
-	if dr.offset > dr.dataRef.SizeBytes {
-		return errors.Errorf("DataReader.offset cannot be greater than the dataRef size. offset size: %v, dataRef size: %v.", dr.offset, dr.dataRef.SizeBytes)
+func (dr *DataReader) fetchData() error {
+	if dr.r != nil {
+		return nil
 	}
 	ref := dr.dataRef.Ref
 	b := backoff.NewExponentialBackOff()
 	b.InitialInterval = 1 * time.Millisecond
-	return backoff.RetryUntilCancel(dr.ctx, func() error {
+	var data []byte
+	if err := backoff.RetryUntilCancel(dr.ctx, func() error {
 		return getFromCache(dr.ctx, dr.memCache, ref, func(chunk []byte) error {
-			data := chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
-			_, err := w.Write(data)
-			return errors.EnsureStack(err)
+			data = chunk[dr.dataRef.OffsetBytes+dr.offset : dr.dataRef.OffsetBytes+dr.dataRef.SizeBytes]
+			return nil
 		})
 	}, b, func(err error, _ time.Duration) error {
 		if !pacherr.IsNotExist(err) {
@@ -151,7 +148,11 @@ func (dr *DataReader) Get(w io.Writer) error {
 				return putInCache(dr.ctx, dr.memCache, ref, rawData)
 			})
 		})
-	})
+	}); err != nil {
+		return err
+	}
+	dr.r = bytes.NewReader(data)
+	return nil
 }
 
 func getFromCache(ctx context.Context, cache kv.GetPut, ref *Ref, cb kv.ValueCallback) error {

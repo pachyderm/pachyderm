@@ -6,7 +6,7 @@ For a quick test installation of Pachyderm on Azure (suitable for development), 
 !!! Important "Before your start your installation process." 
       - Refer to our generic ["Helm Install"](./helm-install.md) page for more information on  how to install and get started with `Helm`.
       - Read our [infrastructure recommendations](../ingress/). You will find instructions on how to set up an ingress controller, a load balancer, or connect an Identity Provider for access control. 
-      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up on an Ingress.
+      - If you are planning to install Pachyderm UI. Read our [Console deployment](../console/) instructions. Note that, unless your deployment is `LOCAL` (i.e., on a local machine for development only, for example, on Minikube or Docker Desktop), the deployment of Console requires, at a minimum, the set up of an Ingress.
 
 The following section walks you through deploying a Pachyderm cluster on Microsoft® Azure® Kubernetes
 Service environment (AKS). 
@@ -392,9 +392,9 @@ make sure that you are using the right Kubernetes context first.
 
 
     ```shell
-    $ helm repo add pach https://helm.pachyderm.com
-    $ helm repo update
-    $ helm install pachd -f values.yaml pach/pachyderm --version <version-of-the-chart>
+    helm repo add pach https://helm.pachyderm.com
+    helm repo update
+    helm install pachd -f values.yaml pach/pachyderm --version <version-of-the-chart>
     ```
 
     **System Response:**
@@ -457,7 +457,7 @@ If you are exposing your cluster publicly:
   1. Check that your are using the right context: 
 
       ```shell
-      $ pachctl config get active-context
+      pachctl config get active-context
       ```
 
       Your cluster context name should show up.
@@ -466,7 +466,7 @@ If you're not exposing `pachd` publicly, you can run:
 
 ```shell
 # Background this process because it blocks.
-$ pachctl port-forward
+pachctl port-forward
 ``` 
 
 ## 8. Check That Your Cluster Is Up And Running
@@ -475,7 +475,7 @@ $ pachctl port-forward
     If Authentication is activated (When you deploy Console, for example), you will need to run `pachct auth login`, then authenticate to Pachyderm with your User, before you use `pachctl`. 
 
 ```shell
-$ pachctl version
+pachctl version
 ```
 
 **System Response:**

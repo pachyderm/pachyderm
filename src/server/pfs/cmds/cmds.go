@@ -1395,7 +1395,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
 	globFile := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
+		Use:   `{{alias}} "<repo>@<branch-or-commit>:<pattern>"`,
 		Short: "Return files that match a glob pattern in a commit.",
 		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
 		Example: `
@@ -1405,7 +1405,9 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 $ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-$ {{alias}} "foo@master:data/*"`,
+$ {{alias}} "foo@master:data/*" 
+
+# If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
@@ -1582,6 +1584,8 @@ Objects are a low-level resource and should not be accessed directly by most use
 	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
 
 	var fix bool
+	var zombie string
+	var zombieAll bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
@@ -1592,25 +1596,44 @@ Objects are a low-level resource and should not be accessed directly by most use
 				return err
 			}
 			defer c.Close()
-			errors := false
+			foundErrors := false
+			var opts []client.FsckOption
+			if zombieAll {
+				if zombie != "" {
+					return errors.New("either check all pipelines for zombie files or provide a single commit")
+				}
+				opts = append(opts, client.WithZombieCheckAll())
+			} else if zombie != "" {
+				commit, err := cmdutil.ParseCommit(zombie)
+				if err != nil {
+					return err
+				}
+				if commit.ID == "" && commit.Branch.Name == "" {
+					return errors.Errorf("provide a specific commit or branch for zombie detection on %s", commit.Branch.Repo)
+				}
+				opts = append(opts, client.WithZombieCheckTarget(commit))
+			}
+
 			if err = c.Fsck(fix, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
-					errors = true
+					foundErrors = true
 					fmt.Printf("Error: %s\n", resp.Error)
 				} else {
 					fmt.Printf("Fix applied: %v", resp.Fix)
 				}
 				return nil
-			}); err != nil {
+			}, opts...); err != nil {
 				return err
 			}
-			if !errors {
+			if !foundErrors {
 				fmt.Println("No errors found.")
 			}
 			return nil
 		}),
 	}
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
+	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
+	fsck.Flags().StringVar(&zombie, "zombie", "", "A single commit to check for zombie files")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var branchStr string

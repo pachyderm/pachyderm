@@ -34,9 +34,6 @@ Pachyderm defines 5 type of User:
 ## Resources
 Pachyderm has 2 types of resources: **Repositories**: `repo`, **Clusters**: `cluster`. 
 
-!!! Coming soon
-    Two additionnal tiers, a `project` tier between the cluster and repo levels, and the `enterprise` tier, above all clusters, at the enterprise server level, are in the works. Clusters contain one to many projects. Projects contain one to many repositories.
-
 ## Roles
 Pachyderm has a number of predefined roles granting permissions to its Resources.
 Those Roles are listed here in no specific hierarchical order. 

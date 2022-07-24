@@ -1,3 +1,5 @@
+//go:build k8s
+
 // admin_test.go tests various features related to pachyderm's auth admins.
 // Because the cluster has one global set of admins, these tests can't be run in
 // parallel
@@ -6,6 +8,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -25,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 )
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
@@ -56,7 +58,9 @@ func robot(robot string) string {
 
 func buildClusterBindings(s ...string) *auth.RoleBinding {
 	return buildBindings(append(s,
-		auth.RootUser, auth.ClusterAdminRole)...)
+		auth.RootUser, auth.ClusterAdminRole,
+		auth.InternalPrefix+"auth-server", auth.ClusterAdminRole,
+	)...)
 }
 
 func buildBindings(s ...string) *auth.RoleBinding {

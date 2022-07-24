@@ -9,7 +9,7 @@
     - Run `pachctl auth use-auth-token` to login as a Root User.
     
 
-Enable your users to authenticate to Pachyderm by logging into their favorite Identity Provider in 3 steps:
+## Enable your users to authenticate to Pachyderm by logging into their favorite Identity Provider in 3 steps:
 
 1. [Register the Pachyderm Application with your IdP](#1-register-a-pachyderm-application-with-your-idp).
 1. [Set up and create your Idp-Pachyderm connector](#2-set-up-and-create-an-idp-pachyderm-connector).
@@ -33,7 +33,7 @@ Use the IdP of your choice.
 For now, let's configure Pachyderm so that our
 Pachyderm users can log in through Auth0.
 
-## 1- Register a Pachyderm Application with your IdP
+### 1- Register a Pachyderm Application with your IdP
 
 !!! TLDR
     The one important and invariant element of this step, 
@@ -85,9 +85,9 @@ Then, complete the following steps:
     We will log in to Pachyderm as this user once our IdP connection is completed.
     ![Auth0 Create User](../images/auth0-create-user.png)
 
-## 2- Set up and create an Idp-Pachyderm connector
+### 2- Set up and create an Idp-Pachyderm connector
 
-### Create A Connector Configuration File
+#### Create A Connector Configuration File
 To configure your Idp-Pachyderm integration, **create a connector configuration file** corresponding to your IdP. 
 
 !!! Info
@@ -182,7 +182,7 @@ to **Allowed Callback URLs** when registering Pachyderm on your IdP website.
 
     Note that Pachyderm's YAML format is **a simplified version** of Dex's [sample config](https://dexidp.io/docs/connectors/oidc/){target=_blank}.
 
-### Create Your Idp-Pachyderm Connection
+#### Create Your Idp-Pachyderm Connection
 Once your Pachyderm application is registered with your IdP (here Auth0), 
 and your IdP-Pachyderm connector config file created (here with the Auth0 parameters), **connect your IdP to Pachyderm** by running the following command:
 
@@ -213,5 +213,20 @@ pachctl idp update-connector --config oidc-dex-connector.yaml
     Run `pachctl idp --help` for a full list of commands.
     In particular, those commands let you create, update, delete, list, or get a specific connector.
 
-## 3- Login
+### 3- Login
 The users registered with your IdP are now ready to [Log in to Pachyderm](./login.md)
+
+## User Revocation
+
+Use the `pachctl auth revoke` command to revoke access for an existing Pachyderm user (for example, a robot user accessing your cluster, a team member leaving, etc... ). In particular, you can:
+
+- revoke a given token: `pachctl auth revoke --token=<pach token>`.
+- revoke all tokens for a given user `pachctl auth revoke --user=idp:usernamen@pachyderm.io` to log that user out forcibly.
+
+!!! Note
+    Note that a user whose Pachyderm token has been revoked can technically log in to Pachyderm again unless **you have removed that user from the user registry of your IdP**.
+
+Take a look at the sequence diagram below illustrating the OIDC login flow. It highlights the exchange of the original OIDC ID Token for a Pachyderm Token.
+
+![OIDC Login Flow](../../images/pachyderm-oidc-dex-flow.png)
+

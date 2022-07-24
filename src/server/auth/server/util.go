@@ -10,7 +10,7 @@ import (
 
 // CheckClusterIsAuthorizedInTransaction returns an error if the current user doesn't have
 // the permissions in `p` on the cluster
-func (a *AuthServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error {
+func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error {
 	me, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil
@@ -29,7 +29,7 @@ func (a *AuthServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.Tr
 
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
-func (a *AuthServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
+func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, r *pfs.Repo, p ...auth.Permission) error {
 	me, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil
@@ -54,7 +54,7 @@ func (a *AuthServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.Trans
 
 // CheckRepoIsAuthorized returns an error if the current user doesn't have
 // the permissions in `p` on the repo `r`
-func (a *AuthServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ...auth.Permission) error {
+func (a *apiServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p ...auth.Permission) error {
 	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
@@ -79,7 +79,7 @@ func (a *AuthServer) CheckRepoIsAuthorized(ctx context.Context, r *pfs.Repo, p .
 
 // CheckClusterIsAuthorized returns an error if the current user doesn't have
 // the permissions in `p` on the cluster
-func (a *AuthServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
+func (a *apiServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {
 	me, err := a.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil

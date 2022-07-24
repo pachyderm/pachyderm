@@ -34,6 +34,9 @@
                 "port": {
                     "type": "integer"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -114,6 +117,9 @@
                 "podLabels": {
                     "type": "object"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -173,6 +179,9 @@
                 },
                 "podLabels": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -265,16 +274,11 @@
                 "podLabels": {
                     "type": "object"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "resources": {
                     "type": "object"
-                },
-                "securityContext": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        }
-                    }
                 },
                 "service": {
                     "type": "object",
@@ -353,6 +357,14 @@
                 },
                 "proxy": {
                     "type": "string"
+                },
+                "securityContexts": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
                 }
             }
         },
@@ -395,6 +407,58 @@
                 },
                 "uriHttpsProtoOverride": {
                     "type": "boolean"
+                }
+            }
+        },
+        "kubeEventTail": {
+            "type": "object",
+            "properties": {
+                "clusterScope": {
+                    "type": "boolean"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "pullPolicy": {
+                            "type": "string"
+                        },
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "resources": {
+                    "type": "object",
+                    "properties": {
+                        "limits": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "requests": {
+                            "type": "object",
+                            "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
+                                "memory": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -460,6 +524,9 @@
                                 "nodeSelector": {
                                     "type": "object"
                                 },
+                                "priorityClassName": {
+                                    "type": "string"
+                                },
                                 "size": {
                                     "type": "string"
                                 },
@@ -468,6 +535,14 @@
                                 },
                                 "tolerations": {
                                     "type": "array"
+                                }
+                            }
+                        },
+                        "serviceAccount": {
+                            "type": "object",
+                            "properties": {
+                                "automountServiceAccountToken": {
+                                    "type": "boolean"
                                 }
                             }
                         }
@@ -688,6 +763,9 @@
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
                 },
+                "priorityClassName": {
+                    "type": "string"
+                },
                 "rbac": {
                     "type": "object",
                     "properties": {
@@ -710,14 +788,6 @@
                 },
                 "rootTokenSecretName": {
                     "type": "string"
-                },
-                "securityContext": {
-                    "type": "object",
-                    "properties": {
-                        "enabled": {
-                            "type": "boolean"
-                        }
-                    }
                 },
                 "service": {
                     "type": "object",
@@ -969,11 +1039,25 @@
                 "defaultPoolSize": {
                     "type": "integer"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "maxConnections": {
                     "type": "integer"
                 },
                 "nodeSelector": {
                     "type": "object"
+                },
+                "priorityClassName": {
+                    "type": "string"
                 },
                 "resources": {
                     "type": "object"
@@ -1041,6 +1125,9 @@
                         "nodeSelector": {
                             "type": "object"
                         },
+                        "priorityClassName": {
+                            "type": "string"
+                        },
                         "tolerations": {
                             "type": "array"
                         }
@@ -1051,6 +1138,9 @@
                     "properties": {
                         "nodeSelector": {
                             "type": "object"
+                        },
+                        "priorityClassName": {
+                            "type": "string"
                         },
                         "tolerations": {
                             "type": "array"
@@ -1165,7 +1255,34 @@
                     }
                 },
                 "tls": {
-                    "type": "object"
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "secret": {
+                            "type": "object"
+                        },
+                        "secretName": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "testConnection": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         }

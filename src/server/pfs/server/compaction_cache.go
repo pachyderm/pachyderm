@@ -1,10 +1,11 @@
 package server
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"golang.org/x/net/context"
 )
 
 type cache struct {

@@ -92,6 +92,8 @@ func TestSnowflakeConnection(t *testing.T) {
 		"wh":             {fmt.Sprintf("snowflake://%s@%s?warehouse=COMPUTE_WH", user, account), require.NoError},
 		"bad wh":         {fmt.Sprintf("snowflake://%s@%s?warehouse=badWH", user, account), require.YesError},
 		"role":           {fmt.Sprintf("snowflake://%s@%s?role=%s", user, account, role), require.NoError},
+		"role and my_wh": {fmt.Sprintf("snowflake://%s@%s?my_warehouse=COMPUTE_WH&role=%s", user, account, role), require.NoError},
+		"role and wh":    {fmt.Sprintf("snowflake://%s@%s?warehouse=COMPUTE_WH&role=%s", user, account, role), require.NoError},
 		"bad role":       {fmt.Sprintf("snowflake://%s@%s?role=badRole", user, account), require.YesError},
 		"host":           {fmt.Sprintf("snowflake://%s@%s", user, host), require.NoError},
 		"host with port": {fmt.Sprintf("snowflake://%s@%s:443?account=%s", user, host, account), require.NoError},

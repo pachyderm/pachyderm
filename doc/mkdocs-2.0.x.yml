@@ -13,10 +13,12 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.2.2'
+pach_featured_version: '2.2.6'
 pach_latest_version: '2.0.8'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
+# Latest compatible version of Python-pachyderm
+python_pachyderm_version: '7.1.x'
 
 # Configuration
 theme:
@@ -104,11 +106,9 @@ nav:
         - Welcome: index.md
         - Contributing:
             - Setup for Contributors: contributing/setup.md
-            - Repo Layout: contributing/repo-layout.md
-            - Supported releases: contributing/supported-releases.md   
+            - Repo Layout: contributing/repo-layout.md  
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
-            - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting-started/index.md
@@ -228,6 +228,7 @@ nav:
     - Reference:
         - Overview: reference/index.md
         - COMMUNITY EDITION LIMITS: reference/scaling-limits.md
+        - Supported releases: reference/supported-releases.md
         - Pipeline Specification: reference/pipeline-spec.md
         - Pachyderm Config Specification: reference/config-spec.md
         - Pachyderm Helm Chart Values Specification: reference/helm-values.md
