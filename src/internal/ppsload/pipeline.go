@@ -12,7 +12,7 @@ import (
 )
 
 func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.RunLoadTestResponse, error) {
-	branch, err := createPipelines(pachClient, req.DagSpec, req.PodPatch)
+	branch, err := createPipelines(pachClient, req.DagSpec, req.Parallelism, req.PodPatch)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.R
 	}, nil
 }
 
-func createPipelines(pachClient *client.APIClient, spec string, podPatch string) (*pfs.Branch, error) {
+func createPipelines(pachClient *client.APIClient, spec string, parallelism int64, podPatch string) (*pfs.Branch, error) {
 	namespace := "-" + uuid.NewWithoutDashes()[:5]
 	var retBranch *pfs.Branch
 	for _, pipelineStr := range strings.Split(spec, "\n") {
@@ -54,14 +54,14 @@ func createPipelines(pachClient *client.APIClient, spec string, podPatch string)
 		for i := range inputs {
 			inputs[i] = strings.TrimSpace(inputs[i]) + namespace
 		}
-		if err := createPipeline(pachClient, repo, inputs, podPatch); err != nil {
+		if err := createPipeline(pachClient, repo, inputs, parallelism, podPatch); err != nil {
 			return nil, err
 		}
 	}
 	return retBranch, nil
 }
 
-func createPipeline(pachClient *client.APIClient, repo string, inputRepos []string, podPatch string) error {
+func createPipeline(pachClient *client.APIClient, repo string, inputRepos []string, parallelism int64, podPatch string) error {
 	var inputs []*pps.Input
 	for i, inputRepo := range inputRepos {
 		inputs = append(inputs, &pps.Input{
@@ -83,7 +83,7 @@ func createPipeline(pachClient *client.APIClient, repo string, inputRepos []stri
 				Cmd:   []string{"bash"},
 				Stdin: []string{"cp -r /pfs/input-*/* /pfs/out/"},
 			},
-			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: uint64(parallelism)},
 			Input:           &pps.Input{Join: inputs},
 			PodPatch:        podPatch,
 		},

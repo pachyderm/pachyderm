@@ -1122,6 +1122,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 	var dagSpecFile string
 	var seed int64
+	var parallelism int64
 	var podPatchFile string
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
@@ -1175,10 +1176,11 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 					return errors.EnsureStack(err)
 				}
 				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
-					DagSpec:  string(dagSpec),
-					LoadSpec: string(loadSpec),
-					Seed:     seed,
-					PodPatch: string(podPatch),
+					DagSpec:     string(dagSpec),
+					LoadSpec:    string(loadSpec),
+					Seed:        seed,
+					Parallelism: parallelism,
+					PodPatch:    string(podPatch),
 				})
 				if err != nil {
 					return errors.EnsureStack(err)
@@ -1194,7 +1196,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	runLoadTest.Flags().StringVarP(&dagSpecFile, "dag", "d", "", "The DAG specification file to use for the load test")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
-	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "p", "", "The pod patch file to use for the pipelines.")
+	runLoadTest.Flags().Int64VarP(&parallelism, "parallelism", "p", 0, "The parallelism to use for the pipelines.")
+	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands
