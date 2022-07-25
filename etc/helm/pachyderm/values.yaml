@@ -239,6 +239,53 @@ loki-stack:
     config:
       lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
       snippets:
+        # The scrapeConfigs section is copied from loki-stack-2.6.4
+        # The pipeline_stages.match stanza has been added to prevent multiple lokis in a cluster from mixing their logs.
+        scrapeConfigs: |
+          - job_name: kubernetes-pods
+            pipeline_stages:
+              {{- toYaml .Values.config.snippets.pipelineStages | nindent 4 }}
+              - match:
+                  selector: '{namespace!="{{ .Release.Namespace }}"}'
+                  action: drop
+            kubernetes_sd_configs:
+              - role: pod
+            relabel_configs:
+              - source_labels:
+                  - __meta_kubernetes_pod_controller_name
+                regex: ([0-9a-z-.]+?)(-[0-9a-f]{8,10})?
+                action: replace
+                target_label: __tmp_controller_name
+              - source_labels:
+                  - __meta_kubernetes_pod_label_app_kubernetes_io_name
+                  - __meta_kubernetes_pod_label_app
+                  - __tmp_controller_name
+                  - __meta_kubernetes_pod_name
+                regex: ^;*([^;]+)(;.*)?$
+                action: replace
+                target_label: app
+              - source_labels:
+                  - __meta_kubernetes_pod_label_app_kubernetes_io_instance
+                  - __meta_kubernetes_pod_label_release
+                regex: ^;*([^;]+)(;.*)?$
+                action: replace
+                target_label: instance
+              - source_labels:
+                  - __meta_kubernetes_pod_label_app_kubernetes_io_component
+                  - __meta_kubernetes_pod_label_component
+                regex: ^;*([^;]+)(;.*)?$
+                action: replace
+                target_label: component
+              {{- if .Values.config.snippets.addScrapeJobLabel }}
+              - replacement: kubernetes-pods
+                target_label: scrape_job
+              {{- end }}
+              {{- toYaml .Values.config.snippets.common | nindent 4 }}
+              {{- with .Values.config.snippets.extraRelabelConfigs }}
+              {{- toYaml . | nindent 4 }}
+              {{- end }}
+        pipelineStages:
+          - cri: {}
         common:
           # This is copy and paste of existing actions, so we don't lose them.
           # Cf. https://github.com/grafana/loki/issues/3519#issuecomment-1125998705
