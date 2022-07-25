@@ -384,8 +384,10 @@ jobs:
     executor: python
     docker:
       - image: circleci/buildpack-deps:stretch
+    working_directory: ~/pachyderm/jupyterlab-extension
     steps:
-      - checkout
+      - checkout:
+          path: ~/pachyderm
       - attach_workspace:
           at: .
       - setup_remote_docker:
