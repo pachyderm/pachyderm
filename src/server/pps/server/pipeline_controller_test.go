@@ -69,7 +69,6 @@ func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline s
 func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
 	mockPachd.PPS.ListTask.Use(func(_ *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
 		for i := 0; i < taskCount; i++ {
-			// nolint:errcheck
 			srv.Send(&task.TaskInfo{
 				State: task.State_RUNNING,
 			})
@@ -82,7 +81,6 @@ func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) 
 	testDone := make(chan struct{})
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		for i := 0; i < commitCount; i++ {
-			// nolint:errcheck
 			server.Send(&pfs.CommitInfo{
 				Commit: client.NewCommit(req.Repo.Name, "", uuid.NewWithoutDashes()),
 			})

@@ -259,7 +259,6 @@ func TestSQLTupleWriter(t *testing.T) {
 
 			tx, err := db.Beginx()
 			require.NoError(t, err)
-			// nolint:errcheck
 			defer tx.Rollback()
 
 			// Generate fake data

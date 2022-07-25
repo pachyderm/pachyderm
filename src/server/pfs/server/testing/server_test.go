@@ -4913,7 +4913,6 @@ func TestPFS(suite *testing.T) {
 			return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 		}
 		monkeyRetry := func(t *testing.T, f func() error, errMsg string) {
-			// nolint:errcheck
 			backoff.Retry(func() error {
 				err := f()
 				if err != nil {

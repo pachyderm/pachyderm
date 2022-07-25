@@ -5,6 +5,7 @@ run:
 linters:
   enable:
     - wrapcheck
+    - nolintlint
 linters-settings:
   wrapcheck:
     ignoreSigs:
@@ -19,3 +20,8 @@ linters-settings:
       - .WithStack(
     ignorePackageGlobs:
       - github.com/pachyderm/pachyderm/v2/src/*
+issues:
+  exclude-rules:
+    - path: _test\.go # disable some linters for test files
+      linters:
+        - errcheck

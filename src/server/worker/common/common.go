@@ -42,23 +42,15 @@ func IsDone(ctx context.Context) bool {
 func DatumID(inputs []*Input) string {
 	hash := pfs.NewHash()
 	for _, input := range inputs {
-		// nolint:errcheck
 		hash.Write([]byte(input.Name))
-		// nolint:errcheck
-		binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
+		binary.Write(hash, binary.BigEndian, int64(len(input.Name))) //nolint:errcheck
 		file := input.FileInfo.File
-		// nolint:errcheck
 		hash.Write([]byte(file.Commit.Branch.Repo.Name))
-		// nolint:errcheck
-		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name)))
-		// nolint:errcheck
+		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name))) //nolint:errcheck
 		hash.Write([]byte(file.Commit.Branch.Name))
-		// nolint:errcheck
-		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
-		// nolint:errcheck
+		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name))) //nolint:errcheck
 		hash.Write([]byte(input.FileInfo.File.Path))
-		// nolint:errcheck
-		binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
+		binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path))) //nolint:errcheck
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }
