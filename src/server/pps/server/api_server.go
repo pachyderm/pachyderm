@@ -39,10 +39,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -2938,89 +2938,27 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 }
 
 // RunLoadTest implements the pps.RunLoadTest RPC
-// TODO: It could be useful to make the glob and number of pipelines configurable.
-func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTest(ctx context.Context, req *pps.RunLoadTestRequest) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
-	repo := "load_test"
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
-		return nil, err
+	if req.DagSpec == "" {
+		req.DagSpec = defaultDagSpecs[0]
 	}
-	branch := uuid.New()
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	pipeline := tu.UniqueString("TestLoadPipeline")
-	if _, err := pachClient.PpsAPIClient.CreatePipeline(
-		pachClient.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 1,
-			},
-			Input: &pps.Input{
-				Pfs: &pps.PFSInput{
-					Repo:   repo,
-					Branch: branch,
-					Glob:   "/*",
-				},
-			},
-			PodPatch: req.PodPatch,
-		},
-	); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	req.Branch = client.NewBranch(repo, branch)
-	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)
-	return res, errors.EnsureStack(err)
+	return ppsload.Pipeline(pachClient, req)
 }
 
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
-// TODO: It could be useful to make the glob and number of pipelines configurable.
-func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
-	repo := "load_test"
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
-		return nil, err
-	}
-	branch := uuid.New()
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	pipeline := tu.UniqueString("TestLoadPipeline")
-	if err := pachClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Repo:   repo,
-				Branch: branch,
-				Glob:   "/*",
-			},
-		},
-		"",
-		false,
-	); err != nil {
-		return nil, err
-	}
-	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), &pfs.RunLoadTestRequest{
-		Spec:   defaultLoadSpecs[0],
-		Branch: client.NewBranch(repo, branch),
+	return ppsload.Pipeline(pachClient, &pps.RunLoadTestRequest{
+		DagSpec:  defaultDagSpecs[0],
+		LoadSpec: defaultLoadSpecs[0],
 	})
-	return res, errors.EnsureStack(err)
 }
+
+var defaultDagSpecs = []string{`
+default-load-test-source:
+default-load-test-pipeline: default-load-test-source
+`}
 
 var defaultLoadSpecs = []string{`
 count: 5
