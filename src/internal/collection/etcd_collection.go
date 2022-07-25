@@ -604,7 +604,6 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...
 	if err != nil {
 		return nil, err
 	}
-	// nolint:errcheck
 	go func() (retErr error) {
 		defer func() {
 			if retErr != nil {
@@ -660,7 +659,7 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...
 			}
 			eventCh <- directEv
 		}
-	}()
+	}() //nolint:errcheck
 	return watch.MakeEtcdWatcher(eventCh, done), nil
 }
 

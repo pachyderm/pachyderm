@@ -29,8 +29,7 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) != numArgs {
 			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
-			// nolint:errcheck
-			cmd.Usage()
+			cmd.Usage() //nolint:errcheck
 		} else {
 			if err := run(args); err != nil {
 				ErrorAndExit("%v", err)
@@ -46,8 +45,7 @@ func RunCmdFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) != numArgs {
 			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
-			// nolint:errcheck
-			cmd.Usage()
+			cmd.Usage() //nolint:errcheck
 		} else {
 			if err := run(cmd, args); err != nil {
 				ErrorAndExit("%v", err)
@@ -62,8 +60,7 @@ func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Comm
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
 			fmt.Printf("expected %d to %d arguments, got %d\n\n", min, max, len(args))
-			// nolint:errcheck
-			cmd.Usage()
+			cmd.Usage() //nolint:errcheck
 		} else {
 			if err := run(args); err != nil {
 				ErrorAndExit("%v", err)
@@ -78,8 +75,7 @@ func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []st
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min {
 			fmt.Printf("expected at least %d arguments, got %d\n\n", min, len(args))
-			// nolint:errcheck
-			cmd.Usage()
+			cmd.Usage() //nolint:errcheck
 		} else {
 			if err := run(args); err != nil {
 				ErrorAndExit("%v", err)
