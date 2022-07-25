@@ -184,7 +184,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
-              key: "enterprise-secret"
+              key: "enterprise-secret" 
         {{- end }}
         {{- if and (include "pachyderm.enterpriseLicenseKeySecretName" .) .Values.pachd.activateAuth }}
         - name: ACTIVATE_AUTH
