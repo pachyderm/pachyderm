@@ -208,6 +208,9 @@ func (lr *levelReader) next() error {
 	return r.Get(lr.buf)
 }
 
+// TODO: Making this configurable based on the number of workers available might be the right long term strategy.
+const numShards = 10
+
 // ShardCallback is a callback that returns a path range for each shard.
 type ShardCallback = func(*PathRange) error
 
@@ -217,7 +220,7 @@ func (r *Reader) Shard(ctx context.Context, cb ShardCallback) error {
 	}
 	idxs := []*Index{r.topIdx}
 Loop:
-	for len(idxs) < 10 {
+	for len(idxs) < numShards {
 		nextIdxs, err := r.nextLevel(ctx, idxs)
 		if err != nil {
 			return err
@@ -230,6 +233,16 @@ Loop:
 		}
 		idxs = nextIdxs
 	}
+	for _, shard := range resizeShards(createShards(idxs), numShards) {
+		if err := cb(shard); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createShards(idxs []*Index) []*PathRange {
+	var shards []*PathRange
 	for i, idx := range idxs {
 		pathRange := &PathRange{}
 		if i != 0 {
@@ -238,11 +251,26 @@ Loop:
 		if i != len(idxs)-1 {
 			pathRange.Upper = idxs[i+1].Path
 		}
-		if err := cb(pathRange); err != nil {
-			return err
+		shards = append(shards, pathRange)
+	}
+	return shards
+}
+
+func resizeShards(shards []*PathRange, maxShards int) []*PathRange {
+	if len(shards) <= maxShards {
+		return shards
+	}
+	var newShards []*PathRange
+	size := len(shards) / maxShards
+	shard := &PathRange{}
+	for i := size; i < len(shards); i += size {
+		shard.Upper = shards[i].Lower
+		newShards = append(newShards, shard)
+		shard = &PathRange{
+			Lower: shards[i].Lower,
 		}
 	}
-	return nil
+	return append(newShards, shard)
 }
 
 func (r *Reader) nextLevel(ctx context.Context, idxs []*Index) ([]*Index, error) {
