@@ -288,8 +288,10 @@ jobs:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202111-01
+    working_directory: ~/pachyderm/jupyterlab-extension
     steps:
-      - checkout
+      - checkout:
+          path: ~/pachyderm
       - install-jupyter-test-deps
       - run:
           name: 'e2e tests'
