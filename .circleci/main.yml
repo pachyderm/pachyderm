@@ -836,9 +836,12 @@ workflows:
       - jupyter-frontend-tests
       - jupyter-integration-test
       - jupyter-e2e-test
+      - build-pachctl-bin:
+          upload: false
       - jupyter-docker-build:
           requires:
             - jupyter-build
+            #- build-pachctl-bin
 
   integration-tests:
     when:
