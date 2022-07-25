@@ -842,7 +842,7 @@ workflows:
       - jupyter-docker-build:
           requires:
             - jupyter-build
-            #- build-pachctl-bin
+            - build-pachctl-bin
 
   integration-tests:
     when:
