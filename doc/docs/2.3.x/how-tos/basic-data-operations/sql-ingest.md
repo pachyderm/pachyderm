@@ -7,7 +7,7 @@ You can inject database content, collected by your data warehouse, by pulling th
 
 ## Before You Start 
 
-- You should be familiar with [Jsonnet](https://jsonnet.org/learning/tutorial.html)
+- You should be familiar with [Jsonnet](https://jsonnet.org/learning/tutorial.html).
 - You should be familiar with creating [Jsonnet pipeline specs](https://docs.pachyderm.com/latest/how-tos/pipeline-operations/jsonnet-pipeline-specs/#jsonnet-pipeline-specifications) in Pachyderm.
 - You should be familiar with [managing Kubernetes secrets](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/). 
 
@@ -113,7 +113,7 @@ SQL Ingest's jsonnet pipeline spec, [**`sql_ingest_cron.jsonnet`**](https://gith
 
 - **1 Input Data Repo**: Used to store timestamp files at the cronSpec's set interval rate (`--arg cronSpec="pullInterval" \`) to trigger the pipeline.
 - [**1 Cron Pipeline**](../../../concepts/pipeline-concepts/pipeline/cron/#cron-pipeline): Houses the spec details that define the input type and settings and  data transformation.
--  **1 Output Repo**: Used to store the data transformed by the cron pipeline; set by the pipeline spec's `pipeline.name` attribute, which you can define through the jsonnet parameter `--arg name=outputRepoName \`
+-  **1 Output Repo**: Used to store the data transformed by the cron pipeline; set by the pipeline spec's `pipeline.name` attribute, which you can define through the jsonnet parameter `--arg name=outputRepoName \`.
 - **1 Output File**: Used to save the query results (JSON or CSV) and potentially be used as input for a following pipeline.
 
 In the default Jsonnet template, the file generated is obtainable from the output repo, `outputRepoName@master:/0000`. The filename is hardcoded, however you could paramaterize this as well using a custom jsonnet pipeline spec and passing `--arg outputFile='0000'`. The file's contents are the result of the query(`--arg query="query"`) being ran against the database`--arg url="connectionStringToDdatabase"` ; both are defined in the `transform.cmd` attribute.
@@ -155,8 +155,8 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
 <protocol>://<username>@<host>:<port>/<database>?<param1>=<value1>&<param2>=<value2>
 ```
 
-- Passwords are not included in the URL; they are retrieved from the secret created in step 1.
-- The additional parameters after `?` are optional and needed on a case-by-case bases (for example, Snowflake)
+- Passwords are not included in the URL; they are retrieved from the secret created in [step 1](#1-create-upload-a-secret).
+- The additional parameters after `?` are optional and needed on a case-by-case bases (for example, Snowflake).
 
 | Parameter     | Description | 
 | ------------- |-------------| 
@@ -176,8 +176,8 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
   ```
   The *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html){target=_blank}* takes one of the following forms for most URLs:
 
-  - Option 1 - [Account Name](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-1-account-name-in-your-organization){target=_blank}:`organization_name`-`account_name`
-  - Option 2 - [Account Locator](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-2-account-locator-in-a-region){target=_blank}: `account_locator`.`region`.`cloud`
+  - Option 1 - [Account Name](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-1-account-name-in-your-organization){target=_blank}:`organization_name`-`account_name`.
+  - Option 2 - [Account Locator](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-2-account-locator-in-a-region){target=_blank}: `account_locator`.`region`.`cloud`.
 
 
 
