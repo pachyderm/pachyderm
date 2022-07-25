@@ -21,11 +21,70 @@ parameters:
   run-jupyter-jobs:
     type: boolean
     default: false
+  pachctl_version: # TODO Replace with inline build
+    type: string
+    # update this to build a different e.g. branch build of pachctl based on the git hash
+    # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
+    default: 145bbdb3e6e16adc34f6d9e8da631a0b0cd4e10a
+    # Includes https://github.com/pachyderm/pachyderm/pull/7790
 
 executors:
   python:
     docker:
       - image: cimg/python:3.10-node
+
+commands:
+  install-jupyter-test-deps:
+    steps:
+      - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
+      - run:
+          name: Fuse options
+          command: echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
+      - run:
+            name: Install kind
+            command: |
+              curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+              && chmod +x ./kind-linux-amd64 \
+              && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
+      - run:
+          name: Install helm
+          command: |
+            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
+            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
+            chmod +x linux-amd64/helm && \
+            sudo mv linux-amd64/helm /usr/local/bin/helm
+      - run:
+          name: Install kubectl
+          command: |
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+            chmod +x kubectl && \
+            sudo mv kubectl /usr/local/bin/kubectl
+      - run:
+          name: Install pachctl
+          command: curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv pachctl.tar.gz && sudo mv pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64/pachctl /usr/local/bin/
+      - run:
+          name: Install mount-server
+          command: curl -f -o mount-server.tar.gz -L https://storage.googleapis.com/pachyderm-builds/mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv mount-server.tar.gz && sudo mv mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64/mount-server /usr/local/bin/
+      - run:
+          name: Setup helm
+          command: helm repo add pach https://helm.pachyderm.com && helm repo update
+      - run:
+          name: Start kind
+          command: kind create cluster && kubectl config set current-context kind-kind
+      - run:
+          name: Install pach
+          command: helm install pachd pach/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            pachctl version
+      - run:
+          name: Setup pach # Get Kind node IP and pass that to pachctl
+          command: |-
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
+            pachctl config set active-context local
 
 jobs:
   test-go:
@@ -206,7 +265,7 @@ jobs:
     steps:
       - checkout:
           path: ~/pachyderm
-      - install-test-deps
+      - install-jupyter-test-deps
       - run:
           name: 'Integration tests'
           command: |
