@@ -5,7 +5,8 @@ import (
 )
 
 type Allower interface {
-	Allow(context.Context, any) bool
+	// Allow returns true if the filter allows the item.
+	Allow(ctx context.Context, item any) bool
 }
 
 // Allow returns true if the filter allows the item, false otherwise.  A nil
@@ -14,40 +15,20 @@ func (f *Filter) Allow(ctx context.Context, item any) bool {
 	if f == nil {
 		return true
 	}
-	if f, ok := f.Filter.(Allower); ok {
-		return f.Allow(ctx, item)
+	switch f := f.Filter.(type) {
+	case *Filter_NotFilter:
+		return f.NotFilter.Allow(ctx, item)
+	case *Filter_AndFilter:
+		return f.AndFilter.Allow(ctx, item)
+	case *Filter_OrFilter:
+		return f.OrFilter.Allow(ctx, item)
+	case *Filter_DatumStateFilter:
+		return f.DatumStateFilter.Allow(ctx, item)
 	}
 	return false
 }
 
-func (f *Filter_NotFilter) Allow(ctx context.Context, item any) bool {
-	if f == nil {
-		return false
-	}
-	return f.NotFilter.Allow(ctx, item)
-}
-
-func (f *Filter_AndFilter) Allow(ctx context.Context, item any) bool {
-	if f == nil {
-		return true
-	}
-	return f.AndFilter.Allow(ctx, item)
-}
-
-func (f *Filter_OrFilter) Allow(ctx context.Context, item any) bool {
-	if f == nil {
-		return false
-	}
-	return f.OrFilter.Allow(ctx, item)
-}
-
-func (f *Filter_DatumStateFilter) Allow(ctx context.Context, item any) bool {
-	if f == nil {
-		return false
-	}
-	return f.DatumStateFilter.Allow(ctx, item)
-}
-
+// NewNotFilter returns a new Filter which inverts its argument filter.
 func NewNotFilter(f *Filter) *Filter {
 	return &Filter{
 		Filter: &Filter_NotFilter{
@@ -66,6 +47,8 @@ func (f *NotFilter) Allow(ctx context.Context, item any) bool {
 	return !f.Operand.Allow(ctx, item)
 }
 
+// NewAndFilter returns a new Filter which matches if all of its argument
+// filters match.
 func NewAndFilter(ff ...*Filter) *Filter {
 	return &Filter{
 		Filter: &Filter_AndFilter{
@@ -90,6 +73,8 @@ func (f *AndFilter) Allow(ctx context.Context, item any) bool {
 	return true
 }
 
+// NewOrFilter returns a new Filter which matches if any of the argument filters
+// match.
 func NewOrFilter(ff ...*Filter) *Filter {
 	return &Filter{
 		Filter: &Filter_OrFilter{
