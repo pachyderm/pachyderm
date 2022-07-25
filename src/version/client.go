@@ -25,15 +25,15 @@ var (
 
 	// Version is the current version for pachyderm.
 	Version = &pb.Version{
-		Major:        uint32(MajorVersion),
-		Minor:        uint32(MinorVersion),
-		Micro:        uint32(MicroVersion),
-		Additional:   AdditionalVersion,
-		GitCommit:    B.gitCommit,
-		GitTreeState: B.gitTreeState,
-		BuildDate:    B.buildDate,
-		GoVersion:    B.goVersion,
-		Platform:     B.platform,
+		Major:           uint32(MajorVersion),
+		Minor:           uint32(MinorVersion),
+		Micro:           uint32(MicroVersion),
+		Additional:      AdditionalVersion,
+		GitCommit:       B.gitCommit,
+		GitTreeModified: B.gitTreeModified,
+		BuildDate:       B.buildDate,
+		GoVersion:       B.goVersion,
+		Platform:        B.platform,
 	}
 
 	// Custom release have a 40 character commit hash build into the version string
@@ -41,13 +41,14 @@ var (
 )
 
 type buildInfo struct {
-	gitCommit    string
-	gitTreeState string
-	buildDate    string
-	goVersion    string
-	platform     string
+	gitCommit       string
+	gitTreeModified string
+	buildDate       string
+	goVersion       string
+	platform        string
 }
 
+//
 func getBuildInfo() buildInfo {
 	info, ok := debug.ReadBuildInfo()
 	b := buildInfo{}
@@ -62,7 +63,7 @@ func getBuildInfo() buildInfo {
 			case "vcs.time":
 				b.buildDate = kv.Value
 			case "vcs.modified":
-				b.gitTreeState = kv.Value
+				b.gitTreeModified = kv.Value
 			case "GOARCH":
 				b.platform = kv.Value
 			}
