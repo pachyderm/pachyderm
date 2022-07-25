@@ -198,6 +198,33 @@ jobs:
             pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
 
             check-manifest -v
+  jupyter-integration-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    working_directory: ~/pachyderm/jupyterlab-extension
+    steps:
+      - checkout:
+          path: ~/pachyderm
+      - install-test-deps
+      - run:
+          name: 'Integration tests'
+          command: |
+            set -eux
+
+            python3 -m venv venv
+            . venv/bin/activate
+            python3 -m pip install -e '.[dev]'
+
+            nohup pachctl port-forward &
+
+            tail -F /tmp/pachctl-mount-server.log &
+
+            mkdir pfs
+            export PFS_MOUNT_DIR=$(pwd)/pfs
+
+            # Run integration tests
+            pytest -v jupyterlab_pachyderm/tests/test_integrations.py
   jupyter-build:
     executor: python
     working_directory: ~/pachyderm/jupyterlab-extension
@@ -686,6 +713,7 @@ workflows:
               python-version: ['3.10']
       - jupyter-build
       - jupyter-frontend-tests
+      - jupyter-integration-test
 
   integration-tests:
     when:
