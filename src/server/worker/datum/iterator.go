@@ -127,20 +127,29 @@ func NewFileSetIterator(pachClient *client.APIClient, fsID string, pathRange *pf
 type fileSetMultiIterator struct {
 	pachClient *client.APIClient
 	commit     *pfs.Commit
+	pathRange  *pfs.PathRange
 }
 
-func newFileSetMultiIterator(pachClient *client.APIClient, fsID string) Iterator {
+func newFileSetMultiIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
 	return &fileSetMultiIterator{
 		pachClient: pachClient,
 		commit:     client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID),
+		pathRange:  pathRange,
 	}
 }
 
 func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
-	r, err := mi.pachClient.GetFileTAR(mi.commit, "/*")
-	if err != nil {
-		return err
+	req := &pfs.GetFileRequest{
+		File:      mi.commit.NewFile("/*"),
+		PathRange: mi.pathRange,
 	}
+	ctx, cancel := context.WithCancel(mi.pachClient.Ctx())
+	defer cancel()
+	client, err := mi.pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	r := grpcutil.NewStreamingBytesReader(client, nil)
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()

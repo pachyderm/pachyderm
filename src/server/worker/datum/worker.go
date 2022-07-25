@@ -1,8 +1,10 @@
 package datum
 
 import (
+	"encoding/hex"
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	glob "github.com/pachyderm/ohmyglob"
@@ -15,7 +17,11 @@ import (
 )
 
 func IsTaskResult(output *types.Any) bool {
-	return types.Is(output, &PFSTaskResult{}) || types.Is(output, &CrossTaskResult{}) || types.Is(output, &ComposeTaskResult{})
+	return types.Is(output, &PFSTaskResult{}) ||
+		types.Is(output, &CrossTaskResult{}) ||
+		types.Is(output, &KeyTaskResult{}) ||
+		types.Is(output, &MergeTaskResult{}) ||
+		types.Is(output, &ComposeTaskResult{})
 }
 
 func TaskResultFileSets(output *types.Any) ([]string, error) {
@@ -32,6 +38,18 @@ func TaskResultFileSets(output *types.Any) ([]string, error) {
 			return nil, err
 		}
 		return []string{taskResult.FileSetId}, nil
+	case types.Is(output, &KeyTaskResult{}):
+		taskResult, err := deserializeKeyTaskResult(output)
+		if err != nil {
+			return nil, err
+		}
+		return []string{taskResult.FileSetId}, nil
+	case types.Is(output, &MergeTaskResult{}):
+		taskResult, err := deserializeMergeTaskResult(output)
+		if err != nil {
+			return nil, err
+		}
+		return []string{taskResult.FileSetId}, nil
 	case types.Is(output, &ComposeTaskResult{}):
 		taskResult, err := deserializeComposeTaskResult(output)
 		if err != nil {
@@ -44,7 +62,11 @@ func TaskResultFileSets(output *types.Any) ([]string, error) {
 }
 
 func IsTask(input *types.Any) bool {
-	return types.Is(input, &PFSTask{}) || types.Is(input, &CrossTask{}) || types.Is(input, &ComposeTask{})
+	return types.Is(input, &PFSTask{}) ||
+		types.Is(input, &CrossTask{}) ||
+		types.Is(input, &KeyTask{}) ||
+		types.Is(input, &MergeTask{}) ||
+		types.Is(input, &ComposeTask{})
 }
 
 func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, error) {
@@ -61,6 +83,18 @@ func ProcessTask(pachClient *client.APIClient, input *types.Any) (*types.Any, er
 			return nil, err
 		}
 		return processCrossTask(pachClient, task)
+	case types.Is(input, &KeyTask{}):
+		task, err := deserializeKeyTask(input)
+		if err != nil {
+			return nil, err
+		}
+		return processKeyTask(pachClient, task)
+	case types.Is(input, &MergeTask{}):
+		task, err := deserializeMergeTask(input)
+		if err != nil {
+			return nil, err
+		}
+		return processMergeTask(pachClient, task)
 	case types.Is(input, &ComposeTask{}):
 		task, err := deserializeComposeTask(input)
 		if err != nil {
@@ -149,6 +183,97 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 	return errors.EnsureStack(err)
 }
 
+func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*types.Any, error) {
+	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+		fsi := NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+		keyHasher := pfs.NewHash()
+		marshaller := new(jsonpb.Marshaler)
+		err := fsi.Iterate(func(meta *Meta) error {
+			for _, input := range meta.Inputs {
+				var rawKey string
+				switch task.Type {
+				case KeyTask_JOIN:
+					rawKey = input.JoinOn
+				case KeyTask_GROUP:
+					rawKey = input.GroupBy
+				default:
+					return errors.Errorf("unrecognized key task type (%v)", task.Type)
+				}
+				// hash input keys to ensure consistently-shaped filepaths
+				keyHasher.Reset()
+				keyHasher.Write([]byte(rawKey))
+				key := hex.EncodeToString(keyHasher.Sum(nil))
+				out, err := marshaller.MarshalToString(input)
+				if err != nil {
+					return errors.Wrap(err, "marshalling input for key aggregation")
+				}
+				if err := mf.PutFile(key, strings.NewReader(out), client.WithAppendPutFile()); err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
+			return nil
+		})
+		return errors.EnsureStack(err)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return serializeKeyTaskResult(&KeyTaskResult{FileSetId: resp.FileSetId})
+}
+
+func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*types.Any, error) {
+	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-merge", func(s *Set) error {
+		var fsmis []Iterator
+		for _, fileSetId := range task.FileSetIds {
+			fsmis = append(fsmis, newFileSetMultiIterator(pachClient, fileSetId, task.PathRange))
+		}
+		switch task.Type {
+		case MergeTask_JOIN:
+			return mergeByKey(fsmis, existingMetaHash, func(metas []*Meta) error {
+				var crossInputs [][]*common.Input
+				for _, m := range metas {
+					crossInputs = append(crossInputs, m.Inputs)
+				}
+				err := newCrossListIterator(crossInputs).Iterate(func(meta *Meta) error {
+					if len(meta.Inputs) == len(task.FileSetIds) {
+						// all inputs represented, include all inputs
+						return s.UploadMeta(meta)
+					}
+					var filtered []*common.Input
+					for _, in := range meta.Inputs {
+						if in.OuterJoin {
+							filtered = append(filtered, in)
+						}
+					}
+					if len(filtered) > 0 {
+						return s.UploadMeta(&Meta{Inputs: filtered})
+					}
+					return nil
+				})
+				return errors.EnsureStack(err)
+			})
+		case MergeTask_GROUP:
+			return mergeByKey(fsmis, existingMetaHash, func(metas []*Meta) error {
+				var allInputs []*common.Input
+				for _, m := range metas {
+					allInputs = append(allInputs, m.Inputs...)
+				}
+				return s.UploadMeta(&Meta{Inputs: allInputs})
+			})
+		default:
+			return errors.Errorf("unrecognized merge task type (%v)", task.Type)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return serializeMergeTaskResult(&MergeTaskResult{FileSetId: fileSetID})
+}
+
+func existingMetaHash(meta *Meta) string {
+	return meta.Hash
+}
+
 func processComposeTask(pachClient *client.APIClient, task *ComposeTask) (*types.Any, error) {
 	resp, err := pachClient.PfsAPIClient.ComposeFileSet(
 		pachClient.Ctx(),
@@ -192,6 +317,44 @@ func deserializeCrossTask(taskAny *types.Any) (*CrossTask, error) {
 }
 
 func serializeCrossTaskResult(task *CrossTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeKeyTask(taskAny *types.Any) (*KeyTask, error) {
+	task := &KeyTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeKeyTaskResult(task *KeyTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeMergeTask(taskAny *types.Any) (*MergeTask, error) {
+	task := &MergeTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeMergeTaskResult(task *MergeTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

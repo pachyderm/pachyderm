@@ -2,11 +2,8 @@ package datum
 
 import (
 	"context"
-	"encoding/hex"
 	"math"
-	"strings"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -210,12 +207,11 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	return outputFileSetID, nil
 }
 
-// TODO: Convert to distributed and cache.
 func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		var iterators []Iterator
+		var fileSetIDs []string
 		for _, input := range inputs {
 			fileSetID, err := Create(pachClient, taskDoer, input)
 			if err != nil {
@@ -224,41 +220,13 @@ func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.
 			if err := renewer.Add(ctx, fileSetID); err != nil {
 				return err
 			}
-			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
+			fileSetIDs = append(fileSetIDs, fileSetID)
 		}
-		filesets, err := computeDatumKeyFilesets(pachClient, renewer, iterators, true)
+		keyFileSetIDs, err := createKeyFileSets(pachClient, taskDoer, renewer, fileSetIDs, KeyTask_JOIN)
 		if err != nil {
 			return err
 		}
-		var dits []Iterator
-		for _, fs := range filesets {
-			dits = append(dits, newFileSetMultiIterator(pachClient, fs))
-		}
-		outputFileSetID, err = WithCreateFileSet(pachClient, "pachyderm-datums-join", func(s *Set) error {
-			return mergeByKey(dits, existingMetaHash, func(metas []*Meta) error {
-				var crossInputs [][]*common.Input
-				for _, m := range metas {
-					crossInputs = append(crossInputs, m.Inputs)
-				}
-				err := newCrossListIterator(crossInputs).Iterate(func(meta *Meta) error {
-					if len(meta.Inputs) == len(iterators) {
-						// all inputs represented, include all inputs
-						return s.UploadMeta(meta)
-					}
-					var filtered []*common.Input
-					for _, in := range meta.Inputs {
-						if in.OuterJoin {
-							filtered = append(filtered, in)
-						}
-					}
-					if len(filtered) > 0 {
-						return s.UploadMeta(&Meta{Inputs: filtered})
-					}
-					return nil
-				})
-				return errors.EnsureStack(err)
-			})
-		})
+		outputFileSetID, err = mergeKeyFileSets(pachClient, taskDoer, keyFileSetIDs, MergeTask_JOIN)
 		return err
 	}); err != nil {
 		return "", err
@@ -266,63 +234,126 @@ func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.
 	return outputFileSetID, nil
 }
 
-func computeDatumKeyFilesets(pachClient *client.APIClient, renewer *renew.StringSet, iterators []Iterator, isJoin bool) ([]string, error) {
+func createKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, renewer *renew.StringSet, fileSetIDs []string, keyType KeyTask_Type) ([]string, error) {
 	eg, ctx := errgroup.WithContext(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
-	filesets := make([]string, len(iterators))
-	for i, di := range iterators {
+	outputFileSetIDs := make([]string, len(fileSetIDs))
+	for i, fileSetID := range fileSetIDs {
 		i := i
-		di := di
-		keyHasher := pfs.NewHash()
-		marshaller := new(jsonpb.Marshaler)
+		fileSetID := fileSetID
 		eg.Go(func() error {
-			resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-				err := di.Iterate(func(meta *Meta) error {
-					for _, input := range meta.Inputs {
-						// hash input keys to ensure consistently-shaped filepaths
-						keyHasher.Reset()
-						rawKey := input.GroupBy
-						if isJoin {
-							rawKey = input.JoinOn
-						}
-						keyHasher.Write([]byte(rawKey))
-						key := hex.EncodeToString(keyHasher.Sum(nil))
-						out, err := marshaller.MarshalToString(input)
-						if err != nil {
-							return errors.Wrap(err, "marshalling input for key aggregation")
-						}
-						if err := mf.PutFile(key, strings.NewReader(out), client.WithAppendPutFile()); err != nil {
-							return errors.EnsureStack(err)
-						}
-					}
-					return nil
-				})
-				return errors.EnsureStack(err)
-			})
+			outputFileSetID, err := createKeyFileSet(pachClient, taskDoer, fileSetID, keyType)
 			if err != nil {
 				return err
 			}
-			renewer.Add(ctx, resp.FileSetId)
-			filesets[i] = resp.FileSetId
+			if err := renewer.Add(ctx, outputFileSetID); err != nil {
+				return err
+			}
+			outputFileSetIDs[i] = outputFileSetID
 			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return filesets, nil
+	return outputFileSetIDs, nil
 }
 
-func existingMetaHash(meta *Meta) string {
-	return meta.Hash
+func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetID string, keyType KeyTask_Type) (string, error) {
+	var outputFileSetID string
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		pachClient := pachClient.WithCtx(ctx)
+		shards, err := pachClient.ShardFileSet(fileSetID)
+		if err != nil {
+			return err
+		}
+		var inputs []*types.Any
+		for _, shard := range shards {
+			input, err := serializeKeyTask(&KeyTask{
+				FileSetId: fileSetID,
+				PathRange: shard,
+				Type:      keyType,
+			})
+			if err != nil {
+				return err
+			}
+			inputs = append(inputs, input)
+		}
+		resultFileSetIDs := make([]string, len(inputs))
+		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err != nil {
+				return err
+			}
+			result, err := deserializeKeyTaskResult(output)
+			if err != nil {
+				return err
+			}
+			if err := renewer.Add(ctx, result.FileSetId); err != nil {
+				return err
+			}
+			resultFileSetIDs[i] = result.FileSetId
+			return nil
+		}); err != nil {
+			return err
+		}
+		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	return outputFileSetID, nil
 }
 
-// TODO: Convert to distributed and cache.
+func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetIDs []string, mergeType MergeTask_Type) (string, error) {
+	var outputFileSetID string
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		pachClient := pachClient.WithCtx(ctx)
+		shards, err := common.Shard(pachClient, fileSetIDs)
+		if err != nil {
+			return err
+		}
+		var inputs []*types.Any
+		for _, shard := range shards {
+			input, err := serializeMergeTask(&MergeTask{
+				FileSetIds: fileSetIDs,
+				PathRange:  shard,
+				Type:       mergeType,
+			})
+			if err != nil {
+				return err
+			}
+			inputs = append(inputs, input)
+		}
+		resultFileSetIDs := make([]string, len(inputs))
+		if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err != nil {
+				return err
+			}
+			result, err := deserializeMergeTaskResult(output)
+			if err != nil {
+				return err
+			}
+			if err := renewer.Add(ctx, result.FileSetId); err != nil {
+				return err
+			}
+			resultFileSetIDs[i] = result.FileSetId
+			return nil
+		}); err != nil {
+			return err
+		}
+		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	return outputFileSetID, nil
+}
+
 func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		var iterators []Iterator
+		var fileSetIDs []string
 		for _, input := range inputs {
 			fileSetID, err := Create(pachClient, taskDoer, input)
 			if err != nil {
@@ -331,25 +362,13 @@ func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 			if err := renewer.Add(ctx, fileSetID); err != nil {
 				return err
 			}
-			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
+			fileSetIDs = append(fileSetIDs, fileSetID)
 		}
-		filesets, err := computeDatumKeyFilesets(pachClient, renewer, iterators, false)
+		keyFileSetIDs, err := createKeyFileSets(pachClient, taskDoer, renewer, fileSetIDs, KeyTask_GROUP)
 		if err != nil {
 			return err
 		}
-		var dits []Iterator
-		for _, fs := range filesets {
-			dits = append(dits, newFileSetMultiIterator(pachClient, fs))
-		}
-		outputFileSetID, err = WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
-			return mergeByKey(dits, existingMetaHash, func(metas []*Meta) error {
-				var allInputs []*common.Input
-				for _, m := range metas {
-					allInputs = append(allInputs, m.Inputs...)
-				}
-				return s.UploadMeta(&Meta{Inputs: allInputs})
-			})
-		})
+		outputFileSetID, err = mergeKeyFileSets(pachClient, taskDoer, keyFileSetIDs, MergeTask_GROUP)
 		return err
 	}); err != nil {
 		return "", err
@@ -399,6 +418,44 @@ func serializeCrossTask(task *CrossTask) (*types.Any, error) {
 
 func deserializeCrossTaskResult(taskAny *types.Any) (*CrossTaskResult, error) {
 	task := &CrossTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeKeyTask(task *KeyTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeKeyTaskResult(taskAny *types.Any) (*KeyTaskResult, error) {
+	task := &KeyTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeMergeTask(task *MergeTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeMergeTaskResult(taskAny *types.Any) (*MergeTaskResult, error) {
+	task := &MergeTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
