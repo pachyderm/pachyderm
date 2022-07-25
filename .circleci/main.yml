@@ -837,6 +837,7 @@ workflows:
       - jupyter-integration-test
       - jupyter-e2e-test
       - build-pachctl-bin:
+          version: $CIRCLE_SHA1
           upload: false
       - jupyter-docker-build:
           requires:
