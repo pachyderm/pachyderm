@@ -8,13 +8,16 @@ You can inject database content, collected by your data warehouse, by pulling th
 ## Before You Start 
 
 - You should be familiar with [Jsonnet](https://jsonnet.org/learning/tutorial.html)
-- You should be familiar with creating [Jsonnet pipeline specs](https://docs.pachyderm.com/latest/how-tos/pipeline-operations/jsonnet-pipeline-specs/#jsonnet-pipeline-specifications) in Pachydernm.
+- You should be familiar with creating [Jsonnet pipeline specs](https://docs.pachyderm.com/latest/how-tos/pipeline-operations/jsonnet-pipeline-specs/#jsonnet-pipeline-specifications) in Pachyderm.
+- You should be familiar with [managing Kubernetes secrets](https://kubernetes.io/docs/tasks/configmap-secret/managing-secret-using-kubectl/). 
 
 ---
 
 ## How to Set Up SQL Ingest
 
-### 1. Create & Upload a Generic Secret
+### 1. Create & Upload a Secret
+
+You must generate a secret that contains the password granting user access to the database; you will pass the username details through the Database Connection URL in [step 2](#2-create-a-database-connection).
 
 1. Copy the following:
     ```shell
@@ -28,15 +31,14 @@ You can inject database content, collected by your data warehouse, by pulling th
     ```
 5. Swap out `yourSecretfile` with relevant filename. 
 6. Run the command. 
+7. Confirm secret by running `pachctl list secret`. 
    
-This creates a secret that looks like the following:
-
 !!! Note
      Not all secret formats are the same. For a full walkthrough on how to create, edit, and view different types of secrets, see [Create and Manage Secrets in Pachyderm](../../advanced-data-operations/secrets/#create-a-secret).
 
-### 2. Create a Database Connection URL 
+### 2. Create a Database Connection 
 
-Pachyderm's SQL Ingest requires a connection string defined as a URL to connect to your database; the URL is structured as follows:
+Pachyderm's SQL Ingest requires a connection string defined as a [Jsonnet URL parameter](#url-parameter-details) to connect to your database; the URL is structured as follows:
 
 ```
 <protocol>://<username>@<host>:<port>/<database>?<param1>=<value1>&<param2>=<value2>
@@ -44,7 +46,7 @@ Pachyderm's SQL Ingest requires a connection string defined as a URL to connect 
 
 ### 3. Create a Pipeline Spec 
 
-Pachyderm provides a [default jsonnet template](https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) that has key parameters built in.
+Pachyderm provides a [default jsonnet template](https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) that has key parameters built in. To use it, you must pass an argument for each [parameter](#parameters). 
 
 1. Copy the following:
    ```shell
@@ -67,25 +69,57 @@ Pachyderm provides a [default jsonnet template](https://raw.githubusercontent.co
 - **To View Output File**: `pachctl list file outputRepoName@master`
 - **To Read Output File**: `pachctl get file myingest@master:/0000` 
 
+
+
+### Example: Snowflake
+
+In this example, we are leveraging Snowflake's support for queries traversing [semi-structured data](https://docs.snowflake.com/en/user-guide/semistructured-concepts.html#:~:text=Snowflake%20provides%20native%20support%20for,fast%20and%20efficient%20SQL%20querying.) (here, JSON). 
+
+
+1. Create a secret with your password named `snowflakeSecret`.
+2. Create a [Snowflake specific](#snowflake) database connection URL using the following details:
+      - **Protocol**: `snowflake`
+      - **Username**: `username`
+      - **Host**: `VCNYTW-MH64356` (account name or locator)
+      - **Database**: `SNOWFLAKE_SAMPLE_DATA` 
+      - **Schema**: `WEATHER`
+      - **Warehouse**: `COMPUTE_WH`
+      ```
+      snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH
+      ```
+3. Build query for the table `DAILY_14_TOTAL` using information from column `V`.  
+    ```sql
+    select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1
+    ```
+4.  Define the pipeline spec by populating all of the parameter values:
+   
+   ```shell
+      pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/2.2.x/src/templates/sql_ingest_cron.jsonnet  \
+      --arg name=mysnowflakeingest \
+      --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" \
+      --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" \
+      --arg hasHeader=true \
+      --arg cronSpec="@every 30s" \
+      --arg secretName="snowflakeSecret" \
+      --arg format=json
+   ```
+5. Run the command.
+
 ---
+
 ## How Does This Work?
 
-SQL Ingest's jsonnet pipeline spec [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) creates all of the following:
+SQL Ingest's jsonnet pipeline spec, [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet), creates all of the following:
 
-- **1 Input Data Repo**: Used to store timestamp files at the cronSpec's set interval rate (`--arg cronSpec="@every 30s" \`) to trigger the pipeline.
+- **1 Input Data Repo**: Used to store timestamp files at the cronSpec's set interval rate (`--arg cronSpec="pullInterval" \`) to trigger the pipeline.
 - [**1 Cron Pipeline**](../../../concepts/pipeline-concepts/pipeline/cron/#cron-pipeline): Houses the spec details that define the input type and settings and  data transformation.
--  **1 Output Repo**: Used to store the data transformed by the cron pipeline; set by the pipeline spec's `pipeline.name` attribute, which you can define through the jsonnet parameter `--arg name=myingest \`
+-  **1 Output Repo**: Used to store the data transformed by the cron pipeline; set by the pipeline spec's `pipeline.name` attribute, which you can define through the jsonnet parameter `--arg name=outputRepoName \`
 - **1 Output File**: Used to save the query results (JSON or CSV) and potentially be used as input for a following pipeline.
 
-In the default Jsonnet template, the file generated is obtainable from the output repo, `outputRepoName@master:/0000`. The filename is hardcoded, however you could paramaterize this as well using a custom jsonnet pipeline spec and passing `--arg outputFile='0000'`. The file's contents are the result of the query(`--arg query="..."`) being ran against the database`--arg url="..."` ; both are defined in the `transform.cmd` attribute.
+In the default Jsonnet template, the file generated is obtainable from the output repo, `outputRepoName@master:/0000`. The filename is hardcoded, however you could paramaterize this as well using a custom jsonnet pipeline spec and passing `--arg outputFile='0000'`. The file's contents are the result of the query(`--arg query="query"`) being ran against the database`--arg url="connectionStringToDdatabase"` ; both are defined in the `transform.cmd` attribute.
 
-### Other Details
 
-- The name of each pipeline (and their related input/output repos) are derived from the `name` parameter (`--arg name=myingest`).
-- The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf){target=_blank} is used in both pipelines.
----
-
-## About SQL Ingest Jsonnet Pipeline Specs
+### About SQL Ingest Pipeline Specs
 
 To create an SQL Ingest Jsonnet Pipeline spec, you must have a .jsonnet file and several parameters:
 
@@ -99,6 +133,9 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
   --arg secretName="<secretName>" \
   --arg format=<CsvOrJson> 
 ```
+
+- The name of each pipeline (and their related input/output repos) are derived from the `name` parameter (`--arg name=outputRepoName`).
+- The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf){target=_blank} is used in both pipelines.
 
 ### Parameters
 
@@ -114,6 +151,9 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
 
 #### URL Parameter Details
 
+```
+<protocol>://<username>@<host>:<port>/<database>?<param1>=<value1>&<param2>=<value2>
+```
 
 - Passwords are not included in the URL; they are retrieved from the secret created in step 1.
 - The additional parameters after `?` are optional and needed on a case-by-case bases (for example, Snowflake)
@@ -126,15 +166,28 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
 | `port`     | The port number your instance is listening on.|
 | `database` | The name of the database to connect to. | 
 
----
+##### Snowflake 
 
-## Formats & SQL Data Types 
+ Pachyderm supports two connection URL patterns to query Snowflake:
+
+  ```shell
+  snowflake://username@<account_identifier>/<db_name>/<schema_name>?warehouse=<warehouse_name>
+  snowflake://username@hostname:port/<db_name>/<schema_name>?account=<account_identifier>&warehouse=<warehouse_name>
+  ```
+  The *[`account_identifier`](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html){target=_blank}* takes one of the following forms for most URLs:
+
+  - Option 1 - [Account Name](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-1-account-name-in-your-organization){target=_blank}:`organization_name`-`account_name`
+  - Option 2 - [Account Locator](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#option-2-account-locator-in-a-region){target=_blank}: `account_locator`.`region`.`cloud`
+
+
+
+### Formats & SQL Data Types 
 
 The following comments on formatting reflect the state of this release and are subject to change.
 
-### Formats 
+#### Formats 
 
-#### Numeric 
+##### Numeric 
 
 All numeric values are converted into strings in your CSV and JSON. 
 
@@ -147,7 +200,7 @@ All numeric values are converted into strings in your CSV and JSON.
         - Note that infinite (Inf) and not a number (NaN) values will also be stored as strings in JSON files. 
         - Use this format `#.#` for all decimals that you plan to egress back to a database.
 
-#### Date/Timestamps
+##### Date/Timestamps
 
 |Type|Database|CSV|JSON|
 |----|--------|---|----|
@@ -155,7 +208,7 @@ All numeric values are converted into strings in your CSV and JSON.
 |Timestamp ntz|2022-05-09 16:43:00|2022-05-09T16:43:00|"2022-05-09T16:43:00"|
 |Timestamp tz|2022-05-09 16:43:00-05:00|2022-05-09T16:43:00-05:00|"2022-05-09T16:43:00-05:00"|
 
-#### Strings
+##### Strings
 
 |Database|CSV|
 |--------|---|
@@ -170,7 +223,7 @@ All numeric values are converted into strings in your CSV and JSON.
      When parsing your CSVs in your user code, remember to escape `"` with `""`.
 
 
-### Supported Data Types
+#### Supported Data Types
 
 Some of the Data Types listed in this section are specific to a particular database.
 
