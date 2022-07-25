@@ -359,7 +359,7 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
-  # DEPRECATED: activateEnterprise is no longer used. 
+  # DEPRECATED: activateEnterprise is no longer used.
   activateEnterprise: false
   ## if pachd.activateEnterpriseMember is set, enterprise will be activated and connected to an existing enterprise server.
   ## if pachd.enterpriseLicenseKey is set, enterprise will be activated.
