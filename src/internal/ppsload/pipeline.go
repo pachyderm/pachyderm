@@ -69,8 +69,8 @@ func createPipeline(pachClient *client.APIClient, repo string, inputRepos []stri
 				Name:      fmt.Sprint("input-", i),
 				Repo:      inputRepo,
 				Branch:    "master",
-				Glob:      "/*",
-				JoinOn:    "/*",
+				Glob:      "/(*)",
+				JoinOn:    "$1",
 				OuterJoin: true,
 			},
 		})
