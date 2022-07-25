@@ -18,7 +18,9 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
-
+  docs-change-only:
+    type: boolean
+    default: false
 jobs:
   test-go:
     machine:
@@ -559,6 +561,8 @@ jobs:
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   integration-tests:
+    when:
+      not: docs-change-only
     jobs:
       - build-docker-images
       - build-pachctl-bin:
@@ -588,9 +592,13 @@ workflows:
                 - S3_AUTH
                 - EXAMPLES
   helm-tests:
+    when:
+      not: docs-change-only
     jobs:
       - helm-tests
   nightly_load_tests:
+    when:
+      not: docs-change-only
     triggers:
       - schedule:
           cron: "0 6 * * *"
@@ -622,9 +630,13 @@ workflows:
                   #- LOAD14
                   #- LOAD15
   rootless-tests:
+    when:
+      not: docs-change-only
     jobs:
       - rootless
   deploy-tests:
+    when:
+      not: docs-change-only
     jobs:
       - deploy-tests
   release:
