@@ -284,6 +284,55 @@ jobs:
 
             # Run integration tests
             pytest -v jupyterlab_pachyderm/tests/test_integrations.py
+  jupyter-e2e-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - install-jupyter-test-deps
+      - run:
+          name: 'e2e tests'
+          command: |
+            set -eux
+
+            python3 -m venv venv
+            . venv/bin/activate
+            python -m pip install -r ci-requirements.txt
+            python -m pip install .
+
+            # Enable the examples extension
+            mkdir -p /home/circleci/.jupyter/labconfig
+            cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
+
+            jupyter labextension develop . --overwrite
+            jupyter server extension enable jupyterlab_pachyderm
+            npm ci
+            npm run build
+
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
+            
+            pachctl create repo images
+            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
+            pachctl list repo
+
+            tail -F /tmp/pachctl-mount-server.log &
+            mkdir pfs
+            export PFS_MOUNT_DIR=$(pwd)/pfs
+            mount-server --mount-dir $PFS_MOUNT_DIR &
+            curl -XPUT -d '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' http://localhost:9002/config
+            CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
+  jupyter-frontend-tests:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.11.0
+    working_directory: ~/pachyderm/jupyterlab-extension
+    steps:
+      - checkout:
+          path: ~/pachyderm
+      - run: npm ci
+      - run: npm run test
   jupyter-build:
     executor: python
     working_directory: ~/pachyderm/jupyterlab-extension
@@ -331,16 +380,25 @@ jobs:
           root: .
           paths:
             - dist
-  jupyter-frontend-tests:
-    resource_class: xlarge
+  jupyter-docker-build:
+    executor: python
     docker:
-      - image: cimg/node:16.11.0
-    working_directory: ~/pachyderm/jupyterlab-extension
+      - image: circleci/buildpack-deps:stretch
     steps:
-      - checkout:
-          path: ~/pachyderm
-      - run: npm ci
-      - run: npm run test
+      - checkout
+      - attach_workspace:
+          at: .
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: docker login
+          command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker image
+          command: docker build --build-arg PACHCTL_VERSION=<<pipeline.parameters.pachctl_version>> -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
+      - run:
+          name: Docker push
+          command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
   helm-tests:
     docker:
       - image: cimg/go:1.18.4
@@ -773,6 +831,10 @@ workflows:
       - jupyter-build
       - jupyter-frontend-tests
       - jupyter-integration-test
+      - jupyter-e2e-test
+      - jupyter-docker-build:
+          requires:
+            - jupyter-build
 
   integration-tests:
     when:
