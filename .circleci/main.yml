@@ -530,9 +530,13 @@ jobs:
           command: |
             make VERSION=$CIRCLE_SHA1 docker-pull
       - run:
-          name: retag and push docker images
+          name: retag docker images
           command: |
-            make PREVIOUS_VERSION=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-retag-push
+            make PREVIOUS_VERSION=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-tag
+      - run:
+          name: push docker images
+          command: |
+            make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     docker:
       - image: cimg/go:1.18.4
