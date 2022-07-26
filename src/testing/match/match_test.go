@@ -41,7 +41,6 @@ func TestMatchFail(t *testing.T) {
 }
 
 func TestMatchInvertedFail(t *testing.T) {
-	t.Skip("TODO: reenable")
 	c := tu.BashCmd(`
 		echo "This is a test" \
 		  | match -v "test" \
@@ -50,6 +49,6 @@ func TestMatchInvertedFail(t *testing.T) {
 	buf := &bytes.Buffer{}
 	c.Stderr = buf
 	require.YesError(t, c.Run())
-	require.True(t, bytes.Contains(buf.Bytes(), []byte("did not expect to find")))
+	require.True(t, bytes.Contains(buf.Bytes(), []byte("failed to find")))
 	require.True(t, bytes.Contains(buf.Bytes(), []byte("test")))
 }
