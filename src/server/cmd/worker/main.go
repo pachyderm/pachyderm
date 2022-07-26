@@ -58,7 +58,6 @@ func do(config interface{}) error {
 	}
 
 	// Construct worker API server.
-	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	workerInstance, err := worker.NewWorker(env, pachClient, pipelineInfo, "/")
 	if err != nil {
 		return err
@@ -75,6 +74,7 @@ func do(config interface{}) error {
 	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
 
 	// Put our IP address into etcd, so pachd can discover us
+	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	key := path.Join(env.Config().PPSEtcdPrefix, workerserver.WorkerEtcdPrefix, workerRcName, env.Config().PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our

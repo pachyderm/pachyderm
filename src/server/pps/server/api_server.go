@@ -1,8 +1,8 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -19,12 +19,12 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -39,10 +39,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -277,7 +277,7 @@ func (a *apiServer) validateKube(ctx context.Context) {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
 	}
-	pods, err := a.rcPods(ctx, "pachd")
+	pods, err := a.pachdPods(ctx)
 	if err != nil || len(pods) == 0 {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
@@ -294,7 +294,7 @@ func (a *apiServer) validateKube(ctx context.Context) {
 		}
 	}
 	name := uuid.NewWithoutDashes()
-	labels := map[string]string{"app": name}
+	labels := map[string]string{appLabel: name}
 	rc := &v1.ReplicationController{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ReplicationController",
@@ -822,8 +822,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// If the job is running, we fill in WorkerStatus field, otherwise
 	// we just return the jobInfo.
 	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		workerPoolID := ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
-		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -992,8 +991,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	workerPoolID := ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := workerserver.Cancel(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1129,7 +1127,11 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
-	var rcName, containerName string
+	var (
+		rcName, containerName string
+		pods                  []v1.Pod
+		err                   error
+	)
 	if request.Pipeline == nil && request.Job == nil {
 		if len(request.DataFilters) > 0 || request.Datum != nil {
 			return errors.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
@@ -1138,6 +1140,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return errors.EnsureStack(err)
 		}
 		containerName, rcName = "pachd", "pachd"
+		pods, err = a.pachdPods(apiGetLogsServer.Context())
 	} else if request.Job != nil && request.Job.GetPipeline().GetName() == "" {
 		return errors.Errorf("pipeline must be specified for the given job")
 	} else if request.Job != nil && request.Pipeline != nil && !proto.Equal(request.Job.Pipeline, request.Pipeline) {
@@ -1148,7 +1151,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
 		var pipelineInfo *pps.PipelineInfo
-		var err error
 		if request.Pipeline != nil && request.Job == nil {
 			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Name, true)
 			if err != nil {
@@ -1173,15 +1175,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return err
 		}
 
-		// 3) Get rcName for this pipeline
+		// 3) Get pods for this pipeline
 		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err != nil {
 			return err
 		}
 	}
 
-	// Get pods managed by the RC we're scraping (either pipeline or pachd)
-	pods, err := a.rcPods(apiGetLogsServer.Context(), rcName)
 	if err != nil {
 		return errors.Wrapf(err, "could not get pods in rc \"%s\" containing logs", rcName)
 	}
@@ -1234,44 +1235,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				}()
 
 				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(stream)
-				for scanner.Scan() {
-					msg := new(pps.LogMessage)
-					if containerName == "pachd" {
-						msg.Message = scanner.Text()
-					} else {
-						logBytes := scanner.Bytes()
-						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-							continue
-						}
-
-						// Filter out log lines that don't match on pipeline or job
-						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-							continue
-						}
-						if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
-							continue
-						}
-						if request.Datum != nil && request.Datum.ID != msg.DatumID {
-							continue
-						}
-						if request.Master != msg.Master {
-							continue
-						}
-						if !common.MatchDatum(request.DataFilters, msg.Data) {
-							continue
-						}
-					}
-					msg.Message = strings.TrimSuffix(msg.Message, "\n")
-
-					// Log message passes all filters -- return it
+				return ppsutil.FilterLogLines(request, stream, containerName == "pachd", func(msg *pps.LogMessage) error {
 					select {
 					case logCh <- msg:
-					case <-apiGetLogsServer.Context().Done():
 						return nil
+					case <-apiGetLogsServer.Context().Done():
+						return errutil.ErrBreak
 					}
-				}
-				return nil
+				})
 			})
 		}
 		return nil
@@ -2301,8 +2272,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			}
 		}
 
-		workerPoolID := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
-		workerStatus, err := workerserver.Status(ctx, workerPoolID, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -2971,89 +2941,27 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 }
 
 // RunLoadTest implements the pps.RunLoadTest RPC
-// TODO: It could be useful to make the glob and number of pipelines configurable.
-func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTest(ctx context.Context, req *pps.RunLoadTestRequest) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
-	repo := "load_test"
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
-		return nil, err
+	if req.DagSpec == "" {
+		req.DagSpec = defaultDagSpecs[0]
 	}
-	branch := uuid.New()
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	pipeline := tu.UniqueString("TestLoadPipeline")
-	if _, err := pachClient.PpsAPIClient.CreatePipeline(
-		pachClient.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 1,
-			},
-			Input: &pps.Input{
-				Pfs: &pps.PFSInput{
-					Repo:   repo,
-					Branch: branch,
-					Glob:   "/*",
-				},
-			},
-			PodPatch: req.PodPatch,
-		},
-	); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	req.Branch = client.NewBranch(repo, branch)
-	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)
-	return res, errors.EnsureStack(err)
+	return ppsload.Pipeline(pachClient, req)
 }
 
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
-// TODO: It could be useful to make the glob and number of pipelines configurable.
-func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
-	repo := "load_test"
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
-		return nil, err
-	}
-	branch := uuid.New()
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	pipeline := tu.UniqueString("TestLoadPipeline")
-	if err := pachClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Repo:   repo,
-				Branch: branch,
-				Glob:   "/*",
-			},
-		},
-		"",
-		false,
-	); err != nil {
-		return nil, err
-	}
-	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), &pfs.RunLoadTestRequest{
-		Spec:   defaultLoadSpecs[0],
-		Branch: client.NewBranch(repo, branch),
+	return ppsload.Pipeline(pachClient, &pps.RunLoadTestRequest{
+		DagSpec:  defaultDagSpecs[0],
+		LoadSpec: defaultLoadSpecs[0],
 	})
-	return res, errors.EnsureStack(err)
 }
+
+var defaultDagSpecs = []string{`
+default-load-test-source:
+default-load-test-pipeline: default-load-test-source
+`}
 
 var defaultLoadSpecs = []string{`
 count: 5
@@ -3092,18 +3000,42 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(ctx context.Context, rcName string) ([]v1.Pod, error) {
+func (a *apiServer) listPods(ctx context.Context, labels labels.Set) ([]v1.Pod, error) {
 	podList, err := a.env.KubeClient.CoreV1().Pods(a.namespace).List(ctx, metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{"app": rcName})),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return podList.Items, nil
+}
+
+func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
+	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
+}
+
+func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
+	pp, err := a.listPods(ctx, map[string]string{
+		appLabel:             "pipeline",
+		pipelineNameLabel:    pipelineName,
+		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+	})
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if len(pp) == 0 {
+		// Look for the pre-2.4–style pods labelled with the long name.
+		// This long name could exceed 63 characters, which is why 2.4
+		// and later use separate labels for each component.
+		return a.listPods(ctx, map[string]string{
+			appLabel: ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+		})
+	}
+	return pp, nil
 }
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
@@ -3120,11 +3052,22 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	return ci, nil
 }
 
-func labels(app string) map[string]string {
+func pipelineLabels(pipelineName string, pipelineVersion uint64) map[string]string {
 	return map[string]string{
-		"app":       app,
-		"suite":     suite,
-		"component": "worker",
+		appLabel:             "pipeline",
+		pipelineNameLabel:    pipelineName,
+		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		"suite":              suite,
+		"component":          "worker",
+	}
+}
+
+func spoutLabels(pipelineName string) map[string]string {
+	return map[string]string{
+		appLabel:          "spout",
+		pipelineNameLabel: pipelineName,
+		"suite":           suite,
+		"component":       "worker",
 	}
 }
 

@@ -159,14 +159,12 @@ func withBase(namespace string) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.clusterDeploymentID":                    "dev",
-			"global.postgresql.postgresqlPassword":         "pachyderm",
-			"global.postgresql.postgresqlPostgresPassword": "pachyderm",
-			"pachd.resources.requests.cpu":                 "250m",
-			"pachd.resources.requests.memory":              "512M",
-			"etcd.resources.requests.cpu":                  "250m",
-			"etcd.resources.requests.memory":               "512M",
-			"console.enabled":                              "false",
+			"pachd.clusterDeploymentID":       "dev",
+			"pachd.resources.requests.cpu":    "250m",
+			"pachd.resources.requests.memory": "512M",
+			"etcd.resources.requests.cpu":     "250m",
+			"etcd.resources.requests.memory":  "512M",
+			"console.enabled":                 "false",
 		},
 	}
 }
@@ -356,12 +354,14 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
+		var unacceptablePachds []string
 		for _, p := range pachds.Items {
 			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
 				return nil
 			}
+			unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
 		}
-		return errors.Errorf("deployment in progress")
+		return errors.Errorf("deployment in progress: pachds: %v", strings.Join(unacceptablePachds, "; "))
 	})
 }
 

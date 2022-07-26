@@ -211,9 +211,12 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		return nm
 	}
 	selectorlabels := map[string]string{
-		"app":       ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion),
-		"suite":     "pachyderm",
-		"component": "worker",
+		// NOTE: this used to be ppsutil.PipelineRcName(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)
+		appLabel:             "pipeline",
+		pipelineNameLabel:    jobInfo.Job.Pipeline.Name,
+		pipelineVersionLabel: fmt.Sprint(jobInfo.PipelineVersion),
+		"suite":              "pachyderm",
+		"component":          "worker",
 	}
 	svcLabels := copyMap(selectorlabels)
 	svcLabels["job"] = jobInfo.Job.ID // for reference, we also want to leave info about the job in the service definition

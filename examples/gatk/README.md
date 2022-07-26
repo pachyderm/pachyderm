@@ -125,7 +125,7 @@ The last step is to joint call all your GVCF files using the GATK tool GenotypeG
 To run the joint genotyping:
 
 ```shell
-$ pachctl create pipeline -f joint_call.json
+$ pachctl create pipeline -f joint-call.json
 ```
 
 This will automatically trigger a job and produce our final output:

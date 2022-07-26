@@ -4,8 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 
 	dex_memory "github.com/dexidp/dex/storage/memory"
 	logrus "github.com/sirupsen/logrus"
@@ -26,7 +29,9 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 		Name:          "name2",
 		Type:          "github",
 		ConfigVersion: 0,
-		JsonConfig:    "{}",
+		Config: &types.Struct{
+			Fields: map[string]*types.Value{},
+		},
 	}
 
 	logger := logrus.NewEntry(logrus.New())
@@ -62,6 +67,64 @@ func TestConnectorCreateListGetDelete(t *testing.T) {
 	connectors, err = api.listConnectors()
 	require.NoError(t, err)
 	require.Equal(t, []*identity.IDPConnector{conn2}, connectors)
+}
+
+// TestCreateConnector tests that connects with valid configs can be created.
+func TestCreateConnector(t *testing.T) {
+	cases := []*identity.IDPConnector{
+		{
+			Id:            "id1",
+			Name:          "name",
+			Type:          "github",
+			ConfigVersion: 0,
+			JsonConfig:    `{"username": "username", "password": "password"}`,
+		},
+		{
+			Id:            "id1",
+			Name:          "name",
+			Type:          "github",
+			ConfigVersion: 0,
+			Config:        &types.Struct{}, // equivalent to an empty config, in which case jsonConfig should be used.
+			JsonConfig:    `{"username": "username", "password": "password"}`,
+		},
+		{
+			Id:            "id1",
+			Name:          "name",
+			ConfigVersion: 0,
+			Type:          "github",
+			Config: &types.Struct{
+				Fields: map[string]*types.Value{
+					"password": {Kind: &types.Value_StringValue{StringValue: "password"}},
+					"username": {Kind: &types.Value_StringValue{StringValue: "username"}},
+				},
+			},
+		},
+		{
+			Id:            "id1",
+			Name:          "name",
+			ConfigVersion: 0,
+			Type:          "github",
+			Config: &types.Struct{
+				Fields: map[string]*types.Value{
+					"password": {Kind: &types.Value_StringValue{StringValue: "password"}},
+					"username": {Kind: &types.Value_StringValue{StringValue: "username"}},
+				},
+			},
+			JsonConfig: "{ invalid values in jsonConfig should be ignored if a valid json config is defined.",
+		},
+	}
+
+	logger := logrus.NewEntry(logrus.New())
+	api := newDexAPI(dex_memory.New(logger))
+
+	for _, c := range cases {
+		t.Run("valid connectors", func(t *testing.T) {
+			err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: c})
+			require.NoError(t, err)
+			err = api.deleteConnector(c.Id)
+			require.NoError(t, err)
+		})
+	}
 }
 
 // TestCreateInvalidConnector tests that connectors with bad config cannot be created
@@ -117,15 +180,38 @@ func TestCreateInvalidConnector(t *testing.T) {
 			},
 			err: `unable to deserialize JSON: unexpected end of JSON input`,
 		},
+		{
+			conn: &identity.IDPConnector{
+				Id:            "id1",
+				Name:          "name",
+				ConfigVersion: 0,
+				Type:          "github",
+				Config:        &types.Struct{},
+			},
+			err: identityutil.NoConfigErr,
+		},
+		{
+			conn: &identity.IDPConnector{
+				Id:            "id1",
+				Name:          "name",
+				ConfigVersion: 0,
+				Type:          "github",
+				Config:        &types.Struct{}, // this 'empty' value should be overridden by jsonConfig.
+				JsonConfig:    "{",
+			},
+			err: `unable to deserialize JSON: unexpected end of JSON input`,
+		},
 	}
 
 	logger := logrus.NewEntry(logrus.New())
 	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
-		err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: c.conn})
-		require.YesError(t, err)
-		require.Equal(t, c.err, err.Error())
+		t.Run("invalid connectors", func(t *testing.T) {
+			err := api.createConnector(&identity.CreateIDPConnectorRequest{Connector: c.conn})
+			require.YesError(t, err)
+			require.Equal(t, c.err, err.Error())
+		})
 	}
 }
 
@@ -155,7 +241,9 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "github",
 				ConfigVersion: 1,
-				JsonConfig:    "{}",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{},
+				},
 			},
 		},
 		{
@@ -192,7 +280,11 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "github",
 				ConfigVersion: 2,
-				JsonConfig:    `{"client_id": "1234"}`,
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"client_id": {Kind: &types.Value_StringValue{StringValue: "1234"}},
+					},
+				},
 			},
 		},
 		{
@@ -215,8 +307,51 @@ func TestUpdateConnector(t *testing.T) {
 				Name:          "newname",
 				Type:          "mockPassword",
 				ConfigVersion: 3,
-				JsonConfig:    `{"username": "user", "password": "pass"}`,
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
+						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+					},
+				},
 			},
+		},
+		{
+			req: &identity.IDPConnector{
+				Id:   "conn",
+				Type: "mockPassword",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
+						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+					},
+				},
+				ConfigVersion: 4,
+			},
+			expected: &identity.IDPConnector{
+				Id:            "conn",
+				Name:          "newname",
+				Type:          "mockPassword",
+				ConfigVersion: 4,
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"password": {Kind: &types.Value_StringValue{StringValue: "pass"}},
+						"username": {Kind: &types.Value_StringValue{StringValue: "user"}},
+					},
+				},
+			},
+		},
+		{
+			req: &identity.IDPConnector{
+				Id:   "conn",
+				Type: "mockPassword",
+				Config: &types.Struct{
+					Fields: map[string]*types.Value{
+						"garbageIn": {Kind: &types.Value_StringValue{StringValue: "garbageOut"}},
+					},
+				},
+				ConfigVersion: 5,
+			},
+			err: "unable to open connector: no username supplied",
 		},
 	}
 
@@ -228,17 +363,19 @@ func TestUpdateConnector(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, c := range cases {
-		err := api.updateConnector(&identity.UpdateIDPConnectorRequest{Connector: c.req})
-		if c.err != "" {
-			require.YesError(t, err)
-			require.Equal(t, c.err, err.Error())
-			continue
-		}
-		require.NoError(t, err)
+		t.Run("update connector", func(t *testing.T) {
+			err := api.updateConnector(&identity.UpdateIDPConnectorRequest{Connector: c.req})
+			if c.err != "" {
+				require.YesError(t, err)
+				require.Equal(t, c.err, err.Error())
+				return
+			}
+			require.NoError(t, err)
 
-		actual, err := api.getConnector(conn.Id)
-		require.NoError(t, err)
-		require.Equal(t, c.expected, actual)
+			actual, err := api.getConnector(conn.Id)
+			require.NoError(t, err)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
 
@@ -320,9 +457,11 @@ func TestCreateInvalidClient(t *testing.T) {
 	api := newDexAPI(dex_memory.New(logger))
 
 	for _, c := range cases {
-		_, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: c.client})
-		require.YesError(t, err)
-		require.Equal(t, c.err, err.Error())
+		t.Run("invalid client", func(t *testing.T) {
+			_, err := api.createClient(context.Background(), &identity.CreateOIDCClientRequest{Client: c.client})
+			require.YesError(t, err)
+			require.Equal(t, c.err, err.Error())
+		})
 	}
 }
 
@@ -411,16 +550,18 @@ func TestUpdateClient(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, c := range cases {
-		err := api.updateClient(context.Background(), &identity.UpdateOIDCClientRequest{Client: c.req})
-		if c.err != "" {
-			require.YesError(t, err)
-			require.Equal(t, c.err, err.Error())
-			continue
-		}
-		require.NoError(t, err)
+		t.Run("update client", func(t *testing.T) {
+			err := api.updateClient(context.Background(), &identity.UpdateOIDCClientRequest{Client: c.req})
+			if c.err != "" {
+				require.YesError(t, err)
+				require.Equal(t, c.err, err.Error())
+				return
+			}
+			require.NoError(t, err)
 
-		actual, err := api.getClient(client.Id)
-		require.NoError(t, err)
-		require.Equal(t, c.expected, actual)
+			actual, err := api.getClient(client.Id)
+			require.NoError(t, err)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }

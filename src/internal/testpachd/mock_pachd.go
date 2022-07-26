@@ -890,8 +890,8 @@ type listSecretFunc func(context.Context, *types.Empty) (*pps.SecretInfos, error
 type deleteAllPPSFunc func(context.Context, *types.Empty) (*types.Empty, error)
 type getLogsFunc func(*pps.GetLogsRequest, pps.API_GetLogsServer) error
 type activateAuthPPSFunc func(context.Context, *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error)
-type runLoadTestPPSFunc func(context.Context, *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error)
-type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pfs.RunLoadTestResponse, error)
+type runLoadTestPPSFunc func(context.Context, *pps.RunLoadTestRequest) (*pps.RunLoadTestResponse, error)
+type runLoadTestDefaultPPSFunc func(context.Context, *types.Empty) (*pps.RunLoadTestResponse, error)
 type renderTemplateFunc func(context.Context, *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error)
 type listTaskPPSFunc func(*task.ListTaskRequest, pps.API_ListTaskServer) error
 
@@ -1151,13 +1151,13 @@ func (api *ppsServerAPI) ActivateAuth(ctx context.Context, req *pps.ActivateAuth
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.ActivateAuth")
 }
-func (api *ppsServerAPI) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (*pfs.RunLoadTestResponse, error) {
+func (api *ppsServerAPI) RunLoadTest(ctx context.Context, req *pps.RunLoadTestRequest) (*pps.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTest.handler != nil {
 		return api.mock.RunLoadTest.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunLoadTest")
 }
-func (api *ppsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empty) (*pfs.RunLoadTestResponse, error) {
+func (api *ppsServerAPI) RunLoadTestDefault(ctx context.Context, req *types.Empty) (*pps.RunLoadTestResponse, error) {
 	if api.mock.RunLoadTestDefault.handler != nil {
 		return api.mock.RunLoadTestDefault.handler(ctx, req)
 	}
@@ -1331,7 +1331,8 @@ type MockPachd struct {
 // NewMockPachd constructs a mock Pachd API server whose behavior can be
 // controlled through the MockPachd instance. By default, all API calls will
 // error, unless a handler is specified.
-func NewMockPachd(ctx context.Context) (*MockPachd, error) {
+// A port value of 0 will choose a free port automatically
+func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
 	mock := &MockPachd{
 		errchan: make(chan error),
 	}
@@ -1371,7 +1372,7 @@ func NewMockPachd(ctx context.Context) (*MockPachd, error) {
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
 
-	listener, err := server.ListenTCP("localhost", 0)
+	listener, err := server.ListenTCP("localhost", port)
 	if err != nil {
 		return nil, err
 	}

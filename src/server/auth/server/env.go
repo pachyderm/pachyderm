@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -11,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/pps"
 	logrus "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"golang.org/x/net/context"
 )
 
 // Env is the environment required for an apiServer

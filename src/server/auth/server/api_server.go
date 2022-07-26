@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -28,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 const (

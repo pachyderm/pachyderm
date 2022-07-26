@@ -1,10 +1,15 @@
 package cmds
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
+	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -12,8 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
-
-	"github.com/spf13/cobra"
+	"github.com/pachyderm/pachyderm/v2/src/server/identityutil"
 )
 
 type connectorConfig struct {
@@ -25,21 +29,33 @@ type connectorConfig struct {
 }
 
 func newConnectorConfig(conn *identity.IDPConnector) (*connectorConfig, error) {
-	config := connectorConfig{
+	srcConfig, err := identityutil.PickConfig(conn.Config, conn.JsonConfig)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	config := map[string]interface{}{}
+	err = json.Unmarshal(srcConfig, &config)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	connConfig := connectorConfig{
 		ID:      conn.Id,
 		Name:    conn.Name,
 		Type:    conn.Type,
 		Version: conn.ConfigVersion,
+		Config:  config,
 	}
-
-	if err := json.Unmarshal([]byte(conn.JsonConfig), &config.Config); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &config, nil
+	return &connConfig, nil
 }
 
 func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
-	jsonConfig, err := json.Marshal(c.Config)
+	// Need to remarshal to JSON in order to convert from map[string]interface{} to types.Struct{}.
+	configBytes, err := json.Marshal(c.Config)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	config := &types.Struct{}
+	err = jsonpb.Unmarshal(bytes.NewReader(configBytes), config)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -48,7 +64,7 @@ func (c connectorConfig) toIDPConnector() (*identity.IDPConnector, error) {
 		Name:          c.Name,
 		Type:          c.Type,
 		ConfigVersion: c.Version,
-		JsonConfig:    string(jsonConfig),
+		Config:        config,
 	}, nil
 }
 
@@ -153,7 +169,6 @@ func CreateIDPConnectorCmd() *cobra.Command {
 			if err := deserializeYAML(file, &connector); err != nil {
 				return errors.Wrapf(err, "unable to parse config")
 			}
-
 			config, err := connector.toIDPConnector()
 			if err != nil {
 				return err

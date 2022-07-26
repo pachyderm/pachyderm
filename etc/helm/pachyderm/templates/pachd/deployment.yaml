@@ -325,6 +325,8 @@ spec:
             command:
             - /pachd
             - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
         startupProbe:
           exec:
             command:
@@ -357,6 +359,8 @@ spec:
         runAsUser: 0 # Need to run as root local for hostpath support
       {{- else }}
         securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:

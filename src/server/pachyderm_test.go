@@ -4715,14 +4715,17 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
 				)),
 			})
 		if err != nil {
@@ -4787,14 +4790,17 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -4853,14 +4859,17 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName, "suite": "pachyderm"},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+						"suite":           "pachyderm"},
 				)),
 			})
 		if err != nil {
@@ -5108,14 +5117,17 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -5170,14 +5182,17 @@ func TestPodOpts(t *testing.T) {
 		require.NoError(t, err)
 
 		var pod v1.Pod
-		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		kubeClient := tu.GetKubeClient(t)
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-						map[string]string{"app": rcName, "suite": "pachyderm"},
+						map[string]string{
+							"app":             "pipeline",
+							"pipelineName":    pipelineInfo.Pipeline.Name,
+							"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+							"suite":           "pachyderm"},
 					)),
 				})
 			if err != nil {
@@ -6540,7 +6555,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "*/1 * * * *", true), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true, nil), // every minute
 			"",
 			false,
 		))
@@ -6558,27 +6573,27 @@ func TestCronPipeline(t *testing.T) {
 
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		repo := fmt.Sprintf("%s_%s", pipeline7, "time")
+		// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
+		time.Sleep(2 * time.Second)
+
+		nCronticks := 3
+		for i := 0; i < nCronticks; i++ {
+			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
+			require.NoError(t, err)
+			_, err = c.WaitCommit(repo, "master", "")
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(1)
 		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
-				// if the runcron is run too soon, it will have the same timestamp and we won't hit the weird bug
-				time.Sleep(2 * time.Second)
-
-				_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-				_, err = c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
-				require.NoError(t, err)
-
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
-				countBreakFunc := newCountBreakFunc(4)
+				countBreakFunc := newCountBreakFunc(nCronticks + 1)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
 						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
@@ -6625,6 +6640,47 @@ func TestCronPipeline(t *testing.T) {
 		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(commits))
+	})
+
+	// Cron input with overwrite, and a start time in the past, so that the cron tick has to catch up.
+	// Ensure that the deletion of the previous cron tick file completes before the new cron tick file is created.
+	t.Run("CronOverwriteStartCatchup", func(t *testing.T) {
+		defer func() {
+			require.NoError(t, c.DeleteAll())
+		}()
+		pipeline := tu.UniqueString("testCron-")
+		start, err := types.TimestampProto(time.Now().Add(-10 * time.Hour))
+		require.NoError(t, err)
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			client.NewCronInputOpts("in", "", "@every 1h", true, start),
+			"",
+			false,
+		))
+
+		repo := client.NewRepo(fmt.Sprintf("%s_in", pipeline))
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		count := 0
+		countBreakFunc := newCountBreakFunc(11)
+		require.NoError(t,
+			c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				return countBreakFunc(func() error {
+					commitInfos, err := c.WaitCommitSetAll(ci.Commit.ID)
+					require.NoError(t, err)
+					require.Equal(t, 4, len(commitInfos))
+
+					files, err := c.ListFileAll(ci.Commit, "")
+					require.NoError(t, err)
+					require.Equal(t, count, len(files))
+					count = 1
+					return nil
+				})
+			}))
 	})
 }
 
@@ -9006,14 +9062,17 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 
 	// make sure 'vol0' is correct in the pod spec
 	var volumes []v1.Volume
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := tu.GetKubeClient(t)
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"app": rcName},
+					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
 				)),
 			})
 		if err != nil {

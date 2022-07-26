@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"path"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"golang.org/x/net/context"
 )
 
 func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
@@ -102,7 +102,7 @@ func (d *driver) withUnorderedWriter(ctx context.Context, renewer *fileset.Renew
 	if err := cb(uw); err != nil {
 		return nil, err
 	}
-	id, err := uw.Close()
+	id, err := uw.Close(ctx)
 	if err != nil {
 		return nil, err
 	}

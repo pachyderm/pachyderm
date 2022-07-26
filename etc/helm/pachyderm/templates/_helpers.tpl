@@ -128,7 +128,7 @@ false
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
 {{- else if .Values.ingress.host -}}
-{{- printf "%s://%s" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- .Values.ingress.host -}}
 {{- else  -}}
 localhost:30658
 {{- end -}}
@@ -141,7 +141,9 @@ localhost:30658
 - id: test
   name: test
   type: mockPassword
-  jsonConfig: '{"username": "admin", "password": "password"}'
+  config:
+    username: admin
+    password: password
 {{- else }}
     {{- fail "either oidc.upstreamIDPs or oidc.mockIDP must be set in non-LOCAL deployments" }}
 {{- end }}

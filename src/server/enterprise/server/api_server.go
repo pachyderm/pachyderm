@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"time"
@@ -19,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"gopkg.in/yaml.v3"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	v1 "k8s.io/api/core/v1"

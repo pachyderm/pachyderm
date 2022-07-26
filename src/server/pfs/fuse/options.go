@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // Options is for configuring fuse mounts. Any of the fields may be left nil
@@ -33,10 +34,14 @@ type RepoOptions struct {
 	// have a different name to the repo, to support mounting multiple versions
 	// of the same repo at the same time.
 	Name string
+
+	File *pfs.File
 	// Repo is the name of the repo to mount
-	Repo string
+	// Repo string
 	// Branch is the branch of the repo to mount
-	Branch string
+	// Branch string
+	// Commit is a specific commit on the branch to mount
+	// Commit string
 	// Write indicates that the repo should be mounted for writing.
 	Write bool
 }
@@ -63,8 +68,8 @@ func (o *Options) getBranches() map[string]string {
 		return result
 	}
 	for name, opts := range o.RepoOptions {
-		if opts.Branch != "" {
-			result[name] = opts.Branch
+		if opts.File.Commit.Branch.Name != "" {
+			result[name] = opts.File.Commit.Branch.Name
 		}
 	}
 	return result
@@ -90,15 +95,15 @@ func (o *Options) validate(c *client.APIClient) error {
 	}
 	for _, opts := range o.RepoOptions {
 		if opts.Write {
-			if uuid.IsUUIDWithoutDashes(opts.Branch) {
-				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.Repo, opts.Branch, opts.Name)
+			if uuid.IsUUIDWithoutDashes(opts.File.Commit.Branch.Name) {
+				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name, opts.Name)
 			}
-			bi, err := c.InspectBranch(opts.Repo, opts.Branch)
+			bi, err := c.InspectBranch(opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
 			if bi != nil && len(bi.Provenance) > 0 {
-				return errors.Errorf("can't mount branch %s@%s as %s in Write mode because it's an output branch", opts.Repo, opts.Branch, opts.Name)
+				return errors.Errorf("can't mount branch %s@%s as %s in Write mode because it's an output branch", opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name, opts.Name)
 			}
 		}
 	}
