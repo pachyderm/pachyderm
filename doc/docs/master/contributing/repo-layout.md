@@ -3,134 +3,278 @@
 Following is a layout of the various directories that make up the pachyderm
 repo, and their purpose.
 
+## ETC
+```shell
+📦etc
+ ┣ 📂build
+ ┣ 📂compile
+ ┣ 📂contributing
+ ┣ 📂deploy
+ ┃ ┣ 📂azure
+ ┃ ┣ 📂cloudfront
+ ┃ ┣ 📂gcp
+ ┃ ┣ 📂gpu
+ ┃ ┣ 📂tracing
+ ┣ 📂examples
+ ┣ 📂generate-envoy-config
+ ┣ 📂helm
+ ┃ ┣ 📂.cr-index
+ ┃ ┣ 📂LICENSES
+ ┃ ┣ 📂examples
+ ┃ ┣ 📂pachyderm
+ ┃ ┃ ┣ 📂charts
+ ┃ ┃ ┣ 📂dependencies
+ ┃ ┃ ┃ ┗ 📂postgresql
+ ┃ ┃ ┃ ┃ ┣ 📂charts
+ ┃ ┃ ┃ ┃ ┃ ┗ 📂common
+ ┃ ┃ ┃ ┃ ┃ ┃ ┣ 📂templates
+ ┃ ┃ ┃ ┃ ┃ ┃ ┃ ┣ 📂validations
+ ┃ ┃ ┃ ┃ ┣ 📂ci
+ ┃ ┃ ┃ ┃ ┣ 📂files
+ ┃ ┃ ┃ ┃ ┃ ┣ 📂conf.d
+ ┃ ┃ ┃ ┃ ┃ ┣ 📂docker-entrypoint-initdb.d
+ ┃ ┃ ┃ ┃ ┣ 📂templates
+ ┃ ┃ ┣ 📂templates
+ ┃ ┃ ┃ ┣ 📂cloudsqlAuthProxy
+ ┃ ┃ ┃ ┣ 📂console
+ ┃ ┃ ┃ ┣ 📂enterprise-server
+ ┃ ┃ ┃ ┣ 📂etcd
+ ┃ ┃ ┃ ┣ 📂ingress
+ ┃ ┃ ┃ ┣ 📂kube-event-tail
+ ┃ ┃ ┃ ┣ 📂pachd
+ ┃ ┃ ┃ ┃ ┣ 📂rbac
+ ┃ ┃ ┃ ┣ 📂pgbouncer
+ ┃ ┃ ┃ ┣ 📂proxy
+ ┃ ┃ ┃ ┣ 📂tests
+ ┃ ┣ 📂test
+ ┣ 📂kube
+ ┣ 📂kubernetes-kafka
+ ┃ ┣ 📂0configure
+ ┃ ┣ 📂2rbac-namespace-default
+ ┃ ┣ 📂3zookeeper
+ ┃ ┣ 📂4kafka
+ ┃ ┣ 📂5outside-services
+ ┣ 📂kubernetes-prometheus
+ ┣ 📂netcat
+ ┣ 📂proto
+ ┃ ┣ 📂pachgen
+ ┣ 📂redhat
+ ┣ 📂test-images
+ ┣ 📂testing
+ ┃ ┣ 📂artifacts
+ ┃ ┣ 📂circle
+ ┃ ┣ 📂dags
+ ┃ ┣ 📂images
+ ┃ ┃ ┗ 📂ubuntu_with_s3_clients
+ ┃ ┣ 📂introspect
+ ┃ ┣ 📂kafka
+ ┃ ┣ 📂loads
+ ┃ ┃ ┣ 📂few-commits
+ ┃ ┃ ┃ ┣ 📂few-modifications
+ ┃ ┃ ┃ ┃ ┣ 📂few-directories
+ ┃ ┃ ┃ ┃ ┣ 📂many-directories
+ ┃ ┃ ┃ ┃ ┗ 📂one-directory
+ ┃ ┃ ┃ ┗ 📂many-modifications
+ ┃ ┃ ┃ ┃ ┗ 📂one-directory
+ ┃ ┃ ┣ 📂many-commits
+ ┃ ┃ ┃ ┣ 📂few-modifications
+ ┃ ┃ ┃ ┗ 📂many-modifications
+ ┃ ┣ 📂migration
+ ┃ ┃ ┣ 📂v1_11
+ ┃ ┃ ┣ 📂v1_7
+ ┃ ┣ 📂opa-policies
+ ┃ ┣ 📂s3gateway
+ ┃ ┃ ┣ 📂runs
+ ┃ ┣ 📂spout
+ ┣ 📂worker
 ```
-build
-debian
-doc - the Pachyderm documentation built with mkdocs
-├── pachctl - cobra auto-generated docs on command-line usage
-etc - everything else
-├── build - scripts for building releases 
-├── compile - scripts to facilitate compiling and building docker images
-├── contributing - contains helper scripts/assets for contributors
-├── deploy - scripts/assets for pachyderm deployments
-│   ├── cloudfront
-│   ├── gpu - scripts to help enable GPU resources on k8s/pachyderm
-│   └── tracing - k8s manifests for enabling Jaeger tracing of pachyderm
-├── helm - Pachyderm helm chart
-├── kube - internal scripts for working with k8s
-├── kubernetes-kafka
-├── kubernetes-prometheus
-├── netcat
-├── proto - scripts for compiling protobufs
-├── testing - scripts/assets used for testing
-│   ├── artifacts - static assets used in testing/mocking
-│   ├── loads
-│   ├── migration - sample data used in testing pachyderm migrations
-│   ├── s3gateway - scripts for running conformance tests on the s3gateway
-│   └── spout
-└── worker
-examples - example projects; see readme for details of each one
-src - source code
-├── client - contains protobufs and the source code for pachyderm's go client
-│   ├── admin - admin-related functionality
-│   │   └── 1_7 - old, v1.7-compatible protobufs
-│   ├── auth - auth-related functionality
-│   ├── debug - debug-related functionality
-│   ├── deploy - deployment-related functionality
-│   ├── enterprise - enterprise-related functionality
-│   ├── health - health check-related functionality
-│   ├── limit - limit-related functionality
-│   ├── pfs - PFS-related functionality
-│   ├── pkg - utility packages
-│   │   ├── config - pachyderm config file reading/writing
-│   │   ├── discovery
-│   │   ├── grpcutil - utilities for working with gRPC clients/servers
-│   │   ├── pbutil - utilities for working with protobufs
-│   │   ├── require - utilities for making unit tests terser
-│   │   ├── shard
-│   │   └── tracing - facilitates pachyderm cluster Jaeger tracing
-│   ├── pps - PPS-related functionality
-│   └── version - version check-related functionality
-├── plugin
-│   └── vault
-│       ├── etc
-│       ├── pachyderm
-│       ├── pachyderm-plugin
-│       └── vendor - vendored libraries for the vault plugin
-├── server - contains server-side logic and CLI
-│   ├── admin - cluster admin functionality
-│   │   ├── cmds - cluster admin CLI
-│   │   └── server - cluster admin server
-│   ├── auth - auth functionality
-│   │   ├── cmds - auth CLI
-│   │   ├── server - auth server
-│   │   └── testing - a mock auth server used for testing
-│   ├── cmd - contains the various pachyderm entrypoints
-│   │   ├── pachctl - the CLI entrypoint
-│   │   ├── pachctl-doc - helps generate docs for the CLI
-│   │   ├── pachd - the server entrypoint
-│   │   └── worker - the worker entrypoint
-│   ├── debug - debug functionality
-│   │   ├── cmds - debug CLI
-│   │   └── server - debug server
-│   ├── enterprise - enterprise functionality
-│   │   ├── cmds - enterprise CLI
-│   │   └── server - enterprise server
-│   ├── pfs - PFS functionality
-│   │   ├── cmds - PFS CLI
-│   │   ├── fuse - support mounting PFS repos via FUSE
-│   │   ├── pretty - pretty-printing of PFS metadata in the CLI
-│   │   ├── s3 - the s3gateway, an s3-like HTTP API for serving PFS content
-│   │   └── server - PFS server
-│   ├── pkg - utility packages
-│   │   ├── ancestry - parses git ancestry reference strings
-│   │   ├── backoff - backoff algorithms for retrying operations
-│   │   ├── cache - a gRPC server for serving cached content
-│   │   ├── cert - functionality for generating x509 certificates
-│   │   ├── cmdutil - functionality for helping creating CLIs
-│   │   ├── collection - etcd collection management
-│   │   ├── dag - a simple in-memory directed acyclic graph data structure
-│   │   ├── deploy - functionality for deploying pachyderm
-│   │   │   ├── assets - generates k8s manifests and other assets used in deployment
-│   │   │   ├── cmds - deployment CLI
-│   │   │   └── images - handling of docker images
-│   │   ├── dlock - distributed lock on etcd
-│   │   ├── errutil - utility functions for error handling
-│   │   ├── exec - utilities for running external commands
-│   │   ├── hashtree - a Merkle tree library
-│   │   ├── lease - utility for managing resources with expirable leases
-│   │   ├── localcache - a concurrency-safe local disk cache
-│   │   ├── log - logging utilities
-│   │   ├── metrics - cluster metrics service using segment.io
-│   │   ├── migration
-│   │   ├── netutil - networking utilities
-│   │   ├── obj - tools for working with various object stores (e.g. S3)
-│   │   ├── pfsdb - the etcd database schema that PFS uses
-│   │   ├── pool - gRPC connection pooling
-│   │   ├── ppsconsts - PPS-related constants
-│   │   ├── ppsdb - the etcd database schema that PPS uses
-│   │   ├── ppsutil - PPS-related utility functions
-│   │   ├── pretty - function for pretty printing values
-│   │   ├── serviceenv - management of connections to pach services
-│   │   ├── sql - tools for working with postgres database dumps
-│   │   ├── sync - tools for syncing PFS content
-│   │   ├── tabwriter - tool for writing tab-delimited content
-│   │   ├── testutil - test-related utilities
-│   │   ├── uuid - UUID generation
-│   │   ├── watch - tool for watching etcd databases for changes
-│   │   └── workload
-│   ├── pps - PPS functionality
-│   │   ├── cmds - - PPS CLI
-│   │   ├── example - example PPS requests
-│   │   ├── pretty - pretty printing of PPS output to the CLI
-│   │   └── server - PPS server
-│   │       └── githook - support for github PPS sources
-│   ├── vendor - vendored packages
-│   └── worker - pachd master and sidecar
-└── testing - testing tools
-    ├── loadtest - load tests for pachyderm
-    │   └── split - stress tests of PFS merge functionality
-    ├── match - a grep-like tool used in testing
-    ├── saml-idp
-    └── vendor - vendored packages
+
+## SRC 
+
+```shell
+📦src # Source code 
+ ┣ 📂admin 
+ ┣ 📂auth 
+ ┣ 📂client # protobufs & source code for go client
+ ┃ ┣ 📂limit
+ ┣ 📂debug
+ ┣ 📂enterprise
+ ┣ 📂identity
+ ┣ 📂internal 
+ ┃ ┣ 📂ancestry # package that parses git ancestry references
+ ┃ ┣ 📂backoff # package that implements backoff algorithms for retrying operations
+ ┃ ┣ 📂cert # library for generating x509 certificates
+ ┃ ┣ 📂clientsdk # package for implementing gRPC APIs functions
+ ┃ ┣ 📂clusterstate # package containing set of migrations for running pachd at the current version
+ ┃ ┣ 📂cmdutil # utilities for pachctl CLI
+ ┃ ┣ 📂collection # collection of utilities (errors, errorutil, tracing, & watch)
+ ┃ ┣ 📂config # package for handling pachd config 
+ ┃ ┣ 📂dbutil # utilities for handling database connections
+ ┃ ┣ 📂deploy # package that detects if we're using a non-released version of pachd image
+ ┃ ┣ 📂dlock # package that implements a distributed lock on top of etcd
+ ┃ ┣ 📂dockertestenv # package for handling docker test environments 
+ ┃ ┣ 📂errors # package for handling errors + stack traces
+ ┃ ┃ ┣ 📂testing
+ ┃ ┣ 📂errutil # utilities for handling error messages 
+ ┃ ┣ 📂exec # package that runs external commands
+ ┃ ┣ 📂fsutil # utilities for handling temporary files 
+ ┃ ┣ 📂grpcutil # utilities for working with gRPC clients/servers
+ ┃ ┣ 📂keycache # package that watches, caches, and returns keys in atomic value
+ ┃ ┣ 📂lease # package that manages resources via leases
+ ┃ ┣ 📂license # package that handles checking enterprise licensing 
+ ┃ ┣ 📂log # package that formats logs and makes them pretty
+ ┃ ┣ 📂lokiutil # utilities for leveraging loki logs 
+ ┃ ┃ ┣ 📂client 
+ ┃ ┣ 📂metrics # package that submits user & cluster metrics to segment
+ ┃ ┣ 📂middleware 
+ ┃ ┃ ┣ 📂auth
+ ┃ ┃ ┣ 📂errors
+ ┃ ┃ ┣ 📂logging
+ ┃ ┃ ┗ 📂version
+ ┃ ┣ 📂migrations #  package that handles env and state structs 
+ ┃ ┣ 📂minikubetestenv  # package for handling minikube test environments 
+ ┃ ┣ 📂miscutil # utilities for miscellaneous 
+ ┃ ┣ 📂obj # package for handling objects (local, minio, amazon, cache, etc)
+ ┃ ┃ ┣ 📂integrationtests
+ ┃ ┣ 📂pacherr # package to check if error exists 
+ ┃ ┣ 📂pachhash # package for handling hashes 
+ ┃ ┣ 📂pachsql # package for handling sql ingest tool (snowflake, mysql,pgx)
+ ┃ ┣ 📂pachtmpl # package for handling jsonnet templates 
+ ┃ ┣ 📂pager
+ ┃ ┣ 📂pbutil # utilities for working with protobufs
+ ┃ ┣ 📂pfsdb
+ ┃ ┣ 📂pfsfile
+ ┃ ┣ 📂pfsload
+ ┃ ┣ 📂pfssync
+ ┃ ┣ 📂pool
+ ┃ ┣ 📂ppsconsts
+ ┃ ┣ 📂ppsdb
+ ┃ ┣ 📂ppsload
+ ┃ ┣ 📂ppsutil # utilities for handling pipeline-related tasks
+ ┃ ┣ 📂pretty
+ ┃ ┣ 📂profileutil # utilities for exporting performance information to external systems
+ ┃ ┣ 📂progress
+ ┃ ┣ 📂promutil # utilities for collecting Prometheus metrics
+ ┃ ┣ 📂random
+ ┃ ┣ 📂randutil # utilities for handling unique/random strings (uuid)
+ ┃ ┣ 📂require # utilities for making unit tests terser
+ ┃ ┣ 📂sdata
+ ┃ ┃ ┣ 📂csv
+ ┃ ┣ 📂secrets
+ ┃ ┣ 📂serde
+ ┃ ┣ 📂serviceenv
+ ┃ ┣ 📂storage
+ ┃ ┃ ┣ 📂chunk
+ ┃ ┃ ┣ 📂fileset
+ ┃ ┃ ┃ ┣ 📂index
+ ┃ ┃ ┣ 📂kv
+ ┃ ┃ ┣ 📂metrics
+ ┃ ┃ ┣ 📂renew
+ ┃ ┃ ┗ 📂track
+ ┃ ┣ 📂stream
+ ┃ ┣ 📂tabwriter
+ ┃ ┣ 📂tarutil # utilities for [tbd]
+ ┃ ┣ 📂task
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂taskprotos
+ ┃ ┣ 📂testetcd
+ ┃ ┣ 📂testpachd
+ ┃ ┣ 📂testsnowflake
+ ┃ ┣ 📂testutil # utilities for [tbd]
+ ┃ ┃ ┣ 📂local
+ ┃ ┃ ┣ 📂random
+ ┃ ┣ 📂tls
+ ┃ ┣ 📂tracing
+ ┃ ┃ ┣ 📂extended
+ ┃ ┣ 📂transactiondb
+ ┃ ┣ 📂transactionenv
+ ┃ ┃ ┣ 📂txncontext
+ ┃ ┣ 📂transforms
+ ┃ ┣ 📂uuid
+ ┃ ┗ 📂watch
+ ┣ 📂license
+ ┣ 📂pfs
+ ┣ 📂pps 
+ ┣ 📂proxy
+ ┣ 📂server
+ ┃ ┣ 📂admin
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┗ 📂server
+ ┃ ┣ 📂auth
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂server
+ ┃ ┃ ┃ ┣ 📂testing
+ ┃ ┃ ┣ 📂testing
+ ┃ ┣ 📂cmd
+ ┃ ┃ ┣ 📂mount-server
+ ┃ ┃ ┃ ┣ 📂cmd
+ ┃ ┃ ┣ 📂pachctl
+ ┃ ┃ ┃ ┣ 📂cmd
+ ┃ ┃ ┃ ┣ 📂shell
+ ┃ ┃ ┣ 📂pachctl-doc
+ ┃ ┃ ┣ 📂pachd
+ ┃ ┃ ┣ 📂pachtf
+ ┃ ┃ ┗ 📂worker
+ ┃ ┣ 📂config
+ ┃ ┣ 📂debug
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂server
+ ┃ ┃ ┗ 📂shell
+ ┃ ┣ 📂enterprise
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂limits
+ ┃ ┃ ┣ 📂metrics
+ ┃ ┃ ┣ 📂server
+ ┃ ┃ ┣ 📂testing
+ ┃ ┃ ┣ 📂text
+ ┃ ┣ 📂identity
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂server
+ ┃ ┣ 📂identityutil # utilities for [tbd]
+ ┃ ┣ 📂license
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂server
+ ┃ ┣ 📂pfs
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂fuse
+ ┃ ┃ ┣ 📂pretty
+ ┃ ┃ ┣ 📂s3
+ ┃ ┃ ┣ 📂server
+ ┃ ┃ ┃ ┣ 📂testing
+ ┃ ┣ 📂pps
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂pretty
+ ┃ ┃ ┣ 📂server
+ ┃ ┣ 📂proxy
+ ┃ ┃ ┗ 📂server
+ ┃ ┣ 📂transaction
+ ┃ ┃ ┣ 📂cmds
+ ┃ ┃ ┣ 📂pretty
+ ┃ ┃ ┣ 📂server
+ ┃ ┃ ┃ ┣ 📂testing
+ ┃ ┣ 📂worker
+ ┃ ┃ ┣ 📂common
+ ┃ ┃ ┣ 📂datum
+ ┃ ┃ ┣ 📂driver
+ ┃ ┃ ┣ 📂logs
+ ┃ ┃ ┣ 📂pipeline
+ ┃ ┃ ┃ ┣ 📂service
+ ┃ ┃ ┃ ┣ 📂spout
+ ┃ ┃ ┃ ┗ 📂transform
+ ┃ ┃ ┣ 📂server
+ ┃ ┃ ┣ 📂stats
+ ┣ 📂task
+ ┣ 📂templates
+ ┣ 📂testing
+ ┃ ┣ 📂deploy
+ ┃ ┣ 📂loadtest
+ ┃ ┃ ┣ 📂obj
+ ┃ ┃ ┃ ┣ 📂build
+ ┃ ┃ ┃ ┣ 📂cmd
+ ┃ ┃ ┃ ┃ ┗ 📂supervisor
+ ┃ ┃ ┃ ┣ 📂kube
+ ┃ ┗ 📂match
+ ┣ 📂transaction
+ ┗ 📂version
+ ┃ ┣ 📂versionpb
 ```
