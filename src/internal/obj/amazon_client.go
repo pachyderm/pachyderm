@@ -216,7 +216,6 @@ func (c *amazonClient) Get(ctx context.Context, name string, w io.Writer) (retEr
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		// nolint:errcheck
 		backoff.RetryNotify(func() (retErr error) {
 			span, _ := tracing.AddSpanToAnyExisting(ctx, "/Amazon.Cloudfront/Get")
 			defer func() {

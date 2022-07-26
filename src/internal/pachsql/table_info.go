@@ -33,7 +33,6 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// nolint:errcheck
 	defer tx.Rollback()
 	ti, err := GetTableInfoTx(tx, tableName)
 	if err != nil {

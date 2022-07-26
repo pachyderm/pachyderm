@@ -83,8 +83,7 @@ func init() {
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
-	// nolint:errcheck
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
 
 	switch {
 	case readiness:
@@ -209,8 +208,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
-			// nolint:errcheck
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck // already logging error above
 		}
 	}()
 
@@ -361,8 +359,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 func doSidecarMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			// nolint:errcheck
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-sidecar")
@@ -486,8 +483,7 @@ func doFullMode(config interface{}) (retErr error) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
-			// nolint:errcheck
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-full")
@@ -751,8 +747,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
-			// nolint:errcheck
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	log.Println("starting up in paused mode")

@@ -162,12 +162,10 @@ func (f *File) monitorProgress(stop chan struct{}) {
 	for {
 		select {
 		case <-stop:
-			// nolint:errcheck
-			f.checkProgress()
+			f.checkProgress() //nolint:errcheck
 			return
 		case <-time.After(refreshRate):
-			// nolint:errcheck
-			f.checkProgress()
+			f.checkProgress() //nolint:errcheck
 		}
 	}
 }

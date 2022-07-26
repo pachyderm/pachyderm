@@ -69,8 +69,7 @@ func RunLocal() (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.Errorf("error: %v", retErr)
-			// nolint:errcheck
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {

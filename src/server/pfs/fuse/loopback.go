@@ -168,8 +168,7 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		// nolint:errcheck
-		syscall.Rmdir(p)
+		syscall.Rmdir(p) //nolint:errcheck
 		return nil, fs.ToErrno(err)
 	}
 
@@ -195,8 +194,7 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		// nolint:errcheck
-		syscall.Rmdir(p)
+		syscall.Rmdir(p) //nolint:errcheck // favour outter error instead
 		return nil, fs.ToErrno(err)
 	}
 
@@ -329,8 +327,7 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		// nolint:errcheck
-		syscall.Unlink(p)
+		syscall.Unlink(p) //nolint:errcheck // favour outter error instead
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -363,8 +360,7 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 	}()
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		// nolint:errcheck
-		syscall.Unlink(p)
+		syscall.Unlink(p) //nolint:errcheck
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}

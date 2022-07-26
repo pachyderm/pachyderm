@@ -307,10 +307,8 @@ $ {{alias}} -p foo -i bar@YYY`,
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	// nolint:errcheck
 	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
-	// nolint:errcheck
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().BoolVarP(&expand, "expand", "x", false, "Show one line for each sub-job and include more columns")
 	listJob.Flags().AddFlagSet(outputFlags)
@@ -646,11 +644,9 @@ each datum.`,
 	}
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
-	// nolint:errcheck
 	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	getLogs.Flags().StringVarP(&jobStr, "job", "j", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
-	// nolint:errcheck
 	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+

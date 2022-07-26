@@ -95,8 +95,7 @@ func InputName(input *Input) string {
 
 // SortInput sorts an Input.
 func SortInput(input *Input) {
-	// nolint:errcheck
-	VisitInput(input, func(input *Input) error {
+	VisitInput(input, func(input *Input) error { //nolint:errcheck
 		SortInputs := func(inputs []*Input) {
 			sort.SliceStable(inputs, func(i, j int) bool { return InputName(inputs[i]) < InputName(inputs[j]) })
 		}
@@ -117,8 +116,7 @@ func SortInput(input *Input) {
 // InputBranches returns the branches in an Input.
 func InputBranches(input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
-	// nolint:errcheck
-	VisitInput(input, func(input *Input) error {
+	VisitInput(input, func(input *Input) error { //nolint:errcheck
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{

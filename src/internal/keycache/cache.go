@@ -38,7 +38,6 @@ func NewCache(ctx context.Context, readOnly col.ReadOnlyCollection, key string, 
 
 // Watch should be called in a goroutine to start the watcher
 func (c *Cache) Watch() {
-	//nolint:errcheck
 	backoff.RetryNotify(func() error {
 		err := c.readOnly.WatchOneF(c.key, func(ev *watch.Event) error {
 			switch ev.Type {

@@ -54,7 +54,7 @@ func BenchmarkRollingHash(b *testing.B) {
 		require.NoError(b, err)
 		for _, bt := range data {
 			hash.Roll(bt)
-			// nolint:staticcheck // benchmark is simulating exact usecase
+			//nolint:staticcheck // benchmark is simulating exact usecase
 			if hash.Sum64()&splitMask == 0 {
 			}
 		}

@@ -47,8 +47,7 @@ func (ml *MockLogger) Logf(formatString string, args ...interface{}) {
 		params := []interface{}{time.Now().Format(time.StampMilli), ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
 		str := fmt.Sprintf("LOGF %s (%v, %v, %v): "+formatString+"\n", params...)
-		// nolint:errcheck
-		ml.Writer.Write([]byte(str))
+		ml.Writer.Write([]byte(str)) //nolint:errcheck
 	}
 }
 
@@ -58,8 +57,7 @@ func (ml *MockLogger) Errf(formatString string, args ...interface{}) {
 		params := []interface{}{time.Now().Format(time.StampMilli), ml.Job, ml.Data, ml.UserCode}
 		params = append(params, args...)
 		str := fmt.Sprintf("ERRF %s (%v, %v, %v): "+formatString+"\n", params...)
-		// nolint:errcheck
-		ml.Writer.Write([]byte(str))
+		ml.Writer.Write([]byte(str)) //nolint:errcheck
 	}
 }
 

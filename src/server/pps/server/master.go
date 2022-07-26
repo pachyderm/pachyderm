@@ -103,7 +103,6 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
-	// nolint:errcheck
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		// set internal auth for basic operations
@@ -113,8 +112,7 @@ func (a *apiServer) master() {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		// nolint:errcheck
-		defer masterLock.Unlock(ctx)
+		defer masterLock.Unlock(ctx) //nolint:errcheck
 		log.Infof("PPS master: launching master process")
 		kd := newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)

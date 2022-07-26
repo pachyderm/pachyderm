@@ -66,7 +66,6 @@ func main() {
 		// Note: we must ignore errors here--os.Stdout might be closed if a
 		// downstream cmd has already finished, but we don't want to cause a test to
 		// fail because of that
-		// nolint:errcheck
 		io.Copy(os.Stdout, strings.NewReader(strings.TrimSuffix(inputBuf.String(), "\n")))
 		os.Stdout.Write([]byte{'\n'})
 		os.Exit(0)
