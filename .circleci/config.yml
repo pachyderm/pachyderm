@@ -39,10 +39,6 @@ jobs:
       BUCKET: << parameters.bucket >>
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - run: echo << pipeline.parameters.go-version >>
       - save_cache:
