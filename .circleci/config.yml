@@ -2,7 +2,7 @@
 version: 2.1
 
 orbs:
-  go: circleci/go@1.6.0
+  go: circleci/go@1.7.1
   gcp-cli: circleci/gcp-cli@2.4.0
 
 parameters:
@@ -39,6 +39,10 @@ jobs:
       BUCKET: << parameters.bucket >>
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - run: echo << pipeline.parameters.go-version >>
       - save_cache:
@@ -47,6 +51,7 @@ jobs:
             - cached-deps/
       - go/install:
         version: << pipeline.parameters.go-version >>
+        cache-key: "1184-v2"
       - run: etc/testing/circle/start-minikube.sh
 
       # The build cache will grow indefinitely, so we rotate the cache once a week.
