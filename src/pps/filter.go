@@ -15,6 +15,8 @@ func (f *Filter) Allow(ctx context.Context, item any) bool {
 	if f == nil {
 		return true
 	}
+	// We have to implement polymorphism manually this way because we can’t
+	// add methods to the isFilter_Filter type used by protoc.
 	switch f := f.Filter.(type) {
 	case *Filter_NotFilter:
 		return f.NotFilter.Allow(ctx, item)
