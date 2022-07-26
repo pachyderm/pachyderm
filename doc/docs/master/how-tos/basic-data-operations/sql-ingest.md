@@ -65,11 +65,8 @@ Pachyderm provides a [default jsonnet template](https://raw.githubusercontent.co
 
 ### 4. View Query & Results 
 
-- **To View Query String**: `pachctl get file outputRepoName@master:/0000`
 - **To View Output File**: `pachctl list file outputRepoName@master`
 - **To Read Output File**: `pachctl get file myingest@master:/0000` 
-
-
 
 ### Example: Snowflake
 
