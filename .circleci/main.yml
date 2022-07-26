@@ -336,7 +336,7 @@ jobs:
     parameters:
       appVersion:
         type: string
-        default: ${CIRCLE_SHA1}
+        default: "0.0.0"
     resource_class: large
     docker:
       - image: cimg/go:1.18.4
