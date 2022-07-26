@@ -25,3 +25,9 @@ curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/insta
 find . \
   \( -path ./etc/plugin "${skip_paths[@]}" \) -prune -o -name "*.sh" -print0 \
 | xargs -0 -P 16 shellcheck -e SC1091 -e SC2010 -e SC2181 -e SC2004 -e SC2219
+
+echo "--- Installing jsonnet-lint ---"
+go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
+
+echo "--- Linting all jsonnet files ---"
+find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint

@@ -434,20 +434,6 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
-  jsonnet-lint:
-    resource_class: small
-    docker:
-      - image: cimg/go:1.18.4
-    steps:
-      - checkout
-      - run:
-          name: Install go-jsonnet
-          command: |
-            go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
-      - run:
-          name: lint all jsonnet files
-          command: |
-            find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
@@ -579,7 +565,6 @@ workflows:
           version: $CIRCLE_SHA1
           upload: true
       - check-prettier
-      - jsonnet-lint
       - test-go
       - test-envoy
       - integration-tests:
