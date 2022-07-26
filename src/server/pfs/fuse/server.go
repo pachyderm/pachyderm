@@ -42,13 +42,30 @@ type ConfigRequest struct {
 	ServerCas    string `json:"server_cas"`
 }
 
+type MountRequest struct {
+	Mounts []MountInfo `json:"mounts"`
+}
+
+type UnmountRequest struct {
+	Mounts []string `json:"mounts"`
+}
+
+type CommitRequest struct {
+	Mount string `json:"mount"`
+}
+
+type MountInfo struct {
+	Name   string   `json:"name"`
+	Repo   string   `json:"repo"`
+	Branch string   `json:"branch"`
+	Commit string   `json:"commit"` // "" for no commit (commit as noun)
+	Files  []string `json:"files"`
+	Mode   string   `json:"mode"` // "ro", "rw"
+}
+
 type Request struct {
+	MountInfo
 	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
-	Repo   string
-	Branch string
-	Commit string // "" for no commit (commit as noun)
-	Name   string
-	Mode   string // "ro", "rw"
 }
 
 type Response struct {
@@ -185,7 +202,9 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 func NewMountStateMachine(name string, mm *MountManager) *MountStateMachine {
 	return &MountStateMachine{
 		MountState: MountState{
-			Name: name,
+			MountInfo: MountInfo{
+				Name: name,
+			},
 		},
 		manager:   mm,
 		mu:        sync.Mutex{},
@@ -214,45 +233,29 @@ func (mm *MountManager) MaybeStartFsm(name string) {
 	} // else: fsm was already running
 }
 
-func (mm *MountManager) MountBranch(key MountKey, name, mode string) (Response, error) {
-	// name: an optional name for the mount, corresponds to where on the
-	// filesystem the repo actually gets mounted. e.g. /pfs/{name}
-	mm.MaybeStartFsm(name)
-	mm.States[name].requests <- Request{
-		Action: "mount",
-		Repo:   key.Repo,
-		Branch: key.Branch,
-		Commit: key.Commit,
-		Name:   name,
-		Mode:   mode,
+func (mm *MountManager) MountRepo(minfo MountInfo) (Response, error) {
+	mm.MaybeStartFsm(minfo.Name)
+	mm.States[minfo.Name].requests <- Request{
+		Action:    "mount",
+		MountInfo: minfo,
 	}
-	response := <-mm.States[name].responses
+	response := <-mm.States[minfo.Name].responses
 	return response, response.Error
 }
 
-func (mm *MountManager) UnmountBranch(key MountKey, name string) (Response, error) {
+func (mm *MountManager) UnmountRepo(name string) (Response, error) {
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
 		Action: "unmount",
-		Repo:   key.Repo,
-		Branch: key.Branch,
-		Commit: key.Commit,
-		Name:   name,
-		Mode:   "",
 	}
 	response := <-mm.States[name].responses
 	return response, response.Error
 }
 
-func (mm *MountManager) CommitBranch(key MountKey, name string) (Response, error) {
+func (mm *MountManager) CommitRepo(name string) (Response, error) {
 	mm.MaybeStartFsm(name)
 	mm.States[name].requests <- Request{
 		Action: "commit",
-		Repo:   key.Repo,
-		Branch: key.Branch,
-		Commit: key.Commit,
-		Name:   name,
-		Mode:   "",
 	}
 	response := <-mm.States[name].responses
 	return response, response.Error
@@ -262,7 +265,7 @@ func (mm *MountManager) UnmountAll() error {
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			//TODO: Add Commit field here once we support mounting specific commits
-			_, err := mm.UnmountBranch(MountKey{Repo: msm.MountKey.Repo, Branch: msm.MountKey.Branch}, name)
+			_, err := mm.UnmountRepo(name)
 			if err != nil {
 				return err
 			}
@@ -420,151 +423,110 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled)
 	})
-	router.Methods("PUT").
-		Path("/repos/{key:.+}/_mount").
-		Queries("mode", "{mode}").
-		Queries("name", "{name}").
-		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			errMsg, webCode := initialChecks(mm, true)
-			if errMsg != "" {
-				http.Error(w, errMsg, webCode)
-				return
-			}
-
-			vs := mux.Vars(req)
-			mode, ok := vs["mode"]
-			if !ok {
-				http.Error(w, "no mode", http.StatusBadRequest)
-				return
-			}
-			name, ok := vs["name"]
-			if !ok {
-				http.Error(w, "no name", http.StatusBadRequest)
-				return
-			}
-			k, ok := vs["key"]
-			if !ok {
-				http.Error(w, "no key", http.StatusBadRequest)
-				return
-			}
-			key, err := mountKeyFromString(k)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			if key.Commit != "" {
-				http.Error(
-					w,
-					"don't support mounting commits yet",
-					http.StatusBadRequest,
-				)
-				return
-			}
-			l, err := mm.ListByRepos()
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			if _, ok := l[key.Repo]; !ok {
-				http.Error(w, "repo does not exist", http.StatusBadRequest)
-				return
-			}
-
-			_, err = mm.MountBranch(key, name, mode)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			l, err = mm.ListByRepos()
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			marshalled, err := jsonMarshal(l)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Write(marshalled)
-		})
-	router.Methods("PUT").
-		Queries("name", "{name}").
-		Path("/repos/{key:.+}/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
 		}
 
-		vs := mux.Vars(req)
-		k, ok := vs["key"]
-		if !ok {
-			http.Error(w, "no key", http.StatusBadRequest)
-			return
-		}
-		name, ok := vs["name"]
-		if !ok {
-			http.Error(w, "no name", http.StatusBadRequest)
-			return
-		}
-		key, err := mountKeyFromString(k)
+		// Verify request payload
+		var mreq MountRequest
+		err := json.NewDecoder(req.Body).Decode(&mreq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		_, err = mm.UnmountBranch(key, name)
+
+		lr, err := mm.ListByRepos()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		l, err := mm.ListByRepos()
+		err = verifyMountRequest(mreq.Mounts, lr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		for _, minfo := range mreq.Mounts {
+			_, err = mm.MountRepo(minfo)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		lr, err = mm.ListByRepos()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(l)
+		marshalled, err := jsonMarshal(lr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled)
 	})
-	router.Methods("PUT").
-		Queries("name", "{name}").
-		Path("/repos/{key:.+}/_commit").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
 		}
 
-		vs := mux.Vars(req)
-		k, ok := vs["key"]
-		if !ok {
-			http.Error(w, "no key", http.StatusBadRequest)
-			return
-		}
-		name, ok := vs["name"]
-		if !ok {
-			http.Error(w, "no name", http.StatusBadRequest)
-			return
-		}
-		key, err := mountKeyFromString(k)
+		var umreq UnmountRequest
+		err := json.NewDecoder(req.Body).Decode(&umreq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		_, err = mm.CommitBranch(key, name)
+
+		for _, name := range umreq.Mounts {
+			_, err = mm.UnmountRepo(name)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		lr, err := mm.ListByRepos()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		l, err := mm.ListByRepos()
+		marshalled, err := jsonMarshal(lr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(l)
+		w.Write(marshalled)
+	})
+	router.Methods("PUT").Path("/_commit").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
+		var creq CommitRequest
+		err := json.NewDecoder(req.Body).Decode(&creq)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		_, err = mm.CommitRepo(creq.Mount)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		lr, err := mm.ListByRepos()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		marshalled, err := jsonMarshal(lr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -633,7 +595,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		if isNewCluster(mm, pachdAddress) {
-			newClient, err := getNewClient(&cfgReq)
+			newClient, err := getNewClient(cfgReq)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -812,7 +774,7 @@ func isNewCluster(mm *MountManager, pachdAddress *grpcutil.PachdAddress) bool {
 	return true
 }
 
-func getNewClient(cfgReq *ConfigRequest) (*client.APIClient, error) {
+func getNewClient(cfgReq ConfigRequest) (*client.APIClient, error) {
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	// Check if new cluster endpoint is valid
 	var options []client.Option
@@ -837,7 +799,7 @@ func getNewClient(cfgReq *ConfigRequest) (*client.APIClient, error) {
 	return newClient, nil
 }
 
-func updateConfig(cfgReq *ConfigRequest) error {
+func updateConfig(cfgReq ConfigRequest) error {
 	cfg, err := config.Read(false, false)
 	if err != nil {
 		return err
@@ -879,13 +841,37 @@ func hasRepoWrite(permissions []auth.Permission) bool {
 	return false
 }
 
+func verifyMountRequest(minfos []MountInfo, lr ListRepoResponse) error {
+	for _, mi := range minfos {
+		if mi.Name == "" {
+			return errors.Errorf("no name specified in request %+v", mi)
+		}
+		if mi.Repo == "" {
+			return errors.Errorf("no repo specified in request %+v", mi)
+		}
+		if mi.Branch == "" {
+			return errors.Errorf("no branch specified in request %+v", mi)
+		}
+		if mi.Commit != "" {
+			// TODO: case of same commit id on diff branches
+			return errors.Errorf("don't support mounting commits yet in request %+v", mi)
+		}
+		if mi.Mode == "" {
+			return errors.Errorf("no mode specified in request %+v", mi)
+		}
+		if _, ok := lr[mi.Repo]; !ok {
+			return errors.Errorf("repo does not exist")
+		}
+	}
+
+	return nil
+}
+
 type MountState struct {
-	Name       string   `json:"name"`       // where to mount it. written by client
-	MountKey   MountKey `json:"mount_key"`  // what to mount. written by client
-	Mode       string   `json:"mode"`       // "ro", "rw", or "" if unknown/unspecified. written by client
-	State      string   `json:"state"`      // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error". written by fsm
-	Status     string   `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state. written by fsm
-	Mountpoint string   `json:"mountpoint"` // where on the filesystem it's mounted. written by fsm. can also be derived from {MountDir}/{Name}
+	MountInfo         // mount details. written by client
+	State      string `json:"state"`      // "unmounted", "mounting", "mounted", "pushing", "unmounted", "error". written by fsm
+	Status     string `json:"status"`     // human readable string with additional info wrt State, e.g. an error message for the error state. written by fsm
+	Mountpoint string `json:"mountpoint"` // where on the filesystem it's mounted. written by fsm. can also be derived from {MountDir}/{Name}
 	// the following are used by the "refresh" button feature in the jupyter plugin
 	ActualMountedCommit  string `json:"actual_mounted_commit"`   // the actual commit that was mounted at mount time. written by fsm
 	LatestCommit         string `json:"latest_commit"`           // the latest available commit on the branch, last time RefreshMountState() was called. written by fsm
@@ -921,7 +907,7 @@ func (m *MountStateMachine) RefreshMountState() error {
 	m.ActualMountedCommit = commit
 
 	// Get the latest commit on the branch
-	branchInfo, err := m.manager.Client.InspectBranch(m.MountKey.Repo, m.MountKey.Branch)
+	branchInfo, err := m.manager.Client.InspectBranch(m.Repo, m.Branch)
 	if err != nil {
 		return err
 	}
@@ -1031,26 +1017,6 @@ func (m *MountKey) String() string {
 	}
 }
 
-func mountKeyFromString(key string) (MountKey, error) {
-	shrapnel := strings.Split(key, "/")
-	if len(shrapnel) == 3 {
-		return MountKey{
-			Repo:   shrapnel[0],
-			Branch: shrapnel[1],
-			Commit: shrapnel[2],
-		}, nil
-	} else if len(shrapnel) == 2 {
-		return MountKey{
-			Repo:   shrapnel[0],
-			Branch: shrapnel[1],
-		}, nil
-	} else {
-		return MountKey{}, errors.WithStack(fmt.Errorf(
-			"wrong number of '/'s in key %+v, got %d expected 2 or 3", key, len(shrapnel),
-		))
-	}
-}
-
 // state machines in the style of Rob Pike's Lexical Scanning
 // http://www.timschmelmer.com/2013/08/state-machines-with-state-functions-in.html
 
@@ -1065,7 +1031,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	logrus.Infof("[%s] (%s) %s -> %s", m.Name, m.MountKey, m.State, state)
+	logrus.Infof("[%s] (%s, %s, %s) %s -> %s", m.Name, m.Repo, m.Branch, m.Commit, m.State, state)
 	m.State = state
 	m.Status = status
 }
@@ -1134,30 +1100,21 @@ func unmountedState(m *MountStateMachine) StateFn {
 
 			// copy data from request into fields that are documented as being
 			// written by the client (see MountState struct)
-			m.MountState.Name = req.Name
-			m.MountState.MountKey = MountKey{
-				Repo:   req.Repo,
-				Branch: req.Branch,
-				Commit: req.Commit,
-			}
-			m.MountState.Mode = req.Mode
+			m.Name = req.Name
+			m.Repo = req.Repo
+			m.Branch = req.Branch
+			m.Commit = req.Commit
+			m.Files = req.Files
+			m.Mode = req.Mode
 			return mountingState
 		case "commit":
 			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
 				MountState: m.MountState,
 				Error:      fmt.Errorf("bad request: can't commit when unmounted"),
 			}
 			return unmountedState
 		case "unmount":
 			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
 				MountState: m.MountState,
 				Error:      fmt.Errorf("can't unmount when we're already unmounted"),
 			}
@@ -1165,10 +1122,6 @@ func unmountedState(m *MountStateMachine) StateFn {
 			return unmountedState
 		default:
 			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
 				MountState: m.MountState,
 				Error:      fmt.Errorf("bad request: unsupported/unknown action %s while unmounted", req.Action),
 			}
@@ -1185,21 +1138,17 @@ func mountingState(m *MountStateMachine) StateFn {
 	func() {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
-		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
+		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:  m.Name,
-			File:  client.NewFile(m.MountKey.Repo, m.MountKey.Branch, "", ""),
+			File:  client.NewFile(m.Repo, m.Branch, "", ""),
 			Write: m.Mode == "rw",
 		}
-		m.manager.root.branches[m.Name] = m.MountKey.Branch
+		m.manager.root.branches[m.Name] = m.Branch
 	}()
 	// re-downloading the repos with an updated RepoOptions set will have the
 	// effect of causing it to pop into existence
 	err := m.manager.root.mkdirMountNames()
 	m.responses <- Response{
-		Repo:       m.MountKey.Repo,
-		Branch:     m.MountKey.Branch,
-		Commit:     m.MountKey.Commit,
-		Name:       m.Name,
 		MountState: m.MountState,
 		Error:      err,
 	}
@@ -1224,12 +1173,12 @@ func mountedState(m *MountStateMachine) StateFn {
 			// being used, the request repo and branch match the repo and branch
 			// already associated with mount_name. It's essentially a safety
 			// check for when we get to the remounting case below.
-			if req.Repo != m.MountKey.Repo || req.Branch != m.MountKey.Branch {
+			if req.Repo != m.Repo || req.Branch != m.Branch {
 				m.responses <- Response{
-					Repo:       m.MountKey.Repo,
-					Branch:     m.MountKey.Branch,
-					Commit:     m.MountKey.Commit,
-					Name:       m.Name,
+					Repo:       req.Repo,
+					Branch:     req.Branch,
+					Commit:     req.Commit,
+					Name:       req.Name,
 					MountState: m.MountState,
 					Error:      fmt.Errorf("mount at '%s' already in use", m.Name),
 				}
@@ -1245,10 +1194,10 @@ func mountedState(m *MountStateMachine) StateFn {
 			return committingState
 		default:
 			m.responses <- Response{
-				Repo:       m.MountKey.Repo,
-				Branch:     m.MountKey.Branch,
-				Commit:     m.MountKey.Commit,
-				Name:       m.Name,
+				Repo:       req.Repo,
+				Branch:     req.Branch,
+				Commit:     req.Commit,
+				Name:       req.Name,
 				MountState: m.MountState,
 				Error:      fmt.Errorf("bad request: unsupported/unknown action %s while mounted", req.Action),
 			}
@@ -1321,10 +1270,6 @@ func committingState(m *MountStateMachine) StateFn {
 		logrus.Infof("Error while uploading! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
-			Repo:       m.MountKey.Repo,
-			Branch:     m.MountKey.Branch,
-			Commit:     m.MountKey.Commit,
-			Name:       m.Name,
 			MountState: m.MountState,
 			Error:      err,
 		}
@@ -1341,9 +1286,6 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// NB: this function is responsible for placing a response on m.responses
 	// _in all cases_
 	m.transitionedTo("unmounting", "")
-	// For now unmountingState is the only place where actual uploads to
-	// Pachyderm happen. In the future, we want to split this out to a separate
-	// committingState so that users can commit a repo while it's still mounted.
 
 	// TODO XXX VERY IMPORTANT: pause/block filesystem operations during the
 	// upload, otherwise we could get filesystem inconsistency! Need a sort of
@@ -1354,10 +1296,6 @@ func unmountingState(m *MountStateMachine) StateFn {
 		logrus.Infof("Error while uploading! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
-			Repo:       m.MountKey.Repo,
-			Branch:     m.MountKey.Branch,
-			Commit:     m.MountKey.Commit,
-			Name:       m.Name,
 			MountState: m.MountState,
 			Error:      err,
 		}
@@ -1380,10 +1318,6 @@ func unmountingState(m *MountStateMachine) StateFn {
 
 	err = os.RemoveAll(cleanPath)
 	m.responses <- Response{
-		Repo:       m.MountKey.Repo,
-		Branch:     m.MountKey.Branch,
-		Commit:     m.MountKey.Commit,
-		Name:       m.Name,
 		MountState: m.MountState,
 		Error:      err,
 	}
@@ -1392,6 +1326,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 		m.transitionedTo("error", err.Error())
 		return errorState
 	}
+	m.MountState = MountState{}
 
 	return unmountedState
 }
@@ -1401,10 +1336,6 @@ func errorState(m *MountStateMachine) StateFn {
 		// eternally error on responses
 		<-m.requests
 		m.responses <- Response{
-			Repo:       m.MountKey.Repo,
-			Branch:     m.MountKey.Branch,
-			Commit:     m.MountKey.Commit,
-			Name:       m.Name,
 			MountState: m.MountState,
 			Error:      fmt.Errorf("in error state, last error message was: %s", m.Status),
 		}
