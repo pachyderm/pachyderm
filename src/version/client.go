@@ -2,6 +2,7 @@ package version
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -37,7 +38,8 @@ func getVersions() (int, int, int) {
 	var major, minor, micro int
 	_, parseError := fmt.Sscanf(AppVersion, "%d.%d.%d", &major, &minor, &micro)
 	if parseError != nil {
-		panic(parseError)
+		log.Print(parseError)
+		return 0, 0, 0
 	}
 	return major, minor, micro
 }
