@@ -46,7 +46,7 @@ Pachyderm's SQL Ingest requires a connection string defined as a [Jsonnet URL pa
 
 ### 3. Create a Pipeline Spec 
 
-Pachyderm provides a [default jsonnet template](https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) that has key parameters built in. To use it, you must pass an argument for each [parameter](#parameters). 
+Pachyderm provides a [default Jsonnet template](https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet) that has key parameters built in. To use it, you must pass an argument for each [parameter](#parameters). 
 
 1. Copy the following:
    ```shell
@@ -65,8 +65,9 @@ Pachyderm provides a [default jsonnet template](https://raw.githubusercontent.co
 
 ### 4. View Query & Results 
 
-- **To View Output File**: `pachctl list file outputRepoName@master`
-- **To Read Output File**: `pachctl get file myingest@master:/0000` 
+- **To View Query String**: `pachctl inspect pipeline pipelineName`
+- **To View Output File Name**: `pachctl list file outputRepoName@master`
+- **To View Output File Contents**: `pachctl get file myingest@master:/0000` 
 
 ### Example: Snowflake
 
@@ -91,7 +92,7 @@ In this example, we are leveraging Snowflake's support for queries traversing [s
 4.  Define the pipeline spec by populating all of the parameter values:
    
    ```shell
-      pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/2.2.x/src/templates/sql_ingest_cron.jsonnet  \
+      pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet \
       --arg name=mysnowflakeingest \
       --arg url="snowflake://username@VCNYTW-MH64356/SNOWFLAKE_SAMPLE_DATA/WEATHER?warehouse=COMPUTE_WH" \
       --arg query="select T, V:city.name, V:data[0].weather[0].description as morning, V:data[12].weather[0].description as pm FROM DAILY_14_TOTAL LIMIT 1" \
@@ -106,19 +107,21 @@ In this example, we are leveraging Snowflake's support for queries traversing [s
 
 ## How Does This Work?
 
-SQL Ingest's jsonnet pipeline spec, [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet), creates all of the following:
+SQL Ingest's Jsonnet pipeline spec, [**`sql_ingest_cron.jsonnet`**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet), creates all of the following:
 
 - **1 Input Data Repo**: Used to store timestamp files at the cronSpec's set interval rate (`--arg cronSpec="pullInterval" \`) to trigger the pipeline.
 - [**1 Cron Pipeline**](../../../concepts/pipeline-concepts/pipeline/cron/#cron-pipeline): Houses the spec details that define the input type and settings and  data transformation.
--  **1 Output Repo**: Used to store the data transformed by the cron pipeline; set by the pipeline spec's `pipeline.name` attribute, which you can define through the jsonnet parameter `--arg name=outputRepoName \`.
+-  **1 Output Repo**: Used to store the data transformed by the cron pipeline; set by the pipeline spec's `pipeline.name` attribute, which you can define through the Jsonnet parameter `--arg name=outputRepoName \`.
 - **1 Output File**: Used to save the query results (JSON or CSV) and potentially be used as input for a following pipeline.
 
-In the default Jsonnet template, the file generated is obtainable from the output repo, `outputRepoName@master:/0000`. The filename is hardcoded, however you could paramaterize this as well using a custom jsonnet pipeline spec and passing `--arg outputFile='0000'`. The file's contents are the result of the query(`--arg query="query"`) being ran against the database`--arg url="connectionStringToDdatabase"` ; both are defined in the `transform.cmd` attribute.
+![sql-ingest-diagram](../images/sql-ingest-cron-example.png)
+
+In the default Jsonnet template, the file generated is obtainable from the output repo, `outputRepoName@master:/0000`. The filename is hardcoded, however you could paramaterize this as well using a custom Jsonnet pipeline spec and passing `--arg outputFile='0000'`. The file's contents are the result of the query(`--arg query="query"`) being ran against the database`--arg url="connectionStringToDdatabase"` ; both are defined in the `transform.cmd` attribute.
 
 
 ### About SQL Ingest Pipeline Specs
 
-To create an SQL Ingest Jsonnet Pipeline spec, you must have a .jsonnet file and several parameters:
+To create an SQL Ingest Jsonnet Pipeline spec, you must have a `.jsonnet` file and several parameters:
 
 ```shell
 pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet> \
@@ -144,7 +147,7 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
 | `hasHeader`   | Adds a header to your CSV file if set to `true`. Ignored if `format="json"` (JSON files always display (header,value) pairs for each returned row). Defaults to `false`. <br><br>Pachyderm creates the header after each element of the comma separated list of your SELECT clause or their aliases (if any). <br>For example `country.country_name_eng` will have `country.country_name_eng` as header while `country.country_name_eng as country_name` will have `country_name`. |
 | `cronSpec`    | How often to run the query. For example `"@every 60s"`.|
 | `format`      | The type of your output file containing the results of your query (either `json` or `csv`).|
-| `secretName`  | The kubernetes secret name that contains the [password to the database](#database-secret).|
+| `secretName`  | The Kubernetes secret name that contains the [password to the database](#database-secret).|
 
 #### URL Parameter Details
 
