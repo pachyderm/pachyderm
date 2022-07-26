@@ -357,12 +357,20 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
+          name: list images
+          command: |
+            docker image ls --digests
+      - run:
           name: Build Docker
           command: |
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
             make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+      - run:
+          name: list images
+          command: |
+            docker image ls --digests
       - run:
           name: Push docker
           command: make docker-push VERSION=${CIRCLE_SHA1}
