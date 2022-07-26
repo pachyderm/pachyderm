@@ -105,38 +105,19 @@ func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 		return lr, err
 	}
 	for _, repo := range repos {
-		rr := RepoResponse{Name: repo.Repo.Name, Branches: map[string]BranchResponse{}}
+		rr := RepoResponse{Repo: repo.Repo.Name}
 		readAccess := true
 		if repo.AuthInfo != nil {
 			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
 			rr.Authorization = "none"
 		}
 		if readAccess {
-			bs, err := mm.Client.ListBranch(repo.Repo.Name)
+			bis, err := mm.Client.ListBranch(repo.Repo.Name)
 			if err != nil {
 				return lr, err
 			}
-			for _, branch := range bs {
-				br := BranchResponse{Name: branch.Branch.Name}
-				k := MountKey{
-					Repo:   repo.Repo.Name,
-					Branch: branch.Branch.Name,
-					Commit: "",
-				}
-				// Add all mounts associated with a repo/branch
-				for _, msm := range mm.States {
-					if msm.MountKey == k && msm.State != "unmounted" {
-						err := msm.RefreshMountState()
-						if err != nil {
-							return lr, err
-						}
-						br.Mount = append(br.Mount, msm.MountState)
-					}
-				}
-				if br.Mount == nil {
-					br.Mount = append(br.Mount, MountState{State: "unmounted"})
-				}
-				rr.Branches[branch.Branch.Name] = br
+			for _, bi := range bis {
+				rr.Branches = append(rr.Branches, bi.Branch.Name)
 			}
 			if repo.AuthInfo == nil {
 				rr.Authorization = "off"
@@ -162,36 +143,65 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 
 	mr := ListMountResponse{
 		Mounted:   map[string]MountState{},
-		Unmounted: []MountState{},
+		Unmounted: map[string]RepoResponse{},
 	}
-	seen := map[MountKey]bool{}
-	for name, msm := range mm.States {
-		if msm.State == "mounted" || msm.State == "unmounting" {
-			err := msm.RefreshMountState()
-			if err != nil {
-				return mr, err
-			}
-			mr.Mounted[name] = msm.MountState
-			seen[msm.MountKey] = true
-		}
-	}
-	// Iterate through repos/branches because there will be some not present in
-	// state machine
+	// Go through repos and populate data to show in Unmounted section
+	repoBranches := map[string]map[string]bool{}
 	repos, err := mm.Client.ListRepo()
 	if err != nil {
 		return mr, err
 	}
 	for _, repo := range repos {
-		bs, err := mm.Client.ListBranch(repo.Repo.Name)
-		if err != nil {
-			return mr, err
+		rr := RepoResponse{Repo: repo.Repo.Name}
+		readAccess := true
+		if repo.AuthInfo != nil {
+			readAccess = hasRepoRead(repo.AuthInfo.Permissions)
+			rr.Authorization = "none"
 		}
-		for _, branch := range bs {
-			mk := MountKey{Repo: repo.Repo.Name, Branch: branch.Branch.Name}
-			// TODO: Might need to modify this when we start using Commit and
-			// and compare only repo and branch names
-			if _, ok := seen[mk]; !ok {
-				mr.Unmounted = append(mr.Unmounted, MountState{MountKey: mk, State: "unmounted"})
+		if readAccess {
+			bis, err := mm.Client.ListBranch(repo.Repo.Name)
+			if err != nil {
+				return mr, err
+			}
+			for _, bi := range bis {
+				repoBranches[repo.Repo.Name][bi.Branch.Name] = true
+			}
+			if repo.AuthInfo == nil {
+				rr.Authorization = "off"
+			} else if hasRepoWrite(repo.AuthInfo.Permissions) {
+				rr.Authorization = "write"
+			} else {
+				rr.Authorization = "read"
+			}
+		}
+		mr.Unmounted[repo.Repo.Name] = rr
+	}
+
+	// Go through mounts and populate data to show in Mounted section
+	for name, msm := range mm.States {
+		if msm.State == "mounted" {
+			err := msm.RefreshMountState()
+			if err != nil {
+				return mr, err
+			}
+			mr.Mounted[name] = msm.MountState
+
+			if _, ok := repoBranches[msm.Repo][msm.Branch]; ok {
+				delete(repoBranches[msm.Repo], msm.Branch)
+			}
+		}
+	}
+
+	// Populate list of unmounted branches for each repo in Unmounted section.
+	for repo, umbranches := range repoBranches {
+		if rr, ok := mr.Unmounted[repo]; ok {
+			for branch, _ := range umbranches {
+				rr.Branches = append(rr.Branches, branch)
+			}
+			if len(rr.Branches) == 0 {
+				delete(mr.Unmounted, repo)
+			} else {
+				mr.Unmounted[repo] = rr
 			}
 		}
 	}
@@ -456,12 +466,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				return
 			}
 		}
-		lr, err = mm.ListByRepos()
+		lm, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lr)
+		marshalled, err := jsonMarshal(lm)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -490,12 +500,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 
-		lr, err := mm.ListByRepos()
+		lm, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lr)
+		marshalled, err := jsonMarshal(lm)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -515,25 +525,24 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		_, err = mm.CommitRepo(creq.Mount)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		lr, err := mm.ListByRepos()
+		lm, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(lr)
+		marshalled, err := jsonMarshal(lm)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled)
 	})
-	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/_unmount_all").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
@@ -545,12 +554,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		l, err := mm.ListByRepos()
+		lm, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		marshalled, err := jsonMarshal(l)
+		marshalled, err := jsonMarshal(lm)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -983,21 +992,21 @@ func (m *MountStateMachine) RefreshMountState() error {
 // TODO: switch to pach internal types if appropriate?
 type ListRepoResponse map[string]RepoResponse
 
-type BranchResponse struct {
-	Name  string       `json:"name"`
-	Mount []MountState `json:"mount"`
-}
+// type BranchResponse struct {
+// 	Name  string       `json:"name"`
+// 	Mount []MountState `json:"mount"`
+// }
 
 type RepoResponse struct {
-	Name          string                    `json:"name"`
-	Branches      map[string]BranchResponse `json:"branches"`
-	Authorization string                    `json:"authorization"` // "off", "none", "read", "write"
+	Repo          string   `json:"repo"`
+	Branches      []string `json:"branches"`
+	Authorization string   `json:"authorization"` // "off", "none", "read", "write"
 	// TODO: Commits map[string]CommitResponse
 }
 
 type ListMountResponse struct {
-	Mounted   map[string]MountState `json:"mounted"`
-	Unmounted []MountState          `json:"unmounted"`
+	Mounted   map[string]MountState   `json:"mounted"`
+	Unmounted map[string]RepoResponse `json:"unmounted"`
 }
 
 type GetResponse RepoResponse
