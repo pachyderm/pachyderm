@@ -1148,9 +1148,10 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
-			Name:  m.Name,
-			File:  client.NewFile(m.Repo, m.Branch, "", ""),
-			Write: m.Mode == "rw",
+			Name:     m.Name,
+			File:     client.NewFile(m.Repo, m.Branch, "", ""),
+			Subpaths: m.Files,
+			Write:    m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
 	}()

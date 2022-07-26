@@ -35,7 +35,8 @@ type RepoOptions struct {
 	// of the same repo at the same time.
 	Name string
 
-	File *pfs.File
+	File     *pfs.File
+	Subpaths []string
 	// Repo is the name of the repo to mount
 	// Repo string
 	// Branch is the branch of the repo to mount
