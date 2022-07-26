@@ -351,7 +351,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		return errors.EnsureStack(fs.Iterate(ctx, func(f fileset.File) error {
 			id := f.Index().GetFile().GetDatum()
 			// write to same path as meta commit, one line per file
-			return errors.EnsureStack(w.Put(common.MetaFilePath(id), id, true,
+			return errors.EnsureStack(w.Put(ctx, common.MetaFilePath(id), id, true,
 				strings.NewReader(f.Index().Path+"\n")))
 		}))
 	})

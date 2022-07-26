@@ -1,8 +1,8 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -19,7 +19,6 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/robfig/cron"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	v1 "k8s.io/api/core/v1"
@@ -40,10 +39,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -1233,44 +1232,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				}()
 
 				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(stream)
-				for scanner.Scan() {
-					msg := new(pps.LogMessage)
-					if containerName == "pachd" {
-						msg.Message = scanner.Text()
-					} else {
-						logBytes := scanner.Bytes()
-						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-							continue
-						}
-
-						// Filter out log lines that don't match on pipeline or job
-						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-							continue
-						}
-						if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
-							continue
-						}
-						if request.Datum != nil && request.Datum.ID != msg.DatumID {
-							continue
-						}
-						if request.Master != msg.Master {
-							continue
-						}
-						if !common.MatchDatum(request.DataFilters, msg.Data) {
-							continue
-						}
-					}
-					msg.Message = strings.TrimSuffix(msg.Message, "\n")
-
-					// Log message passes all filters -- return it
+				return ppsutil.FilterLogLines(request, stream, containerName == "pachd", func(msg *pps.LogMessage) error {
 					select {
 					case logCh <- msg:
-					case <-apiGetLogsServer.Context().Done():
 						return nil
+					case <-apiGetLogsServer.Context().Done():
+						return errutil.ErrBreak
 					}
-				}
-				return nil
+				})
 			})
 		}
 		return nil
@@ -2969,89 +2938,27 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 }
 
 // RunLoadTest implements the pps.RunLoadTest RPC
-// TODO: It could be useful to make the glob and number of pipelines configurable.
-func (a *apiServer) RunLoadTest(ctx context.Context, req *pfs.RunLoadTestRequest) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTest(ctx context.Context, req *pps.RunLoadTestRequest) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
-	repo := "load_test"
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
-		return nil, err
+	if req.DagSpec == "" {
+		req.DagSpec = defaultDagSpecs[0]
 	}
-	branch := uuid.New()
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	pipeline := tu.UniqueString("TestLoadPipeline")
-	if _, err := pachClient.PpsAPIClient.CreatePipeline(
-		pachClient.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipeline),
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 1,
-			},
-			Input: &pps.Input{
-				Pfs: &pps.PFSInput{
-					Repo:   repo,
-					Branch: branch,
-					Glob:   "/*",
-				},
-			},
-			PodPatch: req.PodPatch,
-		},
-	); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	req.Branch = client.NewBranch(repo, branch)
-	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), req)
-	return res, errors.EnsureStack(err)
+	return ppsload.Pipeline(pachClient, req)
 }
 
 // RunLoadTestDefault implements the pps.RunLoadTestDefault RPC
-// TODO: It could be useful to make the glob and number of pipelines configurable.
-func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pfs.RunLoadTestResponse, retErr error) {
+func (a *apiServer) RunLoadTestDefault(ctx context.Context, _ *types.Empty) (_ *pps.RunLoadTestResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
-	repo := "load_test"
-	if err := pachClient.CreateRepo(repo); err != nil && !pfsServer.IsRepoExistsErr(err) {
-		return nil, err
-	}
-	branch := uuid.New()
-	if err := pachClient.CreateBranch(repo, branch, "", "", nil); err != nil {
-		return nil, err
-	}
-	pipeline := tu.UniqueString("TestLoadPipeline")
-	if err := pachClient.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp -r /pfs/%s/* /pfs/out/", repo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		&pps.Input{
-			Pfs: &pps.PFSInput{
-				Repo:   repo,
-				Branch: branch,
-				Glob:   "/*",
-			},
-		},
-		"",
-		false,
-	); err != nil {
-		return nil, err
-	}
-	res, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), &pfs.RunLoadTestRequest{
-		Spec:   defaultLoadSpecs[0],
-		Branch: client.NewBranch(repo, branch),
+	return ppsload.Pipeline(pachClient, &pps.RunLoadTestRequest{
+		DagSpec:  defaultDagSpecs[0],
+		LoadSpec: defaultLoadSpecs[0],
 	})
-	return res, errors.EnsureStack(err)
 }
+
+var defaultDagSpecs = []string{`
+default-load-test-source:
+default-load-test-pipeline: default-load-test-source
+`}
 
 var defaultLoadSpecs = []string{`
 count: 5

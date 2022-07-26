@@ -81,7 +81,6 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - save_cache:
           key: pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -300,7 +299,6 @@ jobs:
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-            - pach-build-dependencies-v2-
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -341,7 +339,7 @@ jobs:
     parameters:
       appVersion:
         type: string
-        default: ${CIRCLE_SHA1}
+        default: "0.0.0"
     resource_class: large
     docker:
       - image: cimg/go:<< pipeline.parameters.go-version >>
@@ -440,6 +438,20 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
+  jsonnet-lint:
+    resource_class: small
+    docker:
+      - image: cimg/go:1.18.4
+    steps:
+      - checkout
+      - run:
+          name: Install go-jsonnet
+          command: |
+            go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
+      - run:
+          name: lint all jsonnet files
+          command: |
+            find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
@@ -478,7 +490,6 @@ jobs:
           command: |
             ls -la dist-pach/*
             ls -la cr-release-packages/*
-      # TODO: stablize release test env and reenable
       - run:
           name: "test examples"
           command: |
@@ -572,6 +583,7 @@ workflows:
           version: $CIRCLE_SHA1
           upload: true
       - check-prettier
+      - jsonnet-lint
       - test-go
       - test-envoy
       - integration-tests:
@@ -656,7 +668,7 @@ workflows:
                 - PPS6
                 - PPS7
                 - PPS8
-                - PPS_AUTH
+                - S3_AUTH
                 - EXAMPLES
           filters: *only-release-tags
       - helm-build:

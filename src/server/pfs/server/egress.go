@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/sdata"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"golang.org/x/net/context"
 )
 
 func getEgressPassword() (string, error) {
