@@ -103,7 +103,7 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 // pipelines are created/removed.
 func (a *apiServer) master() {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error { //nolint:errcheck
 		ctx, cancel := context.WithCancel(context.Background())
 		// set internal auth for basic operations
 		ctx = middleware_auth.AsInternalUser(ctx, "pps-master")

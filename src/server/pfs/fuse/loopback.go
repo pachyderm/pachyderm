@@ -194,7 +194,7 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p) //nolint:errcheck // favour outter error instead
+		syscall.Rmdir(p) //nolint:errcheck // favour outer error instead
 		return nil, fs.ToErrno(err)
 	}
 
@@ -327,7 +327,7 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p) //nolint:errcheck // favour outter error instead
+		syscall.Unlink(p) //nolint:errcheck // favour outer error instead
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}

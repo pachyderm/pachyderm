@@ -121,7 +121,7 @@ func (s *sidecarS3G) createK8sServices() {
 	logrus.Infof("Launching sidecar s3 gateway master process")
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error { //nolint:errcheck
 		masterLock := dlock.NewDLock(s.apiServer.env.EtcdClient,
 			path.Join(s.apiServer.etcdPrefix,
 				s3gSidecarLockPath,
@@ -293,7 +293,7 @@ func (h *handleJobsCtx) start() {
 	}()
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
-		backoff.Retry(func() error {
+		backoff.Retry(func() error { //nolint:errcheck
 			var err error
 			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(
 				ppsdb.JobsPipelineIndex, h.s.pipelineInfo.Pipeline.Name)

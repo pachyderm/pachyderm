@@ -9,12 +9,9 @@ linters:
 linters-settings:
   errcheck:
      exclude-functions:
-      - io.Copy
-      - github.com/pachyderm/pachyderm/v2/src/internal/backoff.Retry
-      - github.com/pachyderm/pachyderm/v2/src/internal/backoff.RetryNotify
-      - github.com/pachyderm/pachyderm/v2/src/internal/backoff.RetryUntilCancel
       - (*database/sql.Tx).Rollback
       - (*github.com/spf13/cobra.Command).MarkFlagCustom
+      - (*github.com/spf13/cobra.Command).Usage
   wrapcheck:
     ignoreSigs:
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf
