@@ -110,7 +110,7 @@ dockers:
       - pachyderm/pachd
       - pachyderm/pachd:local
       - "pachyderm/pachd:{{.Version}}"
-      - pachyderm/pachd:{{ .Env.CIRCLE_TAG }}
+      - pachyderm/pachd:{{ .Env.CIRCLE_SHA1 }}
     ids:
       - pachd
     goos: linux
@@ -128,7 +128,7 @@ dockers:
   -
     image_templates:
       - pachyderm/pachctl
-      - pachyderm/pachctl:{{ .Env.CIRCLE_TAG }}
+      - pachyderm/pachctl:{{ .Env.CIRCLE_SHA1 }}
     ids:
       - pachctl
     goos: linux
@@ -146,7 +146,7 @@ dockers:
   -
     image_templates:
       - pachyderm/mount-server
-      - pachyderm/mount-server:{{ .Env.CIRCLE_TAG }}
+      - pachyderm/mount-server:{{ .Env.CIRCLE_SHA1 }}
     ids:
       - mount-server
     goos: linux
@@ -165,7 +165,7 @@ dockers:
     image_templates:
       - pachyderm/worker
       - pachyderm/worker:local
-      - pachyderm/worker:{{ .Env.CIRCLE_TAG }}
+      - pachyderm/worker:{{ .Env.CIRCLE_SHA1 }}
     ids:
       - pachctl
       - worker_init
