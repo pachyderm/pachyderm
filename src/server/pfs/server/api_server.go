@@ -393,19 +393,19 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 			t := mod.AddFile.Datum
 			switch src := mod.AddFile.Source.(type) {
 			case *pfs.AddFile_Raw:
-				n, err = putFileRaw(uw, p, t, src.Raw)
+				n, err = putFileRaw(ctx, uw, p, t, src.Raw)
 			case *pfs.AddFile_Url:
 				n, err = putFileURL(ctx, uw, p, t, src.Url)
 			default:
 				// need to write empty data to path
-				n, err = putFileRaw(uw, p, t, &types.BytesValue{})
+				n, err = putFileRaw(ctx, uw, p, t, &types.BytesValue{})
 			}
 			if err != nil {
 				return bytesRead, err
 			}
 			bytesRead += n
 		case *pfs.ModifyFileRequest_DeleteFile:
-			if err := deleteFile(uw, mod.DeleteFile); err != nil {
+			if err := deleteFile(ctx, uw, mod.DeleteFile); err != nil {
 				return bytesRead, err
 			}
 		case *pfs.ModifyFileRequest_CopyFile:
@@ -422,8 +422,8 @@ func (a *apiServer) modifyFile(ctx context.Context, uw *fileset.UnorderedWriter,
 	return bytesRead, nil
 }
 
-func putFileRaw(uw *fileset.UnorderedWriter, path, tag string, src *types.BytesValue) (int64, error) {
-	if err := uw.Put(path, tag, true, bytes.NewReader(src.Value)); err != nil {
+func putFileRaw(ctx context.Context, uw *fileset.UnorderedWriter, path, tag string, src *types.BytesValue) (int64, error) {
+	if err := uw.Put(ctx, path, tag, true, bytes.NewReader(src.Value)); err != nil {
 		return 0, err
 	}
 	return int64(len(src.Value)), nil
@@ -449,7 +449,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 				retErr = err
 			}
 		}()
-		return 0, uw.Put(dstPath, tag, true, resp.Body)
+		return 0, uw.Put(ctx, dstPath, tag, true, resp.Body)
 	default:
 		url, err := obj.ParseURL(src.URL)
 		if err != nil {
@@ -465,7 +465,7 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 				return miscutil.WithPipe(func(w io.Writer) error {
 					return errors.EnsureStack(objClient.Get(ctx, name, w))
 				}, func(r io.Reader) error {
-					return uw.Put(filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
+					return uw.Put(ctx, filepath.Join(dstPath, strings.TrimPrefix(name, path)), tag, true, r)
 				})
 			})
 			return 0, errors.EnsureStack(err)
@@ -473,13 +473,13 @@ func putFileURL(ctx context.Context, uw *fileset.UnorderedWriter, dstPath, tag s
 		return 0, miscutil.WithPipe(func(w io.Writer) error {
 			return errors.EnsureStack(objClient.Get(ctx, url.Object, w))
 		}, func(r io.Reader) error {
-			return uw.Put(dstPath, tag, true, r)
+			return uw.Put(ctx, dstPath, tag, true, r)
 		})
 	}
 }
 
-func deleteFile(uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
-	return uw.Delete(request.Path, request.Datum)
+func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
+	return uw.Delete(ctx, request.Path, request.Datum)
 }
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC

@@ -1,0 +1,3 @@
+source-1:
+source-2:
+pipeline: source-1, source-2

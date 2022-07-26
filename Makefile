@@ -401,6 +401,10 @@ spellcheck:
 check-buckets:
 	./etc/testing/circle/check_buckets.sh
 
+validate-circle:
+	circleci config validate .circleci/main.yml
+	circleci config validate .circleci/config.yml
+
 .PHONY: \
 	install \
 	install-clean \
@@ -480,4 +484,5 @@ check-buckets:
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \
-	spellcheck
+	spellcheck \
+	validate-circle

@@ -311,6 +311,7 @@ nav:
             - reference/pachctl/pachctl_create_repo.md
             - reference/pachctl/pachctl_create_secret.md
             - reference/pachctl/pachctl_debug.md
+            - reference/pachctl/pachctl_debug_analyze.md
             - reference/pachctl/pachctl_debug_binary.md
             - reference/pachctl/pachctl_debug_dump.md
             - reference/pachctl/pachctl_debug_profile.md
@@ -390,7 +391,6 @@ nav:
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
             - reference/pachctl/pachctl_mount.md
-            - reference/pachctl/pachctl_mount-server.md
             - reference/pachctl/pachctl_port-forward.md
             - reference/pachctl/pachctl_put.md
             - reference/pachctl/pachctl_put_file.md
