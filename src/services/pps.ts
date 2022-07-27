@@ -244,11 +244,11 @@ const pps = ({
         client.deletePipeline(
           deletePipelineRequest,
           credentialMetadata,
-          (error, res) => {
+          (error) => {
             if (error) {
               reject(error);
             }
-            return resolve(res.toObject());
+            return resolve({});
           },
         );
       });
