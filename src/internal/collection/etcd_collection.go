@@ -651,11 +651,11 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...
 				eventCh <- directEv
 			}
 		}
+		defer close(eventCh)
 		if err := watchForEvents(); err != nil {
 			eventCh <- &watch.Event{Type: watch.EventError, Err: err}
 			watcher.Close()
 		}
-		close(eventCh)
 	}()
 	return watch.MakeEtcdWatcher(eventCh, done), nil
 }

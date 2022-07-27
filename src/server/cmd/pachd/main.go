@@ -208,7 +208,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck // already logging error above
+			_ = pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) // swallow error, not much we can do if we can't write to stderr
 		}
 	}()
 

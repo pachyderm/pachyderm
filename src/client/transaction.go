@@ -163,6 +163,7 @@ func (c APIClient) ExecuteInTransaction(f func(c *APIClient) error) (*transactio
 	}
 	if err := f(c.WithTransaction(txn)); err != nil {
 		// We ignore the delete error, because we are more interested in the error from the callback.
+		// TODO multierr
 		_ = c.DeleteTransaction(txn)
 		return nil, err
 	}
