@@ -125,12 +125,6 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-tag:
-	docker tag pachyderm/pachd:$(PREVIOUS_VERSION) pachyderm/pachd:$(VERSION)
-	docker tag pachyderm/worker:$(PREVIOUS_VERSION) pachyderm/worker:$(VERSION)
-	docker tag pachyderm/pachctl:$(PREVIOUS_VERSION) pachyderm/pachctl:$(VERSION)
-	docker tag pachyderm/mount-server:$(PREVIOUS_VERSION) pachyderm/mount-server:$(VERSION)
-
 docker-push:
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
