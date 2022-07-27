@@ -2,6 +2,8 @@ run:
   timeout: 5m
   skip-dirs:
     - cached-deps
+  build-tags:
+    - k8s
 linters:
   enable:
     - wrapcheck

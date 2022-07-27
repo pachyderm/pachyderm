@@ -253,7 +253,7 @@ func TestLoginPachd(t *testing.T) {
 			break
 		}
 	}
-	cmd.Wait()
+	require.NoError(t, cmd.Wait())
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}

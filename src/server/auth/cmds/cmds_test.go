@@ -49,7 +49,7 @@ func executeCmdAndGetLastWord(t *testing.T, cmd *exec.Cmd) string {
 			token = tmp
 		}
 	}
-	cmd.Wait()
+	require.NoError(t, cmd.Wait())
 	return token
 }
 
@@ -113,7 +113,7 @@ func TestLogin(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser)))
 
 	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser")
 	out, err := cmd.StdoutPipe()
