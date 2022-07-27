@@ -2,8 +2,6 @@
 
 set -Eex
 
-export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
-
 # Try to connect for three minutes
 for _ in $(seq 36); do
     if kubectl version &>/dev/null; then

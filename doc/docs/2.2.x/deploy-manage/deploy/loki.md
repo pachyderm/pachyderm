@@ -1,3 +1,4 @@
+# Enable Logs Aggregation With Loki
 
 !!! note 
     To deploy and configure a Pachyderm cluster

@@ -282,7 +282,7 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{

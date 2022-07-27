@@ -2,8 +2,6 @@
 
 set -ve
 
-export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
-
 VERSION=v1.19.0
 
 # wait for docker or timeout

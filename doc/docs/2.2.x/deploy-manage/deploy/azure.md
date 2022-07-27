@@ -284,7 +284,7 @@ Once created, go back to your newly created database, and:
 ### Create Your Databases
 After your instance is created, you will need to create Pachyderm's database(s).
       
-If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
+If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
 
 !!! Note
     Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
