@@ -94,6 +94,9 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 		fmt.Printf("Running pipeline: %s\n", request.Pipeline.Name)
 		datums := 0
 		runDatum := func(di *ppsclient.DatumInfo) error {
+			if di.State == pps.DatumState_SUCCESS || di.State == pps.DatumState_SKIPPED {
+				return nil
+			}
 			datums++
 			if datumLimit != 0 && datums > datumLimit {
 				return errutil.ErrBreak
