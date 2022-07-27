@@ -1025,7 +1025,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 		return a.listDatumInput(server.Context(), request.Input, func(meta *datum.Meta) error {
 			di := convertDatumMetaToInfo(meta, nil)
 			di.State = pps.DatumState_UNKNOWN
-			if !request.Filter.Allow(server.Context(), di) {
+			if !request.Filter.Allow(di) {
 				return nil
 			}
 			return errors.EnsureStack(server.Send(di))
@@ -1033,7 +1033,7 @@ func (a *apiServer) ListDatum(request *pps.ListDatumRequest, server pps.API_List
 	}
 	return a.collectDatums(server.Context(), request.Job, func(meta *datum.Meta, _ *pfs.File) error {
 		info := convertDatumMetaToInfo(meta, request.Job)
-		if !request.Filter.Allow(server.Context(), info) {
+		if !request.Filter.Allow(info) {
 			return nil
 		}
 		return errors.EnsureStack(server.Send(info))

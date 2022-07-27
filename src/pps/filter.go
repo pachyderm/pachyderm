@@ -1,12 +1,8 @@
 package pps
 
-import (
-	"context"
-)
-
 // Allow returns true if the filter allows the item.  Currently, this means if
 // the item’s state matches one of the states given in the filter.
-func (r *ListDatumRequest_Filter) Allow(ctx context.Context, item *DatumInfo) bool {
+func (r *ListDatumRequest_Filter) Allow(item *DatumInfo) bool {
 	// A missing filter allows all items.
 	if r == nil {
 		return true
