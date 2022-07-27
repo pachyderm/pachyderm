@@ -109,7 +109,7 @@ dockers:
     image_templates:
       - pachyderm/pachd
       - pachyderm/pachd:local
-      - "pachyderm/pachd:{{.Version}}"
+      - "pachyderm/pachd:{{.Env.Version}}"
     ids:
       - pachd
     goos: linux
@@ -127,6 +127,7 @@ dockers:
   -
     image_templates:
       - pachyderm/pachctl
+      - pachyderm/pachctl:{{.Env.Version}}
     ids:
       - pachctl
     goos: linux
@@ -144,6 +145,7 @@ dockers:
   -
     image_templates:
       - pachyderm/mount-server
+      - pachyderm/mount-server:{{.Env.Version}}
     ids:
       - mount-server
     goos: linux
@@ -162,6 +164,7 @@ dockers:
     image_templates:
       - pachyderm/worker
       - pachyderm/worker:local
+      - pachyderm/worker:{{.Env.Version}}
     ids:
       - pachctl
       - worker_init
