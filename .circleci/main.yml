@@ -60,10 +60,10 @@ commands:
             chmod +x kubectl && \
             sudo mv kubectl /usr/local/bin/kubectl
       - run:
-          name: Install pachctl
+          name: Install pachctl # TODO install from local build
           command: curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv pachctl.tar.gz && sudo mv pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64/pachctl /usr/local/bin/
       - run:
-          name: Install mount-server
+          name: Install mount-server #TODO Install from local build
           command: curl -f -o mount-server.tar.gz -L https://storage.googleapis.com/pachyderm-builds/mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv mount-server.tar.gz && sudo mv mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64/mount-server /usr/local/bin/
       - run:
           name: Setup helm
@@ -456,9 +456,9 @@ jobs:
             pulumi config set gcp:project <<parameters.gcp-project>>
             pulumi config set sha $CIRCLE_SHA1
             pulumi config set branch $CIRCLE_BRANCH
-            pulumi config set --secret client_id $AUTH0_CLIENT_ID
-            pulumi config set --secret client_secret $AUTH0_CLIENT_SECRET
-            pulumi config set --secret auth0_domain $AUTH0_DOMAIN
+            pulumi config set --secret --non-interactive  client_id $AUTH0_CLIENT_ID
+            pulumi config set --secret --non-interactive  client_secret $AUTH0_CLIENT_SECRET
+            pulumi config set --secret --non-interactive  auth0_domain $AUTH0_DOMAIN
             # pulumi preview
             pulumi up --yes
             # pulumi destroy --yes
