@@ -152,6 +152,20 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+  lint-pach:
+    executor: docker-go
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - pach-golangci-lint-v1
+      - run:
+          make lint
+      - save_cache:
+          key: pach-golangci-lint-v1
+          paths:
+            - /home/circleci/.cache/golangci-lint
   helm-tests:
     executor: docker-go
     working_directory: ~/project/etc/helm
@@ -606,6 +620,7 @@ workflows:
           upload: true
       - check-prettier
       - jsonnet-lint
+      - lint-pach
       - test-go
       - test-envoy
       - integration-tests:
