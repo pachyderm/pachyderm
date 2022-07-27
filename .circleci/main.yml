@@ -606,7 +606,7 @@ jobs:
 workflows:
   testlint:
     jobs:
-      - pach-lint
+      - lint-pach
   #integration-tests:
   #  jobs:
   #    - build-docker-images
