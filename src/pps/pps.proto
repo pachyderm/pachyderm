@@ -568,6 +568,11 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
+  // Filter restricts returned DatumInfo messages to those which match
+  // all of the filtered attributes.
+  message Filter {
+    repeated DatumState state = 1;  // Must match one of the given states.
+  }
   // Job and Input are two different ways to specify the datums you want.
   // Only one can be set.
   // Job is the job to list datums from.
@@ -798,29 +803,3 @@ service API {
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
 
-// Filter is used to filter a set of results.
-message Filter {
-  oneof filter {
-    // when implementing a new filter, be sure to add it below
-    NotFilter notFilter = 1;
-    AndFilter andFilter = 2;
-    OrFilter orFilter = 3;
-    DatumStateFilter datumStateFilter = 4;
-  }
-}
-
-message NotFilter {
-  Filter operand = 1;
-}
-
-message AndFilter {
-  repeated Filter operands = 1;
-}
-
-message OrFilter {
-  repeated Filter operands = 1;
-}
-
-message DatumStateFilter {
-  DatumState value = 1;
-}

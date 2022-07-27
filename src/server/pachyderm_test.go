@@ -9671,9 +9671,9 @@ func TestListDatumFilter(t *testing.T) {
 		require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
 
-	// filtering out unknowns should yield in zero datums
+	// filtering for failed should yield zero datums
 	s, err := c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
-		Filter: pps.NewNotFilter(pps.NewDatumStateFilter(pps.DatumState_UNKNOWN)),
+		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_FAILED}},
 		Input: &pps.Input{
 			Cross: []*pps.Input{{
 				Pfs: &pps.PFSInput{
@@ -9706,7 +9706,7 @@ func TestListDatumFilter(t *testing.T) {
 
 	// filtering for only unknowns should yield 25 datums
 	s, err = c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
-		Filter: pps.NewDatumStateFilter(pps.DatumState_UNKNOWN),
+		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_UNKNOWN}},
 		Input: &pps.Input{
 			Cross: []*pps.Input{{
 				Pfs: &pps.PFSInput{
