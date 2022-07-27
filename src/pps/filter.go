@@ -1,22 +1,24 @@
 package pps
 
 import (
-	context "context"
+	"context"
 )
 
+// Allow returns true if the filter allows the item.  Currently, this means if
+// the item’s state matches one of the states given in the filter.
 func (r *ListDatumRequest_Filter) Allow(ctx context.Context, item *DatumInfo) bool {
+	// A missing filter allows all items.
 	if r == nil {
 		return true
 	}
-	match := false
+	// An empty filter allows all items.
+	if len(r.State) == 0 {
+		return true
+	}
 	for _, s := range r.State {
 		if s == item.State {
-			match = true
+			return true
 		}
 	}
-	if len(r.State) > 0 && !match {
-		return false
-	}
-
-	return true
+	return false
 }
