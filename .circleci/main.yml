@@ -425,7 +425,7 @@ jobs:
             wget https://get.pulumi.com/releases/sdk/pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
             tar xvf pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
             # Add to PATH
-            echo 'export PATH=${HOME}/project/pulumi:$PATH' >> $BASH_ENV
+            echo 'export PATH=${PWD}/pulumi:$PATH' >> $BASH_ENV
             source $BASH_ENV
             pulumi login --non-interactive
       - run:
