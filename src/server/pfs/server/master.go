@@ -32,12 +32,12 @@ const (
 func (d *driver) master(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
-	backoff.RetryUntilCancel(ctx, func() error {
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		masterCtx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer masterLock.Unlock(masterCtx)
+		defer masterLock.Unlock(masterCtx) //nolint:errcheck
 		eg, ctx := errgroup.WithContext(masterCtx)
 		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
@@ -95,7 +95,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		ctx, cancel := context.WithCancel(ctx)
 		repos[key] = cancel
 		go func() {
-			backoff.RetryUntilCancel(ctx, func() error {
+			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 				return d.finishRepoCommits(ctx, compactor, key)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
@@ -127,7 +127,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				log.Errorf("errored clearing compaction cache: %s", err)
 			}
 		}()
-		return miscutil.LogStep(fmt.Sprintf("finishing commit %v", commit), func() error {
+		return miscutil.LogStep(ctx, fmt.Sprintf("finishing commit %v", commit), func() error {
 			// TODO: This retry might not be getting us much if the outer watch still errors due to a transient error.
 			return backoff.RetryUntilCancel(ctx, func() error {
 				// Skip compaction / validation for errored commits.
@@ -146,7 +146,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				taskDoer := d.env.TaskService.NewDoer(storageTaskNamespace, commit.ID, cache)
 				var totalId *fileset.ID
 				start := time.Now()
-				if err := miscutil.LogStep(fmt.Sprintf("compacting commit %v", commit), func() error {
+				if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting commit %v", commit), func() error {
 					var err error
 					totalId, err = compactor.Compact(ctx, taskDoer, []fileset.ID{*id}, defaultTTL)
 					if err != nil {
@@ -160,7 +160,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 				// Validate the commit.
 				start = time.Now()
 				var validationError string
-				if err := miscutil.LogStep(fmt.Sprintf("validating commit %v", commit), func() error {
+				if err := miscutil.LogStep(ctx, fmt.Sprintf("validating commit %v", commit), func() error {
 					var err error
 					details.SizeBytes, validationError, err = compactor.Validate(ctx, taskDoer, *totalId)
 					return err
@@ -180,7 +180,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, re
 }
 
 func (d *driver) finalizeCommit(ctx context.Context, commit *pfs.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
-	return miscutil.LogStep(fmt.Sprintf("finalizing commit %v", commit), func() error {
+	return miscutil.LogStep(ctx, fmt.Sprintf("finalizing commit %v", commit), func() error {
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 			commitInfo := &pfs.CommitInfo{}
 			if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(pfsdb.CommitKey(commit), commitInfo, func() error {

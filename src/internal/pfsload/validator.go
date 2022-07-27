@@ -63,7 +63,7 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) (retErr error) {
 		}
 	}
 	err := client.WaitCommitSet(commit.ID, func(ci *pfs.CommitInfo) error {
-		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType {
+		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
 		return validate(client, ci.Commit, v.hash)

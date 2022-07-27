@@ -91,7 +91,9 @@ func (s *Server) ListenSocket(path string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	go s.Server.Serve(listener)
+	s.eg.Go(func() error {
+		return errors.EnsureStack(s.Server.Serve(listener))
+	})
 	return nil
 }
 

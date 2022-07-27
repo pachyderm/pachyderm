@@ -34,6 +34,10 @@ See the [Effective Go Style Guide](https://go.dev/doc/effective_go) for standard
 - Go dependencies are managed with go modules.
 - Use `go get foo` to add or update a package; for more specific versions, use  `go get foo@v1.2.3`, `go get foo@master`, or `go get foo@e3702bed2`.
 
+### YAML
+
+- See the [Helm Best Practices](https://helm.sh/docs/chart_best_practices/conventions/) guide series. 
+
 ---
 
 ## Review

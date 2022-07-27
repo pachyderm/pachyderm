@@ -465,7 +465,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// Write a tar stream with a single file to
 		// the tcp connection of the pipeline service's
 		// external port.
-		backoff.Retry(func() error {
+		backoff.Retry(func() error { //nolint:errcheck
 			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
 			if err != nil {
 				return errors.EnsureStack(err)

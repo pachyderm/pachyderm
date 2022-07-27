@@ -724,6 +724,18 @@ message SecretInfos {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message RunLoadTestRequest {
+  string dag_spec = 1; 
+  string load_spec = 2;
+  int64 seed = 3;
+  int64 parallelism = 4;
+  string pod_patch = 5;
+}
+
+message RunLoadTestResponse {
+  string error = 1;
+}
+
 message RenderTemplateRequest {
   string template = 1;
   map<string, string> args = 2;
@@ -774,9 +786,9 @@ service API {
   rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
 
   // RunLoadTest runs a load test.
-  rpc RunLoadTest(pfs_v2.RunLoadTestRequest) returns (pfs_v2.RunLoadTestResponse) {}
+  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
   // RunLoadTestDefault runs the default load test.
-  rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
 
   // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
   rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}

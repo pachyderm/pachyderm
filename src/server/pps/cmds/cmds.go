@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -1121,7 +1120,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAliases(listSecret, "list secret", secrets))
 
+	var dagSpecFile string
 	var seed int64
+	var parallelism int64
 	var podPatchFile string
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
@@ -1142,12 +1143,19 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
+			}
+			var dagSpec []byte
+			if dagSpecFile != "" {
+				var err error
+				dagSpec, err = ioutil.ReadFile(dagSpecFile)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
 			}
 			var podPatch []byte
 			if podPatchFile != "" {
@@ -1163,19 +1171,20 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if fi.IsDir() {
 					return nil
 				}
-				spec, err := ioutil.ReadFile(file)
+				loadSpec, err := ioutil.ReadFile(file)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
-					Spec:     string(spec),
-					Seed:     seed,
-					PodPatch: string(podPatch),
+				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
+					DagSpec:     string(dagSpec),
+					LoadSpec:    string(loadSpec),
+					Seed:        seed,
+					Parallelism: parallelism,
+					PodPatch:    string(podPatch),
 				})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1185,8 +1194,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return errors.EnsureStack(err)
 		}),
 	}
+	runLoadTest.Flags().StringVarP(&dagSpecFile, "dag", "d", "", "The DAG specification file to use for the load test")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
-	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "p", "", "The pod patch file to use for the pipelines.")
+	runLoadTest.Flags().Int64VarP(&parallelism, "parallelism", "p", 0, "The parallelism to use for the pipelines.")
+	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands

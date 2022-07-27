@@ -31,7 +31,7 @@ func NewWriter(w io.Writer, header string) *Writer {
 		panic("header must end in a new line")
 	}
 	tabwriter := ansiterm.NewTabWriter(w, 0, 1, 1, ' ', 0)
-	tabwriter.Write([]byte(header))
+	tabwriter.Write([]byte(header)) //nolint:errcheck
 	return &Writer{
 		w:      tabwriter,
 		lines:  1, // 1 because we just printed the header
