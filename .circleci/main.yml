@@ -75,6 +75,14 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -120,7 +128,7 @@ jobs:
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
-          command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
+          command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
       - run: etc/testing/circle/launch.sh
       - run:

@@ -2,9 +2,6 @@
 
 set -ex
 
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh"
-
 ## pachctl build
 go version
 make install
