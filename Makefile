@@ -418,7 +418,6 @@ check-buckets:
 	docker-gpu \
 	docker-gpu-dev \
 	docker-build-test-entrypoint \
-	docker-tag \
 	docker-push \
 	docker-push-release \
 	check-buckets \
