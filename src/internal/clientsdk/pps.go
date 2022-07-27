@@ -56,3 +56,22 @@ func ForEachJobSet(client pps.API_ListJobSetClient, cb func(*pps.JobSetInfo) err
 	}
 	return nil
 }
+
+func ForEachDatumInfo(client pps.API_ListDatumClient, cb func(*pps.DatumInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}

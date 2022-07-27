@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -9691,17 +9692,11 @@ func TestListDatumFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	var i int
-	for {
-		d, err := s.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			t.Error(err)
-		}
+	require.NoError(t, clientsdk.ForEachDatumInfo(s, func(d *pps.DatumInfo) error {
 		require.NotEqual(t, pps.DatumState_UNKNOWN, d.State)
 		i++
-	}
+		return nil
+	}))
 	require.Equal(t, 0, i)
 
 	// filtering for only unknowns should yield 25 datums
@@ -9723,17 +9718,11 @@ func TestListDatumFilter(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	for {
-		d, err := s.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			t.Error(err)
-		}
+	require.NoError(t, clientsdk.ForEachDatumInfo(s, func(d *pps.DatumInfo) error {
 		require.Equal(t, pps.DatumState_UNKNOWN, d.State)
 		i++
-	}
+		return nil
+	}))
 	require.Equal(t, 25, i)
 }
 
