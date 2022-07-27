@@ -101,7 +101,7 @@ func (s *shell) executor(in string) {
 	cmd.Stdin = strings.NewReader("pachctl " + in)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	cmd.Run() //nolint:errcheck
 }
 
 func (s *shell) suggestor(in prompt.Document) []prompt.Suggest {

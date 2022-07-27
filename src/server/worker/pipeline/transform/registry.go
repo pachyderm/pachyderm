@@ -152,7 +152,9 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		if pj.ji.Details.JobTimeout != nil {
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
-				reg.killJob(pj, "job timed out")
+				if err := reg.killJob(pj, " jobtimed out"); err != nil {
+					pj.logger.Logf("error killing job: %v", err)
+				}
 			})
 			defer timer.Stop()
 		}

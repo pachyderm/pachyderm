@@ -1,4 +1,3 @@
-//nolint:wrapcheck
 package client
 
 import (
@@ -37,7 +36,7 @@ func TestInterceptors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("server: %v", err)
 	}
-	defer server.Wait()
+	defer server.Wait() //nolint:errcheck
 
 	listener, err := server.ListenTCP("localhost", 0)
 	if err != nil {

@@ -53,7 +53,9 @@ import (
 
 func RunLocal() (retErr error) {
 	config := &serviceenv.PachdFullConfiguration{}
-	cmdutil.Populate(config)
+	if err := cmdutil.Populate(config); err != nil {
+		return err
+	}
 
 	config.PostgresSSL = "disable"
 
@@ -67,7 +69,7 @@ func RunLocal() (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.Errorf("error: %v", retErr)
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {

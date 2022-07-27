@@ -177,21 +177,21 @@ func TestS3Input(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "pfs_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
 		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "input_repo"),
 		"expected \"out\" but not \"input_repo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_buckets", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_buckets", &buf))
 	require.True(t,
 		strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
 		"expected \"input_repo\" but not \"out\" in %s: %q", "s3_buckets", buf.String())
 
 	// Check files in input_repo
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_files", &buf))
 	require.Matches(t, "foo", buf.String())
 
 	// Check that no service is left over
@@ -266,7 +266,7 @@ func TestS3Chain(t *testing.T) {
 	require.NoError(t, err)
 	for i := 0; i < numPipelines; i++ {
 		var buf bytes.Buffer
-		c.GetFile(client.NewCommit(pipelines[i], "master", ""), "/file", &buf)
+		require.NoError(t, c.GetFile(client.NewCommit(pipelines[i], "master", ""), "/file", &buf))
 		require.Equal(t, i+1, strings.Count(buf.String(), "1\n"))
 	}
 }
@@ -315,7 +315,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 
 	// check S3_ENDPOINT variable
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "s3_endpoint", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_endpoint", &buf))
 	require.True(t, strings.Contains(buf.String(), "."+ns))
 }
 
@@ -377,14 +377,14 @@ func TestS3Output(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "pfs_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
 		!strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
 		"expected \"input_repo\" but not \"out\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_buckets", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_buckets", &buf))
 	require.True(t,
 		!strings.Contains(buf.String(), "input_repo") && strings.Contains(buf.String(), "out"),
 		"expected \"out\" but not \"input_repo\" in %s: %q", "s3_buckets", buf.String())
@@ -462,14 +462,14 @@ func TestFullS3(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "pfs_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
 		!strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
 		"expected neither \"out\" nor \"input_repo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_buckets", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_buckets", &buf))
 	require.True(t,
 		strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
 		"expected both \"input_repo\" and \"out\" in %s: %q", "s3_buckets", buf.String())
@@ -567,9 +567,9 @@ func TestS3SkippedDatums(t *testing.T) {
 			iS := fmt.Sprintf("%d", i)
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
-			c.DeleteFile(bgc, "/round")
+			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			c.FinishCommit(background, bgc.Branch.Name, bgc.ID)
+			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -586,7 +586,7 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			// check output
 			var buf bytes.Buffer
-			c.GetFile(pipelineCommit, "out", &buf)
+			require.NoError(t, c.GetFile(pipelineCommit, "out", &buf))
 			s := bufio.NewScanner(&buf)
 			for s.Scan() {
 				// [0] = bg, [1] = pfsin, [2] = s3in
@@ -604,16 +604,16 @@ func TestS3SkippedDatums(t *testing.T) {
 		// Increment "/round" in 'background'
 		bgc, err := c.StartCommit(background, "master")
 		require.NoError(t, err)
-		c.DeleteFile(bgc, "/round")
+		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		c.FinishCommit(background, bgc.Branch.Name, bgc.ID)
+		require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
 
 		//  Put new file in 's3in' to create a new datum and trigger a job
 		s3c, err := c.StartCommit(s3in, "master")
 		require.NoError(t, err)
-		c.DeleteFile(s3Commit, "/file")
+		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID)
+		require.NoError(t, c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID))
 
 		_, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)

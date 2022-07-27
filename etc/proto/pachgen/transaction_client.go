@@ -48,8 +48,7 @@ var funcs = map[string]interface{}{
 	"goPkgName": func(proto *descriptor.FileDescriptorProto) string {
 		return path.Base(*proto.Options.GoPackage)
 	},
-	// nolint:staticcheck
-	"title": strings.Title,
+	"title": strings.Title, //nolint:staticcheck
 	"typeName": func(t *string) string {
 		parts := strings.Split(*t, ".")
 		if len(parts) == 4 && parts[1] == "google" && parts[2] == "protobuf" {
@@ -60,8 +59,7 @@ var funcs = map[string]interface{}{
 		return strings.Join(parts[1:], ".")
 	},
 	"clientName": func(t string) string {
-		// nolint:staticcheck
-		return fmt.Sprintf("unsupported%sBuilderClient", strings.Title(t))
+		return fmt.Sprintf("unsupported%sBuilderClient", strings.Title(t)) //nolint:staticcheck
 	},
 }
 

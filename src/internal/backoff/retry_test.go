@@ -44,7 +44,7 @@ func TestRetry(t *testing.T) {
 func TestRetryUntilCancel(t *testing.T) {
 	var results []int
 	ctx, cancel := context.WithCancel(context.Background())
-	backoff.RetryUntilCancel(ctx, func() error {
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		results = append(results, len(results))
 		if len(results) >= 3 {
 			cancel()
@@ -59,7 +59,7 @@ func TestRetryUntilCancel(t *testing.T) {
 func TestRetryUntilCancelZeroBackoff(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	first := true
-	backoff.RetryUntilCancel(ctx, func() error {
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		if first {
 			first = false
 		} else {
@@ -95,7 +95,7 @@ func (m *mustResetBackOff) Reset() {
 func TestRetryUntilCancelResetsOnErrContinue(t *testing.T) {
 	var b mustResetBackOff = 0
 	var results []int
-	backoff.RetryUntilCancel(context.Background(), func() error {
+	backoff.RetryUntilCancel(context.Background(), func() error { //nolint:errcheck
 		results = append(results, len(results)+1)
 		if len(results) < 3 {
 			return backoff.ErrContinue
@@ -108,7 +108,7 @@ func TestRetryUntilCancelResetsOnErrContinue(t *testing.T) {
 func TestNotifyContinue(t *testing.T) {
 	t.Run("NotifyContinueWithNil", func(t *testing.T) {
 		var results []int
-		backoff.RetryNotify(func() error {
+		backoff.RetryNotify(func() error { //nolint:errcheck
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // notify fn below will be elided by NotifyContinue
@@ -120,7 +120,7 @@ func TestNotifyContinue(t *testing.T) {
 
 	t.Run("NotifyContinueWithNotify", func(t *testing.T) {
 		var results []int
-		backoff.RetryNotify(func() error {
+		backoff.RetryNotify(func() error { //nolint:errcheck
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // notify fn below will be elided by NotifyContinue
@@ -135,7 +135,7 @@ func TestNotifyContinue(t *testing.T) {
 
 	t.Run("NotifyContinueWithFunction", func(t *testing.T) {
 		var results []int
-		backoff.RetryNotify(func() error {
+		backoff.RetryNotify(func() error { //nolint:errcheck
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // notify fn below will be elided by NotifyContinue
@@ -154,7 +154,7 @@ func TestNotifyContinue(t *testing.T) {
 		defer log.SetOutput(os.Stdout)
 		var results []int
 		ctx, cancel := context.WithCancel(context.Background())
-		backoff.RetryUntilCancel(ctx, func() error {
+		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // causes NotifyContinue to re-run
@@ -172,7 +172,7 @@ func TestNotifyContinue(t *testing.T) {
 func TestMustLoop(t *testing.T) {
 	var results []int
 	ctx, cancel := context.WithCancel(context.Background())
-	backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
+	backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error { //nolint:errcheck
 		results = append(results, len(results)+1)
 		switch len(results) {
 		case 1:

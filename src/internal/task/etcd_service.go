@@ -126,7 +126,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 		ctx, cancel := context.WithCancel(ctx)
 		defer func() {
 			cancel()
-			eg.Wait()
+			eg.Wait() //nolint:errcheck
 		}()
 		eg.Go(func() error {
 			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {

@@ -221,7 +221,7 @@ func TestTrafficThroughProxy(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	deployFakeConsole(t, ns)
 	testutil.ActivateAuthClient(t, c)
-	testutil.ConfigureOIDCProvider(t, c)
+	require.NoError(t, testutil.ConfigureOIDCProvider(t, c))
 	proxyTest(t, http.DefaultClient, c, false)
 }
 
@@ -290,7 +290,7 @@ func TestTrafficThroughProxyTLS(t *testing.T) {
 	deployFakeConsole(t, ns)
 
 	testutil.ActivateAuthClient(t, c)
-	testutil.ConfigureOIDCProvider(t, c)
+	require.NoError(t, testutil.ConfigureOIDCProvider(t, c))
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
