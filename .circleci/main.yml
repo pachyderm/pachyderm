@@ -476,6 +476,40 @@ jobs:
             Enter any username to login (Each user will be assigned a new workspace)
             You may need to shutdown and relaunch your Jupyterlab instance if new code has been pushed since you last launched it.
             You can connect to pach by entering grpc://pachd-peer:30653 into the extension connection screen."
+  jupyter-test-publish:
+    executor: python
+    working_directory: ~/pachyderm/jupyterlab-extension
+    steps:
+      - checkout:
+          path: ~/pachyderm
+      - attach_workspace:
+          at: .
+      # Install and cache Python dependencies
+      - restore_cache:
+          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -r ci-requirements.txt
+      - save_cache:
+          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          paths:
+            - 'venv'
+      - run:
+          name: Init .pypirc
+          command: |
+            echo -e "[testpypi]" >> ~/.pypirc
+            echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+            echo -e "password = $TEST_PYPI_PASSWORD" >> ~/.pypirc
+      - run:
+          name: Publish
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            twine upload --repository testpypi dist/*
   helm-tests:
     docker:
       - image: cimg/go:1.18.4
