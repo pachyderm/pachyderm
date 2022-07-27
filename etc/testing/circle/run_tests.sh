@@ -58,7 +58,7 @@ go clean -testcache
 
 case "${BUCKET}" in
  MISC)
-    make lint
+    #make lint
     make check-buckets
     make enterprise-code-checkin-test
     go install -v ./src/testing/match
