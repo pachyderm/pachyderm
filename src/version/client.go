@@ -10,7 +10,7 @@ import (
 
 var (
 	// Overwritten at build time by linker
-	AppVersion = "0.0.0"
+	AppVersion = "1.2.3"
 
 	MajorVersion, MinorVersion, MicroVersion = getVersions()
 

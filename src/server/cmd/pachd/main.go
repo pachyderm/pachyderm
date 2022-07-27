@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"syscall"
+	"time"
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
@@ -86,6 +87,7 @@ func main() {
 	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
 
 	log.Infof("pretty version info: %v", version.PrettyVersion())
+	time.Sleep(time.Second * 15)
 	log.Infof("version info: %v", version.Version)
 
 	switch {
