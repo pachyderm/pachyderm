@@ -40,7 +40,9 @@ const WizardModal: React.FC<WizardModalProps> = ({
         <Modal.Status status="error">{errorMessage}</Modal.Status>
       )}
 
-      <Modal.Header onHide={onHide}>{headerContent[modalIndex]}</Modal.Header>
+      <Modal.Header onHide={onHide} withStatus={!!errorMessage}>
+        {headerContent[modalIndex]}
+      </Modal.Header>
 
       <Modal.Body>
         {loading ? <LoadingDots /> : modalContent[modalIndex]}

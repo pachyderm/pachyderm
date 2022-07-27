@@ -8,6 +8,10 @@
   padding: 3rem 2rem 1rem;
 }
 
+.base[class$='modal-header'].withStatus {
+  padding-top: 0.5rem;
+}
+
 .base.error[class$='modal-header'] {
   padding-top: 1.25rem;
 }

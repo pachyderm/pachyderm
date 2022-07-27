@@ -12,6 +12,7 @@ export interface ModalHeaderProps
   actionable?: boolean;
   onHide: () => void;
   small?: boolean;
+  withStatus?: boolean;
 }
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({
@@ -19,6 +20,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
   onHide,
   actionable = false,
   small = false,
+  withStatus = false,
   ref, // Note: The ModalHeader from Bootstrap errors out when forwarding a ref
   ...props
 }) => {
@@ -27,6 +29,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
       {...props}
       className={classNames(styles.base, {
         [styles.small]: small,
+        [styles.withStatus]: withStatus,
       })}
     >
       <Group spacing={8} align="center">
