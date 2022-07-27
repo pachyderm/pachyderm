@@ -574,7 +574,8 @@ jobs:
 workflows:
   integration-tests:
     jobs:
-      - build-docker-images
+      - build-docker-images:
+          version: $CIRCLE_SHA1
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
           upload: true
