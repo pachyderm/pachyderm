@@ -1011,8 +1011,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAliases(stopPipeline, "stop pipeline", pipelines))
 
 	var (
-		limit        int
-		runFailed    bool
+		limit int
+		// runFailed    bool
 		runFailedJob string
 	)
 	testPipeline := &cobra.Command{
@@ -1023,12 +1023,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return err
 			}
-			return testPipeline(client, pipelinePath, limit)
+			return testPipeline(client, pipelinePath, limit, runFailedJob)
 		}),
 	}
 	testPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior).")
 	testPipeline.Flags().IntVarP(&limit, "limit", "l", 0, "Limits the number of datums to test.")
-	testPipeline.Flags().BoolVar(&runFailed, "run-failed", false, "Run only the failed datums from the most recent jobs in the pipelines.")
+	// testPipeline.Flags().BoolVar(&runFailed, "run-failed", false, "Run only the failed datums from the most recent jobs in the pipelines.")
 	testPipeline.Flags().StringVarP(&runFailedJob, "run-failed-job", "j", "", "Run only the failed datums from the specified job.")
 	commands = append(commands, cmdutil.CreateAliases(testPipeline, "test pipeline", pipelines))
 

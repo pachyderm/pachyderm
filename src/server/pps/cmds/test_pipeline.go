@@ -16,16 +16,18 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 )
 
 const (
-	name = "pfs"
+	name   = "pfs"
+	branch = "dev"
 )
 
-func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit int) (retErr error) {
+func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit int, failedJob string) (retErr error) {
 	if pipelinePath == "" {
 		pipelinePath = "-"
 	}
@@ -59,7 +61,7 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 		if err := txnC.UpdateRepo(pipeline); err != nil {
 			return err
 		}
-		commit, err := txnC.StartCommit(pipeline, "master")
+		commit, err := txnC.StartCommit(pipeline, branch)
 		if err != nil {
 			return err
 		}
@@ -80,9 +82,18 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 		}
 	}()
 	for _, request := range requests {
+		// Rewrite the input to reference development branches.
+		if err := pps.VisitInput(request.Input, func(input *pps.Input) error {
+			if input.Pfs != nil && outCommits[input.Pfs.Repo] != nil {
+				input.Pfs.Branch = branch
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
 		fmt.Printf("Running pipeline: %s\n", request.Pipeline.Name)
 		datums := 0
-		if err := client.ListDatumInput(request.Input, func(di *ppsclient.DatumInfo) error {
+		runDatum := func(di *ppsclient.DatumInfo) error {
 			datums++
 			if datumLimit != 0 && datums > datumLimit {
 				return errutil.ErrBreak
@@ -133,10 +144,17 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			return cmd.Run()
-		}); err != nil {
-			return err
 		}
-		if err := client.FinishCommit(request.Pipeline.Name, "master", commitID); err != nil {
+		if failedJob != "" {
+			if err := client.ListDatum(request.Pipeline.Name, failedJob, runDatum); err != nil {
+				return err
+			}
+		} else {
+			if err := client.ListDatumInput(request.Input, runDatum); err != nil {
+				return err
+			}
+		}
+		if err := client.FinishCommit(request.Pipeline.Name, branch, commitID); err != nil {
 			return err
 		}
 		finishedCommits[request.Pipeline.Name] = true
