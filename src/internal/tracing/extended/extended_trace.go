@@ -91,10 +91,12 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline string) {
 		SerializedTrace: map[string]string{}, // init map
 		Pipeline:        pipeline,
 	}
-	opentracing.GlobalTracer().Inject(
+	if err := opentracing.GlobalTracer().Inject(
 		span.Context(), opentracing.TextMap,
 		opentracing.TextMapCarrier(traceProto.SerializedTrace),
-	)
+	); err != nil {
+		log.Errorf("could not inject context into GlobalTracer: %v", err)
+	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
 		return errors.EnsureStack(tracesCol.PutTTL(pipeline, traceProto, int64(duration.Seconds())))

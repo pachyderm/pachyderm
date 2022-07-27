@@ -103,10 +103,18 @@ func TestDeletePrefix(t *testing.T) {
 
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
-		rw.Put(ppsdb.JobKey(j1.Job), j1)
-		rw.Put(ppsdb.JobKey(j2.Job), j2)
-		rw.Put(ppsdb.JobKey(j3.Job), j3)
-		rw.Put(ppsdb.JobKey(j4.Job), j4)
+		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := rw.Put(ppsdb.JobKey(j3.Job), j3); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := rw.Put(ppsdb.JobKey(j4.Job), j4); err != nil {
+			return errors.EnsureStack(err)
+		}
 		return nil
 	})
 	require.NoError(t, err)
@@ -115,7 +123,9 @@ func TestDeletePrefix(t *testing.T) {
 		job := &pps.JobInfo{}
 		rw := jobInfos.ReadWrite(stm)
 
-		rw.DeleteAllPrefix("p@prefix/suffix")
+		if err := rw.DeleteAllPrefix("p@prefix/suffix"); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
@@ -129,7 +139,9 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		rw.DeleteAllPrefix("p@prefix")
+		if err := rw.DeleteAllPrefix("p@prefix"); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
@@ -143,17 +155,23 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		rw.Put(ppsdb.JobKey(j1.Job), j1)
+		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
 
-		rw.DeleteAllPrefix("p@prefix/suffix")
+		if err := rw.DeleteAllPrefix("p@prefix/suffix"); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.ID)
 		}
 
-		rw.Put(ppsdb.JobKey(j2.Job), j2)
+		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := rw.Get(ppsdb.JobKey(j2.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -190,9 +208,15 @@ func TestIndex(t *testing.T) {
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
-		rw.Put(ppsdb.JobKey(j1.Job), j1)
-		rw.Put(ppsdb.JobKey(j2.Job), j2)
-		rw.Put(ppsdb.JobKey(j3.Job), j3)
+		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := rw.Put(ppsdb.JobKey(j3.Job), j3); err != nil {
+			return errors.EnsureStack(err)
+		}
 		return nil
 	})
 	require.NoError(t, err)
@@ -247,8 +271,12 @@ func TestBoolIndex(t *testing.T) {
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		boolValues := boolValues.ReadWrite(stm)
-		boolValues.Put("true", r1)
-		boolValues.Put("false", r2)
+		if err := boolValues.Put("true", r1); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := boolValues.Put("false", r2); err != nil {
+			return errors.EnsureStack(err)
+		}
 		return nil
 	})
 	require.NoError(t, err)

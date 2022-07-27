@@ -29,7 +29,7 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient) {
 	if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
-	config.WritePachTokenToConfig(RootToken, false)
+	require.NoError(tb, config.WritePachTokenToConfig(RootToken, false))
 
 	// Activate auth for PPS
 	client = client.WithCtx(context.Background())

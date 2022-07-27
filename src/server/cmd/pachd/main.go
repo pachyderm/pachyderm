@@ -83,7 +83,7 @@ func init() {
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
 
 	switch {
 	case readiness:
@@ -208,7 +208,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			_ = pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) // swallow error, not much we can do if we can't write to stderr
 		}
 	}()
 
@@ -359,7 +359,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 func doSidecarMode(config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-sidecar")
@@ -483,7 +483,7 @@ func doFullMode(config interface{}) (retErr error) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-full")
@@ -732,8 +732,11 @@ func doFullMode(config interface{}) (retErr error) {
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
+		if err := g.Wait(); err != nil {
+			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
 	}(interruptChan)
 	return <-errChan
 }
@@ -744,7 +747,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	log.Println("starting up in paused mode")
@@ -922,8 +925,11 @@ func doPausedMode(config interface{}) (retErr error) {
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
+		if err := g.Wait(); err != nil {
+			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
 	}(interruptChan)
 	return <-errChan
 }

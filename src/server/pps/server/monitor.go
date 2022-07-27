@@ -88,7 +88,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error {
+	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {

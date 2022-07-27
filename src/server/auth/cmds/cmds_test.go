@@ -23,14 +23,14 @@ import (
 func loginAsUser(t *testing.T, c *client.APIClient, user string) {
 	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
 	if user == auth.RootUser {
-		config.WritePachTokenToConfigPath(tu.RootToken, configPath, false)
+		require.NoError(t, config.WritePachTokenToConfigPath(tu.RootToken, configPath, false))
 		return
 	}
 	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	robot := strings.TrimPrefix(user, auth.RobotPrefix)
 	token, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robot})
 	require.NoError(t, err)
-	config.WritePachTokenToConfigPath(token.Token, configPath, false)
+	require.NoError(t, config.WritePachTokenToConfigPath(token.Token, configPath, false))
 }
 
 // this function executes the command and returns the last word
@@ -49,7 +49,7 @@ func executeCmdAndGetLastWord(t *testing.T, cmd *exec.Cmd) string {
 			token = tmp
 		}
 	}
-	cmd.Wait()
+	require.NoError(t, cmd.Wait())
 	return token
 }
 
@@ -113,7 +113,7 @@ func TestLogin(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser))
+	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser)))
 
 	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser")
 	out, err := cmd.StdoutPipe()
@@ -128,7 +128,7 @@ func TestLogin(t *testing.T) {
 			break
 		}
 	}
-	cmd.Wait()
+	require.NoError(t, cmd.Wait())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
@@ -143,7 +143,7 @@ func TestLoginIDToken(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 	c = tu.AuthenticateClient(t, c, auth.RootUser)
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	// Get an ID token for a trusted peer app
 	token := tu.GetOIDCTokenForTrustedApp(t, c)
@@ -276,7 +276,7 @@ func TestConfig(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	c = tu.AuthenticatedPachClient(t, c, auth.RootUser)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
         pachctl auth set-config <<EOF
