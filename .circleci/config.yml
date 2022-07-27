@@ -51,7 +51,6 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
-          cache-key: "1184-v2"
       - run: etc/testing/circle/start-minikube.sh
 
       # The build cache will grow indefinitely, so we rotate the cache once a week.
