@@ -34,7 +34,7 @@ kubectl apply -f etc/testing/opa-constraints.yaml
 
 ./etc/testing/circle/build.sh
 
-./etc/testing/circle/launch.sh
+kubectl apply -f etc/testing/minio.yaml
 
 # Run TestSimplePipelineNonRoot TestSimplePipelinePodPatchNonRoot
 go test -v ./src/server -run NonRoot -tags=k8s
