@@ -109,15 +109,20 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 	}()
 	server.Wait()
 	mfcs := make(map[string]*client.ModifyFileClient)
-	mfc := func(repo string) (*client.ModifyFileClient, error) {
-		if mfc, ok := mfcs[repo]; ok {
+	mfc := func(name string) (*client.ModifyFileClient, error) {
+		if mfc, ok := mfcs[name]; ok {
 			return mfc, nil
 		}
-		mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(repo), ""))
+		repo := name
+		ro := opts.RepoOptions[name]
+		if ro != nil {
+			repo = ro.File.Commit.Branch.Repo.Name
+		}
+		mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(name), ""))
 		if err != nil {
 			return nil, err
 		}
-		mfcs[repo] = mfc
+		mfcs[name] = mfc
 		return mfc, nil
 	}
 	defer func() {
@@ -137,12 +142,8 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			continue
 		}
 		parts := strings.Split(path, "/")
-		repo := parts[0]
-		ro := opts.RepoOptions[parts[0]]
-		if ro != nil {
-			repo = ro.File.Commit.Branch.Repo.Name
-		}
-		mfc, err := mfc(repo)
+		name := parts[0]
+		mfc, err := mfc(name)
 		if err != nil {
 			return err
 		}

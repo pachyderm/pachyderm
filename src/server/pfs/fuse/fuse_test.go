@@ -589,6 +589,33 @@ func TestMountDir(t *testing.T) {
 	})
 }
 
+func TestWriteBranchWithName(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "branch", "")
+	// First, create a file
+	withMount(t, env.PachClient, &Options{
+		Fuse: &fs.Options{
+			MountOptions: fuse.MountOptions{
+				Debug: true,
+			},
+		},
+		RepoOptions: map[string]*RepoOptions{
+			"name": &RepoOptions{
+				Name:  "name",
+				File:  client.NewFile("repo", "branch", "", "/dir"),
+				Write: true,
+			},
+		},
+		Write: true,
+	}, func(mountPoint string) {
+		require.NoError(t, ioutil.WriteFile(filepath.Join(mountPoint, "name", "foo"), []byte("foo\n"), 0644))
+	})
+	var b bytes.Buffer
+	require.NoError(t, env.PachClient.GetFile(commit, "foo", &b))
+	require.Equal(t, "foo\n", b.String())
+}
+
 func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPoint string)) {
 	dir := tb.TempDir()
 	if opts == nil {
