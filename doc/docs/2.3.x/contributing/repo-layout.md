@@ -140,30 +140,30 @@ repo, and their purpose.
  ┃ ┣ 📂pachhash # package for handling hashes 
  ┃ ┣ 📂pachsql # package for handling sql ingest tool (snowflake, mysql,pgx)
  ┃ ┣ 📂pachtmpl # package for handling jsonnet templates 
- ┃ ┣ 📂pager
+ ┃ ┣ 📂pager # package that pages content to whichever pager is defined by the PAGER env-var
  ┃ ┣ 📂pbutil # utilities for working with protobufs
- ┃ ┣ 📂pfsdb
- ┃ ┣ 📂pfsfile
- ┃ ┣ 📂pfsload
- ┃ ┣ 📂pfssync
- ┃ ┣ 📂pool
- ┃ ┣ 📂ppsconsts
- ┃ ┣ 📂ppsdb
- ┃ ┣ 📂ppsload
+ ┃ ┣ 📂pfsdb  # package that contains the database schema that PFS uses.
+ ┃ ┣ 📂pfsfile # package that converts paths to a canonical form used in the driver
+ ┃ ┣ 📂pfsload # package that contains several pachyderm file system utilities 
+ ┃ ┣ 📂pfssync # package that contains the standard PFS downloader interface 
+ ┃ ┣ 📂pool # package that handles pool grpc connections & counts outstanding datums
+ ┃ ┣ 📂ppsconsts # package that contains global constants used across Pachyderm
+ ┃ ┣ 📂ppsdb  # package that contains the database schema that PPS uses 
+ ┃ ┣ 📂ppsload # package for handling pipeline creation 
  ┃ ┣ 📂ppsutil # utilities for handling pipeline-related tasks
- ┃ ┣ 📂pretty
+ ┃ ┣ 📂pretty # utilities for pretty printing durations, bytes, & progress bars
  ┃ ┣ 📂profileutil # utilities for exporting performance information to external systems
- ┃ ┣ 📂progress
+ ┃ ┣ 📂progress # package for handling progress bars 
  ┃ ┣ 📂promutil # utilities for collecting Prometheus metrics
- ┃ ┣ 📂random
+ ┃ ┣ 📂random # pakage for returning a cryptographically random, URL safe string with length
  ┃ ┣ 📂randutil # utilities for handling unique/random strings (uuid)
  ┃ ┣ 📂require # utilities for making unit tests terser
- ┃ ┣ 📂sdata
+ ┃ ┣ 📂sdata # package for handling Tuple, an alias for []interface{} used for passingx rows of data
  ┃ ┃ ┣ 📂csv
- ┃ ┣ 📂secrets
- ┃ ┣ 📂serde
- ┃ ┣ 📂serviceenv
- ┃ ┣ 📂storage
+ ┃ ┣ 📂secrets # package for obfuscating secret data from being logged
+ ┃ ┣ 📂serde # package for Pachyderm-specific data structures used to un/marshall go structs & maps
+ ┃ ┣ 📂serviceenv # package for handling connections to other services in the cluster
+ ┃ ┣ 📂storage # collection of packages that handle storage
  ┃ ┃ ┣ 📂chunk
  ┃ ┃ ┣ 📂fileset
  ┃ ┃ ┃ ┣ 📂index
@@ -171,13 +171,13 @@ repo, and their purpose.
  ┃ ┃ ┣ 📂metrics
  ┃ ┃ ┣ 📂renew
  ┃ ┃ ┗ 📂track
- ┃ ┣ 📂stream
+ ┃ ┣ 📂stream # package for handling, comparing, and enqueing streams
  ┃ ┣ 📂tabwriter
- ┃ ┣ 📂tarutil # utilities for [tbd]
- ┃ ┣ 📂task
+ ┃ ┣ 📂tarutil # utilities for tar archiving 
+ ┃ ┣ 📂task # package for handling the distributed processing of tasks.
  ┃ ┃ ┣ 📂cmds
  ┃ ┃ ┣ 📂taskprotos
- ┃ ┣ 📂testetcd
+ ┃ ┣ 📂testetcd # package for running end-to-end pachyderm tests entirely locally
  ┃ ┣ 📂testpachd
  ┃ ┣ 📂testsnowflake
  ┃ ┣ 📂testutil # utilities for [tbd]
