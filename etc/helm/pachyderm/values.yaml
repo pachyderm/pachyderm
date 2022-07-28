@@ -406,7 +406,7 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
-  # instruct the config-pod to bootstrap enterprise on the cluster, even in upgrade releases
+  # DEPRECATED: activateEnterprise is no longer used.
   activateEnterprise: false
   ## if pachd.activateEnterpriseMember is set, enterprise will be activated and connected to an existing enterprise server.
   ## if pachd.enterpriseLicenseKey is set, enterprise will be activated.
@@ -435,11 +435,22 @@ pachd:
   # The value is pulled from the key, "pachd-oauth-client-secret".
   oauthClientSecretSecretName: ""
   oauthRedirectURI: ""
-  # only used if pachd.activateEnterpriseMember == true
+  # DEPRECATED: enterpriseRootToken is deprecated, in favor of enterpriseServerToken
+  # NOTE only used if pachd.activateEnterpriseMember == true
   enterpriseRootToken: ""
-  # enterpriseSecretSecretName is used to pass the enterpriseRootToken value via an existing k8s secret.
+  # DEPRECATED: enterpriseRootTokenSecretName is deprecated in favor of enterpriseServerTokenSecretName
+  # enterpriseRootTokenSecretName is used to pass the enterpriseRootToken value via an existing k8s secret.
   # The value is pulled from the key, "enterprise-root-token".
   enterpriseRootTokenSecretName: ""
+  # enterpriseServerToken represents a token that can authenticate to a separate pachyderm enterprise server,
+  # and is used to complete the enterprise member registration process for this pachyderm cluster.
+  # The user backing this token should have either the licenseAdmin & identityAdmin roles assigned, or
+  # the clusterAdmin role.
+  # NOTE: only used if pachd.activateEnterpriseMember == true
+  enterpriseServerToken: ""
+  # enterpriseServerTokenSecretName is used to pass the enterpriseServerToken value via an existing k8s secret.
+  # The value is pulled from the key, "enterprise-server-token".
+  enterpriseServerTokenSecretName: ""
   # only used if pachd.activateEnterpriseMember == true
   enterpriseServerAddress: ""
   enterpriseCallbackAddress: ""

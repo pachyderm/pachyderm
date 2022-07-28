@@ -186,7 +186,7 @@ spec:
               name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
               key: "enterprise-secret"
         {{- end }}
-        {{- if and (include "pachyderm.enterpriseLicenseKeySecretName" .) .Values.pachd.activateAuth }}
+        {{- if and (include "pachyderm.withEnterprise" .) .Values.pachd.activateAuth }}
         - name: ACTIVATE_AUTH
           value: "true"
         - name: AUTH_ROOT_TOKEN
@@ -260,13 +260,22 @@ spec:
         - name: ENTERPRISE_SERVER_ADDRESS
           value: {{ required "To register a pachd instance with an enterprise server, the enterprise server's address must be provided." .Values.pachd.enterpriseServerAddress | quote }}
         - name: ENTERPRISE_SERVER_TOKEN
-          {{- if .Values.pachd.enterpriseRootTokenSecretName }}
+          {{- if .Values.pachd.enterpriseServerTokenSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseServerTokenSecretName | quote}}
+              value: enterprise-server-token
+          {{- else if .Values.pachd.enterpriseServerToken }}
+          value: {{ .Values.pachd.enterpriseServerToken | quote }}
+          {{- else if .Values.pachd.enterpriseRootTokenSecretName }}
           valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.enterpriseRootTokenSecretName | quote}}
               value: enterprise-root-token
+          {{- else if .Values.pachd.enterpriseRootToken }}
+          value: {{ .Values.pachd.enterpriseRootToken | quote }}
           {{- else }}
-          value: {{ required "To register this pachd as an enterprise member, the enterprise root token must be provided." .Values.pachd.enterpriseRootToken | quote }}
+          {{ fail "To register this pachd as an enterprise member, the enterprise server token must be provided." }}
           {{- end }}
         - name: ENTERPRISE_MEMBER_CONFIG
           valueFrom:
