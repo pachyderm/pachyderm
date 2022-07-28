@@ -1,0 +1,46 @@
+version: 2.1
+
+jobs:
+  test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run lint
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run: etc/testing/circle/deploy-pachyderm.sh
+      - run: pachctl port-forward & npm run test
+  publish:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - run: echo "//registry.npmjs.org/:_authToken=$npm_TOKEN" > .npmrc
+      - run: npm ci
+      - run: npm publish
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
+  publish:
+    jobs:
+      - test:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - publish:
+          requires:
+            - test
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+
