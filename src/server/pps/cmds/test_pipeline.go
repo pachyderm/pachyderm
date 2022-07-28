@@ -58,10 +58,25 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 	var commitID string
 	for _, request := range requests {
 		pipeline := request.Pipeline.Name
+		var lastSuccessJi *pps.JobInfo
+		if failedJob != "" {
+			client.ListJobF(pipeline, nil, -1, false, func(ji *pps.JobInfo) error {
+				if ji.State == pps.JobState_JOB_SUCCESS {
+					lastSuccessJi = ji
+					return errutil.ErrBreak
+				}
+				return nil
+			})
+		}
 		if err := txnC.UpdateRepo(pipeline); err != nil {
 			return err
 		}
-		commit, err := txnC.StartCommit(pipeline, branch)
+		var commit *pfs.Commit
+		if lastSuccessJi != nil {
+			commit, err = txnC.StartCommitParent(pipeline, branch, lastSuccessJi.OutputCommit.Branch.Name, lastSuccessJi.Job.ID)
+		} else {
+			commit, err = txnC.StartCommit(pipeline, branch)
+		}
 		if err != nil {
 			return err
 		}
@@ -148,7 +163,14 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 			cmd.Stderr = os.Stderr
 			return cmd.Run()
 		}
+		var ji *pps.JobInfo
 		if failedJob != "" {
+			ji, err = client.InspectJob(request.Pipeline.Name, failedJob, false)
+			if err != nil {
+				return err
+			}
+		}
+		if ji != nil && ji.State == pps.JobState_JOB_FAILURE {
 			if err := client.ListDatum(request.Pipeline.Name, failedJob, runDatum); err != nil {
 				return err
 			}
