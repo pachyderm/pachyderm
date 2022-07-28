@@ -404,6 +404,13 @@ jobs:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
   jupyter-preview:
+    # Needs the following Env Vars to be setup in the project:
+    # $GCLOUD_SERVICE_KEY_JUPYTER - with permissions to the google cloud project where the kubernetes cluster resides
+    # $AUTH0_CLIENT_ID - Used to authenticate jupyter with oauth
+    # $AUTH0_CLIENT_SECRET
+    # $AUTH0_DOMAIN the tenant subdomain without .auth0.com 
+    # $PULUMI_ACCESS_TOKEN
+    # GH_ACCESS_TOKEN - build not personal access token to github with repo permissions (see onecomment)
     parameters:
       gcp-project:
         type: string
