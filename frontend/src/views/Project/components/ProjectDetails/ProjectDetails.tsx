@@ -29,7 +29,7 @@ type ProjectDetailsProps = {
     repos: DagNodes[];
     pipelines: DagNodes[];
   };
-  error: ApolloError | undefined;
+  error: ApolloError | string | undefined;
   loading: boolean;
   inputRepoLinks: Record<string, string[]>;
 };

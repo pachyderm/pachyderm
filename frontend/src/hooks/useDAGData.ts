@@ -18,6 +18,7 @@ export const useDAGData = ({
   direction = DagDirection.RIGHT,
 }: GetDagQueryProps) => {
   const [loadingDags, setLoadingDags] = useState(true);
+  const [dagError, setDagError] = useState<string>();
   const [dags, setDags] = useState<Dag[] | undefined>();
   const {error, loading} = useGetDagQuery({
     variables: {args: {projectId}},
@@ -27,6 +28,7 @@ export const useDAGData = ({
         nodeWidth,
         nodeHeight,
         direction,
+        setDagError,
       );
       setDags(builtDags);
       setLoadingDags(false);
@@ -37,7 +39,7 @@ export const useDAGData = ({
   });
 
   return {
-    error,
+    error: error || dagError,
     dag: dags,
     loading: loading || loadingDags,
   };

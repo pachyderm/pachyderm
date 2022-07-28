@@ -37,7 +37,7 @@ const MARKERS = [
 type DAGViewProps = {
   dags: Dag[] | undefined;
   loading: boolean;
-  error: ApolloError | undefined;
+  error: ApolloError | string | undefined;
 };
 
 const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {

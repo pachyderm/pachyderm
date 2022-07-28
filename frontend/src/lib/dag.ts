@@ -56,6 +56,9 @@ const normalizeDAGData = async (
           const sourceIndex = correspondingIndex[parentName];
           const sourceVertex = vertices[sourceIndex];
 
+          // edge case: if pipeline has input repos that cannot be found, the link is not valid
+          if (!sourceIndex) return acc;
+
           return [
             ...acc,
             {
@@ -231,31 +234,38 @@ const buildDags = async (
   nodeWidth: number,
   nodeHeight: number,
   direction = DagDirection.RIGHT,
+  setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
 ) => {
-  const {nodes, links} = await normalizeDAGData(
-    vertices,
-    nodeWidth,
-    nodeHeight,
-    direction,
-  );
-  return disconnectedComponents(nodes, links).map((component) => {
-    const componentRepos = vertices.filter((v) =>
-      component.nodes.find(
-        (c) =>
-          (c.type === NodeType.OUTPUT_REPO || c.type === NodeType.INPUT_REPO) &&
-          c.name === v.name,
-      ),
+  try {
+    const {nodes, links} = await normalizeDAGData(
+      vertices,
+      nodeWidth,
+      nodeHeight,
+      direction,
     );
-    const id = minBy(componentRepos, (r) => r.createdAt)?.name || '';
+    return disconnectedComponents(nodes, links).map((component) => {
+      const componentRepos = vertices.filter((v) =>
+        component.nodes.find(
+          (c) =>
+            (c.type === NodeType.OUTPUT_REPO ||
+              c.type === NodeType.INPUT_REPO) &&
+            c.name === v.name,
+        ),
+      );
+      const id = minBy(componentRepos, (r) => r.createdAt)?.name || '';
 
-    const adjustedComponent = adjustDag(component, direction);
+      const adjustedComponent = adjustDag(component, direction);
 
-    return {
-      id,
-      nodes: adjustedComponent.nodes,
-      links: adjustedComponent.links,
-    };
-  });
+      return {
+        id,
+        nodes: adjustedComponent.nodes,
+        links: adjustedComponent.links,
+      };
+    });
+  } catch (e) {
+    console.error(e);
+    setDagError(`Unable to construct lineage from repos and pipelines.`);
+  }
 };
 
 export default buildDags;

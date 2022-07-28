@@ -44,6 +44,7 @@ export const useProjectDagsData = ({
   const projectPipelinesMatch = useRouteMatch(PROJECT_PIPELINES_PATH);
   const [isFirstCall, setIsFirstCall] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [dagError, setDagError] = useState<string>();
   const [prevData, setPrevData] = useState<GetDagsSubscription | undefined>();
   const [dags, setDags] = useState<Dag[] | undefined>();
 
@@ -105,6 +106,7 @@ export const useProjectDagsData = ({
         nodeWidth,
         nodeHeight,
         direction,
+        setDagError,
       );
       setDags(dags);
       setIsLoading(false);
@@ -122,7 +124,7 @@ export const useProjectDagsData = ({
   }, [data, nodeHeight, nodeWidth, direction]);
 
   return {
-    error,
+    error: error || dagError,
     dags,
     loading: isLoading || isSubscribing,
   };

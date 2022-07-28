@@ -20,7 +20,7 @@ type ListViewProps = {
   items: DagNodes[];
   getNodePath: (node: Node) => string;
   selectedItem?: string;
-  error?: ApolloError;
+  error?: ApolloError | string;
 };
 
 const ListView: React.FC<ListViewProps> = ({

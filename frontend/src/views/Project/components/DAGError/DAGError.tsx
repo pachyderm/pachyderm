@@ -10,8 +10,14 @@ import React, {useEffect} from 'react';
 
 import styles from './DAGError.module.css';
 
+const LINEAGE_ERROR = 'Unable to construct lineage';
+const CONSTRUCTION_ERROR_DETAILS =
+  'Unable to construct lineage from repos and pipelines. You may want to look into your pipline inputs.';
+const NETWORK_ERROR_DETAILS =
+  'Repo and Pipeline data may not be up to date. You may want to refresh the page.';
+
 type DAGErrorProps = {
-  error: ApolloError | undefined;
+  error: ApolloError | string | undefined;
 };
 
 const DAGError: React.FC<DAGErrorProps> = ({error}) => {
@@ -27,6 +33,9 @@ const DAGError: React.FC<DAGErrorProps> = ({error}) => {
     }
   }, [error, openErrorModal]);
 
+  const dagBuildError =
+    typeof error === 'string' && error.includes(LINEAGE_ERROR);
+
   return (
     <>
       {error && (
@@ -35,7 +44,9 @@ const DAGError: React.FC<DAGErrorProps> = ({error}) => {
             <StatusWarningSVG />
           </Icon>
           <ErrorText className={styles.dagError}>
-            Connection error: data may not be up to date.
+            {dagBuildError
+              ? error
+              : 'Connection error: data may not be up to date.'}
           </ErrorText>
         </div>
       )}
@@ -44,15 +55,14 @@ const DAGError: React.FC<DAGErrorProps> = ({error}) => {
         headerContent={
           <>
             <StatusWarningSVG />
-            {` Connection Error`}
+            {dagBuildError ? ' Lineage Error' : ' Connection Error'}
           </>
         }
         small
         loading={false}
         onHide={closeErrorModal}
       >
-        Repo and Pipeline data may not be up to date. You may want to refresh
-        the page.
+        {dagBuildError ? CONSTRUCTION_ERROR_DETAILS : NETWORK_ERROR_DETAILS}
       </BasicModal>
     </>
   );

@@ -66,7 +66,7 @@ const deriveVertices = (
         state: gqlPipelineStateToNodeState(state),
         access: p.pipeline
           ? hasRepoReadPermissions(
-              repoMap[p.pipeline.name].authInfo?.permissionsList,
+              repoMap[p.pipeline.name]?.authInfo?.permissionsList,
             )
           : false,
         jobState,
