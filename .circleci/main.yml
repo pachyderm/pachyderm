@@ -619,7 +619,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run: npm run:build:proto
+      - run: npm run build:proto
 
 workflows:
   node-pachyderm:
