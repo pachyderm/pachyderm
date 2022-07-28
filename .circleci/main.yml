@@ -470,7 +470,7 @@ jobs:
 
             # Setup GH token env var in circle project
             ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
-            -owner pachyderm -repo jupyterlab-pachyderm \
+            -owner pachyderm -repo pachyderm \
             -includes '<!-- Created by one-comment -->' \
             -message "PR Preview available at [https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io](https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io)
             Enter any username to login (Each user will be assigned a new workspace)
