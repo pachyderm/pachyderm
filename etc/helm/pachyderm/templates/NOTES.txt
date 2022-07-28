@@ -14,3 +14,7 @@ pachctl port-forward
 WARNING: Your cluster is configured with a default login of admin:password
 {{- end -}}
 
+{{ if or .Values.pachd.enterpriseRootToken .Values.pachd.enterpriseRootTokenSecretName }}
+WARNING: You have pachd.enterpriseRootToken or pachd.enterpriseRootTokenSecretName set. These values are being replaced by pachd.enterpriseServerToken and pachd.enterpriseServerTokenSecretName which you can set now. The deprecated values will be removed in version 2.4.0.
+{{- end -}}
+
