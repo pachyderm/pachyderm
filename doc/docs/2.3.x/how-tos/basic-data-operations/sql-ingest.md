@@ -17,7 +17,7 @@ You can inject database content, collected by your data warehouse, by pulling th
 
 ### 1. Create & Upload a Secret
 
-You must generate a secret that contains the password granting user access to the database; you will pass the username details through the Database Connection URL in [step 2](#2-create-a-database-connection).
+You must generate a secret that contains the password granting user access to the database; you will pass the username details through the database connection string in [step 2](#2-create-a-database-connection).
 
 1. Copy the following:
     ```shell
@@ -36,7 +36,7 @@ You must generate a secret that contains the password granting user access to th
 !!! Note
      Not all secret formats are the same. For a full walkthrough on how to create, edit, and view different types of secrets, see [Create and Manage Secrets in Pachyderm](../../advanced-data-operations/secrets/#create-a-secret).
 
-### 2. Create a Database Connection 
+### 2. Create a Database Connection String
 
 Pachyderm's SQL Ingest requires a connection string defined as a [Jsonnet URL parameter](#url-parameter-details) to connect to your database; the URL is structured as follows:
 
@@ -51,13 +51,14 @@ Pachyderm provides a [default Jsonnet template](https://raw.githubusercontent.co
 1. Copy the following:
    ```shell
    pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet \
-     --arg name=<outputRepoName> \
+     --arg name=<pipelineName> \
      --arg url="<connectionStringToDdatabase>" \
      --arg query="<query>" \
      --arg hasHeader=<boolean> \
      --arg cronSpec="<pullInterval>" \
      --arg secretName="<youSecretName>" \
      --arg format=<CsvOrJson> 
+     --arg outputFile='<fileName>'
    ```
 2. Swap out all of the parameter values with relevant inputs. 
 3. Open terminal.
@@ -65,9 +66,9 @@ Pachyderm provides a [default Jsonnet template](https://raw.githubusercontent.co
 
 ### 4. View Query & Results 
 
-- **To View Query String**: `pachctl inspect pipeline pipelineName`
-- **To View Output File Name**: `pachctl list file outputRepoName@master`
-- **To View Output File Contents**: `pachctl get file myingest@master:/0000` 
+- **To View Query String**: `pachctl inspect pipeline <pipelineName>`
+- **To View Output File Name**: `pachctl list file <pipelineName>@master`
+- **To View Output File Contents**: `pachctl get file <pipelineName>@master:/0000` 
 
 ### Example: Snowflake
 
@@ -124,8 +125,8 @@ In the default Jsonnet template, the file generated is obtainable from the outpu
 To create an SQL Ingest Jsonnet Pipeline spec, you must have a `.jsonnet` file and several parameters:
 
 ```shell
-pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet> \
-  --arg name=<outputRepoName> \
+pachctl update pipeline --jsonnet https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet \
+  --arg name=<pipelineName> \
   --arg url="<connectionStringToDdatabase>" \
   --arg query="<query>" \
   --arg hasHeader=<boolean> \
@@ -134,8 +135,8 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
   --arg format=<CsvOrJson> 
 ```
 
-- The name of each pipeline (and their related input/output repos) are derived from the `name` parameter (`--arg name=outputRepoName`).
-- The same base image [pachctf](https://hub.docker.com/repository/docker/pachyderm/pachtf){target=_blank} is used in both pipelines.
+- The name of each pipeline (and their related input/output repos) are derived from the `name` parameter (`--arg name=<pipelineName>`).
+
 
 ### Parameters
 
@@ -148,6 +149,7 @@ pachctl update pipeline --jsonnet <https://your-SQL-ingest-pipeline-spec.jsonnet
 | `cronSpec`    | How often to run the query. For example `"@every 60s"`.|
 | `format`      | The type of your output file containing the results of your query (either `json` or `csv`).|
 | `secretName`  | The Kubernetes secret name that contains the [password to the database](#database-secret).|
+|`outputFile` | The name of the file created by your pipeline and stored in your output repo; default `0000`|
 
 #### URL Parameter Details
 
