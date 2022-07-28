@@ -619,6 +619,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - run: npm ci
       - run: npm run build:proto
 
 workflows:
