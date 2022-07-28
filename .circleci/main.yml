@@ -597,162 +597,180 @@ jobs:
             index=${#prefix}
             additional=${v:index}
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
+  node-pachyderm-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    working_directory: ~/project/node-pachyderm
+    steps:
+      - checkout:
+          path: ~/project
+      - run: npm ci
+      - run: npm run lint
+      - run: etc/testing/circle/install.sh
+      - run: etc/testing/circle/start-kind.sh
+      - run: etc/testing/circle/deploy-pachyderm.sh
+      - run: pachctl port-forward & npm run test
 workflows:
-  integration-tests:
+  node-pachyderm:
     jobs:
-      - build-docker-images
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
-          upload: true
-      - check-prettier
-      - jsonnet-lint
-      - test-go
-      - test-envoy
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
-                - S3_AUTH
-                - EXAMPLES
-  helm-tests:
-    jobs:
-      - helm-tests
-  nightly_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - 2.1.x
-                - 2.2.x
-    jobs:
-      - nightly-load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-                - LOAD11
-                - LOAD12
-                  # Disabled for now since they take too long, may consider reenabling later.
-                  #- LOAD13
-                  #- LOAD14
-                  #- LOAD15
-  rootless-tests:
-    jobs:
-      - rootless
-  deploy-tests:
-    jobs:
-      - deploy-tests
-  release:
-    jobs:
-      - helm-tests:
-          filters: *only-release-tags
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                # If you want to update the number of PPS buckets, you'll need to
-                # update the value of PPS_BUCKETS above
-                - AUTH
-                - ENTERPRISE
-                - PFS
-                - PPS1
-                - PPS2
-                - PPS3
-                - PPS4
-                - PPS5
-                - PPS6
-                - PPS7
-                - PPS8
-                - S3_AUTH
-                - EXAMPLES
-          filters: *only-release-tags
-      - helm-build:
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - build-docker-images:
-          appVersion: ${CIRCLE_TAG:1}
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - build-pachctl-bin:
-          version: ${CIRCLE_TAG:1}
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - helm-publish:
-          name: publish-chart-preview
-          preview: true
-          filters: *only-release-tags
-          requires:
-            - helm-build
-      - release-github-draft:
-          filters: *only-release-tags
-          requires:
-            - build-pachctl-bin
-      - pachyderm-prerelease-testing:
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - sign-off:
-          filters: *only-release-tags
-          type: approval
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - release-docker-hub:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - push_redhat:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-github:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-hombrew-tap:
-          filters: *only-release-tags
-          requires:
-            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-      - helm-publish:
-          name: publish-helm-chart
-          filters: *only-release-tags
-          requires:
-            - sign-off
+      - node-pachyderm-test
+  #integration-tests:
+  #  jobs:
+  #    - build-docker-images
+  #    - build-pachctl-bin:
+  #        version: $CIRCLE_SHA1
+  #        upload: true
+  #    - check-prettier
+  #    - jsonnet-lint
+  #    - test-go
+  #    - test-envoy
+  #    - integration-tests:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - MISC
+  #              # If you want to update the number of PPS buckets, you'll need to
+  #              # update the value of PPS_BUCKETS above
+  #              - AUTH
+  #              - ENTERPRISE
+  #              - PFS
+  #              - PPS1
+  #              - PPS2
+  #              - PPS3
+  #              - PPS4
+  #              - PPS5
+  #              - PPS6
+  #              - PPS7
+  #              - PPS8
+  #              - S3_AUTH
+  #              - EXAMPLES
+  #helm-tests:
+  #  jobs:
+  #    - helm-tests
+  #nightly_load_tests:
+  #  triggers:
+  #    - schedule:
+  #        cron: "0 6 * * *"
+  #        filters:
+  #          branches:
+  #            only:
+  #              - master
+  #              - 2.1.x
+  #              - 2.2.x
+  #  jobs:
+  #    - nightly-load:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - LOAD1
+  #              - LOAD2
+  #              - LOAD3
+  #              - LOAD4
+  #              - LOAD5
+  #              - LOAD6
+  #              - LOAD7
+  #              - LOAD8
+  #              - LOAD9
+  #              - LOAD10
+  #              - LOAD11
+  #              - LOAD12
+  #                # Disabled for now since they take too long, may consider reenabling later.
+  #                #- LOAD13
+  #                #- LOAD14
+  #                #- LOAD15
+  #rootless-tests:
+  #  jobs:
+  #    - rootless
+  #deploy-tests:
+  #  jobs:
+  #    - deploy-tests
+  #release:
+  #  jobs:
+  #    - helm-tests:
+  #        filters: *only-release-tags
+  #    - integration-tests:
+  #        matrix:
+  #          parameters:
+  #            bucket:
+  #              - MISC
+  #              # If you want to update the number of PPS buckets, you'll need to
+  #              # update the value of PPS_BUCKETS above
+  #              - AUTH
+  #              - ENTERPRISE
+  #              - PFS
+  #              - PPS1
+  #              - PPS2
+  #              - PPS3
+  #              - PPS4
+  #              - PPS5
+  #              - PPS6
+  #              - PPS7
+  #              - PPS8
+  #              - S3_AUTH
+  #              - EXAMPLES
+  #        filters: *only-release-tags
+  #    - helm-build:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-tests
+  #          - integration-tests
+  #    - build-docker-images:
+  #        appVersion: ${CIRCLE_TAG:1}
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-tests
+  #          - integration-tests
+  #    - build-pachctl-bin:
+  #        version: ${CIRCLE_TAG:1}
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-tests
+  #          - integration-tests
+  #    - helm-publish:
+  #        name: publish-chart-preview
+  #        preview: true
+  #        filters: *only-release-tags
+  #        requires:
+  #          - helm-build
+  #    - release-github-draft:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - build-pachctl-bin
+  #    - pachyderm-prerelease-testing:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - build-docker-images
+  #          - build-pachctl-bin
+  #          - publish-chart-preview
+  #          - release-github-draft
+  #    - sign-off:
+  #        filters: *only-release-tags
+  #        type: approval
+  #        requires:
+  #          - build-docker-images
+  #          - build-pachctl-bin
+  #          - publish-chart-preview
+  #          - release-github-draft
+  #    - release-docker-hub:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+  #    - push_redhat:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+  #    - release-github:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+  #    - release-hombrew-tap:
+  #        filters: *only-release-tags
+  #        requires:
+  #          - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+  #    - helm-publish:
+  #        name: publish-helm-chart
+  #        filters: *only-release-tags
+  #        requires:
+  #          - sign-off
+#
