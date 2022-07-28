@@ -6,6 +6,8 @@ import (
 	"path"
 	"time"
 
+	"go.etcd.io/etcd/client/v3/concurrency"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -31,20 +33,25 @@ const (
 
 func (d *driver) master(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
-	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-		masterCtx, err := masterLock.Lock(ctx)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		defer masterLock.Unlock(masterCtx) //nolint:errcheck
-		eg, ctx := errgroup.WithContext(masterCtx)
+		eg, ctx := errgroup.WithContext(ctx)
 		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
 			d.log.Info("Skipping Storage GC")
 		} else {
 			d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
 			eg.Go(func() error {
+				lockPath := path.Join(d.prefix, masterLockPath+"-gc-fileset")
+				gcLock := dlock.NewDLock(d.etcdClient, lockPath)
+				lockCtx, err := gcLock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				defer func() {
+					if err := gcLock.Unlock(lockCtx); err != nil {
+						log.Errorf("error unlocking fileset gc lock: %v", err)
+					}
+				}()
 				gc := d.storage.NewGC(trackerPeriod)
 				return gc.RunForever(ctx)
 			})
@@ -55,12 +62,68 @@ func (d *driver) master(ctx context.Context) {
 		} else {
 			d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
 			eg.Go(func() error {
+				lockPath := path.Join(d.prefix, masterLockPath+"-gc-chunk")
+				gcLock := dlock.NewDLock(d.etcdClient, lockPath)
+				lockCtx, err := gcLock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				defer func() {
+					if err := gcLock.Unlock(lockCtx); err != nil {
+						log.Errorf("error unlocking chunkset gc lock: %v", err)
+					}
+				}()
 				gc := chunk.NewGC(d.storage.ChunkStorage(), chunkPeriod, d.log)
 				return gc.RunForever(ctx)
 			})
 		}
 		eg.Go(func() error {
 			return d.finishCommits(ctx)
+		})
+		eg.Go(func() error {
+			// How do we know when it is safe to release a lock?
+			ticker := time.NewTicker(time.Second * 60) // Assuming we go with this approach, this should probably be configurable
+			defer ticker.Stop()
+			for {
+				log.Info("releasing locks")
+				var errs []error
+				for key, lock := range d.repoLocks {
+					if lock.IsLocked() {
+						if err := lock.Unlock(ctx); err != nil {
+							errs = append(errs, err)
+							continue
+						}
+						log.Infof("released lock: %s", key)
+					}
+				}
+				if len(errs) != 0 {
+					log.Errorf("error releasing locks: %v", errs)
+					errs = nil
+				}
+				time.Sleep(time.Second) // is this necessary? Feel like no
+				log.Info("reacquiring locks")
+				for key, lock := range d.repoLocks {
+					_, err := lock.TryLock(ctx)
+					if err != nil && err != concurrency.ErrLocked {
+						errs = append(errs, err)
+						continue
+					}
+					if err != nil && err == concurrency.ErrLocked {
+						continue
+					}
+					log.Infof("acquired lock: %s", key)
+				}
+				if len(errs) != 0 {
+					log.Errorf("error acquiring locks: %v", errs)
+					errs = nil
+				}
+
+				select {
+				case <-ctx.Done():
+					return errors.EnsureStack(ctx.Err())
+				case <-ticker.C:
+				}
+			}
 		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
@@ -82,11 +145,23 @@ func (d *driver) finishCommits(ctx context.Context) error {
 			return ev.Err
 		}
 		key := string(ev.Key)
+		lockPath := path.Join(d.prefix, masterLockPath, key)
+		lock, ok := d.repoLocks[lockPath]
+		if !ok {
+			lock = dlock.NewDLock(d.etcdClient, lockPath)
+			d.repoLocks[lockPath] = lock
+		}
 		if ev.Type == watch.EventDelete {
+			if err := lock.Unlock(ctx); err != nil && err != context.Canceled { // Do we want to ignore context.Cancelled?
+				log.Errorf("error unlocking lock %s before delete: %v", lockPath, err)
+			} else {
+				log.Infof("unlocked and deleted lock %s", lockPath)
+			}
 			if cancel, ok := repos[key]; ok {
 				cancel()
 			}
 			delete(repos, key)
+			delete(d.repoLocks, lockPath)
 			return nil
 		}
 		if _, ok := repos[key]; ok {
@@ -96,6 +171,19 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		repos[key] = cancel
 		go func() {
 			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+				lockCtx, err := lock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				log.Infof("locked repo lock for %s", lockPath)
+				defer func() {
+					err := lock.Unlock(lockCtx)
+					if err != nil && err != context.Canceled { // Do we want to ignore context.Cancelled?
+						log.Errorf("error unlocking lock for %s: %v", lockPath, err)
+					} else {
+						log.Infof("defer call: unlocked lock for %s", lockPath)
+					}
+				}()
 				return d.finishRepoCommits(ctx, compactor, key)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
