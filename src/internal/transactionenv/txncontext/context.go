@@ -49,7 +49,10 @@ func New(ctx context.Context, sqlTx *pachsql.Tx, authServer identifier) (*Transa
 		}
 	}
 	var currTime time.Time
-	sqlTx.GetContext(ctx, &currTime, "select CURRENT_TIMESTAMP as Timestamp")
+	if err := sqlTx.GetContext(ctx, &currTime, "select CURRENT_TIMESTAMP as Timestamp"); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+
 	ts, err := types.TimestampProto(currTime)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting transaction timestamp")

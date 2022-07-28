@@ -19,6 +19,11 @@ parameters:
     type: string
     default: ubuntu-2004:2022.04.2
 
+executors:
+  docker-go:
+    docker:
+      - image: cimg/go:1.18.4
+
 jobs:
   test-go:
     machine:
@@ -75,6 +80,14 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -120,9 +133,11 @@ jobs:
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
-          command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
+          command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
-      - run: etc/testing/circle/launch.sh
+      - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
@@ -138,8 +153,7 @@ jobs:
       - store_artifacts:
           path: /tmp/test-results
   helm-tests:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -277,6 +291,14 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -293,6 +315,14 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -336,10 +366,9 @@ jobs:
     parameters:
       appVersion:
         type: string
-        default: ${CIRCLE_SHA1}
+        default: "0.0.0"
     resource_class: large
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - setup_remote_docker:
@@ -375,8 +404,7 @@ jobs:
         type: boolean
         default: false
     resource_class: large
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - run:
@@ -434,6 +462,20 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
+  jsonnet-lint:
+    resource_class: small
+    docker:
+      - image: cimg/go:1.18.4
+    steps:
+      - checkout
+      - run:
+          name: Install go-jsonnet
+          command: |
+            go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
+      - run:
+          name: lint all jsonnet files
+          command: |
+            find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
@@ -447,8 +489,7 @@ jobs:
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
   push_redhat:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - setup_remote_docker:
@@ -534,8 +575,7 @@ jobs:
           command: |
             make VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - add_ssh_keys:
@@ -565,6 +605,7 @@ workflows:
           version: $CIRCLE_SHA1
           upload: true
       - check-prettier
+      - jsonnet-lint
       - test-go
       - test-envoy
       - integration-tests:

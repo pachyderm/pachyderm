@@ -2,12 +2,18 @@ run:
   timeout: 5m
   skip-dirs:
     - cached-deps
+  build-tags:
+    - k8s
 linters:
   enable:
     - wrapcheck
-  disable:
-    - errcheck
+    - nolintlint
 linters-settings:
+  errcheck:
+     exclude-functions:
+      - (*database/sql.Tx).Rollback
+      - (*github.com/spf13/cobra.Command).MarkFlagCustom
+      - (*github.com/spf13/cobra.Command).Usage
   wrapcheck:
     ignoreSigs:
       - github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf

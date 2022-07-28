@@ -2,8 +2,6 @@
 
 set -Eex
 
-export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
-
 # Parse flags
 VERSION=v1.19.0
 minikube_args=(

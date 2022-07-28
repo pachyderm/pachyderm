@@ -148,7 +148,7 @@ func (r *Reporter) reportClusterMetrics() {
 		time.Sleep(reportingInterval)
 		metrics := &Metrics{}
 		r.internalMetrics(metrics)
-		externalMetrics(r.env.GetKubeClient(), metrics)
+		externalMetrics(r.env.GetKubeClient(), metrics) //nolint:errcheck
 		metrics.ClusterID = r.clusterID
 		metrics.PodID = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)

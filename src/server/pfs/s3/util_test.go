@@ -137,9 +137,7 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
-	go func() {
-		server.Serve(listener)
-	}()
+	go server.Serve(listener) //nolint:errcheck
 
 	port := listener.Addr().(*net.TCPAddr).Port
 

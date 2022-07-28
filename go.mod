@@ -69,7 +69,6 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.4
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
-	golang.org/x/net v0.0.0-20220708220712-1185a9018129
 	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
@@ -83,6 +82,8 @@ require (
 	k8s.io/client-go v0.23.1
 	k8s.io/kubectl v0.23.1
 )
+
+require golang.org/x/net v0.0.0-20220708220712-1185a9018129 // indirect
 
 require (
 	cloud.google.com/go v0.102.0 // indirect

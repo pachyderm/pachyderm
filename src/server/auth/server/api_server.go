@@ -506,11 +506,21 @@ func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionCo
 // Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
 	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
-		a.roleBindings.ReadWrite(sqlTx).DeleteAll()
-		a.deleteAllAuthTokens(ctx, sqlTx)
-		a.members.ReadWrite(sqlTx).DeleteAll()
-		a.groups.ReadWrite(sqlTx).DeleteAll()
-		a.authConfig.ReadWrite(sqlTx).DeleteAll()
+		if err := a.roleBindings.ReadWrite(sqlTx).DeleteAll(); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := a.deleteAllAuthTokens(ctx, sqlTx); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := a.members.ReadWrite(sqlTx).DeleteAll(); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := a.groups.ReadWrite(sqlTx).DeleteAll(); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := a.authConfig.ReadWrite(sqlTx).DeleteAll(); err != nil {
+			return errors.EnsureStack(err)
+		}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -1114,6 +1124,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
+	//nolint:errcheck
 	a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
@@ -1554,7 +1565,7 @@ func (a *apiServer) deleteExpiredTokensRoutine() {
 	go func(ctx context.Context) {
 		for {
 			time.Sleep(time.Duration(cleanupIntervalHours) * time.Hour)
-			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{})
+			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}) //nolint:errcheck
 		}
 	}(context.Background())
 }
