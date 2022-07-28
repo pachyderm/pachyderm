@@ -2,8 +2,6 @@
 
 set -ve
 
-export PATH="${PWD}:${PWD}/cached-deps:${GOPATH}/bin:${PATH}"
-
 VERSION=v1.19.0
 
 # wait for docker or timeout
@@ -36,7 +34,7 @@ kubectl apply -f etc/testing/opa-constraints.yaml
 
 ./etc/testing/circle/build.sh
 
-./etc/testing/circle/launch.sh
+kubectl apply -f etc/testing/minio.yaml
 
 # Run TestSimplePipelineNonRoot TestSimplePipelinePodPatchNonRoot
 go test -v ./src/server -run NonRoot -tags=k8s

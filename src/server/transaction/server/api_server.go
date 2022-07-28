@@ -1,8 +1,9 @@
 package server
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"

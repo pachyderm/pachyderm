@@ -216,7 +216,9 @@ transaction' or cancelled with 'delete transaction'.`,
 			if isActive {
 				// The active transaction was successfully deleted, clean it up so the
 				// user doesn't need to manually 'stop transaction' it.
-				ClearActiveTransaction()
+				if err := ClearActiveTransaction(); err != nil {
+					return err
+				}
 			}
 			return nil
 		}),

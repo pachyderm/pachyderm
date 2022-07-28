@@ -7,7 +7,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source "${SCRIPT_DIR}/../govars.sh"
 
 INSTALLED_GOVER="$(go version | cut -d ' ' -f 3)"
-EXPECTED_GOVER=go1.18.3
+EXPECTED_GOVER=go1.18.4
 if [ "${INSTALLED_GOVER}" != "${EXPECTED_GOVER}" ]
 then
     echo "Current go version ${INSTALLED_GOVER}"
@@ -22,4 +22,4 @@ version="$("${PACHCTL}" version --client-only)"
 echo "--- Releasing Version: $version"
 make VERSION="$version" VERSION_ADDITIONAL="$VERSION_ADDITIONAL" release
 
-./update_homebrew.sh "$1"
+./update_homebrew.sh "$version" "$1"

@@ -13,18 +13,22 @@ repo_docs_dir: doc/docs/master
 edit_uri: ""
 
 # Pachyderm branch - use this variable to parameterize links like https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/src/templates/sql_ingest_cron.jsonnet
-pach_branch: '2.2.x'
+pach_branch: 'master'
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
-pach_featured_version: '2.2.5'
+
+pach_featured_version: '2.2.6'
 # Latest version of Pachyderm
-pach_latest_version: '2.2.5'
+pach_latest_version: '2.2.6'
 pach_major_minor_version: '2.2'
-search_index_version: 'latest'
+search_index_version: '2.2.x'
+
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.6.0'
+# Latest compatible version of Python-pachyderm
+python_pachyderm_version: '7.3.x'
 
 
 # Configuration
@@ -118,10 +122,8 @@ nav:
         - Contributing:
             - Setup for Contributors: contributing/setup.md
             - Repo Layout: contributing/repo-layout.md
-            - Supported releases: contributing/supported-releases.md   
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
-            - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
         - Overview: getting-started/index.md
@@ -252,6 +254,7 @@ nav:
         - Pachyderm Config Specification: reference/config-spec.md
         - Pachyderm Helm Chart Values Specification: reference/helm-values.md
         - Pachyderm Language Clients: reference/clients.md
+        - Supported releases: reference/supported-releases.md   
         - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md
@@ -308,6 +311,7 @@ nav:
             - reference/pachctl/pachctl_create_repo.md
             - reference/pachctl/pachctl_create_secret.md
             - reference/pachctl/pachctl_debug.md
+            - reference/pachctl/pachctl_debug_analyze.md
             - reference/pachctl/pachctl_debug_binary.md
             - reference/pachctl/pachctl_debug_dump.md
             - reference/pachctl/pachctl_debug_profile.md
@@ -387,7 +391,6 @@ nav:
             - reference/pachctl/pachctl_list_transaction.md
             - reference/pachctl/pachctl_logs.md
             - reference/pachctl/pachctl_mount.md
-            - reference/pachctl/pachctl_mount-server.md
             - reference/pachctl/pachctl_port-forward.md
             - reference/pachctl/pachctl_put.md
             - reference/pachctl/pachctl_put_file.md

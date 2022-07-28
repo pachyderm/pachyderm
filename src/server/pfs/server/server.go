@@ -12,7 +12,7 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 		return nil, err
 	}
 	go a.driver.master(env.BackgroundContext)
-	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }()
+	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
 	return newValidatedAPIServer(a, env.AuthServer), nil
 }
 

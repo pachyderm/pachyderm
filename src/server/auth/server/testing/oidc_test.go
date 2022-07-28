@@ -23,7 +23,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	testClient := tu.UnauthenticatedPachClient(t, c)
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
@@ -49,7 +49,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 	testClient := tu.UnauthenticatedPachClient(t, c)
 
 	token := tu.GetOIDCTokenForTrustedApp(t, c)
@@ -75,7 +75,7 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	testClient := tu.UnauthenticatedPachClient(t, c)
 	loginInfo, err := testClient.GetOIDCLogin(testClient.Ctx(), &auth.GetOIDCLoginRequest{})
