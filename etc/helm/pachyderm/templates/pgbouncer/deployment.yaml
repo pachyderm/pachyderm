@@ -102,10 +102,9 @@ spec:
         ports:
         - containerPort: 5432
           name: client-port
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256M
+        {{- if .Values.pgbouncer.resources }}
+        resources: {{ toYaml .Values.pgbouncer.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /opt/bitnami/pgbouncer/conf/
           name: config
