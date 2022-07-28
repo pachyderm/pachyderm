@@ -1,5 +1,5 @@
 .base {
-  padding: 2rem;
+  padding: 0 2rem;
 }
 
 .content {
@@ -16,4 +16,8 @@
   border-radius: 0.4rem;
   overflow-y: scroll;
   max-width: 60rem;
+}
+
+.elephantImage {
+  max-width: 25rem;
 }

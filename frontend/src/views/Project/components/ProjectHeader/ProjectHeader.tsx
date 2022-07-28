@@ -59,7 +59,7 @@ const ProjectHeader = () => {
             className={styles.projectNameTooltip}
           >
             <h6 ref={setProjectNameRef} className={styles.projectName}>
-              {error ? (
+              {!error ? (
                 projectName
               ) : (
                 <span className={styles.errorName}>

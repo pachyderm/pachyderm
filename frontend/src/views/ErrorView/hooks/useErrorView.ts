@@ -43,7 +43,11 @@ const useErrorView = (graphQLError?: GraphQLError) => {
     }
   }, [errorType]);
 
-  return {errorType, errorMessage};
+  const errorDetails = graphQLError?.extensions?.exception?.stacktrace
+    ? graphQLError?.extensions?.exception?.stacktrace[0]
+    : String(graphQLError?.extensions?.details);
+
+  return {errorType, errorMessage, errorDetails};
 };
 
 export default useErrorView;

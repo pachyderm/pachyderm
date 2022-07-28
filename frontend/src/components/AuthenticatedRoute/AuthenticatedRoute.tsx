@@ -1,7 +1,7 @@
 import React from 'react';
 
 import CommunityEditionBannerProvider from '@dash-frontend/components/CommunityEditionBanner/CommunityEditionBannerProvider';
-import ErrorView from '@dash-frontend/views/ErrorView';
+import ErrorView from '@dash-frontend/views/ErrorView/GraphQLErrorView';
 
 import useAuthenticatedRoute from './hooks/useAuthenticatedRoute';
 

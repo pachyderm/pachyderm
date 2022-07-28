@@ -1,12 +1,9 @@
-import {ApolloError} from '@apollo/client';
 import {
   Button,
   StatusWarningSVG,
-  GenericErrorSVG,
   Group,
   ErrorText,
 } from '@pachyderm/components';
-import {GraphQLError} from 'graphql';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
@@ -15,16 +12,22 @@ import View from '@dash-frontend/components/View';
 import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
 
 import styles from './ErrorView.module.css';
-import useErrorView, {ErrorViewType} from './hooks/useErrorView';
 
 type ErrorViewProps = {
-  apolloError?: ApolloError;
-  graphQLError?: GraphQLError;
+  errorMessage?: string;
+  errorDetails?: string;
+  source?: string;
+  stackTrace?: unknown;
+  showBackHomeButton?: boolean;
 };
 
-const ErrorView: React.FC<ErrorViewProps> = ({graphQLError}) => {
-  const {errorType, errorMessage} = useErrorView(graphQLError);
-
+const ErrorView: React.FC<ErrorViewProps> = ({
+  showBackHomeButton = false,
+  errorMessage,
+  errorDetails,
+  source,
+  stackTrace,
+}) => {
   return (
     <>
       <Helmet>
@@ -33,31 +36,25 @@ const ErrorView: React.FC<ErrorViewProps> = ({graphQLError}) => {
       <LandingHeader />
       <View>
         <Group vertical spacing={16} align="center" className={styles.base}>
-          <GenericErrorSVG />
+          <img
+            src="elephant_error_state.svg"
+            className={styles.elephantImage}
+            alt="Error Encountered"
+          />
           <Group vertical spacing={32} className={styles.content}>
             <Group spacing={8} align="center">
               <StatusWarningSVG /> <h4>{errorMessage}</h4>
             </Group>
-            <ErrorText>
-              {graphQLError?.extensions?.exception?.stacktrace
-                ? graphQLError?.extensions?.exception?.stacktrace[0]
-                : String(graphQLError?.extensions?.details)}
-            </ErrorText>
-            {graphQLError?.source && (
-              <>
-                Source: <ErrorText>{graphQLError?.source}</ErrorText>
-              </>
-            )}
-            {errorType !== ErrorViewType.UNAUTHENTICATED && (
-              <Button href="/">Go Back Home</Button>
-            )}
+            {errorDetails && <ErrorText>{errorDetails}</ErrorText>}
+            {source && <ErrorText>Source: {source}</ErrorText>}
+            {showBackHomeButton && <Button href="/">Go Back Home</Button>}
           </Group>
 
-          {graphQLError && (
+          {stackTrace && (
             <div className={styles.fullError}>
               <JSONDataPreview
-                inputData={graphQLError}
-                formattingStyle="json"
+                inputData={stackTrace}
+                formattingStyle="yaml"
                 width={Math.min(window.innerWidth - 128, 948)}
               />
             </div>

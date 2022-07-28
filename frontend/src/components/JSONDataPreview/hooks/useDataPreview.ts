@@ -21,7 +21,18 @@ const normalizeJSON = (
   showBrackets: boolean,
   childOf: string[] = [],
 ): ListItemArray[] => {
-  if (typeof obj !== 'object') return [];
+  if (typeof obj !== 'object')
+    return String(obj)
+      .split('\n')
+      .map((line, index) => ({
+        keyString: '',
+        valueString: line,
+        depth: index > 0 ? 1 : 0,
+        isObject: false,
+        isOpen: true,
+        childOf: [],
+        id: line,
+      }));
 
   const values = !Array.isArray(obj) ? Object.values(obj || {}) : obj;
 

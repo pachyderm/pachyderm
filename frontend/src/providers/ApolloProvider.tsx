@@ -4,7 +4,7 @@ import React, {useEffect, useRef, useState} from 'react';
 
 import {useErrorLink} from '@dash-frontend/apollo/links/errorLink';
 import useLoggedIn from '@dash-frontend/hooks/useLoggedIn';
-import ErrorView from '@dash-frontend/views/ErrorView';
+import ErrorView from '@dash-frontend/views/ErrorView/GraphQLErrorView';
 import createApolloClient from 'apollo';
 
 const DashApolloProvider: React.FC = ({children}) => {
