@@ -15,7 +15,7 @@ const useProjectSidebar = () => {
   const {projectId} = useUrlState();
   const browserHistory = useHistory();
   const {sidebarSize, overlay} = useSidebarInfo();
-  const {jobSets, loading: jobSetsLoading} = useJobSets({projectId});
+  const {jobSets, loading: jobSetsLoading, error} = useJobSets({projectId});
   const lineageMatch = useRouteMatch({
     path: LINEAGE_PATH,
   });
@@ -33,6 +33,7 @@ const useProjectSidebar = () => {
     overlay,
     jobSets,
     jobSetsLoading,
+    error,
   };
 };
 

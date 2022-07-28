@@ -72,6 +72,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
               items={nodes.repos}
               getNodePath={repoRedirect}
               selectedItem={repoId}
+              error={error}
             />
           </Route>
           <Route path={PROJECT_PIPELINES_PATH}>
@@ -79,6 +80,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
               items={nodes.pipelines}
               getNodePath={pipelineRedirect}
               selectedItem={pipelineId}
+              error={error}
             />
           </Route>
           <Route path={LINEAGE_PATH}>

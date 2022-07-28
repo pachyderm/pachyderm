@@ -11,10 +11,16 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import ProjectSidebar from '@dash-frontend/views/Project/components/ProjectSidebar';
 
+import styles from './ProjectJobList.module.css';
+
 const ProjectJobList: React.FC = () => {
   const {projectId} = useUrlState();
   const {viewState} = useUrlQueryState();
-  const {jobSets, loading: jobSetsLoading} = useJobSets({
+  const {
+    jobSets,
+    loading: jobSetsLoading,
+    error,
+  } = useJobSets({
     projectId,
   });
 
@@ -28,7 +34,7 @@ const ProjectJobList: React.FC = () => {
   );
 
   return (
-    <>
+    <div className={styles.wrapper}>
       {jobSetsLoading ? (
         <LoadingDots />
       ) : (
@@ -36,6 +42,7 @@ const ProjectJobList: React.FC = () => {
           projectId={projectId}
           jobs={filteredJobSets}
           loading={jobSetsLoading}
+          error={error}
           showStatusFilter
           emptyStateTitle={LETS_START_TITLE}
           emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
@@ -44,7 +51,7 @@ const ProjectJobList: React.FC = () => {
         />
       )}
       <ProjectSidebar resizable={false} />
-    </>
+    </div>
   );
 };
 

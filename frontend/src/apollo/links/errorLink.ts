@@ -31,9 +31,18 @@ export const useErrorLink = (
       if (
         graphQLErrors.some(
           (error) =>
-            error.extensions?.code === 'INTERNAL_SERVER_ERROR' ||
-            (error.extensions?.code === 'NOT_FOUND' &&
-              operation.operationName !== 'job'),
+            error.extensions?.code === 'NOT_FOUND' &&
+            !error.path?.includes('job'),
+        )
+      ) {
+        setApolloError(graphQLErrors[0]);
+      }
+
+      if (
+        graphQLErrors.some(
+          (error) =>
+            error.extensions?.code === 'INTERNAL_SERVER_ERROR' &&
+            (!error.path || error.path?.includes('project')),
         )
       ) {
         setApolloError(graphQLErrors[0]);

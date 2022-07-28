@@ -45,6 +45,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     overlay,
     jobSets,
     jobSetsLoading,
+    error,
   } = useProjectSidebar();
 
   const resizableProps = resizable
@@ -80,6 +81,7 @@ const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
                 projectId={projectId}
                 jobs={jobSets}
                 loading={jobSetsLoading}
+                error={error}
                 expandActions
                 showStatusFilter
                 emptyStateTitle={LETS_START_TITLE}

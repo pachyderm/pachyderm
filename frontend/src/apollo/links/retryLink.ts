@@ -23,6 +23,9 @@ export const retryLink = () =>
           const {statusCode} = error as ServerError;
           return statusCode >= 500;
         }
+        if (error && operationType === 'subscription') {
+          return true;
+        }
         return false;
       },
     },

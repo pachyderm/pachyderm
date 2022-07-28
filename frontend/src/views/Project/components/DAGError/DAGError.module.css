@@ -1,0 +1,10 @@
+.errorBox {
+  padding: 0.25rem 0.5rem;
+  background-color: var(--white);
+  border-radius: 3px;
+  border: solid 1px var(--border-grey);
+}
+
+.dagError {
+  margin-left: 0.5rem;
+}

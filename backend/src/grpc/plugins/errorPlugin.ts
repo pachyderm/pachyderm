@@ -25,7 +25,10 @@ const errorPlugin: GRPCPlugin = {
     // https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
     if (isServiceError(error)) {
       if (error.code === Status.UNAUTHENTICATED) {
-        throw new AuthenticationError(error.details);
+        throw new AuthenticationError(error.details, {
+          ...error,
+          grpcCode: error.code,
+        });
       }
 
       if (
@@ -33,7 +36,10 @@ const errorPlugin: GRPCPlugin = {
         (error.details.includes(TOKEN_EXPIRED_MESSAGE) ||
           error.details.includes(NO_AUTHENTICATION_METADATA_MESSAGE))
       ) {
-        throw new AuthenticationError(error.details);
+        throw new AuthenticationError(error.details, {
+          ...error,
+          grpcCode: error.code,
+        });
       }
 
       if (error.code === Status.NOT_FOUND) {
@@ -59,7 +65,10 @@ const errorPlugin: GRPCPlugin = {
       }
 
       if (error.details.startsWith('no pods')) {
-        throw new ApolloError(error.details, 'INVALID_REQUEST');
+        throw new ApolloError(error.details, 'INVALID_REQUEST', {
+          ...error,
+          grpcCode: error.code,
+        });
       }
 
       if (error.code === Status.ALREADY_EXISTS) {

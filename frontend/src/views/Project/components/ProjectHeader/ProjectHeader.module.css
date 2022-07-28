@@ -10,6 +10,10 @@
   text-overflow: ellipsis;
 }
 
+.projectName path:last-of-type {
+  fill: var(--white);
+}
+
 .projectNameLoader {
   width: 10rem;
   margin-bottom: 0;
@@ -33,4 +37,12 @@
 
 .goBack {
   border: none;
+}
+
+.errorName {
+  display: inline-flex;
+}
+
+.warningIcon {
+  margin-right: 0.5rem;
 }

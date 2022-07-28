@@ -6,7 +6,8 @@
 }
 
 .elephantImage {
-  margin-top: 8rem;
+  margin-top: 4rem;
+  max-width: 15rem;
 }
 
 .message {
@@ -16,5 +17,12 @@
 }
 
 .title {
+  display: inline-flex;
   margin-top: 1rem;
+  max-width: 15rem;
+}
+
+.errorStatus {
+  margin-top: 0.15rem;
+  margin-right: 0.15rem;
 }

@@ -1,3 +1,4 @@
+import {ApolloError} from '@apollo/client';
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import {LoadingDots} from '@pachyderm/components';
 import classnames from 'classnames';
@@ -9,6 +10,9 @@ import JobListItem from './components/JobListItem';
 import styles from './JobListStatic.module.css';
 import isPipelineJob from './utils/isPipelineJob';
 
+const errorMessage = `Sorry! We're currently having trouble loading the jobs list.`;
+const errorMessageAction = 'Please refresh the page';
+
 type JobListBaseProps = {
   jobs?: (JobOverviewFragment | JobSetFieldsFragment)[];
   loading?: boolean;
@@ -18,6 +22,7 @@ type JobListBaseProps = {
   emptyStateTitle: string;
   emptyStateMessage: string;
   cardStyle?: boolean;
+  error?: ApolloError;
 };
 
 const JobListBase: React.FC<JobListBaseProps> = ({
@@ -29,6 +34,7 @@ const JobListBase: React.FC<JobListBaseProps> = ({
   emptyStateTitle,
   emptyStateMessage,
   cardStyle,
+  error,
 }) => {
   if (loading)
     return (
@@ -38,6 +44,11 @@ const JobListBase: React.FC<JobListBaseProps> = ({
       >
         <LoadingDots />
       </div>
+    );
+
+  if (error)
+    return (
+      <EmptyState title={errorMessage} message={errorMessageAction} error />
     );
 
   if (jobs?.length === 0)

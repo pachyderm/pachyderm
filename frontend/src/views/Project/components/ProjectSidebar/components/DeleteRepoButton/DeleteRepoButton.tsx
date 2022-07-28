@@ -4,7 +4,7 @@ import React from 'react';
 import useDeleteRepoButton from './hooks/useDeleteRepoButton';
 
 const DeleteRepoButton: React.FC = () => {
-  const {canDelete, modalOpen, setModalOpen, onDelete, updating} =
+  const {canDelete, modalOpen, setModalOpen, onDelete, updating, error} =
     useDeleteRepoButton();
 
   return (
@@ -22,6 +22,8 @@ const DeleteRepoButton: React.FC = () => {
           onConfirm={onDelete}
           updating={updating}
           loading={false}
+          disabled={updating}
+          errorMessage={error && 'Error deleting repo. Please try again later.'}
         >
           Deleting this repo will erase all data inside it.
         </BasicModal>

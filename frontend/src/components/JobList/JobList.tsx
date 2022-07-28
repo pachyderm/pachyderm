@@ -1,3 +1,4 @@
+import {ApolloError} from '@apollo/client';
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
 import classnames from 'classnames';
 import React, {useEffect} from 'react';
@@ -28,6 +29,7 @@ export interface JobListProps {
   projectId: string;
   cardStyle?: boolean;
   selectJobByDefault?: boolean;
+  error?: ApolloError;
 }
 
 const JobList: React.FC<JobListProps> = ({
@@ -40,6 +42,7 @@ const JobList: React.FC<JobListProps> = ({
   projectId,
   cardStyle,
   selectJobByDefault,
+  error,
 }) => {
   const {filteredJobs, selectedFilters, noFiltersSelected} = useJobFilters({
     jobs,
@@ -82,6 +85,7 @@ const JobList: React.FC<JobListProps> = ({
           emptyStateMessage={emptyStateMessage}
           projectId={projectId}
           loading={loading}
+          error={error}
           jobs={filteredJobs}
           expandActions={expandActions}
           listScroll

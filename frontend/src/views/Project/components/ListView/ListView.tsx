@@ -1,3 +1,5 @@
+import {ApolloError} from '@apollo/client';
+import {Group} from '@pachyderm/components';
 import React, {useEffect} from 'react';
 import {useHistory} from 'react-router';
 
@@ -9,6 +11,8 @@ import {
 import View from '@dash-frontend/components/View';
 import {Node, DagNodes} from '@dash-frontend/lib/types';
 
+import DAGError from '../DAGError';
+
 import ListItem from './components/ListItem';
 import styles from './ListView.module.css';
 
@@ -16,12 +20,14 @@ type ListViewProps = {
   items: DagNodes[];
   getNodePath: (node: Node) => string;
   selectedItem?: string;
+  error?: ApolloError;
 };
 
 const ListView: React.FC<ListViewProps> = ({
   items,
   getNodePath,
   selectedItem,
+  error,
 }) => {
   const browserHistory = useHistory();
 
@@ -37,27 +43,30 @@ const ListView: React.FC<ListViewProps> = ({
 
   return (
     <View className={styles.view}>
-      <div className={styles.base}>
-        {items.length > 0 ? (
-          items.map(
-            (dag) =>
-              dag.nodes.length > 0 && (
-                <div className={styles.wrapper} key={dag.id}>
-                  {dag.nodes.map((node) => (
-                    <ListItem
-                      node={node}
-                      key={node.id}
-                      selectedItem={selectedItem}
-                      nodePath={getNodePath(node)}
-                    />
-                  ))}
-                </div>
-              ),
-          )
-        ) : (
-          <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
-        )}
-      </div>
+      <Group spacing={16} vertical>
+        <DAGError error={error} />
+        <div className={styles.base}>
+          {items.length > 0 ? (
+            items.map(
+              (dag) =>
+                dag.nodes.length > 0 && (
+                  <div className={styles.wrapper} key={dag.id}>
+                    {dag.nodes.map((node) => (
+                      <ListItem
+                        node={node}
+                        key={node.id}
+                        selectedItem={selectedItem}
+                        nodePath={getNodePath(node)}
+                      />
+                    ))}
+                  </div>
+                ),
+            )
+          ) : (
+            <EmptyState title={LETS_START_TITLE} message={NO_DAG_MESSAGE} />
+          )}
+        </div>
+      </Group>
     </View>
   );
 };

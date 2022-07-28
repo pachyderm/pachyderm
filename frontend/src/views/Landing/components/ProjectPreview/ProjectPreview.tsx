@@ -27,7 +27,7 @@ type ProjectPreviewProps = {
 };
 
 const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
-  const {projectDetails, loading} = useProjectDetails(project.id);
+  const {projectDetails, loading, error} = useProjectDetails(project.id);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLHeadingElement>(null);
   const isStuck = useIntersection(subtitleRef.current, sidebarRef.current);
@@ -50,13 +50,22 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
               <Description
                 term="Total No. of Repos/Pipelines"
                 loading={loading}
+                error={error}
               >
                 {projectDetails?.repoCount}/{projectDetails?.pipelineCount}
               </Description>
-              <Description term="Total Data Size" loading={loading}>
+              <Description
+                term="Total Data Size"
+                loading={loading}
+                error={error}
+              >
                 {projectDetails?.sizeDisplay}
               </Description>
-              <Description term="Pipeline Status" loading={loading}>
+              <Description
+                term="Pipeline Status"
+                loading={loading}
+                error={error}
+              >
                 <div className={styles.inline}>
                   <ProjectStatus status={project.status} />
                   {project.status.toString() === 'UNHEALTHY' && (
@@ -90,6 +99,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
             projectId={project.id}
             jobs={projectDetails?.jobSets}
             loading={loading}
+            error={error}
             emptyStateTitle={LETS_START_TITLE}
             emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
           />

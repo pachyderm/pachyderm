@@ -4,6 +4,8 @@ import {
   Group,
   Button,
   ArrowLeftSVG,
+  StatusWarningSVG,
+  Icon,
 } from '@pachyderm/components';
 import React, {useCallback, useState} from 'react';
 
@@ -17,7 +19,7 @@ import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
 const ProjectHeader = () => {
-  const {projectName, loading} = useProjectHeader();
+  const {projectName, loading, error} = useProjectHeader();
   const {projectId} = useUrlState();
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -57,7 +59,16 @@ const ProjectHeader = () => {
             className={styles.projectNameTooltip}
           >
             <h6 ref={setProjectNameRef} className={styles.projectName}>
-              {projectName}
+              {error ? (
+                projectName
+              ) : (
+                <span className={styles.errorName}>
+                  <Icon small color="white" className={styles.warningIcon}>
+                    <StatusWarningSVG />
+                  </Icon>
+                  {` Project name unknown`}
+                </span>
+              )}
             </h6>
           </Tooltip>
         )}

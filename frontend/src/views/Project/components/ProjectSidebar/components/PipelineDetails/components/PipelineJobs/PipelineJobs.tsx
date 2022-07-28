@@ -14,7 +14,7 @@ const emptyJobListMessage = 'Create your first job on this pipeline!';
 
 const PipelineJobs = () => {
   const {projectId, pipelineId} = useUrlState();
-  const {jobs, loading} = useJobs({projectId, pipelineId});
+  const {jobs, loading, error} = useJobs({projectId, pipelineId});
   const {isServiceOrSpout} = useCurrentPipeline();
 
   if (isServiceOrSpout) {
@@ -26,6 +26,7 @@ const PipelineJobs = () => {
       <JobList
         jobs={jobs}
         loading={loading}
+        error={error}
         projectId={projectId}
         emptyStateTitle={LETS_START_TITLE}
         emptyStateMessage={emptyJobListMessage}

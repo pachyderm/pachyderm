@@ -24,7 +24,7 @@ describe('Jobs', () => {
       // wait for job to finish
       cy.findByTestId('InfoPanel__state', {timeout: 12000}).should('have.text', 'Success');
       cy.findByTestId('InfoPanel__started').should('include.text', 'ago');
-      cy.findByTestId('InfoPanel__duration').invoke('text').should('match', /^\d+\sseconds?$/);
+      cy.findByTestId('InfoPanel__duration').invoke('text').should('match', /^\s?\d+\sseconds?$/);
       cy.findByTestId('InfoPanel__processed').should('have.text', '1');
       cy.findByTestId('InfoPanel__skipped').should('have.text', '0');
       cy.findByTestId('InfoPanel__failed').should('have.text', '0');

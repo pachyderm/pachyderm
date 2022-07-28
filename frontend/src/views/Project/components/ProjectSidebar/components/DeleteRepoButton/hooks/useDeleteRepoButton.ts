@@ -8,9 +8,11 @@ const useDeleteRepoButton = () => {
   const {projectId, repoId} = useUrlState();
   const [modalOpen, setModalOpen] = useState(false);
   const {data: dagData} = useGetDagQuery({variables: {args: {projectId}}});
-  const {deleteRepo, loading: updating} = useDeleteRepo(repoId, () =>
-    setModalOpen(false),
-  );
+  const {
+    deleteRepo,
+    loading: updating,
+    error,
+  } = useDeleteRepo(repoId, () => setModalOpen(false));
 
   const canDelete = useMemo(() => {
     return (
@@ -42,6 +44,7 @@ const useDeleteRepoButton = () => {
     setModalOpen,
     onDelete,
     updating,
+    error,
   };
 };
 

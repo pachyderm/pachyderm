@@ -8,10 +8,11 @@ const useDeletePipelineButton = () => {
   const {projectId, pipelineId} = useUrlState();
   const [modalOpen, setModalOpen] = useState(false);
   const {data: dagData} = useGetDagQuery({variables: {args: {projectId}}});
-  const {deletePipeline, loading: updating} = useDeletePipeline(
-    pipelineId,
-    () => setModalOpen(false),
-  );
+  const {
+    deletePipeline,
+    loading: updating,
+    error,
+  } = useDeletePipeline(pipelineId, () => setModalOpen(false));
 
   const canDelete = useMemo(() => {
     return (
@@ -43,6 +44,7 @@ const useDeletePipelineButton = () => {
     setModalOpen,
     onDelete,
     updating,
+    error,
   };
 };
 

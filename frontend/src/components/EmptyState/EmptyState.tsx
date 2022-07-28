@@ -1,3 +1,4 @@
+import {Icon, StatusWarningSVG} from '@pachyderm/components';
 import React from 'react';
 
 import styles from './EmptyState.module.css';
@@ -7,6 +8,7 @@ type EmptyStateProps = {
   message?: string;
   connect?: boolean;
   className?: string;
+  error?: boolean;
 };
 
 const EmptyState: React.FC<EmptyStateProps> = ({
@@ -14,15 +16,23 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   message = null,
   children = null,
   className,
+  error,
 }) => {
   return (
     <div className={`${styles.base} ${className}`}>
       <img
-        src="/elephant_empty_state.png"
+        src={error ? '/elephant_error_state.svg' : '/elephant_empty_state.png'}
         className={styles.elephantImage}
         alt=""
       />
-      <h6 className={styles.title}>{title}</h6>
+      <span className={styles.title}>
+        {error && (
+          <Icon small className={styles.errorStatus}>
+            <StatusWarningSVG />
+          </Icon>
+        )}
+        <h6>{title}</h6>
+      </span>
       <span className={styles.message}>
         {message}
         {children}

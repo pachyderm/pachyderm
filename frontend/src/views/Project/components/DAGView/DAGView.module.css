@@ -3,11 +3,16 @@
   height: max-content;
 }
 
+.topSection {
+  display: inline-flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem;
+}
+
 .canvasControls {
   display: inline-flex;
   align-items: center;
-  margin-left: 1rem;
-  margin-top: 1rem;
   margin-bottom: 0.125rem;
   border-radius: 3px;
   filter: drop-shadow(2px 2px 8px rgba(222, 222, 223, 0.8));
@@ -25,10 +30,6 @@
 
 .tooltip {
   white-space: pre-line;
-}
-
-.dagError {
-  margin-left: 1rem;
 }
 
 .base:hover {

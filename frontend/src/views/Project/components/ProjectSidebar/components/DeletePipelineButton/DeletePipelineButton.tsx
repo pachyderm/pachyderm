@@ -4,7 +4,7 @@ import React from 'react';
 import useDeletePipelineButton from './hooks/useDeletePipelineButton';
 
 const DeletePipelineButton: React.FC = () => {
-  const {canDelete, modalOpen, setModalOpen, onDelete, updating} =
+  const {canDelete, modalOpen, setModalOpen, onDelete, updating, error} =
     useDeletePipelineButton();
 
   return (
@@ -22,6 +22,10 @@ const DeletePipelineButton: React.FC = () => {
           onConfirm={onDelete}
           updating={updating}
           loading={false}
+          disabled={updating}
+          errorMessage={
+            error && 'Error deleting pipeline. Please try again later.'
+          }
         >
           Deleting this pipeline will erase all data inside it.
         </BasicModal>

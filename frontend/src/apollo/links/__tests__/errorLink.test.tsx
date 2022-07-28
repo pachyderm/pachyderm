@@ -91,7 +91,7 @@ describe('errorLink', () => {
       window.history.replaceState('', '', '/');
     });
 
-    it('should show an error page if there is a service error', async () => {
+    it('should show an error page if the project query is unsuccessful', async () => {
       mockServer.setError(createServiceError({code: 13}));
       const {findByText} = render(<TestBed />);
 
