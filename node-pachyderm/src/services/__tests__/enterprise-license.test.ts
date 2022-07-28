@@ -7,7 +7,7 @@ describe('enterprise', () => {
     await pachClient.license().deleteAll();
   });
   it('should activate enterprise', async () => {
-    const enterpriseKey = process.env.ENTERPRISE_KEY || '';
+    const enterpriseKey = process.env.NODE_PACHYDERM_ENTERPRISE_KEY || '';
     const pachClient = client({ssl: false, pachdAddress: 'localhost:30650'});
     const enterprise = pachClient.enterprise();
     const license = pachClient.license();
