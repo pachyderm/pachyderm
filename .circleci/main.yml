@@ -611,10 +611,21 @@ jobs:
       - run: etc/testing/circle/start-kind.sh
       - run: etc/testing/circle/deploy-pachyderm.sh
       - run: pachctl port-forward & npm run test
+  node-pachyderm-build-protos:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    working_directory: ~/project/node-pachyderm
+    steps:
+      - checkout:
+          path: ~/project
+      - run: npm run:build:proto
+
 workflows:
   node-pachyderm:
     jobs:
       - node-pachyderm-test
+      - node-pachyderm-build-protos
   #integration-tests:
   #  jobs:
   #    - build-docker-images
