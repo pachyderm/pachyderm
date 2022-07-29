@@ -456,7 +456,7 @@ pachd:
   # additionalTrustedPeers is used to configure the identity service to recognize additional OIDC clients as trusted peers of pachd.
   # For example, see the following example or the dex docs (https://dexidp.io/docs/custom-scopes-claims-clients/#cross-client-trust-and-authorized-party).
   # additionalTrustedPeers:
-  #   - example-app 
+  #   - example-app
   additionalTrustedPeers: []
   serviceAccount:
     create: true
