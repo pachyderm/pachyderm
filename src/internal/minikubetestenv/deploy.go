@@ -259,7 +259,7 @@ func withEnterpriseMember(host string, grpcPort int) *helm.Options {
 		"pachd.activateEnterpriseMember":     "true",
 		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
 		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
-		"pachd.enterpriseRootToken":          testutil.RootToken,
+		"pachd.enterpriseServerToken":        testutil.RootToken,
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
 		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 	}}
