@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -24,16 +26,21 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
 	}
+	// Test Install
 	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
+	// Test Upgrade
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
 	opts.ValueOverrides = map[string]string{"pachd.rootToken": token}
+	// add config file with trusted peers & new clients
+	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
+	// apply upgrade
 	c = minikubetestenv.UpgradeRelease(t, context.Background(), "default", k, opts)
 	c.SetAuthToken(token)
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
@@ -45,6 +52,12 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	require.YesError(t, err)
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
+	// assert new trusted peer and client
+	resp, err := c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "pachd"})
+	require.NoError(t, err)
+	require.EqualOneOf(t, resp.Client.TrustedPeers, "example-app")
+	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
+	require.NoError(t, err)
 }
 
 func TestEnterpriseServerMember(t *testing.T) {
@@ -105,4 +118,32 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, "user:"+testutil.DexMockConnectorEmail, whoami.Username)
+}
+
+func createTrustedPeersFile(t testing.TB) string {
+	data := []byte(`pachd:
+  additionalTrustedPeers:
+    - example-app
+`)
+	tf, err := ioutil.TempFile("", "pachyderm-trusted-peers-*.yaml")
+	require.NoError(t, err)
+	_, err = tf.Write(data)
+	require.NoError(t, err)
+	return tf.Name()
+}
+
+func createAdditionalClientsFile(t testing.TB) string {
+	data := []byte(`oidc:
+  additionalClients:
+    - id: example-app
+      secret: example-app-secret
+      name: 'Example App'
+      redirectURIs:
+      - 'http://127.0.0.1:5555/callback'
+`)
+	tf, err := ioutil.TempFile("", "pachyderm-additional-clients-*.yaml")
+	require.NoError(t, err)
+	_, err = tf.Write(data)
+	require.NoError(t, err)
+	return tf.Name()
 }

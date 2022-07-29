@@ -217,6 +217,24 @@ spec:
             configMapKeyRef:
               name: "pachyderm-identity-config"
               key: "oidc-clients"
+        {{- if or .Values.oidc.additionalClientsSecretName .Values.oidc.additionalClients }}
+        - name: IDP_ADDITIONAL_CLIENTS
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.oidc.additionalClientsSecretName }}
+              name: {{ .Values.oidc.additionalClientsSecretName }}
+              {{- else }}
+              name: "pachyderm-identity-extras"
+              {{- end }}
+              key: "additional-oidc-clients"
+        {{- end }}
+        {{- if .Values.pachd.additionalTrustedPeers }}
+        - name: TRUSTED_PEERS
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "trusted-peers"
+        {{- end }}
         {{- if or (include  "pachyderm.mockIDPRoleBindings" .) .Values.pachd.pachAuthClusterRoleBindings }}
         - name: AUTH_CLUSTER_RBAC
           valueFrom:

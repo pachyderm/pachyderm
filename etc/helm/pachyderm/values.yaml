@@ -464,6 +464,11 @@ pachd:
   #   robot:eve:
   #   - repoWriter
   pachAuthClusterRoleBindings: {}
+  # additionalTrustedPeers is used to configure the identity service to recognize additional OIDC clients as trusted peers of pachd.
+  # For example, see the following example or the dex docs (https://dexidp.io/docs/custom-scopes-claims-clients/#cross-client-trust-and-authorized-party).
+  # additionalTrustedPeers:
+  #   - example-app
+  additionalTrustedPeers: []
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -799,6 +804,16 @@ oidc:
   # below secret will be mounted to the pachd pod at /dexcreds/ so for example serviceAccountFilePath: /dexcreds/googleAuth.json
   dexCredentialSecretName: ""
   mockIDP: true
+  # additionalClients specifies a list of clients for the cluster to recognize
+  # See the ecample below or the dex docs (https://dexidp.io/docs/using-dex/#configuring-your-app).
+  # additionalOIDCClient:
+  #   - id: example-app
+  #     secret: example-app-secret
+  #     name: 'Example App'
+  #     redirectURIs:
+  #     - 'http://127.0.0.1:5555/callback'
+  additionalClients: []
+  additionalClientsSecretName: ""
   #TODO scopes:
 
 testConnection:

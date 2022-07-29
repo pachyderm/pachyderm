@@ -582,6 +582,20 @@
                                                     }
                                                 }
                                             }
+                                        },
+                                        "pipelineStages": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "cri": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "scrapeConfigs": {
+                                            "type": "string"
                                         }
                                     }
                                 }
@@ -598,6 +612,12 @@
                     "type": "string"
                 },
                 "RotationTokenExpiry": {
+                    "type": "string"
+                },
+                "additionalClients": {
+                    "type": "array"
+                },
+                "additionalClientsSecretName": {
                     "type": "string"
                 },
                 "dexCredentialSecretName": {
@@ -634,6 +654,9 @@
                 },
                 "activateEnterpriseMember": {
                     "type": "boolean"
+                },
+                "additionalTrustedPeers": {
+                    "type": "array"
                 },
                 "affinity": {
                     "type": "object"
