@@ -43,7 +43,9 @@ func NewDLock(client *etcd.Client, prefix string) DLock {
 }
 
 // IsLocked checks the mutex key to determine whether a lock is locked or unlocked.
-// If the mutex is nil, it returns false.
+// If the mutex is nil, it returns false. A value of true does not mean that a call
+// to Lock() will be able to successfully claim the resource. It just means this lock
+// reference is not locked.
 func (d *etcdImpl) IsLocked() bool {
 	if d.mutex == nil {
 		return false

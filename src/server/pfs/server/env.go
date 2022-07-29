@@ -4,6 +4,8 @@ import (
 	"context"
 	"path"
 
+	kube "k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -34,6 +36,9 @@ type Env struct {
 	// TODO: remove this, the load tests need a pachClient
 	GetPachClient func(ctx context.Context) *client.APIClient
 
+	GetKubeClient func() *kube.Clientset
+	PachNamespace string
+
 	BackgroundContext context.Context
 	StorageConfig     serviceenv.StorageConfiguration
 	Logger            *logrus.Logger
@@ -61,6 +66,9 @@ func EnvFromServiceEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv)
 		AuthServer:    env.AuthServer(),
 		GetPPSServer:  env.PpsServer,
 		GetPachClient: env.GetPachClient,
+
+		PachNamespace: env.Config().Namespace,
+		GetKubeClient: env.GetKubeClient,
 
 		BackgroundContext: env.Context(),
 		StorageConfig:     env.Config().StorageConfiguration,

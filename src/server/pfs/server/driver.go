@@ -8,9 +8,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -83,7 +82,7 @@ type driver struct {
 	branches col.PostgresCollection
 
 	// locks
-	repoLocks map[string]dlock.DLock
+	repoLocks sync.Map
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -106,8 +105,6 @@ func newDriver(env Env) (*driver, error) {
 	commits := pfsdb.Commits(env.DB, env.Listener)
 	branches := pfsdb.Branches(env.DB, env.Listener)
 
-	repoLocks := map[string]dlock.DLock{}
-
 	// Setup driver struct.
 	d := &driver{
 		env:        env,
@@ -118,7 +115,7 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 		log:        env.Logger,
-		repoLocks:  repoLocks,
+		repoLocks:  sync.Map{},
 	}
 	// Setup tracker and chunk / fileset storage.
 	tracker := track.NewPostgresTracker(env.DB)

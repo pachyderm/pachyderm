@@ -6,6 +6,8 @@ import (
 	"path"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"go.etcd.io/etcd/client/v3/concurrency"
 
 	"github.com/gogo/protobuf/types"
@@ -81,55 +83,115 @@ func (d *driver) master(ctx context.Context) {
 			return d.finishCommits(ctx)
 		})
 		eg.Go(func() error {
-			// How do we know when it is safe to release a lock?
-			ticker := time.NewTicker(time.Second * 60) // Assuming we go with this approach, this should probably be configurable
-			defer ticker.Stop()
-			for {
-				log.Info("releasing locks")
-				var errs []error
-				for key, lock := range d.repoLocks {
-					if lock.IsLocked() {
-						if err := lock.Unlock(ctx); err != nil {
-							errs = append(errs, err)
-							continue
-						}
-						log.Infof("released lock: %s", key)
-					}
-				}
-				if len(errs) != 0 {
-					log.Errorf("error releasing locks: %v", errs)
-					errs = nil
-				}
-				time.Sleep(time.Second) // is this necessary? Feel like no
-				log.Info("reacquiring locks")
-				for key, lock := range d.repoLocks {
-					_, err := lock.TryLock(ctx)
-					if err != nil && err != concurrency.ErrLocked {
-						errs = append(errs, err)
-						continue
-					}
-					if err != nil && err == concurrency.ErrLocked {
-						continue
-					}
-					log.Infof("acquired lock: %s", key)
-				}
-				if len(errs) != 0 {
-					log.Errorf("error acquiring locks: %v", errs)
-					errs = nil
-				}
-
-				select {
-				case <-ctx.Done():
-					return errors.EnsureStack(ctx.Err())
-				case <-ticker.C:
-				}
-			}
+			return d.rebalanceLocks(ctx)
 		})
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Errorf("error in pfs master: %v", err)
 		return nil
 	})
+}
+
+func (d *driver) lenRepoMap() int {
+	var length int
+	d.repoLocks.Range(func(key, val interface{}) bool {
+		length++
+		return true
+	})
+	return length
+}
+
+func (d *driver) rebalanceLocks(ctx context.Context) error {
+	// @Bryce @Sean How do we know when it is safe to release a lock?
+	ticker := time.NewTicker(time.Second * 60) // Assuming we go with this approach, this should probably be configurable
+	defer ticker.Stop()
+
+	defer func() { // Getting a kube client panics in tests that use real environments that don't have kubernetes
+		if r := recover(); r != nil {
+			log.Errorf("no kube client was defined. assuming rebalance is not possible")
+		}
+	}()
+	kubeClient := d.env.GetKubeClient()
+
+	for {
+		deployment, err := kubeClient.AppsV1().Deployments(d.env.PachNamespace).
+			Get(ctx, "pachd", v1.GetOptions{})
+		if err != nil {
+			log.Errorf("error getting deployment: %v", err)
+			break
+		}
+
+		buffer := 1.50 // should this be exposed as config?
+		numWorkers := int64(*deployment.Spec.Replicas)
+		numRepos, err := d.repos.ReadOnly(ctx).Count()
+		if err != nil {
+			log.Errorf("error getting num repos: %v", err)
+			break
+		}
+		maxLocksShouldOwn := int(float64(numRepos/numWorkers) * buffer)
+
+		var errs []error
+		log.Infof("own %d/%d max locks", d.lenRepoMap(), maxLocksShouldOwn)
+		d.repoLocks.Range(func(key, mlock interface{}) bool {
+			lock := mlock.(dlock.DLock)
+			if d.lenRepoMap() <= maxLocksShouldOwn {
+				return false
+			}
+			if !lock.IsLocked() {
+				return true
+			}
+			if err := lock.Unlock(ctx); err != nil {
+				errs = append(errs, err)
+				return true
+			}
+			d.repoLocks.Delete(key)
+			log.Infof("released lock: %s", key)
+			return true
+		})
+		if len(errs) != 0 {
+			log.Errorf("error releasing locks: %v", errs)
+			errs = nil
+		}
+
+		repos := map[string]string{}
+		repoInfo := &pfs.RepoInfo{}
+		d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), func(string) error { //nolint:errcheck
+			repoKey := fmt.Sprintf("%s.%s", repoInfo.Repo.Name, repoInfo.Repo.Type)
+			lockPath := path.Join(d.prefix, masterLockPath, repoKey)
+			repos[repoKey] = lockPath
+			return nil
+		})
+
+		for _, lockPath := range repos {
+			if d.lenRepoMap() >= maxLocksShouldOwn {
+				break
+			}
+			if _, ok := d.repoLocks.Load(lockPath); ok {
+				continue
+			}
+			lock := dlock.NewDLock(d.etcdClient, lockPath)
+			if _, err := lock.TryLock(ctx); err != nil {
+				if err == concurrency.ErrLocked {
+					continue
+				}
+				errs = append(errs, err)
+			}
+			log.Infof("acquired lock: %s", lockPath)
+			d.repoLocks.Store(lockPath, lock)
+		}
+		if len(errs) != 0 {
+			log.Errorf("error acquiring locks: %v", errs)
+			errs = nil
+		}
+		log.Infof("currently owns %d locks", d.lenRepoMap())
+
+		select {
+		case <-ctx.Done():
+			return errors.EnsureStack(ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	return nil
 }
 
 func (d *driver) finishCommits(ctx context.Context) error {
@@ -146,22 +208,26 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		}
 		key := string(ev.Key)
 		lockPath := path.Join(d.prefix, masterLockPath, key)
-		lock, ok := d.repoLocks[lockPath]
-		if !ok {
+		var lock dlock.DLock
+		mlock, ok := d.repoLocks.Load(lockPath)
+		if ok {
+			lock = mlock.(dlock.DLock)
+		} else {
 			lock = dlock.NewDLock(d.etcdClient, lockPath)
-			d.repoLocks[lockPath] = lock
 		}
 		if ev.Type == watch.EventDelete {
-			if err := lock.Unlock(ctx); err != nil && err != context.Canceled { // Do we want to ignore context.Cancelled?
-				log.Errorf("error unlocking lock %s before delete: %v", lockPath, err)
-			} else {
-				log.Infof("unlocked and deleted lock %s", lockPath)
+			if lock.IsLocked() {
+				if err := lock.Unlock(ctx); err != nil && err != context.Canceled { // Do we want to ignore context.Cancelled?
+					log.Errorf("error unlocking lock %s before delete: %v", lockPath, err)
+				} else {
+					log.Infof("unlocked and deleted lock %s", lockPath)
+				}
+				d.repoLocks.Delete(lockPath)
 			}
 			if cancel, ok := repos[key]; ok {
 				cancel()
 			}
 			delete(repos, key)
-			delete(d.repoLocks, lockPath)
 			return nil
 		}
 		if _, ok := repos[key]; ok {
@@ -175,14 +241,28 @@ func (d *driver) finishCommits(ctx context.Context) error {
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
+				if _, ok := repos[key]; !ok { // repo was deleted while the lock was blocking.
+					return nil
+				}
+				d.repoLocks.Store(lockPath, lock)
 				log.Infof("locked repo lock for %s", lockPath)
 				defer func() {
-					err := lock.Unlock(lockCtx)
-					if err != nil && err != context.Canceled { // Do we want to ignore context.Cancelled?
-						log.Errorf("error unlocking lock for %s: %v", lockPath, err)
-					} else {
-						log.Infof("defer call: unlocked lock for %s", lockPath)
+					mlock, ok = d.repoLocks.Load(key)
+					if !ok { // lock was safely deleted already.
+						return
 					}
+					lock = mlock.(dlock.DLock)
+					if !lock.IsLocked() { // lock is not locked.
+						d.repoLocks.Delete(lockPath)
+						return
+					}
+					// Do we want to ignore context.Cancelled?
+					if err := lock.Unlock(lockCtx); err != nil && err != context.Canceled {
+						log.Errorf("error unlocking lock for %s: %v", lockPath, err)
+						return
+					}
+					d.repoLocks.Delete(lockPath)
+					log.Infof("defer call: unlocked lock for %s", lockPath)
 				}()
 				return d.finishRepoCommits(ctx, compactor, key)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {

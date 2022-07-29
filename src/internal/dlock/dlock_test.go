@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+
 	"go.etcd.io/etcd/client/v3/concurrency"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -16,6 +18,17 @@ func TestUnlockBeforeLock(t *testing.T) {
 	lock := NewDLock(env.EtcdClient, "test")
 	err := lock.Unlock(context.Background())
 	require.NoError(t, err)
+}
+
+func TestDoubleUnlock(t *testing.T) {
+	env := testetcd.NewEnv(t)
+	lock := NewDLock(env.EtcdClient, "test")
+	_, err := lock.Lock(context.Background())
+	require.NoError(t, err)
+	err = lock.Unlock(context.Background())
+	require.NoError(t, err)
+	err = lock.Unlock(context.Background())
+	require.ErrorIs(t, err, rpctypes.ErrLeaseNotFound)
 }
 
 func TestIsLocked(t *testing.T) {
