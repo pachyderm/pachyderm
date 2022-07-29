@@ -65,6 +65,7 @@ type DeployOpts struct {
 	ValueOverrides   map[string]string
 	TLS              bool
 	CertPool         *x509.CertPool
+	ValuesFiles      []string
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -511,6 +512,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.TLS {
 		pachAddress.Secured = true
 	}
+	helmOpts.ValuesFiles = opts.ValuesFiles
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
 			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)

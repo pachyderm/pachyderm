@@ -188,6 +188,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				if c.Id == config.ClientID { // c represents pachd
 					c.Secret = config.ClientSecret
 					if a.env.Config.TrustedPeers != "" {
+						a.env.Logger.Info("Adding additional pachd trusted peers configured via environment")
 						var tps []string
 						if err := yaml.Unmarshal([]byte(a.env.Config.TrustedPeers), &tps); err != nil {
 							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
