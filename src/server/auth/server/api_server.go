@@ -176,9 +176,28 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
+			if a.env.Config.IdentityClientsExtras != "" {
+				a.env.Logger.Info("Adding extra oidc clients configured via environment")
+				var extras []identity.OIDCClient
+				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClientsExtras), &extras); err != nil {
+					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityClientsExtras)
+				}
+				for _, e := range extras {
+					clients = append(clients, e)
+				}
+			}
 			for _, c := range clients {
-				if c.Id == config.ClientID {
+				if c.Id == config.ClientID { // c represents pachd
 					c.Secret = config.ClientSecret
+					if a.env.Config.TrustedPeers != "" {
+						var tps []string
+						if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClientsExtras), &tps); err != nil {
+							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
+						}
+						for _, tp := range tps {
+							c.TrustedPeers = append(c.TrustedPeers, tp)
+						}
+					}
 				}
 				if c.Id == a.env.Config.ConsoleOAuthID {
 					c.Secret = a.env.Config.ConsoleOAuthSecret

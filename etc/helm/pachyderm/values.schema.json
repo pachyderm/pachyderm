@@ -341,6 +341,9 @@
                         "postgresqlPort": {
                             "type": "string"
                         },
+                        "postgresqlPostgresPassword": {
+                            "type": "string"
+                        },
                         "postgresqlSSL": {
                             "type": "string"
                         },
@@ -579,6 +582,20 @@
                                                     }
                                                 }
                                             }
+                                        },
+                                        "pipelineStages": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "cri": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "scrapeConfigs": {
+                                            "type": "string"
                                         }
                                     }
                                 }
@@ -595,6 +612,12 @@
                     "type": "string"
                 },
                 "RotationTokenExpiry": {
+                    "type": "string"
+                },
+                "additionalOIDCClients": {
+                    "type": "array"
+                },
+                "additionalOIDCClientsSecretName": {
                     "type": "string"
                 },
                 "dexCredentialSecretName": {
@@ -631,6 +654,9 @@
                 },
                 "activateEnterpriseMember": {
                     "type": "boolean"
+                },
+                "additionalTrustedPeers": {
+                    "type": "array"
                 },
                 "affinity": {
                     "type": "object"

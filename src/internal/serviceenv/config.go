@@ -126,6 +126,8 @@ type EnterpriseSpecificConfiguration struct {
 	IdentityConfig          string `env:"IDP_CONFIG,default="`
 	IdentityConnectors      string `env:"IDP_CONNECTORS,default="`
 	IdentityClients         string `env:"IDP_CLIENTS,default="`
+	IdentityClientsExtras   string `env:"IDP_CLIENTS_EXTRAS,default="`
+	TrustedPeers            string `env:"TRUSTED_PEERS,default="`
 	ConsoleOAuthID          string `env:"CONSOLE_OAUTH_ID,default="`
 	ConsoleOAuthSecret      string `env:"CONSOLE_OAUTH_SECRET,default="`
 }
