@@ -151,7 +151,7 @@ spec:
               {{- end }}
               key: "additional-oidc-clients"
         {{- end }}
-        {{- if .Values.pachd.trustedPeers }}
+        {{- if .Values.pachd.additionalTrustedPeers }}
         - name: TRUSTED_PEERS
           valueFrom:
             configMapKeyRef:

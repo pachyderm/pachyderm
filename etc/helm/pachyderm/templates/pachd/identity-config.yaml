@@ -28,4 +28,4 @@ data:
       - {{ include "pachyderm.consoleRedirectURI" . | quote }}
     {{- end }}
   trusted-peers: |
-{{ toYaml .Values.pachd.trustedPeers | indent 4 }}
+{{ toYaml .Values.pachd.additionalTrustedPeers | indent 4 }}
