@@ -182,7 +182,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClientsExtras), &extras); err != nil {
 					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityClientsExtras)
 				}
-				client = append(client, extras...)
+				clients = append(clients, extras...)
 			}
 			for _, c := range clients {
 				if c.Id == config.ClientID { // c represents pachd
@@ -193,6 +193,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 							return errors.Wrapf(err, "unmarshal trusted peers: %q", a.env.Config.TrustedPeers)
 						}
 						c.TrustedPeers = append(c.TrustedPeers, tps...)
+					}
 				}
 				if c.Id == a.env.Config.ConsoleOAuthID {
 					c.Secret = a.env.Config.ConsoleOAuthSecret
