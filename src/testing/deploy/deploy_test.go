@@ -25,7 +25,7 @@ import (
 var sem semaphore.Weighted // enforces max concurrency
 var setup sync.Once
 
-func acquireSem(t *testing.T) {
+func Acquire(t *testing.T) {
 	setup.Do(func() {
 		sem = *semaphore.NewWeighted(int64(3))
 	})
@@ -37,14 +37,15 @@ func acquireSem(t *testing.T) {
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
-	acquireSem(t)
+	Acquire(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
 	}
 	// Test Install
-	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, opts)
+	ns := testutil.UniqueString("TestInstallAndUpgrade")
+	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
@@ -58,7 +59,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	// add config file with trusted peers & new clients
 	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
 	// apply upgrade
-	c = minikubetestenv.UpgradeRelease(t, context.Background(), "default", k, opts)
+	c = minikubetestenv.UpgradeRelease(t, context.Background(), ns, k, opts)
 	c.SetAuthToken(token)
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -79,7 +80,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 
 func TestEnterpriseServerMember(t *testing.T) {
 	t.Parallel()
-	acquireSem(t)
+	Acquire(t)
 	k := testutil.GetKubeClient(t)
 	_, err := k.CoreV1().Namespaces().Create(context.Background(),
 		&v1.Namespace{
@@ -97,7 +98,8 @@ func TestEnterpriseServerMember(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	mockIDPLogin(t, ec)
-	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, &minikubetestenv.DeployOpts{
+	ns := testutil.UniqueString("TestEnterpriseServerMember")
+	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseMember: true,
 		Enterprise:       true,

@@ -39,10 +39,11 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 	for _, from := range fromVersions {
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
 			t.Parallel()
-			acquireSem(t)
+			Acquire(t)
+			ns := testutil.UniqueString(t.Name())
 			preUpgrade(t, minikubetestenv.InstallRelease(t,
 				context.Background(),
-				"default",
+				ns,
 				k,
 				&minikubetestenv.DeployOpts{
 					Version:     from,
@@ -57,7 +58,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				}))
 			postUpgrade(t, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
-				"default",
+				ns,
 				k,
 				&minikubetestenv.DeployOpts{
 					WaitSeconds:  10,
