@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -16,11 +17,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var sem semaphore.Weighted // enforces max concurrency
+var setup sync.Once
+
+func acquireSem(t *testing.T) {
+	setup.Do(func() {
+		sem = *semaphore.NewWeighted(int64(3))
+	})
+	sem.Acquire(context.Background(), 1)
+	t.Cleanup(func() {
+		sem.Release(1)
+	})
+}
+
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
+	t.Parallel()
+	acquireSem(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
 		AuthUser:   auth.RootUser,
@@ -61,6 +78,8 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 }
 
 func TestEnterpriseServerMember(t *testing.T) {
+	t.Parallel()
+	acquireSem(t)
 	k := testutil.GetKubeClient(t)
 	_, err := k.CoreV1().Namespaces().Create(context.Background(),
 		&v1.Namespace{
