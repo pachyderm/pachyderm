@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/secrets"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transforms"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 const (

@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
+<meta property="og:image" content="/assets/images/Pachyderm_stacked--tagline--1200.png">
 <meta name="google-site-verification" content="7rEzMy5G3gRKP8fGc44XdP3HDSgDZOi8K8GUaVSm9pY" />
-
-  <script src="//d2wy8f7a9ursnm.cloudfront.net/v7/bugsnag.min.js"></script>
-  <script>Bugsnag.start({ apiKey: '8f81cbe33181807ab3d63705fe0546db' })</script>
-  <script> 
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script> 
     rudderanalytics = window.rudderanalytics = [];
 
     var  methods = [
@@ -62,6 +61,23 @@
         }
       );
     }
+
+
+
+  jQuery(function() {
+    jQuery("[data-clickid]").click(function () {
+        rudderanalytics.track(
+            "Click",
+            {
+                context: {
+                    traits: {
+                        clickid: jQuery(this).attr("data-clickid")
+                    }
+                }
+            }
+        );
+    });
+  });
   </script>
   <script src="https://cdn.rudderlabs.com/sm/rudder-analytics.min.js"></script>
   

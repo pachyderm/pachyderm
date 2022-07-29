@@ -1,9 +1,9 @@
-//nolint:wrapcheck
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
 package s3
 
 import (
+	"context"
 	"fmt"
 	stdlog "log"
 	"net/http"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"

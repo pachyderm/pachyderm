@@ -125,13 +125,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-tag:
-	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
-	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
-	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
-	docker tag pachyderm/mount-server pachyderm/mount-server:$(VERSION)
-
-docker-push: docker-tag
+docker-push:
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
@@ -160,9 +154,6 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-kube: check-kubectl
-	etc/kube/start-minikube.sh
-
 launch-dev-vm: check-kubectl
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
@@ -172,22 +163,9 @@ launch-dev-vm: check-kubectl
 	fi
 	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
-# launch-release-vm is like launch-dev-vm but it doesn't build pachctl locally, and uses the same
-# version of pachd associated with the current pachctl (useful if you want to start a VM with a
-# point-release version of pachd, instead of whatever's in the current branch)
-launch-release-vm:
-	# Making sure minikube isn't still up from a previous run...
-	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
-	then \
-	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
-	  exit 1; \
-	fi
-	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$($(PACHCTL) version --client-only)
-
 clean-launch-kube:
 	@# clean up both of the following cases:
 	@# make launch-dev-vm - minikube config is owned by $USER
-	@# make launch-kube - minikube config is owned by root
 	minikube ip 2>/dev/null && minikube delete || true
 	sudo minikube ip 2>/dev/null && sudo minikube delete || true
 	killall kubectl || true
@@ -417,6 +395,10 @@ spellcheck:
 check-buckets:
 	./etc/testing/circle/check_buckets.sh
 
+validate-circle:
+	circleci config validate .circleci/main.yml
+	circleci config validate .circleci/config.yml
+
 .PHONY: \
 	install \
 	install-clean \
@@ -440,15 +422,12 @@ check-buckets:
 	docker-gpu \
 	docker-gpu-dev \
 	docker-build-test-entrypoint \
-	docker-tag \
 	docker-push \
 	docker-push-release \
 	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
-	launch-kube \
 	launch-dev-vm \
-	launch-release-vm \
 	clean-launch-kube \
 	launch \
 	launch-dev \
@@ -498,4 +477,5 @@ check-buckets:
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \
-	spellcheck
+	spellcheck \
+	validate-circle

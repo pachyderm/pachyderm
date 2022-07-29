@@ -550,8 +550,7 @@ func UseAuthTokenCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "error reading token")
 			}
-			config.WritePachTokenToConfig(strings.TrimSpace(token), enterprise) // drop trailing newline
-			return nil
+			return config.WritePachTokenToConfig(strings.TrimSpace(token), enterprise) // drop trailing newline
 		}),
 	}
 	useAuthToken.PersistentFlags().BoolVar(&enterprise, "enterprise", false, "Use the token for the enterprise context")

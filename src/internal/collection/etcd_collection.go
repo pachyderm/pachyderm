@@ -604,60 +604,57 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...
 	if err != nil {
 		return nil, err
 	}
-	go func() (retErr error) {
-		defer func() {
-			if retErr != nil {
-				eventCh <- &watch.Event{
-					Type: watch.EventError,
-					Err:  retErr,
+	go func() {
+		watchForEvents := func() error {
+			for {
+				var ev *watch.Event
+				var ok bool
+				select {
+				case ev, ok = <-watcher.Watch():
+				case <-done:
+					watcher.Close()
+					return nil
 				}
-				watcher.Close()
-			}
-			close(eventCh)
-		}()
-		for {
-			var ev *watch.Event
-			var ok bool
-			select {
-			case ev, ok = <-watcher.Watch():
-			case <-done:
-				watcher.Close()
-				return nil
-			}
-			if !ok {
-				watcher.Close()
-				return nil
-			}
+				if !ok {
+					watcher.Close()
+					return nil
+				}
 
-			var directEv *watch.Event
-			switch ev.Type {
-			case watch.EventError:
-				// pass along the error
-				return ev.Err
-			case watch.EventPut:
-				resp, err := c.get(c.path(path.Base(string(ev.Key))))
-				if err != nil {
-					return err
+				var directEv *watch.Event
+				switch ev.Type {
+				case watch.EventError:
+					// pass along the error
+					return ev.Err
+				case watch.EventPut:
+					resp, err := c.get(c.path(path.Base(string(ev.Key))))
+					if err != nil {
+						return err
+					}
+					if len(resp.Kvs) == 0 {
+						// this happens only if the item was deleted shortly after
+						// we receive this event.
+						continue
+					}
+					directEv = &watch.Event{
+						Key:      []byte(path.Base(string(ev.Key))),
+						Value:    resp.Kvs[0].Value,
+						Type:     ev.Type,
+						Template: c.template,
+					}
+				case watch.EventDelete:
+					directEv = &watch.Event{
+						Key:      []byte(path.Base(string(ev.Key))),
+						Type:     ev.Type,
+						Template: c.template,
+					}
 				}
-				if len(resp.Kvs) == 0 {
-					// this happens only if the item was deleted shortly after
-					// we receive this event.
-					continue
-				}
-				directEv = &watch.Event{
-					Key:      []byte(path.Base(string(ev.Key))),
-					Value:    resp.Kvs[0].Value,
-					Type:     ev.Type,
-					Template: c.template,
-				}
-			case watch.EventDelete:
-				directEv = &watch.Event{
-					Key:      []byte(path.Base(string(ev.Key))),
-					Type:     ev.Type,
-					Template: c.template,
-				}
+				eventCh <- directEv
 			}
-			eventCh <- directEv
+		}
+		defer close(eventCh)
+		if err := watchForEvents(); err != nil {
+			eventCh <- &watch.Event{Type: watch.EventError, Err: err}
+			watcher.Close()
 		}
 	}()
 	return watch.MakeEtcdWatcher(eventCh, done), nil

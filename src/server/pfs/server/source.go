@@ -1,11 +1,10 @@
 package server
 
 import (
+	"context"
 	"io"
 	"path"
 	"strings"
-
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"

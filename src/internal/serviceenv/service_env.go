@@ -1,6 +1,7 @@
 package serviceenv
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -18,7 +19,6 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
@@ -202,7 +202,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 		if resp.Count == 0 {
 			// This might error if it races with another pachd trying to set the
 			// cluster id so we ignore the error.
-			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
+			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes()) //nolint:errcheck
 		} else if err != nil {
 			return errors.EnsureStack(err)
 		} else {

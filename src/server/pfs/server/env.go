@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -14,7 +15,6 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"golang.org/x/net/context"
 )
 
 // Env is the dependencies needed to run the PFS API server

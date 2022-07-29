@@ -39,7 +39,7 @@ func errorForGRPC(err error) error {
 	}
 	if _, ok := status.FromError(cursor); ok {
 		// handles nil as well
-		return cursor //nolint:wrapcheck
+		return cursor
 	}
 	code := codes.Unknown
 	for cursor != nil {
@@ -52,7 +52,7 @@ func errorForGRPC(err error) error {
 	return &gRPCStatusError{
 		code: code,
 		err:  err,
-	} //nolint:wrapcheck
+	}
 }
 
 type gRPCStatusError struct {

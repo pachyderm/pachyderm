@@ -1,13 +1,13 @@
 package version
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 

@@ -65,6 +65,7 @@ type DeployOpts struct {
 	ValueOverrides   map[string]string
 	TLS              bool
 	CertPool         *x509.CertPool
+	ValuesFiles      []string
 }
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
@@ -259,7 +260,7 @@ func withEnterpriseMember(host string, grpcPort int) *helm.Options {
 		"pachd.activateEnterpriseMember":     "true",
 		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
 		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
-		"pachd.enterpriseRootToken":          testutil.RootToken,
+		"pachd.enterpriseServerToken":        testutil.RootToken,
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
 		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 	}}
@@ -511,6 +512,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.TLS {
 		pachAddress.Secured = true
 	}
+	helmOpts.ValuesFiles = opts.ValuesFiles
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
 			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)

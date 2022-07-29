@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	gotls "crypto/tls"
 	"fmt"
 	"net/http"
@@ -45,7 +46,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -53,7 +53,9 @@ import (
 
 func RunLocal() (retErr error) {
 	config := &serviceenv.PachdFullConfiguration{}
-	cmdutil.Populate(config)
+	if err := cmdutil.Populate(config); err != nil {
+		return err
+	}
 
 	config.PostgresSSL = "disable"
 
@@ -67,7 +69,7 @@ func RunLocal() (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.Errorf("error: %v", retErr)
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {

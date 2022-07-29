@@ -2,9 +2,6 @@
 
 set -exo pipefail
 
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh"
-
 VM_IP="$(minikube ip)"
 export VM_IP
 

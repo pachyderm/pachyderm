@@ -110,6 +110,7 @@ dockers:
       - pachyderm/pachd
       - pachyderm/pachd:local
       - "pachyderm/pachd:{{.Version}}"
+      - pachyderm/pachd:{{ .FullCommit }}
     ids:
       - pachd
     goos: linux
@@ -127,6 +128,7 @@ dockers:
   -
     image_templates:
       - pachyderm/pachctl
+      - pachyderm/pachctl:{{ .FullCommit }}
     ids:
       - pachctl
     goos: linux
@@ -144,6 +146,7 @@ dockers:
   -
     image_templates:
       - pachyderm/mount-server
+      - pachyderm/mount-server:{{ .FullCommit }}
     ids:
       - mount-server
     goos: linux
@@ -162,6 +165,7 @@ dockers:
     image_templates:
       - pachyderm/worker
       - pachyderm/worker:local
+      - pachyderm/worker:{{ .FullCommit }}
     ids:
       - pachctl
       - worker_init

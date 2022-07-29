@@ -26,7 +26,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	// Configure OIDC login
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	// Set a configuration
 	conf := &auth.OIDCConfig{
@@ -54,7 +54,7 @@ func TestIssuerNotLocalhost(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -128,7 +128,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.Configuration))
 
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	// Modify the configuration and make sure alice can't read it, but admin can
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -159,7 +159,7 @@ func TestConfigRestartAuth(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -243,7 +243,7 @@ func TestSetGetNilConfig(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
