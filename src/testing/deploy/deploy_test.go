@@ -134,7 +134,7 @@ func createTrustedPeersFile(t testing.TB) string {
 
 func createAdditionalClientsFile(t testing.TB) string {
 	data := []byte(`oidc:
-  additionalOIDCClients:
+  additionalClients:
     - id: example-app
       secret: example-app-secret
       name: 'Example App'

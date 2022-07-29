@@ -140,12 +140,12 @@ spec:
             configMapKeyRef:
               name: "pachyderm-identity-config"
               key: "oidc-clients"
-        {{- if or .Values.oidc.additionalOIDCClientsSecretName .Values.oidc.additionalOIDCClients }}
-        - name: IDP_CLIENTS_EXTRAS
+        {{- if or .Values.oidc.additionalClientsSecretName .Values.oidc.additionalClients }}
+        - name: IDP_ADDITIONAL_CLIENTS
           valueFrom:
             secretKeyRef:
-              {{- if .Values.oidc.additionalOIDCClientsSecretName }}
-              name: {{ .Values.oidc.additionalOIDCClientsSecretName }}
+              {{- if .Values.oidc.additionalClientsSecretName }}
+              name: {{ .Values.oidc.additionalClientsSecretName }}
               {{- else }}
               name: "pachyderm-identity-extras"
               {{- end }}

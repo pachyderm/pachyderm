@@ -793,7 +793,7 @@ oidc:
   # below secret will be mounted to the pachd pod at /dexcreds/ so for example serviceAccountFilePath: /dexcreds/googleAuth.json
   dexCredentialSecretName: ""
   mockIDP: true
-  # additionalOIDCClients specifies a list of clients for the cluster to recognize
+  # additionalClients specifies a list of clients for the cluster to recognize
   # See the ecample below or the dex docs (https://dexidp.io/docs/using-dex/#configuring-your-app).
   # additionalOIDCClient:
   #   - id: example-app
@@ -801,8 +801,8 @@ oidc:
   #     name: 'Example App'
   #     redirectURIs:
   #     - 'http://127.0.0.1:5555/callback'
-  additionalOIDCClients: []
-  additionalOIDCClientsSecretName: ""
+  additionalClients: []
+  additionalClientsSecretName: ""
   #TODO scopes:
 
 testConnection:

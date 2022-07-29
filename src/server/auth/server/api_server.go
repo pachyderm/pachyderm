@@ -176,11 +176,11 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClients), &clients); err != nil {
 				return errors.Wrapf(err, "unmarshal identity clients: %q", a.env.Config.IdentityClients)
 			}
-			if a.env.Config.IdentityClientsExtras != "" {
+			if a.env.Config.IdentityAdditionalClients != "" {
 				a.env.Logger.Info("Adding extra oidc clients configured via environment")
 				var extras []identity.OIDCClient
-				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityClientsExtras), &extras); err != nil {
-					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityClientsExtras)
+				if err := yaml.Unmarshal([]byte(a.env.Config.IdentityAdditionalClients), &extras); err != nil {
+					return errors.Wrapf(err, "unmarshal extra identity clients: %q", a.env.Config.IdentityAdditionalClients)
 				}
 				clients = append(clients, extras...)
 			}

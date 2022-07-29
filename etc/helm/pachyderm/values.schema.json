@@ -614,10 +614,10 @@
                 "RotationTokenExpiry": {
                     "type": "string"
                 },
-                "additionalOIDCClients": {
+                "additionalClients": {
                     "type": "array"
                 },
-                "additionalOIDCClientsSecretName": {
+                "additionalClientsSecretName": {
                     "type": "string"
                 },
                 "dexCredentialSecretName": {
