@@ -219,7 +219,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			"pachd.rootToken":                      rootToken,
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
-			"oidc.issuerURI":                     "http://pachd:30658/dex",
+			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
 			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
@@ -474,11 +474,11 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	pachAddress := GetPachAddress(t)
 	if opts.Enterprise || opts.EnterpriseServer {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		issuerPort := int(pachAddress.Port) + 8
+		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		if opts.EnterpriseMember {
 			issuerPort = 31658
 		}
-		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
 	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
