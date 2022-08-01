@@ -568,6 +568,11 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
+  // Filter restricts returned DatumInfo messages to those which match
+  // all of the filtered attributes.
+  message Filter {
+    repeated DatumState state = 1;  // Must match one of the given states.
+  }
   // Job and Input are two different ways to specify the datums you want.
   // Only one can be set.
   // Job is the job to list datums from.
@@ -576,6 +581,7 @@ message ListDatumRequest {
   // The datums listed are the ones that would be run if a pipeline was created
   // with the provided input.
   Input input = 2;
+  Filter filter = 3;
   // TODO:
   //int64 page_size = 2;
   //int64 page = 3;
@@ -796,3 +802,4 @@ service API {
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
+
