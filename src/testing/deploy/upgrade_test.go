@@ -64,6 +64,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				&minikubetestenv.DeployOpts{
 					WaitSeconds:  10,
 					CleanupAfter: true,
+					PortOffset:   portOffset,
 				}))
 		})
 	}
