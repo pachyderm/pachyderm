@@ -953,8 +953,12 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
 			defer client.Close()
-
-			request := &ppsclient.ListPipelineRequest{History: 0, JqFilter: "", Details: true}
+			request := &ppsclient.ListPipelineRequest{
+				History:   0,
+				JqFilter:  "",
+				Details:   true,
+				CommitSet: &pfs.CommitSet{ID: commitSet},
+			}
 
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
@@ -975,7 +979,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	// TODO: implement these flags
 	draw.Flags().StringVar(&commitSet, "c", "", "Commit at which you would to draw the DAG")
-	draw.Flags().StringVar(&commitSet, "f", "", "A debug dump file containing DAG info")
 	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
 
 	var (
