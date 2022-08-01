@@ -348,7 +348,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
 	if err != nil {
-		return errors.Wrap(err, "could not get user image ID")
+		logger.Errf("could not get user image ID: %v", err)
 	}
 	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Setup file operation client for output meta commit.
