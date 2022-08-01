@@ -229,7 +229,10 @@ nav:
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
                     - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
-                - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
+                - Configure Environment Variables: 
+                    - Overview: deploy-manage/deploy/environment-variables/index.md
+                    - Pachd: deploy-manage/deploy/environment-variables/pachd.md
+                    - Pipelike Workers: deploy-manage/deploy/environment-variables/pipeline-workers.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md
