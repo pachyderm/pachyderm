@@ -1,5 +1,3 @@
-//go:build k8s
-
 package main
 
 import (
@@ -8,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -17,34 +14,19 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"golang.org/x/sync/semaphore"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-var sem semaphore.Weighted // enforces max concurrency
-var setup sync.Once
-
-func Acquire(t *testing.T) {
-	setup.Do(func() {
-		sem = *semaphore.NewWeighted(int64(3))
-	})
-	sem.Acquire(context.Background(), 1)
-	t.Cleanup(func() {
-		sem.Release(1)
-	})
-}
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
-	Acquire(t)
+	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
+		PortOffset: portOffset,
 	}
 	// Test Install
-	ns := testutil.UniqueString("TestInstallAndUpgrade")
+	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -80,16 +62,9 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 
 func TestEnterpriseServerMember(t *testing.T) {
 	t.Parallel()
-	Acquire(t)
+	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
-	_, err := k.CoreV1().Namespaces().Create(context.Background(),
-		&v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "enterprise",
-			},
-		},
-		metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
+	minikubetestenv.PutNamespace(t, "enterprise")
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
@@ -98,11 +73,12 @@ func TestEnterpriseServerMember(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	mockIDPLogin(t, ec)
-	ns := testutil.UniqueString("TestEnterpriseServerMember")
+	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseMember: true,
 		Enterprise:       true,
+		PortOffset:       portOffset,
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)

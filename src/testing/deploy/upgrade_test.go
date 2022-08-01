@@ -39,8 +39,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 	for _, from := range fromVersions {
 		suite.Run(fmt.Sprintf("UpgradeFrom_%s", from), func(t *testing.T) {
 			t.Parallel()
-			Acquire(t)
-			ns := testutil.UniqueString(t.Name())
+			ns, portOffset := minikubetestenv.ClaimCluster(t)
+			minikubetestenv.PutNamespace(t, ns)
 			preUpgrade(t, minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
@@ -48,6 +48,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, preUpgrade func(*testing
 				&minikubetestenv.DeployOpts{
 					Version:     from,
 					DisableLoki: true,
+					PortOffset:  portOffset,
 					// For 2.3 -> future upgrades, we'll want to delete these
 					// overrides.  They became the default (instead of random)
 					// in the 2.3 alpha cycle.

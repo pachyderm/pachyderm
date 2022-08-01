@@ -260,7 +260,7 @@ func withEnterpriseMember(host string, grpcPort int) *helm.Options {
 		"pachd.activateEnterpriseMember":     "true",
 		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
 		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
-		"pachd.enterpriseServerToken":        testutil.RootToken,
+		"pachd.enterpriseRootToken":          testutil.RootToken,
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
 		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 	}}
@@ -532,6 +532,20 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+}
+
+func PutNamespace(t testing.TB, namespace string) {
+	kube := testutil.GetKubeClient(t)
+	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
+		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			},
+			metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
