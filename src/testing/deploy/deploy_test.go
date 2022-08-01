@@ -36,6 +36,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
+	opts.CleanupAfter = true
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
@@ -70,6 +71,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
+		CleanupAfter:     true,
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -81,6 +83,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 		EnterpriseMember: true,
 		Enterprise:       true,
 		PortOffset:       portOffset,
+		CleanupAfter:     true,
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
