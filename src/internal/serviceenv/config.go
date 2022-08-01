@@ -112,22 +112,24 @@ type EnterpriseServerConfiguration struct {
 
 // EnterpriseSpecificConfiguration contains the configuration required for enterprise features
 type EnterpriseSpecificConfiguration struct {
-	ActivateAuth            bool   `env:"ACTIVATE_AUTH,default=false"`
-	AuthRootToken           string `env:"AUTH_ROOT_TOKEN,default="`
-	AuthConfig              string `env:"AUTH_CONFIG,default="`
-	AuthClientSecret        string `env:"AUTH_CLIENT_SECRET,default="`
-	AuthClusterRoleBindings string `env:"AUTH_CLUSTER_RBAC,default="`
-	LicenseKey              string `env:"LICENSE_KEY,default="`
-	EnterpriseSecret        string `env:"ENTERPRISE_SECRET,default="`
-	EnterpriseMember        bool   `env:"ENTERPRISE_MEMBER,default=false"`
-	EnterpriseServerAddress string `env:"ENTERPRISE_SERVER_ADDRESS,default="`
-	EnterpriseServerToken   string `env:"ENTERPRISE_SERVER_TOKEN,default="`
-	EnterpriseMemberConfig  string `env:"ENTERPRISE_MEMBER_CONFIG,default="`
-	IdentityConfig          string `env:"IDP_CONFIG,default="`
-	IdentityConnectors      string `env:"IDP_CONNECTORS,default="`
-	IdentityClients         string `env:"IDP_CLIENTS,default="`
-	ConsoleOAuthID          string `env:"CONSOLE_OAUTH_ID,default="`
-	ConsoleOAuthSecret      string `env:"CONSOLE_OAUTH_SECRET,default="`
+	ActivateAuth              bool   `env:"ACTIVATE_AUTH,default=false"`
+	AuthRootToken             string `env:"AUTH_ROOT_TOKEN,default="`
+	AuthConfig                string `env:"AUTH_CONFIG,default="`
+	AuthClientSecret          string `env:"AUTH_CLIENT_SECRET,default="`
+	AuthClusterRoleBindings   string `env:"AUTH_CLUSTER_RBAC,default="`
+	LicenseKey                string `env:"LICENSE_KEY,default="`
+	EnterpriseSecret          string `env:"ENTERPRISE_SECRET,default="`
+	EnterpriseMember          bool   `env:"ENTERPRISE_MEMBER,default=false"`
+	EnterpriseServerAddress   string `env:"ENTERPRISE_SERVER_ADDRESS,default="`
+	EnterpriseServerToken     string `env:"ENTERPRISE_SERVER_TOKEN,default="`
+	EnterpriseMemberConfig    string `env:"ENTERPRISE_MEMBER_CONFIG,default="`
+	IdentityConfig            string `env:"IDP_CONFIG,default="`
+	IdentityConnectors        string `env:"IDP_CONNECTORS,default="`
+	IdentityClients           string `env:"IDP_CLIENTS,default="`
+	IdentityAdditionalClients string `env:"IDP_ADDITIONAL_CLIENTS,default="`
+	TrustedPeers              string `env:"TRUSTED_PEERS,default="`
+	ConsoleOAuthID            string `env:"CONSOLE_OAUTH_ID,default="`
+	ConsoleOAuthSecret        string `env:"CONSOLE_OAUTH_SECRET,default="`
 }
 
 // StorageConfiguration contains the storage configuration.
