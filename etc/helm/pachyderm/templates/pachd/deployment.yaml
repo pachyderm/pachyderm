@@ -270,6 +270,8 @@ spec:
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
           value: {{ .Values.global.securityContexts.enabled | quote }}
+        - name: ENABLE_PREFLIGHT_CHECKS
+          value: {{ .Values.pachd.preflightChecks.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
         {{- if .Values.pachd.activateEnterpriseMember }}
