@@ -795,6 +795,14 @@
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
                 },
+                "preflightChecks": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
+                },
                 "priorityClassName": {
                     "type": "string"
                 },
