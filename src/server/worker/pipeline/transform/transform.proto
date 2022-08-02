@@ -22,7 +22,7 @@ message DatumSet {
   datum.Stats stats = 7;
 }
 
-message ComputeParallelDatumsTask {
+message CreateParallelDatumsTask {
   pps_v2.Job job = 1;
   string salt = 2;
   string file_set_id = 3;
@@ -30,12 +30,12 @@ message ComputeParallelDatumsTask {
   pfs_v2.PathRange path_range = 5;
 } 
 
-message ComputeParallelDatumsTaskResult {
+message CreateParallelDatumsTaskResult {
   string file_set_id = 1;
   datum.Stats stats = 2;
 }
 
-message ComputeSerialDatumsTask {
+message CreateSerialDatumsTask {
   pps_v2.Job job = 1;
   string salt = 2;
   string file_set_id = 3;
@@ -44,7 +44,7 @@ message ComputeSerialDatumsTask {
   pfs_v2.PathRange path_range = 6;
 }
 
-message ComputeSerialDatumsTaskResult {
+message CreateSerialDatumsTaskResult {
   string file_set_id = 1;
   string output_delete_file_set_id = 2;
   string meta_delete_file_set_id = 3;

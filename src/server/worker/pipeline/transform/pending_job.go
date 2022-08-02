@@ -220,7 +220,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			}
 			var inputs []*types.Any
 			for _, shard := range shards {
-				input, err := serializeComputeParallelDatumsTask(&ComputeParallelDatumsTask{
+				input, err := serializeCreateParallelDatumsTask(&CreateParallelDatumsTask{
 					Job:           pj.ji.Job,
 					Salt:          pj.ji.Details.Salt,
 					FileSetId:     fileSetID,
@@ -237,7 +237,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 				if err != nil {
 					return err
 				}
-				result, err := deserializeComputeParallelDatumsTaskResult(output)
+				result, err := deserializeCreateParallelDatumsTaskResult(output)
 				if err != nil {
 					return err
 				}
@@ -317,7 +317,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			}
 			var inputs []*types.Any
 			for _, shard := range shards {
-				input, err := serializeComputeSerialDatumsTask(&ComputeSerialDatumsTask{
+				input, err := serializeCreateSerialDatumsTask(&CreateSerialDatumsTask{
 					Job:            pj.ji.Job,
 					Salt:           pj.ji.Details.Salt,
 					FileSetId:      fileSetID,
@@ -335,7 +335,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 				if err != nil {
 					return err
 				}
-				result, err := deserializeComputeSerialDatumsTaskResult(output)
+				result, err := deserializeCreateSerialDatumsTaskResult(output)
 				if err != nil {
 					return err
 				}
@@ -376,7 +376,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 }
 
 // TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
-func serializeComputeParallelDatumsTask(task *ComputeParallelDatumsTask) (*types.Any, error) {
+func serializeCreateParallelDatumsTask(task *CreateParallelDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -387,15 +387,15 @@ func serializeComputeParallelDatumsTask(task *ComputeParallelDatumsTask) (*types
 	}, nil
 }
 
-func deserializeComputeParallelDatumsTaskResult(taskAny *types.Any) (*ComputeParallelDatumsTaskResult, error) {
-	task := &ComputeParallelDatumsTaskResult{}
+func deserializeCreateParallelDatumsTaskResult(taskAny *types.Any) (*CreateParallelDatumsTaskResult, error) {
+	task := &CreateParallelDatumsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeComputeSerialDatumsTask(task *ComputeSerialDatumsTask) (*types.Any, error) {
+func serializeCreateSerialDatumsTask(task *CreateSerialDatumsTask) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -406,8 +406,8 @@ func serializeComputeSerialDatumsTask(task *ComputeSerialDatumsTask) (*types.Any
 	}, nil
 }
 
-func deserializeComputeSerialDatumsTaskResult(taskAny *types.Any) (*ComputeSerialDatumsTaskResult, error) {
-	task := &ComputeSerialDatumsTaskResult{}
+func deserializeCreateSerialDatumsTaskResult(taskAny *types.Any) (*CreateSerialDatumsTaskResult, error) {
+	task := &CreateSerialDatumsTaskResult{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

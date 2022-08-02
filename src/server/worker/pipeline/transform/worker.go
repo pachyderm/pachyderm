@@ -41,20 +41,20 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 			case datum.IsTask(input):
 				pachClient := driver.PachClient().WithCtx(ctx)
 				return datum.ProcessTask(pachClient, input)
-			case types.Is(input, &ComputeParallelDatumsTask{}):
-				computeParallelDatumsTask, err := deserializeComputeParallelDatumsTask(input)
+			case types.Is(input, &CreateParallelDatumsTask{}):
+				computeParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return processComputeParallelDatumsTask(pachClient, computeParallelDatumsTask)
-			case types.Is(input, &ComputeSerialDatumsTask{}):
-				computeSerialDatumsTask, err := deserializeComputeSerialDatumsTask(input)
+				return processCreateParallelDatumsTask(pachClient, computeParallelDatumsTask)
+			case types.Is(input, &CreateSerialDatumsTask{}):
+				computeSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return processComputeSerialDatumsTask(pachClient, computeSerialDatumsTask)
+				return processCreateSerialDatumsTask(pachClient, computeSerialDatumsTask)
 			case types.Is(input, &CreateDatumSetsTask{}):
 				createDatumSetsTask, err := deserializeCreateDatumSetsTask(input)
 				if err != nil {
@@ -72,7 +72,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 	))
 }
 
-func processComputeParallelDatumsTask(pachClient *client.APIClient, task *ComputeParallelDatumsTask) (*types.Any, error) {
+func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateParallelDatumsTask) (*types.Any, error) {
 	var dits []datum.Iterator
 	if task.BaseFileSetId != "" {
 		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId, task.PathRange))
@@ -102,13 +102,13 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 	if err != nil {
 		return nil, err
 	}
-	return serializeComputeParallelDatumsTaskResult(&ComputeParallelDatumsTaskResult{
+	return serializeCreateParallelDatumsTaskResult(&CreateParallelDatumsTaskResult{
 		FileSetId: outputFileSetID,
 		Stats:     stats,
 	})
 }
 
-func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeSerialDatumsTask) (*types.Any, error) {
+func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSerialDatumsTask) (*types.Any, error) {
 	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits := []datum.Iterator{
@@ -145,7 +145,7 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 	if err != nil {
 		return nil, err
 	}
-	return serializeComputeSerialDatumsTaskResult(&ComputeSerialDatumsTaskResult{
+	return serializeCreateSerialDatumsTaskResult(&CreateSerialDatumsTaskResult{
 		FileSetId:             outputFileSetID,
 		OutputDeleteFileSetId: outputDeleteFileSetID,
 		MetaDeleteFileSetId:   metaDeleteFileSetID,
@@ -341,15 +341,15 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	})
 }
 
-func deserializeComputeParallelDatumsTask(taskAny *types.Any) (*ComputeParallelDatumsTask, error) {
-	task := &ComputeParallelDatumsTask{}
+func deserializeCreateParallelDatumsTask(taskAny *types.Any) (*CreateParallelDatumsTask, error) {
+	task := &CreateParallelDatumsTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeComputeParallelDatumsTaskResult(task *ComputeParallelDatumsTaskResult) (*types.Any, error) {
+func serializeCreateParallelDatumsTaskResult(task *CreateParallelDatumsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -360,15 +360,15 @@ func serializeComputeParallelDatumsTaskResult(task *ComputeParallelDatumsTaskRes
 	}, nil
 }
 
-func deserializeComputeSerialDatumsTask(taskAny *types.Any) (*ComputeSerialDatumsTask, error) {
-	task := &ComputeSerialDatumsTask{}
+func deserializeCreateSerialDatumsTask(taskAny *types.Any) (*CreateSerialDatumsTask, error) {
+	task := &CreateSerialDatumsTask{}
 	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeComputeSerialDatumsTaskResult(task *ComputeSerialDatumsTaskResult) (*types.Any, error) {
+func serializeCreateSerialDatumsTaskResult(task *CreateSerialDatumsTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

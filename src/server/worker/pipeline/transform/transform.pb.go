@@ -123,7 +123,7 @@ func (m *DatumSet) GetStats() *datum.Stats {
 	return nil
 }
 
-type ComputeParallelDatumsTask struct {
+type CreateParallelDatumsTask struct {
 	Job                  *pps.Job       `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	Salt                 string         `protobuf:"bytes,2,opt,name=salt,proto3" json:"salt,omitempty"`
 	FileSetId            string         `protobuf:"bytes,3,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
@@ -134,18 +134,18 @@ type ComputeParallelDatumsTask struct {
 	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *ComputeParallelDatumsTask) Reset()         { *m = ComputeParallelDatumsTask{} }
-func (m *ComputeParallelDatumsTask) String() string { return proto.CompactTextString(m) }
-func (*ComputeParallelDatumsTask) ProtoMessage()    {}
-func (*ComputeParallelDatumsTask) Descriptor() ([]byte, []int) {
+func (m *CreateParallelDatumsTask) Reset()         { *m = CreateParallelDatumsTask{} }
+func (m *CreateParallelDatumsTask) String() string { return proto.CompactTextString(m) }
+func (*CreateParallelDatumsTask) ProtoMessage()    {}
+func (*CreateParallelDatumsTask) Descriptor() ([]byte, []int) {
 	return fileDescriptor_21583a759eb7fa97, []int{1}
 }
-func (m *ComputeParallelDatumsTask) XXX_Unmarshal(b []byte) error {
+func (m *CreateParallelDatumsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ComputeParallelDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateParallelDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ComputeParallelDatumsTask.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateParallelDatumsTask.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -155,54 +155,54 @@ func (m *ComputeParallelDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([
 		return b[:n], nil
 	}
 }
-func (m *ComputeParallelDatumsTask) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComputeParallelDatumsTask.Merge(m, src)
+func (m *CreateParallelDatumsTask) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateParallelDatumsTask.Merge(m, src)
 }
-func (m *ComputeParallelDatumsTask) XXX_Size() int {
+func (m *CreateParallelDatumsTask) XXX_Size() int {
 	return m.Size()
 }
-func (m *ComputeParallelDatumsTask) XXX_DiscardUnknown() {
-	xxx_messageInfo_ComputeParallelDatumsTask.DiscardUnknown(m)
+func (m *CreateParallelDatumsTask) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateParallelDatumsTask.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ComputeParallelDatumsTask proto.InternalMessageInfo
+var xxx_messageInfo_CreateParallelDatumsTask proto.InternalMessageInfo
 
-func (m *ComputeParallelDatumsTask) GetJob() *pps.Job {
+func (m *CreateParallelDatumsTask) GetJob() *pps.Job {
 	if m != nil {
 		return m.Job
 	}
 	return nil
 }
 
-func (m *ComputeParallelDatumsTask) GetSalt() string {
+func (m *CreateParallelDatumsTask) GetSalt() string {
 	if m != nil {
 		return m.Salt
 	}
 	return ""
 }
 
-func (m *ComputeParallelDatumsTask) GetFileSetId() string {
+func (m *CreateParallelDatumsTask) GetFileSetId() string {
 	if m != nil {
 		return m.FileSetId
 	}
 	return ""
 }
 
-func (m *ComputeParallelDatumsTask) GetBaseFileSetId() string {
+func (m *CreateParallelDatumsTask) GetBaseFileSetId() string {
 	if m != nil {
 		return m.BaseFileSetId
 	}
 	return ""
 }
 
-func (m *ComputeParallelDatumsTask) GetPathRange() *pfs.PathRange {
+func (m *CreateParallelDatumsTask) GetPathRange() *pfs.PathRange {
 	if m != nil {
 		return m.PathRange
 	}
 	return nil
 }
 
-type ComputeParallelDatumsTaskResult struct {
+type CreateParallelDatumsTaskResult struct {
 	FileSetId            string       `protobuf:"bytes,1,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
 	Stats                *datum.Stats `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
@@ -210,18 +210,18 @@ type ComputeParallelDatumsTaskResult struct {
 	XXX_sizecache        int32        `json:"-"`
 }
 
-func (m *ComputeParallelDatumsTaskResult) Reset()         { *m = ComputeParallelDatumsTaskResult{} }
-func (m *ComputeParallelDatumsTaskResult) String() string { return proto.CompactTextString(m) }
-func (*ComputeParallelDatumsTaskResult) ProtoMessage()    {}
-func (*ComputeParallelDatumsTaskResult) Descriptor() ([]byte, []int) {
+func (m *CreateParallelDatumsTaskResult) Reset()         { *m = CreateParallelDatumsTaskResult{} }
+func (m *CreateParallelDatumsTaskResult) String() string { return proto.CompactTextString(m) }
+func (*CreateParallelDatumsTaskResult) ProtoMessage()    {}
+func (*CreateParallelDatumsTaskResult) Descriptor() ([]byte, []int) {
 	return fileDescriptor_21583a759eb7fa97, []int{2}
 }
-func (m *ComputeParallelDatumsTaskResult) XXX_Unmarshal(b []byte) error {
+func (m *CreateParallelDatumsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ComputeParallelDatumsTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateParallelDatumsTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ComputeParallelDatumsTaskResult.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateParallelDatumsTaskResult.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -231,33 +231,33 @@ func (m *ComputeParallelDatumsTaskResult) XXX_Marshal(b []byte, deterministic bo
 		return b[:n], nil
 	}
 }
-func (m *ComputeParallelDatumsTaskResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComputeParallelDatumsTaskResult.Merge(m, src)
+func (m *CreateParallelDatumsTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateParallelDatumsTaskResult.Merge(m, src)
 }
-func (m *ComputeParallelDatumsTaskResult) XXX_Size() int {
+func (m *CreateParallelDatumsTaskResult) XXX_Size() int {
 	return m.Size()
 }
-func (m *ComputeParallelDatumsTaskResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_ComputeParallelDatumsTaskResult.DiscardUnknown(m)
+func (m *CreateParallelDatumsTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateParallelDatumsTaskResult.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ComputeParallelDatumsTaskResult proto.InternalMessageInfo
+var xxx_messageInfo_CreateParallelDatumsTaskResult proto.InternalMessageInfo
 
-func (m *ComputeParallelDatumsTaskResult) GetFileSetId() string {
+func (m *CreateParallelDatumsTaskResult) GetFileSetId() string {
 	if m != nil {
 		return m.FileSetId
 	}
 	return ""
 }
 
-func (m *ComputeParallelDatumsTaskResult) GetStats() *datum.Stats {
+func (m *CreateParallelDatumsTaskResult) GetStats() *datum.Stats {
 	if m != nil {
 		return m.Stats
 	}
 	return nil
 }
 
-type ComputeSerialDatumsTask struct {
+type CreateSerialDatumsTask struct {
 	Job                  *pps.Job       `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	Salt                 string         `protobuf:"bytes,2,opt,name=salt,proto3" json:"salt,omitempty"`
 	FileSetId            string         `protobuf:"bytes,3,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
@@ -269,18 +269,18 @@ type ComputeSerialDatumsTask struct {
 	XXX_sizecache        int32          `json:"-"`
 }
 
-func (m *ComputeSerialDatumsTask) Reset()         { *m = ComputeSerialDatumsTask{} }
-func (m *ComputeSerialDatumsTask) String() string { return proto.CompactTextString(m) }
-func (*ComputeSerialDatumsTask) ProtoMessage()    {}
-func (*ComputeSerialDatumsTask) Descriptor() ([]byte, []int) {
+func (m *CreateSerialDatumsTask) Reset()         { *m = CreateSerialDatumsTask{} }
+func (m *CreateSerialDatumsTask) String() string { return proto.CompactTextString(m) }
+func (*CreateSerialDatumsTask) ProtoMessage()    {}
+func (*CreateSerialDatumsTask) Descriptor() ([]byte, []int) {
 	return fileDescriptor_21583a759eb7fa97, []int{3}
 }
-func (m *ComputeSerialDatumsTask) XXX_Unmarshal(b []byte) error {
+func (m *CreateSerialDatumsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ComputeSerialDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateSerialDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ComputeSerialDatumsTask.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateSerialDatumsTask.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -290,61 +290,61 @@ func (m *ComputeSerialDatumsTask) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return b[:n], nil
 	}
 }
-func (m *ComputeSerialDatumsTask) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComputeSerialDatumsTask.Merge(m, src)
+func (m *CreateSerialDatumsTask) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateSerialDatumsTask.Merge(m, src)
 }
-func (m *ComputeSerialDatumsTask) XXX_Size() int {
+func (m *CreateSerialDatumsTask) XXX_Size() int {
 	return m.Size()
 }
-func (m *ComputeSerialDatumsTask) XXX_DiscardUnknown() {
-	xxx_messageInfo_ComputeSerialDatumsTask.DiscardUnknown(m)
+func (m *CreateSerialDatumsTask) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateSerialDatumsTask.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ComputeSerialDatumsTask proto.InternalMessageInfo
+var xxx_messageInfo_CreateSerialDatumsTask proto.InternalMessageInfo
 
-func (m *ComputeSerialDatumsTask) GetJob() *pps.Job {
+func (m *CreateSerialDatumsTask) GetJob() *pps.Job {
 	if m != nil {
 		return m.Job
 	}
 	return nil
 }
 
-func (m *ComputeSerialDatumsTask) GetSalt() string {
+func (m *CreateSerialDatumsTask) GetSalt() string {
 	if m != nil {
 		return m.Salt
 	}
 	return ""
 }
 
-func (m *ComputeSerialDatumsTask) GetFileSetId() string {
+func (m *CreateSerialDatumsTask) GetFileSetId() string {
 	if m != nil {
 		return m.FileSetId
 	}
 	return ""
 }
 
-func (m *ComputeSerialDatumsTask) GetBaseMetaCommit() *pfs.Commit {
+func (m *CreateSerialDatumsTask) GetBaseMetaCommit() *pfs.Commit {
 	if m != nil {
 		return m.BaseMetaCommit
 	}
 	return nil
 }
 
-func (m *ComputeSerialDatumsTask) GetNoSkip() bool {
+func (m *CreateSerialDatumsTask) GetNoSkip() bool {
 	if m != nil {
 		return m.NoSkip
 	}
 	return false
 }
 
-func (m *ComputeSerialDatumsTask) GetPathRange() *pfs.PathRange {
+func (m *CreateSerialDatumsTask) GetPathRange() *pfs.PathRange {
 	if m != nil {
 		return m.PathRange
 	}
 	return nil
 }
 
-type ComputeSerialDatumsTaskResult struct {
+type CreateSerialDatumsTaskResult struct {
 	FileSetId             string       `protobuf:"bytes,1,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
 	OutputDeleteFileSetId string       `protobuf:"bytes,2,opt,name=output_delete_file_set_id,json=outputDeleteFileSetId,proto3" json:"output_delete_file_set_id,omitempty"`
 	MetaDeleteFileSetId   string       `protobuf:"bytes,3,opt,name=meta_delete_file_set_id,json=metaDeleteFileSetId,proto3" json:"meta_delete_file_set_id,omitempty"`
@@ -354,18 +354,18 @@ type ComputeSerialDatumsTaskResult struct {
 	XXX_sizecache         int32        `json:"-"`
 }
 
-func (m *ComputeSerialDatumsTaskResult) Reset()         { *m = ComputeSerialDatumsTaskResult{} }
-func (m *ComputeSerialDatumsTaskResult) String() string { return proto.CompactTextString(m) }
-func (*ComputeSerialDatumsTaskResult) ProtoMessage()    {}
-func (*ComputeSerialDatumsTaskResult) Descriptor() ([]byte, []int) {
+func (m *CreateSerialDatumsTaskResult) Reset()         { *m = CreateSerialDatumsTaskResult{} }
+func (m *CreateSerialDatumsTaskResult) String() string { return proto.CompactTextString(m) }
+func (*CreateSerialDatumsTaskResult) ProtoMessage()    {}
+func (*CreateSerialDatumsTaskResult) Descriptor() ([]byte, []int) {
 	return fileDescriptor_21583a759eb7fa97, []int{4}
 }
-func (m *ComputeSerialDatumsTaskResult) XXX_Unmarshal(b []byte) error {
+func (m *CreateSerialDatumsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ComputeSerialDatumsTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *CreateSerialDatumsTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ComputeSerialDatumsTaskResult.Marshal(b, m, deterministic)
+		return xxx_messageInfo_CreateSerialDatumsTaskResult.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -375,40 +375,40 @@ func (m *ComputeSerialDatumsTaskResult) XXX_Marshal(b []byte, deterministic bool
 		return b[:n], nil
 	}
 }
-func (m *ComputeSerialDatumsTaskResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ComputeSerialDatumsTaskResult.Merge(m, src)
+func (m *CreateSerialDatumsTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CreateSerialDatumsTaskResult.Merge(m, src)
 }
-func (m *ComputeSerialDatumsTaskResult) XXX_Size() int {
+func (m *CreateSerialDatumsTaskResult) XXX_Size() int {
 	return m.Size()
 }
-func (m *ComputeSerialDatumsTaskResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_ComputeSerialDatumsTaskResult.DiscardUnknown(m)
+func (m *CreateSerialDatumsTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_CreateSerialDatumsTaskResult.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ComputeSerialDatumsTaskResult proto.InternalMessageInfo
+var xxx_messageInfo_CreateSerialDatumsTaskResult proto.InternalMessageInfo
 
-func (m *ComputeSerialDatumsTaskResult) GetFileSetId() string {
+func (m *CreateSerialDatumsTaskResult) GetFileSetId() string {
 	if m != nil {
 		return m.FileSetId
 	}
 	return ""
 }
 
-func (m *ComputeSerialDatumsTaskResult) GetOutputDeleteFileSetId() string {
+func (m *CreateSerialDatumsTaskResult) GetOutputDeleteFileSetId() string {
 	if m != nil {
 		return m.OutputDeleteFileSetId
 	}
 	return ""
 }
 
-func (m *ComputeSerialDatumsTaskResult) GetMetaDeleteFileSetId() string {
+func (m *CreateSerialDatumsTaskResult) GetMetaDeleteFileSetId() string {
 	if m != nil {
 		return m.MetaDeleteFileSetId
 	}
 	return ""
 }
 
-func (m *ComputeSerialDatumsTaskResult) GetStats() *datum.Stats {
+func (m *CreateSerialDatumsTaskResult) GetStats() *datum.Stats {
 	if m != nil {
 		return m.Stats
 	}
@@ -527,10 +527,10 @@ func (m *CreateDatumSetsTaskResult) GetDatumSets() []*pfs.PathRange {
 
 func init() {
 	proto.RegisterType((*DatumSet)(nil), "pachyderm.worker.pipeline.transform.DatumSet")
-	proto.RegisterType((*ComputeParallelDatumsTask)(nil), "pachyderm.worker.pipeline.transform.ComputeParallelDatumsTask")
-	proto.RegisterType((*ComputeParallelDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.ComputeParallelDatumsTaskResult")
-	proto.RegisterType((*ComputeSerialDatumsTask)(nil), "pachyderm.worker.pipeline.transform.ComputeSerialDatumsTask")
-	proto.RegisterType((*ComputeSerialDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.ComputeSerialDatumsTaskResult")
+	proto.RegisterType((*CreateParallelDatumsTask)(nil), "pachyderm.worker.pipeline.transform.CreateParallelDatumsTask")
+	proto.RegisterType((*CreateParallelDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.CreateParallelDatumsTaskResult")
+	proto.RegisterType((*CreateSerialDatumsTask)(nil), "pachyderm.worker.pipeline.transform.CreateSerialDatumsTask")
+	proto.RegisterType((*CreateSerialDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.CreateSerialDatumsTaskResult")
 	proto.RegisterType((*CreateDatumSetsTask)(nil), "pachyderm.worker.pipeline.transform.CreateDatumSetsTask")
 	proto.RegisterType((*CreateDatumSetsTaskResult)(nil), "pachyderm.worker.pipeline.transform.CreateDatumSetsTaskResult")
 }
@@ -540,47 +540,47 @@ func init() {
 }
 
 var fileDescriptor_21583a759eb7fa97 = []byte{
-	// 630 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x94, 0x4f, 0x4e, 0x1b, 0x31,
-	0x14, 0xc6, 0xe5, 0xfc, 0x83, 0xbc, 0x00, 0xa5, 0x43, 0x2b, 0x02, 0x12, 0x21, 0x4a, 0x17, 0x50,
-	0x55, 0x9a, 0x41, 0xa1, 0x0b, 0xd6, 0x80, 0x90, 0x40, 0x42, 0x42, 0x13, 0x56, 0xdd, 0x44, 0x9e,
-	0xcc, 0x4b, 0x32, 0x64, 0x26, 0xb6, 0x6c, 0x87, 0xaa, 0xd7, 0xe8, 0x3d, 0x7a, 0x8f, 0x76, 0x57,
-	0xa9, 0xfb, 0xaa, 0xca, 0x0d, 0x7a, 0x83, 0xca, 0xf6, 0x4c, 0x20, 0x29, 0x53, 0xb2, 0xe9, 0x26,
-	0x7a, 0x7e, 0xfe, 0xbe, 0xcc, 0xe7, 0x9f, 0xad, 0x07, 0x47, 0x12, 0xc5, 0x3d, 0x0a, 0xef, 0x23,
-	0x13, 0x23, 0x14, 0x1e, 0x8f, 0x38, 0xc6, 0xd1, 0x18, 0x3d, 0x25, 0xe8, 0x58, 0xf6, 0x99, 0x48,
-	0x1e, 0x2a, 0x97, 0x0b, 0xa6, 0x98, 0xf3, 0x86, 0xd3, 0xde, 0xf0, 0x53, 0x88, 0x22, 0x71, 0xad,
-	0xc9, 0xcd, 0x4c, 0xee, 0x4c, 0xba, 0xfb, 0x6a, 0xc0, 0x06, 0xcc, 0xe8, 0x3d, 0x5d, 0x59, 0xeb,
-	0xee, 0x3a, 0xef, 0x4b, 0x8f, 0xf7, 0xe5, 0x6c, 0xc9, 0xa5, 0xc7, 0x79, 0xb6, 0xdc, 0x9f, 0x8f,
-	0x12, 0x52, 0x35, 0x49, 0xec, 0xaf, 0x15, 0xb4, 0xbe, 0x14, 0x60, 0xf5, 0x5c, 0xaf, 0x3b, 0xa8,
-	0x9c, 0x26, 0x54, 0xee, 0x58, 0xd0, 0x8d, 0xc2, 0x3a, 0x69, 0x92, 0xc3, 0xea, 0x69, 0x75, 0xfa,
-	0x73, 0xbf, 0x7c, 0xc5, 0x82, 0xcb, 0x73, 0xbf, 0x7c, 0xc7, 0x82, 0xcb, 0xd0, 0x69, 0x40, 0xad,
-	0x1f, 0xc5, 0xd8, 0x95, 0xa8, 0xb4, 0xac, 0xa0, 0x65, 0x7e, 0x55, 0xb7, 0x3a, 0xa8, 0x2e, 0x43,
-	0xe7, 0x08, 0x80, 0x53, 0x35, 0xec, 0x0a, 0x3a, 0x1e, 0x60, 0xbd, 0xd8, 0x24, 0x87, 0xb5, 0xf6,
-	0x4b, 0x97, 0xf7, 0x65, 0xf7, 0xbe, 0xed, 0xde, 0x50, 0x35, 0xf4, 0xf5, 0x86, 0x5f, 0xe5, 0x59,
-	0xe9, 0x1c, 0xc3, 0x3a, 0x9b, 0x28, 0x3e, 0x51, 0xdd, 0x1e, 0x4b, 0x92, 0x48, 0xd5, 0x4b, 0xc6,
-	0xb4, 0x91, 0x99, 0xce, 0x4c, 0xd7, 0x5f, 0xb3, 0x22, 0xbb, 0x72, 0xde, 0x81, 0x93, 0x9a, 0x1e,
-	0xa7, 0x29, 0x9b, 0x34, 0x2f, 0xec, 0xce, 0xc5, 0x2c, 0xd3, 0x01, 0x6c, 0x26, 0xa8, 0xe8, 0x9c,
-	0xb4, 0x62, 0xa4, 0xeb, 0xba, 0xff, 0x20, 0x6c, 0x41, 0x59, 0x2a, 0xaa, 0x64, 0x7d, 0xc5, 0x44,
-	0x58, 0x73, 0x2d, 0xa8, 0x8e, 0xee, 0xf9, 0x76, 0xab, 0xf5, 0x8d, 0xc0, 0xce, 0x19, 0x4b, 0xf8,
-	0x44, 0xe1, 0x0d, 0x15, 0x34, 0x8e, 0x31, 0x36, 0xf8, 0xe4, 0x2d, 0x95, 0x23, 0x67, 0x0f, 0x8a,
-	0x77, 0x2c, 0x30, 0xf4, 0x6a, 0xed, 0x9a, 0xcb, 0xb9, 0x39, 0xc2, 0x15, 0x0b, 0x7c, 0xdd, 0x77,
-	0x1c, 0x28, 0x49, 0x1a, 0xab, 0x14, 0x9b, 0xa9, 0x17, 0x89, 0x16, 0x17, 0x89, 0x1e, 0xc0, 0x66,
-	0x40, 0x25, 0xce, 0xa5, 0x2f, 0xd9, 0xf4, 0xba, 0x7f, 0x91, 0x83, 0xbe, 0xfc, 0x3c, 0xfa, 0x16,
-	0xc2, 0x7e, 0xee, 0x51, 0x7c, 0x94, 0x93, 0xbf, 0xd3, 0x91, 0xc5, 0x74, 0x33, 0x64, 0x85, 0x7c,
-	0x64, 0xbf, 0x09, 0x6c, 0xa7, 0xdf, 0xe9, 0xa0, 0x88, 0xe8, 0x7f, 0x06, 0x76, 0x92, 0x02, 0x33,
-	0x77, 0xfe, 0xcf, 0x37, 0xb5, 0xa1, 0x75, 0xd7, 0xa8, 0x68, 0xfa, 0xaa, 0xb6, 0x61, 0x65, 0xcc,
-	0xba, 0x72, 0x14, 0x71, 0x83, 0x6f, 0xd5, 0xaf, 0x8c, 0x59, 0x67, 0x14, 0xf1, 0x05, 0xb4, 0x95,
-	0x25, 0xd0, 0xfe, 0x20, 0xb0, 0x97, 0x73, 0xe6, 0x25, 0xc9, 0x9e, 0xc0, 0x4e, 0xfa, 0xc4, 0x43,
-	0x8c, 0x51, 0xcd, 0x3f, 0x00, 0xcb, 0xe3, 0xb5, 0x15, 0x9c, 0x9b, 0xfd, 0x87, 0x87, 0xf0, 0x1e,
-	0xb6, 0xcd, 0xd9, 0x9f, 0xf0, 0x59, 0x58, 0x5b, 0x7a, 0x7b, 0xd1, 0x35, 0xbb, 0xc9, 0x52, 0xfe,
-	0x4d, 0x7e, 0x26, 0xb0, 0x75, 0x26, 0x90, 0x2a, 0xcc, 0x46, 0x86, 0xbd, 0xc5, 0xe7, 0xce, 0x32,
-	0xcf, 0xaf, 0xb0, 0xc4, 0x54, 0x78, 0x0b, 0xab, 0xfa, 0xcf, 0x24, 0xc7, 0x5e, 0x3a, 0x45, 0x36,
-	0xb2, 0x40, 0xa8, 0x3a, 0x1c, 0x7b, 0xfe, 0x8a, 0xb4, 0x45, 0xeb, 0x1a, 0x76, 0x9e, 0xc8, 0x94,
-	0x52, 0x3e, 0x02, 0x30, 0x36, 0x1d, 0x4d, 0xd6, 0x49, 0xb3, 0x98, 0xf3, 0xe5, 0x30, 0xf3, 0x9e,
-	0xde, 0x7e, 0x9d, 0x36, 0xc8, 0xf7, 0x69, 0x83, 0xfc, 0x9a, 0x36, 0xc8, 0x87, 0x8b, 0x41, 0xa4,
-	0x86, 0x93, 0xc0, 0xed, 0xb1, 0xc4, 0x9b, 0xcd, 0xe8, 0x47, 0xd5, 0x7d, 0xdb, 0x93, 0xa2, 0xe7,
-	0x3d, 0x37, 0xf0, 0x83, 0x8a, 0x99, 0xb6, 0xc7, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x4f, 0xd4,
-	0x06, 0x8a, 0x1b, 0x06, 0x00, 0x00,
+	// 628 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x94, 0xcf, 0x4e, 0xdb, 0x4e,
+	0x10, 0xc7, 0xb5, 0xf9, 0x07, 0x99, 0x00, 0x3f, 0x7e, 0xa6, 0x2d, 0x01, 0xb5, 0x21, 0x4a, 0x0f,
+	0x50, 0x55, 0xb2, 0x51, 0xe8, 0x81, 0x33, 0x20, 0x24, 0x90, 0x90, 0x90, 0xc3, 0xa9, 0x97, 0x68,
+	0x1d, 0x4f, 0x12, 0x13, 0x3b, 0xbb, 0xda, 0xdd, 0x50, 0xf5, 0x35, 0xfa, 0x1e, 0x7d, 0x0f, 0x8e,
+	0x55, 0x1f, 0xa0, 0xaa, 0xf2, 0x04, 0x7d, 0x84, 0x6a, 0x77, 0x6d, 0x43, 0x52, 0x52, 0x72, 0xe9,
+	0x25, 0x9a, 0x9d, 0xfd, 0x4e, 0xfc, 0x9d, 0xcf, 0xac, 0x06, 0x0e, 0x25, 0x8a, 0x3b, 0x14, 0xde,
+	0x27, 0x26, 0x46, 0x28, 0x3c, 0x1e, 0x71, 0x8c, 0xa3, 0x31, 0x7a, 0x4a, 0xd0, 0xb1, 0xec, 0x33,
+	0x91, 0x3c, 0x44, 0x2e, 0x17, 0x4c, 0x31, 0xe7, 0x2d, 0xa7, 0xbd, 0xe1, 0xe7, 0x10, 0x45, 0xe2,
+	0xda, 0x22, 0x37, 0x2b, 0x72, 0x73, 0xe9, 0xee, 0x8b, 0x01, 0x1b, 0x30, 0xa3, 0xf7, 0x74, 0x64,
+	0x4b, 0x77, 0xd7, 0x79, 0x5f, 0x7a, 0xbc, 0x2f, 0xf3, 0x23, 0x97, 0x1e, 0xe7, 0xd9, 0x71, 0x6f,
+	0xd6, 0x4a, 0x48, 0xd5, 0x24, 0xb1, 0xbf, 0x56, 0xd0, 0xfa, 0x5a, 0x80, 0xd5, 0x33, 0x7d, 0xee,
+	0xa0, 0x72, 0x9a, 0x50, 0xb9, 0x65, 0x41, 0x37, 0x0a, 0xeb, 0xa4, 0x49, 0x0e, 0xaa, 0x27, 0xd5,
+	0xe9, 0x8f, 0xbd, 0xf2, 0x25, 0x0b, 0x2e, 0xce, 0xfc, 0xf2, 0x2d, 0x0b, 0x2e, 0x42, 0xa7, 0x01,
+	0xb5, 0x7e, 0x14, 0x63, 0x57, 0xa2, 0xd2, 0xb2, 0x82, 0x96, 0xf9, 0x55, 0x9d, 0xea, 0xa0, 0xba,
+	0x08, 0x9d, 0x43, 0x00, 0x4e, 0xd5, 0xb0, 0x2b, 0xe8, 0x78, 0x80, 0xf5, 0x62, 0x93, 0x1c, 0xd4,
+	0xda, 0xff, 0xbb, 0xbc, 0x2f, 0xbb, 0x77, 0x6d, 0xf7, 0x9a, 0xaa, 0xa1, 0xaf, 0x2f, 0xfc, 0x2a,
+	0xcf, 0x42, 0xe7, 0x08, 0xd6, 0xd9, 0x44, 0xf1, 0x89, 0xea, 0xf6, 0x58, 0x92, 0x44, 0xaa, 0x5e,
+	0x32, 0x45, 0x1b, 0x59, 0xd1, 0xa9, 0xc9, 0xfa, 0x6b, 0x56, 0x64, 0x4f, 0xce, 0x7b, 0x70, 0xd2,
+	0xa2, 0xc7, 0x6e, 0xca, 0xc6, 0xcd, 0x7f, 0xf6, 0xe6, 0x3c, 0xf7, 0xb4, 0x0f, 0x9b, 0x09, 0x2a,
+	0x3a, 0x23, 0xad, 0x18, 0xe9, 0xba, 0xce, 0x3f, 0x08, 0x5b, 0x50, 0x96, 0x8a, 0x2a, 0x59, 0x5f,
+	0x31, 0x16, 0xd6, 0x5c, 0x0b, 0xaa, 0xa3, 0x73, 0xbe, 0xbd, 0x6a, 0xdd, 0x13, 0xa8, 0x9f, 0x0a,
+	0xa4, 0x0a, 0xaf, 0xa9, 0xa0, 0x71, 0x8c, 0xb1, 0xa1, 0x27, 0x6f, 0xa8, 0x1c, 0x39, 0x6f, 0xa0,
+	0x78, 0xcb, 0x02, 0x03, 0xaf, 0xd6, 0xae, 0xb9, 0x9c, 0x9b, 0x0e, 0x2e, 0x59, 0xe0, 0xeb, 0xbc,
+	0xe3, 0x40, 0x49, 0xd2, 0x58, 0xa5, 0xd4, 0x4c, 0x3c, 0x0f, 0xb4, 0x38, 0x0f, 0x74, 0x1f, 0x36,
+	0x03, 0x2a, 0x71, 0xc6, 0x7c, 0xc9, 0x9a, 0xd7, 0xf9, 0xf3, 0x05, 0xe4, 0xcb, 0xcf, 0x93, 0x6f,
+	0x85, 0xd0, 0x58, 0xd4, 0x89, 0x8f, 0x72, 0xf2, 0xa7, 0x39, 0x32, 0x6f, 0x2e, 0x07, 0x56, 0x58,
+	0x0c, 0xec, 0x17, 0x81, 0x57, 0xf6, 0x33, 0x1d, 0x14, 0x11, 0xfd, 0xc7, 0xb8, 0x8e, 0x53, 0x5c,
+	0x66, 0xe0, 0x7f, 0x7d, 0x50, 0x1b, 0x5a, 0x77, 0x85, 0x8a, 0xa6, 0x4f, 0x6a, 0x1b, 0x56, 0xc6,
+	0xac, 0x2b, 0x47, 0x11, 0x37, 0xf0, 0x56, 0xfd, 0xca, 0x98, 0x75, 0x46, 0x11, 0x9f, 0x03, 0x5b,
+	0x59, 0x02, 0xec, 0x77, 0x02, 0xaf, 0x9f, 0x6e, 0x79, 0x49, 0xae, 0xc7, 0xb0, 0x93, 0x3e, 0xef,
+	0x10, 0x63, 0x54, 0xb3, 0xd3, 0xb7, 0x38, 0x5e, 0x5a, 0xc1, 0x99, 0xb9, 0x7f, 0x78, 0x05, 0x1f,
+	0x60, 0xdb, 0xb4, 0xfe, 0x44, 0x9d, 0x65, 0xb5, 0xa5, 0xaf, 0xe7, 0xab, 0xf2, 0x39, 0x96, 0x16,
+	0xcf, 0xf1, 0x0b, 0x81, 0x2d, 0xdb, 0x54, 0xb6, 0x2e, 0xec, 0x10, 0x9f, 0xeb, 0x65, 0x16, 0x5f,
+	0x61, 0x89, 0x8d, 0xf0, 0x0e, 0x56, 0xf5, 0x9f, 0x49, 0x8e, 0xbd, 0x74, 0x83, 0x6c, 0x64, 0x86,
+	0x50, 0x75, 0x38, 0xf6, 0xfc, 0x15, 0x69, 0x83, 0xd6, 0x15, 0xec, 0x3c, 0xe1, 0x29, 0xa5, 0x7c,
+	0x08, 0x60, 0xca, 0xb4, 0x35, 0x59, 0x27, 0xcd, 0xe2, 0x82, 0x2f, 0x87, 0x59, 0xed, 0xc9, 0xcd,
+	0xfd, 0xb4, 0x41, 0xbe, 0x4d, 0x1b, 0xe4, 0xe7, 0xb4, 0x41, 0x3e, 0x9e, 0x0f, 0x22, 0x35, 0x9c,
+	0x04, 0x6e, 0x8f, 0x25, 0x5e, 0xbe, 0x9f, 0x1f, 0x45, 0x77, 0x6d, 0x4f, 0x8a, 0x9e, 0xf7, 0xdc,
+	0xb2, 0x0f, 0x2a, 0x66, 0xd3, 0x1e, 0xfd, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xf2, 0xf8, 0x55, 0x39,
+	0x17, 0x06, 0x00, 0x00,
 }
 
 func (m *DatumSet) Marshal() (dAtA []byte, err error) {
@@ -674,7 +674,7 @@ func (m *DatumSet) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ComputeParallelDatumsTask) Marshal() (dAtA []byte, err error) {
+func (m *CreateParallelDatumsTask) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -684,12 +684,12 @@ func (m *ComputeParallelDatumsTask) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ComputeParallelDatumsTask) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateParallelDatumsTask) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ComputeParallelDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateParallelDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -746,7 +746,7 @@ func (m *ComputeParallelDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
-func (m *ComputeParallelDatumsTaskResult) Marshal() (dAtA []byte, err error) {
+func (m *CreateParallelDatumsTaskResult) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -756,12 +756,12 @@ func (m *ComputeParallelDatumsTaskResult) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ComputeParallelDatumsTaskResult) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateParallelDatumsTaskResult) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ComputeParallelDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateParallelDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -792,7 +792,7 @@ func (m *ComputeParallelDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int
 	return len(dAtA) - i, nil
 }
 
-func (m *ComputeSerialDatumsTask) Marshal() (dAtA []byte, err error) {
+func (m *CreateSerialDatumsTask) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -802,12 +802,12 @@ func (m *ComputeSerialDatumsTask) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ComputeSerialDatumsTask) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateSerialDatumsTask) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ComputeSerialDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateSerialDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -879,7 +879,7 @@ func (m *ComputeSerialDatumsTask) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	return len(dAtA) - i, nil
 }
 
-func (m *ComputeSerialDatumsTaskResult) Marshal() (dAtA []byte, err error) {
+func (m *CreateSerialDatumsTaskResult) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -889,12 +889,12 @@ func (m *ComputeSerialDatumsTaskResult) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ComputeSerialDatumsTaskResult) MarshalTo(dAtA []byte) (int, error) {
+func (m *CreateSerialDatumsTaskResult) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ComputeSerialDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *CreateSerialDatumsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -1089,7 +1089,7 @@ func (m *DatumSet) Size() (n int) {
 	return n
 }
 
-func (m *ComputeParallelDatumsTask) Size() (n int) {
+func (m *CreateParallelDatumsTask) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1121,7 +1121,7 @@ func (m *ComputeParallelDatumsTask) Size() (n int) {
 	return n
 }
 
-func (m *ComputeParallelDatumsTaskResult) Size() (n int) {
+func (m *CreateParallelDatumsTaskResult) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1141,7 +1141,7 @@ func (m *ComputeParallelDatumsTaskResult) Size() (n int) {
 	return n
 }
 
-func (m *ComputeSerialDatumsTask) Size() (n int) {
+func (m *CreateSerialDatumsTask) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1176,7 +1176,7 @@ func (m *ComputeSerialDatumsTask) Size() (n int) {
 	return n
 }
 
-func (m *ComputeSerialDatumsTaskResult) Size() (n int) {
+func (m *CreateSerialDatumsTaskResult) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1539,7 +1539,7 @@ func (m *DatumSet) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ComputeParallelDatumsTask) Unmarshal(dAtA []byte) error {
+func (m *CreateParallelDatumsTask) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1562,10 +1562,10 @@ func (m *ComputeParallelDatumsTask) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTask: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateParallelDatumsTask: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTask: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateParallelDatumsTask: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1758,7 +1758,7 @@ func (m *ComputeParallelDatumsTask) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ComputeParallelDatumsTaskResult) Unmarshal(dAtA []byte) error {
+func (m *CreateParallelDatumsTaskResult) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1781,10 +1781,10 @@ func (m *ComputeParallelDatumsTaskResult) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTaskResult: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateParallelDatumsTaskResult: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ComputeParallelDatumsTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateParallelDatumsTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1877,7 +1877,7 @@ func (m *ComputeParallelDatumsTaskResult) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ComputeSerialDatumsTask) Unmarshal(dAtA []byte) error {
+func (m *CreateSerialDatumsTask) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1900,10 +1900,10 @@ func (m *ComputeSerialDatumsTask) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ComputeSerialDatumsTask: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateSerialDatumsTask: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ComputeSerialDatumsTask: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateSerialDatumsTask: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -2120,7 +2120,7 @@ func (m *ComputeSerialDatumsTask) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ComputeSerialDatumsTaskResult) Unmarshal(dAtA []byte) error {
+func (m *CreateSerialDatumsTaskResult) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -2143,10 +2143,10 @@ func (m *ComputeSerialDatumsTaskResult) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ComputeSerialDatumsTaskResult: wiretype end group for non-group")
+			return fmt.Errorf("proto: CreateSerialDatumsTaskResult: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ComputeSerialDatumsTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: CreateSerialDatumsTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

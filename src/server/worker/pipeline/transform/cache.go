@@ -39,14 +39,14 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		if err != nil {
 			return err
 		}
-	case types.Is(output, &ComputeParallelDatumsTaskResult{}):
-		cpdt, err := deserializeComputeParallelDatumsTaskResult(output)
+	case types.Is(output, &CreateParallelDatumsTaskResult{}):
+		cpdt, err := deserializeCreateParallelDatumsTaskResult(output)
 		if err != nil {
 			return err
 		}
 		fileSetIds = append(fileSetIds, cpdt.FileSetId)
-	case types.Is(output, &ComputeSerialDatumsTaskResult{}):
-		csdt, err := deserializeComputeSerialDatumsTaskResult(output)
+	case types.Is(output, &CreateSerialDatumsTaskResult{}):
+		csdt, err := deserializeCreateSerialDatumsTaskResult(output)
 		if err != nil {
 			return err
 		}
