@@ -78,7 +78,7 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId, task.PathRange))
 	}
 	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
-	dit = datum.NewJobIterator(dit, task.JobInfo.Job, &hasher{salt: task.JobInfo.Details.Salt})
+	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits = append(dits, dit)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-parallel", func(outputSet *datum.Set) error {
@@ -89,7 +89,7 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 				return nil
 			}
 			// Datum only exists in the parent job.
-			if !proto.Equal(metas[0].Job, task.JobInfo.Job) {
+			if !proto.Equal(metas[0].Job, task.Job) {
 				return nil
 			}
 			if err := outputSet.UploadMeta(metas[0], datum.WithPrefixIndex()); err != nil {
@@ -110,7 +110,7 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 
 func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeSerialDatumsTask) (*types.Any, error) {
 	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
-	dit = datum.NewJobIterator(dit, task.JobInfo.Job, &hasher{salt: task.JobInfo.Details.Salt})
+	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits := []datum.Iterator{
 		datum.NewCommitIterator(pachClient, task.BaseMetaCommit, task.PathRange),
 		dit,
@@ -123,7 +123,7 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 			return datum.Merge(dits, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was processed in the parallel step.
-					if proto.Equal(metas[0].Job, task.JobInfo.Job) {
+					if proto.Equal(metas[0].Job, task.Job) {
 						return nil
 					}
 					// Datum only exists in the parent job.

@@ -221,7 +221,8 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			var inputs []*types.Any
 			for _, shard := range shards {
 				input, err := serializeComputeParallelDatumsTask(&ComputeParallelDatumsTask{
-					JobInfo:       pj.ji,
+					Job:           pj.ji.Job,
+					Salt:          pj.ji.Details.Salt,
 					FileSetId:     fileSetID,
 					BaseFileSetId: baseFileSetID,
 					PathRange:     shard,
@@ -317,7 +318,8 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			var inputs []*types.Any
 			for _, shard := range shards {
 				input, err := serializeComputeSerialDatumsTask(&ComputeSerialDatumsTask{
-					JobInfo:        pj.ji,
+					Job:            pj.ji.Job,
+					Salt:           pj.ji.Details.Salt,
 					FileSetId:      fileSetID,
 					BaseMetaCommit: baseMetaCommit,
 					NoSkip:         pj.noSkip,

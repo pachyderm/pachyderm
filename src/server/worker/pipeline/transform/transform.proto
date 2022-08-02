@@ -23,10 +23,11 @@ message DatumSet {
 }
 
 message ComputeParallelDatumsTask {
-  pps_v2.JobInfo job_info = 1;
-  string file_set_id = 2;
-  string base_file_set_id = 3;
-  pfs_v2.PathRange path_range = 4;
+  pps_v2.Job job = 1;
+  string salt = 2;
+  string file_set_id = 3;
+  string base_file_set_id = 4;
+  pfs_v2.PathRange path_range = 5;
 } 
 
 message ComputeParallelDatumsTaskResult {
@@ -35,11 +36,12 @@ message ComputeParallelDatumsTaskResult {
 }
 
 message ComputeSerialDatumsTask {
-  pps_v2.JobInfo job_info = 1;
-  string file_set_id = 2;
-  pfs_v2.Commit base_meta_commit = 3;
-  bool no_skip = 4;
-  pfs_v2.PathRange path_range = 5;
+  pps_v2.Job job = 1;
+  string salt = 2;
+  string file_set_id = 3;
+  pfs_v2.Commit base_meta_commit = 4;
+  bool no_skip = 5;
+  pfs_v2.PathRange path_range = 6;
 }
 
 message ComputeSerialDatumsTaskResult {
