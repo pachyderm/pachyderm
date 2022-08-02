@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -9656,6 +9657,78 @@ func TestListDatum(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, 25, len(dis))
+}
+
+func TestListDatumFilter(t *testing.T) {
+	t.Parallel()
+	var (
+		ctx   = context.Background()
+		c, _  = minikubetestenv.AcquireCluster(t)
+		repo1 = tu.UniqueString("TestListDatum1")
+		repo2 = tu.UniqueString("TestListDatum2")
+	)
+
+	require.NoError(t, c.CreateRepo(repo1))
+	require.NoError(t, c.CreateRepo(repo2))
+
+	numFiles := 5
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+	}
+
+	// filtering for failed should yield zero datums
+	s, err := c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
+		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_FAILED}},
+		Input: &pps.Input{
+			Cross: []*pps.Input{{
+				Pfs: &pps.PFSInput{
+					Repo: repo1,
+					Glob: "/*",
+				},
+			}, {
+				Pfs: &pps.PFSInput{
+					Repo: repo2,
+					Glob: "/*",
+				},
+			}},
+		},
+	})
+	require.NoError(t, err)
+
+	var i int
+	require.NoError(t, clientsdk.ForEachDatumInfo(s, func(d *pps.DatumInfo) error {
+		require.NotEqual(t, pps.DatumState_UNKNOWN, d.State)
+		i++
+		return nil
+	}))
+	require.Equal(t, 0, i)
+
+	// filtering for only unknowns should yield 25 datums
+	s, err = c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
+		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_UNKNOWN}},
+		Input: &pps.Input{
+			Cross: []*pps.Input{{
+				Pfs: &pps.PFSInput{
+					Repo: repo1,
+					Glob: "/*",
+				},
+			}, {
+				Pfs: &pps.PFSInput{
+					Repo: repo2,
+					Glob: "/*",
+				},
+			}},
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, clientsdk.ForEachDatumInfo(s, func(d *pps.DatumInfo) error {
+		require.Equal(t, pps.DatumState_UNKNOWN, d.State)
+		i++
+		return nil
+	}))
+	require.Equal(t, 25, i)
 }
 
 func TestDebug(t *testing.T) {

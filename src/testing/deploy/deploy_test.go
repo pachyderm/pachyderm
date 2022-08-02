@@ -16,24 +16,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
+	t.Parallel()
+	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
+		PortOffset: portOffset,
 	}
 	// Test Install
-	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, opts)
+	minikubetestenv.PutNamespace(t, ns)
+	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
+	opts.CleanupAfter = true
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
@@ -41,7 +44,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	// add config file with trusted peers & new clients
 	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
 	// apply upgrade
-	c = minikubetestenv.UpgradeRelease(t, context.Background(), "default", k, opts)
+	c = minikubetestenv.UpgradeRelease(t, context.Background(), ns, k, opts)
 	c.SetAuthToken(token)
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -61,27 +64,26 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 }
 
 func TestEnterpriseServerMember(t *testing.T) {
+	t.Parallel()
+	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
-	_, err := k.CoreV1().Namespaces().Create(context.Background(),
-		&v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "enterprise",
-			},
-		},
-		metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
+	minikubetestenv.PutNamespace(t, "enterprise")
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
+		CleanupAfter:     true,
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	mockIDPLogin(t, ec)
-	c := minikubetestenv.InstallRelease(t, context.Background(), "default", k, &minikubetestenv.DeployOpts{
+	minikubetestenv.PutNamespace(t, ns)
+	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseMember: true,
 		Enterprise:       true,
+		PortOffset:       portOffset,
+		CleanupAfter:     true,
 	})
 	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)

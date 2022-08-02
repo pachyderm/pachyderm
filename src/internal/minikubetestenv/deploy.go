@@ -219,7 +219,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			"pachd.rootToken":                      rootToken,
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
-			"oidc.issuerURI":                     "http://pachd:30658/dex",
+			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
 			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
@@ -260,7 +260,7 @@ func withEnterpriseMember(host string, grpcPort int) *helm.Options {
 		"pachd.activateEnterpriseMember":     "true",
 		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
 		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
-		"pachd.enterpriseServerToken":        testutil.RootToken,
+		"pachd.enterpriseRootToken":          testutil.RootToken,
 		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
 		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
 	}}
@@ -474,11 +474,11 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	pachAddress := GetPachAddress(t)
 	if opts.Enterprise || opts.EnterpriseServer {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		issuerPort := int(pachAddress.Port) + 8
+		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		if opts.EnterpriseMember {
 			issuerPort = 31658
 		}
-		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port)+7))
+		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
 	}
 	if opts.EnterpriseServer {
 		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
@@ -532,6 +532,20 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+}
+
+func PutNamespace(t testing.TB, namespace string) {
+	kube := testutil.GetKubeClient(t)
+	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
+		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			},
+			metav1.CreateOptions{})
+		require.NoError(t, err)
+	}
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
