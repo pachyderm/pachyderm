@@ -969,7 +969,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			if picture, err := pretty.DrawFromPipelines(pipelineInfos); err != nil {
+			if picture, err := pretty.Draw(pipelineInfos); err != nil {
 				return err
 			} else {
 				fmt.Print(picture)

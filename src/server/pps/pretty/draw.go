@@ -3,12 +3,10 @@ package pretty
 import (
 	"fmt"
 	"math"
-	"os"
 	"sort"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -107,11 +105,7 @@ func (v *vertex) String() string {
 type layerer func([]*vertex) [][]*vertex
 type orderer func([][]*vertex)
 
-func Draw(commit pfs.CommitSet, src *os.FileInfo) {
-	draw(baseGraph(commit), layerLongestPath, simpleOrder)
-}
-
-func DrawFromPipelines(pis []*pps.PipelineInfo) (string, error) {
+func Draw(pis []*pps.PipelineInfo) (string, error) {
 	if g, err := makeGraph(pis); err != nil {
 		return "", err
 	} else {
@@ -149,11 +143,6 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 		}
 	}
 	return vs, nil
-}
-
-// TODO: fill graph from commit
-func baseGraph(commit pfs.CommitSet) []*vertex {
-	return make([]*vertex, 0)
 }
 
 func draw(vertices []*vertex, lf layerer, of orderer) string {
