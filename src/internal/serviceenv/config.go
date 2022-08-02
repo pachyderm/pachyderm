@@ -97,6 +97,7 @@ type PachdSpecificConfiguration struct {
 	ImagePullSecrets           string `env:"IMAGE_PULL_SECRETS,default="`
 	MemoryRequest              string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot             bool   `env:"WORKER_USES_ROOT,default=false"`
+	EnablePreflightChecks      bool   `env:"ENABLE_PREFLIGHT_CHECKS,default=true"`
 	RequireCriticalServersOnly bool   `env:"REQUIRE_CRITICAL_SERVERS_ONLY,default=false"`
 	// TODO: Merge this with the worker specific pod name (PPS_POD_NAME) into a global configuration pod name.
 	PachdPodName                 string `env:"PACHD_POD_NAME,required"`
