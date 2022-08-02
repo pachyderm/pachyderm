@@ -978,7 +978,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	// TODO: implement these flags
-	draw.Flags().StringVar(&commitSet, "c", "", "Commit at which you would to draw the DAG")
+	draw.Flags().StringVarP(&commitSet, "commit", "c", "", "Commit at which you would to draw the DAG")
 	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
 
 	var (
