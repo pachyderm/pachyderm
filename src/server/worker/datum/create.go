@@ -118,18 +118,10 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		var fileSetIDs []string
-		for _, input := range inputs {
-			fileSetID, err := Create(pachClient, taskDoer, input)
-			if err != nil {
-				return err
-			}
-			if err := renewer.Add(ctx, fileSetID); err != nil {
-				return err
-			}
-			fileSetIDs = append(fileSetIDs, fileSetID)
+		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+		if err != nil {
+			return err
 		}
-		var err error
 		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, fileSetIDs)
 		return err
 	}); err != nil {
@@ -138,20 +130,38 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	return outputFileSetID, nil
 }
 
+func createInputs(pachClient *client.APIClient, taskDoer task.Doer, renewer *renew.StringSet, inputs []*pps.Input) ([]string, error) {
+	eg, ctx := errgroup.WithContext(pachClient.Ctx())
+	pachClient = pachClient.WithCtx(ctx)
+	outputFileSetIDs := make([]string, len(inputs))
+	for i, input := range inputs {
+		i := i
+		input := input
+		eg.Go(func() error {
+			outputFileSetID, err := Create(pachClient, taskDoer, input)
+			if err != nil {
+				return err
+			}
+			if err := renewer.Add(ctx, outputFileSetID); err != nil {
+				return err
+			}
+			outputFileSetIDs[i] = outputFileSetID
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return outputFileSetIDs, nil
+}
+
 func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		var fileSetIDs []string
-		for _, input := range inputs {
-			fileSetID, err := Create(pachClient, taskDoer, input)
-			if err != nil {
-				return err
-			}
-			if err := renewer.Add(ctx, fileSetID); err != nil {
-				return err
-			}
-			fileSetIDs = append(fileSetIDs, fileSetID)
+		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+		if err != nil {
+			return err
 		}
 		var maxIdx int
 		var baseFileSetID string
@@ -198,7 +208,6 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		}); err != nil {
 			return err
 		}
-		var err error
 		outputFileSetID, err = ComposeFileSets(ctx, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
@@ -211,16 +220,9 @@ func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		var fileSetIDs []string
-		for _, input := range inputs {
-			fileSetID, err := Create(pachClient, taskDoer, input)
-			if err != nil {
-				return err
-			}
-			if err := renewer.Add(ctx, fileSetID); err != nil {
-				return err
-			}
-			fileSetIDs = append(fileSetIDs, fileSetID)
+		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+		if err != nil {
+			return err
 		}
 		keyFileSetIDs, err := createKeyFileSets(pachClient, taskDoer, renewer, fileSetIDs, KeyTask_JOIN)
 		if err != nil {
@@ -353,16 +355,9 @@ func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
-		var fileSetIDs []string
-		for _, input := range inputs {
-			fileSetID, err := Create(pachClient, taskDoer, input)
-			if err != nil {
-				return err
-			}
-			if err := renewer.Add(ctx, fileSetID); err != nil {
-				return err
-			}
-			fileSetIDs = append(fileSetIDs, fileSetID)
+		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+		if err != nil {
+			return err
 		}
 		keyFileSetIDs, err := createKeyFileSets(pachClient, taskDoer, renewer, fileSetIDs, KeyTask_GROUP)
 		if err != nil {
