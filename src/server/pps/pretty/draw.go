@@ -228,10 +228,6 @@ func renderPicture(layers [][]*vertex) string {
 	return picture
 }
 
-// TODO: write ordering algorithm
-func simpleOrder(layers [][]*vertex) {
-}
-
 // ==================================================
 // Layering Algorithms
 
@@ -252,7 +248,7 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 		for _, e := range v.edges {
 			diff := v.layer - e.layer
 			if diff > 1 {
-				u := e // don't understand why this is necessary
+				u := e // necessary to copy the basic vertex fields
 				cbs = append(cbs, func() {
 					latest := v
 					for i := 0; i < diff-1; i++ {
@@ -270,7 +266,6 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 			cb()
 		}
 	}
-
 	for _, v := range leaves(vs) {
 		assigned[v.id] = v
 		addToLayer(v, 0)
@@ -297,6 +292,13 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 		}
 	}
 	return layers
+}
+
+// ==================================================
+// Ordering Algorithms
+
+// TODO: write ordering algorithm
+func simpleOrder(layers [][]*vertex) {
 }
 
 // ==================================================
