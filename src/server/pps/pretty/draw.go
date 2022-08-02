@@ -96,22 +96,18 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 func draw(vertices []*vertex, lf layerer, of orderer) string {
 	// Assign Layers
 	layers := lf(vertices)
-
-	// TODO: include an  edge concentration step???
-
 	of(layers)
-
 	assignCoordinates(layers)
-
 	picture := renderPicture(layers)
 	return picture
 }
 
 // precompute the box coordinates so that during rendering the edges can be filled between layers
 func assignCoordinates(layers [][]*vertex) {
+	maxWidth := rowWidth(layers)
 	for i := 0; i < len(layers); i++ {
 		l := layers[i]
-		boxCenterOffset := rowWidth(layers) / (len(l) + 1)
+		boxCenterOffset := maxWidth / (len(l) + 1)
 		for j := 0; j < len(l); j++ {
 			l[j].rowOffset = (j + 1) * boxCenterOffset
 		}
@@ -197,7 +193,7 @@ func simpleOrder(layers [][]*vertex) {
 
 func renderPicture(layers [][]*vertex) string {
 	picture := ""
-	// index len(layers) is the top layer, so we traverse it from the last layer
+	// traverse the layers starting with source repos
 	for i := len(layers) - 1; i >= 0; i-- {
 		l := layers[i]
 		written := 0
@@ -210,20 +206,21 @@ func renderPicture(layers [][]*vertex) string {
 			if v.red {
 				sprintFunc = color.New(color.FgRed).SprintFunc()
 			}
-			spacing := v.rowOffset - boxWidth/2 - 1 - written // - 1 for the space taken by the bar "|"
+			spacing := v.rowOffset - (boxWidth+2)/2 - written
 			if spacing < 1 {
 				spacing = 0
 			}
 
-			boxPadding := strings.Repeat(" ", (boxWidth-len(v.label))/2)
+			boxPadLeft := strings.Repeat(" ", (boxWidth-len(v.label))/2)
+			boxPadRight := strings.Repeat(" ", boxWidth-len(v.label)-len(boxPadLeft))
 
 			if v.label == "*" {
-				hiddenRow := fmt.Sprintf("%s %s%s%s ", strings.Repeat(" ", spacing), boxPadding, "|", boxPadding)
+				hiddenRow := fmt.Sprintf("%s %s%s%s ", strings.Repeat(" ", spacing), boxPadLeft, "|", boxPadRight)
 				border += hiddenRow
 				row += hiddenRow
 			} else {
 				border += sprintFunc(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
-				row += fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadding, v, strings.Repeat(" ", boxWidth-len(v.label)-len(boxPadding)))
+				row += fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight)
 			}
 
 			written += len(row)
