@@ -75,6 +75,15 @@ func TestCrossLayer(t *testing.T) {
 	drawMultiAlgos(vs)
 }
 
+func TestBiPartite(t *testing.T) {
+	layers := [][]*vertex{
+		{newVertex("configs"), newVertex("datas"), newVertex("biases")},
+		{newVertex("model"), newVertex("analysis")},
+	}
+	vs := sequentialConnectedDAG(layers)
+	drawMultiAlgos(vs)
+}
+
 func drawMultiAlgos(vs []*vertex) {
 	layerers := []layerer{
 		layerLongestPath,
