@@ -6,9 +6,6 @@ mkdir -p "${HOME}/go/bin"
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 export GOPATH="${HOME}/go"
 
-# Install go.
-sudo rm -rf /usr/local/go
-curl -L https://golang.org/dl/go1.18.4.linux-amd64.tar.gz | sudo tar xzf - -C /usr/local/
 go version
 
 # Install goreleaser.

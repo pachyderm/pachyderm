@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the supervisor such that it can be run statically, so that the docker 
+# Build the supervisor such that it can be run statically, so that the docker
 # image is as small as possible.
 #
 # **Compiled binary will be stored in ./_out**
@@ -43,4 +43,4 @@ docker run \
   -v "${PWD}/_out:/out" \
   -v "${HOME}/.cache/go-build:/root/.cache/go-build" \
   -v "${GOPATH}/${PACH_PATH}:/go/${PACH_PATH}" \
-  golang:1.18.4 /bin/sh -c "${BUILD_CMD}"
+  golang:1.19.0 /bin/sh -c "${BUILD_CMD}"
