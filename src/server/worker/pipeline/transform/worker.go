@@ -83,7 +83,13 @@ func processComputeParallelDatumsTask(pachClient *client.APIClient, task *Comput
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-parallel", func(outputSet *datum.Set) error {
 		return datum.Merge(dits, func(metas []*datum.Meta) error {
-			if len(metas) > 1 || !proto.Equal(metas[0].Job, task.JobInfo.Job) {
+			// Datum exists in both jobs.
+			if len(metas) > 1 {
+				stats.Total++
+				return nil
+			}
+			// Datum only exists in the parent job.
+			if !proto.Equal(metas[0].Job, task.JobInfo.Job) {
 				return nil
 			}
 			if err := outputSet.UploadMeta(metas[0], datum.WithPrefixIndex()); err != nil {
@@ -126,7 +132,6 @@ func processComputeSerialDatumsTask(pachClient *client.APIClient, task *ComputeS
 				// Check if a skippable datum was successfully processed by the parent.
 				if !task.NoSkip && skippableDatum(metas[1], metas[0]) {
 					stats.Skipped++
-					stats.Total++
 					return nil
 				}
 				if err := deleter(metas[0]); err != nil {

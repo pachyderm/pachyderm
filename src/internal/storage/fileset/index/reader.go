@@ -5,7 +5,7 @@ import (
 	"context"
 	"io"
 
-	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -47,7 +47,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	}
 	// Setup top level reader.
 	pbr := r.topLevel()
-	levels := []*level{&level{pbr: pbr}}
+	levels := []*level{{pbr: pbr}}
 	for {
 		pbr := levels[len(levels)-1].pbr
 		idx := &Index{}
