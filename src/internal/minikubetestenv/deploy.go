@@ -70,7 +70,7 @@ type DeployOpts struct {
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
 
 func getLocalImage() string {
-	sha := os.Getenv("TESTSHA")
+	sha := os.Getenv("TEST_IMAGE_SHA")
 	if sha == "" {
 		return localImage
 	} else {
