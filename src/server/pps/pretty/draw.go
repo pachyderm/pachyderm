@@ -6,12 +6,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const (
-	maxLabelLen        = 10
+	// maxLabelLen        = 10
 	boxWidth           = 11
 	padding            = 10
 	layerVerticalSpace = 5
@@ -79,7 +80,6 @@ type vertex struct {
 	layer     int
 	rowOffset int
 	red       bool
-	green     bool
 }
 
 func newVertex(label string) *vertex {
@@ -116,16 +116,19 @@ func Draw(pis []*pps.PipelineInfo) (string, error) {
 func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 	vMap := make(map[string]*vertex)
 	vs := make([]*vertex, 0)
-	upsertVertex := func(name string) *vertex {
+	upsertVertex := func(name string, lastState pps.JobState) *vertex {
 		v := newVertex(name)
 		if _, ok := vMap[name]; !ok {
 			vMap[name] = v
 			vs = append(vs, v)
 		}
+		if lastState == pps.JobState_JOB_FAILURE {
+			vMap[name].red = true
+		}
 		return vMap[name]
 	}
 	for _, pi := range pis {
-		pv := upsertVertex(pi.Pipeline.Name)
+		pv := upsertVertex(pi.Pipeline.Name, pi.LastJobState)
 		if err := pps.VisitInput(pi.Details.Input, func(input *pps.Input) error {
 			var name string
 			if input.Pfs != nil {
@@ -135,7 +138,7 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 			} else {
 				return nil
 			}
-			iv := upsertVertex(name)
+			iv := upsertVertex(name, pps.JobState_JOB_STATE_UNKNOWN)
 			iv.addEdge(pv)
 			return nil
 		}); err != nil {
@@ -182,7 +185,10 @@ func renderPicture(layers [][]*vertex) string {
 		// print the row of boxed vertices
 		for j := 0; j < len(l); j++ {
 			v := l[j]
-
+			sprintFunc := color.New(color.FgGreen).SprintFunc()
+			if v.red {
+				sprintFunc = color.New(color.FgRed).SprintFunc()
+			}
 			spacing := v.rowOffset - boxWidth/2 - 1 - written // - 1 for the space taken by the bar "|"
 
 			boxPadding := strings.Repeat(" ", (boxWidth-len(v.label))/2)
@@ -192,7 +198,7 @@ func renderPicture(layers [][]*vertex) string {
 				border += hiddenRow
 				row += hiddenRow
 			} else {
-				border += fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth))
+				border += sprintFunc(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
 				row += fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadding, v, boxPadding)
 			}
 
@@ -216,7 +222,7 @@ func renderPicture(layers [][]*vertex) string {
 				row = re.render(row, j, layerVerticalSpace)
 			}
 			picture += fmt.Sprint(row)
-			picture += fmt.Sprint("\n")
+			picture += "\n"
 		}
 	}
 	return picture
@@ -224,7 +230,6 @@ func renderPicture(layers [][]*vertex) string {
 
 // TODO: write ordering algorithm
 func simpleOrder(layers [][]*vertex) {
-	return
 }
 
 // ==================================================
@@ -247,7 +252,7 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 		for _, e := range v.edges {
 			diff := v.layer - e.layer
 			if diff > 1 {
-				u := &(*e) // don't understand why this is necessary
+				u := e // don't understand why this is necessary
 				cbs = append(cbs, func() {
 					latest := v
 					for i := 0; i < diff-1; i++ {

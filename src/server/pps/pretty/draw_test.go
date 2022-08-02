@@ -11,10 +11,8 @@ func sequentialConnectedDAG(layers [][]*vertex) []*vertex {
 	for _, l := range layers {
 		for _, v := range l {
 			vs = append(vs, v)
-			if prevLayer != nil {
-				for _, pv := range prevLayer {
-					pv.addEdge(v)
-				}
+			for _, pv := range prevLayer {
+				pv.addEdge(v)
 			}
 		}
 		prevLayer = l
