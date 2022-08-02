@@ -36,11 +36,6 @@ func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) 
 }
 
 func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSInput) (string, error) {
-	if input.Commit == "" {
-		// this can happen if a pipeline with multiple inputs has been triggered
-		// before all commits have inputs
-		return CreateEmptyFileSet(pachClient)
-	}
 	var outputFileSetID string
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
