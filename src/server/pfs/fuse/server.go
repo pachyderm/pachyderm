@@ -27,7 +27,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 type ServerOptions struct {
@@ -43,7 +45,7 @@ type ConfigRequest struct {
 }
 
 type MountRequest struct {
-	Mounts []MountInfo `json:"mounts"`
+	Mounts []*MountInfo `json:"mounts"`
 }
 
 type UnmountRequest struct {
@@ -52,6 +54,15 @@ type UnmountRequest struct {
 
 type CommitRequest struct {
 	Mount string `json:"mount"`
+}
+
+type MountDatumRequest struct {
+	Input string `json:"input"`
+}
+
+type MountDatumResponse struct {
+	DatumId  string `json:"datum_id"`
+	DatumIdx int    `json:"datum_idx"`
 }
 
 type MountInfo struct {
@@ -64,7 +75,7 @@ type MountInfo struct {
 }
 
 type Request struct {
-	MountInfo
+	*MountInfo
 	Action string // default empty, set to "commit" if we want to commit (verb) a mounted branch
 }
 
@@ -82,6 +93,9 @@ type MountManager struct {
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
+
+	Datums []*pps.DatumInfo
+
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
 	root     *loopbackRoot
@@ -243,13 +257,13 @@ func (mm *MountManager) MaybeStartFsm(name string) {
 	} // else: fsm was already running
 }
 
-func (mm *MountManager) MountRepo(minfo MountInfo) (Response, error) {
-	mm.MaybeStartFsm(minfo.Name)
-	mm.States[minfo.Name].requests <- Request{
+func (mm *MountManager) MountRepo(mi *MountInfo) (Response, error) {
+	mm.MaybeStartFsm(mi.Name)
+	mm.States[mi.Name].requests <- Request{
 		Action:    "mount",
-		MountInfo: minfo,
+		MountInfo: mi,
 	}
-	response := <-mm.States[minfo.Name].responses
+	response := <-mm.States[mi.Name].responses
 	return response, response.Error
 }
 
@@ -439,6 +453,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
+		if len(mm.Datums) > 0 {
+			http.Error(w, "can't mount repos while in mounted datum mode", http.StatusBadRequest)
+		}
 
 		// Verify request payload
 		var mreq MountRequest
@@ -459,8 +476,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		for _, minfo := range mreq.Mounts {
-			_, err = mm.MountRepo(minfo)
+		for _, mi := range mreq.Mounts {
+			_, err = mm.MountRepo(mi)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -483,6 +500,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
+		}
+		if len(mm.Datums) > 0 {
+			http.Error(w, "can't unmount repos while in mounted datum mode", http.StatusBadRequest)
 		}
 
 		var umreq UnmountRequest
@@ -560,6 +580,61 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		marshalled, err := jsonMarshal(lm)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+		mm.Datums = []*pps.DatumInfo{}
+	})
+	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
+		var mdreq MountDatumRequest
+		err := json.NewDecoder(req.Body).Decode(&mdreq)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		pipelineReader, err := ppsutil.NewPipelineManifestReader([]byte(mdreq.Input))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mm.Datums, err = mm.Client.ListDatumInputAll(pipelineReq.Input)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
+			return
+		}
+
+		logrus.Infof("Mounting first datum (%s)", mm.Datums[0].Datum.ID)
+		mis := datumToMounts(mm.Datums[0])
+		for _, mi := range mis {
+			_, err = mm.MountRepo(mi)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		resp := MountDatumResponse{
+			DatumId:  mm.Datums[0].Datum.ID,
+			DatumIdx: 0,
+		}
+		marshalled, err := jsonMarshal(resp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -850,8 +925,8 @@ func hasRepoWrite(permissions []auth.Permission) bool {
 	return false
 }
 
-func verifyMountRequest(minfos []MountInfo, lr ListRepoResponse) error {
-	for _, mi := range minfos {
+func verifyMountRequest(mis []*MountInfo, lr ListRepoResponse) error {
+	for _, mi := range mis {
 		if mi.Name == "" {
 			return errors.Errorf("no name specified in request %+v", mi)
 		}
@@ -874,6 +949,43 @@ func verifyMountRequest(minfos []MountInfo, lr ListRepoResponse) error {
 	}
 
 	return nil
+}
+
+func datumToMounts(d *pps.DatumInfo) []*MountInfo {
+	mounts := map[string]*MountInfo{}
+	files := map[string]map[string]bool{}
+	for _, fi := range d.Data {
+		repo := fi.File.Commit.Branch.Repo.Name
+		branch := fi.File.Commit.Branch.Name
+		// TODO: add commit here
+		mount := repo
+		if branch != "master" {
+			mount = mount + "_" + branch
+		}
+
+		if mi, ok := mounts[mount]; ok {
+			if _, ok := files[mount][fi.File.Path]; !ok {
+				mi.Files = append(mi.Files, fi.File.Path)
+				mounts[mount] = mi
+				files[mount][fi.File.Path] = true
+			}
+		} else {
+			mi := &MountInfo{
+				Name:   mount,
+				Repo:   repo,
+				Branch: branch,
+				Files:  []string{fi.File.Path},
+				Mode:   "rw",
+			}
+			mounts[mount] = mi
+		}
+	}
+
+	mis := []*MountInfo{}
+	for _, mi := range mounts {
+		mis = append(mis, mi)
+	}
+	return mis
 }
 
 type MountState struct {
