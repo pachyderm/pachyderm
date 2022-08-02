@@ -338,6 +338,9 @@ loki-stack:
 
 pachd:
   enabled: true
+  preflightChecks:
+    # if enabled runs kube validation preflight checks.
+    enabled: true
   affinity: {}
   annotations: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
