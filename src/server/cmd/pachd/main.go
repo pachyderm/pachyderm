@@ -84,7 +84,12 @@ func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
-
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		log.Error("unable to read build info")
+	} else {
+		log.Infof("raw build info: %v", info)
+	}
 	log.Infof("pretty version info: %v", version.PrettyVersion())
 	log.Infof("version info: %v", version.Version)
 
