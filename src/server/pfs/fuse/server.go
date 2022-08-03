@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,13 +58,10 @@ type CommitRequest struct {
 	Mount string `json:"mount"`
 }
 
-type MountDatumRequest struct {
-	Input string `json:"input"`
-}
-
 type MountDatumResponse struct {
-	DatumId  string `json:"datum_id"`
-	DatumIdx int    `json:"datum_idx"`
+	DatumId   string `json:"datum_id"`
+	DatumIdx  int    `json:"datum_idx"`
+	NumDatums int    `json:"num_datums"`
 }
 
 type MountInfo struct {
@@ -166,6 +165,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 		return mr, err
 	}
 	for _, repo := range repos {
+		repoBranches[repo.Repo.Name] = map[string]bool{}
 		rr := RepoResponse{Repo: repo.Repo.Name}
 		readAccess := true
 		if repo.AuthInfo != nil {
@@ -199,17 +199,14 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 				return mr, err
 			}
 			mr.Mounted[name] = msm.MountState
-
-			if _, ok := repoBranches[msm.Repo][msm.Branch]; ok {
-				delete(repoBranches[msm.Repo], msm.Branch)
-			}
+			delete(repoBranches[msm.Repo], msm.Branch)
 		}
 	}
 
 	// Populate list of unmounted branches for each repo in Unmounted section.
 	for repo, umbranches := range repoBranches {
 		if rr, ok := mr.Unmounted[repo]; ok {
-			for branch, _ := range umbranches {
+			for branch := range umbranches {
 				rr.Branches = append(rr.Branches, branch)
 			}
 			if len(rr.Branches) == 0 {
@@ -459,6 +456,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 		// Verify request payload
 		var mreq MountRequest
+		defer req.Body.Close()
 		err := json.NewDecoder(req.Body).Decode(&mreq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -506,6 +504,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		var umreq UnmountRequest
+		defer req.Body.Close()
 		err := json.NewDecoder(req.Body).Decode(&umreq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -540,6 +539,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		var creq CommitRequest
+		defer req.Body.Close()
 		err := json.NewDecoder(req.Body).Decode(&creq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -594,13 +594,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		var mdreq MountDatumRequest
-		err := json.NewDecoder(req.Body).Decode(&mdreq)
+		defer req.Body.Close()
+		pipelineBytes, err := io.ReadAll(req.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		pipelineReader, err := ppsutil.NewPipelineManifestReader([]byte(mdreq.Input))
+		pipelineReader, err := ppsutil.NewPipelineManifestReader(pipelineBytes)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -622,6 +622,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 		logrus.Infof("Mounting first datum (%s)", mm.Datums[0].Datum.ID)
 		mis := datumToMounts(mm.Datums[0])
+		err = mm.UnmountAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		for _, mi := range mis {
 			_, err = mm.MountRepo(mi)
 			if err != nil {
@@ -631,8 +636,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		resp := MountDatumResponse{
-			DatumId:  mm.Datums[0].Datum.ID,
-			DatumIdx: 0,
+			DatumId:   mm.Datums[0].Datum.ID,
+			DatumIdx:  0,
+			NumDatums: len(mm.Datums),
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
@@ -641,6 +647,75 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled)
 	})
+	router.Methods("PUT").
+		Path("/_show_datum").
+		Queries("idx", "{idx:[0-9]+}").
+		Queries("id", "{id:[a-zA-Z0-9]+}").
+		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			errMsg, webCode := initialChecks(mm, true)
+			if errMsg != "" {
+				http.Error(w, errMsg, webCode)
+				return
+			}
+			if len(mm.Datums) == 0 {
+				http.Error(w, "no datums mounted", http.StatusBadRequest)
+				return
+			}
+
+			vs := mux.Vars(req)
+			idxStr, okIdx := vs["idx"]
+			idx, err := strconv.Atoi(idxStr)
+			if err != nil {
+				http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
+				return
+			}
+			id, okId := vs["id"]
+			if !okIdx && !okId {
+				http.Error(w, "need to specify either datum idx or id", http.StatusBadRequest)
+				return
+			}
+			var di *pps.DatumInfo
+			if okId {
+				foundDatum := false
+				for idx, di = range mm.Datums {
+					if di.Datum.ID == id {
+						foundDatum = true
+						break
+					}
+				}
+				if !foundDatum {
+					http.Error(w, "specify a valid datum id", http.StatusBadRequest)
+					return
+				}
+			} else {
+				di = mm.Datums[idx]
+			}
+			mis := datumToMounts(di)
+			err = mm.UnmountAll()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			for _, mi := range mis {
+				_, err := mm.MountRepo(mi)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+			}
+
+			resp := MountDatumResponse{
+				DatumId:   di.Datum.ID,
+				DatumIdx:  idx,
+				NumDatums: len(mm.Datums),
+			}
+			marshalled, err := jsonMarshal(resp)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write(marshalled)
+		})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
 		if errMsg != "" {
@@ -668,6 +743,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		defer mm.configMu.Unlock()
 
 		var cfgReq ConfigRequest
+		defer req.Body.Close()
 		err := json.NewDecoder(req.Body).Decode(&cfgReq)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
