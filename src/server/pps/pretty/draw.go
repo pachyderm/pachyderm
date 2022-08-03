@@ -201,9 +201,9 @@ func renderPicture(layers [][]*vertex) string {
 		// print the row of boxed vertices
 		for j := 0; j < len(l); j++ {
 			v := l[j]
-			sprintFunc := color.New(color.FgGreen).SprintFunc()
+			sprintFunc := color.New(color.FgHiGreen).SprintFunc()
 			if v.red {
-				sprintFunc = color.New(color.FgRed).SprintFunc()
+				sprintFunc = color.New(color.FgHiRed).SprintFunc()
 			}
 			spacing := v.rowOffset - (boxWidth+2)/2 - written
 
@@ -215,9 +215,9 @@ func renderPicture(layers [][]*vertex) string {
 				row += hiddenRow
 			} else {
 				border += sprintFunc(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
-				row += fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight)
+				row += sprintFunc(fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight))
 			}
-			written = len(row)
+			written = spacing + len(boxPadLeft) + len(v.label) + len(boxPadRight) + 2
 			for _, u := range v.edges {
 				renderEdges = append(renderEdges, renderEdge{src: v.rowOffset, dest: u.rowOffset})
 			}
