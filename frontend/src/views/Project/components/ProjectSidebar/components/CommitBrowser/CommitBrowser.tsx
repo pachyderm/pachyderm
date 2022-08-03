@@ -25,6 +25,8 @@ import BranchBrowser from './components/BranchBrowser';
 import CommitTime from './components/CommitTime';
 
 const emptyRepoMessage = 'Commit your first file on this repo!';
+const errorMessage = `Sorry! We're currently having trouble loading the list of commits.`;
+const errorMessageAction = 'Please refresh the page';
 
 type CommitBrowserProps = {
   repo?: RepoQuery['repo'];
@@ -41,7 +43,7 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
   const selectedBranch =
     branchId === 'default' ? repo?.branches[0].name : branchId;
 
-  const {commits, loading} = useCommits({
+  const {commits, loading, error} = useCommits({
     args: {
       projectId,
       repoName: repoId,
@@ -61,6 +63,12 @@ const CommitBrowser: React.FC<CommitBrowserProps> = ({repo, repoBaseRef}) => {
       >
         <LoadingDots />
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <EmptyState title={errorMessage} message={errorMessageAction} error />
     );
   }
 

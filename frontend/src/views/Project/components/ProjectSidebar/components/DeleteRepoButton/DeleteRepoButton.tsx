@@ -1,6 +1,8 @@
 import {TrashSVG, Tooltip, BasicModal, Button} from '@pachyderm/components';
 import React from 'react';
 
+import getServerErrorMessage from 'lib/errorHandling';
+
 import useDeleteRepoButton from './hooks/useDeleteRepoButton';
 
 const DeleteRepoButton: React.FC = () => {
@@ -23,7 +25,7 @@ const DeleteRepoButton: React.FC = () => {
           updating={updating}
           loading={false}
           disabled={updating}
-          errorMessage={error && 'Error deleting repo. Please try again later.'}
+          errorMessage={getServerErrorMessage(error)}
         >
           Deleting this repo will erase all data inside it.
         </BasicModal>

@@ -1,6 +1,8 @@
 import {TrashSVG, Tooltip, BasicModal, Button} from '@pachyderm/components';
 import React from 'react';
 
+import getServerErrorMessage from 'lib/errorHandling';
+
 import useDeletePipelineButton from './hooks/useDeletePipelineButton';
 
 const DeletePipelineButton: React.FC = () => {
@@ -23,9 +25,7 @@ const DeletePipelineButton: React.FC = () => {
           updating={updating}
           loading={false}
           disabled={updating}
-          errorMessage={
-            error && 'Error deleting pipeline. Please try again later.'
-          }
+          errorMessage={getServerErrorMessage(error)}
         >
           Deleting this pipeline will erase all data inside it.
         </BasicModal>
