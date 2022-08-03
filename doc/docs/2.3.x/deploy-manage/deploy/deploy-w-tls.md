@@ -48,6 +48,13 @@ Et voila!
 
     If you are using a custom ca-signed cert, **you must include the full certificate chain in the root.crt file**.
 
+## Connect to Pachyderm via  Proxy Server
+
+If you use Kubernetes cluster-wide proxies to control outbound access, use the following attributes to propagate your required settings:
+
+-  `global.proxy`: Sets the HTTP/S proxy server address for Console, PachD, and Enterprise Server. 
+-  `global.noProxy`: Define a comma-separated list of destinations that bypass the proxy if `global.proxy` is being used.
+
 
 !!! Attention 
     We are now shipping Pachyderm with an **embedded proxy** 
