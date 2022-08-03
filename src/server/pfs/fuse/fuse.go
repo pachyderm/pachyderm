@@ -160,7 +160,8 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 					retErr = errors.WithStack(err)
 				}
 			}()
-			return mfc.PutFile(pathpkg.Join(parts[1:]...), f)
+			ro := opts.RepoOptions[name]
+			return mfc.PutFile(pathpkg.Join(parts[1:]...), f, client.WithDatumPutFile(ro.Datum))
 		}(); err != nil {
 			return err
 		}

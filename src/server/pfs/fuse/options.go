@@ -44,6 +44,10 @@ type RepoOptions struct {
 	// Commit string
 	// Write indicates that the repo should be mounted for writing.
 	Write bool
+
+	// Datum is the datum that should be used when writing files into the
+	// commit. This is useful when simulating a pipeline using fuse.
+	Datum string
 }
 
 func (o *Options) getFuse() *fs.Options {

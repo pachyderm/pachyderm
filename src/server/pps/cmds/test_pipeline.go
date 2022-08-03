@@ -145,6 +145,7 @@ func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit
 				Name:  "out",
 				File:  &pfs.File{Commit: outCommits[request.Pipeline.Name]},
 				Write: true,
+				Datum: di.Datum.ID,
 			}
 			unmount := make(chan struct{})
 			unmounted := make(chan struct{})
