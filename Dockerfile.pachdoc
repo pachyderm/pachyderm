@@ -8,7 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apt-get install -y mkdocs
 
 COPY . /usr/src/app/
-ENV GITHUB_TOKEN=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
 RUN ./build.sh
 
 
