@@ -52,12 +52,12 @@ func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 		}
 		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.OutputDeleteFileSetId, csdt.MetaDeleteFileSetId)
 	case types.Is(output, &CreateDatumSetsTaskResult{}):
-	case types.Is(output, &DatumSet{}):
-		ds, err := deserializeDatumSet(output)
+	case types.Is(output, &DatumSetTaskResult{}):
+		dst, err := deserializeDatumSetTaskResult(output)
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, ds.FileSetId, ds.OutputFileSetId, ds.MetaFileSetId)
+		fileSetIds = append(fileSetIds, dst.OutputFileSetId, dst.MetaFileSetId)
 	default:
 		return errors.Errorf("unrecognized any type (%v) in transform cache", output.TypeUrl)
 	}

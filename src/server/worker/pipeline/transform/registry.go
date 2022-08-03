@@ -321,8 +321,8 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 	}
 	var inputs []*types.Any
 	for _, datumSet := range datumSets {
-		input, err := serializeDatumSet(&DatumSet{
-			JobID:        pj.ji.Job.ID,
+		input, err := serializeDatumSetTask(&DatumSetTask{
+			Job:          pj.ji.Job,
 			FileSetId:    fileSetID,
 			PathRange:    datumSet,
 			OutputCommit: pj.commitInfo.Commit,
@@ -338,7 +338,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 		if err != nil {
 			return err
 		}
-		result, err := deserializeDatumSet(output)
+		result, err := deserializeDatumSetTaskResult(output)
 		if err != nil {
 			return err
 		}
@@ -461,20 +461,23 @@ func deserializeCreateDatumSetsTaskResult(taskAny *types.Any) (*CreateDatumSetsT
 	return task, nil
 }
 
-func serializeDatumSet(data *DatumSet) (*types.Any, error) {
-	serialized, err := types.MarshalAny(data)
+func serializeDatumSetTask(task *DatumSetTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return serialized, nil
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
 }
 
-func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
-	data := &DatumSet{}
-	if err := types.UnmarshalAny(any, data); err != nil {
+func deserializeDatumSetTaskResult(taskAny *types.Any) (*DatumSetTaskResult, error) {
+	task := &DatumSetTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return data, nil
+	return task, nil
 }
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {

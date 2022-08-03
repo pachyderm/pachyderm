@@ -42,19 +42,19 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				pachClient := driver.PachClient().WithCtx(ctx)
 				return datum.ProcessTask(pachClient, input)
 			case types.Is(input, &CreateParallelDatumsTask{}):
-				computeParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
+				createParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return processCreateParallelDatumsTask(pachClient, computeParallelDatumsTask)
+				return processCreateParallelDatumsTask(pachClient, createParallelDatumsTask)
 			case types.Is(input, &CreateSerialDatumsTask{}):
-				computeSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
+				createSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return processCreateSerialDatumsTask(pachClient, computeSerialDatumsTask)
+				return processCreateSerialDatumsTask(pachClient, createSerialDatumsTask)
 			case types.Is(input, &CreateDatumSetsTask{}):
 				createDatumSetsTask, err := deserializeCreateDatumSetsTask(input)
 				if err != nil {
@@ -62,9 +62,13 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				}
 				driver := driver.WithContext(ctx)
 				return processCreateDatumSetsTask(driver, createDatumSetsTask)
-			case types.Is(input, &DatumSet{}):
+			case types.Is(input, &DatumSetTask{}):
+				datumSetTask, err := deserializeDatumSetTask(input)
+				if err != nil {
+					return nil, err
+				}
 				driver := driver.WithContext(ctx)
-				return processDatumSet(driver, logger, input, status)
+				return processDatumSetTask(driver, logger, datumSetTask, status)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in transform worker", input.TypeUrl)
 			}
@@ -81,7 +85,7 @@ func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateP
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits = append(dits, dit)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-parallel", func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-create-parallel-datums", func(outputSet *datum.Set) error {
 		return datum.Merge(dits, func(metas []*datum.Meta) error {
 			// Datum exists in both jobs.
 			if len(metas) > 1 {
@@ -117,7 +121,7 @@ func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSer
 	}
 	var metaDeleteFileSetID, outputDeleteFileSetID string
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-datums-compute-serial", func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-create-serial-datums", func(outputSet *datum.Set) error {
 		var err error
 		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(pachClient, task.BaseMetaCommit, func(deleter datum.Deleter) error {
 			return datum.Merge(dits, func(metas []*datum.Meta) error {
@@ -212,26 +216,20 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 // datum queuing (probably should be handled by datum package).
 // capture datum logs.
 // git inputs.
-func processDatumSet(driver driver.Driver, logger logs.TaggedLogger, input *types.Any, status *Status) (*types.Any, error) {
-	datumSet, err := deserializeDatumSet(input)
-	if err != nil {
-		return nil, err
-	}
+func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*types.Any, error) {
 	var output *types.Any
-	if err := status.withJob(datumSet.JobID, func() error {
-		logger = logger.WithJob(datumSet.JobID)
-		if err := logger.LogStep("datum task", func() error {
+	if err := status.withJob(task.Job.ID, func() error {
+		logger = logger.WithJob(task.Job.ID)
+		return logger.LogStep("process datum set task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
 					return err
 				}
 			}
-			return handleDatumSet(driver, logger, datumSet, status)
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		output, err = serializeDatumSet(datumSet)
-		return err
+			var err error
+			output, err = handleDatumSet(driver, logger, task, status)
+			return err
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -260,17 +258,11 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 	// return nil
 }
 
-func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *DatumSet, status *Status) error {
+func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*types.Any, error) {
 	pachClient := driver.PachClient()
-	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
-	// The sets would just create a temporary directory under /tmp.
-	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
-	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
-	if err != nil {
-		return errors.Wrap(err, "could not get user image ID")
-	}
-	return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+	var outputFileSetID, metaFileSetID string
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Setup file operation client for output meta commit.
 		resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 			// Setup file operation client for output PFS commit.
@@ -278,13 +270,20 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 				opts := []datum.SetOption{
 					datum.WithMetaOutput(mfMeta),
 					datum.WithPFSOutput(mfPFS),
-					datum.WithStats(datumSet.Stats),
+					datum.WithStats(stats),
 				}
 				pachClient := pachClient.WithCtx(ctx)
 				cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+				// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
+				// The sets would just create a temporary directory under /tmp.
+				storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+				userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
+				if err != nil {
+					return errors.Wrap(err, "could not get user image ID")
+				}
 				// Setup datum set for processing.
 				return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
-					di := datum.NewFileSetIterator(pachClient, datumSet.FileSetId, datumSet.PathRange)
+					di := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
 					// Process each datum in the assigned datum set.
 					err := di.Iterate(func(meta *datum.Meta) error {
 						ctx := pachClient.Ctx()
@@ -292,7 +291,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 						meta.ImageId = userImageID
 						inputs := meta.Inputs
 						logger = logger.WithData(inputs)
-						env := driver.UserCodeEnv(logger.JobID(), datumSet.OutputCommit, inputs)
+						env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs)
 						var opts []datum.Option
 						if driver.PipelineInfo().Details.DatumTimeout != nil {
 							timeout, err := types.DurationFromProto(driver.PipelineInfo().Details.DatumTimeout)
@@ -330,14 +329,21 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 			if err != nil {
 				return err
 			}
-			datumSet.OutputFileSetId = resp.FileSetId
-			return renewer.Add(ctx, datumSet.OutputFileSetId)
+			outputFileSetID = resp.FileSetId
+			return renewer.Add(ctx, outputFileSetID)
 		})
 		if err != nil {
 			return err
 		}
-		datumSet.MetaFileSetId = resp.FileSetId
-		return renewer.Add(ctx, datumSet.MetaFileSetId)
+		metaFileSetID = resp.FileSetId
+		return renewer.Add(ctx, metaFileSetID)
+	}); err != nil {
+		return nil, err
+	}
+	return serializeDatumSetTaskResult(&DatumSetTaskResult{
+		OutputFileSetId: outputFileSetID,
+		MetaFileSetId:   metaFileSetID,
+		Stats:           stats,
 	})
 }
 
@@ -388,6 +394,25 @@ func deserializeCreateDatumSetsTask(taskAny *types.Any) (*CreateDatumSetsTask, e
 }
 
 func serializeCreateDatumSetsTaskResult(task *CreateDatumSetsTaskResult) (*types.Any, error) {
+	data, err := proto.Marshal(task)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
+}
+
+func deserializeDatumSetTask(taskAny *types.Any) (*DatumSetTask, error) {
+	task := &DatumSetTask{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return task, nil
+}
+
+func serializeDatumSetTaskResult(task *DatumSetTaskResult) (*types.Any, error) {
 	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

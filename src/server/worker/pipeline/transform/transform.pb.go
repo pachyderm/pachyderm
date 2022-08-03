@@ -26,103 +26,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-type DatumSet struct {
-	// Inputs
-	JobID        string         `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	FileSetId    string         `protobuf:"bytes,2,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
-	PathRange    *pfs.PathRange `protobuf:"bytes,3,opt,name=path_range,json=pathRange,proto3" json:"path_range,omitempty"`
-	OutputCommit *pfs.Commit    `protobuf:"bytes,4,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
-	// Outputs
-	OutputFileSetId      string       `protobuf:"bytes,5,opt,name=output_file_set_id,json=outputFileSetId,proto3" json:"output_file_set_id,omitempty"`
-	MetaFileSetId        string       `protobuf:"bytes,6,opt,name=meta_file_set_id,json=metaFileSetId,proto3" json:"meta_file_set_id,omitempty"`
-	Stats                *datum.Stats `protobuf:"bytes,7,opt,name=stats,proto3" json:"stats,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
-}
-
-func (m *DatumSet) Reset()         { *m = DatumSet{} }
-func (m *DatumSet) String() string { return proto.CompactTextString(m) }
-func (*DatumSet) ProtoMessage()    {}
-func (*DatumSet) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{0}
-}
-func (m *DatumSet) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *DatumSet) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_DatumSet.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *DatumSet) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_DatumSet.Merge(m, src)
-}
-func (m *DatumSet) XXX_Size() int {
-	return m.Size()
-}
-func (m *DatumSet) XXX_DiscardUnknown() {
-	xxx_messageInfo_DatumSet.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_DatumSet proto.InternalMessageInfo
-
-func (m *DatumSet) GetJobID() string {
-	if m != nil {
-		return m.JobID
-	}
-	return ""
-}
-
-func (m *DatumSet) GetFileSetId() string {
-	if m != nil {
-		return m.FileSetId
-	}
-	return ""
-}
-
-func (m *DatumSet) GetPathRange() *pfs.PathRange {
-	if m != nil {
-		return m.PathRange
-	}
-	return nil
-}
-
-func (m *DatumSet) GetOutputCommit() *pfs.Commit {
-	if m != nil {
-		return m.OutputCommit
-	}
-	return nil
-}
-
-func (m *DatumSet) GetOutputFileSetId() string {
-	if m != nil {
-		return m.OutputFileSetId
-	}
-	return ""
-}
-
-func (m *DatumSet) GetMetaFileSetId() string {
-	if m != nil {
-		return m.MetaFileSetId
-	}
-	return ""
-}
-
-func (m *DatumSet) GetStats() *datum.Stats {
-	if m != nil {
-		return m.Stats
-	}
-	return nil
-}
-
 type CreateParallelDatumsTask struct {
 	Job                  *pps.Job       `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	Salt                 string         `protobuf:"bytes,2,opt,name=salt,proto3" json:"salt,omitempty"`
@@ -138,7 +41,7 @@ func (m *CreateParallelDatumsTask) Reset()         { *m = CreateParallelDatumsTa
 func (m *CreateParallelDatumsTask) String() string { return proto.CompactTextString(m) }
 func (*CreateParallelDatumsTask) ProtoMessage()    {}
 func (*CreateParallelDatumsTask) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{1}
+	return fileDescriptor_21583a759eb7fa97, []int{0}
 }
 func (m *CreateParallelDatumsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -214,7 +117,7 @@ func (m *CreateParallelDatumsTaskResult) Reset()         { *m = CreateParallelDa
 func (m *CreateParallelDatumsTaskResult) String() string { return proto.CompactTextString(m) }
 func (*CreateParallelDatumsTaskResult) ProtoMessage()    {}
 func (*CreateParallelDatumsTaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{2}
+	return fileDescriptor_21583a759eb7fa97, []int{1}
 }
 func (m *CreateParallelDatumsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -273,7 +176,7 @@ func (m *CreateSerialDatumsTask) Reset()         { *m = CreateSerialDatumsTask{}
 func (m *CreateSerialDatumsTask) String() string { return proto.CompactTextString(m) }
 func (*CreateSerialDatumsTask) ProtoMessage()    {}
 func (*CreateSerialDatumsTask) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{3}
+	return fileDescriptor_21583a759eb7fa97, []int{2}
 }
 func (m *CreateSerialDatumsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -358,7 +261,7 @@ func (m *CreateSerialDatumsTaskResult) Reset()         { *m = CreateSerialDatums
 func (m *CreateSerialDatumsTaskResult) String() string { return proto.CompactTextString(m) }
 func (*CreateSerialDatumsTaskResult) ProtoMessage()    {}
 func (*CreateSerialDatumsTaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{4}
+	return fileDescriptor_21583a759eb7fa97, []int{3}
 }
 func (m *CreateSerialDatumsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -428,7 +331,7 @@ func (m *CreateDatumSetsTask) Reset()         { *m = CreateDatumSetsTask{} }
 func (m *CreateDatumSetsTask) String() string { return proto.CompactTextString(m) }
 func (*CreateDatumSetsTask) ProtoMessage()    {}
 func (*CreateDatumSetsTask) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{5}
+	return fileDescriptor_21583a759eb7fa97, []int{4}
 }
 func (m *CreateDatumSetsTask) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -489,7 +392,7 @@ func (m *CreateDatumSetsTaskResult) Reset()         { *m = CreateDatumSetsTaskRe
 func (m *CreateDatumSetsTaskResult) String() string { return proto.CompactTextString(m) }
 func (*CreateDatumSetsTaskResult) ProtoMessage()    {}
 func (*CreateDatumSetsTaskResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_21583a759eb7fa97, []int{6}
+	return fileDescriptor_21583a759eb7fa97, []int{5}
 }
 func (m *CreateDatumSetsTaskResult) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -525,14 +428,149 @@ func (m *CreateDatumSetsTaskResult) GetDatumSets() []*pfs.PathRange {
 	return nil
 }
 
+type DatumSetTask struct {
+	Job                  *pps.Job       `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	FileSetId            string         `protobuf:"bytes,2,opt,name=file_set_id,json=fileSetId,proto3" json:"file_set_id,omitempty"`
+	PathRange            *pfs.PathRange `protobuf:"bytes,3,opt,name=path_range,json=pathRange,proto3" json:"path_range,omitempty"`
+	OutputCommit         *pfs.Commit    `protobuf:"bytes,4,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
+}
+
+func (m *DatumSetTask) Reset()         { *m = DatumSetTask{} }
+func (m *DatumSetTask) String() string { return proto.CompactTextString(m) }
+func (*DatumSetTask) ProtoMessage()    {}
+func (*DatumSetTask) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21583a759eb7fa97, []int{6}
+}
+func (m *DatumSetTask) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DatumSetTask) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DatumSetTask.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DatumSetTask) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DatumSetTask.Merge(m, src)
+}
+func (m *DatumSetTask) XXX_Size() int {
+	return m.Size()
+}
+func (m *DatumSetTask) XXX_DiscardUnknown() {
+	xxx_messageInfo_DatumSetTask.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DatumSetTask proto.InternalMessageInfo
+
+func (m *DatumSetTask) GetJob() *pps.Job {
+	if m != nil {
+		return m.Job
+	}
+	return nil
+}
+
+func (m *DatumSetTask) GetFileSetId() string {
+	if m != nil {
+		return m.FileSetId
+	}
+	return ""
+}
+
+func (m *DatumSetTask) GetPathRange() *pfs.PathRange {
+	if m != nil {
+		return m.PathRange
+	}
+	return nil
+}
+
+func (m *DatumSetTask) GetOutputCommit() *pfs.Commit {
+	if m != nil {
+		return m.OutputCommit
+	}
+	return nil
+}
+
+type DatumSetTaskResult struct {
+	OutputFileSetId      string       `protobuf:"bytes,1,opt,name=output_file_set_id,json=outputFileSetId,proto3" json:"output_file_set_id,omitempty"`
+	MetaFileSetId        string       `protobuf:"bytes,2,opt,name=meta_file_set_id,json=metaFileSetId,proto3" json:"meta_file_set_id,omitempty"`
+	Stats                *datum.Stats `protobuf:"bytes,3,opt,name=stats,proto3" json:"stats,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *DatumSetTaskResult) Reset()         { *m = DatumSetTaskResult{} }
+func (m *DatumSetTaskResult) String() string { return proto.CompactTextString(m) }
+func (*DatumSetTaskResult) ProtoMessage()    {}
+func (*DatumSetTaskResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_21583a759eb7fa97, []int{7}
+}
+func (m *DatumSetTaskResult) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DatumSetTaskResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DatumSetTaskResult.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DatumSetTaskResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DatumSetTaskResult.Merge(m, src)
+}
+func (m *DatumSetTaskResult) XXX_Size() int {
+	return m.Size()
+}
+func (m *DatumSetTaskResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_DatumSetTaskResult.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DatumSetTaskResult proto.InternalMessageInfo
+
+func (m *DatumSetTaskResult) GetOutputFileSetId() string {
+	if m != nil {
+		return m.OutputFileSetId
+	}
+	return ""
+}
+
+func (m *DatumSetTaskResult) GetMetaFileSetId() string {
+	if m != nil {
+		return m.MetaFileSetId
+	}
+	return ""
+}
+
+func (m *DatumSetTaskResult) GetStats() *datum.Stats {
+	if m != nil {
+		return m.Stats
+	}
+	return nil
+}
+
 func init() {
-	proto.RegisterType((*DatumSet)(nil), "pachyderm.worker.pipeline.transform.DatumSet")
 	proto.RegisterType((*CreateParallelDatumsTask)(nil), "pachyderm.worker.pipeline.transform.CreateParallelDatumsTask")
 	proto.RegisterType((*CreateParallelDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.CreateParallelDatumsTaskResult")
 	proto.RegisterType((*CreateSerialDatumsTask)(nil), "pachyderm.worker.pipeline.transform.CreateSerialDatumsTask")
 	proto.RegisterType((*CreateSerialDatumsTaskResult)(nil), "pachyderm.worker.pipeline.transform.CreateSerialDatumsTaskResult")
 	proto.RegisterType((*CreateDatumSetsTask)(nil), "pachyderm.worker.pipeline.transform.CreateDatumSetsTask")
 	proto.RegisterType((*CreateDatumSetsTaskResult)(nil), "pachyderm.worker.pipeline.transform.CreateDatumSetsTaskResult")
+	proto.RegisterType((*DatumSetTask)(nil), "pachyderm.worker.pipeline.transform.DatumSetTask")
+	proto.RegisterType((*DatumSetTaskResult)(nil), "pachyderm.worker.pipeline.transform.DatumSetTaskResult")
 }
 
 func init() {
@@ -540,138 +578,45 @@ func init() {
 }
 
 var fileDescriptor_21583a759eb7fa97 = []byte{
-	// 628 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x94, 0xcf, 0x4e, 0xdb, 0x4e,
-	0x10, 0xc7, 0xb5, 0xf9, 0x07, 0x99, 0x00, 0x3f, 0x7e, 0xa6, 0x2d, 0x01, 0xb5, 0x21, 0x4a, 0x0f,
-	0x50, 0x55, 0xb2, 0x51, 0xe8, 0x81, 0x33, 0x20, 0x24, 0x90, 0x90, 0x90, 0xc3, 0xa9, 0x97, 0x68,
-	0x1d, 0x4f, 0x12, 0x13, 0x3b, 0xbb, 0xda, 0xdd, 0x50, 0xf5, 0x35, 0xfa, 0x1e, 0x7d, 0x0f, 0x8e,
-	0x55, 0x1f, 0xa0, 0xaa, 0xf2, 0x04, 0x7d, 0x84, 0x6a, 0x77, 0x6d, 0x43, 0x52, 0x52, 0x72, 0xe9,
-	0x25, 0x9a, 0x9d, 0xfd, 0x4e, 0xfc, 0x9d, 0xcf, 0xac, 0x06, 0x0e, 0x25, 0x8a, 0x3b, 0x14, 0xde,
-	0x27, 0x26, 0x46, 0x28, 0x3c, 0x1e, 0x71, 0x8c, 0xa3, 0x31, 0x7a, 0x4a, 0xd0, 0xb1, 0xec, 0x33,
-	0x91, 0x3c, 0x44, 0x2e, 0x17, 0x4c, 0x31, 0xe7, 0x2d, 0xa7, 0xbd, 0xe1, 0xe7, 0x10, 0x45, 0xe2,
-	0xda, 0x22, 0x37, 0x2b, 0x72, 0x73, 0xe9, 0xee, 0x8b, 0x01, 0x1b, 0x30, 0xa3, 0xf7, 0x74, 0x64,
-	0x4b, 0x77, 0xd7, 0x79, 0x5f, 0x7a, 0xbc, 0x2f, 0xf3, 0x23, 0x97, 0x1e, 0xe7, 0xd9, 0x71, 0x6f,
-	0xd6, 0x4a, 0x48, 0xd5, 0x24, 0xb1, 0xbf, 0x56, 0xd0, 0xfa, 0x5a, 0x80, 0xd5, 0x33, 0x7d, 0xee,
-	0xa0, 0x72, 0x9a, 0x50, 0xb9, 0x65, 0x41, 0x37, 0x0a, 0xeb, 0xa4, 0x49, 0x0e, 0xaa, 0x27, 0xd5,
-	0xe9, 0x8f, 0xbd, 0xf2, 0x25, 0x0b, 0x2e, 0xce, 0xfc, 0xf2, 0x2d, 0x0b, 0x2e, 0x42, 0xa7, 0x01,
-	0xb5, 0x7e, 0x14, 0x63, 0x57, 0xa2, 0xd2, 0xb2, 0x82, 0x96, 0xf9, 0x55, 0x9d, 0xea, 0xa0, 0xba,
-	0x08, 0x9d, 0x43, 0x00, 0x4e, 0xd5, 0xb0, 0x2b, 0xe8, 0x78, 0x80, 0xf5, 0x62, 0x93, 0x1c, 0xd4,
-	0xda, 0xff, 0xbb, 0xbc, 0x2f, 0xbb, 0x77, 0x6d, 0xf7, 0x9a, 0xaa, 0xa1, 0xaf, 0x2f, 0xfc, 0x2a,
-	0xcf, 0x42, 0xe7, 0x08, 0xd6, 0xd9, 0x44, 0xf1, 0x89, 0xea, 0xf6, 0x58, 0x92, 0x44, 0xaa, 0x5e,
-	0x32, 0x45, 0x1b, 0x59, 0xd1, 0xa9, 0xc9, 0xfa, 0x6b, 0x56, 0x64, 0x4f, 0xce, 0x7b, 0x70, 0xd2,
-	0xa2, 0xc7, 0x6e, 0xca, 0xc6, 0xcd, 0x7f, 0xf6, 0xe6, 0x3c, 0xf7, 0xb4, 0x0f, 0x9b, 0x09, 0x2a,
-	0x3a, 0x23, 0xad, 0x18, 0xe9, 0xba, 0xce, 0x3f, 0x08, 0x5b, 0x50, 0x96, 0x8a, 0x2a, 0x59, 0x5f,
-	0x31, 0x16, 0xd6, 0x5c, 0x0b, 0xaa, 0xa3, 0x73, 0xbe, 0xbd, 0x6a, 0xdd, 0x13, 0xa8, 0x9f, 0x0a,
-	0xa4, 0x0a, 0xaf, 0xa9, 0xa0, 0x71, 0x8c, 0xb1, 0xa1, 0x27, 0x6f, 0xa8, 0x1c, 0x39, 0x6f, 0xa0,
-	0x78, 0xcb, 0x02, 0x03, 0xaf, 0xd6, 0xae, 0xb9, 0x9c, 0x9b, 0x0e, 0x2e, 0x59, 0xe0, 0xeb, 0xbc,
-	0xe3, 0x40, 0x49, 0xd2, 0x58, 0xa5, 0xd4, 0x4c, 0x3c, 0x0f, 0xb4, 0x38, 0x0f, 0x74, 0x1f, 0x36,
-	0x03, 0x2a, 0x71, 0xc6, 0x7c, 0xc9, 0x9a, 0xd7, 0xf9, 0xf3, 0x05, 0xe4, 0xcb, 0xcf, 0x93, 0x6f,
-	0x85, 0xd0, 0x58, 0xd4, 0x89, 0x8f, 0x72, 0xf2, 0xa7, 0x39, 0x32, 0x6f, 0x2e, 0x07, 0x56, 0x58,
-	0x0c, 0xec, 0x17, 0x81, 0x57, 0xf6, 0x33, 0x1d, 0x14, 0x11, 0xfd, 0xc7, 0xb8, 0x8e, 0x53, 0x5c,
-	0x66, 0xe0, 0x7f, 0x7d, 0x50, 0x1b, 0x5a, 0x77, 0x85, 0x8a, 0xa6, 0x4f, 0x6a, 0x1b, 0x56, 0xc6,
-	0xac, 0x2b, 0x47, 0x11, 0x37, 0xf0, 0x56, 0xfd, 0xca, 0x98, 0x75, 0x46, 0x11, 0x9f, 0x03, 0x5b,
-	0x59, 0x02, 0xec, 0x77, 0x02, 0xaf, 0x9f, 0x6e, 0x79, 0x49, 0xae, 0xc7, 0xb0, 0x93, 0x3e, 0xef,
-	0x10, 0x63, 0x54, 0xb3, 0xd3, 0xb7, 0x38, 0x5e, 0x5a, 0xc1, 0x99, 0xb9, 0x7f, 0x78, 0x05, 0x1f,
-	0x60, 0xdb, 0xb4, 0xfe, 0x44, 0x9d, 0x65, 0xb5, 0xa5, 0xaf, 0xe7, 0xab, 0xf2, 0x39, 0x96, 0x16,
-	0xcf, 0xf1, 0x0b, 0x81, 0x2d, 0xdb, 0x54, 0xb6, 0x2e, 0xec, 0x10, 0x9f, 0xeb, 0x65, 0x16, 0x5f,
-	0x61, 0x89, 0x8d, 0xf0, 0x0e, 0x56, 0xf5, 0x9f, 0x49, 0x8e, 0xbd, 0x74, 0x83, 0x6c, 0x64, 0x86,
-	0x50, 0x75, 0x38, 0xf6, 0xfc, 0x15, 0x69, 0x83, 0xd6, 0x15, 0xec, 0x3c, 0xe1, 0x29, 0xa5, 0x7c,
-	0x08, 0x60, 0xca, 0xb4, 0x35, 0x59, 0x27, 0xcd, 0xe2, 0x82, 0x2f, 0x87, 0x59, 0xed, 0xc9, 0xcd,
-	0xfd, 0xb4, 0x41, 0xbe, 0x4d, 0x1b, 0xe4, 0xe7, 0xb4, 0x41, 0x3e, 0x9e, 0x0f, 0x22, 0x35, 0x9c,
-	0x04, 0x6e, 0x8f, 0x25, 0x5e, 0xbe, 0x9f, 0x1f, 0x45, 0x77, 0x6d, 0x4f, 0x8a, 0x9e, 0xf7, 0xdc,
-	0xb2, 0x0f, 0x2a, 0x66, 0xd3, 0x1e, 0xfd, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xf2, 0xf8, 0x55, 0x39,
-	0x17, 0x06, 0x00, 0x00,
-}
-
-func (m *DatumSet) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *DatumSet) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *DatumSet) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.XXX_unrecognized != nil {
-		i -= len(m.XXX_unrecognized)
-		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if m.Stats != nil {
-		{
-			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTransform(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x3a
-	}
-	if len(m.MetaFileSetId) > 0 {
-		i -= len(m.MetaFileSetId)
-		copy(dAtA[i:], m.MetaFileSetId)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.MetaFileSetId)))
-		i--
-		dAtA[i] = 0x32
-	}
-	if len(m.OutputFileSetId) > 0 {
-		i -= len(m.OutputFileSetId)
-		copy(dAtA[i:], m.OutputFileSetId)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.OutputFileSetId)))
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.OutputCommit != nil {
-		{
-			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTransform(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.PathRange != nil {
-		{
-			size, err := m.PathRange.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintTransform(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
-	}
-	if len(m.FileSetId) > 0 {
-		i -= len(m.FileSetId)
-		copy(dAtA[i:], m.FileSetId)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.FileSetId)))
-		i--
-		dAtA[i] = 0x12
-	}
-	if len(m.JobID) > 0 {
-		i -= len(m.JobID)
-		copy(dAtA[i:], m.JobID)
-		i = encodeVarintTransform(dAtA, i, uint64(len(m.JobID)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
+	// 608 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xcd, 0x6e, 0xd3, 0x40,
+	0x10, 0xd6, 0x36, 0xfd, 0x9d, 0x34, 0x05, 0x5c, 0xa0, 0x6e, 0x05, 0xa1, 0x32, 0x07, 0x8a, 0x90,
+	0xec, 0x2a, 0xe5, 0xd0, 0x33, 0xad, 0x2a, 0x81, 0x54, 0xa9, 0xb2, 0x7b, 0xe2, 0x62, 0x6d, 0xec,
+	0x49, 0x62, 0x62, 0x67, 0x57, 0xbb, 0x9b, 0x22, 0x5e, 0x82, 0x03, 0xcf, 0xc2, 0x43, 0xf4, 0x88,
+	0x78, 0x02, 0xd4, 0x27, 0xe0, 0x11, 0xd0, 0xee, 0xda, 0x69, 0x9a, 0x26, 0x4d, 0x2e, 0x5c, 0xa2,
+	0xd9, 0x99, 0x6f, 0xd6, 0xdf, 0xf7, 0xcd, 0x68, 0x03, 0x87, 0x12, 0xc5, 0x15, 0x8a, 0xe0, 0x2b,
+	0x13, 0x7d, 0x14, 0x01, 0xcf, 0x38, 0xe6, 0xd9, 0x00, 0x03, 0x25, 0xe8, 0x40, 0x76, 0x98, 0x28,
+	0x6e, 0x23, 0x9f, 0x0b, 0xa6, 0x98, 0xf3, 0x9a, 0xd3, 0xa4, 0xf7, 0x2d, 0x45, 0x51, 0xf8, 0xb6,
+	0xc9, 0xaf, 0x9a, 0xfc, 0x11, 0x74, 0xef, 0x69, 0x97, 0x75, 0x99, 0xc1, 0x07, 0x3a, 0xb2, 0xad,
+	0x7b, 0x0d, 0xde, 0x91, 0x01, 0xef, 0xc8, 0xd1, 0x91, 0xcb, 0x80, 0xf3, 0xea, 0xf8, 0xea, 0x2e,
+	0x95, 0x94, 0xaa, 0x61, 0x61, 0x7f, 0x2d, 0xc0, 0xbb, 0x26, 0xe0, 0x9e, 0x08, 0xa4, 0x0a, 0x2f,
+	0xa8, 0xa0, 0x79, 0x8e, 0xf9, 0xa9, 0xae, 0xca, 0x4b, 0x2a, 0xfb, 0xce, 0x4b, 0xa8, 0x7d, 0x61,
+	0x6d, 0x97, 0xec, 0x93, 0x83, 0x7a, 0xab, 0xee, 0x73, 0x2e, 0xe3, 0xab, 0x96, 0xff, 0x89, 0xb5,
+	0x43, 0x9d, 0x77, 0x1c, 0x58, 0x96, 0x34, 0x57, 0xee, 0xd2, 0x3e, 0x39, 0xd8, 0x08, 0x4d, 0xec,
+	0x34, 0xa1, 0xde, 0xc9, 0x72, 0x8c, 0x25, 0xaa, 0x38, 0x4b, 0xdd, 0x9a, 0x29, 0x6d, 0xe8, 0x54,
+	0x84, 0xea, 0x63, 0xea, 0xbc, 0x81, 0xc7, 0x6d, 0x2a, 0x31, 0x1e, 0x07, 0x2d, 0x1b, 0x50, 0x43,
+	0xe7, 0xcf, 0x46, 0xc0, 0x43, 0x00, 0x4e, 0x55, 0x2f, 0x16, 0x74, 0xd0, 0x45, 0x77, 0xc5, 0x50,
+	0x78, 0xe2, 0xf3, 0x8e, 0xa1, 0x70, 0x41, 0x55, 0x2f, 0xd4, 0x85, 0x70, 0x83, 0x57, 0xa1, 0x97,
+	0x42, 0x73, 0x96, 0x92, 0x10, 0xe5, 0xf0, 0x3e, 0x39, 0x32, 0x49, 0xce, 0x83, 0x15, 0xa9, 0xa8,
+	0x92, 0x46, 0x51, 0xbd, 0xb5, 0xe9, 0x5b, 0xa7, 0x22, 0x9d, 0x0b, 0x6d, 0xc9, 0xfb, 0x4b, 0xe0,
+	0xb9, 0xfd, 0x4c, 0x84, 0x22, 0xa3, 0xff, 0xd9, 0xae, 0xe3, 0xd2, 0xae, 0x02, 0x15, 0x8d, 0x13,
+	0x56, 0x14, 0x99, 0x32, 0x76, 0xd5, 0x5b, 0x5b, 0x95, 0x17, 0x27, 0x26, 0x1b, 0x6e, 0x69, 0xdc,
+	0x39, 0x2a, 0x6a, 0xcf, 0xce, 0x0e, 0xac, 0x0d, 0x58, 0x2c, 0xfb, 0x19, 0x37, 0xe6, 0xad, 0x87,
+	0xab, 0x03, 0x16, 0xf5, 0x33, 0x3e, 0x61, 0xec, 0xea, 0x02, 0xc6, 0xfe, 0x26, 0xf0, 0x62, 0xba,
+	0xe4, 0x05, 0x7d, 0x3d, 0x86, 0x5d, 0x36, 0x54, 0x7c, 0xa8, 0xe2, 0x14, 0x73, 0x54, 0x77, 0xa7,
+	0x6f, 0xed, 0x78, 0x66, 0x01, 0xa7, 0xa6, 0x7e, 0xbb, 0x05, 0xef, 0x61, 0xc7, 0x48, 0x9f, 0xd2,
+	0x67, 0xbd, 0xda, 0xd6, 0xe5, 0xc9, 0xae, 0xd1, 0x1c, 0x97, 0x67, 0xcf, 0xf1, 0x07, 0x81, 0x6d,
+	0x2b, 0xca, 0xc8, 0x89, 0x50, 0xd9, 0x21, 0xce, 0xd3, 0x72, 0xd7, 0xbe, 0xa5, 0xf9, 0xf6, 0x39,
+	0x6f, 0x61, 0x5d, 0x5f, 0x26, 0x39, 0x26, 0x86, 0xb4, 0x9e, 0x5d, 0x49, 0x08, 0x55, 0xc4, 0x31,
+	0x09, 0xd7, 0xa4, 0x0d, 0xbc, 0x73, 0xd8, 0x9d, 0xc2, 0xa9, 0x74, 0xf9, 0x10, 0xc0, 0xb4, 0x69,
+	0x6a, 0xd2, 0x25, 0xfb, 0xb5, 0x19, 0x5f, 0x4e, 0xab, 0x5e, 0xef, 0x27, 0x81, 0xcd, 0xea, 0xa6,
+	0x45, 0x36, 0x74, 0x42, 0xfb, 0xd2, 0xc3, 0xda, 0x6b, 0x0b, 0x68, 0x3f, 0x82, 0x46, 0x39, 0xf9,
+	0x07, 0x97, 0x77, 0xd3, 0x82, 0xec, 0xc9, 0xfb, 0x4e, 0xc0, 0x19, 0xa7, 0x5d, 0xea, 0x7f, 0x07,
+	0x4e, 0x79, 0xd7, 0xfd, 0x01, 0x3d, 0xb2, 0x95, 0xb3, 0xf1, 0x77, 0xc6, 0x2c, 0xce, 0x7d, 0x3d,
+	0x0d, 0x9d, 0x9f, 0xb2, 0x2b, 0xb5, 0x99, 0xbb, 0xf2, 0xe1, 0xf2, 0xfa, 0xa6, 0x49, 0x7e, 0xdd,
+	0x34, 0xc9, 0x9f, 0x9b, 0x26, 0xf9, 0x7c, 0xd6, 0xcd, 0x54, 0x6f, 0xd8, 0xf6, 0x13, 0x56, 0x04,
+	0xa3, 0x77, 0x7b, 0x2c, 0xba, 0x6a, 0x05, 0x52, 0x24, 0xc1, 0xbc, 0x3f, 0x81, 0xf6, 0xaa, 0x79,
+	0x81, 0x8f, 0xfe, 0x05, 0x00, 0x00, 0xff, 0xff, 0x52, 0x13, 0x00, 0x78, 0x2f, 0x06, 0x00, 0x00,
 }
 
 func (m *CreateParallelDatumsTask) Marshal() (dAtA []byte, err error) {
@@ -1038,6 +983,129 @@ func (m *CreateDatumSetsTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
+func (m *DatumSetTask) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DatumSetTask) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DatumSetTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.OutputCommit != nil {
+		{
+			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransform(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.PathRange != nil {
+		{
+			size, err := m.PathRange.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransform(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.FileSetId) > 0 {
+		i -= len(m.FileSetId)
+		copy(dAtA[i:], m.FileSetId)
+		i = encodeVarintTransform(dAtA, i, uint64(len(m.FileSetId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransform(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *DatumSetTaskResult) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DatumSetTaskResult) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DatumSetTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTransform(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.MetaFileSetId) > 0 {
+		i -= len(m.MetaFileSetId)
+		copy(dAtA[i:], m.MetaFileSetId)
+		i = encodeVarintTransform(dAtA, i, uint64(len(m.MetaFileSetId)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.OutputFileSetId) > 0 {
+		i -= len(m.OutputFileSetId)
+		copy(dAtA[i:], m.OutputFileSetId)
+		i = encodeVarintTransform(dAtA, i, uint64(len(m.OutputFileSetId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTransform(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTransform(v)
 	base := offset
@@ -1049,46 +1117,6 @@ func encodeVarintTransform(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *DatumSet) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.JobID)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	l = len(m.FileSetId)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	if m.PathRange != nil {
-		l = m.PathRange.Size()
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	if m.OutputCommit != nil {
-		l = m.OutputCommit.Size()
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	l = len(m.OutputFileSetId)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	l = len(m.MetaFileSetId)
-	if l > 0 {
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	if m.Stats != nil {
-		l = m.Stats.Size()
-		n += 1 + l + sovTransform(uint64(l))
-	}
-	if m.XXX_unrecognized != nil {
-		n += len(m.XXX_unrecognized)
-	}
-	return n
-}
-
 func (m *CreateParallelDatumsTask) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1246,298 +1274,63 @@ func (m *CreateDatumSetsTaskResult) Size() (n int) {
 	return n
 }
 
+func (m *DatumSetTask) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Job != nil {
+		l = m.Job.Size()
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	l = len(m.FileSetId)
+	if l > 0 {
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.PathRange != nil {
+		l = m.PathRange.Size()
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.OutputCommit != nil {
+		l = m.OutputCommit.Size()
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *DatumSetTaskResult) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.OutputFileSetId)
+	if l > 0 {
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	l = len(m.MetaFileSetId)
+	if l > 0 {
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.Stats != nil {
+		l = m.Stats.Size()
+		n += 1 + l + sovTransform(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func sovTransform(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozTransform(x uint64) (n int) {
 	return sovTransform(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *DatumSet) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTransform
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: DatumSet: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: DatumSet: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field JobID", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.JobID = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FileSetId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.FileSetId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PathRange", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.PathRange == nil {
-				m.PathRange = &pfs.PathRange{}
-			}
-			if err := m.PathRange.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OutputCommit", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.OutputCommit == nil {
-				m.OutputCommit = &pfs.Commit{}
-			}
-			if err := m.OutputCommit.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OutputFileSetId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.OutputFileSetId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MetaFileSetId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.MetaFileSetId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransform
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransform
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Stats == nil {
-				m.Stats = &datum.Stats{}
-			}
-			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTransform(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthTransform
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 func (m *CreateParallelDatumsTask) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -2518,6 +2311,348 @@ func (m *CreateDatumSetsTaskResult) Unmarshal(dAtA []byte) error {
 			}
 			m.DatumSets = append(m.DatumSets, &pfs.PathRange{})
 			if err := m.DatumSets[len(m.DatumSets)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransform(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DatumSetTask) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransform
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DatumSetTask: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DatumSetTask: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Job", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Job == nil {
+				m.Job = &pps.Job{}
+			}
+			if err := m.Job.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FileSetId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.FileSetId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PathRange", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.PathRange == nil {
+				m.PathRange = &pfs.PathRange{}
+			}
+			if err := m.PathRange.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutputCommit", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.OutputCommit == nil {
+				m.OutputCommit = &pfs.Commit{}
+			}
+			if err := m.OutputCommit.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransform(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DatumSetTaskResult) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransform
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DatumSetTaskResult: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DatumSetTaskResult: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field OutputFileSetId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.OutputFileSetId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MetaFileSetId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MetaFileSetId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTransform
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTransform
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTransform
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Stats == nil {
+				m.Stats = &datum.Stats{}
+			}
+			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

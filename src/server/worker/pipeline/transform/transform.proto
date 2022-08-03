@@ -9,19 +9,6 @@ import "pfs/pfs.proto";
 import "pps/pps.proto";
 import "server/worker/datum/datum.proto";
 
-message DatumSet {
-  // Inputs
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
-  string file_set_id = 2;
-  pfs_v2.PathRange path_range = 3;
-  pfs_v2.Commit output_commit = 4;
-
-  // Outputs
-  string output_file_set_id = 5;
-  string meta_file_set_id = 6;
-  datum.Stats stats = 7;
-}
-
 message CreateParallelDatumsTask {
   pps_v2.Job job = 1;
   string salt = 2;
@@ -60,3 +47,17 @@ message CreateDatumSetsTask {
 message CreateDatumSetsTaskResult {
   repeated pfs_v2.PathRange datum_sets = 1;
 } 
+
+message DatumSetTask {
+  pps_v2.Job job = 1;
+  string file_set_id = 2;
+  pfs_v2.PathRange path_range = 3;
+  pfs_v2.Commit output_commit = 4;
+}
+
+message DatumSetTaskResult {
+  string output_file_set_id = 1;
+  string meta_file_set_id = 2;
+  datum.Stats stats = 3;
+}
+
