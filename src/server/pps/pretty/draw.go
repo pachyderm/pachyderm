@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// maxLabelLen        = 10
+	// maxLabelLen        = 10 // TODO: How do we handle long pipeline names?
 	boxWidth           = 11
 	layerVerticalSpace = 5
 )
@@ -118,14 +118,12 @@ func assignCoordinates(layers [][]*vertex) {
 func layerLongestPath(vs []*vertex) [][]*vertex {
 	assigned := make(map[string]*vertex, 0)
 	var layers [][]*vertex
-
 	addToLayer := func(v *vertex, l int) {
 		if l >= len(layers) {
 			layers = append(layers, make([]*vertex, 0))
 		}
 		layers[l] = append(layers[l], v)
 	}
-
 	fillDummies := func(v *vertex) {
 		// we gather list of callbacks so that we don't mutate v.edges as we are iterating over it
 		cbs := make([]func(), 0)
@@ -206,7 +204,6 @@ func renderPicture(layers [][]*vertex) string {
 				sprintFunc = color.New(color.FgHiRed).SprintFunc()
 			}
 			spacing := v.rowOffset - (boxWidth+2)/2 - written
-
 			boxPadLeft := strings.Repeat(" ", (boxWidth-len(v.label))/2)
 			boxPadRight := strings.Repeat(" ", boxWidth-len(v.label)-len(boxPadLeft))
 			if v.label == "*" {
