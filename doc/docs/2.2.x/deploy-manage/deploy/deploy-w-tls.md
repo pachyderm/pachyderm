@@ -49,7 +49,7 @@ Et voila!
 
     If you are using a custom ca-signed cert, **you must include the full certificate chain in the root.crt file**.
 
-## Connect to Pachyderm via  Proxy Server
+## Connect to Pachyderm via Proxy Server
 
 If you use Kubernetes cluster-wide proxies to control outbound access, use the following attributes to propagate your required settings:
 
