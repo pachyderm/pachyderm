@@ -220,7 +220,7 @@ func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *D
 	var output *types.Any
 	if err := status.withJob(task.Job.ID, func() error {
 		logger = logger.WithJob(task.Job.ID)
-		return logger.LogStep("process datum set task", func() error {
+		return errors.EnsureStack(logger.LogStep("process datum set task", func() error {
 			if ppsutil.ContainsS3Inputs(driver.PipelineInfo().Details.Input) || driver.PipelineInfo().Details.S3Out {
 				if err := checkS3Gateway(driver, logger); err != nil {
 					return err
@@ -229,7 +229,7 @@ func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *D
 			var err error
 			output, err = handleDatumSet(driver, logger, task, status)
 			return err
-		})
+		}))
 	}); err != nil {
 		return nil, err
 	}
