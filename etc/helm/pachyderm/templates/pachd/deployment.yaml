@@ -413,6 +413,7 @@ spec:
       {{-  if .Values.pachd.tolerations }}
       tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
+      automountServiceAccountToken: true
       volumes:
       - name: tmp
         emptyDir: {}
