@@ -14,7 +14,6 @@ import (
 const (
 	// maxLabelLen        = 10
 	boxWidth           = 11
-	padding            = 10
 	layerVerticalSpace = 5
 )
 
@@ -193,6 +192,7 @@ func simpleOrder(layers [][]*vertex) {
 
 func renderPicture(layers [][]*vertex) string {
 	picture := ""
+	maxRowWidth := rowWidth(layers)
 	// traverse the layers starting with source repos
 	for i := len(layers) - 1; i >= 0; i-- {
 		l := layers[i]
@@ -207,13 +207,9 @@ func renderPicture(layers [][]*vertex) string {
 				sprintFunc = color.New(color.FgRed).SprintFunc()
 			}
 			spacing := v.rowOffset - (boxWidth+2)/2 - written
-			if spacing < 1 {
-				spacing = 0
-			}
 
 			boxPadLeft := strings.Repeat(" ", (boxWidth-len(v.label))/2)
 			boxPadRight := strings.Repeat(" ", boxWidth-len(v.label)-len(boxPadLeft))
-
 			if v.label == "*" {
 				hiddenRow := fmt.Sprintf("%s %s%s%s ", strings.Repeat(" ", spacing), boxPadLeft, "|", boxPadRight)
 				border += hiddenRow
@@ -222,23 +218,20 @@ func renderPicture(layers [][]*vertex) string {
 				border += sprintFunc(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
 				row += fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight)
 			}
-
-			written += len(row)
-
+			written = len(row)
 			for _, u := range v.edges {
 				renderEdges = append(renderEdges, renderEdge{src: v.rowOffset, dest: u.rowOffset})
 			}
 		}
 		picture += fmt.Sprintf("%s\n%s\n%s\n", border, row, border)
-
-		// print up to `layerVerticalSpace` rows that will contain edge drawings
+		// TODO: this sorting is unnecessary
 		sort.Slice(renderEdges, func(i, j int) bool {
 			return renderEdges[i].src < renderEdges[j].src ||
 				renderEdges[i].src == renderEdges[j].src && renderEdges[i].dest < renderEdges[j].dest
 		})
-
+		// print up to `layerVerticalSpace` rows that will contain edge drawings
 		for j := 0; j < layerVerticalSpace; j++ {
-			row := strings.Repeat(" ", rowWidth(layers)) // TODO: calling rowWidth is expensive
+			row := strings.Repeat(" ", maxRowWidth)
 			for _, re := range renderEdges {
 				row = re.render(row, j, layerVerticalSpace)
 			}
@@ -256,6 +249,8 @@ type renderEdge struct {
 	dest int
 }
 
+// render sets an edge character in the 'row' string, calculated using the re.src & re.dest (the edge's range along the x-axis),
+// and 'vertDist' (the height of the edge) and 'vertIdx' (how any lines down 'vertDist' we are)
 func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 	setStrIdx := func(s string, i int, r rune) string {
 		return s[:i] + string(r) + s[i+1:]
@@ -267,40 +262,43 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 		}
 		return setStrIdx(row, re.src, c)
 	}
-	const srcEdgeCenterOffset = 1                                                         // start drawing a diagonal edge one space away from the center of a node
-	if vertDist > abs(re.src-re.dest) && (vertIdx > vertDist/2 || vertIdx < vertDist/2) { // vertical line
+	const srcEdgeCenterOffset = 1 // start drawing a diagonal edge one space away from the center of a node
+	// verical line
+	if vertDist > abs(re.src-re.dest) && vertIdx != vertDist/2 {
 		return setStrIdx(row, (re.src+re.dest)/2, '|')
-	} else if vertDist < abs(re.src-re.dest) && vertIdx == vertDist/2 { // horizontal line
+	}
+	// horizontal line
+	if vertDist < abs(re.src-re.dest) && vertIdx == vertDist/2 {
 		start, end := func(a, b int) (int, int) {
 			if a < b {
 				return a, b
 			}
-			return b + 1, a + 1 // weird line
+			return b, a
 		}(re.src, re.dest)
 		diagCoverage := ceilDiv(vertDist, 2)
 		start, end = start+diagCoverage, end-diagCoverage
-		for i := start; i < end; i++ {
+		for i := start; i <= end; i++ {
 			row = setStrIdx(row, i, '-')
 		}
 		return row
-	} else { // diagonal
-		offset := vertIdx + srcEdgeCenterOffset
-		if vertIdx > vertDist/2 {
-			offset = offset + abs(re.src-re.dest) - vertDist - 1
+	}
+	// diagonal line
+	offset := vertIdx + srcEdgeCenterOffset
+	if vertIdx > vertDist/2 {
+		offset = offset + abs(re.src-re.dest) - vertDist - 1
+	}
+	if re.src > re.dest {
+		i := re.src - offset
+		if row[i] == ' ' || row[i] == '/' {
+			c = '/'
 		}
-		if re.src > re.dest {
-			i := re.src - offset
-			if row[i] == ' ' || row[i] == '/' {
-				c = '/'
-			}
-			return setStrIdx(row, i, c)
-		} else {
-			i := re.src + offset
-			if row[i] == ' ' || row[i] == '\\' {
-				c = '\\'
-			}
-			return setStrIdx(row, i, c)
+		return setStrIdx(row, i, c)
+	} else {
+		i := re.src + offset
+		if row[i] == ' ' || row[i] == '\\' {
+			c = '\\'
 		}
+		return setStrIdx(row, i, c)
 	}
 }
 
@@ -318,7 +316,7 @@ func leaves(vs []*vertex) []*vertex {
 
 func rowWidth(layers [][]*vertex) int {
 	mlw := maxLayerWidth(layers)
-	return mlw*boxWidth + (mlw+1)*(padding)
+	return mlw * (boxWidth + 2) * 2
 }
 
 func maxLayerWidth(layers [][]*vertex) int {
