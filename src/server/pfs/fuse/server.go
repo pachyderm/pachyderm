@@ -649,8 +649,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	})
 	router.Methods("PUT").
 		Path("/_show_datum").
-		Queries("idx", "{idx:[0-9]+}").
-		Queries("id", "{id:[a-zA-Z0-9]+}").
 		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			errMsg, webCode := initialChecks(mm, true)
 			if errMsg != "" {
@@ -662,20 +660,25 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				return
 			}
 
-			vs := mux.Vars(req)
-			idxStr, okIdx := vs["idx"]
-			idx, err := strconv.Atoi(idxStr)
-			if err != nil {
-				http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
-				return
-			}
-			id, okId := vs["id"]
-			if !okIdx && !okId {
+			vs := req.URL.Query()
+			idxStr := vs.Get("idx")
+			id := vs.Get("id")
+			if idxStr == "" && id == "" {
 				http.Error(w, "need to specify either datum idx or id", http.StatusBadRequest)
 				return
 			}
+			idx := 0
+			if idxStr != "" {
+				var err error
+				idx, err = strconv.Atoi(idxStr)
+				if err != nil {
+					http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
+					return
+				}
+			}
+
 			var di *pps.DatumInfo
-			if okId {
+			if id != "" {
 				foundDatum := false
 				for idx, di = range mm.Datums {
 					if di.Datum.ID == id {
@@ -691,7 +694,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				di = mm.Datums[idx]
 			}
 			mis := datumToMounts(di)
-			err = mm.UnmountAll()
+			err := mm.UnmountAll()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
