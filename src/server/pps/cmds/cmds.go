@@ -947,7 +947,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Draw a DAG",
 		Long:  "Draw a DAG",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			// init client & get pipeline info
 			client, err := pachdclient.NewOnUserMachine("user")
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
@@ -959,7 +958,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				Details:   true,
 				CommitSet: &pfs.CommitSet{ID: commitSet},
 			}
-
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -968,7 +966,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-
 			if picture, err := pretty.Draw(pipelineInfos); err != nil {
 				return err
 			} else {
@@ -977,7 +974,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return nil
 		}),
 	}
-	// TODO: implement these flags
 	draw.Flags().StringVarP(&commitSet, "commit", "c", "", "Commit at which you would to draw the DAG")
 	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
 
