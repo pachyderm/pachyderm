@@ -101,7 +101,7 @@ docker-build:
 # You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
 # it's very slow and this is only going to run on your local machine anyway.
 docker-build-proto:
-	docker buildx build $(DOCKER_BUILD_FLAGS)  --build-arg GOVERSION=golang:$(GOVERSION)-bullseye --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
+	docker buildx build $(DOCKER_BUILD_FLAGS)  --build-arg GOVERSION=golang:$(GOVERSION) --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
 
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu

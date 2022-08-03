@@ -3191,7 +3191,7 @@ type ListJobRequest struct {
 	// 0: Return jobs from the current version of the pipeline or pipelines.
 	// 1: Return the above and jobs from the next most recent version
 	// 2: etc.
-	//-1: Return jobs from all historical versions.
+	// -1: Return jobs from all historical versions.
 	History int64 `protobuf:"varint,4,opt,name=history,proto3" json:"history,omitempty"`
 	// Details indicates whether the result should include all pipeline details in
 	// each JobInfo, or limited information including name and status, but
@@ -4484,7 +4484,7 @@ type ListPipelineRequest struct {
 	// 0: Return the current version of the pipeline or pipelines.
 	// 1: Return the above and the next most recent version
 	// 2: etc.
-	//-1: Return all historical versions.
+	// -1: Return all historical versions.
 	History int64 `protobuf:"varint,2,opt,name=history,proto3" json:"history,omitempty"`
 	// When true, return PipelineInfos with the details field, which requires
 	// loading the pipeline spec from PFS.
