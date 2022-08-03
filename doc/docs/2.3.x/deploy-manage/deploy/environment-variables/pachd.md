@@ -16,18 +16,6 @@ kubectl get deploy pachd -o yaml
 
 ## Variables
 
-### Global 
-
-| Environment Variable   | Default Value     | Description |
-| ---------------------- | ----------------- | ----------- |
-| `ETCD_SERVICE_HOST`    | N/A               | The host on which the etcd service runs. |
-| `ETCD_SERVICE_PORT`    | N/A               | The etcd port number.                    |
-| `PPS_WORKER_GRPC_PORT` | `80`              | The GRPs port number.                    |
-| `PORT`                 | `650`             | The `pachd` port number. |
-| `HTTP_PORT`             | `652`             | The HTTP port number.   |
-| `PEER_PORT`             | `653`             | The port for pachd-to-pachd communication. |
-| `NAMESPACE`            | `deafult`         | The namespace in which Pachyderm is deployed. |
-
 ### General 
 
 | Environment Variable       | Default Value | Description |
