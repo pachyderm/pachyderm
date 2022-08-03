@@ -3,7 +3,6 @@ package pretty
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strings"
 
 	"github.com/fatih/color"
@@ -224,11 +223,6 @@ func renderPicture(layers [][]*vertex) string {
 			}
 		}
 		picture += fmt.Sprintf("%s\n%s\n%s\n", border, row, border)
-		// TODO: this sorting is unnecessary
-		sort.Slice(renderEdges, func(i, j int) bool {
-			return renderEdges[i].src < renderEdges[j].src ||
-				renderEdges[i].src == renderEdges[j].src && renderEdges[i].dest < renderEdges[j].dest
-		})
 		// print up to `layerVerticalSpace` rows that will contain edge drawings
 		for j := 0; j < layerVerticalSpace; j++ {
 			row := strings.Repeat(" ", maxRowWidth)
