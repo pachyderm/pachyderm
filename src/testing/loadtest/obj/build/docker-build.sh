@@ -10,6 +10,9 @@ set -ex
 rm -rf ./_out || true
 mkdir _out
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+EXPECTED_GOVER="$(cat ${SCRIPT_DIR}/../../../../../go.mod | head -3 | tail -1 | cut -d' ' -f2)"
+
 # Setup build command. The linker flags, along with CGO_ENABLED=0 (set below)
 # tell the go compiler to build a fully static binary (see comment at top)
 LD_FLAGS="-extldflags -static"
@@ -43,4 +46,4 @@ docker run \
   -v "${PWD}/_out:/out" \
   -v "${HOME}/.cache/go-build:/root/.cache/go-build" \
   -v "${GOPATH}/${PACH_PATH}:/go/${PACH_PATH}" \
-  golang:1.19.0 /bin/sh -c "${BUILD_CMD}"
+  golang:${EXPECTED_GOVER} /bin/sh -c "${BUILD_CMD}"
