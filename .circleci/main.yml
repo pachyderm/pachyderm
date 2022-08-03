@@ -88,6 +88,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -299,6 +300,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -323,6 +325,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -350,7 +353,9 @@ jobs:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - run: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - run: 
+          name: Run Tests
+          command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
