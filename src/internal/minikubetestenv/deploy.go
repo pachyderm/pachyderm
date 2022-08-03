@@ -70,6 +70,13 @@ type DeployOpts struct {
 
 type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
 
+func getLocalImage() string {
+	if sha := os.Getenv("TEST_IMAGE_SHA"); sha != "" {
+		return sha
+	}
+	return localImage
+}
+
 func helmLock(f helmPutE) helmPutE {
 	return func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error {
 		mu.Lock()
@@ -462,7 +469,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
-	version := localImage
+	version := getLocalImage()
 	chartPath := helmChartLocalPath(t)
 	helmOpts := withBase(namespace)
 	if opts.Version != "" {
