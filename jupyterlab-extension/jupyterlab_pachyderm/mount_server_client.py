@@ -82,10 +82,7 @@ class MountServerClient(MountInterface):
                         "set -o pipefail; "
                         +f"mount-server --mount-dir {self.mount_dir}"
                         +" >> /tmp/pachctl-mount-server.log 2>&1",
-                    ],
-                    env={
-                        "KUBECONFIG": os.path.expanduser('~/.kube/config')
-                    }
+                    ]
                 )
                 
                 tries = 0
