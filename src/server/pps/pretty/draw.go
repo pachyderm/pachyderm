@@ -199,22 +199,22 @@ func renderPicture(layers [][]*vertex) string {
 		// print the row of boxed vertices
 		for j := 0; j < len(l); j++ {
 			v := l[j]
-			sprintFunc := color.New(color.FgHiGreen).SprintFunc()
+			colorSprint := color.New(color.FgHiGreen).SprintFunc()
 			if v.red {
-				sprintFunc = color.New(color.FgHiRed).SprintFunc()
+				colorSprint = color.New(color.FgHiRed).SprintFunc()
 			}
 			spacing := v.rowOffset - (boxWidth+2)/2 - written
-			boxPadLeft := strings.Repeat(" ", (boxWidth-len(v.label))/2)
-			boxPadRight := strings.Repeat(" ", boxWidth-len(v.label)-len(boxPadLeft))
+			boxPadLeft := strings.Repeat(" ", (boxWidth-len(v.String()))/2)
+			boxPadRight := strings.Repeat(" ", boxWidth-len(v.String())-len(boxPadLeft))
 			if v.label == "*" {
 				hiddenRow := fmt.Sprintf("%s %s%s%s ", strings.Repeat(" ", spacing), boxPadLeft, "|", boxPadRight)
 				border += hiddenRow
 				row += hiddenRow
 			} else {
-				border += sprintFunc(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
-				row += sprintFunc(fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight))
+				border += colorSprint(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
+				row += colorSprint(fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight))
 			}
-			written = spacing + len(boxPadLeft) + len(v.label) + len(boxPadRight) + 2
+			written += spacing + len(boxPadLeft) + len(v.String()) + len(boxPadRight) + 2
 			for _, u := range v.edges {
 				renderEdges = append(renderEdges, renderEdge{src: v.rowOffset, dest: u.rowOffset})
 			}
