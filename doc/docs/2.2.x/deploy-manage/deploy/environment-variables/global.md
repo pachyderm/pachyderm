@@ -1,7 +1,7 @@
 
 # Configure Global Variables 
 
-## Variables  
+## General Variables  
 | Variable | Required | Type | Default Value | Description |
 |---|---|---|---|---|
 | ETCD_SERVICE_HOST | Yes | string |  | The etcd service host name. |
@@ -47,3 +47,53 @@
 | PPS_PIPELINE_NAME | No | string |  | The name of the pipeline that this worker belongs to; only set for workers and sidecar pachd instances. |
 | GOOGLE_CLOUD_PROFILER_PROJECT | No | string |  | The name of a GCP project; enables GCP-specific continuous profiling and sends profiles to the named project. Requires pachd to have Google application credentials. |
 | PPS_MAX_CONCURRENT_K8S_REQUESTS | No | int  | 10 | The number of concurrent requests that the PPS Master can make against kubernetes. |
+
+## OS-level Variables
+
+| Variable | Required | Type | Default Value | Description |
+|---|---|---|---|---|
+| UNPAUSED_MODE |  | string |  |  |
+| PROM_PORT |  | string |  |  |
+| HOME |  | string |  |  |
+| LOG_LEVEL |  | string |  |  |
+| PAGER |  | string |  |  |
+| ECS_CLIENT_ID |  | string |  |  |
+| ECS_CLIENT_SECRET |  | string |  |  |
+| ECS_CLIENT_BUCKET |  | string |  |  |
+| ECS_CLIENT_CUSTOM_ENDPOINT |  | string |  |  |
+| GOOGLE_CLIENT_BUCKET |  | string |  |  |
+| GOOGLE_CLIENT_CREDS |  | string |  |  |
+| GOOGLE_CLIENT_HMAC_ID |  | string |  |  |
+| GOOGLE_CLIENT_HMAC_SECRET |  | string |  |  |
+| GOOGLE_CLIENT_HMAC_BUCKET |  | string |  |  |
+| GOOGLE_CLIENT_REGION |  | string |  |  |
+| MICROSOFT_CLIENT_ID |  | string |  |  |
+| MICROSOFT_CLIENT_SECRET |  | string |  |  |
+| MICROSOFT_CLIENT_CONTAINER |  | string |  |  |
+| DATABASE_USERNAME |  | string |  |  |
+| DATABASE_PASSWORD |  | string |  |  |
+| DATABASE_HOST |  | string |  |  |
+| DATABASE_PORT |  | string |  |  |
+| PIPELINE_INPUT |  | string |  |  |
+| PIPELINE_OUTPUT |  | string |  |  |
+| PIPELINE_HOME |  | string |  |  |
+| SNOWFLAKE_USER |  | string |  |  |
+| SNOWFLAKE_USER_ROLE |  | string |  |  |
+| SNOWFLAKE_ACCOUNT |  | string |  |  |
+| SNOWFLAKE_PASSWORD |  | string |  |  |
+| HOST |  | string |  |  |
+| PORT |  | string |  |  |
+| TOPIC |  | string |  |  |
+| GOPATH |  | string |  |  |
+| GOBIN |  | string |  |  |
+| LOCAL_TEST |  | string |  |  |
+| PACH_DATUM_ID |  | string |  |  |
+| KUBERNETES_SERVICE_HOST |  | string |  |  |
+| JAEGER_COLLECTOR_SERVICE_PORT_JAEGER_COLLECTOR_HTTP |  | string |  |  |
+| PACHD_PEER_SERVICE_HOST |  | string |  |  |
+| PACHD_PEER_SERVICE_PORT |  | string |  |  |
+| S3GATEWAY_PORT |  | string |  |  |
+| TEST_IMAGE_SHA |  | string |  |  |
+| EDITOR |  | string |  |  |
+| VM_IP |  | string |  |  |
+| CIRCLE_REPOSITORY_URL |  | string |  |  |
