@@ -10,6 +10,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -23,11 +24,20 @@ import (
 )
 
 const (
-	name   = "pfs"
-	branch = "dev"
+	name          = "pfs"
+	defaultBranch = "dev"
 )
 
 func testPipeline(client *pachdclient.APIClient, pipelinePath string, datumLimit int, failedJob string) (retErr error) {
+	branch := defaultBranch
+	resp, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		if !auth.IsErrNotActivated(err) {
+			return err
+		}
+	} else {
+		branch = defaultBranch + "_" + strings.Replace(resp.Username, ":", "_", -1)
+	}
 	if pipelinePath == "" {
 		pipelinePath = "-"
 	}
