@@ -36,6 +36,8 @@ spec:
       - env:
         - name: POSTGRESQL_USERNAME
           value: {{ .Values.global.postgresql.postgresqlUsername }}
+        - name: POSTGRESQL_DATABASE
+          value: {{ .Values.global.postgresql.postgresqlDatabase }}
         - name: PGBOUNCER_SET_USER
           value: "True"
         - name: POSTGRESQL_HOST
