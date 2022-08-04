@@ -18,8 +18,8 @@ func EnvFromServiceEnv(senv serviceenv.ServiceEnv) *Env {
 	}
 }
 
-// Delegations.  These are explicit in order to make it clear which parts of the
-// service environment are relied upon.
+// Delegations to the service environment.  These are explicit in order to make
+// it clear which parts of the service environment are relied upon.
 func (e Env) DB() *pachsql.DB                        { return e.env.GetDBClient() }
 func (e Env) Listener() collection.PostgresListener  { return e.env.GetPostgresListener() }
 func (e Env) Config() *serviceenv.Configuration      { return e.env.Config() }

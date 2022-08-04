@@ -86,7 +86,7 @@ func newDexWeb(env Env, apiServer identity.APIServer) *dexWeb {
 	return &dexWeb{
 		env:             env,
 		logger:          logger,
-		storageProvider: env.DexStorage,
+		storageProvider: env.DexStorage(),
 		apiServer:       apiServer,
 	}
 }
@@ -229,7 +229,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err := dbutil.WithTx(r.Context(), w.env.DB, func(tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(r.Context(), w.env.DB(), func(tx *pachsql.Tx) error {
 			err := addUserInTx(r.Context(), tx, authReq.Claims.Email)
 			return errors.Wrapf(err, "unable to record user identity for login")
 		}); err != nil {

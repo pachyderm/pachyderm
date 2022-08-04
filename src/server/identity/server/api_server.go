@@ -30,7 +30,7 @@ type apiServer struct {
 func NewIdentityServer(env Env, public bool) *apiServer {
 	server := &apiServer{
 		env: env,
-		api: newDexAPI(env.DexStorage),
+		api: newDexAPI(env.DexStorage()),
 	}
 
 	if public {
@@ -46,28 +46,28 @@ func NewIdentityServer(env Env, public bool) *apiServer {
 }
 
 func (a *apiServer) EnvBootstrap(ctx context.Context) error {
-	if a.env.Config.IdentityConfig != "" {
-		a.env.Logger.Info("Started to configure identity server config via environment")
+	if a.env.Config().IdentityConfig != "" {
+		a.env.Logger().Info("Started to configure identity server config via environment")
 		var config identity.IdentityServerConfig
-		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConfig), &config); err != nil {
-			return errors.Wrapf(err, "unmarshal IdentityConfig with value: %q", a.env.Config.IdentityConfig)
+		if err := yaml.Unmarshal([]byte(a.env.Config().IdentityConfig), &config); err != nil {
+			return errors.Wrapf(err, "unmarshal IdentityConfig with value: %q", a.env.Config().IdentityConfig)
 		}
 		if _, err := a.setIdentityServerConfig(ctx, &identity.SetIdentityServerConfigRequest{Config: &config}); err != nil {
 			return errors.Wrapf(err, "failed to set identity server config")
 		}
-		a.env.Logger.Info("Successfully configured identity server config via environment")
+		a.env.Logger().Info("Successfully configured identity server config via environment")
 	}
-	if a.env.Config.IdentityConnectors != "" {
-		a.env.Logger.Info("Started to configure identity connectors via environment")
+	if a.env.Config().IdentityConnectors != "" {
+		a.env.Logger().Info("Started to configure identity connectors via environment")
 		var connectors identityutil.IDPConnectors
 		// this is a no-op if the config.IdentityConnectors is already json.
-		jsonBytes, err := yaml.YAMLToJSON([]byte(a.env.Config.IdentityConnectors))
+		jsonBytes, err := yaml.YAMLToJSON([]byte(a.env.Config().IdentityConnectors))
 		if err != nil {
-			return errors.Wrapf(err, "convert IdentityConnectors from YAML to JSON: %q", a.env.Config.IdentityConfig)
+			return errors.Wrapf(err, "convert IdentityConnectors from YAML to JSON: %q", a.env.Config().IdentityConfig)
 		}
 		err = jsonpb.Unmarshal(bytes.NewReader(jsonBytes), &connectors)
 		if err != nil {
-			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config.IdentityConfig)
+			return errors.Wrapf(err, "unmarshal IdentityConnectors: %q", a.env.Config().IdentityConfig)
 		}
 		existing, err := a.ListIDPConnectors(ctx, &identity.ListIDPConnectorsRequest{})
 		if err != nil {
@@ -92,23 +92,23 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		}
 		for e := range oldCons {
 			if _, err = a.deleteIDPConnector(ctx, &identity.DeleteIDPConnectorRequest{Id: e}); err != nil {
-				a.env.Logger.Errorf(errors.Wrapf(err, "delete connector %q", e).Error())
+				a.env.Logger().Errorf(errors.Wrapf(err, "delete connector %q", e).Error())
 			}
 		}
-		a.env.Logger.Info("Successfully configured identity connectors via environment")
+		a.env.Logger().Info("Successfully configured identity connectors via environment")
 	}
 	return nil
 }
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
-	if a.env.Config.IdentityConfig != "" {
+	if a.env.Config().IdentityConfig != "" {
 		return nil, errors.New("identity.SetIdentityServerConfig() is disable when the Identity Config is set via environment.")
 	}
 	return a.setIdentityServerConfig(ctx, req)
 }
 
 func (a *apiServer) setIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
-	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry, rotation_token_expiry) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3, rotation_token_expiry=$4`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry, req.Config.RotationTokenExpiry); err != nil {
+	if _, err := a.env.DB().ExecContext(ctx, `INSERT INTO identity.config (id, issuer, id_token_expiry, rotation_token_expiry) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET issuer=$2, id_token_expiry=$3, rotation_token_expiry=$4`, configKey, req.Config.Issuer, req.Config.IdTokenExpiry, req.Config.RotationTokenExpiry); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
@@ -117,7 +117,7 @@ func (a *apiServer) setIdentityServerConfig(ctx context.Context, req *identity.S
 
 func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.GetIdentityServerConfigRequest) (resp *identity.GetIdentityServerConfigResponse, retErr error) {
 	var config []*identity.IdentityServerConfig
-	err := a.env.DB.SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
+	err := a.env.DB().SelectContext(ctx, &config, "SELECT issuer, id_token_expiry, rotation_token_expiry FROM identity.config WHERE id=$1;", configKey)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -129,7 +129,7 @@ func (a *apiServer) GetIdentityServerConfig(ctx context.Context, req *identity.G
 }
 
 func (a *apiServer) CreateIDPConnector(ctx context.Context, req *identity.CreateIDPConnectorRequest) (*identity.CreateIDPConnectorResponse, error) {
-	if a.env.Config.IdentityConnectors != "" {
+	if a.env.Config().IdentityConnectors != "" {
 		return nil, errors.New("identity.CreateIDPConnector() is disabled when the Identity Connectors are set via environment.")
 	}
 	return a.createIDPConnector(ctx, req)
@@ -154,7 +154,7 @@ func (a *apiServer) GetIDPConnector(ctx context.Context, req *identity.GetIDPCon
 }
 
 func (a *apiServer) UpdateIDPConnector(ctx context.Context, req *identity.UpdateIDPConnectorRequest) (*identity.UpdateIDPConnectorResponse, error) {
-	if a.env.Config.IdentityConnectors != "" {
+	if a.env.Config().IdentityConnectors != "" {
 		return nil, errors.New("identity.UpdateIDPConnector() is disabled when the Identity Connectors are set via environment.")
 	}
 	return a.updateIDPConnector(ctx, req)
@@ -178,7 +178,7 @@ func (a *apiServer) ListIDPConnectors(ctx context.Context, req *identity.ListIDP
 }
 
 func (a *apiServer) DeleteIDPConnector(ctx context.Context, req *identity.DeleteIDPConnectorRequest) (*identity.DeleteIDPConnectorResponse, error) {
-	if a.env.Config.IdentityConnectors != "" {
+	if a.env.Config().IdentityConnectors != "" {
 		return nil, errors.New("identity.DeleteIDPConnector() is disabled when the Identity Connectors are set via environment.")
 	}
 	return a.deleteIDPConnector(ctx, req)
@@ -260,7 +260,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 		}
 	}
 
-	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
+	if _, err := a.env.DB().ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
