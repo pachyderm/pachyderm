@@ -2,7 +2,7 @@
 
 ## Variables
 
-| Variable | Required | Type | Default Value | Description |
+| Variable | Required | Type | Default | Description |
 |---|---|---|---|---|
 | ACTIVATE_AUTH | No | boolean | FALSE |  |
 | AUTH_ROOT_TOKEN | No | string |  | The name of the secret used to pass the `rootToken` value via an existing Kubernetes secret. |

@@ -229,8 +229,9 @@ nav:
                     - Overview: deploy-manage/deploy/environment-variables/index.md
                     - Global: deploy-manage/deploy/environment-variables/global.md
                     - Pachd: deploy-manage/deploy/environment-variables/pachd.md
-                    - Pipelike Workers: deploy-manage/deploy/environment-variables/workers.md
+                    - Pipeline Workers: deploy-manage/deploy/environment-variables/workers.md
                     - Storage: deploy-manage/deploy/environment-variables/storage.md
+                    - OS: deploy-manage/deploy/environment-variables/os.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
             - Manage Cluster Access: deploy-manage/manage/cluster-access.md

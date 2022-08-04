@@ -2,7 +2,7 @@
 
 ## Variables 
 
-| Variable | Required | Type | Default Value | Description |
+| Variable | Required | Type | Default | Description |
 |---|---|---|---|---|
 | STORAGE_MEMORY_THRESHOLD | No | int64 |  | The threshold for storage memory. |
 | STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD | No | int64 |  | The threshold for the total size of all files in a shard. |

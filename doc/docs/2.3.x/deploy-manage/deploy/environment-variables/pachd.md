@@ -16,7 +16,7 @@ kubectl get deploy pachd -o yaml
 
 ## Variables
 
-| Variable | Required | Type | Default Value | Description |
+| Variable | Required | Type | Default | Description |
 |---|---|---|---|---|
 | STORAGE_BACKEND | Yes | string |  | The backend storage solution; This is set automatically if deployTarget is `GOOGLE`, `AMAZON`, `MICROSOFT`, or `LOCAL`. |
 | STORAGE_HOST_PATH | No | string |  | The storage host's path.  |

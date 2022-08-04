@@ -29,7 +29,7 @@ To list your current env variables, you can include the command `env` in the `tr
 
 ## Variables 
 
-| Variable | Required | Type | Default Value | Description |
+| Variable | Required | Type | Default | Description |
 |---|---|---|---|---|
 | PPS_WORKER_IP | Yes | string |  |  |
 | PPS_POD_NAME | Yes | string |  |  |
