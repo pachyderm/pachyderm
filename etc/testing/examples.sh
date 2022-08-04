@@ -2,7 +2,7 @@
 
 set -ex
 
-if [ -z $CIRCLE_SHA1 ]; then
+if [ -n $CIRCLE_SHA1 ]; then
     helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml --set pachd.image.tag=${CIRCLE_SHA1}
 fi
 

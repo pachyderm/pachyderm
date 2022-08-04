@@ -188,7 +188,7 @@ launch-dev: check-kubectl check-kubectl-connection
 launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-	@if [ -z $$CIRCLE_SHA1 ]; then \
+	@if [ -n $$CIRCLE_SHA1 ]; then \
 		helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml --set enterpriseServer.image.sha=$(CIRCLE_SHA1) \
 	fi
 	# wait for the pachyderm to come up
