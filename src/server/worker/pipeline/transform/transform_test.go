@@ -139,28 +139,11 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	return ctx
 }
 
-func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) (context.Context, *pps.JobInfo) {
+func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit *pfs.Commit) (context.Context, *pps.JobInfo) {
 	// Create a context that the caller can wait on
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
-
-	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
-	require.NoError(t, err)
-	buf := &bytes.Buffer{}
-	require.NoError(t, tarutil.WithWriter(buf, func(tw *tar.Writer) error {
-		for _, f := range files {
-			if err := tarutil.WriteFile(tw, f); err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
-	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
-
 	// Mock out the initial ListJob, and InspectJob calls
 	jobInfo := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Name, commit.ID)}
-	//outputCommitInfo, err := env.PachClient.InspectCommit(jobInfo.OutputCommit.Branch.Repo.Name, jobInfo.OutputCommit.Branch.Name, jobInfo.OutputCommit.ID)
-	require.NoError(t, err)
 	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
 	jobInfo.Details = &pps.JobInfo_Details{
 		Transform:        pi.Details.Transform,
@@ -181,34 +164,8 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 		PodPatch:         pi.Details.PodPatch,
 	}
 
-	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
-	env.MockPachd.PPS.ListJob.Use(func(*pps.ListJobRequest, pps.API_ListJobServer) error {
-		return nil
-	})
-
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-		outputCommitInfo, err := env.PachClient.InspectCommit(jobInfo.OutputCommit.Branch.Repo.Name, jobInfo.OutputCommit.Branch.Name, jobInfo.OutputCommit.ID)
-		require.NoError(t, err)
-
 		result := proto.Clone(jobInfo).(*pps.JobInfo)
-		result.Details = &pps.JobInfo_Details{
-			Transform:        pi.Details.Transform,
-			ParallelismSpec:  pi.Details.ParallelismSpec,
-			Egress:           pi.Details.Egress,
-			Service:          pi.Details.Service,
-			Spout:            pi.Details.Spout,
-			ResourceRequests: pi.Details.ResourceRequests,
-			ResourceLimits:   pi.Details.ResourceLimits,
-			Input:            ppsutil.JobInput(pi, outputCommitInfo.Commit),
-			Salt:             pi.Details.Salt,
-			DatumSetSpec:     pi.Details.DatumSetSpec,
-			DatumTimeout:     pi.Details.DatumTimeout,
-			JobTimeout:       pi.Details.JobTimeout,
-			DatumTries:       pi.Details.DatumTries,
-			SchedulingSpec:   pi.Details.SchedulingSpec,
-			PodSpec:          pi.Details.PodSpec,
-			PodPatch:         pi.Details.PodPatch,
-		}
 		return result, nil
 	})
 
@@ -232,8 +189,11 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 		return &types.Empty{}, nil
 	})
 
+	return ctx, jobInfo
+}
+
+func startJobAndWorker(t *testing.T, env *testEnv, ctx context.Context, jobInfo *pps.JobInfo) context.Context {
 	eg, ctx := errgroup.WithContext(ctx)
-	//triggerJob(t, env, pi, files)
 	reg, err := newRegistry(env.driver, env.logger)
 	require.NoError(t, err)
 	eg.Go(func() error {
@@ -242,7 +202,6 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 		}
 		return nil
 	})
-	//time.Sleep(10 * time.Second)
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
 			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{})
@@ -256,13 +215,30 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 		return nil
 	})
 
+	return ctx
+}
+
+func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) (context.Context, *pps.JobInfo) {
+	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
+	require.NoError(t, err)
+	buf := &bytes.Buffer{}
+	require.NoError(t, tarutil.WithWriter(buf, func(tw *tar.Writer) error {
+		for _, f := range files {
+			if err := tarutil.WriteFile(tw, f); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+
+	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
+	ctx = startJobAndWorker(t, env, ctx, jobInfo)
 	return ctx, jobInfo
 }
 
 func mockBasicJobDelete(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) (context.Context, *pps.JobInfo) {
-	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
-
 	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	for _, file := range files {
@@ -270,147 +246,10 @@ func mockBasicJobDelete(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files 
 	}
 	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 
-	// Mock out the initial ListJob, and InspectJob calls
-	jobInfo := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Name, commit.ID)}
-	//outputCommitInfo, err := env.PachClient.InspectCommit(jobInfo.OutputCommit.Branch.Repo.Name, jobInfo.OutputCommit.Branch.Name, jobInfo.OutputCommit.ID)
-	require.NoError(t, err)
-	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
-	jobInfo.Details = &pps.JobInfo_Details{
-		Transform:        pi.Details.Transform,
-		ParallelismSpec:  pi.Details.ParallelismSpec,
-		Egress:           pi.Details.Egress,
-		Service:          pi.Details.Service,
-		Spout:            pi.Details.Spout,
-		ResourceRequests: pi.Details.ResourceRequests,
-		ResourceLimits:   pi.Details.ResourceLimits,
-		Input:            ppsutil.JobInput(pi, client.NewCommit(pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, commit.ID)),
-		Salt:             pi.Details.Salt,
-		DatumSetSpec:     pi.Details.DatumSetSpec,
-		DatumTimeout:     pi.Details.DatumTimeout,
-		JobTimeout:       pi.Details.JobTimeout,
-		DatumTries:       pi.Details.DatumTries,
-		SchedulingSpec:   pi.Details.SchedulingSpec,
-		PodSpec:          pi.Details.PodSpec,
-		PodPatch:         pi.Details.PodPatch,
-	}
-
-	// TODO: use a 'real' pps if we can make one that doesn't need a real kube client
-	env.MockPachd.PPS.ListJob.Use(func(*pps.ListJobRequest, pps.API_ListJobServer) error {
-		return nil
-	})
-
-	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-		outputCommitInfo, err := env.PachClient.InspectCommit(jobInfo.OutputCommit.Branch.Repo.Name, jobInfo.OutputCommit.Branch.Name, jobInfo.OutputCommit.ID)
-		require.NoError(t, err)
-
-		result := proto.Clone(jobInfo).(*pps.JobInfo)
-		result.Details = &pps.JobInfo_Details{
-			Transform:        pi.Details.Transform,
-			ParallelismSpec:  pi.Details.ParallelismSpec,
-			Egress:           pi.Details.Egress,
-			Service:          pi.Details.Service,
-			Spout:            pi.Details.Spout,
-			ResourceRequests: pi.Details.ResourceRequests,
-			ResourceLimits:   pi.Details.ResourceLimits,
-			Input:            ppsutil.JobInput(pi, outputCommitInfo.Commit),
-			Salt:             pi.Details.Salt,
-			DatumSetSpec:     pi.Details.DatumSetSpec,
-			DatumTimeout:     pi.Details.DatumTimeout,
-			JobTimeout:       pi.Details.JobTimeout,
-			DatumTries:       pi.Details.DatumTries,
-			SchedulingSpec:   pi.Details.SchedulingSpec,
-			PodSpec:          pi.Details.PodSpec,
-			PodPatch:         pi.Details.PodPatch,
-		}
-		return result, nil
-	})
-
-	updateJobState := func(request *pps.UpdateJobStateRequest) {
-		jobInfo.State = request.State
-		jobInfo.Reason = request.Reason
-
-		// If setting the job to a terminal state, we are done
-		if pps.IsTerminal(request.State) {
-			cancel()
-		}
-	}
-
-	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
-		updateJobState(request)
-		return nil
-	})
-
-	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
-		updateJobState(request)
-		return &types.Empty{}, nil
-	})
-
-	eg, ctx := errgroup.WithContext(ctx)
-	//triggerJob(t, env, pi, files)
-	reg, err := newRegistry(env.driver, env.logger)
-	require.NoError(t, err)
-	eg.Go(func() error {
-		if reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo)); err != nil {
-			return err
-		}
-		return nil
-	})
-	//time.Sleep(10 * time.Second)
-	eg.Go(func() error {
-		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{})
-		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-			env.logger.Logf("worker failed, retrying immediately, err: %v", err)
-			return nil
-		})
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return err
-		}
-		return nil
-	})
-
+	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
+	ctx = startJobAndWorker(t, env, ctx, jobInfo)
 	return ctx, jobInfo
 }
-
-/*func startJobAndWoker(ctx context.Context, env *testEnv, jobInfo *pps.JobInfo) (context.Context, error){
-	eg, ctx := errgroup.WithContext(ctx)
-	reg, err := newRegistry(env.driver, env.logger)
-	eg.Go(func() error {
-		if reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo)); err != nil {
-			return err
-		}
-		return nil
-	})
-	//time.Sleep(10 * time.Second)
-	eg.Go(func() error {
-		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{})
-		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-			env.logger.Logf("worker failed, retrying immediately, err: %v", err)
-			return nil
-		})
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return err
-		}
-		return nil
-	})
-}*/
-
-/*func triggerJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
-	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
-	require.NoError(t, err)
-	buf := &bytes.Buffer{}
-	require.NoError(t, tarutil.WithWriter(buf, func(tw *tar.Writer) error {
-		for _, f := range files {
-			if err := tarutil.WriteFile(tw, f); err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
-	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
-}*/
 
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
 	ctx, jobInfo := mockBasicJob(t, env, pi, files)
@@ -603,13 +442,13 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		ctx, jobInfo := mockBasicJob(t, env, pi, tarFiles[:1])
 		//triggerJob(t, env, pi, tarFiles[:1])
-		ctx = withTimeout(ctx, 60*time.Second)
+		ctx = withTimeout(ctx, 30*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		ctx, jobInfo = mockBasicJobDelete(t, env, pi, []string{"/a"})
 		//deleteFiles(t, env, pi, []string{"/a"})
-		ctx = withTimeout(ctx, 60*time.Second)
+		ctx = withTimeout(ctx, 30*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
@@ -627,13 +466,4 @@ func TestTransformPipeline(suite *testing.T) {
 		files, err := env.PachClient.ListFileAll(jobInfo.OutputCommit, "/*")
 		require.Equal(t, len(files), 0)
 	})
-}
-
-func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) {
-	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
-	require.NoError(t, err)
-	for _, file := range files {
-		require.NoError(t, env.PachClient.DeleteFile(commit, file))
-	}
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
 }
