@@ -972,7 +972,7 @@ func (ps prometheusServer) listenAndServe(ctx context.Context) error {
 	case <-ctx.Done():
 		// NOTE: using context.Background here means that shutdown will
 		// wait until all requests terminate.
-		return srv.Shutdown(context.Background())
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
 	case err := <-errCh:
 		return err
 	}
