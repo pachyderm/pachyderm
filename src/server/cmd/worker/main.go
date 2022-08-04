@@ -28,10 +28,10 @@ import (
 func main() {
 	// append pachyderm bins to path to allow use of pachctl
 	os.Setenv("PATH", os.Getenv("PATH")+":/pach-bin")
-	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
+	cmdutil.Main(context.Background(), do, &serviceenv.WorkerFullConfiguration{})
 }
 
-func do(config interface{}) error {
+func do(ctx context.Context, config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
@@ -45,7 +45,7 @@ func do(config interface{}) error {
 	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
 
 	// Construct a client that connects to the sidecar.
-	pachClient := env.GetPachClient(context.Background())
+	pachClient := env.GetPachClient(ctx)
 	pipelineInfo, err := ppsutil.GetWorkerPipelineInfo(
 		pachClient,
 		env.GetDBClient(),
@@ -64,7 +64,7 @@ func do(config interface{}) error {
 	}
 
 	// Start worker api server
-	server, err := grpcutil.NewServer(context.Background(), false)
+	server, err := grpcutil.NewServer(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func do(config interface{}) error {
 	}
 
 	// keepalive forever
-	keepAliveChan, err := env.GetEtcdClient().KeepAlive(context.Background(), resp.ID)
+	keepAliveChan, err := env.GetEtcdClient().KeepAlive(ctx, resp.ID)
 	if err != nil {
 		return errors.Wrapf(err, "error with KeepAlive")
 	}
@@ -103,7 +103,7 @@ func do(config interface{}) error {
 	}()
 
 	// Actually write "key" into etcd
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
+	ctx, cancel = context.WithTimeout(ctx, 10*time.Second) // new ctx
 	defer cancel()
 	if _, err := env.GetEtcdClient().Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return errors.Wrapf(err, "error putting IP address")
