@@ -119,8 +119,8 @@ func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
-	imageID, err := td.inner.GetContainerImageID(ctx, containerName)
-	return imageID, errors.EnsureStack(err)
+	//imageID, err := td.inner.GetContainerImageID(ctx, containerName)
+	return "testImage", nil
 }
 
 func newPachEnv(t *testing.T, dbConfig serviceenv.ConfigOption) *testpachd.RealEnv {
