@@ -354,7 +354,7 @@ func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreError("Internal Enterprise GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
@@ -741,7 +741,7 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 			log.Println("gRPC server gracefully stopped")
 		}
 	}(interruptChan)
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
@@ -933,7 +933,7 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 			log.Println("gRPC server gracefully stopped")
 		}
 	}(interruptChan)
-	return eg.Wait()
+	return errors.EnsureStack(eg.Wait())
 }
 
 func logGRPCServerSetup(name string, f func() error) (retErr error) {
