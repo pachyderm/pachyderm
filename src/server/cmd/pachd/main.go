@@ -4,6 +4,7 @@ import (
 	"context"
 	gotls "crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -704,23 +705,7 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return errors.EnsureStack(server.ListenAndServe())
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
-	})
+	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServer(ctx) })
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
@@ -896,23 +881,7 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return errors.EnsureStack(server.ListenAndServe())
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
-	})
+	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServer(ctx) })
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
@@ -952,5 +921,46 @@ func waitForError(name string, errChan chan error, required bool, f func() error
 		} else {
 			errChan <- errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}
+	}
+}
+
+type s3Server struct {
+	clientFactory s3.ClientFactory
+	port          uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ss s3Server) listenAndServer(ctx context.Context) error {
+	var (
+		router = s3.Router(s3.NewMasterDriver(), ss.clientFactory)
+		srv    = s3.Server(ss.port, router)
+		errCh  = make(chan error, 1)
+	)
+	srv.BaseContext = func(net.Listener) context.Context { return ctx }
+	go func() {
+		var (
+			certPath, keyPath, err = tls.GetCertPaths()
+		)
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			errCh <- errors.EnsureStack(srv.ListenAndServe())
+		}
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		// Read TLS cert and key
+		err = cLoader.LoadAndStart()
+		if err != nil {
+			errCh <- errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
+		}
+		srv.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+		errCh <- errors.EnsureStack(srv.ListenAndServeTLS(certPath, keyPath))
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
 	}
 }
