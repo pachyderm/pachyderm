@@ -1,4 +1,4 @@
-FROM jupyter/datascience-notebook:lab-3.3.3
+FROM jupyter/scipy-notebook:lab-3.3.3
 # https://github.com/pachyderm/docker-stacks/pull/1/commits/fde4beb9ff1afb404f0e34828adc1f311f4bf2d7
 ARG PACHCTL_VERSION
 ENV PFS_MOUNT_DIR=/pfs
