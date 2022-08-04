@@ -2305,7 +2305,6 @@ type AddFile struct {
 	Path  string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	Datum string `protobuf:"bytes,2,opt,name=datum,proto3" json:"datum,omitempty"`
 	// Types that are valid to be assigned to Source:
-	//
 	//	*AddFile_Raw
 	//	*AddFile_Url
 	Source               isAddFile_Source `protobuf_oneof:"source"`
@@ -2589,7 +2588,6 @@ func (m *CopyFile) GetAppend() bool {
 
 type ModifyFileRequest struct {
 	// Types that are valid to be assigned to Body:
-	//
 	//	*ModifyFileRequest_SetCommit
 	//	*ModifyFileRequest_AddFile
 	//	*ModifyFileRequest_DeleteFile
@@ -3088,7 +3086,6 @@ func (m *DiffFileResponse) GetOldFile() *FileInfo {
 type FsckRequest struct {
 	Fix bool `protobuf:"varint,1,opt,name=fix,proto3" json:"fix,omitempty"`
 	// Types that are valid to be assigned to ZombieCheck:
-	//
 	//	*FsckRequest_ZombieTarget
 	//	*FsckRequest_ZombieAll
 	ZombieCheck          isFsckRequest_ZombieCheck `protobuf_oneof:"zombie_check"`
@@ -4261,7 +4258,6 @@ func (m *SQLDatabaseEgress_Secret) GetKey() string {
 type EgressRequest struct {
 	Commit *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 	// Types that are valid to be assigned to Target:
-	//
 	//	*EgressRequest_ObjectStorage
 	//	*EgressRequest_SqlDatabase
 	Target               isEgressRequest_Target `protobuf_oneof:"target"`
@@ -4357,7 +4353,6 @@ func (*EgressRequest) XXX_OneofWrappers() []interface{} {
 
 type EgressResponse struct {
 	// Types that are valid to be assigned to Result:
-	//
 	//	*EgressResponse_ObjectStorage
 	//	*EgressResponse_SqlDatabase
 	Result               isEgressResponse_Result `protobuf_oneof:"result"`
