@@ -18,11 +18,14 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
+  go-version:
+    type: string
+    default: "1.18.4"
 
 executors:
   docker-go:
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
 
 jobs:
   test-go:
@@ -97,7 +100,7 @@ jobs:
           paths:
             - cached-deps/
       - go/install:
-          version: 1.18.4
+          version: << pipeline.parameters.go-version >>
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -277,6 +280,8 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
@@ -465,7 +470,7 @@ jobs:
   jsonnet-lint:
     resource_class: small
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - run:
