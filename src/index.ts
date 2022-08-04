@@ -1,5 +1,16 @@
 export {default as pachydermClient} from './client';
 export {
+  APIClient as AdminAPIClient,
+  APIService as AdminAPIService,
+  IAPIClient as AdminIAPIClient,
+  IAPIServer as AdminIAPIServer,
+  IAPIService as AdminIAPIService,
+  IAPIService_IInspectCluster,
+} from './proto/admin/admin_grpc_pb';
+
+export * from './proto/admin/admin_pb';
+
+export {
   APIClient as AuthAPIClient,
   APIService as AuthAPIService,
   IAPIClient as AuthIAPIClient,
