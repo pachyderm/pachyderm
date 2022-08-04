@@ -8,8 +8,6 @@ global:
 pachd:
     service:
         type: ClusterIP
-    image:
-        tag: local
     storage:
         backend: MINIO
         minio:

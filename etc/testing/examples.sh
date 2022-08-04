@@ -2,7 +2,7 @@
 
 set -ex
 
-helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml
+helm install pachyderm etc/helm/pachyderm -f etc/testing/circle/helm-values.yaml --set pachd.image.tag=${CIRCLE_SHA1}
 
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
