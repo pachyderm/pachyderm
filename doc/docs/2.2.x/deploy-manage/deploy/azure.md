@@ -348,7 +348,7 @@ make sure that you are using the right Kubernetes context first.
 
 1. Update your values.yaml   
 
-    Update your values.yaml with your container name ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/microsoft-values.yaml){target=_blank}) or use our minimal example below.
+    Update your values.yaml with your container name ([see example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/microsoft-values.yaml){target=_blank}) or use our minimal example below.
        
     ```yaml
     deployTarget: "MICROSOFT"
@@ -380,7 +380,7 @@ make sure that you are using the right Kubernetes context first.
       enabled: false
     ```
 
-    Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+    Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 ### Deploy Pachyderm On The Kubernetes Cluster
 
