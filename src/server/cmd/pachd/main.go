@@ -264,7 +264,6 @@ func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
 			env.SetEnterpriseServer(enterpriseAPIServer)
-			licenseEnv.EnterpriseServer = enterpriseAPIServer
 			bootstrappers = append(bootstrappers, enterpriseAPIServer)
 			return nil
 		}); err != nil {
@@ -547,7 +546,6 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
 			bootstrappers = append(bootstrappers, enterpriseAPIServer)
 			env.SetEnterpriseServer(enterpriseAPIServer)
-			licenseEnv.EnterpriseServer = enterpriseAPIServer
 			return nil
 		}); err != nil {
 			return err
@@ -803,7 +801,6 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
 			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
 			env.SetEnterpriseServer(enterpriseAPIServer)
-			licenseEnv.EnterpriseServer = enterpriseAPIServer
 			// Stop workers because unpaused pachds in the process
 			// of rolling may have started them back up.
 			if err := enterpriseEnv.StopWorkers(ctx); err != nil {

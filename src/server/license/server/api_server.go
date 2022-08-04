@@ -35,23 +35,23 @@ type apiServer struct {
 func New(env *Env) (*apiServer, error) {
 	s := &apiServer{
 		env:     env,
-		license: licenseCollection(env.DB, env.Listener),
+		license: licenseCollection(env.DB(), env.Listener()),
 	}
 	return s, nil
 }
 
 func (a *apiServer) EnvBootstrap(ctx context.Context) error {
-	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
+	if a.env.Config().LicenseKey == "" && a.env.Config().EnterpriseSecret == "" {
 		return nil
 	}
-	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
+	if a.env.Config().LicenseKey == "" || a.env.Config().EnterpriseSecret == "" {
 		return errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
 	}
 	logrus.Info("Started to configure license server via environment")
-	localhostPeerAddr := "grpc://localhost:" + fmt.Sprint(a.env.Config.PeerPort)
+	localhostPeerAddr := "grpc://localhost:" + fmt.Sprint(a.env.Config().PeerPort)
 	if err := func() error {
 		ctx = auth.AsInternalUser(ctx, "license-server")
-		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
+		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config().LicenseKey})
 		if err != nil {
 			return errors.Wrapf(err, "activate the license service")
 		}
@@ -59,7 +59,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			Id:               localhostEnterpriseClusterId,
 			Address:          localhostPeerAddr,
 			UserAddress:      localhostPeerAddr,
-			Secret:           a.env.Config.EnterpriseSecret,
+			Secret:           a.env.Config().EnterpriseSecret,
 			EnterpriseServer: true,
 		})
 		if err != nil {
@@ -68,7 +68,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 					Id:          localhostEnterpriseClusterId,
 					Address:     localhostPeerAddr,
 					UserAddress: localhostPeerAddr,
-					Secret:      a.env.Config.EnterpriseSecret,
+					Secret:      a.env.Config().EnterpriseSecret,
 				})
 				if err != nil {
 					return errors.Wrapf(err, "update localhost cluster in the license service")
@@ -77,10 +77,10 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 				return errors.Wrapf(err, "add localhost cluster in the license service")
 			}
 		}
-		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
+		_, err = a.env.EnterpriseServer().Activate(ctx, &ec.ActivateRequest{
 			Id:            localhostEnterpriseClusterId,
 			LicenseServer: localhostPeerAddr,
-			Secret:        a.env.Config.EnterpriseSecret})
+			Secret:        a.env.Config().EnterpriseSecret})
 		if err != nil {
 			return errors.Wrapf(errors.EnsureStack(err), "activate localhost cluster in the enterprise service")
 		}
@@ -94,7 +94,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (*lc.ActivateResponse, error) {
-	if a.env.Config.LicenseKey != "" {
+	if a.env.Config().LicenseKey != "" {
 		return nil, errors.New("license.Activate() is disabled when the license key is configured via environment")
 	}
 	return a.activate(ctx, req)
@@ -123,7 +123,7 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 		Expires:        expirationProto,
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB(), func(sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 	}
 
 	// Register the pachd in the database
-	if _, err := a.env.DB.ExecContext(ctx,
+	if _, err := a.env.DB().ExecContext(ctx,
 		`INSERT INTO license.clusters (id, address, secret, cluster_deployment_id, user_address, is_enterprise_server, version, auth_enabled) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, req.Id, req.Address, secret, req.ClusterDeploymentId, req.UserAddress, req.EnterpriseServer, "unknown", false); err != nil {
 		// throw a unique error if the error is a primary key uniqueness violation
@@ -227,7 +227,7 @@ func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (
 
 func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (resp *lc.HeartbeatResponse, retErr error) {
 	var count int
-	if err := a.env.DB.GetContext(ctx, &count, `SELECT COUNT(*) FROM license.clusters WHERE id=$1 and secret=$2`, req.Id, req.Secret); err != nil {
+	if err := a.env.DB().GetContext(ctx, &count, `SELECT COUNT(*) FROM license.clusters WHERE id=$1 and secret=$2`, req.Id, req.Secret); err != nil {
 		return nil, errors.Wrapf(err, "unable to look up cluster in database")
 	}
 
@@ -235,7 +235,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 		return nil, errors.Wrapf(lc.ErrInvalidIDOrSecret, "got %d, want 1 for cluster id %q", count, req.Id)
 	}
 
-	if _, err := a.env.DB.ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, client_id=$3, last_heartbeat=NOW() WHERE id=$4`, req.Version, req.AuthEnabled, req.ClientId, req.Id); err != nil {
+	if _, err := a.env.DB().ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, client_id=$3, last_heartbeat=NOW() WHERE id=$4`, req.Version, req.AuthEnabled, req.ClientId, req.Id); err != nil {
 		return nil, errors.Wrapf(err, "unable to update cluster in database")
 	}
 
@@ -252,11 +252,11 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (resp *lc.DeleteAllResponse, retErr error) {
 	// TODO: attempt to synchronously deactivate enterprise licensing on every registered cluster
 
-	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM license.clusters`); err != nil {
+	if _, err := a.env.DB().ExecContext(ctx, `DELETE FROM license.clusters`); err != nil {
 		return nil, errors.Wrapf(err, "unable to delete clusters in database")
 	}
 
-	if err := dbutil.WithTx(ctx, a.env.DB, func(sqlTx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB(), func(sqlTx *pachsql.Tx) error {
 		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
@@ -271,7 +271,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 
 func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersRequest) (resp *lc.ListClustersResponse, retErr error) {
 	clusters := make([]*lc.ClusterStatus, 0)
-	err := a.env.DB.SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
+	err := a.env.DB().SelectContext(ctx, &clusters, "SELECT id, address, version, auth_enabled, last_heartbeat FROM license.clusters;")
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -284,7 +284,7 @@ func (a *apiServer) ListClusters(ctx context.Context, req *lc.ListClustersReques
 func (a *apiServer) DeleteCluster(ctx context.Context, req *lc.DeleteClusterRequest) (resp *lc.DeleteClusterResponse, retErr error) {
 	// TODO: attempt to synchronously deactivate enterprise licensing on the specified cluster
 
-	_, err := a.env.DB.ExecContext(ctx, "DELETE FROM license.clusters WHERE id=$1", req.Id)
+	_, err := a.env.DB().ExecContext(ctx, "DELETE FROM license.clusters WHERE id=$1", req.Id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -318,7 +318,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	// trim trailing comma
 	setFields = setFields[:len(setFields)-1]
 
-	_, err := a.env.DB.ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
+	_, err := a.env.DB().ExecContext(ctx, "UPDATE license.clusters SET "+setFields+"  WHERE id=$1", req.Id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -327,7 +327,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 
 func (a *apiServer) ListUserClusters(ctx context.Context, req *lc.ListUserClustersRequest) (resp *lc.ListUserClustersResponse, retErr error) {
 	clusters := make([]*lc.UserClusterInfo, 0)
-	if err := a.env.DB.SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
+	if err := a.env.DB().SelectContext(ctx, &clusters, `SELECT id, cluster_deployment_id, user_address, is_enterprise_server FROM license.clusters WHERE is_enterprise_server = false`); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return &lc.ListUserClustersResponse{
