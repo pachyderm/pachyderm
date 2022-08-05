@@ -314,6 +314,9 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Dump debugging info in case of failure
@@ -361,6 +364,9 @@ jobs:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           name: Run Tests
           command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
