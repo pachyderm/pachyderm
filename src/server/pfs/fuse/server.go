@@ -384,7 +384,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err := opts.validate(c); err != nil {
 		return nil, err
 	}
-	rootDir, err := os.MkTempDir("", "pfs")
+	rootDir, err := os.MkdirTemp("", "pfs")
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

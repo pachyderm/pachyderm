@@ -2,7 +2,7 @@ package fuse
 
 import (
 	"fmt"
-	
+
 	"os"
 	"os/signal"
 	pathpkg "path"
@@ -81,7 +81,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			}
 		}
 	}
-	rootDir, err := os.MkTempDir("", "pfs")
+	rootDir, err := os.MkdirTemp("", "pfs")
 	if err != nil {
 		return errors.WithStack(err)
 	}

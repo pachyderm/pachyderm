@@ -3,7 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-
+	"io"
 	"os"
 	"strings"
 	"testing"

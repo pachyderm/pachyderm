@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	
+	"io"
 	"net/http"
 	"testing"
 	"time"
