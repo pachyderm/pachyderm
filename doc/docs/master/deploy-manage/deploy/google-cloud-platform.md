@@ -34,7 +34,7 @@ In particular, you will:
 
 !!! Warning "TL;DR - Give me the script"
 
-    [This script](https://github.com/pachyderm/pachyderm/blob/master/etc/deploy/gcp/gcp-doco-script.sh){target=_blank} will create a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
+    [This script](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/deploy/gcp/gcp-doco-script.sh){target=_blank} will create a GKE cluster, the workload identity service accounts and permissions you need, a static IP, the cloud SQL instance and databases, and a cloud storage bucket. It will also install Pachyderm into the cluster. 
 
       - Before running it, update the global variables at the top of the script and make sure to go through the [prerequisites](#1-prerequisites), as we are assuming that you have created a project and enabled the necessary APIs.  
       Note that it will also create a file called ${NAME}.values.yaml in the current directory.
@@ -398,7 +398,7 @@ You have set up your infrastructure, created your GCP bucket and a CloudSQL inst
 
 ### Update Your Values.yaml   
 
-[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/examples/gcp-values.yaml){target=_blank}. 
+[See an example of values.yaml here](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/gcp-values.yaml){target=_blank}. 
  
 You might want to create a static IP address to access your cluster externally. Refer to our [infrastructure documentation](../ingress/#loadbalancer) for more details or check the example below:
 
@@ -487,7 +487,7 @@ global:
     ```
 
 !!! Note
-    Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml){target=_blank}.
+    Check the [list of all available helm values](../../../reference/helm-values/) at your disposal in our reference documentation or on [github](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}.
 ### Deploy Pachyderm on the Kubernetes cluster
 
 - You can now deploy a Pachyderm cluster by running this command:

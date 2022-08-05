@@ -4,7 +4,7 @@
     - Return to our [Enterprise landing page](https://docs.pachyderm.com/latest/enterprise/){target=_blank} if you do not have an enterprise key.
     - Before connecting your IdP to Pachyderm, verify that
     the [Authentication](../../#activate-user-access-management) is enabled by running `pachctl auth whoami`. The command should return `You are "pach:root" `(i.e., your are the **Root User** with `clusterAdmin` privileges). 
-    Alternatively, [**you have the option to set your IdP values directly through Helm**](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L489){target=_blank}. 
+    Alternatively, [**you have the option to set your IdP values directly through Helm**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml#L696){target=_blank}. 
     In any case, we recommend going through this page to understand the specifics of all the fields you will need to set up.
     - Run `pachctl auth use-auth-token` to login as a Root User.
     
