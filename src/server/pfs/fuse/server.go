@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -59,8 +60,8 @@ type CommitRequest struct {
 }
 
 type MountDatumResponse struct {
-	DatumId   string `json:"datum_id"`
-	DatumIdx  int    `json:"datum_idx"`
+	Id        string `json:"id"`
+	Idx       int    `json:"idx"`
 	NumDatums int    `json:"num_datums"`
 }
 
@@ -574,6 +575,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		err = removeOutDir(mm)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		lm, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -634,6 +640,14 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				return
 			}
 		}
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+			mm.root.repoOpts["out"] = &RepoOptions{
+				Name:  "out",
+				File:  &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
+				Write: true}
+		}()
 
 		resp := MountDatumResponse{
 			DatumId:   mm.Datums[0].Datum.ID,
@@ -695,6 +709,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 			mis := datumToMounts(di)
 			err := mm.UnmountAll()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			err = removeOutDir(mm)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -1065,6 +1084,11 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		mis = append(mis, mi)
 	}
 	return mis
+}
+
+func removeOutDir(mm *MountManager) error {
+	cleanPath := mm.root.rootPath + "/out"
+	return os.RemoveAll(cleanPath)
 }
 
 type MountState struct {
