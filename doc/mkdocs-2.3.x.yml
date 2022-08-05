@@ -435,6 +435,7 @@ nav:
             - Authorization: 
                 - Model overview: enterprise/auth/authorization/index.md
                 - Role Binding: enterprise/auth/authorization/role-binding.md
+                - Permissions: enterprise/auth/authorization/permissions.md
         - Enterprise Server:
             - Setup an Enterprise Server: enterprise/auth/enterprise-server/setup.md 
             - Manage your Enterprise Server: enterprise/auth/enterprise-server/manage.md 
