@@ -349,10 +349,10 @@ func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	eg.Go(maybeIgnoreError("External Enterprise GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Enterprise GRPC Server", true, func() error {
 		return externalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("Internal Enterprise GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("Internal Enterprise GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
 	return errors.EnsureStack(eg.Wait())
@@ -699,17 +699,17 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	eg.Go(maybeIgnoreError("External Pachd GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("External Pachd GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("Internal Pachd GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
-	eg.Go(maybeIgnoreError("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for pachd server to gracefully stop")
@@ -874,14 +874,14 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	eg.Go(maybeIgnoreError("External Pachd GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("Internal Pachd GRPC Server", true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
-	eg.Go(maybeIgnoreError("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
@@ -909,10 +909,10 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 	return f()
 }
 
-// maybeIgnoreError returns a function that runs f; if f returns an HTTP server
+// maybeIgnoreErrorFunc returns a function that runs f; if f returns an HTTP server
 // closed error it returns nil; if required is false it returns nil; otherwise
 // it returns whatever f returns.
-func maybeIgnoreError(name string, required bool, f func() error) func() error {
+func maybeIgnoreErrorFunc(name string, required bool, f func() error) func() error {
 	return func() error {
 		if err := f(); err != nil {
 			if errors.Is(err, http.ErrServerClosed) {
