@@ -56,6 +56,7 @@ type ServiceEnv interface {
 	SetIdentityServer(identity.APIServer)
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
+	SetEnterpriseServer(enterprise_server.APIServer)
 
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
@@ -66,6 +67,7 @@ type ServiceEnv interface {
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
 	GetPostgresListener() col.PostgresListener
+	InitDexDB()
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
