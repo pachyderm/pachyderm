@@ -155,7 +155,7 @@ func newExternalServer(ctx context.Context, authInterceptor *authmw.Interceptor,
 	)
 }
 
-func setup(config interface{}, service string) (env *serviceenv.NonblockingServiceEnv, err error) {
+func setup(config interface{}, service string) (env serviceenv.ServiceEnv, err error) {
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -187,7 +187,7 @@ func setup(config interface{}, service string) (env *serviceenv.NonblockingServi
 	return env, err
 }
 
-func setupDB(ctx context.Context, env *serviceenv.NonblockingServiceEnv) error {
+func setupDB(ctx context.Context, env serviceenv.ServiceEnv) error {
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
