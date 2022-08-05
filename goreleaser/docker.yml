@@ -58,7 +58,6 @@ builds:
             "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
       goos:
           - linux
-          - darwin
       goarch:
           - amd64
           - arm64
@@ -73,7 +72,6 @@ builds:
             "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
       goos:
           - linux
-          - darwin
       goarch:
           - amd64
           - arm64
