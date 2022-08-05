@@ -4,6 +4,7 @@ import (
 	"context"
 	gotls "crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -707,28 +708,8 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreError("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("S3 Server", requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return errors.EnsureStack(server.ListenAndServe())
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
-	}))
-	eg.Go(maybeIgnoreError("Prometheus Server", requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	}))
+	eg.Go(maybeIgnoreError("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreError("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for pachd server to gracefully stop")
@@ -899,28 +880,8 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreError("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreError("S3 Server", requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return errors.EnsureStack(server.ListenAndServe())
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
-	}))
-	eg.Go(maybeIgnoreError("Prometheus Server", requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	}))
+	eg.Go(maybeIgnoreError("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreError("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
@@ -964,5 +925,78 @@ func maybeIgnoreError(name string, required bool, f func() error) func() error {
 			return errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}
 		return nil
+	}
+}
+
+type s3Server struct {
+	clientFactory s3.ClientFactory
+	port          uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ss s3Server) listenAndServe(ctx context.Context) error {
+	var (
+		router = s3.Router(s3.NewMasterDriver(), ss.clientFactory)
+		srv    = s3.Server(ss.port, router)
+		errCh  = make(chan error, 1)
+	)
+	srv.BaseContext = func(net.Listener) context.Context { return ctx }
+	go func() {
+		var (
+			certPath, keyPath, err = tls.GetCertPaths()
+		)
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			errCh <- errors.EnsureStack(srv.ListenAndServe())
+		}
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		// Read TLS cert and key
+		err = cLoader.LoadAndStart()
+		if err != nil {
+			errCh <- errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
+		}
+		srv.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+		errCh <- errors.EnsureStack(srv.ListenAndServeTLS(certPath, keyPath))
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		log.Info("terminating S3 server due to cancelled context")
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
+	}
+}
+
+type prometheusServer struct {
+	port uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ps prometheusServer) listenAndServe(ctx context.Context) error {
+	var (
+		mux = http.NewServeMux()
+		srv = http.Server{
+			Addr:        fmt.Sprintf(":%v", ps.port),
+			Handler:     mux,
+			BaseContext: func(net.Listener) context.Context { return ctx },
+		}
+		errCh = make(chan error, 1)
+	)
+	mux.Handle("/metrics", promhttp.Handler())
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		log.Info("terminating S3 server due to cancelled context")
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
 	}
 }
