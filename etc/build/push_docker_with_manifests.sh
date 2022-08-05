@@ -11,7 +11,7 @@ for product in pachd worker pachctl mount-server; do
     docker push $REPO/$product-amd64:$VERSION
     docker push $REPO/$product-arm64:$VERSION
 
-    docker manifest create --insecure $REPO/$product:$VERSION \
+    docker manifest create $REPO/$product:$VERSION \
            $REPO/$product-amd64:$VERSION \
            $REPO/$product-arm64:$VERSION
 
