@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -81,13 +80,13 @@ func deserializeYAML(file string, target interface{}) error {
 	var rawConfigBytes []byte
 	if file == "-" {
 		var err error
-		rawConfigBytes, err = ioutil.ReadAll(os.Stdin)
+		rawConfigBytes, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return errors.Wrapf(err, "could not read config from stdin")
 		}
 	} else if file != "" {
 		var err error
-		rawConfigBytes, err = ioutil.ReadFile(file)
+		rawConfigBytes, err = os.ReadFile(file)
 		if err != nil {
 			return errors.Wrapf(err, "could not read config from %q", file)
 		}

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"net/http"
 	"net/url"
 	"os"
@@ -792,7 +792,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 
 			createPipelineRequest := ppsutil.PipelineReqFromInfo(pipelineInfo)
-			f, err := ioutil.TempFile("", args[0])
+			f, err := os.CreateTemp("", args[0])
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -1019,7 +1019,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			fileBytes, err := ioutil.ReadFile(file)
+			fileBytes, err := os.ReadFile(file)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -1152,14 +1152,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			var dagSpec []byte
 			if dagSpecFile != "" {
 				var err error
-				dagSpec, err = ioutil.ReadFile(dagSpecFile)
+				dagSpec, err = os.ReadFile(dagSpecFile)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
 			}
 			var podPatch []byte
 			if podPatchFile != "" {
-				podPatch, err = ioutil.ReadFile(podPatchFile)
+				podPatch, err = os.ReadFile(podPatchFile)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1171,7 +1171,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if fi.IsDir() {
 					return nil
 				}
-				loadSpec, err := ioutil.ReadFile(file)
+				loadSpec, err := os.ReadFile(file)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1214,7 +1214,7 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 	if pipelinePath == "-" {
 		cmdutil.PrintStdinReminder()
 		var err error
-		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
+		pipelineBytes, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
@@ -1228,13 +1228,13 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 				retErr = err
 			}
 		}()
-		pipelineBytes, err = ioutil.ReadAll(resp.Body)
+		pipelineBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	} else {
 		var err error
-		pipelineBytes, err = ioutil.ReadFile(pipelinePath)
+		pipelineBytes, err = os.ReadFile(pipelinePath)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

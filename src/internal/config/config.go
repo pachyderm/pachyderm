@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -304,7 +303,7 @@ func WritePachTokenToConfigPath(token string, path string, enterpriseContext boo
 	config := &Config{}
 	var raw []byte
 	var err error
-	if raw, err = ioutil.ReadFile(path); err != nil {
+	if raw, err = os.ReadFile(path); err != nil {
 		return errors.Wrapf(err, "could not read config at %q", path)
 	}
 	if err = serde.Decode(raw, config); err != nil {
