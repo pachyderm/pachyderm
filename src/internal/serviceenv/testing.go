@@ -172,3 +172,6 @@ func (env *TestServiceEnv) EnterpriseServer() enterprise_server.APIServer {
 func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.Enterprise = s
 }
+
+// InitDexDB implements the ServiceEnv interface.
+func (end *TestServiceEnv) InitDexDB() {}
