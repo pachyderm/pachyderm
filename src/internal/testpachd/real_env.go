@@ -91,7 +91,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	txnEnv := txnenv.New()
 	// AUTH
 	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
-	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetAuthServer(realEnv.AuthServer)
+	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
 
 	// PFS
 	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
@@ -99,11 +99,11 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	pfsEnv.EtcdPrefix = ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
 	require.NoError(t, err)
-	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPfsServer(realEnv.PFSServer)
+	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
 
 	// PPS
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
-	realEnv.ServiceEnv.(*serviceenv.NonblockingServiceEnv).SetPpsServer(&realEnv.MockPPSTransactionServer.api)
+	realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
 	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
 		Use(func(txnctx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
 			return nil, col.ErrNotFound{
