@@ -2,8 +2,7 @@ dist: ../dist-pach/docker
 
 builds:
     - id: pachd
-      dir: src/server/cmd/pachd
-      main: main.go
+      main: ./src/server/cmd/pachd
       binary: pachd
       env:
           - CGO_ENABLED=0
@@ -18,8 +17,7 @@ builds:
       gcflags:
           - "all=-trimpath={{.Env.PWD}}"
     - id: worker
-      dir: src/server/cmd/worker
-      main: main.go
+      main: ./src/server/cmd/worker
       binary: worker
       env:
           - CGO_ENABLED=0
@@ -50,9 +48,10 @@ builds:
       gcflags:
           - "all=-trimpath={{.Env.PWD}}"
     - id: pachctl
-      dir: src/server/cmd/pachctl
-      main: main.go
+      main: ./src/server/cmd/pachctl
       binary: pachctl
+      env:
+          - CGO_ENABLED=0
       ldflags:
           - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
             "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
@@ -64,9 +63,10 @@ builds:
       gcflags:
           - "all=-trimpath={{.Env.PWD}}"
     - id: mount-server
-      dir: src/server/cmd/mount-server
-      main: main.go
+      main: ./src/server/cmd/mount-server
       binary: mount-server
+      env:
+          - CGO_ENABLED=0
       ldflags:
           - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
             "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
@@ -78,8 +78,7 @@ builds:
       gcflags:
           - "all=-trimpath={{.Env.PWD}}"
     - id: pachtf
-      dir: src/server/cmd/pachtf
-      main: main.go
+      main: ./src/server/cmd/pachtf
       binary: pachtf
       env:
           - CGO_ENABLED=0
