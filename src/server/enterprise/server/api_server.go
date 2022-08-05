@@ -59,8 +59,8 @@ type apiServer struct {
 func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
-		env.EtcdClient,
-		env.EtcdPrefix,
+		env.EtcdClient(),
+		env.etcdPrefix,
 		nil,
 		&ec.EnterpriseRecord{},
 		nil,
@@ -69,9 +69,9 @@ func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 
 	s := &apiServer{
 		env:                  env,
-		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext(), enterpriseTokenCol.ReadOnly(env.BackgroundContext()), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
-		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
+		configCol:            EnterpriseConfigCollection(env.DB(), env.Listener()),
 	}
 	go s.enterpriseTokenCache.Watch()
 
@@ -82,21 +82,21 @@ func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 }
 
 func (a *apiServer) EnvBootstrap(ctx context.Context) error {
-	if !a.env.Config.EnterpriseMember {
+	if !a.env.Config().EnterpriseMember {
 		return nil
 	}
-	a.env.Logger.Info("Started to configure enterprise member cluster via environment")
+	a.env.Logger().Info("Started to configure enterprise member cluster via environment")
 	var cluster *lc.AddClusterRequest
-	if err := yaml.Unmarshal([]byte(a.env.Config.EnterpriseMemberConfig), &cluster); err != nil {
-		return errors.Wrapf(err, "unmarshal enterprise cluster %q", a.env.Config.EnterpriseMemberConfig)
+	if err := yaml.Unmarshal([]byte(a.env.Config().EnterpriseMemberConfig), &cluster); err != nil {
+		return errors.Wrapf(err, "unmarshal enterprise cluster %q", a.env.Config().EnterpriseMemberConfig)
 	}
-	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
-	cluster.Secret = a.env.Config.EnterpriseSecret
-	es, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+	cluster.ClusterDeploymentId = a.env.Config().DeploymentID
+	cluster.Secret = a.env.Config().EnterpriseSecret
+	es, err := client.NewFromURI(a.env.Config().EnterpriseServerAddress)
 	if err != nil {
 		return errors.Wrap(err, "connect to enterprise server")
 	}
-	es.SetAuthToken(a.env.Config.EnterpriseServerToken)
+	es.SetAuthToken(a.env.Config().EnterpriseServerToken)
 	if _, err := es.License.AddCluster(es.Ctx(), cluster); err != nil {
 		if !lc.IsErrDuplicateClusterID(err) {
 			return errors.Wrap(err, "add enterprise cluster")
@@ -113,13 +113,13 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	}
 	ctx = internalauth.AsInternalUser(ctx, auth.InternalPrefix+"enterprise-service")
 	if _, err = a.Activate(ctx, &ec.ActivateRequest{
-		LicenseServer: a.env.Config.EnterpriseServerAddress,
+		LicenseServer: a.env.Config().EnterpriseServerAddress,
 		Id:            cluster.Id,
 		Secret:        cluster.Secret,
 	}); err != nil {
 		return errors.Wrap(err, "activate enterprise service")
 	}
-	a.env.Logger.Info("Successfully configured enterprise member cluster via environment")
+	a.env.Logger().Info("Successfully configured enterprise member cluster via environment")
 	return nil
 }
 
@@ -159,7 +159,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	if err != nil {
 		if lc.IsErrInvalidIDOrSecret(err) {
 			logrus.WithError(err).Error("enterprise license heartbeat had invalid id or secret, disabling enterprise")
-			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+			_, err = col.NewSTM(ctx, a.env.EtcdClient(), func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
 				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 					LastHeartbeat:   types.TimestampNow(),
@@ -172,7 +172,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 		return err
 	}
 
-	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.EtcdClient(), func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
 		err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 			LastHeartbeat:   types.TimestampNow(),
@@ -195,7 +195,7 @@ func (a *apiServer) heartbeatToServer(ctx context.Context, licenseServer, id, se
 
 	var clientID string
 	authEnabled := true
-	config, err := a.env.AuthServer.GetConfiguration(ctx, &auth.GetConfigurationRequest{})
+	config, err := a.env.AuthServer().GetConfiguration(ctx, &auth.GetConfigurationRequest{})
 	if err != nil && auth.IsErrNotActivated(err) {
 		authEnabled = false
 	} else if err != nil {
@@ -242,7 +242,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	record := &ec.EnterpriseRecord{License: heartbeatResp.License}
 
 	// If the test heartbeat succeeded, write the state and config to etcd
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+	if err := a.env.txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
@@ -255,7 +255,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 		return nil, err
 	}
 
-	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient(), func(stm col.STM) error {
 		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record))
 	}); err != nil {
 		return nil, err
@@ -356,7 +356,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	if a.env.mode == PausedMode {
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
-	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient(), func(stm col.STM) error {
 		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
@@ -366,7 +366,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		return nil, err
 	}
 
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+	if err := a.env.txnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
 		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
@@ -423,7 +423,7 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 	var (
 		kc        *kubernetes.Clientset = a.env.getKubeClient()
-		namespace                       = a.env.namespace
+		namespace                       = a.env.namespace()
 	)
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
@@ -556,7 +556,7 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 // in the indicated state.
 func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
 	kc := a.env.getKubeClient()
-	cc := kc.CoreV1().ConfigMaps(a.env.namespace)
+	cc := kc.CoreV1().ConfigMaps(a.env.namespace())
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// If there is no configmap, then the pachd pods must be
@@ -579,7 +579,7 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations[updatedAtFieldName], err)
 	}
 
-	pods := kc.CoreV1().Pods(a.env.namespace)
+	pods := kc.CoreV1().Pods(a.env.namespace())
 	pp, err := pods.List(ctx, metav1.ListOptions{
 		LabelSelector: "app=pachd",
 	})
@@ -633,4 +633,9 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 	return &ec.PauseStatusResponse{
 		Status: status,
 	}, nil
+}
+
+// StopWorkers stops all workers
+func (a *apiServer) StopWorkers(ctx context.Context) error {
+	return scaleDownWorkers(ctx, a.env.getKubeClient(), a.env.namespace())
 }

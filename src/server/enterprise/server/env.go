@@ -18,23 +18,11 @@ import (
 )
 
 type Env struct {
-	DB       *pachsql.DB
-	Listener col.PostgresListener
-	TxnEnv   *txnenv.TransactionEnv
-
-	EtcdClient *clientv3.Client
-	EtcdPrefix string
-
-	AuthServer    auth.APIServer
-	GetPachClient func(context.Context) *client.APIClient
-	getKubeClient func() *kube.Clientset
-
-	BackgroundContext context.Context
-	namespace         string
-	mode              PauseMode
-	unpausedMode      string
-	Logger            *logrus.Logger
-	Config            serviceenv.Configuration
+	env          serviceenv.ServiceEnv
+	txnEnv       *txnenv.TransactionEnv
+	etcdPrefix   string
+	mode         PauseMode
+	unpausedMode string
 }
 
 // PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
@@ -64,27 +52,28 @@ func WithMode(mode PauseMode) Option {
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) *Env {
 	e := Env{
-		DB:       senv.GetDBClient(),
-		Listener: senv.GetPostgresListener(),
-		TxnEnv:   txEnv,
-
-		EtcdClient: senv.GetEtcdClient(),
-		EtcdPrefix: etcdPrefix,
-
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
-		getKubeClient: senv.GetKubeClient,
-
-		BackgroundContext: senv.Context(),
-		namespace:         senv.Config().Namespace,
-		Logger:            senv.Logger(),
-		Config:            *senv.Config(),
+		env:        senv,
+		txnEnv:     txEnv,
+		etcdPrefix: etcdPrefix,
 	}
 	for _, o := range options {
 		e = o(e)
 	}
 	return &e
 }
+
+// Delegations to the service environment.  These are explicit in order to make
+// it clear which parts of the service environment are relied upon.
+func (e Env) DB() *pachsql.DB                                     { return e.env.GetDBClient() }
+func (e Env) Listener() col.PostgresListener                      { return e.env.GetPostgresListener() }
+func (e Env) EtcdClient() *clientv3.Client                        { return e.env.GetEtcdClient() }
+func (e Env) AuthServer() auth.APIServer                          { return e.env.AuthServer() }
+func (e Env) GetPachClient(ctx context.Context) *client.APIClient { return e.env.GetPachClient(ctx) }
+func (e Env) getKubeClient() *kube.Clientset                      { return e.env.GetKubeClient() }
+func (e Env) BackgroundContext() context.Context                  { return e.env.Context() }
+func (e Env) namespace() string                                   { return e.env.Config().Namespace }
+func (e Env) Logger() *logrus.Logger                              { return e.env.Logger() }
+func (e Env) Config() serviceenv.Configuration                    { return *e.env.Config() }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
@@ -136,9 +125,4 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 		}
 	}
 	return nil
-}
-
-// StopWorkers stops all workers
-func (env Env) StopWorkers(ctx context.Context) error {
-	return scaleDownWorkers(ctx, env.getKubeClient(), env.namespace)
 }
