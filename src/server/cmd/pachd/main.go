@@ -84,6 +84,7 @@ func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
+	log.Infof("version info: %v", version.Version)
 	ctx := context.Background()
 
 	switch {
