@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
+	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strings"
@@ -478,6 +480,10 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
 		}
+		// Collect go info.
+		if err := s.collectGoInfo(tw, prefix...); err != nil {
+			return err
+		}
 		// Collect the pachd describe output.
 		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
 			return err
@@ -629,6 +635,20 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 			chart.Legend(&graph),
 		}
 		return errors.EnsureStack(graph.Render(chart.PNG, w))
+	}, prefix...)
+}
+
+func (s *debugServer) collectGoInfo(tw *tar.Writer, prefix ...string) error {
+	return collectDebugFile(tw, "go_info", "txt", func(w io.Writer) error {
+		fmt.Fprintf(w, "build info: ")
+		info, ok := runtimedebug.ReadBuildInfo()
+		if ok {
+			fmt.Fprintf(w, "%s", info.String())
+		} else {
+			fmt.Fprint(w, "<no build info>")
+		}
+		fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
+		return nil
 	}, prefix...)
 }
 
@@ -959,6 +979,10 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
 	// Collect the worker describe output.
 	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+		return err
+	}
+	// Collect go info.
+	if err := s.collectGoInfo(tw, prefix...); err != nil {
 		return err
 	}
 	// Collect the worker user and storage container logs.
