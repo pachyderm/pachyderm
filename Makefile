@@ -126,10 +126,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-push:
-	$(SKIP) docker push pachyderm/pachd:$(VERSION)
-	$(SKIP) docker push pachyderm/worker:$(VERSION)
-	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
-	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
+	$(SKIP) ./etc/build/push_docker_with_manifests.sh
 
 docker-pull:
 	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
@@ -188,7 +185,9 @@ launch-dev: check-kubectl check-kubectl-connection
 launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
+	@if [[ -n $$CIRCLE_SHA1 ]]; then \
+		helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml --set enterpriseServer.image.tag=$$CIRCLE_SHA1; \
+	fi
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"

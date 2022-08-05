@@ -88,6 +88,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -138,6 +139,9 @@ jobs:
       - run:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
@@ -299,11 +303,15 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Dump debugging info in case of failure
@@ -323,6 +331,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -350,7 +359,12 @@ jobs:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - run: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
+      - run:
+          name: Run Tests
+          command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
@@ -367,7 +381,7 @@ jobs:
       appVersion:
         type: string
         default: "0.0.0"
-    resource_class: large
+    resource_class: xlarge
     executor: docker-go
     steps:
       - checkout
@@ -378,7 +392,7 @@ jobs:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
       - run:
