@@ -36,6 +36,8 @@ spec:
       - env:
         - name: POSTGRESQL_USERNAME
           value: {{ .Values.global.postgresql.postgresqlUsername }}
+        - name: POSTGRESQL_DATABASE
+          value: {{ .Values.global.postgresql.postgresqlDatabase }}
         - name: PGBOUNCER_SET_USER
           value: "True"
         - name: POSTGRESQL_HOST
@@ -88,7 +90,7 @@ spec:
             command:
               - "/bin/sh"
               - "-c"
-              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/ --tuples-only --command="SELECT 1;" | grep -q "1"
+              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/$POSTGRES_DATABASE --tuples-only --command="SELECT 1;" | grep -q "1"
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 1
