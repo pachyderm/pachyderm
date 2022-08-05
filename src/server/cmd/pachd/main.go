@@ -207,6 +207,7 @@ func doReadinessCheck(ctx context.Context, config interface{}) error {
 }
 
 func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
@@ -348,14 +349,13 @@ func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	errChan := make(chan error, 1)
-	go waitForError("External Enterprise GRPC Server", errChan, true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Enterprise GRPC Server", true, func() error {
 		return externalServer.Wait()
-	})
-	go waitForError("Internal Enterprise GRPC Server", errChan, true, func() error {
+	}))
+	eg.Go(maybeIgnoreErrorFunc("Internal Enterprise GRPC Server", true, func() error {
 		return internalServer.Wait()
-	})
-	return <-errChan
+	}))
+	return errors.EnsureStack(eg.Wait())
 }
 
 func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
@@ -480,6 +480,7 @@ func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
 }
 
 func doFullMode(ctx context.Context, config interface{}) (retErr error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
@@ -698,15 +699,17 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	errChan := make(chan error, 1)
-	go waitForError("External Pachd GRPC Server", errChan, true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
-	})
-	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
+	}))
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
+		return externalServer.Wait()
+	}))
+	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
-	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) })
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) })
+	}))
+	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for pachd server to gracefully stop")
@@ -719,10 +722,11 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 			log.Println("gRPC server gracefully stopped")
 		}
 	}(interruptChan)
-	return <-errChan
+	return errors.EnsureStack(eg.Wait())
 }
 
 func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
@@ -870,15 +874,14 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	errChan := make(chan error, 1)
-	go waitForError("External Pachd GRPC Server", errChan, true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
-	})
-	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
+	}))
+	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
-	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) })
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) })
+	}))
+	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
@@ -891,7 +894,7 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 			log.Println("gRPC server gracefully stopped")
 		}
 	}(interruptChan)
-	return <-errChan
+	return errors.EnsureStack(eg.Wait())
 }
 
 func logGRPCServerSetup(name string, f func() error) (retErr error) {
@@ -906,13 +909,22 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 	return f()
 }
 
-func waitForError(name string, errChan chan error, required bool, f func() error) {
-	if err := f(); !errors.Is(err, http.ErrServerClosed) {
-		if !required {
-			log.Errorf("error setting up and/or running %v: %v", name, err)
-		} else {
-			errChan <- errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
+// maybeIgnoreErrorFunc returns a function that runs f; if f returns an HTTP server
+// closed error it returns nil; if required is false it returns nil; otherwise
+// it returns whatever f returns.
+func maybeIgnoreErrorFunc(name string, required bool, f func() error) func() error {
+	return func() error {
+		if err := f(); err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			if !required {
+				log.Errorf("error setting up and/or running %v: %v", name, err)
+				return nil
+			}
+			return errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}
+		return nil
 	}
 }
 
