@@ -90,7 +90,7 @@ spec:
             command:
               - "/bin/sh"
               - "-c"
-              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/$POSTGRES_DATABASE --tuples-only --command="SELECT 1;" | grep -q "1"
+              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/$POSTGRESQL_DATABASE --tuples-only --command="SELECT 1;" | grep -q "1"
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 1
