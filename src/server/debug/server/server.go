@@ -8,6 +8,8 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
+	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strings"
@@ -478,6 +480,10 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
 		}
+		// Collect go info.
+		if err := s.collectGoInfo(tw); err != nil {
+			return err
+		}
 		// Collect the pachd describe output.
 		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
 			return err
@@ -630,6 +636,21 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 		}
 		return errors.EnsureStack(graph.Render(chart.PNG, w))
 	}, prefix...)
+}
+
+func (s *debugServer) collectGoInfo(tw *tar.Writer) error {
+	return collectDebugFile(tw, "go_info", "txt", func(w io.Writer) error {
+		fmt.Fprintf(w, "build info: ")
+		info, ok := runtimedebug.ReadBuildInfo()
+		if ok {
+			fmt.Fprintf(w, "%s", info.String())
+		} else {
+			fmt.Fprint(w, "<no build info>")
+		}
+		w.Write([]byte("\n"))
+		fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
+		return nil
+	})
 }
 
 func (s *debugServer) collectPachdVersion(tw *tar.Writer, pachClient *client.APIClient, prefix ...string) error {
