@@ -310,7 +310,7 @@ func TestPauseUnpause(t *testing.T) {
 	_, err := client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
 	bo := backoff.NewExponentialBackOff()
-	backoff.Retry(func() error {
+	backoff.Retry(func() error { //nolint:errcheck
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
 			return errors.Errorf("could not get pause status %w", err)
@@ -328,7 +328,7 @@ func TestPauseUnpause(t *testing.T) {
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
 	bo.Reset()
-	backoff.Retry(func() error {
+	backoff.Retry(func() error { //nolint:errcheck
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
 			return errors.Errorf("could not get pause status %v", err)
@@ -356,7 +356,7 @@ func TestPauseUnpauseNoWait(t *testing.T) {
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
 	bo := backoff.NewExponentialBackOff()
-	backoff.Retry(func() error {
+	backoff.Retry(func() error { //nolint:errcheck
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
 			return errors.Errorf("could not get pause status %v", err)
@@ -387,7 +387,7 @@ func TestDoublePauseUnpause(t *testing.T) {
 	_, err = client.Enterprise.Pause(client.Ctx(), &enterprise.PauseRequest{})
 	require.NoError(t, err)
 	bo := backoff.NewExponentialBackOff()
-	backoff.Retry(func() error {
+	backoff.Retry(func() error { //nolint:errcheck
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
 			return errors.Errorf("could not get pause status %v", err)
@@ -403,7 +403,7 @@ func TestDoublePauseUnpause(t *testing.T) {
 	_, err = client.Enterprise.Unpause(client.Ctx(), &enterprise.UnpauseRequest{})
 	require.NoError(t, err)
 	bo = backoff.NewExponentialBackOff()
-	backoff.Retry(func() error {
+	backoff.Retry(func() error { //nolint:errcheck
 		resp, err := client.Enterprise.PauseStatus(client.Ctx(), &enterprise.PauseStatusRequest{})
 		if err != nil {
 			return errors.Errorf("could not get pause status %v", err)

@@ -27,7 +27,7 @@ MINIKUBE_MEM = 8192 # MB of memory allocated to minikube
 MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
 CHLOGFILE = ${PWD}/../changelog.diff
-export GOVERSION = $(shell cat etc/compile/GO_VERSION)
+export GOVERSION = $(shell cat go.mod | head -3 | tail -1 | cut -d' ' -f2)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
@@ -101,7 +101,7 @@ docker-build:
 # You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
 # it's very slow and this is only going to run on your local machine anyway.
 docker-build-proto:
-	docker buildx build $(DOCKER_BUILD_FLAGS)  --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
+	docker buildx build $(DOCKER_BUILD_FLAGS)  --build-arg GOVERSION=golang:$(GOVERSION) --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
 
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
@@ -125,13 +125,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-tag:
-	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
-	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
-	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
-	docker tag pachyderm/mount-server pachyderm/mount-server:$(VERSION)
-
-docker-push: docker-tag
+docker-push:
 	$(SKIP) docker push pachyderm/pachd:$(VERSION)
 	$(SKIP) docker push pachyderm/worker:$(VERSION)
 	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
@@ -194,7 +188,9 @@ launch-dev: check-kubectl check-kubectl-connection
 launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
+	@if [[ -n $$CIRCLE_SHA1 ]]; then \
+		helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml --set enterpriseServer.image.tag=$$CIRCLE_SHA1; \
+	fi
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -428,7 +424,6 @@ validate-circle:
 	docker-gpu \
 	docker-gpu-dev \
 	docker-build-test-entrypoint \
-	docker-tag \
 	docker-push \
 	docker-push-release \
 	check-buckets \

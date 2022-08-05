@@ -17,8 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"golang.org/x/sync/semaphore"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -129,26 +127,19 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *managedCluster) {
 	return "", nil
 }
 
+func (cf *ClusterFactory) assignCluster() (string, int) {
+	cf.mu.Lock()
+	defer cf.mu.Unlock()
+	idx := len(cf.managedClusters) + 1
+	v := fmt.Sprintf("%s%v", namespacePrefix, idx)
+	cf.managedClusters[v] = nil // hold my place in line
+	return v, idx
+}
+
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
-	assigned, clusterIdx := func() (string, int) {
-		cf.mu.Lock()
-		defer cf.mu.Unlock()
-		idx := len(cf.managedClusters) + 1
-		v := fmt.Sprintf("%s%v", namespacePrefix, idx)
-		cf.managedClusters[v] = nil // hold my place in line
-		return v, idx
-	}()
+	assigned, clusterIdx := cf.assignCluster()
 	kube := testutil.GetKubeClient(t)
-	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), assigned, metav1.GetOptions{}); err != nil {
-		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
-			&v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: assigned,
-				},
-			},
-			metav1.CreateOptions{})
-		require.NoError(t, err)
-	}
+	PutNamespace(t, assigned)
 	c := InstallRelease(t,
 		context.Background(),
 		assigned,
@@ -161,6 +152,28 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 	}
 	cf.assignClient(assigned, mc)
 	return assigned, mc
+}
+
+// ClaimCluster returns an unused kubernetes namespace name that can be deployed. It is only responsible for
+// assigning clusters to test clients. Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
+func ClaimCluster(t testing.TB) (string, uint16) {
+	setup.Do(func() {
+		clusterFactory = &ClusterFactory{
+			managedClusters:   map[string]*managedCluster{},
+			availableClusters: map[string]struct{}{},
+			sem:               *semaphore.NewWeighted(int64(*poolSize)),
+		}
+	})
+	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
+	assigned, clusterIdx := clusterFactory.assignCluster()
+	t.Cleanup(func() {
+		clusterFactory.mu.Lock()
+		clusterFactory.availableClusters[assigned] = struct{}{}
+		clusterFactory.mu.Unlock()
+		clusterFactory.sem.Release(1)
+	})
+	portOffset := uint16(clusterIdx * 10)
+	return assigned, portOffset
 }
 
 // AcquireCluster returns a pachyderm APIClient from one of a pool of managed pachyderm

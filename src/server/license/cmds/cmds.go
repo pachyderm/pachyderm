@@ -253,7 +253,7 @@ func GetStateCmd() *cobra.Command {
 				fmt.Println("No Pachyderm Enterprise license is configured")
 				return nil
 			}
-			ts, err := types.TimestampFromProto(resp.Info.Expires)
+			ts, err := types.TimestampFromProto(resp.GetInfo().GetExpires())
 			if err != nil {
 				return errors.Wrapf(err, "expiration timestamp could not be parsed")
 			}

@@ -83,32 +83,33 @@ func init() {
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
+	ctx := context.Background()
 
 	switch {
 	case readiness:
-		cmdutil.Main(doReadinessCheck, &serviceenv.GlobalConfiguration{})
+		cmdutil.Main(ctx, doReadinessCheck, &serviceenv.GlobalConfiguration{})
 	case mode == "full", mode == "", mode == "$(MODE)":
 		// Because of the way Kubernetes environment substitution works,
 		// a reference to an unset variable is not replaced with the
 		// empty string, but instead the reference is passed unchanged;
 		// because of this, '$(MODE)' should be recognized as an unset —
 		// i.e., default — mode.
-		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
+		cmdutil.Main(ctx, doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
-		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
-		cmdutil.Main(doPausedMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, doPausedMode, &serviceenv.PachdFullConfiguration{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
-func newInternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+func newInternalServer(ctx context.Context, authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
 	return grpcutil.NewServer(
-		context.Background(),
+		ctx,
 		false,
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,
@@ -125,9 +126,9 @@ func newInternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *
 	)
 }
 
-func newExternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+func newExternalServer(ctx context.Context, authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
 	return grpcutil.NewServer(
-		context.Background(),
+		ctx,
 		true,
 		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
 		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
@@ -199,16 +200,16 @@ func setupDB(ctx context.Context, env *serviceenv.NonblockingServiceEnv) error {
 	return nil
 }
 
-func doReadinessCheck(config interface{}) error {
+func doReadinessCheck(ctx context.Context, config interface{}) error {
 	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
-	return env.GetPachClient(context.Background()).Health()
+	return env.GetPachClient(ctx).Health()
 }
 
-func doEnterpriseMode(config interface{}) (retErr error) {
+func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			_ = pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) // swallow error, not much we can do if we can't write to stderr
 		}
 	}()
 
@@ -216,7 +217,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := setupDB(context.Background(), env); err != nil {
+	if err := setupDB(ctx, env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -226,12 +227,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
-	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
+	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -331,7 +332,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 		for _, b := range bootstrappers {
-			if err := b.EnvBootstrap(context.Background()); err != nil {
+			if err := b.EnvBootstrap(ctx); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
@@ -356,10 +357,10 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	return <-errChan
 }
 
-func doSidecarMode(config interface{}) (retErr error) {
+func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-sidecar")
@@ -368,7 +369,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	server, err := newInternalServer(authInterceptor, loggingInterceptor)
+	server, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -477,20 +478,19 @@ func doSidecarMode(config interface{}) (retErr error) {
 	return server.Wait()
 }
 
-func doFullMode(config interface{}) (retErr error) {
-	var ctx = context.Background()
+func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-full")
 	if err != nil {
 		return err
 	}
-	if err := setupDB(context.Background(), env); err != nil {
+	if err := setupDB(ctx, env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -504,12 +504,12 @@ func doFullMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
+	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -682,7 +682,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		for _, b := range bootstrappers {
-			if err := b.EnvBootstrap(context.Background()); err != nil {
+			if err := b.EnvBootstrap(ctx); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
@@ -732,19 +732,21 @@ func doFullMode(config interface{}) (retErr error) {
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
+		if err := g.Wait(); err != nil {
+			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
 	}(interruptChan)
 	return <-errChan
 }
 
-func doPausedMode(config interface{}) (retErr error) {
-	var ctx = context.Background()
+func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	log.Println("starting up in paused mode")
@@ -752,7 +754,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := setupDB(context.Background(), env); err != nil {
+	if err := setupDB(ctx, env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -762,12 +764,12 @@ func doPausedMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
+	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -922,8 +924,11 @@ func doPausedMode(config interface{}) (retErr error) {
 		var g, _ = errgroup.WithContext(ctx)
 		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
+		if err := g.Wait(); err != nil {
+			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
 	}(interruptChan)
 	return <-errChan
 }

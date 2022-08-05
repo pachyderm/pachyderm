@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"context"
 	"os"
 	"reflect"
 	"strconv"
@@ -25,11 +26,11 @@ func Populate(object interface{}, decoders ...Decoder) error {
 // Main runs the common functionality needed in a go main function.
 // appEnv will be populated and passed to do, defaultEnv can be nil
 // if there is an error, os.Exit(1) will be called.
-func Main(do func(interface{}) error, appEnv interface{}, decoders ...Decoder) {
+func Main(ctx context.Context, do func(context.Context, interface{}) error, appEnv interface{}, decoders ...Decoder) {
 	if err := Populate(appEnv, decoders...); err != nil {
 		mainError(err)
 	}
-	if err := do(appEnv); err != nil {
+	if err := do(ctx, appEnv); err != nil {
 		mainError(err)
 	}
 	os.Exit(0)

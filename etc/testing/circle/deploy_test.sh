@@ -2,9 +2,6 @@
 
 set -exo pipefail
 
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh";
-
 pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
 
 # deploy object storage

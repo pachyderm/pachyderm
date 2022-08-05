@@ -3490,7 +3490,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < 25; i++ {
 			next := fmt.Sprintf("%d,%d,%d,%d\n", 4*i, (4*i)+1, (4*i)+2, (4*i)+3)
 			expected.WriteString(next)
-			env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next))
+			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next)))
 		}
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
 
@@ -3933,7 +3933,7 @@ func TestPFS(suite *testing.T) {
 		bCommit1 := inspect("B", "master", "")
 		commit3, err = env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		finishCommit(env.PachClient, "A", commit3.Branch.Name, commit3.ID)
+		require.NoError(t, finishCommit(env.PachClient, "A", commit3.Branch.Name, commit3.ID))
 		// Re-inspect bCommit1, which has been updated by StartCommit
 		bCommit1, bCommit2 := inspect("B", bCommit1.Commit.Branch.Name, bCommit1.Commit.ID), inspect("B", "master", "")
 		require.Equal(t, bCommit1.Commit.ID, bCommit2.ParentCommit.ID)
@@ -3963,7 +3963,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID)
+		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
 		commit2, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch("A", "master2"),
 			Parent: client.NewCommit("A", "master", ""),
@@ -4340,13 +4340,13 @@ func TestPFS(suite *testing.T) {
 
 		var readyCommitsB, readyCommitsC int64
 		go func() {
-			pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			_ = pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommitsB, 1)
 				return nil
 			})
 		}()
 		go func() {
-			pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			_ = pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommitsC, 1)
 				return nil
 			})
@@ -4913,7 +4913,7 @@ func TestPFS(suite *testing.T) {
 			return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 		}
 		monkeyRetry := func(t *testing.T, f func() error, errMsg string) {
-			backoff.Retry(func() error {
+			backoff.Retry(func() error { //nolint:errcheck
 				err := f()
 				if err != nil {
 					require.True(t, obj.IsMonkeyError(err), "Expected monkey error (%s), %s", err.Error(), errMsg)

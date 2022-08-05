@@ -1,5 +1,8 @@
 
 # Changelog
+## 2.2.7
+- Don’t segfault on nil field - #8001
+- Update RCs unconditionally. - #7995
 ## 2.2.6
 - Fix swallowed error in PFS DeleteFile - #7921
 - snowflake fixes - #7892
