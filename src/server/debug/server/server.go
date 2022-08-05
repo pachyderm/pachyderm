@@ -647,7 +647,6 @@ func (s *debugServer) collectGoInfo(tw *tar.Writer) error {
 		} else {
 			fmt.Fprint(w, "<no build info>")
 		}
-		w.Write([]byte("\n"))
 		fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
 		return nil
 	})
