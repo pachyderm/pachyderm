@@ -9686,6 +9686,15 @@ func TestListDatumFilter(t *testing.T) {
 		require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
 
+	commitInfo, err := c.InspectCommit(repo1, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(repo2, "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+
 	// filtering for failed should yield zero datums
 	s, err := c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
 		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_FAILED}},
