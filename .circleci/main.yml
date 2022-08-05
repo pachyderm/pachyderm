@@ -388,7 +388,7 @@ jobs:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
       - run:
