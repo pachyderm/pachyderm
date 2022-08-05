@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set +x -euo pipefail
+set -euxo pipefail
 
 #REPO=localhost:5001/pachyderm
 REPO=pachyderm/
