@@ -17,36 +17,26 @@ import (
 
 // Env is the environment required for an apiServer
 type Env struct {
-	DB         *pachsql.DB
-	EtcdClient *etcd.Client
-	Listener   col.PostgresListener
-	TxnEnv     *txnenv.TransactionEnv
-
-	// circular dependency
-	GetEnterpriseServer func() enterprise.APIServer
-	GetIdentityServer   func() identity.APIServer
-	GetPfsServer        func() pfs.APIServer
-	GetPpsServer        func() pps.APIServer
-
-	BackgroundContext context.Context
-	Logger            *logrus.Logger
-	Config            serviceenv.Configuration
+	env    serviceenv.ServiceEnv
+	txnEnv *txnenv.TransactionEnv
 }
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) Env {
 	return Env{
-		DB:         senv.GetDBClient(),
-		EtcdClient: senv.GetEtcdClient(),
-		Listener:   senv.GetPostgresListener(),
-		TxnEnv:     txnEnv,
-
-		GetEnterpriseServer: senv.EnterpriseServer,
-		GetIdentityServer:   senv.IdentityServer,
-		GetPfsServer:        senv.PfsServer,
-		GetPpsServer:        senv.PpsServer,
-
-		BackgroundContext: senv.Context(),
-		Logger:            senv.Logger(),
-		Config:            *senv.Config(),
+		env:    senv,
+		txnEnv: txnEnv,
 	}
 }
+
+// Delegations to the service environment.  These are explicit in order to make
+// it clear which parts of the service environment are relied upon.
+func (e Env) DB() *pachsql.DB                           { return e.env.GetDBClient() }
+func (e Env) EtcdClient() *etcd.Client                  { return e.env.GetEtcdClient() }
+func (e Env) Listener() col.PostgresListener            { return e.env.GetPostgresListener() }
+func (e Env) GetEnterpriseServer() enterprise.APIServer { return e.env.EnterpriseServer() }
+func (e Env) GetIdentityServer() identity.APIServer     { return e.env.IdentityServer() }
+func (e Env) GetPfsServer() pfs.APIServer               { return e.env.PfsServer() }
+func (e Env) GetPpsServer() pps.APIServer               { return e.env.PpsServer() }
+func (e Env) BackgroundContext() context.Context        { return e.env.Context() }
+func (e Env) Logger() *logrus.Logger                    { return e.env.Logger() }
+func (e Env) Config() serviceenv.Configuration          { return *e.env.Config() }

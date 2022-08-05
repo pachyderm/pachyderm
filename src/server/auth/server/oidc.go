@@ -150,7 +150,7 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 	state := random.String(30)
 	nonce := random.String(30)
 
-	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.EtcdClient(), func(stm col.STM) error {
 		return errors.EnsureStack(a.oidcStates.ReadWrite(stm).PutTTL(state, &auth.SessionInfo{
 			Nonce: nonce, // read & verified by /authorization-code/callback
 		}, threeMinutes))
@@ -274,7 +274,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	// the caller a Pachyderm token.
 	nonce, email, conversionErr := a.handleOIDCExchangeInternal(
 		context.Background(), code, state)
-	_, txErr := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
+	_, txErr := col.NewSTM(ctx, a.env.EtcdClient(), func(stm col.STM) error {
 		var si auth.SessionInfo
 		err := a.oidcStates.ReadWrite(stm).Update(state, &si, func() error {
 			// nonce can only be checked inside postgres txn, but if nonces don't match
@@ -406,5 +406,5 @@ func (a *apiServer) serveOIDC() error {
 	})
 	// serve OIDC handler to exchange the auth code
 	mux.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config.OidcPort), mux))
+	return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config().OidcPort), mux))
 }
