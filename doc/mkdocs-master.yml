@@ -21,9 +21,9 @@ copyright: 'Copyright Pachyderm Inc, 2022'
 
 pach_featured_version: '2.2.7'
 # Latest version of Pachyderm
-pach_latest_version: '2.2.7'
-pach_major_minor_version: '2.2'
-search_index_version: '2.2.x'
+pach_latest_version: '2.3.0-rc.1'
+pach_major_minor_version: '2.3'
+search_index_version: '2.3.x'
 
 # Latest tag of the JupyterLab Mount Extension
 jupyterlab_extension_image_tag: 'v0.6.0'
