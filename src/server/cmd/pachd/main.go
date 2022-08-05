@@ -4,6 +4,7 @@ import (
 	"context"
 	gotls "crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -721,11 +722,7 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	})
+	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) })
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for pachd server to gracefully stop")
@@ -913,11 +910,7 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	})
+	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) })
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
@@ -952,5 +945,35 @@ func waitForError(name string, errChan chan error, required bool, f func() error
 		} else {
 			errChan <- errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}
+	}
+}
+
+type prometheusServer struct {
+	port uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ps prometheusServer) listenAndServe(ctx context.Context) error {
+	var (
+		mux = http.NewServeMux()
+		srv = http.Server{
+			Addr:        fmt.Sprintf(":%v", ps.port),
+			Handler:     mux,
+			BaseContext: func(net.Listener) context.Context { return ctx },
+		}
+		errCh = make(chan error, 1)
+	)
+	mux.Handle("/metrics", promhttp.Handler())
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
 	}
 }
