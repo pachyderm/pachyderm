@@ -3,7 +3,6 @@ package version
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"runtime/debug"
 
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -36,9 +35,6 @@ var (
 		GoVersion:       B.goVersion,
 		Platform:        B.platform,
 	}
-
-	// Custom release have a 40 character commit hash build into the version string
-	customReleaseRegex = regexp.MustCompile(`[0-9a-f]{40}`)
 )
 
 type buildInfo struct {
