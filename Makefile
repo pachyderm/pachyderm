@@ -126,10 +126,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-push:
-	$(SKIP) docker push pachyderm/pachd:$(VERSION)
-	$(SKIP) docker push pachyderm/worker:$(VERSION)
-	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
-	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
+	$(SKIP) ./etc/build/push_docker_with_manifests.sh
 
 docker-pull:
 	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
