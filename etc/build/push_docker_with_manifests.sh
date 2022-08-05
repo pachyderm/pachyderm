@@ -2,8 +2,7 @@
 
 set -euxo pipefail
 
-#REPO=localhost:5001/pachyderm
-REPO=pachyderm/
+REPO=pachyderm
 
 for product in pachd worker pachctl mount-server; do
     echo "push $product $VERSION..."
