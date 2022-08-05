@@ -403,6 +403,7 @@ func TestTransformPipeline(suite *testing.T) {
 
 		// Get the output files.
 		files, err := env.PachClient.ListFileAll(jobInfo.OutputCommit, "/*")
+		require.NoError(t, err)
 		require.Equal(t, len(files), 0)
 	})
 }
