@@ -34,7 +34,6 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 
 	env := newPachEnv(t, dbConfig)
-
 	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
 
 	// Set env vars that the object storage layer expects in the env
@@ -92,7 +91,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NoError(t, err)
 
 	pipelineInfo.SpecCommit = specCommit
-	testEnv := testEnvFromPach(t, pipelineInfo, env)
+	testEnv := newTestEnv(t, pipelineInfo, env)
 	testEnv.driver = testEnv.driver.WithContext(ctx)
 	testEnv.PachClient = testEnv.driver.PachClient()
 
@@ -160,7 +159,6 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		PodSpec:          pi.Details.PodSpec,
 		PodPatch:         pi.Details.PodPatch,
 	}
-
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
 		result := proto.Clone(jobInfo).(*pps.JobInfo)
 		return result, nil
@@ -175,12 +173,10 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			cancel()
 		}
 	}
-
 	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
 		updateJobState(request)
 		return nil
 	})
-
 	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
 		updateJobState(request)
 		return &types.Empty{}, nil

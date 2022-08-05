@@ -119,7 +119,6 @@ func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
-	//imageID, err := td.inner.GetContainerImageID(ctx, containerName)
 	return "mockImage", nil
 }
 
@@ -130,7 +129,7 @@ func newPachEnv(t *testing.T, dbConfig serviceenv.ConfigOption) *testpachd.RealE
 
 // newTestEnv provides a test env with etcd and pachd instances and connected
 // clients, plus a worker driver for performing worker operations.
-func testEnvFromPach(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *testpachd.RealEnv) *testEnv {
+func newTestEnv(t *testing.T, pipelineInfo *pps.PipelineInfo, realEnv *testpachd.RealEnv) *testEnv {
 	logger := logs.NewMockLogger()
 	if debug {
 		logger.Writer = os.Stdout
