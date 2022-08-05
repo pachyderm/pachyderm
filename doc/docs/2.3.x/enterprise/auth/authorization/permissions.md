@@ -2,6 +2,8 @@
 
 Use this article to reference permissions granted to each role when assigning them to your team/resources.
 
+You can also use the command `pachctl auth roles-for-permission <permission>` to look up which roles provide a given permission.
+
 ## RepoReaderRole 
 
 | Permission |
