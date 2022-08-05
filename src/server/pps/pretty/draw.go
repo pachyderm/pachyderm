@@ -3,6 +3,7 @@ package pretty
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/fatih/color"
@@ -52,7 +53,7 @@ func Draw(pis []*pps.PipelineInfo) (string, error) {
 	if g, err := makeGraph(pis); err != nil {
 		return "", err
 	} else {
-		return draw(g, layerLongestPath, simpleOrder), nil
+		return draw(g, layerLongestPath, orderGreedy), nil
 	}
 }
 
@@ -180,8 +181,26 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 // ==================================================
 // Ordering Algorithms
 
-// TODO: write ordering algorithm
-func simpleOrder(layers [][]*vertex) {
+func orderGreedy(layers [][]*vertex) {
+	var prev map[string]int
+	for i, l := range layers {
+		if i > 0 {
+			sort.Slice(l, func(i, j int) bool {
+				iScore, jScore := 0, 0
+				for u := range l[i].edges {
+					iScore += prev[u] - i
+				}
+				for u := range l[j].edges {
+					jScore += prev[u] - j
+				}
+				return iScore < jScore
+			})
+		}
+		prev = make(map[string]int)
+		for j, v := range l {
+			prev[v.id] = j
+		}
+	}
 }
 
 // ==================================================

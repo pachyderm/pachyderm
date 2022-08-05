@@ -26,7 +26,7 @@ func sequentialConnectedDAG(layers [][]*vertex) []*vertex {
 func TestX(t *testing.T) {
 	expected := `
            +-----------+    +-----------+
-           |  configs  |    |   datas   |
+           |   datas   |    |  configs  |
            +-----------+    +-----------+
                   \              /                  
                    \            /                   
@@ -57,7 +57,7 @@ func TestX(t *testing.T) {
 func TestV(t *testing.T) {
 	expected := `
            +-----------+    +-----------+
-           |  configs  |    |   datas   |
+           |   datas   |    |  configs  |
            +-----------+    +-----------+
                   \              /                  
                    \            /                   
@@ -87,7 +87,7 @@ func TestDiamond(t *testing.T) {
                    /            \                   
                   /              \                  
            +-----------+    +-----------+
-           | features  |    |   clean   |
+           |   clean   |    | features  |
            +-----------+    +-----------+
                   \              /                  
                    \            /                   
@@ -150,24 +150,24 @@ func TestChain(t *testing.T) {
 func TestCrossLayer(t *testing.T) {
 	expected := `
            +-----------+    +-----------+
-           | raw_data  |    |  configs  |
+           |  configs  |    | raw_data  |
            +-----------+    +-----------+
-                 |               /|                 
-                 |              / |                 
+                 |\               |                 
+                 | \              |                 
                  |  ------------  |                 
-                 | /              |                 
-                 |/               |                 
-           +-----------+          |      
-           | transform |          |      
-           +-----------+          |      
+                 |              \ |                 
+                 |               \|                 
+                 |          +-----------+
+                 |          | transform |
+                 |          +-----------+
                  |                |                 
                  |                |                 
                  |                |                 
                  |                |                 
                  |                |                 
-           +-----------+          |      
-           | dashboard |          |      
-           +-----------+          |      
+                 |          +-----------+
+                 |          | dashboard |
+                 |          +-----------+
                   \              /                  
                    \            /                   
                     ----     ---                    
@@ -194,7 +194,7 @@ func TestCrossLayer(t *testing.T) {
 func TestBiPartite(t *testing.T) {
 	expected := `
              +-----------+      +-----------+      +-----------+
-             |  configs  |      |   data    |      |  biases   |
+             |  biases   |      |   data    |      |  configs  |
              +-----------+      +-----------+      +-----------+
                     \                / \                /                     
                      \              /   \              /                      
@@ -213,12 +213,37 @@ func TestBiPartite(t *testing.T) {
 	drawMultiAlgos(t, vs, expected)
 }
 
+func TestOrderSimple(t *testing.T) {
+	expected := `
+                    +-----------+             +-----------+
+                    |   data    |             |  configs  |
+                    +-----------+             +-----------+
+                         /                         / \                        
+                        /                         /   \                       
+                      ----------------------------     \                      
+                     /                  /              \                      
+                    /                  /                \                     
+             +-----------+      +-----------+      +-----------+
+             |   model   |      | analysis  |      |  pretty   |
+             +-----------+      +-----------+      +-----------+
+`
+	layers := [][]*vertex{
+		{newVertex("configs")},
+		{newVertex("model"), newVertex("analysis"), newVertex("pretty")},
+	}
+	vs := sequentialConnectedDAG(layers)
+	v := newVertex("data")
+	v.addEdge(layers[1][0])
+	drawMultiAlgos(t, append(vs, v), expected)
+	drawMultiAlgos(t, append([]*vertex{v}, vs...), expected)
+}
+
 func drawMultiAlgos(t testing.TB, vs []*vertex, expected string) {
 	layerers := []layerer{
 		layerLongestPath,
 	}
 	for _, lyr := range layerers {
-		picture := draw(vs, lyr, simpleOrder)
+		picture := draw(vs, lyr, orderGreedy)
 		require.Equal(t, strings.Trim(expected, "\n "), strings.Trim(picture, "\n "))
 		fmt.Print(picture)
 	}
