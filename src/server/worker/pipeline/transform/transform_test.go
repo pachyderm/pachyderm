@@ -28,7 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
@@ -36,9 +36,6 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	env := newPachEnv(t, dbConfig)
 
 	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
-	t.Cleanup(func() {
-		require.NoError(t, eg.Wait())
-	})
 
 	// Set env vars that the object storage layer expects in the env
 	// This is global but it should be fine because all tests use the same value.
@@ -95,32 +92,32 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, err)
 
 	pipelineInfo.SpecCommit = specCommit
-	renv := testEnvFromPach(t, pipelineInfo, env)
-	renv.driver = renv.driver.WithContext(ctx)
-	renv.PachClient = renv.driver.PachClient()
+	testEnv := testEnvFromPach(t, pipelineInfo, env)
+	testEnv.driver = testEnv.driver.WithContext(ctx)
+	testEnv.PachClient = testEnv.driver.PachClient()
 
 	// Put the pipeline info into the collection (which is read by the master)
-	err = renv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
-		rw := renv.driver.Pipelines().ReadWrite(sqlTx)
+	err = testEnv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+		rw := testEnv.driver.Pipelines().ReadWrite(sqlTx)
 		err := rw.Put(specCommit, pipelineInfo) // pipeline/info needs to contain spec
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 
-	/*eg.Go(func() error {
-		err := backoff.RetryUntilCancel(renv.driver.PachClient().Ctx(), func() error {
-			return Worker(renv.driver.PachClient().Ctx(), renv.driver, renv.logger, &Status{})
+	eg.Go(func() error {
+		err := backoff.RetryUntilCancel(testEnv.driver.PachClient().Ctx(), func() error {
+			return Worker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &Status{})
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-			renv.logger.Logf("worker failed, retrying immediately, err: %v", err)
+			testEnv.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil
 		})
 		if err != nil && !errors.Is(err, context.Canceled) {
 			return err
 		}
 		return nil
-	})*/
+	})
 
-	return renv
+	return testEnv
 }
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
@@ -189,10 +186,6 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		return &types.Empty{}, nil
 	})
 
-	return ctx, jobInfo
-}
-
-func startJobAndWorker(t *testing.T, env *testEnv, ctx context.Context, jobInfo *pps.JobInfo) context.Context {
 	eg, ctx := errgroup.WithContext(ctx)
 	reg, err := newRegistry(env.driver, env.logger)
 	require.NoError(t, err)
@@ -202,23 +195,10 @@ func startJobAndWorker(t *testing.T, env *testEnv, ctx context.Context, jobInfo 
 		}
 		return nil
 	})
-	eg.Go(func() error {
-		err := backoff.RetryUntilCancel(env.driver.PachClient().Ctx(), func() error {
-			return Worker(env.driver.PachClient().Ctx(), env.driver, env.logger, &Status{})
-		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-			env.logger.Logf("worker failed, retrying immediately, err: %v", err)
-			return nil
-		})
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return err
-		}
-		return nil
-	})
-
-	return ctx
+	return ctx, jobInfo
 }
 
-func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) (context.Context, *pps.JobInfo) {
+func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) *pfs.Commit {
 	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
@@ -232,28 +212,23 @@ func mockBasicJob(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taru
 	}))
 	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
 	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
-
-	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = startJobAndWorker(t, env, ctx, jobInfo)
-	return ctx, jobInfo
+	return commit
 }
 
-func mockBasicJobDelete(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) (context.Context, *pps.JobInfo) {
+func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) *pfs.Commit {
 	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))
 	}
 	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
-
-	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = startJobAndWorker(t, env, ctx, jobInfo)
-	return ctx, jobInfo
+	return commit
 }
 
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
-	ctx, jobInfo := mockBasicJob(t, env, pi, files)
-	ctx = withTimeout(ctx, 60*time.Second)
+	commit := writeFiles(t, env, pi, files)
+	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
+	ctx = withTimeout(ctx, 10*time.Second)
 	<-ctx.Done()
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
@@ -282,24 +257,21 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
-	// suite.Skip("TODO: investigate test failure")
 
 	suite.Run("TestJobSuccess", func(t *testing.T) {
-		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
 	})
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
-		t.Parallel()
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		egressURL := objC.BucketURL().String()
 		pi.Details.Egress = &pps.Egress{URL: egressURL}
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 
 		files := []tarutil.File{
 			tarutil.NewMemFile("/file1", []byte("foo")),
@@ -322,90 +294,59 @@ func TestTransformPipeline(suite *testing.T) {
 	})
 
 	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
-		t.Parallel()
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
 		pi.Details.Egress = &pps.Egress{URL: objC.BucketURL().String()}
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 
 		testJobSuccess(t, env, pi, nil)
 	})
 
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
-		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 
 		pi.Details.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		}
-		ctx, jobInfo := mockBasicJob(t, env, pi, tarFiles)
-		//triggerJob(t, env, pi, tarFiles)
-		ctx = withTimeout(ctx, 60*time.Second)
+		commit := writeFiles(t, env, pi, tarFiles)
+		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
+		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		// TODO: check job stats
 	})
 
 	suite.Run("TestJobMultiDatum", func(t *testing.T) {
-		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 
-		//ctx, jobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 			tarutil.NewMemFile("/b", []byte("barfoo")),
 		}
-		ctx, jobInfo := mockBasicJob(t, env, pi, tarFiles)
-		//triggerJob(t, env, pi, tarFiles)
-		ctx = withTimeout(ctx, 60*time.Second)
-		<-ctx.Done()
-		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
-
-		// Ensure the output commit is successful.
-		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectCommit(pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
-		require.NoError(t, err)
-		require.NotNil(t, outputCommitInfo.Finished)
-
-		branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
-		require.NoError(t, err)
-		require.NotNil(t, branchInfo)
-
-		// Get the output files.
-		r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
-		require.NoError(t, err)
-		require.NoError(t, tarutil.Iterate(r, func(file tarutil.File) error {
-			ok, err := tarutil.Equal(tarFiles[0], file)
-			require.NoError(t, err)
-			require.True(t, ok)
-			tarFiles = tarFiles[1:]
-			return nil
-		}))
+		testJobSuccess(t, env, pi, tarFiles)
 	})
 
 	suite.Run("TestJobSerial", func(t *testing.T) {
-		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 
-		//ctx, jobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 			tarutil.NewMemFile("/b", []byte("barfoo")),
 		}
-		ctx, jobInfo := mockBasicJob(t, env, pi, tarFiles[:1])
-		//triggerJob(t, env, pi, tarFiles[:1])
-		ctx = withTimeout(ctx, 60*time.Second)
+		commit := writeFiles(t, env, pi, tarFiles[:1])
+		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
+		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
-		ctx, jobInfo = mockBasicJob(t, env, pi, tarFiles[1:])
-		//triggerJob(t, env, pi, tarFiles[1:])
-		ctx = withTimeout(ctx, 60*time.Second)
+		commit = writeFiles(t, env, pi, tarFiles[1:])
+		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
+		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
@@ -432,23 +373,21 @@ func TestTransformPipeline(suite *testing.T) {
 	})
 
 	suite.Run("TestJobSerialDelete", func(t *testing.T) {
-		t.Parallel()
 		pi := defaultPipelineInfo()
-		env := newWorkerSpawnerPair(t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 
-		//ctx, jobInfo := mockBasicJob(t, env, pi)
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 		}
-		ctx, jobInfo := mockBasicJob(t, env, pi, tarFiles[:1])
-		//triggerJob(t, env, pi, tarFiles[:1])
-		ctx = withTimeout(ctx, 30*time.Second)
+		commit := writeFiles(t, env, pi, tarFiles[:1])
+		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
+		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
-		ctx, jobInfo = mockBasicJobDelete(t, env, pi, []string{"/a"})
-		//deleteFiles(t, env, pi, []string{"/a"})
-		ctx = withTimeout(ctx, 30*time.Second)
+		commit = deleteFiles(t, env, pi, []string{"/a"})
+		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
+		ctx = withTimeout(ctx, 10*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
