@@ -18,11 +18,14 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
+  go-version:
+    type: string
+    default: "1.18.4"
 
 executors:
   docker-go:
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
 
 jobs:
   test-go:
@@ -88,6 +91,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -97,7 +101,7 @@ jobs:
           paths:
             - cached-deps/
       - go/install:
-          version: 1.18.4
+          version: << pipeline.parameters.go-version >>
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -277,6 +281,8 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
@@ -299,6 +305,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
@@ -323,6 +330,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -350,7 +358,9 @@ jobs:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - run: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - run:
+          name: Run Tests
+          command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
@@ -465,7 +475,7 @@ jobs:
   jsonnet-lint:
     resource_class: small
     docker:
-      - image: cimg/go:1.18.4
+      - image: cimg/go:<< pipeline.parameters.go-version >>
     steps:
       - checkout
       - run:

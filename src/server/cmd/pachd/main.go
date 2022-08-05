@@ -705,12 +705,8 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServer(ctx) })
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	})
+	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) })
+	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) })
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for pachd server to gracefully stop")
@@ -881,12 +877,8 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
 		return internalServer.Wait()
 	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServer(ctx) })
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	})
+	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) })
+	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) })
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
@@ -931,7 +923,7 @@ type s3Server struct {
 
 // listenAndServe listens until ctx is cancelled; it then gracefully shuts down
 // the server, returning once all requests have been handled.
-func (ss s3Server) listenAndServer(ctx context.Context) error {
+func (ss s3Server) listenAndServe(ctx context.Context) error {
 	var (
 		router = s3.Router(s3.NewMasterDriver(), ss.clientFactory)
 		srv    = s3.Server(ss.port, router)
@@ -954,6 +946,36 @@ func (ss s3Server) listenAndServer(ctx context.Context) error {
 		}
 		srv.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
 		errCh <- errors.EnsureStack(srv.ListenAndServeTLS(certPath, keyPath))
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
+	}
+}
+
+type prometheusServer struct {
+	port uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ps prometheusServer) listenAndServe(ctx context.Context) error {
+	var (
+		mux = http.NewServeMux()
+		srv = http.Server{
+			Addr:        fmt.Sprintf(":%v", ps.port),
+			Handler:     mux,
+			BaseContext: func(net.Listener) context.Context { return ctx },
+		}
+		errCh = make(chan error, 1)
+	)
+	mux.Handle("/metrics", promhttp.Handler())
+	go func() {
+		errCh <- srv.ListenAndServe()
 	}()
 	select {
 	case <-ctx.Done():
