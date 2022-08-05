@@ -190,7 +190,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	reg, err := newRegistry(env.driver, env.logger)
 	require.NoError(t, err)
 	eg.Go(func() error {
-		if reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo)); err != nil {
+		if err = reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo)); err != nil {
 			return err
 		}
 		return nil
