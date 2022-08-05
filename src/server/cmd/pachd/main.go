@@ -951,6 +951,7 @@ func (ss s3Server) listenAndServe(ctx context.Context) error {
 	case <-ctx.Done():
 		// NOTE: using context.Background here means that shutdown will
 		// wait until all requests terminate.
+		log.Info("terminating S3 server due to cancelled context")
 		return errors.EnsureStack(srv.Shutdown(context.Background()))
 	case err := <-errCh:
 		return err
@@ -981,6 +982,7 @@ func (ps prometheusServer) listenAndServe(ctx context.Context) error {
 	case <-ctx.Done():
 		// NOTE: using context.Background here means that shutdown will
 		// wait until all requests terminate.
+		log.Info("terminating S3 server due to cancelled context")
 		return errors.EnsureStack(srv.Shutdown(context.Background()))
 	case err := <-errCh:
 		return err
