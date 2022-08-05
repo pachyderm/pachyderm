@@ -723,7 +723,7 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 		} else {
 			log.Println("gRPC server gracefully stopped")
 		}
-		return err
+		return errors.EnsureStack(err)
 	})
 	return errors.EnsureStack(eg.Wait())
 }
@@ -895,7 +895,7 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 		} else {
 			log.Println("gRPC server gracefully stopped")
 		}
-		return err
+		return errors.EnsureStack(err)
 	})
 	return errors.EnsureStack(eg.Wait())
 }
