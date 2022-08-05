@@ -11,7 +11,6 @@ import (
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
-	"syscall"
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
@@ -68,8 +67,11 @@ import (
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
 
-var mode string
-var readiness bool
+var (
+	mode          string
+	readiness     bool
+	notifySignals = []os.Signal{os.Interrupt}
+)
 
 type bootstrapper interface {
 	EnvBootstrap(context.Context) error
@@ -85,7 +87,8 @@ func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
 	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), notifySignals...)
+	defer cancel()
 
 	switch {
 	case readiness:
@@ -481,8 +484,6 @@ func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
 
 func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	eg, ctx := errgroup.WithContext(ctx)
-	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
@@ -710,25 +711,25 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	}))
 	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
 	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
-	go func(c chan os.Signal) {
-		<-c
-		log.Println("terminating; waiting for pachd server to gracefully stop")
-		var g, _ = errgroup.WithContext(ctx)
-		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
-		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		if err := g.Wait(); err != nil {
-			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
+	eg.Go(func() error {
+		<-ctx.Done() // wait for main context to complete
+		var eg = new(errgroup.Group)
+		log.Println("terminating; waiting for paused pachd server to gracefully stop")
+		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		err := eg.Wait()
+		if err != nil {
+			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
 		} else {
 			log.Println("gRPC server gracefully stopped")
 		}
-	}(interruptChan)
+		return err
+	})
 	return errors.EnsureStack(eg.Wait())
 }
 
 func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	eg, ctx := errgroup.WithContext(ctx)
-	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	defer func() {
 		if retErr != nil {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
@@ -882,18 +883,20 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	}))
 	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
 	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
-	go func(c chan os.Signal) {
-		<-c
+	eg.Go(func() error {
+		<-ctx.Done() // wait for main context to complete
+		var eg = new(errgroup.Group)
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
-		var g, _ = errgroup.WithContext(ctx)
-		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
-		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		if err := g.Wait(); err != nil {
+		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		err := eg.Wait()
+		if err != nil {
 			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
 		} else {
 			log.Println("gRPC server gracefully stopped")
 		}
-	}(interruptChan)
+		return err
+	})
 	return errors.EnsureStack(eg.Wait())
 }
 
