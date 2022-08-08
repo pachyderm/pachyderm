@@ -400,8 +400,8 @@ jobs:
             wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
-            apt update
-            apt install qemu binfmt-support qemu-user-static
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
       - run:
           name: pachydermbuildbot docker login
           command: |
