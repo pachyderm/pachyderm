@@ -222,11 +222,6 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 	return err
 }
 
-func (b *builder) initLicenseEnv(ctx context.Context) error {
-	b.licenseEnv = licenseserver.EnvFromServiceEnv(b.env)
-	return nil
-}
-
 func (b builder) forGRPCServer(f func(*grpc.Server)) {
 	b.daemon.forGRPCServer(f)
 }
