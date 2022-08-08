@@ -24,12 +24,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
@@ -38,12 +38,10 @@ import (
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
-	proxyclient "github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	"google.golang.org/grpc/health"
 
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
@@ -484,249 +482,7 @@ func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
 }
 
 func doFullMode(ctx context.Context, config interface{}) (retErr error) {
-	eg, ctx := errgroup.WithContext(ctx)
-	defer func() {
-		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
-		}
-	}()
-	env, err := setup(config, "pachyderm-pachd-full")
-	if err != nil {
-		return err
-	}
-	if err := setupDB(ctx, env); err != nil {
-		return err
-	}
-	if !env.Config().EnterpriseMember {
-		env.InitDexDB()
-	}
-	var reporter *metrics.Reporter
-	if env.Config().Metrics {
-		reporter = metrics.NewReporter(env)
-	}
-	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
-	// Setup External Pachd GRPC Server.
-	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
-	if err != nil {
-		return err
-	}
-	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
-	if err != nil {
-		return err
-	}
-	var bootstrappers []bootstrapper
-	if err := logGRPCServerSetup("External + Internal Pachd Servers", func() error {
-		txnEnv := txnenv.New()
-		licenseEnv := licenseserver.EnvFromServiceEnv(env)
-		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseEnv)
-			if err != nil {
-				return err
-			}
-			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
-			licenseclient.RegisterAPIServer(internalServer.Server, licenseAPIServer)
-			bootstrappers = append(bootstrappers, licenseAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		enterpriseEnv := eprsserver.EnvFromServiceEnv(env,
-			path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix),
-			txnEnv,
-			eprsserver.WithMode(eprsserver.FullMode),
-			eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")))
-
-		if err := logGRPCServerSetup("Enterprise API", func() error {
-			enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-				enterpriseEnv,
-				true,
-			)
-			if err != nil {
-				return err
-			}
-			eprsclient.RegisterAPIServer(externalServer.Server, enterpriseAPIServer)
-			eprsclient.RegisterAPIServer(internalServer.Server, enterpriseAPIServer)
-			bootstrappers = append(bootstrappers, enterpriseAPIServer)
-			env.SetEnterpriseServer(enterpriseAPIServer)
-			licenseEnv.EnterpriseServer = enterpriseAPIServer
-			return nil
-		}); err != nil {
-			return err
-		}
-		if !env.Config().EnterpriseMember {
-			if err := logGRPCServerSetup("Identity API", func() error {
-				idAPIServer := identity_server.NewIdentityServer(
-					identity_server.EnvFromServiceEnv(env),
-					true,
-				)
-				identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
-				identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
-				env.SetIdentityServer(idAPIServer)
-				bootstrappers = append(bootstrappers, idAPIServer)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		if err := logGRPCServerSetup("Auth API", func() error {
-			authAPIServer, err := authserver.NewAuthServer(
-				authserver.EnvFromServiceEnv(env, txnEnv),
-				true, requireNoncriticalServers, true,
-			)
-			if err != nil {
-				return err
-			}
-			authclient.RegisterAPIServer(externalServer.Server, authAPIServer)
-			authclient.RegisterAPIServer(internalServer.Server, authAPIServer)
-			env.SetAuthServer(authAPIServer)
-			enterpriseEnv.AuthServer = authAPIServer
-			bootstrappers = append(bootstrappers, authAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("PFS API", func() error {
-			pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
-			if err != nil {
-				return err
-			}
-			pfsAPIServer, err := pfs_server.NewAPIServer(*pfsEnv)
-			if err != nil {
-				return err
-			}
-			pfsclient.RegisterAPIServer(externalServer.Server, pfsAPIServer)
-			pfsclient.RegisterAPIServer(internalServer.Server, pfsAPIServer)
-			env.SetPfsServer(pfsAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("PPS API", func() error {
-			ppsAPIServer, err := pps_server.NewAPIServer(
-				pps_server.EnvFromServiceEnv(env, txnEnv, reporter),
-			)
-			if err != nil {
-				return err
-			}
-			ppsclient.RegisterAPIServer(externalServer.Server, ppsAPIServer)
-			ppsclient.RegisterAPIServer(internalServer.Server, ppsAPIServer)
-			env.SetPpsServer(ppsAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-
-		var transactionAPIServer txnserver.APIServer
-		if err := logGRPCServerSetup("Transaction API", func() error {
-			transactionAPIServer, err = txnserver.NewAPIServer(
-				env,
-				txnEnv,
-			)
-			if err != nil {
-				return err
-			}
-			transactionclient.RegisterAPIServer(externalServer.Server, transactionAPIServer)
-			transactionclient.RegisterAPIServer(internalServer.Server, transactionAPIServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Admin API", func() error {
-			adminServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(env))
-			adminclient.RegisterAPIServer(externalServer.Server, adminServer)
-			adminclient.RegisterAPIServer(internalServer.Server, adminServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		healthServer := health.NewServer()
-		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-		if err := logGRPCServerSetup("Health", func() error {
-			grpc_health_v1.RegisterHealthServer(externalServer.Server, healthServer)
-			grpc_health_v1.RegisterHealthServer(internalServer.Server, healthServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Version API", func() error {
-			versionpb.RegisterAPIServer(externalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-			versionpb.RegisterAPIServer(internalServer.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Debug", func() error {
-			debugServer := debugserver.NewDebugServer(
-				env,
-				env.Config().PachdPodName,
-				nil,
-				env.GetDBClient(),
-			)
-			debugclient.RegisterDebugServer(externalServer.Server, debugServer)
-			debugclient.RegisterDebugServer(internalServer.Server, debugServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		if err := logGRPCServerSetup("Proxy API", func() error {
-			proxyServer := proxyserver.NewAPIServer(proxyserver.Env{
-				Listener: env.GetPostgresListener(),
-			})
-			proxyclient.RegisterAPIServer(externalServer.Server, proxyServer)
-			proxyclient.RegisterAPIServer(internalServer.Server, proxyServer)
-			return nil
-		}); err != nil {
-			return err
-		}
-		txnEnv.Initialize(env, transactionAPIServer)
-		if _, err := internalServer.ListenTCP("", env.Config().PeerPort); err != nil {
-			return err
-		}
-		for _, b := range bootstrappers {
-			if err := b.EnvBootstrap(ctx); err != nil {
-				return errors.EnsureStack(err)
-			}
-		}
-		if _, err := externalServer.ListenTCP("", env.Config().Port); err != nil {
-			return err
-		}
-		healthServer.Resume()
-		return nil
-	}); err != nil {
-		return err
-	}
-	// Create the goroutines for the servers.
-	// Any server error is considered critical and will cause Pachd to exit.
-	// The first server that errors will have its error message logged.
-	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
-		return externalServer.Wait()
-	}))
-	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
-		return externalServer.Wait()
-	}))
-	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
-		return internalServer.Wait()
-	}))
-	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
-	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
-	eg.Go(func() error {
-		<-ctx.Done() // wait for main context to complete
-		var eg = new(errgroup.Group)
-		log.Println("terminating; waiting for paused pachd server to gracefully stop")
-		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
-		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		err := eg.Wait()
-		if err != nil {
-			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
-		} else {
-			log.Println("gRPC server gracefully stopped")
-		}
-		return errors.EnsureStack(err)
-	})
-	return errors.EnsureStack(eg.Wait())
+	return errors.EnsureStack(pachd.NewFullBuilder(config).Build(ctx))
 }
 
 func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
