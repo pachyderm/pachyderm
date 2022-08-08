@@ -46,6 +46,8 @@ func (fb *fullBuilder) Build(ctx context.Context) error {
 		fb.registerHealthServer,
 		fb.registerVersionServer,
 		fb.registerDebugServer,
+		fb.registerProxyServer,
+
 		fb.initTransaction,
 		fb.internallyListen,
 		fb.bootstrap,
