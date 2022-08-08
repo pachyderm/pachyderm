@@ -36,7 +36,7 @@ This chapter will detail how to:
     ```
 !!! Note
 
-    Alternatively, [you have the **option to set your cluster roles directly through Helm using the helm value: pachd.pachAuthClusterRoleBindings**](https://github.com/pachyderm/pachyderm/blob/master/etc/helm/pachyderm/values.yaml#L290){target=_blank}. 
+    Alternatively, [you have the **option to set your cluster roles directly through Helm using the helm value: pachd.pachAuthClusterRoleBindings**](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml#L469){target=_blank}. 
 
     For example, grant reader access to all repos to a specific group:
     ```yaml
