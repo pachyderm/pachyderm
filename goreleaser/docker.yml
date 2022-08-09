@@ -129,6 +129,7 @@ dockers:
           - "--network=host"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/amd64"
     - image_templates:
           - pachyderm/pachctl-amd64
           - pachyderm/pachctl-amd64:{{ .FullCommit }}
@@ -143,6 +144,7 @@ dockers:
           - "--progress=plain"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/amd64"
       extra_files:
           - LICENSE
           - licenses
@@ -160,6 +162,7 @@ dockers:
           - "--progress=plain"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/amd64"
       extra_files:
           - LICENSE
           - licenses
@@ -182,6 +185,7 @@ dockers:
           - "--progress=plain"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/amd64"
       extra_files:
           - LICENSE
           - licenses
@@ -206,6 +210,7 @@ dockers:
           - "--network=host"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/arm64"
     - image_templates:
           - pachyderm/pachctl-arm64
           - pachyderm/pachctl-arm64:{{ .FullCommit }}
@@ -220,6 +225,7 @@ dockers:
           - "--progress=plain"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/arm64"
       extra_files:
           - LICENSE
           - licenses
@@ -237,6 +243,7 @@ dockers:
           - "--progress=plain"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/arm64"
       extra_files:
           - LICENSE
           - licenses
@@ -257,6 +264,7 @@ dockers:
           - "--progress=plain"
           - "--label=version={{.Version}}"
           - "--label=release={{.Version}}"
+          - "--platform=linux/arm64"
       extra_files:
           - LICENSE
           - licenses
