@@ -8,7 +8,7 @@ type fullBuilder struct {
 	builder
 }
 
-func (fb *fullBuilder) initDexDB(ctx context.Context) error {
+func (fb *fullBuilder) maybeInitDexDB(ctx context.Context) error {
 	if fb.env.Config().EnterpriseMember {
 		return nil
 	}
@@ -31,7 +31,7 @@ func (fb *fullBuilder) Build(ctx context.Context) error {
 	fb.daemon.requireNonCriticalServers = !fb.env.Config().RequireCriticalServersOnly
 	return fb.apply(ctx,
 		fb.setupDB,
-		fb.initDexDB,
+		fb.maybeInitDexDB,
 		fb.maybeInitReporter,
 		fb.initInternalServer,
 		fb.initExternalServer,
@@ -47,6 +47,8 @@ func (fb *fullBuilder) Build(ctx context.Context) error {
 		fb.registerVersionServer,
 		fb.registerDebugServer,
 		fb.registerProxyServer,
+		fb.initS3Server,
+		fb.initPrometheusServer,
 
 		fb.initTransaction,
 		fb.internallyListen,

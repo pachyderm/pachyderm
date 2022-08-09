@@ -396,3 +396,16 @@ func (b *builder) resumeHealth(ctx context.Context) error {
 	b.health.Resume()
 	return nil
 }
+
+func (b *builder) initS3Server(ctx context.Context) error {
+	b.daemon.s3 = &s3Server{
+		clientFactory: b.env.GetPachClient,
+		port:          b.env.Config().S3GatewayPort,
+	}
+	return nil
+}
+
+func (b *builder) initPrometheusServer(ctx context.Context) error {
+	b.daemon.prometheus = &prometheusServer{port: b.env.Config().PrometheusPort}
+	return nil
+}
