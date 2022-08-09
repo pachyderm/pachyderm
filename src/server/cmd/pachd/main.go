@@ -70,10 +70,6 @@ var (
 	notifySignals = []os.Signal{os.Interrupt}
 )
 
-type bootstrapper interface {
-	EnvBootstrap(context.Context) error
-}
-
 func init() {
 	flag.StringVar(&mode, "mode", "full", "Pachd currently supports four modes: full, enterprise, sidecar and paused. Full includes everything you need in a full pachd node. Enterprise runs the Enterprise Server. Sidecar runs only PFS, the Auth service, and a stripped-down version of PPS.  Paused runs all APIs other than PFS and PPS; it is intended to enable taking database backups.")
 	flag.BoolVar(&readiness, "readiness", false, "Run readiness check.")
