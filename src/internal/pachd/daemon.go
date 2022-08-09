@@ -1,4 +1,14 @@
-// Package pachd implements the Pachyderm dæmon and its various modes.
+// Package pachd implements the Pachyderm dæmon and its various modes.  The idea
+// is that there is a Builder for each mode; each Builder is responsible for
+// building and running an instance of the single type Daemon representing a
+// pachd instance.
+//
+// # Adding a new mode
+//
+// To add a new mode one will at least add a new Builder; one may also need to
+// add new members to Daemon.  Daemon should contain only those members needed
+// at run time for any mode; other, transient, values should be members of the
+// pertinent Builder.
 package pachd
 
 import (
