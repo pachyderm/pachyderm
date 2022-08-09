@@ -4,13 +4,14 @@ import (
 	"context"
 	"path"
 
+	"google.golang.org/grpc"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
-	"google.golang.org/grpc"
 )
 
 // SidecarBuilder builds a sidecar-mode pachd instance.  It should only be

@@ -5,9 +5,10 @@ import (
 	"os"
 	"path"
 
+	"google.golang.org/grpc"
+
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	"google.golang.org/grpc"
 )
 
 // A PausedBuilder builds a paused-mode pachd.  It should only be created with

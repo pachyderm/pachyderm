@@ -6,19 +6,17 @@ import (
 	"os"
 	"os/signal"
 
+	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-
-	"github.com/pachyderm/pachyderm/v2/src/version"
-	"go.uber.org/automaxprocs/maxprocs"
-
-	log "github.com/sirupsen/logrus"
-	flag "github.com/spf13/pflag"
-
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 var (

@@ -6,10 +6,10 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type prometheusServer struct {
