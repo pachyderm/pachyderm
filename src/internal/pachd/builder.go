@@ -55,8 +55,11 @@ type bootstrapper interface {
 	EnvBootstrap(context.Context) error
 }
 
+// A Builder builds a Daemon.
 type Builder interface {
 	// Build builds a Daemon and starts it up.
+	//
+	// TODO: split creation & execution.
 	Build(ctx context.Context) error
 }
 

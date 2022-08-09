@@ -14,7 +14,6 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
-	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -36,19 +35,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
-	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
-	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"google.golang.org/grpc/health"
 
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
-	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
-	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	transactionclient "github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -208,124 +202,7 @@ func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
 }
 
 func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
-	defer func() {
-		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
-		}
-	}()
-	env, err := setup(config, "pachyderm-pachd-sidecar")
-	if err != nil {
-		return err
-	}
-	authInterceptor := authmw.NewInterceptor(env.AuthServer)
-	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	server, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
-	if err != nil {
-		return err
-	}
-	txnEnv := txnenv.New()
-	if err := logGRPCServerSetup("Auth API", func() error {
-		authAPIServer, err := authserver.NewAuthServer(
-			authserver.EnvFromServiceEnv(env, txnEnv),
-			false,
-			false,
-			false,
-		)
-		if err != nil {
-			return err
-		}
-		authclient.RegisterAPIServer(server.Server, authAPIServer)
-		env.SetAuthServer(authAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := logGRPCServerSetup("PFS API", func() error {
-		pfsEnv, err := pfs_server.EnvFromServiceEnv(env, txnEnv)
-		if err != nil {
-			return err
-		}
-		pfsAPIServer, err := pfs_server.NewSidecarAPIServer(*pfsEnv)
-		if err != nil {
-			return err
-		}
-		pfsclient.RegisterAPIServer(server.Server, pfsAPIServer)
-		env.SetPfsServer(pfsAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := logGRPCServerSetup("PPS API", func() error {
-		ppsAPIServer, err := pps_server.NewSidecarAPIServer(
-			pps_server.EnvFromServiceEnv(env, txnEnv, nil),
-			env.Config().Namespace,
-			env.Config().PPSWorkerPort,
-			env.Config().PeerPort,
-		)
-		if err != nil {
-			return err
-		}
-		ppsclient.RegisterAPIServer(server.Server, ppsAPIServer)
-		env.SetPpsServer(ppsAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	e := eprsserver.EnvFromServiceEnv(env, path.Join(env.Config().EtcdPrefix, env.Config().EnterpriseEtcdPrefix), txnEnv)
-	if err := logGRPCServerSetup("Enterprise API", func() error {
-		enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-			e,
-			false,
-		)
-		if err != nil {
-			return err
-		}
-		eprsclient.RegisterAPIServer(server.Server, enterpriseAPIServer)
-		env.SetEnterpriseServer(enterpriseAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	var transactionAPIServer txnserver.APIServer
-	if err := logGRPCServerSetup("Transaction API", func() error {
-		transactionAPIServer, err = txnserver.NewAPIServer(
-			env,
-			txnEnv,
-		)
-		if err != nil {
-			return err
-		}
-		transactionclient.RegisterAPIServer(server.Server, transactionAPIServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := logGRPCServerSetup("Health", func() error {
-		healthServer := health.NewServer()
-		grpc_health_v1.RegisterHealthServer(server.Server, healthServer)
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := logGRPCServerSetup("Debug", func() error {
-		debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(
-			env,
-			env.Config().PachdPodName,
-			nil,
-			env.GetDBClient(),
-		))
-		return nil
-	}); err != nil {
-		return err
-	}
-	txnEnv.Initialize(env, transactionAPIServer)
-	// The sidecar only needs to serve traffic on the peer port, as it only serves
-	// traffic from the user container (the worker binary and occasionally user
-	// pipelines)
-	if _, err := server.ListenTCP("", env.Config().PeerPort); err != nil {
-		return err
-	}
-	return server.Wait()
+	return errors.EnsureStack(pachd.NewSidecarBuilder(config).Build(ctx))
 }
 
 func doFullMode(ctx context.Context, config interface{}) (retErr error) {
