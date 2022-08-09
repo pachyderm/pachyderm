@@ -10,11 +10,16 @@ import (
 	"google.golang.org/grpc"
 )
 
-type fullBuilder struct {
+// A FullBuilder builds a full-mode pachd.  It should always be created with
+// NewFullBuilder.
+//
+// Full mode is that standard pachd which users interact with using pachctl and
+// which manages pipelines, files and so forth.
+type FullBuilder struct {
 	builder
 }
 
-func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
+func (fb *FullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 
 	if fb.env.Config().EnterpriseMember {
 		return nil
@@ -22,7 +27,7 @@ func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 	return fb.builder.registerIdentityServer(ctx)
 }
 
-func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (fb *FullBuilder) registerEnterpriseServer(ctx context.Context) error {
 	fb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		fb.env,
 		path.Join(fb.env.Config().EtcdPrefix, fb.env.Config().EnterpriseEtcdPrefix),
@@ -46,11 +51,13 @@ func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-func NewFullBuilder(config any) Builder {
-	return &fullBuilder{newBuilder(config, "pachyderm-pachd-full")}
+// NewFullBuilder returns a new initialized FullBuilder.
+func NewFullBuilder(config any) FullBuilder {
+	return FullBuilder{newBuilder(config, "pachyderm-pachd-full")}
 }
 
-func (fb *fullBuilder) Build(ctx context.Context) error {
+// Build builds and starts a full-mode pachd.
+func (fb *FullBuilder) Build(ctx context.Context) error {
 	fb.daemon.criticalServersOnly = fb.env.Config().RequireCriticalServersOnly
 	return fb.apply(ctx,
 		fb.setupDB,

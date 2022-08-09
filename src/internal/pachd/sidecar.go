@@ -13,15 +13,21 @@ import (
 	"google.golang.org/grpc"
 )
 
-type sidecarBuilder struct {
+// SidecarBuilder builds a sidecar-mode pachd instance.  It should only be
+// created with NewSidecarBuilder.
+//
+// Sidecar mode is run as a sidecar in a pipeline pod; it provides services to
+// the pipeline worker code running in that pod.
+type SidecarBuilder struct {
 	builder
 }
 
-func NewSidecarBuilder(config any) Builder {
-	return &sidecarBuilder{newBuilder(config, "pachyderm-pachd-sidecar")}
+// NewSidecarBuilder returns an initialized SidecarBuilder.
+func NewSidecarBuilder(config any) SidecarBuilder {
+	return SidecarBuilder{newBuilder(config, "pachyderm-pachd-sidecar")}
 }
 
-func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
+func (sb *SidecarBuilder) registerAuthServer(ctx context.Context) error {
 
 	apiServer, err := authserver.NewAuthServer(authserver.EnvFromServiceEnv(sb.env, sb.txnEnv), false, false, false)
 	if err != nil {
@@ -34,7 +40,7 @@ func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
 	return nil
 }
 
-func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
+func (sb *SidecarBuilder) registerPPSServer(ctx context.Context) error {
 	apiServer, err := pps_server.NewSidecarAPIServer(pps_server.EnvFromServiceEnv(sb.env, sb.txnEnv, nil),
 		sb.env.Config().Namespace,
 		sb.env.Config().PPSWorkerPort,
@@ -47,7 +53,7 @@ func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
 	return nil
 }
 
-func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (sb *SidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	sb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		sb.env,
 		path.Join(sb.env.Config().EtcdPrefix, sb.env.Config().EnterpriseEtcdPrefix),
@@ -67,7 +73,8 @@ func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-func (sb *sidecarBuilder) Build(ctx context.Context) error {
+// Build builds & starts a sidecar-mode pachd.
+func (sb *SidecarBuilder) Build(ctx context.Context) error {
 	return sb.apply(ctx,
 		sb.initInternalServer,
 		sb.registerAuthServer,

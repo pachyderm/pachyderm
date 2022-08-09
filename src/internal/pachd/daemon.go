@@ -1,3 +1,4 @@
+// Package pachd implements the Pachyderm dæmon and its various modes.
 package pachd
 
 import (

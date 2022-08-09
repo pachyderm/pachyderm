@@ -10,15 +10,21 @@ import (
 	"google.golang.org/grpc"
 )
 
-type pausedBuilder struct {
+// A PausedBuilder builds a paused-mode pachd.  It should only be created with
+// NewPausedBuilder.
+//
+// Paused mode is a restricted mode which runs Pachyderm read-only in order to
+// take offline backups.
+type PausedBuilder struct {
 	builder
 }
 
-func NewPausedBuilder(config any) Builder {
-	return &pausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
+// NewPausedBuilder returns an initialized PausedBuilder.
+func NewPausedBuilder(config any) PausedBuilder {
+	return PausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
 }
 
-func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (pb *PausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	pb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		pb.env,
 		path.Join(pb.env.Config().EtcdPrefix, pb.env.Config().EnterpriseEtcdPrefix),
@@ -48,15 +54,15 @@ func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-func (pb *pausedBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
-
+func (pb *PausedBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 	if pb.env.Config().EnterpriseMember {
 		return nil
 	}
 	return pb.builder.registerIdentityServer(ctx)
 }
 
-func (pb *pausedBuilder) Build(ctx context.Context) error {
+// Build builds and starts a paused-mode pachd.
+func (pb *PausedBuilder) Build(ctx context.Context) error {
 	pb.daemon.criticalServersOnly = pb.env.Config().RequireCriticalServersOnly
 	return pb.apply(ctx,
 		pb.setupDB,

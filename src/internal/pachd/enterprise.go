@@ -9,11 +9,16 @@ import (
 	"google.golang.org/grpc"
 )
 
-type enterpriseBuilder struct {
+// An EnterpriseBuilder builds an enterprise-mode pachd.  It should only be
+// created with NewEnterpriseBuilder.
+//
+// Enterprise mode is the enterprise server which is used to manage multiple
+// Pachyderm installations.
+type EnterpriseBuilder struct {
 	builder
 }
 
-func (eb *enterpriseBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (eb *EnterpriseBuilder) registerEnterpriseServer(ctx context.Context) error {
 	eb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		eb.env,
 		path.Join(eb.env.Config().EtcdPrefix, eb.env.Config().EnterpriseEtcdPrefix),
@@ -35,11 +40,13 @@ func (eb *enterpriseBuilder) registerEnterpriseServer(ctx context.Context) error
 	return nil
 }
 
-func NewEnterpriseBuilder(config any) Builder {
-	return &enterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
+// NewEnterpriseBuilder returns a new initialized EnterpriseBuilder.
+func NewEnterpriseBuilder(config any) EnterpriseBuilder {
+	return EnterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
 }
 
-func (eb *enterpriseBuilder) Build(ctx context.Context) error {
+// Build builds and starts an enterprise-mode pachd.
+func (eb *EnterpriseBuilder) Build(ctx context.Context) error {
 	return eb.apply(ctx,
 		eb.setupDB,
 		eb.maybeInitDexDB,
