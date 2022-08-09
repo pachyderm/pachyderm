@@ -586,20 +586,9 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          name: pull docker images
+          name: Push release manifests
           command: |
-            make VERSION=$CIRCLE_SHA1 docker-pull
-      - run:
-          name: retag docker images
-          command: |
-            docker tag pachyderm/pachd:$CIRCLE_SHA1 pachyderm/pachd:${CIRCLE_TAG:1}
-            docker tag pachyderm/worker:$CIRCLE_SHA1 pachyderm/worker:${CIRCLE_TAG:1}
-            docker tag pachyderm/pachctl:$CIRCLE_SHA1 pachyderm/pachctl:${CIRCLE_TAG:1}
-            docker tag pachyderm/mount-server:$CIRCLE_SHA1 pachyderm/mount-server:${CIRCLE_TAG:1}
-      - run:
-          name: push docker images
-          command: |
-            make VERSION=${CIRCLE_TAG:1} docker-push
+            make UNDERLYING=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     executor: docker-go
     steps:
