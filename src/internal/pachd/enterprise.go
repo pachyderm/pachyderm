@@ -41,8 +41,8 @@ func (eb *EnterpriseBuilder) registerEnterpriseServer(ctx context.Context) error
 }
 
 // NewEnterpriseBuilder returns a new initialized EnterpriseBuilder.
-func NewEnterpriseBuilder(config any) EnterpriseBuilder {
-	return EnterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
+func NewEnterpriseBuilder(config any) *EnterpriseBuilder {
+	return &EnterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
 }
 
 // Build builds and starts an enterprise-mode pachd.

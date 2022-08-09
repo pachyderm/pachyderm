@@ -20,8 +20,8 @@ type PausedBuilder struct {
 }
 
 // NewPausedBuilder returns an initialized PausedBuilder.
-func NewPausedBuilder(config any) PausedBuilder {
-	return PausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
+func NewPausedBuilder(config any) *PausedBuilder {
+	return &PausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
 }
 
 func (pb *PausedBuilder) registerEnterpriseServer(ctx context.Context) error {

@@ -23,8 +23,8 @@ type SidecarBuilder struct {
 }
 
 // NewSidecarBuilder returns an initialized SidecarBuilder.
-func NewSidecarBuilder(config any) SidecarBuilder {
-	return SidecarBuilder{newBuilder(config, "pachyderm-pachd-sidecar")}
+func NewSidecarBuilder(config any) *SidecarBuilder {
+	return &SidecarBuilder{newBuilder(config, "pachyderm-pachd-sidecar")}
 }
 
 func (sb *SidecarBuilder) registerAuthServer(ctx context.Context) error {

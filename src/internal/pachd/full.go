@@ -52,8 +52,8 @@ func (fb *FullBuilder) registerEnterpriseServer(ctx context.Context) error {
 }
 
 // NewFullBuilder returns a new initialized FullBuilder.
-func NewFullBuilder(config any) FullBuilder {
-	return FullBuilder{newBuilder(config, "pachyderm-pachd-full")}
+func NewFullBuilder(config any) *FullBuilder {
+	return &FullBuilder{newBuilder(config, "pachyderm-pachd-full")}
 }
 
 // Build builds and starts a full-mode pachd.
