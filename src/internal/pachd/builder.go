@@ -3,13 +3,8 @@ package pachd
 import (
 	"context"
 	"os"
-	"path"
 	"runtime/debug"
 
-	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/proxy"
-	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
-	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -17,7 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -38,13 +33,16 @@ import (
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -238,31 +236,6 @@ func (b *builder) registerLicenseServer(ctx context.Context) error {
 	b.bootstrappers = append(b.bootstrappers, apiServer)
 	return nil
 }
-
-func (b *builder) registerFullEnterpriseServer(ctx context.Context) error {
-	b.enterpriseEnv = eprsserver.EnvFromServiceEnv(
-		b.env,
-		path.Join(b.env.Config().EtcdPrefix, b.env.Config().EnterpriseEtcdPrefix),
-		b.txnEnv,
-		eprsserver.WithMode(eprsserver.FullMode),
-		eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")),
-	)
-	apiServer, err := eprsserver.NewEnterpriseServer(
-		b.enterpriseEnv,
-		true,
-	)
-	if err != nil {
-		return err
-	}
-	b.forGRPCServer(func(s *grpc.Server) {
-		enterprise.RegisterAPIServer(s, apiServer)
-	})
-	b.bootstrappers = append(b.bootstrappers, apiServer)
-	b.env.SetEnterpriseServer(apiServer)
-	b.licenseEnv.EnterpriseServer = apiServer
-	return nil
-}
-
 func (b *builder) registerIdentityServer(ctx context.Context) error {
 	apiServer := identity_server.NewIdentityServer(
 		identity_server.EnvFromServiceEnv(b.env),
@@ -277,7 +250,7 @@ func (b *builder) registerIdentityServer(ctx context.Context) error {
 func (b *builder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(
 		authserver.EnvFromServiceEnv(b.env, b.txnEnv),
-		true, b.daemon.requireNonCriticalServers, true,
+		true, !b.daemon.criticalServersOnly, true,
 	)
 	if err != nil {
 		return err
@@ -408,4 +381,11 @@ func (b *builder) initS3Server(ctx context.Context) error {
 func (b *builder) initPrometheusServer(ctx context.Context) error {
 	b.daemon.prometheus = &prometheusServer{port: b.env.Config().PrometheusPort}
 	return nil
+}
+
+func (b *builder) maybeInitDexDB(ctx context.Context) error {
+	if b.env.Config().EnterpriseMember {
+		return nil
+	}
+	return b.initDexDB(ctx)
 }

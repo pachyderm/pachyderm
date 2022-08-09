@@ -2,20 +2,19 @@ package pachd
 
 import (
 	"context"
+	"os"
+	"path"
+
+	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"google.golang.org/grpc"
 )
 
 type fullBuilder struct {
 	builder
 }
 
-func (fb *fullBuilder) maybeInitDexDB(ctx context.Context) error {
-	if fb.env.Config().EnterpriseMember {
-		return nil
-	}
-	return fb.builder.initDexDB(ctx)
-}
-
-func (fb *fullBuilder) registerIdentityServer(ctx context.Context) error {
+func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 
 	if fb.env.Config().EnterpriseMember {
 		return nil
@@ -23,12 +22,36 @@ func (fb *fullBuilder) registerIdentityServer(ctx context.Context) error {
 	return fb.builder.registerIdentityServer(ctx)
 }
 
-func NewFullBuilder(config interface{}) Builder {
+func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
+	fb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+		fb.env,
+		path.Join(fb.env.Config().EtcdPrefix, fb.env.Config().EnterpriseEtcdPrefix),
+		fb.txnEnv,
+		eprsserver.WithMode(eprsserver.FullMode),
+		eprsserver.WithUnpausedMode(os.Getenv("UNPAUSED_MODE")),
+	)
+	apiServer, err := eprsserver.NewEnterpriseServer(
+		fb.enterpriseEnv,
+		true,
+	)
+	if err != nil {
+		return err
+	}
+	fb.forGRPCServer(func(s *grpc.Server) {
+		enterprise.RegisterAPIServer(s, apiServer)
+	})
+	fb.bootstrappers = append(fb.bootstrappers, apiServer)
+	fb.env.SetEnterpriseServer(apiServer)
+	fb.licenseEnv.EnterpriseServer = apiServer
+	return nil
+}
+
+func NewFullBuilder(config any) Builder {
 	return &fullBuilder{newBuilder(config, "pachyderm-pachd-full")}
 }
 
 func (fb *fullBuilder) Build(ctx context.Context) error {
-	fb.daemon.requireNonCriticalServers = !fb.env.Config().RequireCriticalServersOnly
+	fb.daemon.criticalServersOnly = fb.env.Config().RequireCriticalServersOnly
 	return fb.apply(ctx,
 		fb.setupDB,
 		fb.maybeInitDexDB,
@@ -36,8 +59,8 @@ func (fb *fullBuilder) Build(ctx context.Context) error {
 		fb.initInternalServer,
 		fb.initExternalServer,
 		fb.registerLicenseServer,
-		fb.registerFullEnterpriseServer,
-		fb.registerIdentityServer,
+		fb.registerEnterpriseServer,
+		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
 		fb.registerPPSServer,

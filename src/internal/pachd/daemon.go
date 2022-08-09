@@ -23,7 +23,7 @@ type Daemon struct {
 	prometheus         *prometheusServer
 
 	// configuration
-	requireNonCriticalServers bool
+	criticalServersOnly bool
 }
 
 func (d *Daemon) serve(ctx context.Context) (err error) {
@@ -44,10 +44,10 @@ func (d *Daemon) serve(ctx context.Context) (err error) {
 		}))
 	}
 	if d.s3 != nil {
-		eg.Go(maybeIgnoreErrorFunc("S3 Server", d.requireNonCriticalServers, func() error { return d.s3.listenAndServe(ctx) }))
+		eg.Go(maybeIgnoreErrorFunc("S3 Server", !d.criticalServersOnly, func() error { return d.s3.listenAndServe(ctx) }))
 	}
 	if d.prometheus != nil {
-		eg.Go(maybeIgnoreErrorFunc("Prometheus Server", d.requireNonCriticalServers, func() error { return d.prometheus.listenAndServe(ctx) }))
+		eg.Go(maybeIgnoreErrorFunc("Prometheus Server", !d.criticalServersOnly, func() error { return d.prometheus.listenAndServe(ctx) }))
 	}
 	eg.Go(func() error {
 		<-ctx.Done() // wait for main context to complete
