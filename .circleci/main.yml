@@ -386,13 +386,13 @@ jobs:
       appVersion:
         type: string
         default: "0.0.0"
+    machine:
+      image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
-    executor: docker-go
     steps:
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: Download utilities
           command: |
@@ -400,6 +400,8 @@ jobs:
             wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
       - run:
           name: pachydermbuildbot docker login
           command: |
