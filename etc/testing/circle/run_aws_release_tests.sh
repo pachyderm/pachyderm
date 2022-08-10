@@ -17,7 +17,7 @@ export VERSION
 sleep 300
 
 # provision a pulumi test env
-WORKSPACE=${CIRCLE_TAG//./-}
+WORKSPACE="aws"
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
  -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
   https://helium.pachyderm.io/v1/api/workspace
