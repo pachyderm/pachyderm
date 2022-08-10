@@ -176,7 +176,12 @@ func setup(config interface{}, service string) (env serviceenv.ServiceEnv, err e
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	sConfig := serviceenv.NewConfiguration(config)
+	if sConfig.Kubernetes {
+		env = serviceenv.InitWithKube(sConfig)
+	} else {
+		env = serviceenv.InitServiceEnv(sConfig)
+	}
 	if env.Config().LogFormat == "text" {
 		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 	}

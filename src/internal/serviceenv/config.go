@@ -41,6 +41,7 @@ type GlobalConfiguration struct {
 	PostgresConnMaxIdleSeconds     int    `env:"POSTGRES_CONN_MAX_IDLE_SECONDS,default=0"`
 	PachdServiceHost               string `env:"PACHD_SERVICE_HOST"`
 	PachdServicePort               string `env:"PACHD_SERVICE_PORT"`
+	Kubernetes                     bool   `env:"KUBE,default=true"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
@@ -89,7 +90,6 @@ type PachdSpecificConfiguration struct {
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
-	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	Init                       bool   `env:"INIT,default=false"`
 	WorkerImage                string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage         string `env:"WORKER_SIDECAR_IMAGE,default="`

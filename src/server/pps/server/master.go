@@ -114,7 +114,13 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx) //nolint:errcheck
 		log.Infof("PPS master: launching master process")
-		kd := newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
+		var kd InfraDriver
+		if a.env.Config.Kubernetes {
+			kd = newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
+		} else {
+			kd = newExecDriver()
+		}
+
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)
 		m := newMaster(ctx, a.env, a.etcdPrefix, kd, sd)
 		m.run()

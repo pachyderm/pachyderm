@@ -34,8 +34,13 @@ func main() {
 func do(ctx context.Context, config interface{}) error {
 	// must run InstallJaegerTracer before InitWithKube/pach client initialization
 	tracing.InstallJaegerTracerFromEnv()
-	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-
+	sConfig := serviceenv.NewConfiguration(config)
+	var env *serviceenv.NonblockingServiceEnv
+	if sConfig.Kubernetes {
+		env = serviceenv.InitWithKube(sConfig)
+	} else {
+		env = serviceenv.InitServiceEnv(sConfig)
+	}
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	if env.Config().LogFormat == "text" {
 		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
