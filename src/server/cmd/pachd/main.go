@@ -715,12 +715,12 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(func() error {
 		<-ctx.Done() // wait for main context to complete
 		var eg = new(errgroup.Group)
-		log.Println("terminating; waiting for paused pachd server to gracefully stop")
+		log.Println("terminating; waiting for pachd server to gracefully stop")
 		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
 		err := eg.Wait()
 		if err != nil {
-			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
+			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
 		} else {
 			log.Println("gRPC server gracefully stopped")
 		}
