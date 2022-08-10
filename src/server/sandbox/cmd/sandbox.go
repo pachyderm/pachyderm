@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/spf13/cobra"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -20,16 +21,14 @@ import (
 	"sigs.k8s.io/kind/pkg/cmd"
 )
 
-/*
-sandbox start
-- create local k8s cluster
-- load pachd and worker images?
-- helm install local
+// TODO
+// logging
+// cleanup pach config
+// multi node k8s?
+// replicate sandbox environment in production?
 
-sandbox teardown
-
-- update ~/.pachyderm/config to use the new sandbox
-*/
+var clusterName = "pachsandbox"
+var logger = cmd.NewLogger()
 
 func debug(format string, v ...interface{}) {
 	log.Output(2, fmt.Sprintf(format, v...))
@@ -65,7 +64,7 @@ func deploy() error {
 	client := action.NewInstall(actionConfig)
 	client.ReleaseName = name
 	client.Namespace = settings.Namespace()
-	client.Timeout = time.Minute * 10
+	client.Timeout = time.Minute * 5
 	client.Wait = true
 
 	cp, err := client.ChartPathOptions.LocateChart(chart, settings)
@@ -80,6 +79,7 @@ func deploy() error {
 	if err != nil {
 		return err
 	}
+	vals["deployTarget"] = "LOCAL"
 	chartRequested, err := loader.Load(cp)
 	if err != nil {
 		return err
@@ -87,7 +87,6 @@ func deploy() error {
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
-
 	cSignal := make(chan os.Signal, 2)
 	signal.Notify(cSignal, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -95,7 +94,6 @@ func deploy() error {
 		cancel()
 	}()
 
-	vals["deployTarget"] = "LOCAL"
 	_, err = client.RunWithContext(ctx, chartRequested, vals)
 	if err != nil {
 		return err
@@ -104,8 +102,6 @@ func deploy() error {
 }
 
 func NewCommand() *cobra.Command {
-	logger := cmd.NewLogger()
-
 	sandbox := &cobra.Command{
 		Use:   "sandbox",
 		Short: "Pachyderm local cluster util",
@@ -117,10 +113,35 @@ func NewCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cluster.NewProvider(
 				cluster.ProviderWithLogger(logger),
-				cluster.ProviderWithDocker()).Create("pachsandbox"); err != nil {
+				cluster.ProviderWithDocker()).Create(clusterName); err != nil {
 				return err
 			}
-			return deploy()
+			logger.V(0).Info("Deploying Pachyderm")
+			if err := deploy(); err != nil {
+				return err
+			}
+			// configure pachctl to talk to the new k8s cluster
+			cfg, err := config.Read(false, false)
+			if err != nil {
+				return err
+			}
+			kubeConfig, err := config.RawKubeConfig()
+			if err != nil {
+				return err
+			}
+			kubeContextName := "kind-" + clusterName
+			kubeContext := kubeConfig.Contexts[kubeContextName]
+			if kubeContext == nil {
+				return fmt.Errorf("kubernetes context does not exist: %s", kubeContextName)
+			}
+			var context = config.Context{
+				Source:      config.ContextSource_IMPORTED,
+				ClusterName: kubeContext.Cluster,
+				Namespace:   kubeContext.Namespace,
+			}
+			cfg.V2.Contexts[clusterName] = &context
+			cfg.V2.ActiveContext = clusterName
+			return cfg.Write()
 		},
 	}
 
@@ -128,9 +149,10 @@ func NewCommand() *cobra.Command {
 		Use:   "destroy",
 		Short: "deletes a local Pachyderm cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			logger.V(0).Infof("Deleting cluster %q ...", clusterName)
 			return cluster.NewProvider(
 				cluster.ProviderWithLogger(logger),
-				cluster.ProviderWithDocker()).Delete("pachsandbox", "")
+				cluster.ProviderWithDocker()).Delete(clusterName, "")
 		},
 	}
 
