@@ -15,6 +15,10 @@ export CLIENT_ADDITIONAL_VERSION=github.com/pachyderm/pachyderm/v2/src/version.A
 export LD_FLAGS=-X $(CLIENT_ADDITIONAL_VERSION)
 export DOCKER_BUILD_FLAGS
 
+# default version for goreleaser binary ldflags (used when build locally or just CI).
+# is overwritten a release time by automation.
+export VERSION=0.0.0
+
 CLUSTER_NAME ?= pachyderm
 CLUSTER_MACHINE_TYPE ?= n1-standard-4
 CLUSTER_SIZE ?= 4
@@ -23,7 +27,7 @@ MINIKUBE_MEM = 8192 # MB of memory allocated to minikube
 MINIKUBE_CPU = 4 # Number of CPUs allocated to minikube
 
 CHLOGFILE = ${PWD}/../changelog.diff
-export GOVERSION = $(shell cat etc/compile/GO_VERSION)
+export GOVERSION = $(shell cat go.mod | head -3 | tail -1 | cut -d' ' -f2)
 GORELSNAP = #--snapshot # uncomment --snapshot if you want to do a dry run.
 SKIP = #\# # To skip push to docker and github remove # in front of #
 GORELDEBUG = #--debug # uncomment --debug for verbose goreleaser output
@@ -97,7 +101,7 @@ docker-build:
 # You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
 # it's very slow and this is only going to run on your local machine anyway.
 docker-build-proto:
-	docker buildx build $(DOCKER_BUILD_FLAGS)  --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
+	docker buildx build $(DOCKER_BUILD_FLAGS)  --build-arg GOVERSION=golang:$(GOVERSION) --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
 
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
@@ -121,17 +125,14 @@ docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
-docker-tag:
-	docker tag pachyderm/pachd pachyderm/pachd:$(VERSION)
-	docker tag pachyderm/worker pachyderm/worker:$(VERSION)
-	docker tag pachyderm/pachctl pachyderm/pachctl:$(VERSION)
-	docker tag pachyderm/mount-server pachyderm/mount-server:$(VERSION)
+docker-push:
+	$(SKIP) ./etc/build/push_docker_with_manifests.sh
 
-docker-push: docker-tag
-	$(SKIP) docker push pachyderm/pachd:$(VERSION)
-	$(SKIP) docker push pachyderm/worker:$(VERSION)
-	$(SKIP) docker push pachyderm/pachctl:$(VERSION)
-	$(SKIP) docker push pachyderm/mount-server:$(VERSION)
+docker-pull:
+	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
+	$(SKIP) docker pull pachyderm/worker:$(VERSION)
+	$(SKIP) docker pull pachyderm/pachctl:$(VERSION)
+	$(SKIP) docker pull pachyderm/mount-server:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
@@ -150,9 +151,6 @@ check-kubectl:
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
 
-launch-kube: check-kubectl
-	etc/kube/start-minikube.sh
-
 launch-dev-vm: check-kubectl
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
@@ -162,22 +160,9 @@ launch-dev-vm: check-kubectl
 	fi
 	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
-# launch-release-vm is like launch-dev-vm but it doesn't build pachctl locally, and uses the same
-# version of pachd associated with the current pachctl (useful if you want to start a VM with a
-# point-release version of pachd, instead of whatever's in the current branch)
-launch-release-vm:
-	# Making sure minikube isn't still up from a previous run...
-	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
-	then \
-	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
-	  exit 1; \
-	fi
-	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$($(PACHCTL) version --client-only)
-
 clean-launch-kube:
 	@# clean up both of the following cases:
 	@# make launch-dev-vm - minikube config is owned by $USER
-	@# make launch-kube - minikube config is owned by root
 	minikube ip 2>/dev/null && minikube delete || true
 	sudo minikube ip 2>/dev/null && sudo minikube delete || true
 	killall kubectl || true
@@ -200,7 +185,9 @@ launch-dev: check-kubectl check-kubectl-connection
 launch-enterprise: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl create namespace enterprise --dry-run=true -o yaml | kubectl apply -f -
-	helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml
+	@if [[ -n $$CIRCLE_SHA1 ]]; then \
+		helm install enterprise etc/helm/pachyderm --namespace enterprise -f etc/helm/examples/enterprise-dev.yaml --set enterpriseServer.image.tag=$$CIRCLE_SHA1; \
+	fi
 	# wait for the pachyderm to come up
 	kubectl wait --for=condition=ready pod -l app=pach-enterprise --namespace enterprise --timeout=5m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -407,6 +394,10 @@ spellcheck:
 check-buckets:
 	./etc/testing/circle/check_buckets.sh
 
+validate-circle:
+	circleci config validate .circleci/main.yml
+	circleci config validate .circleci/config.yml
+
 .PHONY: \
 	install \
 	install-clean \
@@ -430,15 +421,12 @@ check-buckets:
 	docker-gpu \
 	docker-gpu-dev \
 	docker-build-test-entrypoint \
-	docker-tag \
 	docker-push \
 	docker-push-release \
 	check-buckets \
 	check-kubectl \
 	check-kubectl-connection \
-	launch-kube \
 	launch-dev-vm \
-	launch-release-vm \
 	clean-launch-kube \
 	launch \
 	launch-dev \
@@ -488,4 +476,5 @@ check-buckets:
 	microsoft-cluster \
 	clean-microsoft-cluster \
 	lint \
-	spellcheck
+	spellcheck \
+	validate-circle

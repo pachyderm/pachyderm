@@ -8,10 +8,19 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
+	runtimedebug "runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/wcharczuk/go-chart"
+	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	describe "k8s.io/kubectl/pkg/describe"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -28,11 +37,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
-	log "github.com/sirupsen/logrus"
-	"github.com/wcharczuk/go-chart"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	describe "k8s.io/kubectl/pkg/describe"
 )
 
 const (
@@ -250,6 +254,37 @@ func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.Pipel
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
+						"app":             "pipeline",
+						"pipelineName":    pipelineInfo.Pipeline.Name,
+						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+					},
+				),
+			),
+		},
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return s.getLegacyWorkerPods(ctx, pipelineInfo)
+		}
+		return nil, errors.EnsureStack(err)
+	}
+	if len(podList.Items) == 0 {
+		return s.getLegacyWorkerPods(ctx, pipelineInfo)
+	}
+	return podList.Items, nil
+}
+
+func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
+		ctx,
+		metav1.ListOptions{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ListOptions",
+				APIVersion: "v1",
+			},
+			LabelSelector: metav1.FormatLabelSelector(
+				metav1.SetAsLabelSelector(
+					map[string]string{
 						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 					},
 				),
@@ -445,6 +480,10 @@ func (s *debugServer) collectPachdDumpFunc(limit int64) collectFunc {
 		if err := s.collectPachdVersion(tw, pachClient, prefix...); err != nil {
 			return err
 		}
+		// Collect go info.
+		if err := s.collectGoInfo(tw, prefix...); err != nil {
+			return err
+		}
 		// Collect the pachd describe output.
 		if err := s.collectDescribe(tw, s.name, prefix...); err != nil {
 			return err
@@ -596,6 +635,20 @@ func collectGraph(tw *tar.Writer, name, XAxisName string, series []chart.Series,
 			chart.Legend(&graph),
 		}
 		return errors.EnsureStack(graph.Render(chart.PNG, w))
+	}, prefix...)
+}
+
+func (s *debugServer) collectGoInfo(tw *tar.Writer, prefix ...string) error {
+	return collectDebugFile(tw, "go_info", "txt", func(w io.Writer) error {
+		fmt.Fprintf(w, "build info: ")
+		info, ok := runtimedebug.ReadBuildInfo()
+		if ok {
+			fmt.Fprintf(w, "%s", info.String())
+		} else {
+			fmt.Fprint(w, "<no build info>")
+		}
+		fmt.Fprintf(w, "GOOS: %v\nGOARCH: %v\nGOMAXPROCS: %v\nNumCPU: %v\n", runtime.GOOS, runtime.GOARCH, runtime.GOMAXPROCS(0), runtime.NumCPU())
+		return nil
 	}, prefix...)
 }
 
@@ -926,6 +979,10 @@ func (s *debugServer) collectJobs(tw *tar.Writer, pachClient *client.APIClient, 
 func (s *debugServer) collectWorkerDump(ctx context.Context, tw *tar.Writer, pod *v1.Pod, prefix ...string) error {
 	// Collect the worker describe output.
 	if err := s.collectDescribe(tw, pod.Name, prefix...); err != nil {
+		return err
+	}
+	// Collect go info.
+	if err := s.collectGoInfo(tw, prefix...); err != nil {
 		return err
 	}
 	// Collect the worker user and storage container logs.

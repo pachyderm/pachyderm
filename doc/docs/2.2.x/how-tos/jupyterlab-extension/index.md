@@ -40,7 +40,7 @@ Note that we are assuming that you **already have a Pachyderm cluster running** 
 ## Using The Extension
 
 !!! Warning "Troubleshooting - When in doubt, restart your mount server"
-        JupyterLab Mount Extension is an [experimental feature](https://docs.pachyderm.com/latest/contributing/supported-releases/#experimental){target=_blank}. Many issues can be resolved by restarting the mount server, should you find yourself in an odd situation. To kill/restart your server, run the following command from the terminal window in jupyterlab:
+        JupyterLab Mount Extension is an [experimental feature](https://docs.pachyderm.com/latest/reference/supported-releases/#experimental){target=_blank}. Many issues can be resolved by restarting the mount server, should you find yourself in an odd situation. To kill/restart your server, run the following command from the terminal window in jupyterlab:
         ```shell
         pkill -f "pachctl mount-server" 
         ```

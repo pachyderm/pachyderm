@@ -76,7 +76,11 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		return nil, err
 	}
 	apiServer := (srv).(*apiServer)
-	apiServer.validateKube(apiServer.env.BackgroundContext)
+	if env.Config.EnablePreflightChecks {
+		apiServer.validateKube(apiServer.env.BackgroundContext)
+	} else {
+		logrus.Warning("Preflight checks are disabled. This is not recommended.")
+	}
 	go apiServer.master()
 	return apiServer, nil
 }

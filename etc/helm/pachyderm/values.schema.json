@@ -341,6 +341,9 @@
                         "postgresqlPort": {
                             "type": "string"
                         },
+                        "postgresqlPostgresPassword": {
+                            "type": "string"
+                        },
                         "postgresqlSSL": {
                             "type": "string"
                         },
@@ -413,10 +416,10 @@
         "kubeEventTail": {
             "type": "object",
             "properties": {
-                "enabled": {
+                "clusterScope": {
                     "type": "boolean"
                 },
-                "clusterScope": {
+                "enabled": {
                     "type": "boolean"
                 },
                 "image": {
@@ -439,6 +442,9 @@
                         "limits": {
                             "type": "object",
                             "properties": {
+                                "cpu": {
+                                    "type": "string"
+                                },
                                 "memory": {
                                     "type": "string"
                                 }
@@ -534,6 +540,14 @@
                                     "type": "array"
                                 }
                             }
+                        },
+                        "serviceAccount": {
+                            "type": "object",
+                            "properties": {
+                                "automountServiceAccountToken": {
+                                    "type": "boolean"
+                                }
+                            }
                         }
                     }
                 },
@@ -568,6 +582,20 @@
                                                     }
                                                 }
                                             }
+                                        },
+                                        "pipelineStages": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "cri": {
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "scrapeConfigs": {
+                                            "type": "string"
                                         }
                                     }
                                 }
@@ -584,6 +612,12 @@
                     "type": "string"
                 },
                 "RotationTokenExpiry": {
+                    "type": "string"
+                },
+                "additionalClients": {
+                    "type": "array"
+                },
+                "additionalClientsSecretName": {
                     "type": "string"
                 },
                 "dexCredentialSecretName": {
@@ -620,6 +654,9 @@
                 },
                 "activateEnterpriseMember": {
                     "type": "boolean"
+                },
+                "additionalTrustedPeers": {
+                    "type": "array"
                 },
                 "affinity": {
                     "type": "object"
@@ -663,6 +700,12 @@
                     "type": "string"
                 },
                 "enterpriseServerAddress": {
+                    "type": "string"
+                },
+                "enterpriseServerToken": {
+                    "type": "string"
+                },
+                "enterpriseServerTokenSecretName": {
                     "type": "string"
                 },
                 "externalService": {
@@ -751,6 +794,14 @@
                 },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
+                },
+                "preflightChecks": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    }
                 },
                 "priorityClassName": {
                     "type": "string"

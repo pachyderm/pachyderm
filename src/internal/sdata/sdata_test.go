@@ -297,7 +297,7 @@ func TestCSVNull(t *testing.T) {
 		&sql.NullString{String: "", Valid: true},
 	}
 	expected := `null,"""""",,""` + "\n"
-	w.WriteTuple(row)
+	require.NoError(t, w.WriteTuple(row))
 	w.Flush()
 	require.Equal(t, expected, buf.String())
 

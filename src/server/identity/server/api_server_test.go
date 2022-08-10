@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -233,10 +235,15 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 	conn := &identity.IDPConnector{
-		Id:         "id",
-		Name:       "name",
-		Type:       "mockPassword",
-		JsonConfig: `{"username": "test", "password": "test"}`,
+		Id:   "id",
+		Name: "name",
+		Type: "mockPassword",
+		Config: &types.Struct{
+			Fields: map[string]*types.Value{
+				"password": {Kind: &types.Value_StringValue{StringValue: "test"}},
+				"username": {Kind: &types.Value_StringValue{StringValue: "test"}},
+			},
+		},
 	}
 
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
@@ -275,7 +282,7 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{

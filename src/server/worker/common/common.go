@@ -43,14 +43,14 @@ func DatumID(inputs []*Input) string {
 	hash := pfs.NewHash()
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))
-		binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
 		file := input.FileInfo.File
 		hash.Write([]byte(file.Commit.Branch.Repo.Name))
-		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name)))
 		hash.Write([]byte(file.Commit.Branch.Name))
-		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
 		hash.Write([]byte(input.FileInfo.File.Path))
-		binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }

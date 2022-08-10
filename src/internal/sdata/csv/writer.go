@@ -61,7 +61,9 @@ func (w *Writer) Write(record []*string) error {
 
 		// Additional logic to write null value as blank in CSV
 		if field == nil {
-			w.w.WriteString("")
+			if _, err := w.w.WriteString(""); err != nil {
+				return errors.EnsureStack(err)
+			}
 			continue
 		}
 
@@ -69,7 +71,9 @@ func (w *Writer) Write(record []*string) error {
 
 		// special-case empty string as ""
 		if fieldVal == "" {
-			w.w.WriteString(`""`)
+			if _, err := w.w.WriteString(`""`); err != nil {
+				return errors.EnsureStack(err)
+			}
 			continue
 		}
 

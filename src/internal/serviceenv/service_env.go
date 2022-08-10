@@ -1,6 +1,7 @@
 package serviceenv
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -18,7 +19,6 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
@@ -56,6 +56,7 @@ type ServiceEnv interface {
 	SetIdentityServer(identity.APIServer)
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
+	SetEnterpriseServer(enterprise_server.APIServer)
 
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
@@ -66,6 +67,7 @@ type ServiceEnv interface {
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
 	GetPostgresListener() col.PostgresListener
+	InitDexDB()
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
@@ -202,7 +204,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 		if resp.Count == 0 {
 			// This might error if it races with another pachd trying to set the
 			// cluster id so we ignore the error.
-			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
+			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes()) //nolint:errcheck
 		} else if err != nil {
 			return errors.EnsureStack(err)
 		} else {

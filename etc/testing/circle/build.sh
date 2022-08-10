@@ -2,9 +2,6 @@
 
 set -ex
 
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh"
-
 ## pachctl build
 go version
 make install
@@ -32,4 +29,6 @@ fi
 git config user.email "donotreply@pachyderm.com"
 git config user.name "anonymous"
 git tag -f -am "Circle CI test v$VERSION" v"$VERSION"
-make docker-build
+#make docker-build
+docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
+docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .

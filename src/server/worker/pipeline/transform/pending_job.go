@@ -40,7 +40,9 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 	if pj.ji.Stats == nil {
 		pj.ji.Stats = &pps.ProcessStats{}
 	}
-	datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats)
+	if err := datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats); err != nil {
+		pj.logger.Logf("errored merging process stats: %v", err)
+	}
 	pj.ji.DataProcessed += stats.Processed
 	pj.ji.DataSkipped += stats.Skipped
 	pj.ji.DataFailed += stats.Failed

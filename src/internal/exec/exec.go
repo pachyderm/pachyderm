@@ -172,7 +172,7 @@ func CommandContext(ctx context.Context, name string, arg ...string) *Cmd {
 // two interfaces with non-comparable underlying types.
 func interfaceEqual(a, b interface{}) bool {
 	defer func() {
-		recover()
+		recover() //nolint:errcheck
 	}()
 	return a == b
 }
@@ -391,7 +391,7 @@ func (c *Cmd) Start() error {
 		go func() {
 			select {
 			case <-c.ctx.Done():
-				c.Process.Kill()
+				c.Process.Kill() //nolint:errcheck
 			case <-c.waitDone:
 			}
 		}()

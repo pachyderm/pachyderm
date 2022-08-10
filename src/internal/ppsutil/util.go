@@ -12,16 +12,19 @@
 package ppsutil
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"crypto/md5"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -40,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -251,7 +255,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
 	commitsetID := outputCommit.ID
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) error {
+	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
 			input.Pfs.Commit = commitsetID
 		}
@@ -375,7 +379,7 @@ func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
 	var found bool
-	pps.VisitInput(in, func(in *pps.Input) error {
+	pps.VisitInput(in, func(in *pps.Input) error { //nolint:errcheck
 		if in.Pfs != nil && in.Pfs.S3 {
 			found = true
 			return errutil.ErrBreak
@@ -512,4 +516,45 @@ func ListPipelineInfo(ctx context.Context,
 		return nil
 	}
 	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+}
+
+func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		msg := new(pps.LogMessage)
+		if plainText {
+			msg.Message = scanner.Text()
+		} else {
+			logBytes := scanner.Bytes()
+			if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+				continue
+			}
+
+			// Filter out log lines that don't match on pipeline or job
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				continue
+			}
+			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+				continue
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				continue
+			}
+			if request.Master != msg.Master {
+				continue
+			}
+			if !common.MatchDatum(request.DataFilters, msg.Data) {
+				continue
+			}
+		}
+		// Log message passes all filters -- return it
+		msg.Message = strings.TrimSuffix(msg.Message, "\n")
+		if err := send(msg); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
 }

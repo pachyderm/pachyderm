@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"syscall"
@@ -43,7 +45,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
 )
@@ -456,6 +457,18 @@ Environment variables:
 		"'pachctl version' will run on the active enterprise context.")
 	versionCmd.Flags().AddFlagSet(outputFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
+
+	buildInfo := &cobra.Command{
+		Short: "Print go buildinfo.",
+		Long:  "Print information about the build environment.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			info, _ := debug.ReadBuildInfo()
+			fmt.Println(info)
+			return nil
+		}),
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(buildInfo, "buildinfo"))
+
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",

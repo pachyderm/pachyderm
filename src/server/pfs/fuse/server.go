@@ -450,10 +450,10 @@ func (mm *MountManager) Run() error {
 	}
 	go func() {
 		<-mm.opts.getUnmount()
-		server.Unmount()
+		server.Unmount() //nolint:errcheck
 	}()
 	server.Wait()
-	defer mm.FinishAll()
+	defer mm.FinishAll() //nolint:errcheck
 	err = mm.uploadFiles("")
 	if err != nil {
 		return err
@@ -507,7 +507,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -526,7 +526,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").
 		Path("/repos/{key:.+}/_mount").
@@ -593,7 +593,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			w.Write(marshalled)
+			if _, err := w.Write(marshalled); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		})
 	router.Methods("PUT").
 		Queries("name", "{name}").
@@ -635,7 +637,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").
 		Queries("name", "{name}").
@@ -677,7 +679,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/repos/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -701,7 +703,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
@@ -723,7 +725,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		mm.configMu.Lock()
@@ -769,7 +771,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
@@ -798,7 +800,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 
 		go func() {
 			resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
@@ -806,7 +808,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			config.WritePachTokenToConfig(resp.PachToken, false)
+			config.WritePachTokenToConfig(resp.PachToken, false) //nolint:errcheck
 			mm.Client.SetAuthToken(resp.PachToken)
 		}()
 	})
@@ -834,7 +836,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		context.SessionToken = ""
-		cfg.Write()
+		cfg.Write() //nolint:errcheck
 		mm.Client.SetAuthToken("")
 	})
 	router.Methods("GET").Path("/health").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -844,7 +846,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
@@ -863,7 +865,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
 		}
-		srv.Shutdown(context.Background())
+		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
 	return errors.EnsureStack(srv.ListenAndServe())
@@ -1294,10 +1296,9 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
-			Name:   m.Name,
-			Repo:   m.MountKey.Repo,
-			Branch: m.MountKey.Branch,
-			Write:  m.Mode == "rw",
+			Name:  m.Name,
+			File:  client.NewFile(m.MountKey.Repo, m.MountKey.Branch, "", ""),
+			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.MountKey.Branch
 	}()
@@ -1536,7 +1537,7 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 		// on their name
 		repoName = name
 	} else {
-		repoName = opts.Repo
+		repoName = opts.File.Commit.Branch.Repo.Name
 	}
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
 	if err != nil {

@@ -1,7 +1,7 @@
 package license
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
