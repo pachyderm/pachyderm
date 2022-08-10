@@ -704,9 +704,6 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
 	}))
-	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
-		return externalServer.Wait()
-	}))
 	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
 	}))
