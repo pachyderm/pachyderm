@@ -4,6 +4,7 @@
 package driver
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,8 +43,11 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 			return errors.EnsureStack(err)
 		}
 	}
+	fmt.Println("LINKING DATA")
 	if err := d.linkData(inputs, dir); err != nil {
-		return errors.Wrap(err, "error when linking active data directory")
+		err = errors.Wrap(err, "error when linking active data directory")
+		fmt.Printf("ERRRR:: %v\n", err)
+		return err
 	}
 	defer func() {
 		if !d.PipelineInfo().Details.S3Out {
@@ -55,7 +59,7 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 			retErr = errors.Wrap(err, "error when unlinking active data directory")
 		}
 	}()
-
+	fmt.Println("WITH ACTIVE DATA CALBACK")
 	return cb()
 }
 
@@ -65,7 +69,7 @@ func (d *driver) WithActiveData(inputs []*common.Input, dir string, cb func() er
 // directory and rewrite any such links.
 func (d *driver) rewriteSymlinks(scratchSubdir string) error {
 	outputDir := filepath.Join(scratchSubdir, "out")
-	inputDirFields := strings.Split(filepath.Clean(d.InputDir()), string(filepath.Separator))
+	inputDirFields := strings.Split(filepath.Clean(filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir())), string(filepath.Separator))
 	err := filepath.Walk(outputDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -128,15 +132,16 @@ func (d *driver) linkData(inputs []*common.Input, dir string) error {
 		if _, ok := seen[input.Name]; !ok {
 			seen[input.Name] = true
 			src := filepath.Join(dir, input.Name)
-			dst := filepath.Join(d.InputDir(), input.Name)
+			dst := filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir(), input.Name)
 			if err := os.Symlink(src, dst); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
 	}
 
+	// /pfs/out -> ~/.pachyderm/worker..
 	if !d.PipelineInfo().Details.S3Out {
-		if err := os.Symlink(filepath.Join(dir, "out"), filepath.Join(d.InputDir(), "out")); err != nil {
+		if err := os.Symlink(filepath.Join(dir, "out"), filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir(), "out")); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}

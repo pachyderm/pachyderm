@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -20,15 +21,18 @@ import (
 )
 
 type execDriver struct {
-	mu        sync.RWMutex
-	pipelines map[string]context.CancelFunc
-	crashCh   chan watch.Event
-	logger    *logrus.Logger
+	mu          sync.RWMutex
+	pipelines   map[string]*pps.PipelineInfo
+	cancels     map[string]context.CancelFunc
+	crashCh     chan watch.Event
+	logger      *logrus.Logger
+	portCounter int
 }
 
 func newExecDriver(logger *logrus.Logger) *execDriver {
 	return &execDriver{
-		pipelines: make(map[string]context.CancelFunc),
+		pipelines: make(map[string]*pps.PipelineInfo),
+		cancels:   make(map[string]context.CancelFunc),
 		crashCh:   make(chan watch.Event, 1),
 		logger:    logger,
 	}
@@ -37,24 +41,25 @@ func newExecDriver(logger *logrus.Logger) *execDriver {
 func (ed *execDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
 	ctx, cf := context.WithCancel(ctx)
 	ed.mu.Lock()
-	ed.pipelines[pi.Pipeline.Name] = cf
-	portOffset := len(ed.pipelines)
+	ed.cancels[pi.Pipeline.Name] = cf
+	ed.pipelines[pi.Pipeline.Name] = proto.Clone(pi).(*pps.PipelineInfo)
+	ed.portCounter++
 	ed.mu.Unlock()
 	logFile := "/Users/alon/.pachyderm/logs/workers/log.txt"
 	os.MkdirAll("/Users/alon/.pachyderm/logs/workers", 0700)
+	os.Remove(logFile)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				break
 			default:
-				os.Remove(logFile)
 				f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 				if err != nil {
 					log.Fatalf("error opening file: %v", err)
 				}
 				defer f.Close()
-				cmd := ed.makeExec(ctx, pi, f, portOffset)
+				cmd := ed.makeExec(ctx, pi, f, ed.portCounter)
 				fmt.Printf("executing cmd: %v\n", cmd.String())
 				if err := cmd.Run(); err == nil {
 					break
@@ -89,17 +94,18 @@ func (ed *execDriver) makeExec(ctx context.Context, pi *pps.PipelineInfo, log *o
 func (ed *execDriver) DeletePipelineResources(ctx context.Context, pipeline string) error {
 	ed.mu.Lock()
 	defer ed.mu.Unlock()
-	if cf, ok := ed.pipelines[pipeline]; ok {
+	if cf, ok := ed.cancels[pipeline]; ok {
 		cf()
 	}
 	delete(ed.pipelines, pipeline)
+	delete(ed.cancels, pipeline)
 	return nil
 }
 
 func (ed *execDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
 	ed.mu.RLock()
 	defer ed.mu.RUnlock()
-	if _, ok := ed.pipelines[pi.Pipeline.Name]; !ok {
+	if curr, ok := ed.pipelines[pi.Pipeline.Name]; !ok {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{},
 		}, errors.New("rc for pipeline not found")
@@ -108,11 +114,11 @@ func (ed *execDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 			Items: []v1.ReplicationController{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version),
+						Name: ppsutil.PipelineRcName(pi.Pipeline.Name, curr.Version),
 						Annotations: map[string]string{
 							pachVersionAnnotation:        version.PrettyVersion(),
-							hashedAuthTokenAnnotation:    hashAuthToken(pi.AuthToken),
-							pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
+							hashedAuthTokenAnnotation:    hashAuthToken(curr.AuthToken),
+							pipelineVersionAnnotation:    strconv.FormatUint(curr.Version, 10),
 							pipelineSpecCommitAnnotation: pi.SpecCommit.ID,
 						},
 					},

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 
 	"golang.org/x/sync/errgroup"
@@ -54,7 +55,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_FINISHING, "")
 			}
 		}()
-		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+		storageRoot := filepath.Join(os.Getenv("PACH_ROOT"), driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
 			cacheClient := pfssync.NewCacheClient(pachClient, renewer)

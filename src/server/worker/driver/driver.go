@@ -135,8 +135,9 @@ func NewDriver(
 	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
 ) (Driver, error) {
-	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix)
-	if err := os.MkdirAll(pfsPath, 0777); err != nil {
+	//pfsPath
+	pfsPath := filepath.Join(rootPath, client.PPSInputPrefix) // "/pfs"
+	if err := os.MkdirAll(filepath.Join(os.Getenv("PACH_ROOT"), pfsPath), 0777); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	jobs := ppsdb.Jobs(env.GetDBClient(), env.GetPostgresListener())
@@ -485,7 +486,7 @@ func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
-	entries, err := ioutil.ReadDir(d.InputDir())
+	entries, err := ioutil.ReadDir(filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir()))
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -493,7 +494,7 @@ func (d *driver) unlinkData(inputs []*common.Input) error {
 		if entry.Name() == client.PPSScratchSpace {
 			continue // don't delete scratch space
 		}
-		if err := os.RemoveAll(filepath.Join(d.InputDir(), entry.Name())); err != nil {
+		if err := os.RemoveAll(filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir(), entry.Name())); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -508,7 +509,8 @@ func (d *driver) UserCodeEnv(
 	result := os.Environ()
 
 	for _, input := range inputs {
-		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s=%s", "PFS", filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir())))
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(os.Getenv("PACH_ROOT"), d.InputDir(), input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 		if input.JoinOn != "" {
 			result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
@@ -549,6 +551,9 @@ func (d *driver) UserCodeEnv(
 }
 
 func (d *driver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
+	if !d.env.Config().Kubernetes {
+		return "", nil
+	}
 	pod, err := d.env.GetKubeClient().CoreV1().Pods(d.env.Config().Namespace).Get(
 		ctx,
 		d.env.Config().WorkerSpecificConfiguration.PodName,

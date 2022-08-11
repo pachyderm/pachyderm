@@ -210,7 +210,7 @@ func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask)
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
 			dit := datum.NewFileSetIterator(pachClient, task.FileSetId)
-			storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+			storageRoot := filepath.Join(os.Getenv("PACH_ROOT"), driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes()) // don't think we actually use this
 			var count int64
 			if err := datum.CreateSets(dit, storageRoot, setSpec, func(upload func(client.ModifyFile) error) error {
 				resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
@@ -344,7 +344,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, datumSet *Da
 	pachClient := driver.PachClient()
 	// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 	// The sets would just create a temporary directory under /tmp.
-	storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
+	storageRoot := filepath.Join(os.Getenv("PACH_ROOT"), driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 	datumSet.Stats = &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	userImageID, err := driver.GetContainerImageID(pachClient.Ctx(), "user")
 	if err != nil {
