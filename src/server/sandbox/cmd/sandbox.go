@@ -7,10 +7,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -18,18 +20,25 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
 	"sigs.k8s.io/kind/pkg/cluster"
+	"sigs.k8s.io/kind/pkg/cluster/nodes"
+	"sigs.k8s.io/kind/pkg/cluster/nodeutils"
 	"sigs.k8s.io/kind/pkg/cmd"
+	"sigs.k8s.io/kind/pkg/fs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
 )
 
-// TODO
-// logging
-// multi node k8s?
-// replicate sandbox environment in production?
-// load local docker images into kind
-// add a status command to check if there is a sandbox
+/*
+TODO
+- logging
+- multi node k8s?
+- replicate sandbox environment in production?
+- load local docker images into kind
+- add a status command to check if there is a sandbox
+- allow user to specify local chart and values for pachyderm developers to test latest changes
+*/
 
 const clusterName = "pach-sandbox"
 
@@ -73,7 +82,11 @@ func helmDeploy() error {
 	}
 	var f repo.File
 	f.Update(&cfg)
-	if err := f.WriteFile("~/.cache/helm", 0644); err != nil {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	if err := f.WriteFile(filepath.Join(home, ".cache/helm"), 0644); err != nil {
 		return err
 	}
 
@@ -144,6 +157,25 @@ func addContextToPach(kubeContextName string) error {
 	return cfg.Write()
 }
 
+func imageID(name string) (string, error) {
+	c := exec.Command("docker", "image", "inspect", "-f", "{{ .Id }}", name)
+	data, err := c.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func loadImage(path string, node nodes.Node) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	nodeutils.LoadImageArchive(node, f)
+	return nil
+}
+
 func NewCommand() *cobra.Command {
 	sandbox := &cobra.Command{
 		Use:   "sandbox",
@@ -164,7 +196,7 @@ func NewCommand() *cobra.Command {
 			provider := cluster.NewProvider(
 				cluster.ProviderWithLogger(logger),
 				cluster.ProviderWithDocker())
-
+			// kind config can be either a file or streamed from stdin
 			var withConfig cluster.CreateOption
 			if kindConfig == "-" {
 				raw, err := ioutil.ReadAll(os.Stdin)
@@ -195,12 +227,86 @@ func NewCommand() *cobra.Command {
 
 	// TODO
 	loadImage := &cobra.Command{
-		Use:   "load-image",
-		Short: "Loads docker images from host to sandbox cluster",
+		Use:   "load-image <IMAGE> [IMAGE ...]",
+		Short: "Loads local images to nodes",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) < 1 {
+				return errors.New("a list of image names is required")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if name == "" {
+				name = getClusterName()
+			}
+			provider := cluster.NewProvider(cluster.ProviderWithLogger(logger), cluster.ProviderWithDocker())
+			var (
+				imageNames []string
+				imageIDs   []string
+			)
+			imageNames = args
+			for _, imageName := range imageNames {
+				imageID, err := imageID(imageName)
+				if err != nil {
+					return err
+				}
+				imageIDs = append(imageIDs, imageID)
+			}
+			nodeList, err := provider.ListInternalNodes(name)
+			if err != nil {
+				return err
+			}
+			// pick only the nodes that don't have the image
+			var selectedNodes []nodes.Node
+			for i, imageName := range imageNames {
+				imageID := imageIDs[i]
+				for _, node := range nodeList {
+					id, err := nodeutils.ImageID(node, imageName)
+					if err != nil || id != imageID {
+						selectedNodes = append(selectedNodes, node)
+					}
+				}
+			}
+			if len(selectedNodes) == 0 {
+				return nil
+			}
+
+			// Setup the tar path where the images will be saved
+			dir, err := fs.TempDir("", "images-tar")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(dir)
+			imagesTarPath := filepath.Join(dir, "images.dar")
+			// save the images to a tar
+			if err := exec.Command("docker", append([]string{
+				"save",
+				"-o",
+				imagesTarPath},
+				imageNames...)...).Run(); err != nil {
+				return err
+			}
+
+			var fns []func() error
+			for _, node := range selectedNodes {
+				node := node // capture loop variable for closure
+				fns = append(fns, func() error {
+					return loadImage(imagesTarPath, node)
+				})
+			}
+			// TODO execute fns
+			g := new(errgroup.Group)
+			for _, f := range fns {
+				f := f // capture loop variable for closure
+				g.Go(f)
+			}
+			if err := g.Wait(); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
+	loadImage.Flags().StringVar(&name, "name", "", "the cluster name")
 
 	destroy := &cobra.Command{
 		Use:   "destroy",
