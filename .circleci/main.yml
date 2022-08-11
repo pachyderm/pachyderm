@@ -40,10 +40,10 @@ commands:
           shell: /bin/bash # ignore failures
           when: always
           command: |-
-            echo '{"pachd_address": "grpc://pachyderm.pachops.com:443"}' | pachctl config set context default --overwrite
+            echo '{"pachd_address": "grpcs://pachyderm.pachops.com:443"}' | pachctl config set context default --overwrite
             pachctl config set active-context default
-            echo $PACHOPS_PACHYDERM_ROBOT_TOKEN | pachctl auth use-auth-token
-            pachctl put file "pach-core-ci-results:/${CIRCLE_BRANCH}/${CIRCLE_SHA1}/${CIRCLE_WORKFLOW_JOB_ID}/<<parameters.dst>>" -f <<parameters.src>> -r
+            echo $PACHOPS_PACHYDERM_ROBOT_TOKEN | pachctl auth use-auth-token || /bin/true
+            pachctl put file "pach-core-ci-results:/${CIRCLE_BRANCH}/${CIRCLE_SHA1}/${CIRCLE_WORKFLOW_JOB_ID}/<<parameters.dst>>" -f <<parameters.src>> -r || /bin/true
   collect-node-stats:
     steps:
       - run:
