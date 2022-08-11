@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"io"
-	iofs "io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -577,7 +576,10 @@ func TestMountDir(t *testing.T) {
 		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
-		require.ElementsEqualUnderFn(t, []string{"foo", "bar"}, []string{"foo", "bar"}, func(f interface{}) interface{} { return f.(iofs.FileInfo).Name() })
+		require.Equal(t, "bar", filepath.Base(files[0].Name()))
+		require.Equal(t, "foo", filepath.Base(files[1].Name()))
+
+		//require.ElementsEqualUnderFn(t, []string{"foo", "bar"}, []string{"foo", "bar"}, func(f interface{}) interface{} { return f.(iofs.FileInfo).Name() })
 
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "dir", "foo"))
 		require.NoError(t, err)
