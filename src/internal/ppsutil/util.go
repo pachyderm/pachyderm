@@ -335,13 +335,19 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	jobInfo.Reason = reason
 	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
 	// store commit states.
+
+	// only try to close meta commits for transform pipelines. We can't simply ignore a NotFound error
+	// because the real error happens on the server and is returned by RunBatchInTransaction itself
+	hasMeta := jobInfo.GetDetails().GetSpout() == nil && jobInfo.GetDetails().GetService() == nil
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: MetaCommit(jobInfo.OutputCommit),
-			Error:  reason,
-			Force:  true,
-		}); err != nil {
-			return errors.EnsureStack(err)
+		if hasMeta {
+			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: MetaCommit(jobInfo.OutputCommit),
+				Error:  reason,
+				Force:  true,
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,

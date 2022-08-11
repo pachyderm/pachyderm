@@ -7117,7 +7117,7 @@ func TestService(t *testing.T) {
 	}()
 
 	go func() {
-		iter := c.GetLogs(pipeline, "", nil, "", true, true, 0)
+		iter := c.GetLogs(pipeline, "", nil, "", true, true, 10*time.Minute)
 		for iter.Next() {
 			t.Log(iter.Message().Message)
 		}
