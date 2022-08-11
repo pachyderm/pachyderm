@@ -23,7 +23,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
     <div className={`${styles.base} ${className}`}>
       {!error && (
         <img
-          src="'/elephant_empty_state.png"
+          src="/elephant_empty_state.png"
           className={styles.elephantImage}
           alt=""
         />
