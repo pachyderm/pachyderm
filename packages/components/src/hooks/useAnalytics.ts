@@ -6,12 +6,14 @@ import {
   initPageTracker,
   initClickTracker,
   fireUTM,
+  fireClusterInfo,
 } from '../lib/analytics';
 
 export type UseAnalyticsProps = {
   createdAt?: number;
   email?: string;
   id?: string;
+  clusterId?: string;
   provider: {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     getAnonymousId: (...args: any[]) => void;
@@ -22,7 +24,13 @@ export type UseAnalyticsProps = {
   };
 };
 
-const useAnalytics = ({createdAt, email, id, provider}: UseAnalyticsProps) => {
+const useAnalytics = ({
+  createdAt,
+  email,
+  id,
+  clusterId,
+  provider,
+}: UseAnalyticsProps) => {
   const init = useCallback(() => {
     if (window.analyticsInitialized) {
       return;
@@ -60,6 +68,13 @@ const useAnalytics = ({createdAt, email, id, provider}: UseAnalyticsProps) => {
       );
     }
   }, [createdAt, id, email, provider]);
+
+  useEffect(() => {
+    if (!window.clusterIdentified && clusterId) {
+      window.clusterIdentified = true;
+      fireClusterInfo(clusterId, provider.track);
+    }
+  }, [clusterId, provider]);
 
   return {init};
 };

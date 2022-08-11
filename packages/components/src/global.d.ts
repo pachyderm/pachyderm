@@ -20,5 +20,6 @@ declare module 'splitting';
 
 declare interface Window {
   analyticsInitialized?: boolean;
+  clusterIdentified?: boolean;
   analyticsIdentified?: boolean;
 }

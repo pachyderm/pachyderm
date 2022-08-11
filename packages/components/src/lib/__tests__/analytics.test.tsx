@@ -78,8 +78,7 @@ describe('lib/analytics', () => {
     expect(identify).toHaveBeenCalledWith('7', {
       anonymous_id: 'mock-anonymous-id',
       email: 'cloud@avalanche.org',
-      hub_created_at: '2020-11-18T17:03:58.392Z',
-      hub_user_id: '7',
+      created_at: '2020-11-18T17:03:58.392Z',
       latest_utm_source: 'shinra',
       latest_utm_content: 'mako',
       source_utm_source: 'shinra',

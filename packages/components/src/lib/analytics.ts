@@ -102,9 +102,7 @@ export const fireIdentify = (
     identify(authId, {
       anonymous_id: anonymousId,
       email: authEmail,
-      hub_created_at: createdAt,
-      hub_promo_code: undefined,
-      hub_user_id: authId,
+      created_at: createdAt,
       ...trackingCookies,
     });
 
@@ -118,6 +116,16 @@ export const fireIdentify = (
   } catch (err) {
     captureException(
       `[Analytics Error]: Operation: track, Event: identify, ID: ${authId}, ${err}`,
+    );
+  }
+};
+
+export const fireClusterInfo = (clusterId: string, track: Track) => {
+  try {
+    track('cluster_info', {clusterId});
+  } catch (err) {
+    captureException(
+      `[Analytics Error]: Operation: track, Event: clusterId, ID: ${clusterId}, ${err}`,
     );
   }
 };
