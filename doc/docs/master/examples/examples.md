@@ -137,7 +137,7 @@ This example demonstrates integration of Spark with Pachyderm by launching a Spa
 - Pachyderm - Label Studio
 
     We have integrated Pachyderm's versioned data backend with [Label Studio](https://labelstud.io/){target=_blank}
-    to support versioning datasets and tracking the data lineage of pipelines built off the versioned datasets: https://github.com/pachyderm/examples/tree/{{ config.pach_branch }}/label-studio
+    to support versioning datasets and tracking the data lineage of pipelines built off the versioned datasets: https://github.com/pachyderm/examples/tree/master/label-studio
 ###  Spout 
 This is a simple example of using the new implementation of
 Pachyderm's spouts with RabbitMQ to process messages and write them to files.

@@ -309,7 +309,7 @@ When more than one is specified, a branch repoint will be triggered when any of
 the conditions is met. To guarantee that they all must be met, add
 --trigger-all.
 
-To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/master/deferred-processing/triggers){target=_blank}.
+To experiment further, see the full [triggers example](https://github.com/pachyderm/examples/tree/{{ config.pach_branch }}/deferred-processing/triggers){target=_blank}.
 
 ## Embed Triggers in Pipelines
 
