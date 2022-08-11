@@ -3,7 +3,6 @@
 package cmds
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 func run(t *testing.T, cmd string) error {
 	t.Helper()
 
-	tmpfile, err := ioutil.TempFile("", "test-pach-config-*.json")
+	tmpfile, err := os.CreateTemp("", "test-pach-config-*.json")
 	require.NoError(t, err)
 
 	// remove the empty file so that a config can be generated
@@ -169,7 +168,7 @@ func TestConfigListContext(t *testing.T) {
 		pachctl config set active-context bar
 		pachctl config list context | match "\*	bar"
 		pachctl config list context | match "	foo"
-		
+
 		pachctl config set active-enterprise-context bar
 		pachctl config list context | match "E\*	bar"
 		pachctl config list context | match "	foo"

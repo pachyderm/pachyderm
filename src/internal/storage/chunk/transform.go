@@ -5,8 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/cipher"
-	io "io"
-	"io/ioutil"
+	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
@@ -62,7 +61,7 @@ func Get(ctx context.Context, client Client, ref *Ref, cb kv.ValueCallback) erro
 		if r, err = decompress(ref.CompressionAlgo, r); err != nil {
 			return err
 		}
-		rawData, err := ioutil.ReadAll(r)
+		rawData, err := io.ReadAll(r)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

@@ -3,7 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -24,7 +24,7 @@ func TestPortForwardError(t *testing.T) {
 
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
 	var errMsg bytes.Buffer
-	c.Stdout = ioutil.Discard
+	c.Stdout = io.Discard
 	c.Stderr = &errMsg
 	err := c.Run()
 	require.YesError(t, err) // 1ns should prevent even local connections
@@ -88,7 +88,7 @@ func TestCommandAliases(t *testing.T) {
 func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	t.Helper()
 
-	cfgFile, err := ioutil.TempFile("", "")
+	cfgFile, err := os.CreateTemp("", "")
 	require.NoError(t, err)
 
 	pachdAddress, err := grpcutil.ParsePachdAddress(pachdAddressStr)
