@@ -36,7 +36,7 @@ commands:
         type: string
     steps:
       - run:
-          name: Upload << parameters.file >> to Pachyderm
+          name: Upload << parameters.src >> to Pachyderm
           shell: /bin/bash # ignore failures
           when: always
           command: |-
