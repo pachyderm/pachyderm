@@ -801,7 +801,30 @@ func TestHealth(t *testing.T) {
 	})
 }
 
-func TestDatumMount(t *testing.T) {
-	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
-	require.NoError(t, env.PachClient.CreateRepo("images"))
+func TestMountDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "master", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'pfs':{'repo': 'repo', 'glob': '/'}}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		json.NewDecoder(resp.Body).Decode(mdr)
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 1, mdr.NumDatums)
+
+		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+	})
 }
