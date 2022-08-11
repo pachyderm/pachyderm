@@ -30,9 +30,9 @@ executors:
 commands:
   upload-to-pachyderm:
     parameters:
-      name: # name of the file in pachyderm
+      dst: # name of the file in pachyderm
         type: string
-      file: # path on disk to upload; can be a directory
+      src: # path on disk to upload; can be a directory
         type: string
     steps:
       - run:
@@ -43,7 +43,7 @@ commands:
             echo '{"pachd_address": "grpc://pachyderm.pachops.com:443"}' | pachctl config set context default --overwrite
             pachctl config set active-context default
             echo $PACHOPS_PACHYDERM_ROBOT_TOKEN | pachctl auth use-auth-token
-            pachctl put file "pach-core-ci-results:/${CIRCLE_BRANCH}/${CIRCLE_SHA1}/${CIRCLE_WORKFLOW_JOB_ID}/<< parameters.name >>" -f << parameters.file >> -r
+            pachctl put file "pach-core-ci-results:/${CIRCLE_BRANCH}/${CIRCLE_SHA1}/${CIRCLE_WORKFLOW_JOB_ID}/<<parameters.dst>>" -f <<parameters.src>> -r
   collect-node-stats:
     steps:
       - run:
@@ -91,8 +91,8 @@ jobs:
           paths:
             - /home/circleci/go/pkg/mod
       - upload-to-pachyderm:
-          name: test-go-results
-          file: /tmp/test-results
+          dst: test-go-results
+          src: /tmp/test-results
   integration-tests:
     parameters:
       bucket:
@@ -184,11 +184,11 @@ jobs:
       - store_artifacts:
           path: /tmp/test-results
       - upload-to-pachyderm:
-          name: integration-test-results/<<parameters.bucket>>
-          file: /tmp/test-results
+          dst: integration-test-results/<<parameters.bucket>>
+          src: /tmp/test-results
       - upload-to-pachyderm:
-          name: integration-test-results/<<parameters.bucket>>/sar
-          file: /tmp/sar
+          dst: integration-test-results/<<parameters.bucket>>/sar
+          src: /tmp/sar
   helm-tests:
     executor: docker-go
     working_directory: ~/project/etc/helm
@@ -340,10 +340,7 @@ jobs:
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
+      - collect-node-stats
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -371,10 +368,7 @@ jobs:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
+      - collect-node-stats
       - run: etc/testing/circle/start-minikube.sh
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
