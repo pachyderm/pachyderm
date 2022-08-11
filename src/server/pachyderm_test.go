@@ -7116,6 +7116,13 @@ func TestService(t *testing.T) {
 		return address
 	}()
 
+	go func() {
+		iter := c.GetLogs(pipeline, "", nil, "", true, true, 0)
+		for iter.Next() {
+			t.Log(iter.Message().Message)
+		}
+	}()
+
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
