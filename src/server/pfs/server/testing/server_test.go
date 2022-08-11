@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -5879,7 +5879,7 @@ func TestPFS(suite *testing.T) {
 			fsSpec := fileSetSpec{}
 			for j := 0; j < filesPer; j++ {
 				name := fmt.Sprintf("file%02d", j)
-				data, err := ioutil.ReadAll(randomReader(fileSetSize))
+				data, err := io.ReadAll(randomReader(fileSetSize))
 				require.NoError(t, err)
 				file := tarutil.NewMemFile(name, data)
 				hdr, err := file.Header()
