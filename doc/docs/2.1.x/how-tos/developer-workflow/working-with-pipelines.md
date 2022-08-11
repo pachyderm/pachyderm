@@ -22,7 +22,7 @@ be written in any language and can use any libraries of choice. Whether
 your code is as simple as a bash command or as complicated as a
 TensorFlow neural network, it needs to be built with all the required
 dependencies into a container that can run anywhere, including inside
-of Pachyderm. See [Examples](https://github.com/pachyderm/pachyderm/tree/master/examples){target=_blank}.
+of Pachyderm. See [Examples](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples){target=_blank}.
 
 Your code does not have to import any special Pachyderm
 functionality or libraries. However, it must meet the

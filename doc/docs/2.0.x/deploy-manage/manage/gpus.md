@@ -109,7 +109,7 @@ by [setting up GPU resource limits](../../../reference/pipeline-spec/#resource-r
       - Additionally, specify how much of GPU your pipeline worker will need via the `resource_requests` fields in your [pipeline specification](../../../reference/pipeline-spec/#resource-requests-optional) with `ressource_requests` <= `resource_limits`.
 
 
-Below is an example of a pipeline spec for a GPU-enabled pipeline from our [market sentiment analysis example](https://github.com/pachyderm/examples/tree/2.0.x/market-sentiment){target=_blank}:
+Below is an example of a pipeline spec for a GPU-enabled pipeline from our [market sentiment analysis example](https://github.com/pachyderm/examples/tree/master/market-sentiment){target=_blank}:
 
 ```yaml
 {{ gitsnippet('pachyderm/examples', 'market-sentiment/pachyderm/train_model.json') }}
