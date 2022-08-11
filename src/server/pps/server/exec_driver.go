@@ -38,17 +38,23 @@ func (ed *execDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 	ctx, cf := context.WithCancel(ctx)
 	ed.mu.Lock()
 	ed.pipelines[pi.Pipeline.Name] = cf
+	portOffset := len(ed.pipelines)
 	ed.mu.Unlock()
 	logFile := "/Users/alon/.pachyderm/logs/workers/log.txt"
 	os.MkdirAll("/Users/alon/.pachyderm/logs/workers", 0700)
-	os.Remove(logFile)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				break
 			default:
-				cmd := ed.makeExec(ctx, pi, logFile)
+				os.Remove(logFile)
+				f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+				if err != nil {
+					log.Fatalf("error opening file: %v", err)
+				}
+				defer f.Close()
+				cmd := ed.makeExec(ctx, pi, f, portOffset)
 				fmt.Printf("executing cmd: %v\n", cmd.String())
 				if err := cmd.Run(); err == nil {
 					break
@@ -62,7 +68,7 @@ func (ed *execDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 	return nil
 }
 
-func (ed *execDriver) makeExec(ctx context.Context, pi *pps.PipelineInfo, logFile string) *exec.Cmd {
+func (ed *execDriver) makeExec(ctx context.Context, pi *pps.PipelineInfo, log *os.File, portOffset int) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "go", "run", "/Users/alon/workspace/pachyderm/src/server/cmd/worker/main.go")
 	cmd.Env = append([]string{
 		fmt.Sprintf("PPS_PIPELINE_NAME=%s", pi.Pipeline.Name),
@@ -71,17 +77,12 @@ func (ed *execDriver) makeExec(ctx context.Context, pi *pps.PipelineInfo, logFil
 		fmt.Sprintf("PPS_POD_NAME=%s", pi.Pipeline.Name),
 		"PEER_PORT=1650",
 		fmt.Sprintf("PACH_ROOT=/Users/alon/.pachyderm/data/workers/%s", pi.Pipeline.Name),
-
-		fmt.Sprintf("PPS_WORKER_GRPC_PORT=1081"),
+		fmt.Sprintf("PPS_WORKER_GRPC_PORT=%d", 1081+portOffset),
 	},
 		os.Environ()...,
 	)
-	f, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	cmd.Stdout = f
-	cmd.Stderr = f
+	cmd.Stdout = log
+	cmd.Stderr = log
 	return cmd
 }
 
