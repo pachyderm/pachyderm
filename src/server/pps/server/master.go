@@ -118,7 +118,7 @@ func (a *apiServer) master() {
 		if a.env.Config.Kubernetes {
 			kd = newKubeDriver(a.env.KubeClient, a.env.Config, a.env.Logger)
 		} else {
-			kd = newExecDriver()
+			kd = newExecDriver(a.env.Logger)
 		}
 
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)

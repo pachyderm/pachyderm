@@ -96,25 +96,18 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 func NewAPIServerNoMaster(env Env) (ppsiface.APIServer, error) {
 	config := env.Config
 	apiServer := &apiServer{
-		env:                   env,
-		txnEnv:                env.TxnEnv,
-		etcdPrefix:            env.EtcdPrefix,
-		namespace:             config.Namespace,
-		workerImage:           config.WorkerImage,
-		workerSidecarImage:    config.WorkerSidecarImage,
-		workerImagePullPolicy: config.WorkerImagePullPolicy,
-		storageRoot:           config.StorageRoot,
-		storageBackend:        config.StorageBackend,
-		storageHostPath:       config.StorageHostPath,
-		imagePullSecrets:      config.ImagePullSecrets,
-		reporter:              env.Reporter,
-		workerUsesRoot:        config.WorkerUsesRoot,
-		pipelines:             ppsdb.Pipelines(env.DB, env.Listener),
-		jobs:                  ppsdb.Jobs(env.DB, env.Listener),
-		workerGrpcPort:        config.PPSWorkerPort,
-		port:                  config.Port,
-		peerPort:              config.PeerPort,
-		gcPercent:             config.GCPercent,
+		env:            env,
+		txnEnv:         env.TxnEnv,
+		etcdPrefix:     env.EtcdPrefix,
+		namespace:      config.Namespace,
+		reporter:       env.Reporter,
+		workerUsesRoot: config.WorkerUsesRoot,
+		pipelines:      ppsdb.Pipelines(env.DB, env.Listener),
+		jobs:           ppsdb.Jobs(env.DB, env.Listener),
+		workerGrpcPort: config.PPSWorkerPort,
+		port:           config.Port,
+		peerPort:       config.PeerPort,
+		gcPercent:      config.GCPercent,
 	}
 	return apiServer, nil
 }

@@ -47,8 +47,9 @@ func NewWorker(
 	pipelineInfo *pps.PipelineInfo,
 	rootPath string,
 ) (*Worker, error) {
-	stats.InitPrometheus()
-
+	if env.Config().Kubernetes {
+		stats.InitPrometheus()
+	}
 	driver, err := driver.NewDriver(
 		env,
 		pachClient,

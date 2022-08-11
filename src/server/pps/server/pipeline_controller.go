@@ -137,7 +137,7 @@ func PipelineMonitorSideEffect(toggle sideEffectToggle) sideEffect {
 	return sideEffect{
 		name:   sideEffectName_PIPELINE_MONITOR,
 		toggle: toggle,
-		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
+		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, _ *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
 				pc.startPipelineMonitor(pi)
 			} else {
