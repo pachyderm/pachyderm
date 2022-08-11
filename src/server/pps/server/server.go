@@ -48,11 +48,15 @@ type Env struct {
 
 func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
 	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
+	var kubeClient *kubernetes.Clientset
+	if senv.Config().Kubernetes {
+		kubeClient = senv.GetKubeClient()
+	}
 	return Env{
 		DB:            senv.GetDBClient(),
 		TxnEnv:        txnEnv,
 		Listener:      senv.GetPostgresListener(),
-		KubeClient:    senv.GetKubeClient(),
+		KubeClient:    kubeClient,
 		EtcdClient:    senv.GetEtcdClient(),
 		EtcdPrefix:    etcdPrefix,
 		TaskService:   senv.GetTaskService(etcdPrefix),
@@ -77,7 +81,9 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	}
 	apiServer := (srv).(*apiServer)
 	if env.Config.EnablePreflightChecks {
-		apiServer.validateKube(apiServer.env.BackgroundContext)
+		if env.Config.Kubernetes {
+			apiServer.validateKube(apiServer.env.BackgroundContext)
+		}
 	} else {
 		logrus.Warning("Preflight checks are disabled. This is not recommended.")
 	}
@@ -90,25 +96,18 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 func NewAPIServerNoMaster(env Env) (ppsiface.APIServer, error) {
 	config := env.Config
 	apiServer := &apiServer{
-		env:                   env,
-		txnEnv:                env.TxnEnv,
-		etcdPrefix:            env.EtcdPrefix,
-		namespace:             config.Namespace,
-		workerImage:           config.WorkerImage,
-		workerSidecarImage:    config.WorkerSidecarImage,
-		workerImagePullPolicy: config.WorkerImagePullPolicy,
-		storageRoot:           config.StorageRoot,
-		storageBackend:        config.StorageBackend,
-		storageHostPath:       config.StorageHostPath,
-		imagePullSecrets:      config.ImagePullSecrets,
-		reporter:              env.Reporter,
-		workerUsesRoot:        config.WorkerUsesRoot,
-		pipelines:             ppsdb.Pipelines(env.DB, env.Listener),
-		jobs:                  ppsdb.Jobs(env.DB, env.Listener),
-		workerGrpcPort:        config.PPSWorkerPort,
-		port:                  config.Port,
-		peerPort:              config.PeerPort,
-		gcPercent:             config.GCPercent,
+		env:            env,
+		txnEnv:         env.TxnEnv,
+		etcdPrefix:     env.EtcdPrefix,
+		namespace:      config.Namespace,
+		reporter:       env.Reporter,
+		workerUsesRoot: config.WorkerUsesRoot,
+		pipelines:      ppsdb.Pipelines(env.DB, env.Listener),
+		jobs:           ppsdb.Jobs(env.DB, env.Listener),
+		workerGrpcPort: config.PPSWorkerPort,
+		port:           config.Port,
+		peerPort:       config.PeerPort,
+		gcPercent:      config.GCPercent,
 	}
 	return apiServer, nil
 }

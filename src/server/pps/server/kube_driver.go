@@ -164,7 +164,7 @@ func (kd *kubeDriver) ListReplicationControllers(ctx context.Context) (*v1.Repli
 
 // Used to discover crashing pods which signals the controller to transition
 // a pipeline to CRASHING
-func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
+func (kd *kubeDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, context.CancelFunc, error) {
 	kubePipelineWatch, err := kd.kubeClient.CoreV1().Pods(kd.namespace).Watch(
 		ctx,
 		metav1.ListOptions{

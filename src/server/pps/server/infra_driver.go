@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/version"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -28,7 +29,43 @@ type InfraDriver interface {
 	// of the 'old' rc passed to update() as mutable.
 	UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error
 	ListReplicationControllers(ctx context.Context) (*v1.ReplicationControllerList, error)
-	WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error)
+	WatchPipelinePods(ctx context.Context) (<-chan watch.Event, context.CancelFunc, error)
+}
+
+type PipelineResources struct {
+	name            string
+	pachVersion     string
+	authTokenHash   string
+	pipelineVersion string
+	specCommit      string
+	replicas        int
+	readyReplicas   int
+}
+
+func (pr PipelineResources) fresh(pi *pps.PipelineInfo) bool {
+	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
+	switch {
+	case pr.pipelineVersion != strconv.FormatUint(pi.Version, 10):
+		log.Infof("PPS master: pipeline version in %q looks stale %s != %d",
+			pi.Pipeline.Name, pr.pipelineVersion, pi.Version)
+		return false
+	case pr.specCommit != pi.SpecCommit.ID:
+		log.Infof("PPS master: pipeline spec commit in %q looks stale %s != %s",
+			pi.Pipeline.Name, pr.specCommit, pi.SpecCommit.ID)
+		return false
+	case pr.pachVersion != version.PrettyVersion():
+		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
+			pi.Pipeline.Name, pr.pachVersion, version.PrettyVersion())
+		return false
+	case pr.name != expectedName:
+		log.Infof("PPS master: %q has an unexpected (likely stale) name %q != %q",
+			pi.Pipeline.Name, pr.name, expectedName)
+	case pr.authTokenHash != hashAuthToken(pi.AuthToken):
+		log.Infof("PPS master: auth token in %q is stale %s != %s",
+			pi.Pipeline.Name, pr.authTokenHash, hashAuthToken(pi.AuthToken))
+		return false
+	}
+	return true
 }
 
 type mockInfraOp int32
@@ -105,7 +142,7 @@ func (d *mockInfraDriver) ListReplicationControllers(ctx context.Context) (*v1.R
 }
 
 // TODO(acohen4): complete
-func (d *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, func(), error) {
+func (d *mockInfraDriver) WatchPipelinePods(ctx context.Context) (<-chan watch.Event, context.CancelFunc, error) {
 	ch := make(chan watch.Event)
 	return ch, func() {}, nil
 }

@@ -84,23 +84,16 @@ var (
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
-	etcdPrefix            string
-	env                   Env
-	txnEnv                *txnenv.TransactionEnv
-	namespace             string
-	workerImage           string
-	workerSidecarImage    string
-	workerImagePullPolicy string
-	storageRoot           string
-	storageBackend        string
-	storageHostPath       string
-	imagePullSecrets      string
-	reporter              *metrics.Reporter
-	workerUsesRoot        bool
-	workerGrpcPort        uint16
-	port                  uint16
-	peerPort              uint16
-	gcPercent             int
+	etcdPrefix     string
+	env            Env
+	txnEnv         *txnenv.TransactionEnv
+	namespace      string
+	reporter       *metrics.Reporter
+	workerUsesRoot bool
+	workerGrpcPort uint16
+	port           uint16
+	peerPort       uint16
+	gcPercent      int
 	// collections
 	pipelines col.PostgresCollection
 	jobs      col.PostgresCollection
@@ -2910,11 +2903,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
-
-	if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: "secret-source=pachyderm-user",
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
+	if a.env.Config.Kubernetes {
+		if err := a.env.KubeClient.CoreV1().Secrets(a.namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: "secret-source=pachyderm-user",
+		}); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
 	}
 	return &types.Empty{}, nil
 }

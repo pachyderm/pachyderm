@@ -176,7 +176,12 @@ func setup(config interface{}, service string) (env serviceenv.ServiceEnv, err e
 	} else {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
-	env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
+	sConfig := serviceenv.NewConfiguration(config)
+	if sConfig.Kubernetes {
+		env = serviceenv.InitWithKube(sConfig)
+	} else {
+		env = serviceenv.InitServiceEnv(sConfig)
+	}
 	if env.Config().LogFormat == "text" {
 		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 	}
@@ -500,7 +505,7 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 		env.InitDexDB()
 	}
 	var reporter *metrics.Reporter
-	if env.Config().Metrics {
+	if env.Config().Metrics && env.Config().Kubernetes {
 		reporter = metrics.NewReporter(env)
 	}
 	requireNoncriticalServers := !env.Config().RequireCriticalServersOnly
@@ -713,15 +718,18 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	go func(c chan os.Signal) {
 		<-c
-		log.Println("terminating; waiting for pachd server to gracefully stop")
-		var g, _ = errgroup.WithContext(ctx)
-		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
-		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		if err := g.Wait(); err != nil {
-			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
-		} else {
-			log.Println("gRPC server gracefully stopped")
-		}
+		panic("PANICKING")
+		// log.Println("terminating; waiting for pachd server to gracefully stop")
+		// if false {
+		// 	var g, _ = errgroup.WithContext(ctx)
+		// 	g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		// 	g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		// 	if err := g.Wait(); err != nil {
+		// 		log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
+		// 	} else {
+		// 		log.Println("gRPC server gracefully stopped")
+		// 	}
+		// }
 	}(interruptChan)
 	return errors.EnsureStack(eg.Wait())
 }
