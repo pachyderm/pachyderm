@@ -71,6 +71,7 @@ type MountInfo struct {
 	Branch string   `json:"branch"`
 	Commit string   `json:"commit"` // "" for no commit (commit as noun)
 	Files  []string `json:"files"`
+	Glob   string   `json:"glob"`
 	Mode   string   `json:"mode"` // "ro", "rw"
 }
 
@@ -199,7 +200,9 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 			if err != nil {
 				return mr, err
 			}
-			mr.Mounted[name] = msm.MountState
+			ms := msm.MountState
+			ms.Files = nil
+			mr.Mounted[name] = ms
 			delete(repoBranches[msm.Repo], msm.Branch)
 		}
 	}
@@ -453,6 +456,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		if len(mm.Datums) > 0 {
 			http.Error(w, "can't mount repos while in mounted datum mode", http.StatusBadRequest)
+			return
 		}
 
 		// Verify request payload
@@ -502,6 +506,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		if len(mm.Datums) > 0 {
 			http.Error(w, "can't unmount repos while in mounted datum mode", http.StatusBadRequest)
+			return
 		}
 
 		var umreq UnmountRequest
@@ -650,8 +655,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 
 		resp := MountDatumResponse{
-			DatumId:   mm.Datums[0].Datum.ID,
-			DatumIdx:  0,
+			Id:        mm.Datums[0].Datum.ID,
+			Idx:       0,
 			NumDatums: len(mm.Datums),
 		}
 		marshalled, err := jsonMarshal(resp)
@@ -727,8 +732,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 
 			resp := MountDatumResponse{
-				DatumId:   di.Datum.ID,
-				DatumIdx:  idx,
+				Id:        di.Datum.ID,
+				Idx:       idx,
 				NumDatums: len(mm.Datums),
 			}
 			marshalled, err := jsonMarshal(resp)
@@ -1032,14 +1037,17 @@ func verifyMountRequest(mis []*MountInfo, lr ListRepoResponse) error {
 			return errors.Errorf("no repo specified in request %+v", mi)
 		}
 		if mi.Branch == "" {
-			return errors.Errorf("no branch specified in request %+v", mi)
+			mi.Branch = "master"
 		}
 		if mi.Commit != "" {
 			// TODO: case of same commit id on diff branches
 			return errors.Errorf("don't support mounting commits yet in request %+v", mi)
 		}
+		if mi.Files != nil && mi.Glob != "" {
+			return errors.Errorf("can't specify both files and glob pattern in request %+v", mi)
+		}
 		if mi.Mode == "" {
-			return errors.Errorf("no mode specified in request %+v", mi)
+			mi.Mode = "ro"
 		}
 		if _, ok := lr[mi.Repo]; !ok {
 			return errors.Errorf("repo does not exist")
@@ -1060,12 +1068,14 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		if branch != "master" {
 			mount = mount + "_" + branch
 		}
+		if _, ok := files[mount]; !ok {
+			files[mount] = map[string]bool{}
+		}
 
 		if mi, ok := mounts[mount]; ok {
 			if _, ok := files[mount][fi.File.Path]; !ok {
 				mi.Files = append(mi.Files, fi.File.Path)
 				mounts[mount] = mi
-				files[mount][fi.File.Path] = true
 			}
 		} else {
 			mi := &MountInfo{
@@ -1077,6 +1087,7 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 			}
 			mounts[mount] = mi
 		}
+		files[mount][fi.File.Path] = true
 	}
 
 	mis := []*MountInfo{}
@@ -1207,11 +1218,6 @@ func (m *MountStateMachine) RefreshMountState() error {
 // TODO: switch to pach internal types if appropriate?
 type ListRepoResponse map[string]RepoResponse
 
-// type BranchResponse struct {
-// 	Name  string       `json:"name"`
-// 	Mount []MountState `json:"mount"`
-// }
-
 type RepoResponse struct {
 	Repo          string   `json:"repo"`
 	Branches      []string `json:"branches"`
@@ -1225,21 +1231,6 @@ type ListMountResponse struct {
 }
 
 type GetResponse RepoResponse
-
-type MountKey struct {
-	Repo   string `json:"repo"`
-	Branch string `json:"branch"`
-	Commit string `json:"commit"`
-}
-
-func (m *MountKey) String() string {
-	// m.Commit is optional
-	if m.Commit == "" {
-		return fmt.Sprintf("%s/%s", m.Repo, m.Branch)
-	} else {
-		return fmt.Sprintf("%s/%s/%s", m.Repo, m.Branch, m.Commit)
-	}
-}
 
 // state machines in the style of Rob Pike's Lexical Scanning
 // http://www.timschmelmer.com/2013/08/state-machines-with-state-functions-in.html
@@ -1551,7 +1542,9 @@ func unmountingState(m *MountStateMachine) StateFn {
 		m.transitionedTo("error", err.Error())
 		return errorState
 	}
-	m.MountState = MountState{}
+	m.manager.mu.Lock()
+	defer m.manager.mu.Unlock()
+	delete(m.manager.States, m.Name)
 
 	return unmountedState
 }
