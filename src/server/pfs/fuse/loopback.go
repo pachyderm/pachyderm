@@ -17,7 +17,6 @@ import (
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/sirupsen/logrus"
-	"k8s.io/utils/strings/slices"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -625,7 +624,17 @@ func (n *loopbackNode) download(origPath string, state fileState) (retErr error)
 		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
 			return nil
 		}
-		if len(ro.Subpaths) > 0 && !slices.Contains(ro.Subpaths, fi.File.Path) {
+		if skip := func() bool {
+			if len(ro.Subpaths) == 0 {
+				return false
+			}
+			for _, sp := range ro.Subpaths {
+				if strings.HasPrefix(fi.File.Path, sp) || strings.HasPrefix(sp, fi.File.Path) {
+					return false
+				}
+			}
+			return true
+		}(); skip {
 			return nil
 		}
 		if fi.FileType == pfs.FileType_DIR {
