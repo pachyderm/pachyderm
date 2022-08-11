@@ -34,16 +34,16 @@ commands:
         type: string
       file: # path on disk to upload; can be a directory
         type: string
-      steps:
-        - run:
-            name: Upload << parameters.file >> to Pachyderm
-            shell: /bin/bash # ignore failures
-            when: always
-            command: |-
-              echo '{"pachd_address": "grpc://pachyderm.pachops.com:443"}' | pachctl config set context default --overwrite
-              pachctl config set active-context default
-              echo $PACHOPS_PACHYDERM_ROBOT_TOKEN | pachctl auth use-auth-token
-              pachctl put file "pach-core-ci-results:/${CIRCLE_BRANCH}/${CIRCLE_SHA1}/${CIRCLE_WORKFLOW_JOB_ID}/<< parameters.name >>" -f << parameters.file >> -r
+    steps:
+      - run:
+          name: Upload << parameters.file >> to Pachyderm
+          shell: /bin/bash # ignore failures
+          when: always
+          command: |-
+            echo '{"pachd_address": "grpc://pachyderm.pachops.com:443"}' | pachctl config set context default --overwrite
+            pachctl config set active-context default
+            echo $PACHOPS_PACHYDERM_ROBOT_TOKEN | pachctl auth use-auth-token
+            pachctl put file "pach-core-ci-results:/${CIRCLE_BRANCH}/${CIRCLE_SHA1}/${CIRCLE_WORKFLOW_JOB_ID}/<< parameters.name >>" -f << parameters.file >> -r
   collect-node-stats:
     steps:
       - run:
