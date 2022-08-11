@@ -21,6 +21,7 @@ type IconColor = keyof typeof Colors;
 export type Props = React.HTMLAttributes<HTMLDivElement> & {
   color?: IconColor;
   small?: boolean;
+  smaller?: boolean;
   disabled?: boolean;
 };
 
@@ -30,6 +31,7 @@ export const Icon: FunctionComponent<Props> = ({
   children,
   color,
   small,
+  smaller,
   style,
   className,
   disabled,
@@ -39,6 +41,7 @@ export const Icon: FunctionComponent<Props> = ({
   const classes = classNames(styles.base, className, {
     [styles[actualColor]]: true,
     [styles.small]: small,
+    [styles.smaller]: smaller,
     [styles.disabled]: disabled,
   });
   return (

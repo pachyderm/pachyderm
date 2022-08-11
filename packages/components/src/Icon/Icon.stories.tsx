@@ -48,6 +48,9 @@ export const Default = () => {
       <Icon small>
         <InfoSVG />
       </Icon>
+      <Icon smaller>
+        <InfoSVG />
+      </Icon>
     </>
   );
 };

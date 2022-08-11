@@ -11,6 +11,7 @@ export {ReactComponent as ElephantHeadExtraLargeSVG} from './elephantHeadExtraLa
 export {ReactComponent as ElephantHeadLargeSVG} from './elephantHeadLarge.svg';
 export {ReactComponent as GenericErrorSVG} from './genericError.svg';
 export {ReactComponent as KubernetesElephantSVG} from './kubernetesElephant.svg';
+export {ReactComponent as LockSVG} from './Lock.svg';
 export {ReactComponent as MembersFreeSVG} from './MembersFree.svg';
 export {ReactComponent as OvalSVG} from './Oval.svg';
 export {ReactComponent as PachydermLogoSVG} from './pachydermLogo.svg';

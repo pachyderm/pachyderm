@@ -159,7 +159,7 @@ const TutorialModalBody: React.FC<TutorialModalBodyProps> = ({
                 currentTask={currentTask}
                 task={
                   <div>
-                    <MinimizeSVG className={styles.minimizeSVG} /> Contine to
+                    <MinimizeSVG className={styles.minimizeSVG} /> Continue to
                     the next story
                   </div>
                 }

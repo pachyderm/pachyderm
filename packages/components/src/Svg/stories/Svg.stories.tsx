@@ -103,6 +103,9 @@ export const Pachyderm = () => {
         <SVGWrapper title="KubernetesElephantSVG">
           <PachydermSVG.KubernetesElephantSVG width="583" height="389" />
         </SVGWrapper>
+        <SVGWrapper title="LockSVG">
+          <PachydermSVG.LockSVG />
+        </SVGWrapper>
         <SVGWrapper title="MembersFreeSVG">
           <PachydermSVG.MembersFreeSVG viewBox="0 0 500 339" />
         </SVGWrapper>
@@ -361,17 +364,23 @@ export const StatusIcons = () => {
   return (
     <div className={styles.wrapper}>
       <div className={styles.grid}>
-        <SVGWrapper title="StatusBlockedSVG">
-          <IconsSVG.StatusBlockedSVG />
-        </SVGWrapper>
         <SVGWrapper title="StatusCheckmarkSVG">
           <IconsSVG.StatusCheckmarkSVG />
+        </SVGWrapper>
+        <SVGWrapper title="StatusRunningSVG">
+          <IconsSVG.StatusRunningSVG />
         </SVGWrapper>
         <SVGWrapper title="StatusPausedSVG">
           <IconsSVG.StatusPausedSVG />
         </SVGWrapper>
         <SVGWrapper title="StatusWarningSVG">
           <IconsSVG.StatusWarningSVG />
+        </SVGWrapper>
+        <SVGWrapper title="StatusBusySVG">
+          <IconsSVG.StatusBusySVG />
+        </SVGWrapper>
+        <SVGWrapper title="StatusBlockedSVG">
+          <IconsSVG.StatusBlockedSVG />
         </SVGWrapper>
       </div>
     </div>

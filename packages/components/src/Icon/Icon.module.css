@@ -54,3 +54,7 @@
 .small {
   transform: scale(0.75);
 }
+
+.smaller {
+  transform: scale(0.6);
+}
