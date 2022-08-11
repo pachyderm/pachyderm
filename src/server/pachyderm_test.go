@@ -7115,14 +7115,6 @@ func TestService(t *testing.T) {
 		require.NotEqual(t, "", address)
 		return address
 	}()
-
-	go func() {
-		iter := c.GetLogs(pipeline, "", nil, "", true, true, 10*time.Minute)
-		for iter.Next() {
-			t.Log(iter.Message().Message)
-		}
-	}()
-
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
@@ -7132,12 +7124,12 @@ func TestService(t *testing.T) {
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			if resp.StatusCode != 200 {
-				return errors.Errorf("GET returned %d", resp.StatusCode)
-			}
 			defer func() {
 				_ = resp.Body.Close()
 			}()
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
 			content, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return errors.EnsureStack(err)
