@@ -4,9 +4,9 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -127,7 +127,7 @@ func createTrustedPeersFile(t testing.TB) string {
   additionalTrustedPeers:
     - example-app
 `)
-	tf, err := ioutil.TempFile("", "pachyderm-trusted-peers-*.yaml")
+	tf, err := os.CreateTemp("", "pachyderm-trusted-peers-*.yaml")
 	require.NoError(t, err)
 	_, err = tf.Write(data)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func createAdditionalClientsFile(t testing.TB) string {
       redirectURIs:
       - 'http://127.0.0.1:5555/callback'
 `)
-	tf, err := ioutil.TempFile("", "pachyderm-additional-clients-*.yaml")
+	tf, err := os.CreateTemp("", "pachyderm-additional-clients-*.yaml")
 	require.NoError(t, err)
 	_, err = tf.Write(data)
 	require.NoError(t, err)
