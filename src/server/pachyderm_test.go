@@ -7128,6 +7128,9 @@ func TestService(t *testing.T) {
 			if resp.StatusCode != 200 {
 				return errors.Errorf("GET returned %d", resp.StatusCode)
 			}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 			content, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return errors.EnsureStack(err)
