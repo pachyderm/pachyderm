@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -82,17 +82,17 @@ func TestBasicServerSameNames(t *testing.T) {
 		require.Equal(t, "repo", (*repoResp)["repo"].Name)
 		require.Equal(t, "master", (*repoResp)["repo"].Branches["master"].Name)
 
-		repos, err := fs.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
 
-		files, err := fs.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = fs.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
@@ -117,17 +117,17 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := fs.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
 
-		files, err := fs.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = fs.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
@@ -152,17 +152,17 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		_, err := put("repos/repo/master/_mount?name=newname&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := fs.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "newname", filepath.Base(repos[0].Name()))
 
-		files, err := fs.ReadDir(filepath.Join(mountPoint, "newname"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "newname"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = fs.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
@@ -226,7 +226,7 @@ func TestUnmountAll(t *testing.T) {
 		_, err = put("repos/repo2/master/_mount?name=repo2&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := fs.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 
@@ -238,7 +238,7 @@ func TestUnmountAll(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(unmountResp))
 		require.Equal(t, 2, len(*unmountResp))
 
-		repos, err = fs.ReadDir(mountPoint)
+		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(repos))
 	})
@@ -366,7 +366,7 @@ func TestMultipleMount(t *testing.T) {
 		_, err = put("repos/repo/master/_mount?name=mount2&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := fs.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
@@ -382,7 +382,7 @@ func TestMultipleMount(t *testing.T) {
 		_, err = put("repos/repo/master/_unmount?name=mount2", nil)
 		require.NoError(t, err)
 
-		repos, err = fs.ReadDir(mountPoint)
+		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
