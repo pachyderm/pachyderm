@@ -222,7 +222,7 @@ func TestRepoAccess(t *testing.T) {
 
 		reposResp := &ListRepoResponse{}
 		json.NewDecoder(resp.Body).Decode(reposResp)
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "write")
+		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
 	})
 
 	withServerMount(t, bobClient, nil, func(mountPoint string) {
@@ -231,7 +231,7 @@ func TestRepoAccess(t *testing.T) {
 
 		reposResp := &ListRepoResponse{}
 		json.NewDecoder(resp.Body).Decode(reposResp)
-		require.Equal(t, (*reposResp)["repo1"].Authorization, "none")
+		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
 
 		mr := MountRequest{
 			Mounts: []*MountInfo{
@@ -245,7 +245,7 @@ func TestRepoAccess(t *testing.T) {
 		b := new(bytes.Buffer)
 		json.NewEncoder(b).Encode(mr)
 		resp, _ = put("_mount", b)
-		require.Equal(t, resp.StatusCode, 500)
+		require.Equal(t, 500, resp.StatusCode)
 	})
 }
 
@@ -567,7 +567,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = ioutil.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
@@ -587,7 +587,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 	})
 }
 
@@ -619,7 +619,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = ioutil.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
@@ -640,7 +640,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 	})
 }
 
@@ -673,7 +673,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = ioutil.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
@@ -694,7 +694,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 
 		// another file!
 		err = ioutil.WriteFile(
@@ -711,7 +711,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 2)
+		require.Equal(t, 2, len(commits))
 	})
 }
 
@@ -744,7 +744,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 		// the commit created above isn't actually written until we unmount, so
 		// we currently have 0 commits
-		require.Equal(t, len(commits), 0)
+		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
 		err = ioutil.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
@@ -765,7 +765,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 1)
+		require.Equal(t, 1, len(commits))
 
 		// another file!
 		err = ioutil.WriteFile(
@@ -786,7 +786,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// we have one more commit than we did previously!
-		require.Equal(t, len(commits), 2)
+		require.Equal(t, 2, len(commits))
 	})
 }
 
