@@ -15,6 +15,52 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
+func (c *controller) InspectObject(r *http.Request, bucketName, file, version string) (*s2.InspectObjectResult, error) {
+	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
+
+	pc := c.requestClient(r)
+	file = strings.TrimSuffix(file, "/")
+
+	bucket, err := c.driver.bucket(pc, r, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	if err != nil {
+		return nil, err
+	}
+	if !bucketCaps.readable {
+		return nil, s2.NoSuchKeyError(r)
+	}
+
+	commitID := bucket.Commit.ID
+	if version != "" {
+		if !bucketCaps.historicVersions {
+			return nil, s2.NotImplementedError(r)
+		}
+		commitID = version
+	}
+
+	fileInfo, err := pc.InspectFile(bucket.Commit, file)
+	if err != nil {
+		return nil, maybeNotFoundError(r, err)
+	}
+
+	modTime, err := types.TimestampFromProto(fileInfo.Committed)
+	if err != nil {
+		return nil, err
+	}
+
+	result := s2.InspectObjectResult{
+		ModTime:      modTime,
+		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
+		Version:      commitID,
+		DeleteMarker: false,
+	}
+
+	return &result, nil
+}
+
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
