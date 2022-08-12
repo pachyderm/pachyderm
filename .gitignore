@@ -63,3 +63,6 @@ __pycache__
 
 # Dev files
 .vscode/
+
+spark/venv
+spark/*.jar
