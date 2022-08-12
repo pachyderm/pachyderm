@@ -1,35 +1,15 @@
-import {TrashSVG, Tooltip, BasicModal, Button} from '@pachyderm/components';
+import {TrashSVG, Tooltip, Button} from '@pachyderm/components';
 import React from 'react';
 
-import getServerErrorMessage from 'lib/errorHandling';
-
+import DeleteRepoModal from './DeleteRepoModal';
 import useDeleteRepoButton from './hooks/useDeleteRepoButton';
 
 const DeleteRepoButton: React.FC = () => {
-  const {canDelete, modalOpen, setModalOpen, onDelete, updating, error} =
-    useDeleteRepoButton();
+  const {modalOpen, setModalOpen, canDelete} = useDeleteRepoButton();
 
   return (
     <>
-      {modalOpen && (
-        <BasicModal
-          show={true}
-          onHide={() => {
-            setModalOpen(false);
-          }}
-          headerContent="Are you sure you want to delete this Repo?"
-          actionable
-          small
-          confirmText="Delete"
-          onConfirm={onDelete}
-          updating={updating}
-          loading={false}
-          disabled={updating}
-          errorMessage={getServerErrorMessage(error)}
-        >
-          Deleting this repo will erase all data inside it.
-        </BasicModal>
-      )}
+      {modalOpen && <DeleteRepoModal setModalOpen={setModalOpen} />}
       <Tooltip
         tooltipKey="Delete info"
         tooltipText={

@@ -36,6 +36,11 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
     );
   };
 
+  const elementWidth = Math.max(
+    ITEM_WIDTH,
+    window.innerWidth / (headers.length || 1) - 5,
+  );
+
   const InnerElement = useCallback(
     ({style, ...rest}: {style: CSSProperties}) => (
       <div className={styles.content}>
@@ -45,10 +50,7 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
               className={styles.cell}
               key={key}
               style={{
-                width: `${Math.max(
-                  ITEM_WIDTH,
-                  window.innerWidth / headers.length - 5,
-                )}px`,
+                width: `${elementWidth}px`,
               }}
             >
               {key}
@@ -64,7 +66,7 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
         />
       </div>
     ),
-    [headers],
+    [elementWidth, headers],
   );
 
   if (loading)
@@ -87,10 +89,7 @@ const CSVPreview: React.FC<FilePreviewProps> = ({downloadLink}) => {
         </DefaultDropdown>
       </div>
       <FixedSizeGrid
-        columnWidth={Math.max(
-          ITEM_WIDTH,
-          window.innerWidth / headers.length - 5,
-        )}
+        columnWidth={elementWidth}
         columnCount={headers.length}
         rowCount={data.length}
         rowHeight={ITEM_HEIGHT}

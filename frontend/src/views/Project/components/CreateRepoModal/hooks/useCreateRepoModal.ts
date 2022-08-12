@@ -60,6 +60,7 @@ const useCreateRepoModal = (onHide?: () => void) => {
     isFormComplete,
     loading: loading || reposLoading,
     validateRepoName,
+    reset,
   };
 };
 

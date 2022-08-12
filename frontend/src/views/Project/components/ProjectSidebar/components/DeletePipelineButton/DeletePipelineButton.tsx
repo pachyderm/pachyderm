@@ -1,35 +1,15 @@
-import {TrashSVG, Tooltip, BasicModal, Button} from '@pachyderm/components';
+import {TrashSVG, Tooltip, Button} from '@pachyderm/components';
 import React from 'react';
 
-import getServerErrorMessage from 'lib/errorHandling';
-
+import DeletePipelineModal from './DeletePipelineModal';
 import useDeletePipelineButton from './hooks/useDeletePipelineButton';
 
 const DeletePipelineButton: React.FC = () => {
-  const {canDelete, modalOpen, setModalOpen, onDelete, updating, error} =
-    useDeletePipelineButton();
+  const {canDelete, modalOpen, setModalOpen} = useDeletePipelineButton();
 
   return (
     <>
-      {modalOpen && (
-        <BasicModal
-          show={true}
-          onHide={() => {
-            setModalOpen(false);
-          }}
-          headerContent="Are you sure you want to delete this Pipeline?"
-          actionable
-          small
-          confirmText="Delete"
-          onConfirm={onDelete}
-          updating={updating}
-          loading={false}
-          disabled={updating}
-          errorMessage={getServerErrorMessage(error)}
-        >
-          Deleting this pipeline will erase all data inside it.
-        </BasicModal>
-      )}
+      {modalOpen && <DeletePipelineModal setModalOpen={setModalOpen} />}
       <Tooltip
         tooltipKey="Delete info"
         tooltipText={

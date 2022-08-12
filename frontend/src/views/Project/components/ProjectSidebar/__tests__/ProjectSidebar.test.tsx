@@ -87,16 +87,13 @@ describe('ProjectSidebar', () => {
         .pipelines['8'].push(mockServer.getState().pipelines['1'][0]);
       window.history.replaceState('', '', '/lineage/8/pipelines/montage');
 
-      const {findByTestId, queryByTestId} = render(<Project />);
+      const {findByTestId} = render(<Project />);
       expect(mockServer.getState().pipelines['8']).toHaveLength(1);
       const deleteButton = await findByTestId('DeletePipelineButton__link');
       await waitFor(() => expect(deleteButton).not.toBeDisabled());
       click(deleteButton);
       const confirmButton = await findByTestId('ModalFooter__confirm');
       click(confirmButton);
-      await waitForElementToBeRemoved(() =>
-        queryByTestId('ModalFooter__confirm'),
-      );
 
       await waitFor(() =>
         expect(mockServer.getState().pipelines['8']).toHaveLength(0),

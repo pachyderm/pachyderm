@@ -16,11 +16,15 @@ const CreateRepoModal: FunctionComponent<ModalProps> = ({show, onHide}) => {
     isFormComplete,
     loading,
     validateRepoName,
+    reset,
   } = useCreateRepoModal(onHide);
 
   return (
     <FormModal
-      onHide={onHide}
+      onHide={() => {
+        onHide && onHide();
+        reset({name: '', description: ''});
+      }}
       error={error}
       updating={loading}
       formContext={formCtx}

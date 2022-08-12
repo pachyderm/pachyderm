@@ -1,18 +1,12 @@
 import {useMemo, useState} from 'react';
 
 import {useGetDagQuery} from '@dash-frontend/generated/hooks';
-import {useDeleteRepo} from '@dash-frontend/hooks/useDeleteRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const useDeleteRepoButton = () => {
   const {projectId, repoId} = useUrlState();
   const [modalOpen, setModalOpen] = useState(false);
   const {data: dagData} = useGetDagQuery({variables: {args: {projectId}}});
-  const {
-    deleteRepo,
-    loading: updating,
-    error,
-  } = useDeleteRepo(repoId, () => setModalOpen(false));
 
   const canDelete = useMemo(() => {
     return (
@@ -23,28 +17,10 @@ const useDeleteRepoButton = () => {
     );
   }, [repoId, dagData]);
 
-  const onDelete = () => {
-    if (repoId) {
-      deleteRepo({
-        variables: {
-          args: {
-            repo: {
-              name: repoId,
-            },
-            projectId,
-          },
-        },
-      });
-    }
-  };
-
   return {
     canDelete,
     modalOpen,
     setModalOpen,
-    onDelete,
-    updating,
-    error,
   };
 };
 
