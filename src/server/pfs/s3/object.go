@@ -10,18 +10,16 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/s2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/pachyderm/v2/s2"
 )
 
 func (c *controller) GetObject(r *http.Request, bucketName, file, version string) (*s2.GetObjectResult, error) {
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(file, "/") {
-		return nil, s2.NoSuchKeyError(r)
-	}
+	file = strings.TrimSuffix(file, "/")
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -73,9 +71,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	c.logger.Tracef("CopyObject: srcBucketName=%+v, srcFile=%+v, srcObj=%+v, destBucketName=%+v, destFile=%+v", srcBucketName, srcFile, srcObj, destBucketName, destFile)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(destFile, "/") {
-		return "", invalidFilePathError(r)
-	}
+	destFile = strings.TrimSuffix(destFile, "/")
 
 	srcBucket, err := c.driver.bucket(pc, r, srcBucketName)
 	if err != nil {
@@ -123,9 +119,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	c.logger.Debugf("PutObject: bucketName=%+v, file=%+v", bucketName, file)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(file, "/") {
-		return nil, invalidFilePathError(r)
-	}
+	file = strings.TrimSuffix(file, "/")
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -169,9 +163,7 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 	c.logger.Debugf("DeleteObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(file, "/") {
-		return nil, invalidFilePathError(r)
-	}
+	file = strings.TrimSuffix(file, "/")
 	if version != "" {
 		return nil, s2.NotImplementedError(r)
 	}
