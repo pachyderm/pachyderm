@@ -44,4 +44,6 @@ print(sc.getConf().getAll())
 df = spark.createDataFrame([ Row(a=1, b=2.,) ])
 df.show()
 
-df.write.parquet('s3a://master.rando2/nonemptyprefix4', mode="overwrite")
+# df.write.parquet('s3a://master.rando2/nonemptyprefix6', mode="overwrite")
+df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.rando2/nonemptyprefix8")
+
