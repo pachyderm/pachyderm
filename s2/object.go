@@ -12,6 +12,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// InspectObjectResult is a response from a InspectObject call
+type InspectObjectResult struct {
+	// ETag is a hex encoding of the hash of the object contents, with or
+	// without surrounding quotes.
+	ETag string
+	// Version is the version of the object, or an empty string if versioning
+	// is not enabled or supported.
+	Version string
+	// DeleteMarker specifies whether there's a delete marker in place of the
+	// object.
+	DeleteMarker bool
+	// ModTime specifies when the object was modified.
+	ModTime time.Time
+}
+
 // GetObjectResult is a response from a GetObject call
 type GetObjectResult struct {
 	// ETag is a hex encoding of the hash of the object contents, with or
@@ -51,6 +66,9 @@ type DeleteObjectResult struct {
 
 // ObjectController is an interface that specifies object-level functionality.
 type ObjectController interface {
+	// InspectObject inspects an object and returns basic stats (Hash/ETag,
+	// especially)
+	InspectObject(r *http.Request, bucket, key, version string) (*InspectObjectResult, error)
 	// GetObject gets an object
 	GetObject(r *http.Request, bucket, key, version string) (*GetObjectResult, error)
 	// CopyObject copies an object
@@ -64,6 +82,10 @@ type ObjectController interface {
 // unimplementedObjectController defines a controller that returns
 // `NotImplementedError` for all functionality
 type unimplementedObjectController struct{}
+
+func (c unimplementedObjectController) InspectObject(r *http.Request, bucket, key, version string) (*InspectObjectResult, error) {
+	return nil, NotImplementedError(r)
+}
 
 func (c unimplementedObjectController) GetObject(r *http.Request, bucket, key, version string) (*GetObjectResult, error) {
 	return nil, NotImplementedError(r)
@@ -84,6 +106,35 @@ func (c unimplementedObjectController) DeleteObject(r *http.Request, bucket, key
 type objectHandler struct {
 	controller ObjectController
 	logger     *logrus.Entry
+}
+
+func (h *objectHandler) head(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+	key := vars["key"]
+	versionId := r.FormValue("versionId")
+
+	// result, err := h.controller.InspectObject(r, bucket, key, versionId)
+	result, err := h.controller.GetObject(r, bucket, key, versionId)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	if result.ETag != "" {
+		w.Header().Set("ETag", addETagQuotes(result.ETag))
+	}
+	if result.Version != "" {
+		w.Header().Set("x-amz-version-id", result.Version)
+	}
+
+	if result.DeleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+		WriteError(h.logger, w, r, NoSuchKeyError(r))
+		return
+	}
+
+	http.ServeContent(w, r, key, result.ModTime, result.Content)
 }
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
