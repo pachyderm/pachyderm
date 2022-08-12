@@ -56,25 +56,27 @@ const normalizeDAGData = async (
           const sourceIndex = correspondingIndex[parentName];
           const sourceVertex = vertices[sourceIndex];
 
-          // edge case: if pipeline has input repos that cannot be found, the link is not valid
-          if (!sourceIndex) return acc;
-
-          return [
-            ...acc,
-            {
-              id: objectHash({node: node, parent}),
-              sources: [parentName],
-              targets: [node.name],
-              state: sourceVertex?.jobState || undefined,
-              sourceState: sourceVertex?.state || undefined,
-              targetstate: node.state || undefined,
-              sections: [],
-              transferring: deriveTransferringState({
-                targetNodeType: node.type,
-                targetNodeState: node.jobState,
-              }),
-            },
-          ];
+          if (sourceIndex >= 0) {
+            return [
+              ...acc,
+              {
+                id: objectHash({node: node, parent}),
+                sources: [parentName],
+                targets: [node.name],
+                state: sourceVertex?.jobState || undefined,
+                sourceState: sourceVertex?.state || undefined,
+                targetstate: node.state || undefined,
+                sections: [],
+                transferring: deriveTransferringState({
+                  targetNodeType: node.type,
+                  targetNodeState: node.jobState,
+                }),
+              },
+            ];
+          } else {
+            // edge case: if pipeline has input repos that cannot be found, the link is not valid
+            return acc;
+          }
         }, []);
       }
 
