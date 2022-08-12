@@ -1,6 +1,6 @@
 ### Requirements
 - A Pachyderm repo to write to
-- `pip install pyspark (the user is using 3.1.2)`
+- `pip install pyspark (the user is using 3.1.2, however that doesn't work with the jars below, 3.3.0 does though)`
 - Java 11
   - `sudo apt install openjdk-11-jdk openjdk-11-jre`
   - `export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64`

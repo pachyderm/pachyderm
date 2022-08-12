@@ -13,7 +13,7 @@ conf.set('spark.hadoop.fs.s3a.path.style.access', 'true')
 conf.set('spark.hadoop.fs.s3a.connection.ssl.enabled', 'false')
 
 ### Options from Clayton
-conf.set("spark.hadoop.fs.s3a.path.style.access", 'false')
+# conf.set("spark.hadoop.fs.s3a.path.style.access", 'false') <-- DO NOT SET THIS TO FALSE, IT MUST BE SET TO TRUE (SEE ABOVE)
 # conf.set("spark.hadoop.fs.s3a.connection.ssl.enabled", True)
 # Clayton: "There are no other impls to try"
 # conf.set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
@@ -42,4 +42,4 @@ print(sc.getConf().getAll())
 df = spark.createDataFrame([ Row(a=1, b=2.,) ])
 df.show()
 
-df.write.parquet('s3a://master.rando2/nonemptyprefix', mode="overwrite")
+df.write.parquet('s3a://master.rando2/nonemptyprefix3', mode="overwrite")
