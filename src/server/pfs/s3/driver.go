@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/s2"
+	"github.com/pachyderm/pachyderm/v2/s2"
 )
 
 // Bucket represents an S3 bucket

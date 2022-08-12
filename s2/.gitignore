@@ -1,0 +1,7 @@
+.DS_Store
+*.pyc
+*.pyo
+__pycache__
+venv
+virtualenv
+integration/testdata

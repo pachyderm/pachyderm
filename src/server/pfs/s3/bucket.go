@@ -16,7 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/s2"
+	"github.com/pachyderm/pachyderm/v2/s2"
 )
 
 func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
