@@ -28,8 +28,10 @@ conf.set("spark.hadoop.fs.s3a.change.detection.mode", 'none')
 conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
 # conf.set("spark.hadoop.com.amazonaws.services.s3.enableV4", True)k
 
+
 sc = SparkContext(conf=conf)
 sc.setLogLevel("DEBUG")
+sc.setSystemProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", "true")
 
 # confirm config is applied to this session
 spark = SparkSession.builder.getOrCreate()
@@ -42,4 +44,4 @@ print(sc.getConf().getAll())
 df = spark.createDataFrame([ Row(a=1, b=2.,) ])
 df.show()
 
-df.write.parquet('s3a://master.rando2/nonemptyprefix3', mode="overwrite")
+df.write.parquet('s3a://master.rando2/nonemptyprefix4', mode="overwrite")
