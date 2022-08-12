@@ -32,11 +32,9 @@ import (
 
 /*
 TODO
-- logging
-- multi node k8s?
+- deploy different versions of pachyderm
+- better logging
 - replicate sandbox environment in production?
-- load local docker images into kind
-- add a status command to check if there is a sandbox
 - allow user to specify local chart and values for pachyderm developers to test latest changes
 */
 
