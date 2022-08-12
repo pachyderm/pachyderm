@@ -406,6 +406,11 @@ validate-circle:
 	circleci config validate .circleci/main.yml
 	circleci config validate .circleci/config.yml
 
+python-sdk:
+	docker build -t pachyderm-python-sdk-builder python-sdk
+	rm -rf python-sdk/pachyderm_sdk/api
+	find src -regex ".*\.proto" | grep -v 'internal' | grep -v 'server' | xargs tar cf - | docker run -i pachyderm-python-sdk-builder | tar -C python-sdk/pachyderm_sdk -xf -
+
 .PHONY: \
 	install \
 	install-clean \
@@ -483,4 +488,5 @@ validate-circle:
 	clean-microsoft-cluster \
 	lint \
 	spellcheck \
-	validate-circle
+	validate-circle \
+	python-sdk
