@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"k8s.io/utils/strings/slices"
 )
 
 func put(path string, body io.Reader) (*http.Response, error) {
@@ -88,10 +87,10 @@ func TestBasicServerSameNames(t *testing.T) {
 		require.NoError(t, err)
 
 		defer resp.Body.Close()
-		repoResp := &ListRepoResponse{}
-		json.NewDecoder(resp.Body).Decode(repoResp)
-		require.Equal(t, "repo", (*repoResp)["repo"].Repo)
-		require.True(t, slices.Contains((*repoResp)["repo"].Branches, "master"))
+		mountResp := &ListMountResponse{}
+		json.NewDecoder(resp.Body).Decode(mountResp)
+		require.Equal(t, "repo", (*mountResp).Mounted["repo"].Repo)
+		require.Equal(t, "master", (*mountResp).Mounted["repo"].Branch)
 
 		repos, err := ioutil.ReadDir(mountPoint)
 		require.NoError(t, err)
@@ -702,6 +701,8 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		b = new(bytes.Buffer)
+		json.NewEncoder(b).Encode(cr)
 		_, err = put("_commit", b)
 		require.NoError(t, err)
 
