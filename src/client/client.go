@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -218,7 +217,7 @@ func WithMaxConcurrentStreams(streams int) Option {
 }
 
 func addCertFromFile(pool *x509.CertPool, path string) error {
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return errors.Wrapf(err, "could not read x509 cert from \"%s\"", path)
 	}
@@ -370,7 +369,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				if info.IsDir() {
 					return nil // We'll just read the children of any directories when we traverse them
 				}
-				pemBytes, err := ioutil.ReadFile(p)
+				pemBytes, err := os.ReadFile(p)
 				if err != nil {
 					log.Warnf("could not read server CA certs at %s: %v", p, err)
 					return nil

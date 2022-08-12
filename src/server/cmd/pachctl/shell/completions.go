@@ -2,8 +2,8 @@ package shell
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -181,7 +181,7 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 // FilesystemCompletion completes file parameters from the local filesystem (not from pfs).
 func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	dir := filepath.Dir(text)
-	fis, err := ioutil.ReadDir(dir)
+	fis, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, CacheNone
 	}

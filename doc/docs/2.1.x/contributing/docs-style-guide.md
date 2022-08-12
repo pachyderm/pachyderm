@@ -2,7 +2,7 @@
 
 Thank you for taking an interest in contributing to Pachyderm's docs! 🐘 📖
 
-This style guide provides editorial guidelines for writing clear and consistent Pachyderm product documentation. See our [contribution guide](https://github.com/pachyderm/pachyderm/tree/master/doc#pachyderm-documentation) for instructions on how to draft and  submit changes.
+This style guide provides editorial guidelines for writing clear and consistent Pachyderm product documentation. See our [contribution guide](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/doc#pachyderm-documentation) for instructions on how to draft and  submit changes.
 
 ## Audience
 

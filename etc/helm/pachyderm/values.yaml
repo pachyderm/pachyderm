@@ -648,7 +648,7 @@ kubeEventTail:
   resources:
     limits:
       cpu: "1"
-      memory: 45Mi
+      memory: 100Mi
     requests:
       cpu: 100m
       memory: 45Mi

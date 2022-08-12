@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -1405,7 +1404,7 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 $ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-$ {{alias}} "foo@master:data/*" 
+$ {{alias}} "foo@master:data/*"
 
 # If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -1672,7 +1671,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if fi.IsDir() {
 					return nil
 				}
-				spec, err := ioutil.ReadFile(file)
+				spec, err := os.ReadFile(file)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1783,7 +1782,7 @@ func dlFile(pachClient *client.APIClient, f *pfs.File) (_ string, retErr error) 
 	if err := os.MkdirAll(tempDir, 0777); err != nil {
 		return "", errors.EnsureStack(err)
 	}
-	file, err := ioutil.TempFile(tempDir, filepath.Base(f.Path+"_"))
+	file, err := os.CreateTemp(tempDir, filepath.Base(f.Path+"_"))
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}

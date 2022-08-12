@@ -119,5 +119,5 @@ ID FILES                                                                        
 -  labresults@722665ed49474db0aab5cbe4d8a20ff8:/LIPID-patientID3-labID3.txt
 ```
 
-To experiment further, see the full [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group){target=_blank}.
+To experiment further, see the full [group example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/group){target=_blank}.
 

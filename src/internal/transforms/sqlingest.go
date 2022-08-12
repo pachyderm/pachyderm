@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -131,7 +130,7 @@ func SQLQueryGeneration(_ context.Context, params SQLQueryGenerationParams) erro
 	timestampComment := fmt.Sprintf("-- %d\n", timestamp)
 	contents := timestampComment + params.Query + "\n"
 	outputPath := filepath.Join(params.OutputDir, "0000")
-	return errors.EnsureStack(ioutil.WriteFile(outputPath, []byte(contents), 0755))
+	return errors.EnsureStack(os.WriteFile(outputPath, []byte(contents), 0755))
 }
 
 func readCronTimestamp(log *logrus.Logger, inputDir string) (uint64, error) {

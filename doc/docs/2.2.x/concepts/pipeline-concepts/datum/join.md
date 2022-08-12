@@ -143,7 +143,7 @@ All files with indices from `1` to `5` match. The files
 with indices from `6` to `8` do not match. Therefore, you only get five
 datums for this job.
 
-To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank}.
 
 ## Outer Join
 
@@ -206,4 +206,4 @@ to handle (not crash) the case where some of the inputs are represented under `/
 
 
 
-To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank}.
