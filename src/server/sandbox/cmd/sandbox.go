@@ -68,6 +68,7 @@ func helmDeploy() error {
 
 	// helm repo add
 	// helm repo update
+	logger.V(0).Info("Running helm repo add and update ...")
 	cfg := repo.Entry{
 		Name: "pach",
 		URL:  "https://helm.pachyderm.com",
@@ -82,18 +83,18 @@ func helmDeploy() error {
 	}
 	var f repo.File
 	f.Update(&cfg)
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	if err := f.WriteFile(filepath.Join(home, ".cache/helm"), 0644); err != nil {
-		return err
-	}
+	// home, err := os.UserHomeDir()
+	// if err != nil {
+	// 	return err
+	// }
+	// if err := f.WriteFile(filepath.Join(home, ".cache/helm"), 0644); err != nil {
+	// 	return err
+	// }
 
 	// helm install
-	name, chart := "pachyderm", "pach/pachyderm"
+	release, chart := "pachyderm", "pach/pachyderm"
 	client := action.NewInstall(actionConfig)
-	client.ReleaseName = name
+	client.ReleaseName = release
 	client.Namespace = helmSettings.Namespace()
 	client.Timeout = time.Minute * 5
 	client.Wait = true
@@ -127,6 +128,7 @@ func helmDeploy() error {
 		cancel()
 	}()
 
+	logger.V(0).Info("Running helm install ...")
 	_, err = client.RunWithContext(ctx, chartRequested, vals)
 	if err != nil {
 		return err
