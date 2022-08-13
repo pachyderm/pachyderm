@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "say"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "phrases"
+    }
+  },
+  "transform": {
+      "cmd": [ "bash" ],
+      "stdin": ["for file in \"$PFS\"/phrases/*; do cat $file | say; echo; done"],
+      "image": "pachyderm/opencv:1.0"
+  }
+}
