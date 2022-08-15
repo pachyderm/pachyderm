@@ -11,7 +11,7 @@ Refer to your provider's documentation.
 ## Overview
 
 Pachyderm state is stored in two main places
-(See our high-level [architecture diagram](../../../deploy-manage/#overview)):
+(See our high-level [architecture diagram](../../deploy-manage/index.md#overview)):
 
 - an **object-store** holding Pachyderm's data.
 - a PostgreSQL instance made up of **one or two databases**: `pachyderm` holding Pachyderm's metadata and `dex` holding authentication data. 
@@ -195,7 +195,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 - [Follow the steps above](#restore-pachyderm) while skipping all tasks related to creating and populating a new object-store.
 
-- Once your cluster is up and running, check that all [your clusters are automatically registered with your new Enterprise Server](../../../enterprise/auth/enterprise-server/manage/#list-all-registered-clusters){target=_blank}.
+- Once your cluster is up and running, check that all [your clusters are automatically registered with your new Enterprise Server](../../enterprise/auth/enterprise-server/manage.md#list-all-registered-clusters){target=_blank}.
 
 ## Additional Info
    
