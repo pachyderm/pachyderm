@@ -91,7 +91,7 @@ replace the instructions in section 7 (Have 'pachctl' And Your Cluster Communica
     - Update the values in the highlighted fields below.
     - Additionally, you will need to configure your Identity Provider (`oidc.upstreamIDPs`). See examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461){target=_blank} and read [our IDP Configuration page](../../../enterprise/auth/authentication/idp-dex) for a better understanding of each field. 
 
-    ```yaml hl_lines="18 19-29"
+    ```yaml hl_lines="10-11 19-20"
 
     deployTarget: "<pick-your-cloud-provider>"
 
@@ -102,6 +102,9 @@ replace the instructions in section 7 (Have 'pachctl' And Your Cluster Communica
         type: LoadBalancer
         annotations: {...}
 
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
+
     pachd:
       storage:
         amazon:
@@ -110,16 +113,8 @@ replace the instructions in section 7 (Have 'pachctl' And Your Cluster Communica
           region: "<us-east-2>"
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
 
     oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
       # populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
       upstreamIDPs: []
     ```
@@ -191,39 +186,6 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
     ```
 === "Deploy Pachyderm with Console and Enterprise"
 
-    ```yaml hl_lines="3-6 18-30"
-    deployTarget: "AMAZON"
-
-    proxy:
-      enabled: true
-      service:
-        type: LoadBalancer
-
-    pachd:
-      storage:
-        amazon:
-          bucket: "<bucket-name>"                
-          # this is an example access key ID taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html (AWS Credentials)
-          id: "AKIAIOSFODNN7EXAMPLE"                
-          # this is an example secret access key taken from https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html  (AWS Credentials)          
-          secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-          region: "<us-east-2>"
-      # pachyderm enterprise key 
-      enterpriseLicenseKey: "<your-enterprise-token>"
-      localhostIssuer: "true"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
-    
-    oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
-    ```
-=== "Deploy Pachyderm with Console and Enterprise with ingress.host ???"
-
     ```yaml hl_lines="3-9 21-26"
     deployTarget: "AMAZON"
 
@@ -247,10 +209,6 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       # pachyderm enterprise key 
       enterpriseLicenseKey: "<your-enterprise-token>"
       localhostIssuer: "true"
-
-    console:
-      enabled: true
-
     ```
 
 ### Google
@@ -276,13 +234,16 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
     ```
 === "Deploy Pachyderm with Console and Enterprise"
 
-    ```yaml hl_lines="3-6 15-26"
+    ```yaml hl_lines="3-9 18-19"
     deployTarget: "GOOGLE"
 
     proxy:
       enabled: true
       service:
         type: LoadBalancer
+
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
 
     pachd:
       storage:
@@ -293,16 +254,6 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
       localhostIssuer: "true"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
-
-    oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
     ```
 
 ### Azure
@@ -329,13 +280,17 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
     ```
 === "Deploy Pachyderm with Console and Enterprise"
 
-    ```yaml hl_lines="3-6 18-29"
+    ```yaml hl_lines="3-9 22-23"
     deployTarget: "MICROSOFT"
 
     proxy:
       enabled: true
       service:
         type: LoadBalancer
+
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
+
 
     pachd:
       storage:
@@ -349,16 +304,6 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
       localhostIssuer: "true"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
-
-    oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
     ```
 ## Deploy Pachyderm Locally With a Proxy
 
@@ -529,9 +474,11 @@ Note that the enterprise server will be deployed behind its proxy, as will each 
     Enabling an embedded enterprise server with your pachd as part of the same helm installation will not work with the proxy. 
     You can use a standalone enterprise server instead.
 
-Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, but for those few steps:
+Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, except for those few steps:
 
-- [Section 1: Deploy an enterprise server](#1-deploy-an-enterprise-server), in the values.yaml provided as examples:
+- [Section 1: Deploy an enterprise server](../../../enterprise/auth/enterprise-server/setup/#1-deploy-an-enterprise-server):
+   
+    In the values.yaml provided as examples:
 
     - Remove the `pachd.externalService` section and replace it with `proxy`:
 

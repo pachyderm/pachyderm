@@ -24,11 +24,11 @@ This page is an add-on to existing installation instructions in the case where y
 The diagram below gives a quick overview of the layout of services and pods when using a proxy. In particular, it details how Pachyderm listens to all inbound traffic on one port, then routes each call to the appropriate backend:![Infrastruture Recommendation](../images/infra-recommendations-with-proxy.png)
 
 !!! Note 
-    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml#L744){target=_blank} for all available configurable fields of the proxy.
+    See our [reference values.yaml](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml#L827){target=_blank} for all available configurable fields of the proxy.
 
 Before any deployment in production, we recommend reading the following section to [set up your production infrastructure](#deploy-pachyderm-in-production-with-a-proxy). 
 
-Alternatively, you can skip those infrastructure prerequisites and make a [quick cloud installation](#quick-cloud-deployment-with-a-proxy) or jump to our [local deployment](#deploy-pachyderm-locally-with-a-proxy) section for the first encounter with Pachyderm.
+Alternatively, you can skip those infrastructure prerequisites and make a [quick cloud installation](#quick-cloud-deployment-with-a-proxy) or jump to our [local deployment](#deploy-pachyderm-locally-with-a-proxy) section for a first encounter with Pachyderm.
 
 ## Pachyderm General Infrastructure Recommendations
 
@@ -40,7 +40,7 @@ The TCP load balancer (load balanced at L4 of the OSI model) will have port `80/
     When a proxy is enabled with `type:LoadBalancer` (see the snippet of values.yaml enabling the proxy), Pachyderm creates a `pachyderm-proxy` service allowing your cloud platform (AWS, GKE...) to **provision a TCP Load Balancer automatically**.
         
     !!! Note 
-        - You can optionally attach any additional Load Balancer configuration information to the metadata of your service by adding the appropriate `annotations` in the `proxy. service` of your values.yaml.
+        - You can optionally attach any additional Load Balancer configuration information to the metadata of your service by adding the appropriate `annotations` in the `proxy.service` of your values.yaml.
         - You can pre-create a static IP (For example, in GCP: `gcloud compute addresses create ADDRESS_NAME --global --IP-version IPV4)`, then pass this external IP to the `loadBalancerIP` in the `proxy.service` of your values.yaml.
 
         ```yaml
@@ -87,11 +87,11 @@ replace the instructions in section 7 (Have 'pachctl' And Your Cluster Communica
 !!! Attention "If you plan to deploy Console in Production, read the following and adjust your values.yaml accordingly."
     Deploying Pachyderm with a proxy simplifies the setup of Console (No more dedicated DNS and ingress needed in front of Console). In a production environment, you will need to:
 
-    - Activate Authentication.
+    - [Activate Authentication](../../../enterprise/auth/){target=_blank}.Although, if you are an Helm user, setting up your License Key in your values.yaml will activate Authentication by default. This instruction applies to users activating auth by using pachctl.
     - Update the values in the highlighted fields below.
-    - Additionally, you will need to configure your Identity Provider (`oidc.upstreamIDPs`). See examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461){target=_blank} and read [our IDP Configuration page](../../../enterprise/auth/authentication/IDP-dex) for a better understanding of each field. 
+    - Additionally, you will need to configure your Identity Provider (`oidc.upstreamIDPs`). See examples for the `oidc.upstreamIDPs` value in the [helm chart values specification](https://github.com/pachyderm/pachyderm/blob/42462ba37f23452a5ea764543221bf8946cebf4f/etc/helm/pachyderm/values.yaml#L461){target=_blank} and read [our IDP Configuration page](../../../enterprise/auth/authentication/idp-dex) for a better understanding of each field. 
 
-    ```yaml hl_lines="18 19-29"
+    ```yaml hl_lines="10-11 19-20"
 
     deployTarget: "<pick-your-cloud-provider>"
 
@@ -102,6 +102,9 @@ replace the instructions in section 7 (Have 'pachctl' And Your Cluster Communica
         type: LoadBalancer
         annotations: {...}
 
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
+
     pachd:
       storage:
         amazon:
@@ -110,16 +113,8 @@ replace the instructions in section 7 (Have 'pachctl' And Your Cluster Communica
           region: "<us-east-2>"
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
 
     oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
       # populate the pachd.upstreamIDPs with an array of Dex Connector configurations.
       upstreamIDPs: []
     ```
@@ -191,13 +186,16 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
     ```
 === "Deploy Pachyderm with Console and Enterprise"
 
-    ```yaml hl_lines="3-6 18-30"
+    ```yaml hl_lines="3-9 21-26"
     deployTarget: "AMAZON"
 
     proxy:
       enabled: true
       service:
         type: LoadBalancer
+
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
 
     pachd:
       storage:
@@ -211,17 +209,8 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       # pachyderm enterprise key 
       enterpriseLicenseKey: "<your-enterprise-token>"
       localhostIssuer: "true"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
-    
-    oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
     ```
+
 ### Google
 
 === "Deploy Pachyderm without Console"
@@ -245,13 +234,16 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
     ```
 === "Deploy Pachyderm with Console and Enterprise"
 
-    ```yaml hl_lines="3-6 15-26"
+    ```yaml hl_lines="3-9 18-19"
     deployTarget: "GOOGLE"
 
     proxy:
       enabled: true
       service:
         type: LoadBalancer
+
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
 
     pachd:
       storage:
@@ -262,16 +254,6 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
       localhostIssuer: "true"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
-
-    oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
     ```
 
 ### Azure
@@ -298,13 +280,17 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
     ```
 === "Deploy Pachyderm with Console and Enterprise"
 
-    ```yaml hl_lines="3-6 18-29"
+    ```yaml hl_lines="3-9 22-23"
     deployTarget: "MICROSOFT"
 
     proxy:
       enabled: true
       service:
         type: LoadBalancer
+
+    ingress:
+      host: <insert-external-ip-address-or-dns-name>
+
 
     pachd:
       storage:
@@ -318,58 +304,62 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
       # pachyderm enterprise key
       enterpriseLicenseKey: "<your-enterprise-token>"
       localhostIssuer: "true"
-      oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/authorization-code/callback
-
-    console:
-      enabled: true
-      config:
-        reactAppRuntimeIssuerURI: http://<insert-external-ip-address-or-dns-name>
-        oauthRedirectURI: http://<insert-external-ip-address-or-dns-name>/oauth/callback/?inline=true
-
-    oidc:
-      userAccessibleOauthIssuerHost: <insert-external-ip-address-or-dns-name>
     ```
 ## Deploy Pachyderm Locally With a Proxy
 
-This section is an alternative to the default [local deployment instructions](../../../getting-started/local-installation){target=_blank}. It uses a variant of the original local values.yaml to enable a proxy. 
+This section is an alternative to the default [local deployment instructions](../../../getting-started/local-installation){target=_blank}. It uses a variant of the original one line command to enable a proxy. 
 
-Follow the [Prerequisites](#prerequisites){target=_blank} before [deploying Pachyderm](#deploy-pachyderm-community-edition-or-enterprise-with-console) (with or without Console) on your local cluster by using the following values.yaml rather than the one provided in the original installation steps, then [Connect 'pachctl' To Your Cluster](#connect-pachctl-to-your-cluster).
+Follow the [Prerequisites](#prerequisites){target=_blank} before [deploying Pachyderm](#deploy-pachyderm-community-edition-or-enterprise-with-console) (with or without Console) on your local cluster, then [Connect 'pachctl' To Your Cluster](#connect-pachctl-to-your-cluster).
 
 JupyterLab users, [**you can also install Pachyderm JupyterLab Mount Extension**](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
 Note that you can run both Console and JupyterLab on your local installation.
 ### Prerequisites
 
-Follow all the default [Prerequisites](../../../getting-started/local-installation/#prerequisites){target=_blank}  installation instructions with the **exception of local installations of a Kubernetes environment on Linux**.
+- If you are not using Linux, follow all the default [Prerequisites](../../../getting-started/local-installation/#prerequisites){target=_blank} installation instructions. 
 
-=== "Linux Users"
+- If you are a Linux user, make sure to set up your local Kubernetes Cluster with [Kind](../../../getting-started/local-installation/#using-kind){target=_blank} while following the default [Prerequisites](../../../getting-started/local-installation/#prerequisites){target=_blank} installation instructions. **Use the command below**.
 
-    For Linux Users looking to set up a Local Kubernetes, we recommend installing [Kind](https://kind.sigs.k8s.io/){target=_blank} then run the following:
+Then start your Kubernetes environment.
+
+=== "Minikube (OS X / Windows)"
 
     ```shell
-    cat <<EOF | kind create cluster --name=kind --config=-
-    kind: Cluster
-    apiVersion: kind.x-k8s.io/v1alpha4
-    nodes:
-        - role: control-plane
-          kubeadmConfigPatches:
-              - |
-                  kind: InitConfiguration
-                  nodeRegistration:
-                      kubeletExtraArgs:
-                          node-labels: "ingress-ready=true"
-          extraPortMappings:
-              - containerPort: 30080
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 30443
-                hostPort: 443
-                protocol: TCP
-    EOF
+    minikube start
     ```
 
-  The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
-  This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
+    Later, we will use `minikube tunnel` to make the proxy available on `localhost`.
+
+    Check [Minikube's documentation](https://minikube.sigs.k8s.io/docs/){target=_blank} for details.
+
+=== "Kind (Linux)"
+
+    ```shell
+      cat <<EOF | kind create cluster --name=kind --config=-
+      kind: Cluster
+      apiVersion: kind.x-k8s.io/v1alpha4
+      nodes:
+          - role: control-plane
+            kubeadmConfigPatches:
+                - |
+                    kind: InitConfiguration
+                    nodeRegistration:
+                        kubeletExtraArgs:
+                            node-labels: "ingress-ready=true"
+            extraPortMappings:
+                - containerPort: 30080
+                  hostPort: 80
+                  protocol: TCP
+                - containerPort: 30443
+                  hostPort: 443
+                  protocol: TCP
+        EOF
+    ```
+
+      The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
+      This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
+
+      Check [Kind's documentation](https://kind.sigs.k8s.io/){target=_blank} for details.
 
 ### Deploy Pachyderm Community Edition Or Enterprise
 
@@ -380,115 +370,35 @@ Follow all the default [Prerequisites](../../../getting-started/local-installati
   helm repo update 
   ```  
 
-* Start a Kubernetes environment
 
-=== minikube (OS X / Windows)
-
-https://minikube.sigs.k8s.io/docs/
-
-    ```shell
-    minikube start
-    ```
-
-  Later, we'll use `minikube tunnel` to make the proxy available on `localhost`.
-
-=== kind (Linux)
-
-https://kind.sigs.k8s.io/
-
-    ```shell
-    cat <<EOF | kind create cluster --name=kind --config=-
-    kind: Cluster
-    apiVersion: kind.x-k8s.io/v1alpha4
-    nodes:
-        - role: control-plane
-          kubeadmConfigPatches:
-              - |
-                  kind: InitConfiguration
-                  nodeRegistration:
-                      kubeletExtraArgs:
-                          node-labels: "ingress-ready=true"
-          extraPortMappings:
-              - containerPort: 30080
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 30443
-                hostPort: 443
-                protocol: TCP
-    EOF
-    ```
-
-  The extraPortMappings will make NodePorts in the cluster available on localhost; NodePort 30080 becomes localhost:80.
-  This will make Pachyderm available at `localhost:80` as long as this kind cluster is running.
-
-* Create your values.yaml
+* Install Pachyderm by running the following command:  
+ 
 
 !!! Attention "Attention Kind users"
-    Make sure to set your Service type to NodePort in the values files below:
-      ```yaml hl_lines="4"    
-      proxy:
-        enabled: true
-        service:
-          type: NodePort
+    
+     Set your Service type to `NodePort` rather than `LoadBalancer` in the commands below.
+
+      ```shell 
+      -- set proxy.service.type=NodePort
       ```
           
 === "Community Edition With Console"
 
-      ```yaml 
-      deployTarget: LOCAL
-
-      proxy:
-        enabled: true
-        service:
-          type: LoadBalancer
-        
-      pachd:
-        localhostIssuer: "true"
-        oauthRedirectURI: http://localhost/authorization-code/callback
-        
-      console:
-        enabled: true
-        config:
-          reactAppRuntimeIssuerURI: http://localhost
-          oauthRedirectURI: http://localhost/oauth/callback/?inline=true
-        
-      oidc:
-        mockIDP: true
-        userAccessibleOauthIssuerHost: localhost
+      ```shell
+      helm install pachd pach/pachyderm --set deployTarget=LOCAL --set proxy.enabled=true --set proxy.service.type=LoadBalancer 
       ```
 === "Enterprise With Console"
 
-    Make sure to update your enterprise key in `pachd.enterpriseLicenseKey`.
+      This command will unlock your enterprise features and install Console Enterprise. Note that Console Enterprise requires authentication. By default, we create a default mock user (username:admin, password: password) to authenticate to Console without having to connect your Identity Provider.
 
-      ```yaml 
-      deployTarget: LOCAL
+      - Create a license.txt file in which you paste your [Enterprise Key](../../../enterprise/){target=_blank} .
+      - Then, run the following helm command to install Pachyderm's latest Enterprise Edition:
 
-      proxy:
-        enabled: true
-        service:
-          type: LoadBalancer
-        
-      pachd:
-        enterpriseLicenseKey: "key"
-        localhostIssuer: "true"
-        oauthRedirectURI: http://localhost/authorization-code/callback
-        
-      console:
-        enabled: true
-        config:
-          reactAppRuntimeIssuerURI: http://localhost
-          oauthRedirectURI: http://localhost/oauth/callback/?inline=true
-        
-      oidc:
-        mockIDP: true
-        userAccessibleOauthIssuerHost: localhost
-      ```
+        ```shell 
+        helm install pachd pach/pachyderm --set deployTarget=LOCAL --set proxy.enabled=true --set proxy.service.type=LoadBalancer --set pachd.enterpriseLicenseKey=$(cat license.txt) --set ingress.host=localhost
+        ```
+    
 
-* Install Pachyderm by running the following command:  
-
-  ```shell  
-  helm install pachd pach/pachyderm -f values.yaml 
-  ```    
 
 * Check Your Install
 
@@ -564,9 +474,11 @@ Note that the enterprise server will be deployed behind its proxy, as will each 
     Enabling an embedded enterprise server with your pachd as part of the same helm installation will not work with the proxy. 
     You can use a standalone enterprise server instead.
 
-Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, but for those few steps:
+Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, except for those few steps:
 
-- [Section 1: Deploy an enterprise server](#1-deploy-an-enterprise-server), in the values.yaml provided as examples:
+- [Section 1: Deploy an enterprise server](../../../enterprise/auth/enterprise-server/setup/#1-deploy-an-enterprise-server):
+   
+    In the values.yaml provided as examples:
 
     - Remove the `pachd.externalService` section and replace it with `proxy`:
 
