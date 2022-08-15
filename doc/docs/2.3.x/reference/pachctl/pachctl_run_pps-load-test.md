@@ -13,9 +13,8 @@ pachctl run pps-load-test <spec-file>  [flags]
 ### Options
 
 ```
-  -h, --help               help for pps-load-test
-  -p, --pod-patch string   The pod patch file to use for the pipelines.
-  -s, --seed int           The seed to use for generating the load.
+  -h, --help       help for pps-load-test
+  -s, --seed int   The seed to use for generating the load.
 ```
 
 ### Options inherited from parent commands

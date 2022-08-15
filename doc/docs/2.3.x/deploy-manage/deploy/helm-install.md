@@ -233,7 +233,7 @@ Find the complete list of secrets in the table below:
 
 |Secret Name  <div style="width:190px"> | Key |	Description <div style="width:290px">|
 |---------------------------------|-----|-------------|
-|`pachyderm-auth`                 |	- root-token <div> - auth-config <div> - cluster-role-bindings | - "root" user password of your cluster. <div> - Pachd oidc config to connect to dex.<div> - [Role Based Access declaration](../../enterprise/auth/authorization/index) at the cluster level. Used to define access control at the cluster level when deploying. For example: Give a specific group `ClusterAdmin` access at once, or give an entire company a default `RepoReader` access to all repos on this cluster.|
+|`pachyderm-auth`                 |	- root-token <div> - auth-config <div> - cluster-role-bindings | - "root" user password of your cluster. <div> - Pachd oidc config to connect to dex.<div> - [Role Based Access declaration](../../enterprise/auth/authorization/) at the cluster level. Used to define access control at the cluster level when deploying. For example: Give a specific group `ClusterAdmin` access at once, or give an entire company a default `RepoReader` access to all repos on this cluster.|
 |**`pachyderm-console-secret`**     | OAUTH_CLIENT_SECRET | Oauth client secret for Console. Required if you set Console Enterprise. |
 |**`pachyderm-deployment-id-secret`** | CLUSTER_DEPLOYMENT_ID | Internal Cluster identifier. |
 |**`pachyderm-enterprise`** | enterprise-secret | For internal use. Used as a shared secret between an Enterprise Server and a Cluster to communicate. Always present when enterprise is on but used only when an Enterprise Server is set.|

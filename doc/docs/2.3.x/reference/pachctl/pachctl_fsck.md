@@ -13,10 +13,8 @@ pachctl fsck [flags]
 ### Options
 
 ```
-  -f, --fix             Attempt to fix as many issues as possible.
-  -h, --help            help for fsck
-      --zombie string   A single commit to check for zombie files
-      --zombie-all      Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted
+  -f, --fix    Attempt to fix as many issues as possible.
+  -h, --help   help for fsck
 ```
 
 ### Options inherited from parent commands
