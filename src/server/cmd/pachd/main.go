@@ -11,6 +11,7 @@ import (
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
+	"time"
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
@@ -711,7 +712,11 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	eg.Go(func() error {
 		<-ctx.Done() // wait for main context to complete
-		var eg = new(errgroup.Group)
+		var (
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			eg, _       = errgroup.WithContext(ctx)
+		)
+		defer cancel()
 		log.Println("terminating; waiting for pachd server to gracefully stop")
 		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
@@ -883,7 +888,11 @@ func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
 	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
 	eg.Go(func() error {
 		<-ctx.Done() // wait for main context to complete
-		var eg = new(errgroup.Group)
+		var (
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			eg, _       = errgroup.WithContext(ctx)
+		)
+		defer cancel()
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
 		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
 		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
