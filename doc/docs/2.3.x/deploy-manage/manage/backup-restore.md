@@ -140,7 +140,7 @@ Depending on your scenario, pick all or a subset of the following steps:
 - Deploy Pachyderm into your new cluster
 
 !!! Info
-    Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, permissions setup, and Pachyderm deployment for each Cloud Provider in the [Deploy section of our Documentation](../../../deploy-manage/deploy/){target=_blank}
+    Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, permissions setup, and Pachyderm deployment for each Cloud Provider in the [Deploy section of our Documentation](../deploy/index.md){target=_blank}
 
 ### Restore The Databases And Objects
 

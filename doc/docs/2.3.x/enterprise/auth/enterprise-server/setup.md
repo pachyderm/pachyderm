@@ -4,7 +4,7 @@ and the integration with a company's Identity Providers (IDPs).
 
 An organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
 
-An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../deploy-manage/) section) with minor differences:
+An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../deploy-manage/index.md) section) with minor differences:
 
 - **No Object store**: It is **not backed by an object store**. In other words, you won't need to set up an object store, so you don't need any deployment target in your helm chart.
 - **The PostgreSQL Instance requires two databases: `dex` and `pachyderm`**. Note that when the enterprise server is deployed as a standalone cluster as part of a multi-cluster deployment, all the clusters than will be registered to this enterprise server will each require one PostgreSQL database only: `pachyderm` (`dex` being at the enterprise server already).

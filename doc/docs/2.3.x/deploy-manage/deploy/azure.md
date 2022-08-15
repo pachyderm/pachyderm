@@ -28,9 +28,9 @@ In particular, you will:
   - [5. Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server-database)
     - [Create A PostgreSQL Server Instance¶](#create-a-postgresql-server-instance)
     - [Create Your Databases](#create-your-databases)
-    - [Update your values.yaml](#update-your-valuesyaml)
+    - [Update your yaml values](#update-your-yaml-values)
   - [6. Deploy Pachyderm](#6-deploy-pachyderm)
-    - [Update Your Values.yaml](#update-your-valuesyaml-1)
+    - [Update Your Values.yaml](#update-your-valuesyaml)
     - [Deploy Pachyderm On The Kubernetes Cluster](#deploy-pachyderm-on-the-kubernetes-cluster)
   - [7. Have 'pachctl' And Your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
   - [8. Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
@@ -287,7 +287,7 @@ Once created, go back to your newly created database, and:
    
    Alternativelly, in the **Connection Security** of your newly created server, *Allow access to Azure services* (This is equivalent to running `az postgres server firewall-rule create --server-name <your_server_name> --resource-group <your_resource_group> --name AllowAllAzureIps --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0`). 
 
-- In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-valuesyaml).
+- In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-yaml-values).
 
 ![Instance overview page](../images/azure_postgresql_overview.png)
 
@@ -301,7 +301,7 @@ If you plan to deploy a standalone cluster (i.e., if you do not plan to register
 
 Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
 
-### Update your values.yaml 
+### Update your yaml values
 Once your databases have been created, add the following fields to your Helm values:
 
 

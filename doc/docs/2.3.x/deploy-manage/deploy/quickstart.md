@@ -130,7 +130,7 @@ Add `--scopes storage-rw` to your `gcloud container clusters create` command.
       enabled: true
     ```
 === "Deploy Pachyderm Enterprise with Console"
-    Note that when deploying Pachyderm Enterprise with Console, **we create a default mock user (username:`admin`, password: `password`)** to authenticate yourself to Console so you don't have to connect an Identity Provider to make things work. The mock user is a [Cluster Admin](../../../enterprise/auth/authorization/index.md#cluster-roles){target=_blank} per default.
+    Note that when deploying Pachyderm Enterprise with Console, **we create a default mock user (username:`admin`, password: `password`)** to authenticate yourself to Console so you don't have to connect an Identity Provider to make things work. The mock user is a [Cluster Admin](../../enterprise/auth/authorization/index.md#cluster-roles){target=_blank} per default.
 
     ```yaml
     deployTarget: "GOOGLE"
@@ -181,7 +181,7 @@ Install [Azure CLI 2.0.1 or later](https://docs.microsoft.com/en-us/cli/azure/in
       enabled: true
     ```
 === "Deploy Pachyderm Enterprise with Console"
-    Note that when deploying Pachyderm Enterprise with Console, **we create a default mock user (username:`admin`, password: `password`)** to authenticate yourself to Console so you don't have to connect an Identity Provider to make things work. The mock user is a [Cluster Admin](../../enterprise/auth/authorization/index.md#cluster-roles){target=_blank} per default.
+    Note that when deploying Pachyderm Enterprise with Console, **we create a default mock user (username:`admin`, password: `password`)** to authenticate yourself to Console so you don't have to connect an Identity Provider to make things work. The mock user is a [Cluster Admin](../../../enterprise/auth/authorization/index.md#cluster-roles){target=_blank} per default.
 
     ```yaml    
     deployTarget: "MICROSOFT"
