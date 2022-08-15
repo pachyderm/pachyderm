@@ -187,7 +187,7 @@ Check the [list of all available helm values](../../../../reference/helm-values/
 To enable the Enterprise Server on an existing cluster:
 
 - [activate your enterprise key and authentication](#2-activate-enterprise-licensing-and-enable-authentication) as described in the following chapter.
-- then proceed to [configuring IDP integrations](../authentication/idp-dex).
+- then proceed to [configuring IDP integrations](../authentication/idp-dex.md).
 
 ## 2- Activate Enterprise Licensing And Enable Authentication
 
