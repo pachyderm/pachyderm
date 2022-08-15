@@ -81,6 +81,14 @@ spec:
       nodePort: {{ .Values.proxy.service.legacyPorts.metrics }}
       {{- end }}
     {{- end }}
+    {{ if .Values.proxy.service.legacyPorts.pfsHttp }}
+    - name: pfshttp-direct
+      targetPort: pfshttp-direct
+      port: {{ .Values.proxy.service.legacyPorts.pfsHttp }}
+      {{- if eq .Values.proxy.service.type "NodePort" }}
+      nodePort: {{ .Values.proxy.service.legacyPorts.pfsHttp }}
+      {{- end }}
+    {{- end }}
   selector:
     app: pachyderm-proxy
     suite: pachyderm

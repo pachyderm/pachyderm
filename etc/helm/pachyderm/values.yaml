@@ -406,6 +406,7 @@ pachd:
     oidcPort: 30657
     identityPort: 30658
     s3GatewayPort: 30600
+    pfsHttpPort: 30655
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
@@ -882,6 +883,7 @@ proxy:
       oidc: 0 # legacy 30657
       identity: 0 # legacy 30658
       metrics: 0 # legacy 30656
+      pfsHttp: 0 # legacy 30655
   # Configuration for TLS (SSL, HTTPS).
   tls:
     # If true, enable TLS serving.  Enabling TLS is incompatible with support for legacy ports (you

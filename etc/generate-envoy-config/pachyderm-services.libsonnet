@@ -65,6 +65,34 @@
       },
     ],
   },
+  'pachd-http': {
+    internal_port: 1655,
+    external_port: 30655,
+    service: 'pachd-proxy-backend',
+    routes: [
+      {
+        match: {
+          prefix: '/pfs/',
+        },
+        route: {
+          cluster: 'pachd-http',
+          timeout: '604800s',
+        },
+      },
+    ],
+    health_check: {
+      http_health_check: {
+        host: 'localhost',
+        path: '/healthz',
+      },
+      healthy_threshold: 1,
+      interval: '10s',
+      timeout: '10s',
+      unhealthy_threshold: 2,
+      no_traffic_interval: '10s',
+      no_traffic_healthy_interval: '10s',
+    },
+  },
   'pachd-identity': {
     internal_port: 1658,
     external_port: 30658,

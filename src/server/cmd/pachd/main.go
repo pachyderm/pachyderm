@@ -44,6 +44,7 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pfshttp"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	"google.golang.org/grpc/health"
 
@@ -711,6 +712,16 @@ func doFullMode(ctx context.Context, config interface{}) (retErr error) {
 	}))
 	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
 	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("HTTP PFS Server", requireNoncriticalServers, func() error {
+		s := http.Server{
+			Addr: fmt.Sprintf(":%v", env.Config().PFSHTTPPort),
+			Handler: &pfshttp.Server{
+				Client: env.GetPachClient(context.TODO()),
+				Logger: log.NewEntry(log.StandardLogger()).WithField("source", "pfshttp"),
+			},
+		}
+		return s.ListenAndServe()
+	}))
 	go func(c chan os.Signal) {
 		<-c
 		log.Println("terminating; waiting for pachd server to gracefully stop")
@@ -1000,4 +1011,5 @@ func (ps prometheusServer) listenAndServe(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	}
+
 }

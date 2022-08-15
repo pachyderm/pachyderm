@@ -118,11 +118,11 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 	// If config is already json, then this is a no-op under the hood.
 	config, err := identityutil.PickConfig(req.Connector.Config, req.Connector.JsonConfig)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrap(err, "pick config")
 	}
 
 	if err := a.validateConnector(req.Connector.Id, req.Connector.Type, config); err != nil {
-		return err
+		return errors.Wrap(err, "validate connector")
 	}
 
 	conn := dex_storage.Connector{
@@ -137,7 +137,7 @@ func (a *dexAPI) createConnector(req *identity.CreateIDPConnectorRequest) error 
 		if errors.Is(err, dex_storage.ErrAlreadyExists) {
 			return identity.ErrAlreadyExists
 		}
-		return errors.EnsureStack(err)
+		return errors.Wrap(err, "create connector")
 	}
 
 	return nil

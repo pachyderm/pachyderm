@@ -54,6 +54,13 @@ spec:
     port: {{ .Values.pachd.service.prometheusPort }}
     protocol: TCP
     targetPort: prom-metrics
+  - name: pfshttp-port
+    {{- if eq .Values.pachd.service.type "NodePort "}}
+    nodePort: {{ .Values.pachd.service.pfsHttpPort }}
+    {{- end }}
+    port: {{ .Values.pachd.service.pfsHttpPort }}
+    protocol: TCP
+    targetPort: pfshttp-port
   selector:
     app: pachd
   type: {{ .Values.pachd.service.type }}

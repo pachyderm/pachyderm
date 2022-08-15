@@ -88,6 +88,8 @@ spec:
               containerPort: 1658
             - name: metrics-direct
               containerPort: 1656
+            - name: pfshttp-direct
+              containerPort: 1655
           readinessProbe:
             httpGet:
               path: /ready

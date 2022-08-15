@@ -13,6 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 )
 
 type config struct {
@@ -131,6 +133,12 @@ func makeLogFields(ctx context.Context, request interface{}, fullMethod string, 
 	}
 	if user := auth.GetWhoAmI(ctx); user != "" {
 		fields["user"] = user
+	}
+	if p, ok := peer.FromContext(ctx); ok {
+		fields["peer"] = p.Addr.String()
+	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		fields["md"] = md
 	}
 	return fields
 }
