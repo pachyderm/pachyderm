@@ -4,7 +4,7 @@ and the integration with a company's Identity Providers (IDPs).
 
 An organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
 
-An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../../deploy-manage) section) with minor differences:
+An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../deploy-manage/) section) with minor differences:
 
 - **No Object store**: It is **not backed by an object store**. In other words, you won't need to set up an object store, so you don't need any deployment target in your helm chart.
 - **The PostgreSQL Instance requires two databases: `dex` and `pachyderm`**. Note that when the enterprise server is deployed as a standalone cluster as part of a multi-cluster deployment, all the clusters than will be registered to this enterprise server will each require one PostgreSQL database only: `pachyderm` (`dex` being at the enterprise server already).
@@ -18,9 +18,9 @@ The following diagram gives you a quick overview of an organization with multipl
 The setup of an Enterprise Server requires to:
 
 1. Deploy it.
-1. Activate your Enterprise Key and enable Auth.
-1. Register your newly created or existing Pachyderm clusters with your enterprise server.
-1. Optional: Enable Auth on each cluster.
+2. Activate your Enterprise Key and enable Auth.
+3. Register your newly created or existing Pachyderm clusters with your enterprise server.
+4. Optional: Enable Auth on each cluster.
 
 !!! Attention 
     We are now shipping Pachyderm with an **embedded proxy** 
@@ -187,7 +187,7 @@ Check the [list of all available helm values](../../../../reference/helm-values/
 To enable the Enterprise Server on an existing cluster:
 
 - [activate your enterprise key and authentication](#2-activate-enterprise-licensing-and-enable-authentication) as described in the following chapter.
-- then proceed to [configuring IDP integrations](../../authentication/idp-dex).
+- then proceed to [configuring IDP integrations](../authentication/idp-dex).
 
 ## 2- Activate Enterprise Licensing And Enable Authentication
 
