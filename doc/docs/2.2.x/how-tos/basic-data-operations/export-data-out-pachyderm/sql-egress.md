@@ -45,7 +45,7 @@ Create a **secret** containing your database password in the field `PACHYDERM_SQ
 
 Append an egress section to your pipeline specification file, then fill in:
 
-- the `url`: the connection string to your database. Its format is identical to the [url in the SQL Ingest](../../sql-ingest/#database-connection-url){target=_blank}.
+- the `url`: the connection string to your database. Its format is identical to the [url in the SQL Ingest](../sql-ingest#database-connection-url){target=_blank}.
 - the `file_format` type: CSV for now.
 - the `name`: the Kubernetes secret name.
 - the `columns`: Optional array for egress of **CSV files with headers only**. The order of the columns in this array must match the order of the schema columns; however, the CSV columns can be any order. So if the array is ["foo", "bar"] and the CSV file is:
