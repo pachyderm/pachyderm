@@ -23,14 +23,13 @@ Note that each web UI addresses different use cases:
       installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).  
       New Kubernetes nodes cannot be added to this single-node cluster.   
   
-  
 Pachyderm uses `Helm` for all deployments.  
 
 !!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/).  
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-manage/deploy/deploy-w-proxy.md).
 
 ## Prerequisites  
 

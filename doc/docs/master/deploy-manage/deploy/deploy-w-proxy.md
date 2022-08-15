@@ -474,7 +474,7 @@ Note that the enterprise server will be deployed behind its proxy, as will each 
     Enabling an embedded enterprise server with your pachd as part of the same helm installation will not work with the proxy. 
     You can use a standalone enterprise server instead.
 
-Follow your regular [enterprise server deployment and configuration instructions](../../../enterprise/auth/enterprise-server/setup){target=_blank}, except for those few steps:
+Follow your regular [enterprise server deployment and configuration instructions](../../enterprise/auth/enterprise-server/setup){target=_blank}, except for those few steps:
 
 - [Section 1: Deploy an enterprise server](../../../enterprise/auth/enterprise-server/setup/#1-deploy-an-enterprise-server):
    

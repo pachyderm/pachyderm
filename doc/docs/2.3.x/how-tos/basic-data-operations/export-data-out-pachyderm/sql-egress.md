@@ -39,13 +39,13 @@ To egress data from the output commit of a pipeline to an SQL database, you will
 
 ### 1. Create a Secret 
 
-Create a **secret** containing your database password in the field `PACHYDERM_SQL_PASSWORD`. This secret is identical to the database secret of Pachyderm SQL Ingest. Refer to the SQL Ingest page for instructions on [how to create your secret](../sql-ingest){target=_blank}.
+Create a **secret** containing your database password in the field `PACHYDERM_SQL_PASSWORD`. This secret is identical to the database secret of Pachyderm SQL Ingest. Refer to the SQL Ingest page for instructions on [how to create your secret](../sql-ingest.md){target=_blank}.
 
 ### 2. Update your Pipeline Spec
 
 Append an egress section to your pipeline specification file, then fill in:
 
-- the `url`: the connection string to your database. Its format is identical to the [url in the SQL Ingest](../../sql-ingest/#database-connection-url){target=_blank}.
+- the `url`: the connection string to your database. Its format is identical to the [url in the SQL Ingest](../sql-ingest.md#database-connection-url){target=_blank}.
 - the `file_format` type: CSV for now.
 - the `name`: the Kubernetes secret name.
 - the `columns`: Optional array for egress of **CSV files with headers only**. The order of the columns in this array must match the order of the schema columns; however, the CSV columns can be any order. So if the array is ["foo", "bar"] and the CSV file is:
