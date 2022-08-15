@@ -4,7 +4,7 @@ and the integration with a company's Identity Providers (IDPs).
 
 An organization can have **many Pachyderm clusters registered with one single Enterprise Server**. Administrators activate the Enterprise Server with an **Enterprise License Key** from Pachyderm sales, and optionally configure authentication with their IDP via SAML, OIDC, LDAP, etc...
 
-An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../deploy-manage/) section) with minor differences:
+An Enterprise Server uses the same binary/images as a regular Pachyderm cluster, therefore, it is deployed like a typical cluster (See our [Deploy/Manage](../../../deploy-manage/index.md) section) with minor differences:
 
 - **No Object store**: It is **not backed by an object store**. In other words, you won't need to set up an object store, so you don't need any deployment target in your helm chart.
 - **The PostgreSQL Instance requires two databases: `dex` and `pachyderm`**. Note that when the enterprise server is deployed as a standalone cluster as part of a multi-cluster deployment, all the clusters than will be registered to this enterprise server will each require one PostgreSQL database only: `pachyderm` (`dex` being at the enterprise server already).
@@ -167,7 +167,7 @@ Update your values.yaml with your enterprise license key and auth configurations
      Update the following values as follow:
 
 	 - `PACHD-IP`: The address of Pachyderm's IP. Retrieve Pachyderm external IP address if necessary.
-	 - `ISSUER`, `CLIENT-ID`, `CLIENT-SECRET`: Refer to our [Identity Provider Configuration page](../../authentication/idp-dex/#create-a-connector-configuration-file).
+ `ISSUER`, `CLIENT-ID`, `CLIENT-SECRET`: Refer to our [Identity Provider Configuration page](../authentication/idp-dex.md#create-a-connector-configuration-file).
 
 
 Check the [list of all available helm values](../../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}.
@@ -178,7 +178,7 @@ Check the [list of all available helm values](../../../../reference/helm-values/
 		However, **this secret is only used when configuring through helm**:
 
 		- If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
-		- Same behavior if you [activate enterprise manually](../../deployment/) (`pachctl license activate`) then [activate authentication](../../enterprise/auth/) (`pachctl auth activate`).
+       - Same behavior if you [activate enterprise manually](../../deployment.md) (`pachctl license activate`) then [activate authentication](../../auth/index.md) (`pachctl auth activate`).
 
     - **Set the helm value `pachd.activateAuth` to false to prevent the automatic bootstrap of auth on the cluster**.
 
