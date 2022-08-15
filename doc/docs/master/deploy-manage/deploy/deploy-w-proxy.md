@@ -309,7 +309,7 @@ Follow your regular [QUICK Cloud Deploy documentation](../quickstart/), but for 
 
 This section is an alternative to the default [local deployment instructions](../../../getting-started/local-installation){target=_blank}. It uses a variant of the original one line command to enable a proxy. 
 
-Follow the [Prerequisites](#prerequisites){target=_blank} before [deploying Pachyderm](#deploy-pachyderm-community-edition-or-enterprise-with-console) (with or without Console) on your local cluster, then [Connect 'pachctl' To Your Cluster](#connect-pachctl-to-your-cluster).
+Follow the [Prerequisites](#prerequisites){target=_blank} before [deploying Pachyderm](#deploy-pachyderm-community-edition-or-enterprise) (with or without Console) on your local cluster, then [Connect 'pachctl' To Your Cluster](#connect-pachctl-to-your-cluster).
 
 JupyterLab users, [**you can also install Pachyderm JupyterLab Mount Extension**](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local Pachyderm cluster to experience Pachyderm from your familiar notebooks. 
 
