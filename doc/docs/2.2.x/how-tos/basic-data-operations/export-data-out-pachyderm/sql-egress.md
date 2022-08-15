@@ -39,7 +39,7 @@ To egress data from the output commit of a pipeline to an SQL database, you will
 
 ### 1. Create a Secret 
 
-Create a **secret** containing your database password in the field `PACHYDERM_SQL_PASSWORD`. This secret is identical to the database secret of Pachyderm SQL Ingest. Refer to the SQL Ingest page for instructions on [how to create your secret](../../sql-ingest/#database-secret){target=_blank}.
+Create a **secret** containing your database password in the field `PACHYDERM_SQL_PASSWORD`. This secret is identical to the database secret of Pachyderm SQL Ingest. Refer to the SQL Ingest page for instructions on [how to create your secret](../sql-ingest#database-secret){target=_blank}.
 
 ### 2. Update your Pipeline Spec
 
