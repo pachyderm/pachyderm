@@ -25,7 +25,7 @@ cat <<EOF >overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="latest">latest (${latest_version})</option>
 EOF
 
-all_versions="$(ls ./docs | grep -Ev 'latest|master|archived' | sort -r -V)"
+all_versions="$(ls ./docs | grep -Ev 'master|archived' | sort -r -V)"
 for d in $all_versions; do
     # don't link latest version again
     if [[ "${d}" == "$latest_version" ]]; then
