@@ -17,16 +17,18 @@ export VERSION
 sleep 300
 
 # provision a pulumi test env
-WORKSPACE="aws"
+TIMESTAMP=$(date +%T | sed 's/://g')
+WORKSPACE="aws-${CIRCLE_SHA1:0:7}-${TIMESTAMP}"
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name="${WORKSPACE}-${CIRCLE_SHA1:0:7}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
-  https://helium.pachyderm.io/v1/api/workspace
+ -F name="${WORKSPACE}" -F pachdVersion="${CIRCLE_SHA1}" -F helmVersion="${CIRCLE_TAG:1}-${CIRCLE_SHA1}" -F backend="aws_cluster" \
+-F infraJson=@etc/testing/circle/workloads/aws-wp/infra.json -F valuesYaml=@etc/testing/circle/workloads/aws-wp/values.yaml \
+https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
 
 for _ in $(seq 108); do
-  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}-${CIRCLE_SHA1:0:7}" | jq .Workspace.Status | tr -d '"')
+  STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}" | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
     echo "success"
@@ -42,12 +44,13 @@ then
   exit 1
 fi
 
-pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}-${CIRCLE_SHA1:0:7}"  | jq .Workspace.PachdIp)
-
-echo "{\"pachd_address\": ${pachdIp}, \"source\": 2}" | tr -d \\ | pachctl config set context "${WORKSPACE}-${CIRCLE_SHA1:0:7}" --overwrite && pachctl config set active-context "${WORKSPACE}-${CIRCLE_SHA1:0:7}"
-
+pachdIp=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}"  | jq .Workspace.PachdIp)
+withEnvoy=$(echo $pachdIp | sed 's/grpc:\/\//grpc:\/\/pachd-/g' | sed 's/30651/30650/g')
+echo ${withEnvoy}
+pachctlCtx=$(echo "{\"pachd_address\": ${withEnvoy}, \"source\": 2}" | tr -d \\)
+echo ${pachctlCtx}
+echo ${pachctlCtx} | pachctl config set context "${WORKSPACE}" --overwrite && pachctl config set active-context "${HELIUM_WORKSPACE}"
 echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
-
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
 READY=false
 for i in $(seq 1 20); do
