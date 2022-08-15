@@ -173,7 +173,7 @@ Update your values.yaml with your enterprise license key and auth configurations
 Check the [list of all available helm values](../../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 !!! Warning
-    - **When enterprise is enabled through Helm, auth is automatically activated** (i.e., you do not need to run `pachctl auth activate`) and a `pachyderm-auth` k8s secret is created containing a [rootToken](../#activate-user-access-management) key. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
+    - **When enterprise is enabled through Helm, auth is automatically activated** (i.e., you do not need to run `pachctl auth activate`) and a `pachyderm-auth` k8s secret is created containing a rootToken key. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 			
 		However, **this secret is only used when configuring through helm**:
 
@@ -235,7 +235,7 @@ Add the enterprise server's root token, and network addresses to the values.yaml
 !!! Warning
 		**When setting your enterprise server info as part of the Helm deployment of a cluster, auth is automatically activated unless the helm value `pachd.activateAuth` was intentionally set to false.** (i.e., you can skip step 4).
 
-		In this case, a `pachyderm-auth` k8s secret is automatically created containing an entry for your [rootToken](../../#activate-user-access-management) in the key `rootToken`. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
+In this case, a `pachyderm-auth` k8s secret is automatically created containing an entry for your rootToken in the key `rootToken`. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 
 
 ### Register Clusters With pachctl
