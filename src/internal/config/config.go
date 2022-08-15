@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -104,7 +103,7 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 // in cachedConfig.
 func fetchCachedConfig(p string) error {
 	cachedConfig = &Config{}
-	if raw, err := ioutil.ReadFile(p); err == nil {
+	if raw, err := os.ReadFile(p); err == nil {
 		err = serde.Decode(raw, cachedConfig)
 		if err != nil {
 			return errors.Wrapf(err, "could not parse config json at %q", p)
@@ -257,7 +256,7 @@ func (c *Config) write(path string) error {
 
 	// Write to a temporary file first, then rename the temporary file to `p`.
 	// This ensures the write is atomic on POSIX.
-	tmpfile, err := ioutil.TempFile("", "pachyderm-config-*.json")
+	tmpfile, err := os.CreateTemp("", "pachyderm-config-*.json")
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -276,7 +275,7 @@ func (c *Config) write(path string) error {
 		// leave cachedConfig out of date.
 		// TODO(msteffen) attempt to backup the config if it exists & restore on
 		// failure.
-		if err = ioutil.WriteFile(path, rawConfig, 0644); err != nil {
+		if err = os.WriteFile(path, rawConfig, 0644); err != nil {
 			return errors.Wrapf(err, "failed to copy updated config file from %s to %s", tmpfile.Name(), path)
 		}
 	}
@@ -304,7 +303,7 @@ func WritePachTokenToConfigPath(token string, path string, enterpriseContext boo
 	config := &Config{}
 	var raw []byte
 	var err error
-	if raw, err = ioutil.ReadFile(path); err != nil {
+	if raw, err = os.ReadFile(path); err != nil {
 		return errors.Wrapf(err, "could not read config at %q", path)
 	}
 	if err = serde.Decode(raw, config); err != nil {

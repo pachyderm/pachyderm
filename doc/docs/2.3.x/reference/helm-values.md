@@ -23,7 +23,7 @@ Each section is further detailed in its own sub-chapter.
 
 
 ```yaml
-{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', 'master') }}
+{{ gitsnippet('pachyderm/pachyderm', 'etc/helm/pachyderm/values.yaml', '2.3.x') }}
 ```
 ### deployTarget
 

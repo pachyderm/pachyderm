@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -50,7 +50,7 @@ func TestTLS(t *testing.T) {
 
 		// Server is a simple echo server
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			b, err := ioutil.ReadAll(req.Body)
+			b, err := io.ReadAll(req.Body)
 			if err != nil {
 				w.Write([]byte("err: " + err.Error())) //nolint:errcheck
 				return
@@ -82,7 +82,7 @@ func TestTLS(t *testing.T) {
 	message := []byte("secret message")
 	resp, err := c.Post("https://"+dnsName, "text/plain", bytes.NewReader(message))
 	require.NoError(t, err)
-	respText, err := ioutil.ReadAll(resp.Body)
+	respText, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, respText, message)
 

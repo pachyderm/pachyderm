@@ -5,7 +5,7 @@ import (
 	"archive/tar"
 	"context"
 	"io"
-	"io/ioutil"
+
 	"strings"
 	"time"
 
@@ -554,7 +554,7 @@ func (gfrs *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 			return nil, err
 		}
 		// TODO: Replace with file range request when implemented in PFS.
-		if _, err := io.CopyN(ioutil.Discard, r, offset); err != nil {
+		if _, err := io.CopyN(io.Discard, r, offset); err != nil {
 			return nil, err
 		}
 		return r, nil
@@ -598,7 +598,7 @@ func (c APIClient) GetFileURL(commit *pfs.Commit, path, URL string) (retErr erro
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(ioutil.Discard, grpcutil.NewStreamingBytesReader(client, nil))
+	_, err = io.Copy(io.Discard, grpcutil.NewStreamingBytesReader(client, nil))
 	return err
 }
 

@@ -21,7 +21,7 @@ copyright: 'Copyright Pachyderm Inc, 2022'
 
 pach_featured_version: '2.2.7'
 # Latest version of Pachyderm
-pach_latest_version: '2.3.0-rc.1'
+pach_latest_version: '2.3.0-rc.2'
 pach_major_minor_version: '2.3'
 search_index_version: '2.3.x'
 

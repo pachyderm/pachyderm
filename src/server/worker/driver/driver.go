@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	
 	"os"
 	"os/user"
 	"path"
@@ -485,7 +485,7 @@ func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
-	entries, err := ioutil.ReadDir(d.InputDir())
+	entries, err := os.ReadDir(d.InputDir())
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

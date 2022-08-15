@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,7 +33,7 @@ func TestSQLIngest(t *testing.T) {
 		name := fmt.Sprintf("%04d", i)
 		// query would normally be different per shard
 		query := "select * from test_data"
-		err := ioutil.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		err := os.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
 		require.NoError(t, err)
 	}
 
@@ -72,7 +71,7 @@ func TestCSVSQLIngest(t *testing.T) {
 		name := fmt.Sprintf("%04d", i)
 		// query would normally be different per shard
 		query := "select * from test_data"
-		err := ioutil.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		err := os.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
 		require.NoError(t, err)
 	}
 
@@ -110,7 +109,7 @@ func TestCSVHeaderSQLIngest(t *testing.T) {
 		name := fmt.Sprintf("%04d", i)
 		// query would normally be different per shard
 		query := "select * from test_data"
-		err := ioutil.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		err := os.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
 		require.NoError(t, err)
 	}
 
@@ -173,7 +172,7 @@ func TestSQLQueryGeneration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dirEnts, 1)
 	require.Equal(t, outputName, dirEnts[0].Name())
-	data, err := ioutil.ReadFile(filepath.Join(outputDir, outputName))
+	data, err := os.ReadFile(filepath.Join(outputDir, outputName))
 	require.NoError(t, err)
 	t.Log(string(data))
 }
@@ -181,7 +180,7 @@ func TestSQLQueryGeneration(t *testing.T) {
 func writeCronFile(t testing.TB, inputDir string) {
 	now := time.Now().UTC()
 	timestampStr := now.Format(time.RFC3339)
-	err := ioutil.WriteFile(filepath.Join(inputDir, timestampStr), nil, 0755)
+	err := os.WriteFile(filepath.Join(inputDir, timestampStr), nil, 0755)
 	require.NoError(t, err)
 }
 
