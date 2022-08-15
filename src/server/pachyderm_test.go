@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"math"
 	"net"
 	"net/http"
@@ -7127,7 +7127,7 @@ func TestService(t *testing.T) {
 		if resp.StatusCode != 200 {
 			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
-		content, err := ioutil.ReadAll(resp.Body)
+		content, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -7230,7 +7230,7 @@ func TestServiceEnvVars(t *testing.T) {
 		if resp.StatusCode != 200 {
 			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
-		envValue, err = ioutil.ReadAll(resp.Body)
+		envValue, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

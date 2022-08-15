@@ -18,7 +18,7 @@ for file in $(git status --porcelain | grep '^??' | sed 's/^?? //'); do
   skip_paths+=( -o -path "${file%/}" )
 done
 
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.47.0
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.48.0
 golangci-lint run --
 
 # shellcheck disable=SC2046

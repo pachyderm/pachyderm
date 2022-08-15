@@ -3,7 +3,7 @@
 package driver
 
 import (
-	"io/ioutil"
+	
 	"os"
 	"path/filepath"
 	"syscall"
@@ -66,9 +66,9 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 }
 
 func (d *driver) unmoveData(inputs []*common.Input, dir string) error {
-	entries, err := ioutil.ReadDir(d.InputDir())
+	entries, err := os.ReadDir(d.InputDir())
 	if err != nil {
-		return errors.Wrap(err, "ioutil.ReadDir")
+		return errors.Wrap(err, "os.ReadDir")
 	}
 	for _, entry := range entries {
 		if entry.Name() == client.PPSScratchSpace {

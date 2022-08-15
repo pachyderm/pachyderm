@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -343,7 +343,7 @@ Environment variables:
 			if !verbose {
 				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 			} else {
 				log.SetLevel(log.DebugLevel)
 				// etcd overrides grpc's logs--there's no way to enable one without
@@ -354,8 +354,8 @@ Environment variables:
 				logger := log.StandardLogger()
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(
 					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
-					ioutil.Discard,
-					ioutil.Discard,
+					io.Discard,
+					io.Discard,
 				))
 				cmdutil.PrintErrorStacks = true
 			}
