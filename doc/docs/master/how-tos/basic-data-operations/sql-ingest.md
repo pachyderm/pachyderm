@@ -17,7 +17,7 @@ You can inject database content, collected by your data warehouse, by pulling th
 
 ### 1. Create & Upload a Secret
 
-You must generate a secret that contains the password granting user access to the database; you will pass the username details through the database connection string in [step 2](#2-create-a-database-connection).
+You must generate a secret that contains the password granting user access to the database; you will pass the username details through the database connection string in [step 2](#2-create-a-database-connection-string).
 
 1. Copy the following:
     ```shell
