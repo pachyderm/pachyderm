@@ -25,7 +25,7 @@ cat <<EOF >overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="latest">latest (${latest_version})</option>
 EOF
 
-all_versions="$(ls ./docs | grep -Ev 'master|archived' | sort -r -V)"
+all_versions="$(ls ./docs | grep -Ev 'latest|master|archived' | sort -r -V)"
 for d in $all_versions; do
     # don't link latest version again
     if [[ "${d}" == "$latest_version" ]]; then
@@ -35,9 +35,6 @@ for d in $all_versions; do
         <option style="color:white;background-color:#4b2a5c;" value="${d}">${d}</option>"
 EOF
 done
-   cat <<EOF >>overrides/partials/versions.html
-        <option style="color:white;background-color:#4b2a5c;" value="2.3.x">2.3.x-rc</option>"
-EOF
 
     cat <<EOF >>overrides/partials/versions.html
         <option style="color:white;background-color:#4b2a5c;" value="archive">Archive</option>"
@@ -67,7 +64,7 @@ for d in $all_versions; do
 done
 ## Temp preview of 2.3.x-alpha out of master
 #rm -rf ./site/2.3.x-alpha/
-mkdocs build --config-file "mkdocs-2.3.x.yml" --site-dir "site/2.3.x"
+# mkdocs build --config-file "mkdocs-2.3.x.yml" --site-dir "site/2.3.x"
 # Finally, copy latest version of the docs into 'latest'
 if [[ -z "${latest_version}" ]]; then
     echo "No latest version to symlink"
