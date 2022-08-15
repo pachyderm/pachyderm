@@ -20,15 +20,21 @@ Service environment (AKS).
 
 In particular, you will:
 
-1. [Install Prerequisites](#1-install-prerequisites)
-1. [Deploy Kubernetes](#2-deploy-kubernetes)
-1. [Create an Azure Storage Container For Your Data](#3-create-an-azure-storage-container-for-your-data)
-1. [Persistent Volumes Creation](#4-persistent-volumes-creation)
-1. [Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server-database) 
-1. [Deploy Pachyderm](#6-deploy-pachyderm)
-1. [Have 'pachctl' and your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
-1. [Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
-1. (Optional) Install [JupyterHub and Pachyderm Mount Extension](#9-notebooks-users-install-pachyderm-jupyterlab-mount-extension) to experiment with your data in Pachyderm from your Notebook cells. 
+- [Azure](#azure)
+  - [1. Install Prerequisites](#1-install-prerequisites)
+  - [2. Deploy Kubernetes](#2-deploy-kubernetes)
+  - [3. Create an Azure Storage Container For Your Data](#3-create-an-azure-storage-container-for-your-data)
+  - [4. Persistent Volumes Creation](#4-persistent-volumes-creation)
+  - [5. Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server-database)
+    - [Create A PostgreSQL Server Instance¶](#create-a-postgresql-server-instance)
+    - [Create Your Databases](#create-your-databases)
+    - [Update your values.yaml](#update-your-valuesyaml)
+  - [6. Deploy Pachyderm](#6-deploy-pachyderm)
+    - [Update Your Values.yaml](#update-your-valuesyaml-1)
+    - [Deploy Pachyderm On The Kubernetes Cluster](#deploy-pachyderm-on-the-kubernetes-cluster)
+  - [7. Have 'pachctl' And Your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
+  - [8. Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
+  - [9. NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension](#9-notebooks-users-install-pachyderm-jupyterlab-mount-extension)
 
 ## 1. Install Prerequisites
 
@@ -288,7 +294,7 @@ Once created, go back to your newly created database, and:
 ### Create Your Databases
 After your instance is created, you will need to create Pachyderm's database(s).
       
-If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
+If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup.md), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
 
 !!! Note
     Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.

@@ -170,7 +170,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 ### Backup A Standalone Enterprise Server
 
 !!! Attention
-     Make sure that `pachctl` and `kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../enterprise/auth/enterprise-server/setup){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
+     Make sure that `pachctl` and `kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../enterprise/auth/enterprise-server/setup.md){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
 
 - [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster by running `pachctl enterprise pause` (Enterprise users), or using `kubectl`.
 
