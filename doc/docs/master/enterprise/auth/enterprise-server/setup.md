@@ -173,12 +173,12 @@ Update your values.yaml with your enterprise license key and auth configurations
 Check the [list of all available helm values](../../../../reference/helm-values/) at your disposal in our reference documentation or on [Github](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/pachyderm/values.yaml){target=_blank}.
 
 !!! Warning
-    - **When enterprise is enabled through Helm, auth is automatically activated** (i.e., you do not need to run `pachctl auth activate`) and a `pachyderm-auth` k8s secret is created containing a [rootToken](../../../enterprise/auth/#activate-user-access-management) key. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
+    - **When enterprise is enabled through Helm, auth is automatically activated** (i.e., you do not need to run `pachctl auth activate`) and a `pachyderm-auth` k8s secret is created containing a [rootToken](../index#activate-user-access-management) key. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 			
 		However, **this secret is only used when configuring through helm**:
 
 		- If you run `pachctl auth activate`, the secret is not updated. Instead, the rootToken is printed in your STDOUT for you to save.
-		- Same behavior if you [activate enterprise manually](../../../enterprise/deployment/) (`pachctl license activate`) then [activate authentication](../../../enterprise/auth/) (`pachctl auth activate`).
+		- Same behavior if you [activate enterprise manually](../../deployment/) (`pachctl license activate`) then [activate authentication](../../enterprise/auth/) (`pachctl auth activate`).
 
     - **Set the helm value `pachd.activateAuth` to false to prevent the automatic bootstrap of auth on the cluster**.
 
@@ -206,9 +206,9 @@ To enable the Enterprise Server on an existing cluster:
 		They should all be stored securely.
 
 Once the enterprise server is deployed, 
-deploy your cluster(s) [`helm install...`](../../../../deploy-manage/deploy/helm-install/#install-pachyderms-helm-chart) and [register it(them) with the enterprise server](#3-register-your-cluster-with-the-enterprise-server). Note that you have the option to register your clusters directly in your values.yaml when deploying or after its deployment, using `pachctl`.
+deploy your cluster(s) [`helm install...`](../../../deploy-manage/deploy/helm-install.md#install-pachyderms-helm-chart) and [register it(them) with the enterprise server](#3-register-your-cluster-with-the-enterprise-server). Note that you have the option to register your clusters directly in your values.yaml when deploying or after its deployment, using `pachctl`.
 
-You migh want to expose your cluster(s) to the internet. Check the setup of a Load Balancer in our [deployment section](../../../../deploy-manage/deploy/ingress/#loadbalancer).
+You might want to expose your cluster(s) to the internet. Check the setup of a Load Balancer in our [deployment section](../../../deploy-manage/deploy/ingress/index.md#loadbalancer).
 
 ## 3- Register Your Cluster With The Enterprise Server
 Similarly to the enterprise server, we can configure our pachyderm clusters to leverage Helm for licensing and authentication in one of two flavors:
@@ -306,5 +306,3 @@ This is an **optional step**. Clusters can be registered with the enterprise ser
 
  
 To manage you server, its context, or connect your IdP, visit the [**Manage your Enterprise Server**](../manage/) page.
-
-
