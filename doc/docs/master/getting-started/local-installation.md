@@ -111,28 +111,53 @@ by following these steps:
   
 `pachctl` is a command-line tool that you can use to interact  
 with a Pachyderm cluster in your terminal.  
+
+!!! Attention
+      Pachyderm now offers **universal Multi-Arch docker images that can serve both ARM and AMD users**.
+      
+      - Brew users: The download of the package matching your architecture is automatic—nothing specific to do.
+      - Debian-based and other Linux flavors users not relying on [Homebrew](https://docs.brew.sh/Homebrew-on-Linux){target=_blank}:
+
+        Run `uname -m` to identify your architecture, then choose the command in the `AMD` section below if the output is `x86_64` , or `ARM` if it is `aarch64`.
+
   
 1. Run the corresponding steps for your operating system:  
   
-      * For macOS, run:  
+      * For **macOS or Brew users**, run:  
   
-      ```shell  
-      brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}  
-      ```  
+        ```shell  
+        brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}  
+        ```  
   
-      * For a Debian-based Linux 64-bit or Windows 10 or later running on  
-      WSL:  
-  
-      ```shell  
-      curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb  
-      ```  
-  
-      * For all other Linux flavors:  
-  
-      ```shell  
-      curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin  
-      ```  
-  
+      * For a **Debian-based Linux 64-bit or Windows 10 or later running on  
+      WSL** (Choose the command matching your architecture):  
+            
+        - AMD Architectures (amd64):
+             
+        ```shell  
+        curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb  
+        ``` 
+
+        - ARM Architectures (arm64):
+
+        ```shell  
+        curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_arm64.deb && sudo dpkg -i /tmp/pachctl.deb  
+        ```  
+
+      * For all **other Linux flavors** (Choose the command matching your architecture):  
+
+        - AMD Architectures (amd64):
+                  
+        ```shell  
+        curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin 
+        ``` 
+
+        - ARM Architectures (arm64):
+
+        ```shell  
+        curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_arm64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_arm64/pachctl /usr/local/bin 
+        ```  
+            
 1. Verify that installation was successful by running `pachctl version --client-only`:  
   
       ```shell  
