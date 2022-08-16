@@ -196,8 +196,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 	// Go through mounts and populate data to show in Mounted section
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
-			err := msm.RefreshMountState()
-			if err != nil {
+			if err := msm.RefreshMountState(); err != nil {
 				return mr, err
 			}
 			ms := msm.MountState
@@ -290,8 +289,7 @@ func (mm *MountManager) UnmountAll() error {
 	for name, msm := range mm.States {
 		if msm.State == "mounted" {
 			//TODO: Add Commit field here once we support mounting specific commits
-			_, err := mm.UnmountRepo(name)
-			if err != nil {
+			if _, err := mm.UnmountRepo(name); err != nil {
 				return err
 			}
 		}
@@ -355,8 +353,7 @@ func CreateMount(c *client.APIClient, mountDir string) (*MountManager, error) {
 }
 
 func (mm *MountManager) Start() {
-	err := mm.Run()
-	if err != nil {
+	if err := mm.Run(); err != nil {
 		logrus.Infof("Error running mount manager: %s", err)
 		os.Exit(1)
 	}
@@ -374,12 +371,10 @@ func (mm *MountManager) Run() error {
 	}()
 	server.Wait()
 	defer mm.FinishAll()
-	err = mm.uploadFiles("")
-	if err != nil {
+	if err := mm.uploadFiles(""); err != nil {
 		return err
 	}
-	err = os.RemoveAll(mm.tmpDir)
-	if err != nil {
+	if err := os.RemoveAll(mm.tmpDir); err != nil {
 		return nil
 	}
 	close(mm.Cleanup)
@@ -462,8 +457,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		// Verify request payload
 		var mreq MountRequest
 		defer req.Body.Close()
-		err := json.NewDecoder(req.Body).Decode(&mreq)
-		if err != nil {
+		if err := json.NewDecoder(req.Body).Decode(&mreq); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -473,15 +467,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = verifyMountRequest(mreq.Mounts, lr)
-		if err != nil {
+		if err := verifyMountRequest(mreq.Mounts, lr); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		for _, mi := range mreq.Mounts {
-			_, err = mm.MountRepo(mi)
-			if err != nil {
+			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -511,15 +503,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 		var umreq UnmountRequest
 		defer req.Body.Close()
-		err := json.NewDecoder(req.Body).Decode(&umreq)
-		if err != nil {
+		if err := json.NewDecoder(req.Body).Decode(&umreq); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		for _, name := range umreq.Mounts {
-			_, err = mm.UnmountRepo(name)
-			if err != nil {
+			if _, err := mm.UnmountRepo(name); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -546,13 +536,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 		var creq CommitRequest
 		defer req.Body.Close()
-		err := json.NewDecoder(req.Body).Decode(&creq)
-		if err != nil {
+		if err := json.NewDecoder(req.Body).Decode(&creq); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		_, err = mm.CommitRepo(creq.Mount)
-		if err != nil {
+
+		if _, err := mm.CommitRepo(creq.Mount); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -575,13 +564,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		err := mm.UnmountAll()
-		if err != nil {
+		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = removeOutDir(mm)
-		if err != nil {
+
+		if err := removeOutDir(mm); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -633,14 +621,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 		logrus.Infof("Mounting first datum (%s)", mm.Datums[0].Datum.ID)
 		mis := datumToMounts(mm.Datums[0])
-		err = mm.UnmountAll()
-		if err != nil {
+		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		for _, mi := range mis {
-			_, err = mm.MountRepo(mi)
-			if err != nil {
+			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -711,19 +697,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			di = mm.Datums[idx]
 		}
 		mis := datumToMounts(di)
-		err := mm.UnmountAll()
-		if err != nil {
+		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = removeOutDir(mm)
-		if err != nil {
+		if err := removeOutDir(mm); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		for _, mi := range mis {
-			_, err := mm.MountRepo(mi)
-			if err != nil {
+			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -769,8 +752,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 
 		var cfgReq ConfigRequest
 		defer req.Body.Close()
-		err := json.NewDecoder(req.Body).Decode(&cfgReq)
-		if err != nil {
+		if err := json.NewDecoder(req.Body).Decode(&cfgReq); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -791,8 +773,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				mm.Client.Close()
 			}
 			logrus.Infof("Updating pachd_address to %s\n", pachdAddress.Qualified())
-			mm, err = CreateMount(newClient, sopts.MountDir)
-			if err != nil {
+			if mm, err = CreateMount(newClient, sopts.MountDir); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -866,8 +847,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = mm.UnmountAll()
-		if err != nil {
+		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -929,8 +909,7 @@ func isAuthOnAndUserUnauthenticated(c *client.APIClient) bool {
 
 func getClusterStatus(c *client.APIClient) (map[string]string, error) {
 	clusterStatus := "INVALID"
-	err := c.Health()
-	if err == nil {
+	if err := c.Health(); err == nil {
 		authActive, err := c.IsAuthActive()
 		if err != nil {
 			return nil, err
@@ -976,8 +955,7 @@ func getNewClient(cfgReq ConfigRequest) (*client.APIClient, error) {
 		return nil, errors.Wrapf(err, "could not connect to %s", pachdAddress.Qualified())
 	}
 	// Update config file and cachedConfig
-	err = updateConfig(cfgReq)
-	if err != nil {
+	if err = updateConfig(cfgReq); err != nil {
 		return nil, errors.Wrap(err, "issue updating config")
 	}
 
@@ -992,8 +970,7 @@ func updateConfig(cfgReq ConfigRequest) error {
 	pachdAddress, _ := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
 	cfg.V2.ActiveContext = "mount-server"
 	cfg.V2.Contexts[cfg.V2.ActiveContext] = &config.Context{PachdAddress: pachdAddress.Qualified(), ServerCAs: cfgReq.ServerCas}
-	err = cfg.Write()
-	if err != nil {
+	if err = cfg.Write(); err != nil {
 		return err
 	}
 
@@ -1097,7 +1074,7 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 
 func removeOutDir(mm *MountManager) error {
 	cleanPath := mm.root.rootPath + "/out"
-	return os.RemoveAll(cleanPath)
+	return errors.EnsureStack(os.RemoveAll(cleanPath))
 }
 
 type MountState struct {
@@ -1451,8 +1428,7 @@ func (m *MountStateMachine) maybeUploadFiles() error {
 	// Only upload files for writeable filesystems
 	if m.Mode == "rw" {
 		// upload any files whose paths start with where we're mounted
-		err := m.manager.uploadFiles(m.Name)
-		if err != nil {
+		if err := m.manager.uploadFiles(m.Name); err != nil {
 			return err
 		}
 		// close the mfc, uploading files, then delete it
@@ -1460,8 +1436,7 @@ func (m *MountStateMachine) maybeUploadFiles() error {
 		if err != nil {
 			return err
 		}
-		err = mfc.Close()
-		if err != nil {
+		if err = mfc.Close(); err != nil {
 			return err
 		}
 		// cleanup mfc - a new one will be created on-demand
@@ -1479,8 +1454,7 @@ func committingState(m *MountStateMachine) StateFn {
 	// _in all cases_
 	m.transitionedTo("committing", "")
 
-	err := m.maybeUploadFiles()
-	if err != nil {
+	if err := m.maybeUploadFiles(); err != nil {
 		logrus.Infof("Error while uploading! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
@@ -1505,8 +1479,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	// upload, otherwise we could get filesystem inconsistency! Need a sort of
 	// lock which multiple fs operations can hold but only one "pauser" can.
 
-	err := m.maybeUploadFiles()
-	if err != nil {
+	if err := m.maybeUploadFiles(); err != nil {
 		logrus.Infof("Error while uploading! %s", err)
 		m.transitionedTo("error", err.Error())
 		m.responses <- Response{
@@ -1530,7 +1503,7 @@ func unmountingState(m *MountStateMachine) StateFn {
 	cleanPath := m.manager.root.rootPath + "/" + m.Name
 	logrus.Infof("Path is %s", cleanPath)
 
-	err = os.RemoveAll(cleanPath)
+	err := os.RemoveAll(cleanPath)
 	m.responses <- Response{
 		MountState: m.MountState,
 		Error:      err,
