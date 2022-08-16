@@ -2,6 +2,7 @@ package exec
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -63,7 +64,7 @@ func WaitOrStop(ctx context.Context, cmd *exec.Cmd, interrupt os.Signal, killDel
 
 	waitErr := cmd.Wait()
 	if interruptErr := <-errc; interruptErr != nil {
-		return interruptErr
+		return fmt.Errorf("exec/WaitOrStop interupt error: %v", interruptErr)
 	}
-	return waitErr
+	return fmt.Errorf("exec/WaitOrStop wait error: %v", waitErr)
 }
