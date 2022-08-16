@@ -2,7 +2,6 @@ package errors
 
 import (
 	"io"
-	"runtime"
 
 	"github.com/pkg/errors"
 )
@@ -34,9 +33,6 @@ var (
 	WithStack = errors.WithStack
 )
 
-// StackTrace is stack of Frames from innermost (newest) to outermost (oldest).
-type StackTrace = errors.StackTrace
-
 // EnsureStack will add a stack onto the given error only if it does not already
 // have a stack. If err is nil, EnsureStack returns nil.
 func EnsureStack(err error) error {
@@ -56,19 +52,6 @@ func EnsureStack(err error) error {
 
 // Frame is the type of a StackFrame, it is an alias for errors.Frame.
 type Frame struct{ errors.Frame }
-
-// Callers returns an errors.StackTrace for the place at which it's called.
-func Callers() errors.StackTrace {
-	const depth = 32
-	var pcs [depth]uintptr
-	// 2 skips runtime.Callers and this function
-	n := runtime.Callers(2, pcs[:])
-	st := make(errors.StackTrace, n)
-	for i, pc := range pcs[0:n] {
-		st[i] = errors.Frame(pc)
-	}
-	return st
-}
 
 // StackTracer is an interface for errors that can return stack traces.
 // Unfortuantely github.com/pkg/errors makes us define this ourselves rather

@@ -151,9 +151,11 @@ type EtcdReadOnlyCollection interface {
 
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
+	// TODO: TTL might be unused
 	TTL(key string) (int64, error)
 	// CountRev returns the number of items in the collection at a specific
 	// revision, it's only in EtcdReadOnlyCollection because only etcd has
 	// revs.
+	// TODO: CountRev might be unused
 	CountRev(int64) (int64, int64, error)
 }

@@ -299,19 +299,6 @@ func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 	return writePachTokenToConfig(token, cfg, configPath(), enterpriseContext)
 }
 
-func WritePachTokenToConfigPath(token string, path string, enterpriseContext bool) error {
-	config := &Config{}
-	var raw []byte
-	var err error
-	if raw, err = os.ReadFile(path); err != nil {
-		return errors.Wrapf(err, "could not read config at %q", path)
-	}
-	if err = serde.Decode(raw, config); err != nil {
-		return errors.Wrapf(err, "could not parse config json at %q", path)
-	}
-	return writePachTokenToConfig(token, config, path, enterpriseContext)
-}
-
 func writePachTokenToConfig(token string, cfg *Config, path string, enterpriseContext bool) error {
 	if enterpriseContext {
 		_, context, err := cfg.ActiveEnterpriseContext(true)
