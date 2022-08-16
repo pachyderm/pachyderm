@@ -13,6 +13,7 @@ pachctl debug dump <file> [flags]
 ### Options
 
 ```
+      --database          Only collect the dump from pachd's database.
   -h, --help              help for dump
   -l, --limit int         Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.
       --pachd             Only collect the dump from pachd.
