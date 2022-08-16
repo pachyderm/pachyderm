@@ -101,46 +101,68 @@ class MountServerClient(MountInterface):
         return True
 
 
-    async def list(self):
+    async def list_repos(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/repos")
         return response.body
+
+    async def list_mounts(self):
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/mounts")
+        return response.body
         
-
-    async def mount(self, repo, branch, mode, name):
+    async def mount(self, body):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/{repo}/{branch}/_mount?name={name}&mode={mode}",
+            f"{self.address}/_mount",
             method="PUT",
-            body="{}",
+            body=json.dumps(body),
         )
         return response.body
 
-    async def unmount(self, repo, branch, name):
+    async def unmount(self, body):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/{repo}/{branch}/_unmount?name={name}",
+            f"{self.address}/_unmount",
             method="PUT",
-            body="{}",
+            body=json.dumps(body),
         )
         return response.body
+
+    async def commit(self, body):
+        await self._ensure_mount_server()
+        pass
 
     async def unmount_all(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/_unmount",
+            f"{self.address}/_unmount_all",
             method="PUT",
             body="{}"
         )
         return response.body
 
-    async def commit(self, repo, branch, name, message):
+    async def mount_datums(self, body):
         await self._ensure_mount_server()
-        pass
+        response = await self.client.fetch(
+            f"{self.address}/_mount_datums",
+            method="PUT",
+            body=json.dumps(body),
+        )
+        return response.body
 
-    async def config(self, request=None):
+    async def show_datum(self, body):
         await self._ensure_mount_server()
-        if request is None:
+        response = await self.client.fetch(
+            f"{self.address}/_show_datum",
+            method="PUT",
+            body=json.dumps(body),
+        )
+        return response.body
+
+    async def config(self, body=None):
+        await self._ensure_mount_server()
+        if body is None:
             try:
                 response = await self.client.fetch(f"{self.address}/config")
             except HTTPClientError as e:
@@ -148,7 +170,7 @@ class MountServerClient(MountInterface):
                     return json.dumps({"cluster_status": "INVALID"})
                 raise e
         else:
-            response = await self.client.fetch(f"{self.address}/config", method="PUT", body=json.dumps(request))
+            response = await self.client.fetch(f"{self.address}/config", method="PUT", body=json.dumps(body))
             
         return response.body
 
