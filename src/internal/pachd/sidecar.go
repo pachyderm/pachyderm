@@ -74,8 +74,8 @@ func (sb *SidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-// Build builds & starts a sidecar-mode pachd.
-func (sb *SidecarBuilder) Build(ctx context.Context) error {
+// BuildAndRun builds & starts a sidecar-mode pachd.
+func (sb *SidecarBuilder) BuildAndRun(ctx context.Context) error {
 	return sb.apply(ctx,
 		sb.initInternalServer,
 		sb.registerAuthServer,

@@ -62,8 +62,8 @@ func (pb *PausedBuilder) maybeRegisterIdentityServer(ctx context.Context) error 
 	return pb.builder.registerIdentityServer(ctx)
 }
 
-// Build builds and starts a paused-mode pachd.
-func (pb *PausedBuilder) Build(ctx context.Context) error {
+// BuildAndRun builds and starts a paused-mode pachd.
+func (pb *PausedBuilder) BuildAndRun(ctx context.Context) error {
 	pb.daemon.criticalServersOnly = pb.env.Config().RequireCriticalServersOnly
 	return pb.apply(ctx,
 		pb.setupDB,

@@ -57,8 +57,8 @@ func NewFullBuilder(config any) *FullBuilder {
 	return &FullBuilder{newBuilder(config, "pachyderm-pachd-full")}
 }
 
-// Build builds and starts a full-mode pachd.
-func (fb *FullBuilder) Build(ctx context.Context) error {
+// BuildAndRun builds and starts a full-mode pachd.
+func (fb *FullBuilder) BuildAndRun(ctx context.Context) error {
 	fb.daemon.criticalServersOnly = fb.env.Config().RequireCriticalServersOnly
 	return fb.apply(ctx,
 		fb.setupDB,

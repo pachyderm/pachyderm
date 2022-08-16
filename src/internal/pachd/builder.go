@@ -57,10 +57,13 @@ type bootstrapper interface {
 
 // A Builder builds a Daemon.
 type Builder interface {
-	// Build builds a Daemon and starts it up.
+	// BuildAndRun builds a Daemon and starts it up.
 	//
-	// TODO: split creation & execution.
-	Build(ctx context.Context) error
+	// TODO: split build & run.  This needs to be done in future work
+	// because there are implications for the rest of the codebase; several
+	// packages (e.g. Enterprise, PPS & PFS) spawn goroutines at service
+	// creation.
+	BuildAndRun(ctx context.Context) error
 }
 
 // builder provides the base daemon builder structure.

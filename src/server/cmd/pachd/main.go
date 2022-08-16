@@ -66,17 +66,17 @@ func doReadinessCheck(ctx context.Context, config interface{}) error {
 }
 
 func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewEnterpriseBuilder(config).Build(ctx))
+	return errors.EnsureStack(pachd.NewEnterpriseBuilder(config).BuildAndRun(ctx))
 }
 
 func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewSidecarBuilder(config).Build(ctx))
+	return errors.EnsureStack(pachd.NewSidecarBuilder(config).BuildAndRun(ctx))
 }
 
 func doFullMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewFullBuilder(config).Build(ctx))
+	return errors.EnsureStack(pachd.NewFullBuilder(config).BuildAndRun(ctx))
 }
 
 func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewPausedBuilder(config).Build(ctx))
+	return errors.EnsureStack(pachd.NewPausedBuilder(config).BuildAndRun(ctx))
 }

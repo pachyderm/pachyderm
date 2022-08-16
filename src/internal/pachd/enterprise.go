@@ -46,8 +46,8 @@ func NewEnterpriseBuilder(config any) *EnterpriseBuilder {
 	return &EnterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
 }
 
-// Build builds and starts an enterprise-mode pachd.
-func (eb *EnterpriseBuilder) Build(ctx context.Context) error {
+// BuildAndRun builds and starts an enterprise-mode pachd.
+func (eb *EnterpriseBuilder) BuildAndRun(ctx context.Context) error {
 	return eb.apply(ctx,
 		eb.setupDB,
 		eb.maybeInitDexDB,
