@@ -11,7 +11,6 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -48,13 +47,13 @@ func main() {
 		// empty string, but instead the reference is passed unchanged;
 		// because of this, '$(MODE)' should be recognized as an unset —
 		// i.e., default — mode.
-		cmdutil.Main(ctx, doFullMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.FullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(ctx, doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
+		cmdutil.Main(ctx, pachd.EnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
-		cmdutil.Main(ctx, doSidecarMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.SidecarMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
-		cmdutil.Main(ctx, doPausedMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, pachd.PausedMode, &serviceenv.PachdFullConfiguration{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
@@ -63,20 +62,4 @@ func main() {
 func doReadinessCheck(ctx context.Context, config interface{}) error {
 	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
 	return env.GetPachClient(ctx).Health()
-}
-
-func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewEnterpriseBuilder(config).BuildAndRun(ctx))
-}
-
-func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewSidecarBuilder(config).BuildAndRun(ctx))
-}
-
-func doFullMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewFullBuilder(config).BuildAndRun(ctx))
-}
-
-func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
-	return errors.EnsureStack(pachd.NewPausedBuilder(config).BuildAndRun(ctx))
 }

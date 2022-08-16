@@ -1,14 +1,17 @@
-// Package pachd implements the Pachyderm dæmon and its various modes.  The idea
-// is that there is a Builder for each mode; each Builder is responsible for
-// building and running an instance of the single type Daemon representing a
-// pachd instance.
+// Package pachd implements the Pachyderm dæmon and its various modes.
+//
+// Callers need only provide a context and a configuration.
 //
 // # Adding a new mode
 //
-// To add a new mode one will at least add a new Builder; one may also need to
-// add new members to Daemon.  Daemon should contain only those members needed
+// The idea is that there is a builder for each mode; each builder is
+// responsible for building and running an instance of the single type daemon
+// representing a pachd instance.
+//
+// To add a new mode one will at least add a new builder; one may also need to
+// add new members to daemon.  Daemon should contain only those members needed
 // at run time for any mode; other, transient, values should be members of the
-// pertinent Builder.
+// pertinent builder.
 package pachd
 
 import (
@@ -26,8 +29,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
-// Daemon is a Pachyderm daemon.
-type Daemon struct {
+// daemon is a Pachyderm daemon.
+type daemon struct {
 	// servers
 	internal, external *grpcutil.Server
 	s3                 *s3Server
@@ -37,7 +40,7 @@ type Daemon struct {
 	criticalServersOnly bool
 }
 
-func (d *Daemon) serve(ctx context.Context) (err error) {
+func (d *daemon) serve(ctx context.Context) (err error) {
 	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
 		if err != nil {
@@ -96,7 +99,7 @@ func maybeIgnoreErrorFunc(name string, required bool, f func() error) func() err
 	}
 }
 
-func (d Daemon) forGRPCServer(f func(*grpc.Server)) {
+func (d daemon) forGRPCServer(f func(*grpc.Server)) {
 	if d.internal != nil {
 		f(d.internal.Server)
 	}

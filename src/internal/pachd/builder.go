@@ -59,21 +59,10 @@ type envBootstrapper interface {
 	EnvBootstrap(context.Context) error
 }
 
-// A Builder builds a Daemon.
-type Builder interface {
-	// BuildAndRun builds a Daemon and starts it up.
-	//
-	// TODO: split build & run.  This needs to be done in future work
-	// because there are implications for the rest of the codebase; several
-	// packages (e.g. Enterprise, PPS & PFS) spawn goroutines at service
-	// creation.
-	BuildAndRun(ctx context.Context) error
-}
-
 // builder provides the base daemon builder structure.
 type builder struct {
 	env                serviceenv.ServiceEnv
-	daemon             Daemon
+	daemon             daemon
 	txnEnv             *transactionenv.TransactionEnv
 	licenseEnv         *licenseserver.Env
 	enterpriseEnv      *eprsserver.Env

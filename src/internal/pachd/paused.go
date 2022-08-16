@@ -11,21 +11,17 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
-// A PausedBuilder builds a paused-mode pachd.  It should only be created with
-// NewPausedBuilder.
-//
-// Paused mode is a restricted mode which runs Pachyderm read-only in order to
-// take offline backups.
-type PausedBuilder struct {
+// A pausedBuilder builds a paused-mode pachd.
+type pausedBuilder struct {
 	builder
 }
 
-// NewPausedBuilder returns an initialized PausedBuilder.
-func NewPausedBuilder(config any) *PausedBuilder {
-	return &PausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
+// newPausedBuilder returns an initialized PausedBuilder.
+func newPausedBuilder(config any) *pausedBuilder {
+	return &pausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
 }
 
-func (pb *PausedBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	pb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		pb.env,
 		path.Join(pb.env.Config().EtcdPrefix, pb.env.Config().EnterpriseEtcdPrefix),
@@ -55,15 +51,15 @@ func (pb *PausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-func (pb *PausedBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
+func (pb *pausedBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 	if pb.env.Config().EnterpriseMember {
 		return nil
 	}
 	return pb.builder.registerIdentityServer(ctx)
 }
 
-// BuildAndRun builds and starts a paused-mode pachd.
-func (pb *PausedBuilder) BuildAndRun(ctx context.Context) error {
+// buildAndRun builds and starts a paused-mode pachd.
+func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 	pb.daemon.criticalServersOnly = pb.env.Config().RequireCriticalServersOnly
 	return pb.apply(ctx,
 		pb.setupDB,
@@ -86,4 +82,12 @@ func (pb *PausedBuilder) BuildAndRun(ctx context.Context) error {
 		pb.resumeHealth,
 		pb.daemon.serve,
 	)
+}
+
+// PausedMode runs a paused-mode pachd.
+//
+// Paused mode is a restricted mode which runs Pachyderm read-only in order to
+// take offline backups.
+func PausedMode(ctx context.Context, config any) error {
+	return newPausedBuilder(config).buildAndRun(ctx)
 }

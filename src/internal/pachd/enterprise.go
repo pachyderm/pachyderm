@@ -10,16 +10,12 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
-// An EnterpriseBuilder builds an enterprise-mode pachd.  It should only be
-// created with NewEnterpriseBuilder.
-//
-// Enterprise mode is the enterprise server which is used to manage multiple
-// Pachyderm installations.
-type EnterpriseBuilder struct {
+// An enterpriseBuilder builds an enterprise-mode pachd.
+type enterpriseBuilder struct {
 	builder
 }
 
-func (eb *EnterpriseBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (eb *enterpriseBuilder) registerEnterpriseServer(ctx context.Context) error {
 	eb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		eb.env,
 		path.Join(eb.env.Config().EtcdPrefix, eb.env.Config().EnterpriseEtcdPrefix),
@@ -41,13 +37,13 @@ func (eb *EnterpriseBuilder) registerEnterpriseServer(ctx context.Context) error
 	return nil
 }
 
-// NewEnterpriseBuilder returns a new initialized EnterpriseBuilder.
-func NewEnterpriseBuilder(config any) *EnterpriseBuilder {
-	return &EnterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
+// newEnterpriseBuilder returns a new initialized EnterpriseBuilder.
+func newEnterpriseBuilder(config any) *enterpriseBuilder {
+	return &enterpriseBuilder{newBuilder(config, "pachyderm-pachd-enterprise")}
 }
 
-// BuildAndRun builds and starts an enterprise-mode pachd.
-func (eb *EnterpriseBuilder) BuildAndRun(ctx context.Context) error {
+// buildAndRun builds and starts an enterprise-mode pachd.
+func (eb *enterpriseBuilder) buildAndRun(ctx context.Context) error {
 	return eb.apply(ctx,
 		eb.setupDB,
 		eb.maybeInitDexDB,
@@ -68,4 +64,12 @@ func (eb *EnterpriseBuilder) BuildAndRun(ctx context.Context) error {
 		eb.resumeHealth,
 		eb.daemon.serve,
 	)
+}
+
+// EnterpriseMode runs an enterprise-mode pachd.
+//
+// Enterprise mode is the enterprise server which is used to manage multiple
+// Pachyderm installations.
+func EnterpriseMode(ctx context.Context, config any) error {
+	return newEnterpriseBuilder(config).buildAndRun(ctx)
 }

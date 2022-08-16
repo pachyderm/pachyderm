@@ -11,16 +11,12 @@ import (
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
-// A FullBuilder builds a full-mode pachd.  It should always be created with
-// NewFullBuilder.
-//
-// Full mode is that standard pachd which users interact with using pachctl and
-// which manages pipelines, files and so forth.
-type FullBuilder struct {
+// A fullBuilder builds a full-mode pachd.
+type fullBuilder struct {
 	builder
 }
 
-func (fb *FullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
+func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 
 	if fb.env.Config().EnterpriseMember {
 		return nil
@@ -28,7 +24,7 @@ func (fb *FullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 	return fb.builder.registerIdentityServer(ctx)
 }
 
-func (fb *FullBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
 	fb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		fb.env,
 		path.Join(fb.env.Config().EtcdPrefix, fb.env.Config().EnterpriseEtcdPrefix),
@@ -52,13 +48,13 @@ func (fb *FullBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-// NewFullBuilder returns a new initialized FullBuilder.
-func NewFullBuilder(config any) *FullBuilder {
-	return &FullBuilder{newBuilder(config, "pachyderm-pachd-full")}
+// newFullBuilder returns a new initialized FullBuilder.
+func newFullBuilder(config any) *fullBuilder {
+	return &fullBuilder{newBuilder(config, "pachyderm-pachd-full")}
 }
 
-// BuildAndRun builds and starts a full-mode pachd.
-func (fb *FullBuilder) BuildAndRun(ctx context.Context) error {
+// buildAndRun builds and starts a full-mode pachd.
+func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 	fb.daemon.criticalServersOnly = fb.env.Config().RequireCriticalServersOnly
 	return fb.apply(ctx,
 		fb.setupDB,
@@ -88,4 +84,12 @@ func (fb *FullBuilder) BuildAndRun(ctx context.Context) error {
 		fb.resumeHealth,
 		fb.daemon.serve,
 	)
+}
+
+// FullMode runs a full-mode pachd.
+//
+// Full mode is that standard pachd which users interact with using pachctl and
+// which manages pipelines, files and so forth.
+func FullMode(ctx context.Context, config any) error {
+	return newFullBuilder(config).buildAndRun(ctx)
 }

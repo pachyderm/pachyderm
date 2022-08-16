@@ -14,21 +14,17 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 )
 
-// SidecarBuilder builds a sidecar-mode pachd instance.  It should only be
-// created with NewSidecarBuilder.
-//
-// Sidecar mode is run as a sidecar in a pipeline pod; it provides services to
-// the pipeline worker code running in that pod.
-type SidecarBuilder struct {
+// sidecarBuilder builds a sidecar-mode pachd instance.
+type sidecarBuilder struct {
 	builder
 }
 
-// NewSidecarBuilder returns an initialized SidecarBuilder.
-func NewSidecarBuilder(config any) *SidecarBuilder {
-	return &SidecarBuilder{newBuilder(config, "pachyderm-pachd-sidecar")}
+// newSidecarBuilder returns an initialized SidecarBuilder.
+func newSidecarBuilder(config any) *sidecarBuilder {
+	return &sidecarBuilder{newBuilder(config, "pachyderm-pachd-sidecar")}
 }
 
-func (sb *SidecarBuilder) registerAuthServer(ctx context.Context) error {
+func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(authserver.EnvFromServiceEnv(sb.env, sb.txnEnv), false, false, false)
 	if err != nil {
 		return err
@@ -40,7 +36,7 @@ func (sb *SidecarBuilder) registerAuthServer(ctx context.Context) error {
 	return nil
 }
 
-func (sb *SidecarBuilder) registerPPSServer(ctx context.Context) error {
+func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
 	apiServer, err := pps_server.NewSidecarAPIServer(pps_server.EnvFromServiceEnv(sb.env, sb.txnEnv, nil),
 		sb.env.Config().Namespace,
 		sb.env.Config().PPSWorkerPort,
@@ -53,7 +49,7 @@ func (sb *SidecarBuilder) registerPPSServer(ctx context.Context) error {
 	return nil
 }
 
-func (sb *SidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
+func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	sb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		sb.env,
 		path.Join(sb.env.Config().EtcdPrefix, sb.env.Config().EnterpriseEtcdPrefix),
@@ -73,8 +69,8 @@ func (sb *SidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	return nil
 }
 
-// BuildAndRun builds & starts a sidecar-mode pachd.
-func (sb *SidecarBuilder) BuildAndRun(ctx context.Context) error {
+// buildAndRun builds & starts a sidecar-mode pachd.
+func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 	return sb.apply(ctx,
 		sb.initInternalServer,
 		sb.registerAuthServer,
@@ -90,4 +86,12 @@ func (sb *SidecarBuilder) BuildAndRun(ctx context.Context) error {
 		sb.internallyListen,
 		sb.daemon.serve,
 	)
+}
+
+// SidecarMode runs a sidecar-mode pachd.
+//
+// Sidecar mode is run as a sidecar in a pipeline pod; it provides services to
+// the pipeline worker code running in that pod.
+func SidecarMode(ctx context.Context, config any) error {
+	return newSidecarBuilder(config).buildAndRun(ctx)
 }
