@@ -24,6 +24,7 @@ def pachyderm_resources():
     from python_pachyderm.pfs import Commit
 
     repos = ["images", "edges", "montage"]
+    branches = ["master", "dev"]
     files = ["file1", "file2"]
 
     client = python_pachyderm.Client()
@@ -31,11 +32,12 @@ def pachyderm_resources():
 
     for repo in repos:
         client.create_repo(repo)
-        for file in files:
-            client.put_file_bytes(
-                Commit(repo=repo, branch="master"), file, value=b"some data"
-            )
-    yield repos, files
+        for branch in branches:
+            for file in files:
+                client.put_file_bytes(
+                    Commit(repo=repo, branch=branch), file, value=b"some data"
+                )
+    yield repos, branches, files
 
 
 @pytest.fixture(scope="module")
@@ -78,7 +80,7 @@ def dev_server():
 
 
 def test_list_repos(pachyderm_resources, dev_server):
-    repos, files = pachyderm_resources
+    repos, branches, _ = pachyderm_resources
 
     r = requests.get(f"{BASE_URL}/repos")
 
@@ -87,78 +89,217 @@ def test_list_repos(pachyderm_resources, dev_server):
         assert _repo.keys() == {"authorization", "branches", "repo"}
         assert _repo["repo"] in repos
         for _branch in _repo["branches"]:
-            assert _branch.keys() == {"branch", "mount"}
-            assert _branch["mount"][0].keys() == {
-                "name",
-                "state",
-                "status",
-                "mode",
-                "mountpoint",
-                "mount_key",
-            }
+            assert _branch in branches
+
+
+def test_list_mounts(pachyderm_resources, dev_server):
+    repos, branches, _ = pachyderm_resources
+
+    r = requests.put(
+        f"{BASE_URL}/_mount",
+        body=json.dumps({
+            "mounts": [
+                {
+                    "name": "mount1",
+                    "repo": repos[0],
+                }
+            ]
+        }),
+    )
+    assert r.status_code == 200
+
+    r = requests.get(f"{BASE_URL}/mounts")
+    assert r.status_code == 200
+
+    assert len(r.json()["mounted"]) == 1
+    for _, mount_info in r.json()["mounted"]:
+        assert mount_info.keys() == {
+            "name",
+            "repo",
+            "branch",
+            "commit",
+            "files",
+            "glob",
+            "mode",
+            "state",
+            "status",
+            "mountpoint",
+            "actual_mounted_commit",
+            "latest_commit",
+            "how_many_commits_behind"
+        }
+
+    for _repo, _repo_info in r.json()["unmounted"]:
+        assert _repo in repos
+        assert _repo_info.keys() == {"authorization", "branches", "repo"}
+        for _branch in _repo_info["branches"]:
+            assert _branch in branches
+    assert len(r.json()["unmounted"]) == len(repos)
 
 
 def test_mount(pachyderm_resources, dev_server):
-    repos, files = pachyderm_resources
+    repos, _, files = pachyderm_resources
 
-    # populate in-memory map of repos and mount states
-    # TODO automatically call list repos for mount
-    requests.get(f"{BASE_URL}/repos")
-
-    for repo in repos:
-        r = requests.put(
-            f"{BASE_URL}/repos/{repo}/_mount",
-            params={"name": repo},
-        )
-        assert r.status_code == 200
-        assert len(r.json()) == 3
-
-        for repo_info in r.json():
-            if repo_info["repo"] == repo:
-                assert repo_info["branches"][0]["mount"][0]["state"] == "mounted"
-
-        assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repo)))[0][2]) == sorted(
-            files
-        )
-
+    to_mount = {
+        "mounts": [
+            {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "mode": "rw",
+            },
+            {
+                "name": repos[0]+"_dev",
+                "repo": repos[0],
+                "branch": "dev",
+                "mode": "rw",
+            },
+            {
+                "name": repos[1],
+                "repo": repos[1],
+                "branch": "master",
+                "mode": "rw",
+            },
+        ]
+    }
     r = requests.put(
-        f"{BASE_URL}/repos/_unmount",
+        f"{BASE_URL}/_mount",
+        body=json.dumps(to_mount),
+    )
+    resp = r.json()
+    assert len(resp["mounted"]) == 3
+    assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
+    for _, mount_info in resp["mounted"]:
+        assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, mount_info["name"])))[0][2]) == sorted(files)
+    assert len(resp["unmounted"]) == 2
+    assert len(resp["unmounted"][repos[1]]["branches"]) == 1
+    assert len(resp["unmounted"][repos[2]]["branches"]) == 2
+    
+    
+    r = requests.put(
+        f"{BASE_URL}/_unmount_all",
     )
     assert r.status_code == 200
-    assert len(r.json()) == 3
-    assert r.json()[0]["branches"][0]["mount"][0]["state"] == "unmounted"
-
+    assert r.json()["mounted"] == {}
+    assert r.json()["unmounted"] == 3
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
 def test_unmount(pachyderm_resources, dev_server):
-    repos, files = pachyderm_resources
+    repos, branches, files = pachyderm_resources
 
-    # populate in-memory map of repos and mount states
-    # TODO automatically call list repos for mount
-    requests.get(f"{BASE_URL}/repos")
-
+    to_mount = {
+        "mounts": [
+            {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "mode": "rw",
+            },
+            {
+                "name": repos[0]+"_dev",
+                "repo": repos[0],
+                "branch": "dev",
+                "mode": "rw",
+            },
+        ]
+    }
     r = requests.put(
-        f"{BASE_URL}/repos/images/_mount",
-        params={"name": "images"},
+        f"{BASE_URL}/_mount",
+        body=json.dumps(to_mount),
     )
     assert r.status_code == 200
-    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, "images")))[0][2]) == sorted(
+    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]) == sorted(
         files
     )
+    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0]+"_dev")))[0][2]) == sorted(
+        files
+    )
+    assert len(r.json()["mounted"]) == 2
+    assert len(r.json()["unmounted"]) == 2
 
-    # unmount
     r = requests.put(
-        f"{BASE_URL}/repos/images/_unmount",
-        params={"name": "images"},
+        f"{BASE_URL}/_unmount",
+        body=json.dumps({
+            "mounts": [repos[0]+"_dev"]
+        }),
     )
     assert r.status_code == 200
+    assert len(r.json()["mounted"]) == 1
+    assert len(r.json()["unmounted"]) == 3
+    assert len(r.json()["unmounted"][repos[0]["branches"]]) == 1
 
-    for repo_info in r.json():
-        if repo_info["repo"] == "images":
-            assert repo_info["branches"][0]["mount"][0]["state"] == "unmounted"
-            
+    r = requests.put(
+        f"{BASE_URL}/_unmount",
+        body=json.dumps({
+            "mounts": [repos[0]]
+        }),
+    )
+    assert r.status_code == 200
+    assert len(r.json()["mounted"]) == 0
+    assert len(r.json()["unmounted"]) == 3
+    assert len(r.json()["unmounted"][repos[0]["branches"]]) == 2       
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
+
+
+def test_mount_datums(pachyderm_resources, dev_server):
+    repos, branches, files = pachyderm_resources
+    input_spec = {
+        "input": {
+            "cross": [
+                {
+                    "pfs": {
+                        "repo": repos[0],
+                        "glob": "/",
+                    }
+                },
+                {
+                    "pfs": {
+                        "repo": repos[1],
+                        "branch": "dev",
+                        "glob": "/*",
+                    }
+                },
+                {
+                    "pfs": {
+                        "repo": repos[2],
+                        "glob": "/*",
+                    }
+                },
+            ]
+        }
+    }
+
+    r = requests.put(
+        f"{BASE_URL}/_mount_datums",
+        body=json.dumps(input_spec),
+    )
+    assert r.status_code == 200
+    assert r.json()["idx"] == 0
+    assert r.json()["num_datums"] == 4
+    assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 4
+    datum0_id = r.json()["id"]
+
+    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]) == sorted(
+        files
+    )
+    assert repos[1]+"_dev" in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[2])))[0][2]) == 1
+
+    r = requests.put(
+        f"{BASE_URL}/_show_datum?idx=2",
+        body="{}",
+    )
+    assert r.status_code == 200
+    assert r.json()["idx"] == 2
+    assert r.json()["num_datums"] == 4
+    assert r.json()["id"] != datum0_id
+
+    r = requests.put(
+        f"{BASE_URL}/_unmount_all",
+        body="{}",
+    )
+    assert r.status_code == 200
 
 
 def test_config(dev_server):

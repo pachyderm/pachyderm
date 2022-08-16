@@ -20,7 +20,7 @@ class MountInterface:
     async def mount_datums(self, body):
         pass
 
-    async def show_datum(self, body):
+    async def show_datum(self, slug):
         pass
 
     async def config(self, body):

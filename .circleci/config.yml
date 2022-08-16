@@ -8,8 +8,8 @@ parameters:
     type: string
     # update this to build a different e.g. branch build of pachctl based on the git hash
     # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
-    default: 145bbdb3e6e16adc34f6d9e8da631a0b0cd4e10a
-    # Includes https://github.com/pachyderm/pachyderm/pull/7790
+    default: 93cb52e60821bd20353be6161756fe94dab62e45
+    # Includes https://github.com/pachyderm/pachyderm/pull/8052
 
 jobs:
   test:

@@ -130,16 +130,15 @@ class MountDatumsHandler(BaseHandler):
 
 class ShowDatumHandler(BaseHandler):
     @tornado.web.authenticated
-    async def put(self):
+    async def put(self, slug):
         try:
-            body = self.get_json_body()
-            response = await self.mount_client.show_datum(body)
+            response = await self.mount_client.show_datum(slug)
             get_logger().debug(f"Show datum: {response}")
             self.finish(response)
         except Exception as e:
-            get_logger().error(f"Error showing datum {body}", exc_info=True)
+            get_logger().error(f"Error showing datum {slug}", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error showing datum {body}: {e}."
+                status_code=getattr(e, "code", 500), reason=f"Error showing datum {slug}: {e}."
             )
     
 
@@ -264,7 +263,7 @@ def setup_handlers(web_app):
         ("/_commit", CommitHandler),
         ("/_unmount_all", UnmountAllHandler),
         ("/_mount_datums", MountDatumsHandler),
-        ("/_show_datum", ShowDatumHandler),
+        (r"/_show_datum?([^/]+)", ShowDatumHandler),
         (r"/pfs%s" % path_regex, PFSHandler),
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),

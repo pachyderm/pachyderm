@@ -151,12 +151,12 @@ class MountServerClient(MountInterface):
         )
         return response.body
 
-    async def show_datum(self, body):
+    async def show_datum(self, slug):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/_show_datum",
+            f"{self.address}/_show_datum/{slug}",
             method="PUT",
-            body=json.dumps(body),
+            body="{}",
         )
         return response.body
 
