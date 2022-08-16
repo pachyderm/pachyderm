@@ -881,19 +881,36 @@ func TestCrossDatum(t *testing.T) {
 		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo2_dev"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
+	})
+}
 
-		_, err = put("_unmount_all", nil)
+func TestUnionDatum(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	require.NoError(t, c.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	require.NoError(t, c.CreateRepo("repo2"))
+	commit = client.NewCommit("repo2", "dev", "")
+	err = c.PutFile(commit, "dir/file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file4", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte("{'input': {'union': [{'pfs': {'glob': '/', 'repo': 'repo1'}}, {'pfs': {'glob': '/*', 'repo': 'repo2', 'branch': 'dev'}}]}}}")
+		resp, err := put("_mount_datums", bytes.NewReader(input))
 		require.NoError(t, err)
 
-		input = []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*'}}}")
-		resp, err = put("_mount_datums", bytes.NewReader(input))
-		require.NoError(t, err)
-
-		mdr = &MountDatumResponse{}
+		mdr := &MountDatumResponse{}
 		json.NewDecoder(resp.Body).Decode(mdr)
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
-		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, 3, mdr.NumDatums)
 	})
 }
 

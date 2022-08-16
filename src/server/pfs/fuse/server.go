@@ -666,83 +666,81 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled)
 	})
-	router.Methods("PUT").
-		Path("/_show_datum").
-		HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			errMsg, webCode := initialChecks(mm, true)
-			if errMsg != "" {
-				http.Error(w, errMsg, webCode)
-				return
-			}
-			if len(mm.Datums) == 0 {
-				http.Error(w, "no datums mounted", http.StatusBadRequest)
-				return
-			}
+	router.Methods("PUT").Path("/_show_datum").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "no datums mounted", http.StatusBadRequest)
+			return
+		}
 
-			vs := req.URL.Query()
-			idxStr := vs.Get("idx")
-			id := vs.Get("id")
-			if idxStr == "" && id == "" {
-				http.Error(w, "need to specify either datum idx or id", http.StatusBadRequest)
+		vs := req.URL.Query()
+		idxStr := vs.Get("idx")
+		id := vs.Get("id")
+		if idxStr == "" && id == "" {
+			http.Error(w, "need to specify either datum idx or id", http.StatusBadRequest)
+			return
+		}
+		idx := 0
+		if idxStr != "" {
+			var err error
+			idx, err = strconv.Atoi(idxStr)
+			if err != nil {
+				http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
 				return
 			}
-			idx := 0
-			if idxStr != "" {
-				var err error
-				idx, err = strconv.Atoi(idxStr)
-				if err != nil {
-					http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
-					return
-				}
-			}
+		}
 
-			var di *pps.DatumInfo
-			if id != "" {
-				foundDatum := false
-				for idx, di = range mm.Datums {
-					if di.Datum.ID == id {
-						foundDatum = true
-						break
-					}
+		var di *pps.DatumInfo
+		if id != "" {
+			foundDatum := false
+			for idx, di = range mm.Datums {
+				if di.Datum.ID == id {
+					foundDatum = true
+					break
 				}
-				if !foundDatum {
-					http.Error(w, "specify a valid datum id", http.StatusBadRequest)
-					return
-				}
-			} else {
-				di = mm.Datums[idx]
 			}
-			mis := datumToMounts(di)
-			err := mm.UnmountAll()
+			if !foundDatum {
+				http.Error(w, "specify a valid datum id", http.StatusBadRequest)
+				return
+			}
+		} else {
+			di = mm.Datums[idx]
+		}
+		mis := datumToMounts(di)
+		err := mm.UnmountAll()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		err = removeOutDir(mm)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, mi := range mis {
+			_, err := mm.MountRepo(mi)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = removeOutDir(mm)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			for _, mi := range mis {
-				_, err := mm.MountRepo(mi)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-			}
+		}
 
-			resp := MountDatumResponse{
-				Id:        di.Datum.ID,
-				Idx:       idx,
-				NumDatums: len(mm.Datums),
-			}
-			marshalled, err := jsonMarshal(resp)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Write(marshalled)
-		})
+		resp := MountDatumResponse{
+			Id:        di.Datum.ID,
+			Idx:       idx,
+			NumDatums: len(mm.Datums),
+		}
+		marshalled, err := jsonMarshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled)
+	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
 		if errMsg != "" {
