@@ -1,0 +1,1 @@
+FROM bbtv/snowsql:latest

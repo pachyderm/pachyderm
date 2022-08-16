@@ -3,22 +3,29 @@
 package snowflake
 
 import (
+	"context"
 	_ "embed"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/pachyderm/pachyderm/v2/src/integrations/connectors/common"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 var (
 	//go:embed snowflake-read.jsonnet
-	snowflakeReadJsonnet string
-
+	readTemplate string
 	//go:embed snowflake-write.jsonnet
-	snowflakeWriteJsonnet string
+	writeTemplate string
 )
 
 func TestSnowflake(t *testing.T) {
@@ -43,17 +50,94 @@ func TestSnowflake(t *testing.T) {
 	}`, os.Getenv("SNOWFLAKE_PASSWORD")))
 	require.NoError(t, c.CreateSecret(b))
 
-	fmt.Println(snowflakeReadJsonnet)
-	fmt.Println(snowflakeWriteJsonnet)
+	// create ephemeral input and output databases
+	testutil.Cleanup = false
+	spec := snowflakeSpec{}
+	inDB, inDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	require.NoError(t, pachsql.CreateTestTable(inDB, "test_table", spec.testRow()))
+	outDB, outDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
+	require.NoError(t, pachsql.CreateTestTable(outDB, "test_table", spec.testRow()))
 
-	// - create input and output databases on Snowflake (ephemeral)
-	// dbIn, dbInName := testsnowflake.NewEphemeralSnowflakeDB(t)
-	// require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
-	// 	Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
-	// 	A  string `column:"A" dtype:"VARCHAR(100)"`
-	// }{}))
+	// load some example data into input table
+	tableName := "test_table"
+	nRows := 10
+	require.NoError(t, common.GenerateTestData(inDB, tableName, nRows, spec.testRow()))
 
-	// - load some example data into input table
-	// - create read pipeline that reads data from input table and writes to output repo
-	// - create write pipeline that reads files from read's output repo and writes to output table
+	// create read pipeline that reads data from input table and writes to output repo
+	ctx := context.Background()
+	readPipeline, writePipeline := "read", "write"
+	readPipelineTempl, err := c.RenderTemplate(ctx, &pps.RenderTemplateRequest{
+		Args: map[string]string{
+			// Pachyderm
+			"image":    "pachyderm/snowflake:local",
+			"name":     readPipeline,
+			"cronSpec": "@yearly", // we want to manually trigger this
+			// Snowflake
+			"account":    os.Getenv("SNOWFLAKE_ACCOUNT"),
+			"user":       os.Getenv("SNOWFLAKE_USER"),
+			"role":       os.Getenv("SNOWFLAKE_USER_ROLE"),
+			"warehouse":  "COMPUTE_WH",
+			"database":   inDBName,
+			"schema":     "public",
+			"query":      fmt.Sprintf("select * from %s", tableName),
+			"format":     "csv",
+			"outputFile": "test_table/test_table.csv",
+		},
+		Template: readTemplate,
+	})
+	require.NoError(t, err)
+	writePipelineTempl, err := c.RenderTemplate(ctx, &pps.RenderTemplateRequest{
+		Args: map[string]string{
+			// Pachyderm
+			"image":     "pachyderm/snowflake:local",
+			"inputRepo": readPipeline,
+			"name":      writePipeline,
+			// Snowflake
+			"account":     os.Getenv("SNOWFLAKE_ACCOUNT"),
+			"user":        os.Getenv("SNOWFLAKE_USER"),
+			"role":        os.Getenv("SNOWFLAKE_USER_ROLE"),
+			"warehouse":   "COMPUTE_WH",
+			"database":    outDBName,
+			"schema":      "public",
+			"table":       tableName,
+			"fileFormat":  `(type = csv field_optionally_enclosed_by = '0x22')`,
+			"copyOptions": "PURGE = true",
+		},
+		Template: writeTemplate,
+	})
+	require.NoError(t, err)
+	pipelineReader, err := ppsutil.NewPipelineManifestReader([]byte(fmt.Sprintf("[%s,%s]", readPipelineTempl.GetJson(), writePipelineTempl.GetJson())))
+	require.NoError(t, err)
+	for {
+		request, err := pipelineReader.NextCreatePipelineRequest()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		_, err = c.PpsAPIClient.CreatePipeline(ctx, request)
+		require.NoError(t, err)
+	}
+
+	// run cron job and wait for both pipelines to succeed
+	require.NoError(t, c.RunCron(readPipeline))
+	commitInfo, err := c.WaitCommit(readPipeline, "master", "")
+	require.NoError(t, err)
+	jobInfo, err := c.InspectJob(readPipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
+
+	files, err := c.ListFileAll(commitInfo.Commit, "/test_table")
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+
+	commitInfo, err = c.WaitCommit(writePipeline, "master", "")
+	require.NoError(t, err)
+	jobInfo, err = c.InspectJob(writePipeline, commitInfo.Commit.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
+
+	// finally verify that the target table actually has any data
+	var count int
+	require.NoError(t, outDB.QueryRow("select count(*) from test_table").Scan(&count))
+	require.Equal(t, 10, count)
 }
