@@ -31,5 +31,5 @@ To list your current env variables, you can include the command `env` in the `tr
 
 | Variable | Required | Type | Default | Description |
 |---|---|---|---|---|
-| PPS_WORKER_IP | Yes | string |  |  |
-| PPS_POD_NAME | Yes | string |  |  |
+| PPS_WORKER_IP | Yes | string |  | Contains the IP address of the PPS Worker  |
+| PPS_POD_NAME | Yes | string |  | Contains the pod name of the PPS worker.  |

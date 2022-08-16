@@ -33,7 +33,7 @@ You can set required configuration directly to your application using environmen
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="./pipeline-workers" class="md-typeset md-link">
+          <li><a href="./workers" class="md-typeset md-link">
           Read this article
           </a>
           </li>
