@@ -49,9 +49,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
-// A bootstrapper is a type which needs to have some bootstrap code run after
-// initialization and before the dæmon starts listening.
-type bootstrapper interface {
+// Am envBootstrapper is a type which needs to have some bootstrap code run
+// after initialization and before the dæmon starts listening.
+//
+// TODO: this could probably be formalized as part of splitting build & run for
+// the daemon: build the daemon by building its services, then run the daemon by
+// starting each service and finally starting the daemon itself.
+type envBootstrapper interface {
 	EnvBootstrap(context.Context) error
 }
 
@@ -80,7 +84,7 @@ type builder struct {
 	txn    transactionserver.APIServer
 	health *health.Server
 
-	bootstrappers []bootstrapper
+	bootstrappers []envBootstrapper
 }
 
 func (b *builder) apply(ctx context.Context, ff ...func(ctx context.Context) error) error {
