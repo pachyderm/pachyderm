@@ -257,7 +257,7 @@ nav:
         - Supported releases: reference/supported-releases.md   
         - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
-            reference/pachctl/pachctl.md
+            - reference/pachctl/pachctl.md
             - reference/pachctl/pachctl_auth.md
             - reference/pachctl/pachctl_auth_activate.md
             - reference/pachctl/pachctl_auth_check.md
