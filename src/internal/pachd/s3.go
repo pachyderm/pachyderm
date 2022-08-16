@@ -36,8 +36,7 @@ func (ss s3Server) listenAndServe(ctx context.Context) error {
 		}
 		cLoader := pachtls.NewCertLoader(certPath, keyPath, pachtls.CertCheckFrequency)
 		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
+		if err := cLoader.LoadAndStart(); err != nil {
 			errCh <- errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
 		}
 		srv.TLSConfig = &tls.Config{GetCertificate: cLoader.GetCertificate}
