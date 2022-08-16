@@ -655,9 +655,8 @@ workflows:
           filters:
             branches:
               only:
+                - 2.3.x
                 - master
-                - 2.1.x
-                - 2.2.x
     jobs:
       - nightly-load:
           matrix:
