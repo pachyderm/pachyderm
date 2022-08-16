@@ -49,7 +49,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
-// Am envBootstrapper is a type which needs to have some bootstrap code run
+// An envBootstrapper is a type which needs to have some bootstrap code run
 // after initialization and before the dæmon starts listening.
 //
 // TODO: this could probably be formalized as part of splitting build & run for
