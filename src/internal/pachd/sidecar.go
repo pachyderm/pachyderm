@@ -29,7 +29,6 @@ func NewSidecarBuilder(config any) *SidecarBuilder {
 }
 
 func (sb *SidecarBuilder) registerAuthServer(ctx context.Context) error {
-
 	apiServer, err := authserver.NewAuthServer(authserver.EnvFromServiceEnv(sb.env, sb.txnEnv), false, false, false)
 	if err != nil {
 		return err
