@@ -44,10 +44,10 @@ The following diagram describes the pipeline structure:
 
 To set up the pipeline, complete the following steps:
 
-1. Create the `data` repository:
+1. Create the `raw_data` repository:
 
    ```shell
-   $ pachctl create repo data
+   $ pachctl create repo raw_data
    ```
 
 1. Create the `parameters` repository:
