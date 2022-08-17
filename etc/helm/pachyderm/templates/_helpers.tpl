@@ -36,13 +36,23 @@ imagePullSecrets:
 {{- end }}
 {{- end -}}
 
-{{- define "pachyderm.ingressproto" -}}
+{{- define "pachyderm.hostproto" -}}
 {{- if or .Values.ingress.tls.enabled .Values.proxy.tls.enabled .Values.ingress.uriHttpsProtoOverride -}}
 https
 {{- else -}}
 http
 {{- end -}}
 {{- end }}
+
+{{- define "pachyderm.host" -}}
+{{- if .Values.ingress.enabled -}}
+{{ required "if ingress is enabled, an ingress.host is required" .Values.ingress.host }}
+{{- else if .Values.proxy.enabled -}}
+{{ .Values.proxy.host }}
+{{- end -}}
+{{- end }}
+
+
 
 {{- define "pachyderm.issuerURI" -}}
 {{- if .Values.oidc.issuerURI -}}
@@ -51,7 +61,7 @@ http
 {{- end -}}
 {{ .Values.oidc.issuerURI }}
 {{- else if and .Values.ingress.host .Values.ingress.enabled -}}
-{{- printf "%s://%s/dex" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- printf "%s://%s/dex" (include "pachyderm.hostproto" .) .Values.ingress.host -}}
 {{- else if .Values.proxy.enabled -}}
 http://pachd:30658/dex
 {{- else -}}
@@ -71,8 +81,8 @@ In deployments where the issuerURI is user accessible (ie. Via ingress) this wou
 {{- define "pachyderm.reactAppRuntimeIssuerURI" -}}
 {{- if .Values.console.config.reactAppRuntimeIssuerURI -}}
 {{ .Values.console.config.reactAppRuntimeIssuerURI }}
-{{- else if .Values.ingress.host -}}
-{{- printf "%s://%s" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- else if (include "pachyderm.host" .) -}}
+{{- printf "%s://%s" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
 {{- else if not .Values.ingress.enabled -}}
 http://localhost:30658
 {{- end }}
@@ -81,8 +91,8 @@ http://localhost:30658
 {{- define "pachyderm.consoleRedirectURI" -}}
 {{- if .Values.console.config.oauthRedirectURI -}}
 {{ .Values.console.config.oauthRedirectURI }}
-{{- else if .Values.ingress.host -}}
-{{- printf "%s://%s/oauth/callback/?inline=true" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- else if (include "pachyderm.host" .) -}}
+{{- printf "%s://%s/oauth/callback/?inline=true" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
 {{- else if not .Values.ingress.enabled -}}
 http://localhost:4000/oauth/callback/?inline=true
 {{- else -}}
@@ -93,8 +103,8 @@ http://localhost:4000/oauth/callback/?inline=true
 {{- define "pachyderm.pachdRedirectURI" -}}
 {{- if .Values.pachd.oauthRedirectURI -}}
 {{ .Values.pachd.oauthRedirectURI -}}
-{{- else if .Values.ingress.host -}}
-{{- printf "%s://%s/authorization-code/callback" (include "pachyderm.ingressproto" .) .Values.ingress.host -}}
+{{- else if (include "pachyderm.host" .) -}}
+{{- printf "%s://%s/authorization-code/callback" (include "pachyderm.hostproto" .) (include "pachyderm.host" .) -}}
 {{- else if not .Values.ingress.enabled -}}
 http://localhost:30657/authorization-code/callback
 {{- else -}}
@@ -117,18 +127,16 @@ pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
   {{- end -}}
 {{- else if .Values.pachd.activateEnterpriseMember -}}
 false
-{{- else if not .Values.ingress.enabled -}}
+{{- else -}}
 true
-{{- else if .Values.ingress.host -}}
-false
 {{- end -}}
 {{- end }}
 
 {{- define "pachyderm.userAccessibleOauthIssuerHost" -}}
 {{- if .Values.oidc.userAccessibleOauthIssuerHost -}}
 {{ .Values.oidc.userAccessibleOauthIssuerHost }}
-{{- else if .Values.ingress.host -}}
-{{- .Values.ingress.host -}}
+{{- else if (include "pachyderm.host" .) -}}
+{{- (include "pachyderm.host" .) -}}
 {{- else  -}}
 localhost:30658
 {{- end -}}
