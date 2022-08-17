@@ -117,10 +117,8 @@ pachd-peer.{{ .Release.Namespace }}.svc.cluster.local:30653
   {{- end -}}
 {{- else if .Values.pachd.activateEnterpriseMember -}}
 false
-{{- else if not .Values.ingress.enabled -}}
+{{- else -}}
 true
-{{- else if .Values.ingress.host -}}
-false
 {{- end -}}
 {{- end }}
 
