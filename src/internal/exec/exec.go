@@ -69,3 +69,22 @@ func WaitOrStop(ctx context.Context, cmd *exec.Cmd, interrupt os.Signal, killDel
 	}
 	return errors.Errorf("exec/WaitOrStop wait error: %v", waitErr)
 }
+
+//func (c *Cmd) WaitIO(state *os.ProcessState, err error) (retErr error) {
+//	if c.waitDone != nil {
+//		close(c.waitDone)
+//	}
+//	c.ProcessState = state
+//	if err != nil {
+//		return err
+//	} else if !state.Success() {
+//		return &ExitError{ProcessState: state}
+//	}
+//	for range c.goroutine {
+//		if err := <-c.errch; err != nil && retErr == nil {
+//			retErr = err
+//		}
+//	}
+//	c.closeDescriptors(c.closeAfterWait)
+//	return retErr
+//}
