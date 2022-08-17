@@ -22,7 +22,7 @@ jobs:
       - checkout
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip<< parameters.python-version >>-cache-v10-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -31,7 +31,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip<< parameters.python-version >>-cache-v10-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
+          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
@@ -60,7 +60,7 @@ jobs:
             tail -F /tmp/pachctl-mount-server.log &
 
             # Run Python unit tests
-            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
+            pytest -v jupyterlab_pachyderm/tests/test_handlers.py
 
             check-manifest -v
 
@@ -146,7 +146,7 @@ jobs:
 
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -155,7 +155,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
 
@@ -193,7 +193,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -202,7 +202,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
       - run:
@@ -226,7 +226,7 @@ jobs:
           at: .
       # Install and cache Python dependencies
       - restore_cache:
-          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
       - run:
           name: 'Install Python dependencies'
           command: |
@@ -235,7 +235,7 @@ jobs:
             python -m pip install --upgrade pip
             python -m pip install -r ci-requirements.txt
       - save_cache:
-          key: pip3.10-cache-v10-{{ checksum "ci-requirements.txt" }}
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
           paths:
             - 'venv'
       - run:
