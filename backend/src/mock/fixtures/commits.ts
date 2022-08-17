@@ -81,6 +81,36 @@ const tutorial = [
   }),
   commitInfoFromObject({
     commit: {
+      id: '0218ac9d5daa76b86e3bb5e88e4c43a5',
+      branch: {
+        name: 'master',
+        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+      },
+    },
+    description: 'in progress 2',
+    sizeBytes: 100,
+    started: {
+      seconds: 1614133389,
+      nanos: 0,
+    },
+  }),
+  commitInfoFromObject({
+    commit: {
+      id: '0518ac9d5daa76b86e3bb5e88e4c43a5',
+      branch: {
+        name: 'master',
+        repo: {name: repos['3'][0].getRepo()?.getName() || ''},
+      },
+    },
+    description: 'in progress 3',
+    sizeBytes: 100,
+    started: {
+      seconds: 1614133389,
+      nanos: 0,
+    },
+  }),
+  commitInfoFromObject({
+    commit: {
       id: 'f4e23cf347c342d98bd9015e4c3ad52a',
       branch: {
         name: 'master',

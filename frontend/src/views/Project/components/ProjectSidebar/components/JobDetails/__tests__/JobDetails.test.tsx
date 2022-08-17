@@ -158,7 +158,7 @@ describe('Job Details', () => {
       '',
       '',
       jobRoute({
-        projectId: '3',
+        projectId: '1',
         jobId: '33b9af7d5d4343219bc8e02ff44cd55a',
         pipelineId: 'montage',
       }),
@@ -209,7 +209,7 @@ describe('Job Details', () => {
       '',
       '',
       jobRoute({
-        projectId: '3',
+        projectId: '1',
         jobId: '33b9af7d5d4343219bc8e02ff44cd55a',
         pipelineId: 'montage',
       }),

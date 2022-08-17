@@ -5,5 +5,6 @@ declare namespace Cypress {
     authenticatePachctl(): Chainable<any>;
     setupProject(projectTemplate?: string): Chainable<any>;
     deleteReposAndPipelines(): Chainable<any>;
+    isInViewport(element: () => Cypress.Chainable<JQuery<HTMLElement>>): Chainable<any>;
   }
 }

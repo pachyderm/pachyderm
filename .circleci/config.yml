@@ -35,6 +35,18 @@ jobs:
             - run: cd frontend && npm run test -- --collect-coverage
             - codecov/upload:
                   file: frontend/coverage/lcov.info
+    e2e-mock-test:
+        resource_class: xlarge
+        machine:
+            image: ubuntu-2004:202201-02
+        steps:
+            - checkout
+            - run: make ci
+            - run: make launch-mock & CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-mock
+            - store_artifacts:
+                  path: /tmp/cypress-screenshots
+            - store_artifacts:
+                  path: /tmp/cypress-videos
     e2e-test:
         resource_class: xlarge
         machine:
@@ -237,6 +249,7 @@ workflows:
             - backend-test
             - frontend-test
             - e2e-test
+            - e2e-mock-test
             - check-types
             - build
     load-test:

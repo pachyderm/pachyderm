@@ -47,7 +47,7 @@ const Landing: React.FC = () => {
         />
       ) : null}
       <div className={styles.base}>
-        <View>
+        <View data-testid="Landing__view">
           <TableView title="Projects" errorMessage="Error loading projects">
             <TableView.Header heading="Projects" headerButtonHidden />
             <TableView.Body

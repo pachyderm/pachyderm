@@ -184,6 +184,9 @@ describe('JobList', () => {
     const failureButton = getByText(/Failure \(\d\)/);
     click(failureButton);
 
+    const killedButton = getByText(/Killed \(\d\)/);
+    click(killedButton);
+
     expect(await findByText('Select Job Filters Above :)')).toBeInTheDocument();
   });
 

@@ -86,6 +86,225 @@ const tutorial = [
   }),
 ];
 
+const cron = [
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '290989c8a294ce1064041f0caa405c85',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '290989c8a294ce1064041f0caa405c85',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_KILLED,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '249a1835a00b64422e30a0fdcb32deaf',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '249a1835a00b64422e30a0fdcb32deaf',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_FAILURE,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: 'abdf311864379b0cedd95932628935a0',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: 'abdf311864379b0cedd95932628935a0',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 100,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: 'a7811954e2828d76b4642ac214f2a0e6',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: 'a7811954e2828d76b4642ac214f2a0e6',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '24fcfa133462bfcf3bbecfdc43614349',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '24fcfa133462bfcf3bbecfdc43614349',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '85c09e20958ac73f8005b37815f747a9',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '85c09e20958ac73f8005b37815f747a9',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '7be17147600af973b162ad795e09ac80',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '7be17147600af973b162ad795e09ac80',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '6dd9d64968e97d35821ce84fd03c8fef',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '6dd9d64968e97d35821ce84fd03c8fef',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+  jobInfoFromObject({
+    state: JobState.JOB_SUCCESS,
+    createdAt: {seconds: 1616533099, nanos: 100},
+    startedAt: {seconds: 1616533100, nanos: 100},
+    finishedAt: {seconds: 1616533103, nanos: 100},
+    job: {
+      id: '2ca0773cbc32b569b27450e4f13adf65',
+      pipeline: {name: 'processor'},
+    },
+    input: {
+      pfs: {repo: 'cron', name: 'cron', branch: 'master'},
+    },
+    outputCommit: {
+      id: '2ca0773cbc32b569b27450e4f13adf65',
+      branch: {
+        name: 'master',
+        repo: {
+          name: 'processor',
+        },
+      },
+    },
+    dataFailed: 0,
+    dataTotal: 100,
+  }),
+];
+
 const customerTeam = [
   jobInfoFromObject({
     state: JobState.JOB_FAILURE,
@@ -171,7 +390,7 @@ const getLoadJobs = (jobCount: number) => {
 const jobs: {[projectId: string]: JobInfo[]} = {
   '1': tutorial,
   '2': customerTeam,
-  '3': tutorial,
+  '3': cron,
   '4': customerTeam,
   '5': [],
   '6': [],

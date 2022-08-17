@@ -49,7 +49,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
   } = useInfoPanel();
 
   return (
-    <div className={styles.base}>
+    <div className={styles.base} data-testid="InfoPanel__description">
       <div className={styles.section}>
         <div className={styles.stateHeader}>
           <div className={styles.state}>

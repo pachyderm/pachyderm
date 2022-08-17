@@ -120,3 +120,13 @@ Cypress.Commands.add('deleteReposAndPipelines', () => {
     .exec('pachctl delete pipeline --all --force')
     .exec('pachctl delete repo --all --force')
 })
+
+Cypress.Commands.add('isInViewport', element => {
+  element().then($el => {
+    const bottom = Cypress.$(cy.state('window')).height();
+    const rect = $el[0].getBoundingClientRect();
+
+    expect(rect.top).not.to.be.greaterThan(bottom);
+    expect(rect.bottom).not.to.be.greaterThan(bottom);
+  })
+})

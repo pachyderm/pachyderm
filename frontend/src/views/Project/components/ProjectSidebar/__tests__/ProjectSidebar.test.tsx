@@ -378,7 +378,7 @@ describe('ProjectSidebar', () => {
     const {findByLabelText, queryAllByText} = render(<Project />);
 
     const hideAutoCommits = await findByLabelText('Auto Commits');
-    expect(queryAllByText('View Files').length).toBe(4);
+    expect(queryAllByText('View Files').length).toBe(6);
     userEvent.click(hideAutoCommits);
     await waitFor(() => expect(queryAllByText('View Files').length).toBe(2));
   });
