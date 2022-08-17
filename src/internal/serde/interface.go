@@ -1,14 +1,14 @@
 // Package serde contains Pachyderm-specific data structures for marshalling and
 // unmarshalling Go structs and maps to structured text formats (currently just
-// JSON and YAML).
+// JSON via [JSONEncoder] and YAML via [YAMLEncoder]).
 //
 // Similar to https://github.com/ghodss/yaml, all implementations of the Format
 // interface marshal and unmarshal data using the following pipeline:
 //
-//    Go struct/map (fully structured)
-//      <-> JSON document
-//      <-> map[string]interface{}
-//      <-> target format document
+//	Go struct/map (fully structured)
+//	  <-> JSON document
+//	  <-> map[string]interface{}
+//	  <-> target format document
 //
 // Despite the redundant round of marshalling and unmarshalling, there are two
 // main advantages to this approach:
@@ -68,17 +68,17 @@ func WithIndent(numSpaces int) func(d Encoder) {
 // 'encoding' (currently, 'encoding' must be "yaml" or "json").
 // 'defaultEncoding' specifies the text format that should be used if 'encoding'
 // is "". 'opts' are the list of options that should be applied to any result,
-// if any are applicable.  Typically EncoderOptions are encoder-specific (e.g.
+// if any are applicable. Typically EncoderOptions are encoder-specific (e.g.
 // setting json indentation). If an option is passed to GetEncoder for e.g. a
 // json encoder but a yaml encoder is requested, then the option will be
 // ignored. This makes it possible to pass all options to GetEncoder, but defer
 // the decision about what kind of encoding to use until runtime, like so:
 //
-// enc, _ := GetEncoder(outputFlag, os.Stdout,
-//     ...options to use if json...,
-//     ...options to use if yaml...,
-// )
-// enc.Encode(obj)
+//	enc, _ := GetEncoder(outputFlag, os.Stdout,
+//		...options to use if json...,
+//		...options to use if yaml...,
+//	)
+//	enc.Encode(obj)
 func GetEncoder(encoding string, w io.Writer, opts ...EncoderOption) (Encoder, error) {
 	switch encoding {
 	case "yaml":

@@ -5,10 +5,9 @@
 // of two common markup languages.
 //
 // In general, the way Pachyderm decodes a struct from YAML is to:
-// 1) Parse YAML to a generic interface{}
-// 2) Serialize that interface{} to JSON
-// 3) Parse the JSON using encoding/json or, in the case of protobufs, using
-//    Google's 'jsonpb' library.
+// 	1) Parse YAML to a generic interface{}
+// 	2) Serialize that interface{} to JSON
+// 	3) Parse the JSON using encoding/json or, in the case of protobufs, using Google's 'jsonpb' library.
 //
 // This approach works around a lot of Go's inherent deserialization quirks
 // (e.g. generated protobuf structs including 'json' struct tags but not 'yaml'
