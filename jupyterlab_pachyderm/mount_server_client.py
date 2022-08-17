@@ -16,7 +16,7 @@ MOUNT_SERVER_PORT = 9002
 
 
 class MountServerClient(MountInterface):
-    """Client interface for the pachctl mount-server backend."""
+    """Client interface for the mount-server backend."""
 
     def __init__(
         self,
@@ -81,7 +81,7 @@ class MountServerClient(MountInterface):
                         "bash", "-c",
                         "set -o pipefail; "
                         +f"mount-server --mount-dir {self.mount_dir}"
-                        +" >> /tmp/pachctl-mount-server.log 2>&1",
+                        +" >> /tmp/mount-server.log 2>&1",
                     ],
                     env={
                         "KUBECONFIG": os.path.expanduser('~/.kube/config')
@@ -153,8 +153,9 @@ class MountServerClient(MountInterface):
 
     async def show_datum(self, slug):
         await self._ensure_mount_server()
+        slug = '&'.join(f"{k}={v}" for k,v in slug.items() if v is not None)
         response = await self.client.fetch(
-            f"{self.address}/_show_datum/{slug}",
+            f"{self.address}/_show_datum?{slug}",
             method="PUT",
             body="{}",
         )

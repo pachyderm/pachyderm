@@ -432,9 +432,9 @@ async def test_show_datum(mock_client, jp_fetch):
     })
 
     r = await jp_fetch(
-        f"/{NAMESPACE}/{VERSION}/_show_datum?idx=2",
+        f"/{NAMESPACE}/{VERSION}/_show_datum",
         method="PUT",
-        body="{}"
+        body=json.dumps({"idx": "2"})
     )
 
     assert json.loads(r.body) == {

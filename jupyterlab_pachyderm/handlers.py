@@ -130,8 +130,12 @@ class MountDatumsHandler(BaseHandler):
 
 class ShowDatumHandler(BaseHandler):
     @tornado.web.authenticated
-    async def put(self, slug):
+    async def put(self):
         try:
+            slug = {
+                "idx": self.get_argument("idx", None),
+                "id": self.get_argument("id", None)
+            }
             response = await self.mount_client.show_datum(slug)
             get_logger().debug(f"Show datum: {response}")
             self.finish(response)
@@ -263,7 +267,7 @@ def setup_handlers(web_app):
         ("/_commit", CommitHandler),
         ("/_unmount_all", UnmountAllHandler),
         ("/_mount_datums", MountDatumsHandler),
-        (r"/_show_datum?([^/]+)", ShowDatumHandler),
+        (r"/_show_datum", ShowDatumHandler),
         (r"/pfs%s" % path_regex, PFSHandler),
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),
