@@ -222,10 +222,6 @@ describe('Image Processing', () => {
 
     click(completeStoryButton);
 
-    const surveyCloseButton = await findByTestId('ModalFooter__cancel');
-    expect(surveyCloseButton).toBeInTheDocument();
-    click(surveyCloseButton);
-
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });

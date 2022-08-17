@@ -1,4 +1,3 @@
-import {useModal} from '@pachyderm/components';
 import {useCallback} from 'react';
 
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
@@ -13,16 +12,12 @@ const useImageProcessing = () => {
     key: 'active_tutorial',
   });
 
-  const {openModal: openExitSurvey, isOpen: isExitSurveyOpen} = useModal(false);
-
   const closeTutorial = useCallback(() => {
     updateViewState({tutorialId: undefined});
     setActiveTutorial(null);
   }, [setActiveTutorial, updateViewState]);
 
   return {
-    isExitSurveyOpen,
-    openExitSurvey,
     closeTutorial,
   };
 };
