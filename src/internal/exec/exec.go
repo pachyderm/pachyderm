@@ -2,10 +2,11 @@ package exec
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // Code is coming from: https://cs.opensource.google/go/x/build/+/master:internal/internal.go;l=28-86;drc=fa5c6e87e680b621066712172cd92426fb206416
@@ -64,7 +65,7 @@ func WaitOrStop(ctx context.Context, cmd *exec.Cmd, interrupt os.Signal, killDel
 
 	waitErr := cmd.Wait()
 	if interruptErr := <-errc; interruptErr != nil {
-		return fmt.Errorf("exec/WaitOrStop interupt error: %v", interruptErr)
+		return errors.Errorf("exec/WaitOrStop interupt error: %v", interruptErr)
 	}
-	return fmt.Errorf("exec/WaitOrStop wait error: %v", waitErr)
+	return errors.Errorf("exec/WaitOrStop wait error: %v", waitErr)
 }
