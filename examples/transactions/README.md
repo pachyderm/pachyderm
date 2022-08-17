@@ -17,14 +17,14 @@ algorithm. The Pachyderm documentation includes a
 that describes how this computation works in Pachyderm.
 
 In the hyperparameter example, training data is submitted
-to the `data` repository, and the parameters are stored
+to the `raw_data` repository, and the parameters are stored
 in the `parameters` repository. In that example, the
 data processing takes seconds and, therefore, you can
 run this operation for every commit without being worried
 about the use of resources. But, if your
 data processing takes significant time,
 you might want to optimize Pachyderm to run the pipeline against
-specific commits in the `data` and `parameters` repositories.
+specific commits in the `raw_data` and `parameters` repositories.
 You can do so by using transactions.
 
 ## Set up the Hyperparameter Example
@@ -34,13 +34,13 @@ will use transactions on the `model` pipeline step from the
 [hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter).
 In this transaction example, we omit the splitting step and
 have just the `model` pipeline that consumes commits from
-the `data` and `parameters` repositories and outputs the
+the `raw_data` and `parameters` repositories and outputs the
 result to the `model` repository. You can adapt this example
 to your pipelines as needed.
 
 The following diagram describes the pipeline structure:
 
-![transactions diagram](../../doc/docs/master/assets/images/d_transactions_hyperparameter.svg)
+![transactions diagram](../../doc/docs/master/assets/images/examples_transaction.svg)
 
 To set up the pipeline, complete the following steps:
 
@@ -50,13 +50,13 @@ To set up the pipeline, complete the following steps:
    $ pachctl create repo raw_data
    ```
 
-1. Create the `parameters` repository:
+2. Create the `parameters` repository:
 
    ```shell
    $ pachctl create repo parameters
    ```
 
-1. Verify that the repositories were successfully created:
+3. Verify that the repositories were successfully created:
 
    ```shell
    $ pachctl list repo
@@ -65,25 +65,25 @@ To set up the pipeline, complete the following steps:
    raw_data   44 minutes ago 6.858KiB
    ```
 
-1. Clone the Pachyderm repository:
+4. Clone the Pachyderm repository:
 
    ```shell
    $ git clone git@github.com:pachyderm/pachyderm.git
    ```
 
-1. Change the directory to `examples/transactions`:
+5. Change the directory to `examples/transactions`:
 
    ```shell
    $ cd examples/transactions/
    ```
 
-1. Create the `model` pipeline:
+6. Create the `model` pipeline:
 
    ```shell
    $ pachctl create pipeline -f model.json
    ```
 
-1. Verify that the pipeline has been created:
+7. Verify that the pipeline has been created:
 
    ```shell
    $ pachctl list pipeline
