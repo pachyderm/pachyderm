@@ -57,7 +57,7 @@ jobs:
             npm run eslint:check
             python -m pip install -e '.[dev]'
 
-            tail -F /tmp/pachctl-mount-server.log &
+            tail -F /tmp/mount-server.log &
 
             # Run Python unit tests
             pytest -v jupyterlab_pachyderm/tests/test_handlers.py
@@ -82,7 +82,7 @@ jobs:
 
             nohup pachctl port-forward &
 
-            tail -F /tmp/pachctl-mount-server.log &
+            tail -F /tmp/mount-server.log &
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
@@ -123,7 +123,7 @@ jobs:
             pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
             pachctl list repo
 
-            tail -F /tmp/pachctl-mount-server.log &
+            tail -F /tmp/mount-server.log &
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
             mount-server --mount-dir $PFS_MOUNT_DIR &
