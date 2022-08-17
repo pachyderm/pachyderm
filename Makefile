@@ -108,10 +108,10 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	docker build -t kafka-demo etc/testing/kafka
+	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t kafka-demo etc/testing/kafka
 
 docker-build-spout-test:
-	docker build -t spout-test etc/testing/spout
+	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
 
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
