@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-
 	"math"
 	"net"
 	"net/http"
@@ -7094,7 +7093,7 @@ func TestServiceEnvVars(t *testing.T) {
 		if resp.StatusCode != 200 {
 			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
-		envValue, err = ioutil.ReadAll(resp.Body)
+		envValue, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
