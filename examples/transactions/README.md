@@ -136,15 +136,23 @@ To run the transaction, complete the following steps:
    into a separate file:
 
    ```shell
-   $ pachctl put file parameters@master -f c_parameters.txt --split line --target-file-datums 1
-   $ pachctl put file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
+   mkdir c_parameters
+   cd c_parameters
+   split -l 1 ../c_parameters.txt
+   cd ..
+   mkdir gamma_parameters 
+   cd gamma_parameters
+   split -l 1 ../gamma_parameters.txt
+   cd ..
+   pachctl put file -r parameters@master -f c_parameters
+   pachctl put file -r parameters@master -f gamma_parameters
    ```
 
    ```shell
    $ pachctl list file parameters@master
    NAME                  TYPE SIZE
-   /c_parameters.txt     dir  81B
-   /gamma_parameters.txt dir  42B
+   /c_parameters/        dir  81B  
+   /gamma_parameters/    dir  42B 
    ```
 
    **Note:** Although the files are in the repository, no jobs were
@@ -159,7 +167,7 @@ To run the transaction, complete the following steps:
 1. Add the data to the `raw_data` repository:
 
    ```shell
-   $ pachctl put file raw_data@master:iris.csv -f noisy_iris.csv
+   $ pachctl put file raw_data@master:iris.csv -f iris.csv
    ```
 
    If you check whether the pipeline has run or not, you
