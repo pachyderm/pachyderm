@@ -2,12 +2,12 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  padding-top: 1rem;
   width: 100%;
 }
 
 .listScroll {
   overflow-y: auto;
-  max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
 }
 
 .loadingDots {

@@ -38,17 +38,19 @@ const ProjectJobList: React.FC = () => {
       {jobSetsLoading ? (
         <LoadingDots />
       ) : (
-        <JobList
-          projectId={projectId}
-          jobs={filteredJobSets}
-          loading={jobSetsLoading}
-          error={error}
-          showStatusFilter
-          emptyStateTitle={LETS_START_TITLE}
-          emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
-          cardStyle
-          selectJobByDefault
-        />
+        <div className={styles.jobList}>
+          <JobList
+            projectId={projectId}
+            jobs={filteredJobSets}
+            loading={jobSetsLoading}
+            error={error}
+            showStatusFilter
+            emptyStateTitle={LETS_START_TITLE}
+            emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
+            cardStyle
+            selectJobByDefault
+          />
+        </div>
       )}
       <ProjectSidebar resizable={false} />
     </div>

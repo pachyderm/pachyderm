@@ -26,7 +26,7 @@ const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
     usePipelineDetails();
 
   return (
-    <div className={styles.base}>
+    <>
       <Helmet>
         <title>Pipeline - Pachyderm Console</title>
       </Helmet>
@@ -65,7 +65,7 @@ const PipelineDetails: React.FC<PipelineDetailsProps> = ({dagLinks}) => {
           {viewState.globalIdFilter ? <InfoPanel /> : <PipelineJobs />}
         </Tabs.TabPanel>
       </Tabs.RouterTabs>
-    </div>
+    </>
   );
 };
 

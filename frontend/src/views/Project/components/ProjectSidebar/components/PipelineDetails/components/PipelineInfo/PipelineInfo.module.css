@@ -2,8 +2,6 @@
   padding: 1.5625rem;
   padding-bottom: 0rem;
   margin-top: -1.25rem;
-  overflow-y: auto;
-  max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
 }
 
 .input {

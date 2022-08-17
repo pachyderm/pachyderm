@@ -1,11 +1,10 @@
 .pipelineList {
   position: relative;
-  margin-top: 0.75rem;
+  padding: 0.75rem 0;
   list-style: none;
   margin-left: 0;
   margin-right: 0;
-  padding: 0;
-  max-height: calc(100vh - var(--header-height) - var(--sidebar-header-height));
+  height: 100%;
   overflow-y: auto;
 }
 

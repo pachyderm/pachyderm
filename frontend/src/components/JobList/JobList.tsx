@@ -13,7 +13,6 @@ import EmptyState from '../EmptyState';
 import JobListStatic from './components/JobListStatic';
 import JobListStatusFilter from './components/JobListStatusFilter';
 import useJobFilters from './hooks/useJobFilters';
-import styles from './JobList.module.css';
 
 const noJobFiltersTitle = 'Select Job Filters Above :)';
 const noJobFiltersMessage =
@@ -66,7 +65,7 @@ const JobList: React.FC<JobListProps> = ({
   }, [browserHistory, jobId, jobs, projectId, selectJobByDefault]);
 
   return (
-    <div className={classnames(styles.base, {[styles.cardStyle]: cardStyle})}>
+    <>
       <Helmet>
         <title>Jobs - Pachyderm Console</title>
       </Helmet>
@@ -92,7 +91,7 @@ const JobList: React.FC<JobListProps> = ({
           cardStyle={cardStyle}
         />
       )}
-    </div>
+    </>
   );
 };
 
