@@ -135,7 +135,9 @@ var _ File = &FileReader{}
 
 // FileSet represents a set of files.
 type FileSet interface {
-	// Iterate iterates over the files in the file set.
+	// Iterate iterates over the files in the file set. The deletive argument provides iteration over the files
+	// deleted by the file set (whether or not they are subsequently written to),
+	// rather than the final state of the file system.
 	Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error
 	// TODO: Implement IterateDeletes or pull deletion information out of the fileset API.
 }

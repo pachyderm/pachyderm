@@ -5,9 +5,10 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/storage/file
 
 import "internal/storage/chunk/chunk.proto";
 
-// Index stores an index to and metadata about a file.
+// Index stores an index to and metadata about a file or range of file paths.
 message Index {
   string path = 1;
+  // range and file are mutually exclusive
   Range range = 2;
   File file = 3;
 }
@@ -18,6 +19,8 @@ message Range {
   chunk.DataRef chunk_ref = 3;
 }
 
+// File describes the metadata for a single file in PFS.
+// Note that in pachyderm a file is inherently associated with a datum. User-provided files will have the value "default".
 message File {
   string datum = 1;
   repeated chunk.DataRef data_refs = 2;
