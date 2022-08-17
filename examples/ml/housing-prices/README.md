@@ -1,4 +1,4 @@
->![pach_logo](../../img/pach_logo.svg) INFO Each new minor version of Pachyderm introduces profound architectual changes to the product. For this reason, our examples are kept in separate branches:
+>![pach_logo](../../img/pach_logo.svg) INFO Each new minor version of Pachyderm introduces profound architectural changes to the product. For this reason, our examples are kept in separate branches:
 > - Branch Master: Examples using Pachyderm 2.1.x versions - https://github.com/pachyderm/pachyderm/tree/master/examples
 > - Branch 2.0.x: Examples using Pachyderm 2.0.x versions - https://github.com/pachyderm/pachyderm/tree/2.0.x/examples
 > - Branch 1.13.x: Examples using Pachyderm 1.13.x versions - https://github.com/pachyderm/pachyderm/tree/1.13.x/examples
@@ -18,21 +18,20 @@ The Pachyderm pipeline performs the following actions:
 
 Table of Contents:
 
-- [Boston Housing Prices](#boston-housing-prices)
-  - [Housing Prices Dataset](#housing-prices-dataset)
-  - [Prerequisites](#prerequisites)
-  - [Python Code](#python-code)
-    - [Data Analysis](#data-analysis)
-    - [Train a regression model](#train-a-regression-model)
-    - [Evaluate the model](#evaluate-the-model)
-  - [Pachyderm Pipeline](#pachyderm-pipeline)
-    - [TLDR; Just give me the code](#tldr-just-give-me-the-code)
-    - [Step 1: Create an input data repository](#step-1-create-an-input-data-repository)
-    - [Step 2: Create the regression pipeline](#step-2-create-the-regression-pipeline)
-    - [Step 3: Add the housing dataset to the repo](#step-3-add-the-housing-dataset-to-the-repo)
-    - [Step 4: Download files once the pipeline has finished](#step-4-download-files-once-the-pipeline-has-finished)
-    - [Step 5: Update Dataset](#step-5-update-dataset)
-    - [Step 6: Inspect the Pipeline Lineage](#step-6-inspect-the-pipeline-lineage)
+- [Housing Prices Dataset](#housing-prices-dataset)
+- [Prerequisites](#prerequisites)
+- [Python Code](#python-code)
+  - [Data Analysis](#data-analysis)
+  - [Train a regression model](#train-a-regression-model)
+  - [Evaluate the model](#evaluate-the-model)
+- [Pachyderm Pipeline](#pachyderm-pipeline)
+  - [TLDR; Just give me the code](#tldr-just-give-me-the-code)
+  - [Step 1: Create an input data repository](#step-1-create-an-input-data-repository)
+  - [Step 2: Create the regression pipeline](#step-2-create-the-regression-pipeline)
+  - [Step 3: Add the housing dataset to the repo](#step-3-add-the-housing-dataset-to-the-repo)
+  - [Step 4: Download files once the pipeline has finished](#step-4-download-files-once-the-pipeline-has-finished)
+  - [Step 5: Update Dataset](#step-5-update-dataset)
+  - [Step 6: Inspect the Pipeline Lineage](#step-6-inspect-the-pipeline-lineage)
 
 ## Housing Prices Dataset
 
@@ -57,14 +56,14 @@ Sample:
 Before you can deploy this example you need to have the following components:
 
 1. A clone of this Pachyderm repository on your local computer. (could potentially include those instructions)
-2. A Pachyderm cluster - You can deploy a cluster on [PacHub](hub.pachyderm.com) or deploy locally as described [here](https://docs.pachyderm.com/latest/getting-started/).
+2. A Pachyderm cluster - You can deploy locally as described [here](https://docs.pachyderm.com/latest/getting-started/).
 
 Verify that your environment is accessible by running `pachctl version` which will show both the `pachctl` and `pachd` versions.
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.11.0
-pachd               1.11.0
+pachctl             2.7.0
+pachd               2.7.0
 ```
 
 ## Python Code
@@ -135,7 +134,7 @@ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simp
 pachctl get file regression@master:/ --recursive --output .
 
 # Step 5: Update dataset with more data
-pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
+pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv
 
 # Step 6: Inspect the lineage of the pipeline
 pachctl list commit regression@master
@@ -242,7 +241,7 @@ Now let's update our dataset with additional examples.
 Here's where Pachyderm truly starts to shine. To update our dataset we can run the following command (note that we could also append new examples to the existing file, but in this example we're simply overwriting our previous file to one with more data):
 
 ```shell
-$ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv --overwrite
+$ pachctl put file housing_data@master:housing-simplified.csv -f data/housing-simplified-2.csv
 ```
 
 The new commit of data to the `housing_data` repository automatically kicks off a job on the `regression` pipeline without us having to do anything. 
