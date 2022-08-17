@@ -4,10 +4,23 @@ Package transform drives standard Pachyderm pipelines, as opposed to spouts or s
 Transforms make heavy use of the [task.Service] to distribute work among available pods, both when running the actual pipeline code
 and beforehand when laying out the work to be done.
 
+The meta commit for a job has a central role in facilitating incrementality.
+The current job's meta commit is used for recording progress, while previous jobs' commits are a basis for comparison.
+See [datum] documentation for more information about the file system structure we use.
+
 # Invariants
 
-# Job Life Cycle
+Every running job must have an (open) output and meta commit.
 
+For every commit in the current job's meta commit's ancestry
+  - there is a corresponding output commit
+  - there is a job
+
+The output and meta commit status and contents are kept in sync, though can diverge after validation and compaction.
+
+An output commit is errored (i.e. has nonempty [pfs.CommitInfo.Error]) if and only if the corresponding job failed.
+
+# Job Life Cycle
 The high-level life cycle of a job is as follows:
  1. A new job is noticed by the subscribe call in [transform.Run], calling registry.startJob and moves the job to [pps.JobState_JOB_STARTING]
  2. registry.processJobStarting waits for the job's input commits to be finished, and marks the job [pps.JobState_JOB_UNRUNNABLE] if any failed.
