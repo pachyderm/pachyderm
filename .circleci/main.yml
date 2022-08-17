@@ -18,6 +18,14 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2004:2022.04.2
+  go-version:
+    type: string
+    default: "1.19"
+
+executors:
+  docker-go:
+    docker:
+      - image: cimg/go:<< pipeline.parameters.go-version >>
 
 jobs:
   test-go:
@@ -75,6 +83,15 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -84,7 +101,7 @@ jobs:
           paths:
             - cached-deps/
       - go/install:
-          version: 1.18.4
+          version: << pipeline.parameters.go-version >>
       - run:
           name: Start minikube
           command: etc/testing/circle/start-minikube.sh
@@ -120,9 +137,14 @@ jobs:
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
-          command: ./cached-deps/kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
+          command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
-      - run: etc/testing/circle/launch.sh
+      - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
@@ -138,8 +160,7 @@ jobs:
       - store_artifacts:
           path: /tmp/test-results
   helm-tests:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     working_directory: ~/project/etc/helm
     steps:
       - checkout:
@@ -263,6 +284,8 @@ jobs:
     steps:
       - checkout
       - gcp-cli/initialize
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: |
           echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
@@ -277,11 +300,23 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Dump debugging info in case of failure
@@ -293,6 +328,15 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - restore_cache:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
@@ -320,7 +364,12 @@ jobs:
           key: pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - run: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
+      - run:
+          name: Run Tests
+          command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
@@ -336,22 +385,23 @@ jobs:
     parameters:
       appVersion:
         type: string
-        default: ${CIRCLE_SHA1}
-    resource_class: large
-    docker:
-      - image: cimg/go:1.18.4
+        default: "0.0.0"
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    resource_class: xlarge
     steps:
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -375,8 +425,7 @@ jobs:
         type: boolean
         default: false
     resource_class: large
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - run:
@@ -434,6 +483,20 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
+  jsonnet-lint:
+    resource_class: small
+    docker:
+      - image: cimg/go:<< pipeline.parameters.go-version >>
+    steps:
+      - checkout
+      - run:
+          name: Install go-jsonnet
+          command: |
+            go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
+      - run:
+          name: lint all jsonnet files
+          command: |
+            find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.22.0
@@ -447,8 +510,7 @@ jobs:
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
   push_redhat:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - setup_remote_docker:
@@ -526,16 +588,11 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          name: pull docker images
+          name: Push release manifests
           command: |
-            make VERSION=$CIRCLE_SHA1 docker-pull
-      - run:
-          name: retag and push docker images
-          command: |
-            make VERSION=${CIRCLE_TAG:1} docker-push
+            make UNDERLYING=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
-    docker:
-      - image: cimg/go:1.18.4
+    executor: docker-go
     steps:
       - checkout
       - add_ssh_keys:
@@ -565,6 +622,7 @@ workflows:
           version: $CIRCLE_SHA1
           upload: true
       - check-prettier
+      - jsonnet-lint
       - test-go
       - test-envoy
       - integration-tests:
@@ -597,9 +655,8 @@ workflows:
           filters:
             branches:
               only:
+                - 2.3.x
                 - master
-                - 2.1.x
-                - 2.2.x
     jobs:
       - nightly-load:
           matrix:

@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"math"
 	"net"
 	"net/http"
@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -606,13 +607,13 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 
 	commitA, err := c.StartCommit(dataRepo, branchA)
 	require.NoError(t, err)
-	c.PutFile(commitA, "/file", strings.NewReader("data A\n"), client.WithAppendPutFile())
-	c.FinishCommit(dataRepo, commitA.Branch.Name, commitA.ID)
+	require.NoError(t, c.PutFile(commitA, "/file", strings.NewReader("data A\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commitA.Branch.Name, commitA.ID))
 
 	commitB, err := c.StartCommit(dataRepo, branchB)
 	require.NoError(t, err)
-	c.PutFile(commitB, "/file", strings.NewReader("data B\n"), client.WithAppendPutFile())
-	c.FinishCommit(dataRepo, commitB.Branch.Name, commitB.ID)
+	require.NoError(t, c.PutFile(commitB, "/file", strings.NewReader("data B\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(dataRepo, commitB.Branch.Name, commitB.ID))
 
 	commitInfos, err := c.WaitCommitSetAll(commitB.ID)
 	require.NoError(t, err)
@@ -3392,7 +3393,7 @@ func TestAutoscalingStandby(t *testing.T) {
 			}
 			return nil
 		})
-		eg.Wait()
+		require.NoError(t, eg.Wait())
 	})
 	t.Run("ManyCommits", func(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
@@ -6581,6 +6582,7 @@ func TestCronPipeline(t *testing.T) {
 			_, err := c.PpsAPIClient.RunCron(context.Background(), &pps.RunCronRequest{Pipeline: client.NewPipeline(pipeline7)})
 			require.NoError(t, err)
 			_, err = c.WaitCommit(repo, "master", "")
+			require.NoError(t, err)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
@@ -7041,7 +7043,7 @@ func TestService(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	annotations := map[string]string{"foo": "bar"}
@@ -7079,7 +7081,7 @@ func TestService(t *testing.T) {
 		// via internal cluster IP, but we don't know what that is
 		var address string
 		kubeClient := tu.GetKubeClient(t)
-		backoff.Retry(func() error {
+		backoff.Retry(func() error { //nolint:errcheck
 			svcs, err := kubeClient.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 			require.NoError(t, err)
 			for _, svc := range svcs.Items {
@@ -7113,28 +7115,36 @@ func TestService(t *testing.T) {
 		require.NotEqual(t, "", address)
 		return address
 	}()
-
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if string(content) != "foo" {
-			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	checkFile := func(expected string) {
+		require.NoError(t, backoff.Retry(func() error {
+			resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
+			content, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			if string(content) != expected {
+				return errors.Errorf("wrong content for file1: expected %s, got %s", expected, string(content))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	}
+	checkFile("foo")
 
+	// overwrite file, and check that we can access the new contents
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file1", strings.NewReader("bar")))
+	checkFile("bar")
 }
 
 func TestServiceEnvVars(t *testing.T) {
@@ -7190,7 +7200,7 @@ func TestServiceEnvVars(t *testing.T) {
 		// via internal cluster IP, but we don't know what that is
 		var address string
 		kubeClient := tu.GetKubeClient(t)
-		backoff.Retry(func() error {
+		backoff.Retry(func() error { //nolint:errcheck
 			svcs, err := kubeClient.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 			require.NoError(t, err)
 			for _, svc := range svcs.Items {
@@ -7228,7 +7238,7 @@ func TestServiceEnvVars(t *testing.T) {
 		if resp.StatusCode != 200 {
 			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
-		envValue, err = ioutil.ReadAll(resp.Body)
+		envValue, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -7258,7 +7268,7 @@ func TestDatumSetSpec(t *testing.T) {
 
 	t.Run("number", func(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
-		c.PpsAPIClient.CreatePipeline(context.Background(),
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
@@ -7270,6 +7280,7 @@ func TestDatumSetSpec(t *testing.T) {
 				Input:        client.NewPFSInput(dataRepo, "/*"),
 				DatumSetSpec: &pps.DatumSetSpec{Number: 1},
 			})
+		require.NoError(t, err)
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
@@ -7282,7 +7293,7 @@ func TestDatumSetSpec(t *testing.T) {
 	})
 	t.Run("size", func(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
-		c.PpsAPIClient.CreatePipeline(context.Background(),
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
@@ -7294,6 +7305,7 @@ func TestDatumSetSpec(t *testing.T) {
 				Input:        client.NewPFSInput(dataRepo, "/*"),
 				DatumSetSpec: &pps.DatumSetSpec{SizeBytes: 5},
 			})
+		require.NoError(t, err)
 
 		commitInfo, err := c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
@@ -7643,7 +7655,7 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
-	c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
 	commitInfo, err := c.InspectCommit(dataRepo, commit.Branch.Name, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
@@ -7652,10 +7664,11 @@ func TestCommitDescription(t *testing.T) {
 	// Test putting a message in FinishCommit
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+	_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit:      commit,
 		Description: "test commit description in 'finish commit'",
 	})
+	require.NoError(t, err)
 	commitInfo, err = c.InspectCommit(dataRepo, commit.Branch.Name, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
@@ -7667,10 +7680,11 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
-	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+	_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit:      commit,
 		Description: "test commit description in 'finish commit' that overwrites",
 	})
+	require.NoError(t, err)
 	commitInfo, err = c.InspectCommit(dataRepo, commit.Branch.Name, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
@@ -8547,12 +8561,12 @@ func TestDeferredCross(t *testing.T) {
 	headCommit, err := c.InspectCommit(dataSet, "master", "")
 	require.NoError(t, err)
 
-	pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
+	require.NoError(t, pps.VisitInput(jobInfo.Details.Input, func(i *pps.Input) error {
 		if i.Pfs != nil && i.Pfs.Repo == dataSet {
 			require.Equal(t, i.Pfs.Commit, headCommit.Commit.ID)
 		}
 		return nil
-	})
+	}))
 }
 
 func TestDeferredProcessing(t *testing.T) {
@@ -9651,6 +9665,78 @@ func TestListDatum(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, 25, len(dis))
+}
+
+func TestListDatumFilter(t *testing.T) {
+	t.Parallel()
+	var (
+		ctx   = context.Background()
+		c, _  = minikubetestenv.AcquireCluster(t)
+		repo1 = tu.UniqueString("TestListDatum1")
+		repo2 = tu.UniqueString("TestListDatum2")
+	)
+
+	require.NoError(t, c.CreateRepo(repo1))
+	require.NoError(t, c.CreateRepo(repo2))
+
+	numFiles := 5
+	for i := 0; i < numFiles; i++ {
+		require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+	}
+
+	// filtering for failed should yield zero datums
+	s, err := c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
+		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_FAILED}},
+		Input: &pps.Input{
+			Cross: []*pps.Input{{
+				Pfs: &pps.PFSInput{
+					Repo: repo1,
+					Glob: "/*",
+				},
+			}, {
+				Pfs: &pps.PFSInput{
+					Repo: repo2,
+					Glob: "/*",
+				},
+			}},
+		},
+	})
+	require.NoError(t, err)
+
+	var i int
+	require.NoError(t, clientsdk.ForEachDatumInfo(s, func(d *pps.DatumInfo) error {
+		require.NotEqual(t, pps.DatumState_UNKNOWN, d.State)
+		i++
+		return nil
+	}))
+	require.Equal(t, 0, i)
+
+	// filtering for only unknowns should yield 25 datums
+	s, err = c.PpsAPIClient.ListDatum(ctx, &pps.ListDatumRequest{
+		Filter: &pps.ListDatumRequest_Filter{State: []pps.DatumState{pps.DatumState_UNKNOWN}},
+		Input: &pps.Input{
+			Cross: []*pps.Input{{
+				Pfs: &pps.PFSInput{
+					Repo: repo1,
+					Glob: "/*",
+				},
+			}, {
+				Pfs: &pps.PFSInput{
+					Repo: repo2,
+					Glob: "/*",
+				},
+			}},
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, clientsdk.ForEachDatumInfo(s, func(d *pps.DatumInfo) error {
+		require.Equal(t, pps.DatumState_UNKNOWN, d.State)
+		i++
+		return nil
+	}))
+	require.Equal(t, 25, i)
 }
 
 func TestDebug(t *testing.T) {

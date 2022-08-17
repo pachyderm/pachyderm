@@ -69,7 +69,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.3.0-alpha.4"
+    tag: "2.3.0-rc.1"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
@@ -239,6 +239,53 @@ loki-stack:
     config:
       lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
       snippets:
+        # The scrapeConfigs section is copied from loki-stack-2.6.4
+        # The pipeline_stages.match stanza has been added to prevent multiple lokis in a cluster from mixing their logs.
+        scrapeConfigs: |
+          - job_name: kubernetes-pods
+            pipeline_stages:
+              {{- toYaml .Values.config.snippets.pipelineStages | nindent 4 }}
+              - match:
+                  selector: '{namespace!="{{ .Release.Namespace }}"}'
+                  action: drop
+            kubernetes_sd_configs:
+              - role: pod
+            relabel_configs:
+              - source_labels:
+                  - __meta_kubernetes_pod_controller_name
+                regex: ([0-9a-z-.]+?)(-[0-9a-f]{8,10})?
+                action: replace
+                target_label: __tmp_controller_name
+              - source_labels:
+                  - __meta_kubernetes_pod_label_app_kubernetes_io_name
+                  - __meta_kubernetes_pod_label_app
+                  - __tmp_controller_name
+                  - __meta_kubernetes_pod_name
+                regex: ^;*([^;]+)(;.*)?$
+                action: replace
+                target_label: app
+              - source_labels:
+                  - __meta_kubernetes_pod_label_app_kubernetes_io_instance
+                  - __meta_kubernetes_pod_label_release
+                regex: ^;*([^;]+)(;.*)?$
+                action: replace
+                target_label: instance
+              - source_labels:
+                  - __meta_kubernetes_pod_label_app_kubernetes_io_component
+                  - __meta_kubernetes_pod_label_component
+                regex: ^;*([^;]+)(;.*)?$
+                action: replace
+                target_label: component
+              {{- if .Values.config.snippets.addScrapeJobLabel }}
+              - replacement: kubernetes-pods
+                target_label: scrape_job
+              {{- end }}
+              {{- toYaml .Values.config.snippets.common | nindent 4 }}
+              {{- with .Values.config.snippets.extraRelabelConfigs }}
+              {{- toYaml . | nindent 4 }}
+              {{- end }}
+        pipelineStages:
+          - cri: {}
         common:
           # This is copy and paste of existing actions, so we don't lose them.
           # Cf. https://github.com/grafana/loki/issues/3519#issuecomment-1125998705
@@ -291,6 +338,9 @@ loki-stack:
 
 pachd:
   enabled: true
+  preflightChecks:
+    # if enabled runs kube validation preflight checks.
+    enabled: true
   affinity: {}
   annotations: {}
   # clusterDeploymentID sets the Pachyderm cluster ID.
@@ -359,7 +409,7 @@ pachd:
     #apiGrpcPort:
     #  expose: true
     #  port: 30650
-  # instruct the config-pod to bootstrap enterprise on the cluster, even in upgrade releases
+  # DEPRECATED: activateEnterprise is no longer used.
   activateEnterprise: false
   ## if pachd.activateEnterpriseMember is set, enterprise will be activated and connected to an existing enterprise server.
   ## if pachd.enterpriseLicenseKey is set, enterprise will be activated.
@@ -388,11 +438,22 @@ pachd:
   # The value is pulled from the key, "pachd-oauth-client-secret".
   oauthClientSecretSecretName: ""
   oauthRedirectURI: ""
-  # only used if pachd.activateEnterpriseMember == true
+  # DEPRECATED: enterpriseRootToken is deprecated, in favor of enterpriseServerToken
+  # NOTE only used if pachd.activateEnterpriseMember == true
   enterpriseRootToken: ""
-  # enterpriseSecretSecretName is used to pass the enterpriseRootToken value via an existing k8s secret.
+  # DEPRECATED: enterpriseRootTokenSecretName is deprecated in favor of enterpriseServerTokenSecretName
+  # enterpriseRootTokenSecretName is used to pass the enterpriseRootToken value via an existing k8s secret.
   # The value is pulled from the key, "enterprise-root-token".
   enterpriseRootTokenSecretName: ""
+  # enterpriseServerToken represents a token that can authenticate to a separate pachyderm enterprise server,
+  # and is used to complete the enterprise member registration process for this pachyderm cluster.
+  # The user backing this token should have either the licenseAdmin & identityAdmin roles assigned, or
+  # the clusterAdmin role.
+  # NOTE: only used if pachd.activateEnterpriseMember == true
+  enterpriseServerToken: ""
+  # enterpriseServerTokenSecretName is used to pass the enterpriseServerToken value via an existing k8s secret.
+  # The value is pulled from the key, "enterprise-server-token".
+  enterpriseServerTokenSecretName: ""
   # only used if pachd.activateEnterpriseMember == true
   enterpriseServerAddress: ""
   enterpriseCallbackAddress: ""
@@ -406,6 +467,11 @@ pachd:
   #   robot:eve:
   #   - repoWriter
   pachAuthClusterRoleBindings: {}
+  # additionalTrustedPeers is used to configure the identity service to recognize additional OIDC clients as trusted peers of pachd.
+  # For example, see the following example or the dex docs (https://dexidp.io/docs/custom-scopes-claims-clients/#cross-client-trust-and-authorized-party).
+  # additionalTrustedPeers:
+  #   - example-app
+  additionalTrustedPeers: []
   serviceAccount:
     create: true
     additionalAnnotations: {}
@@ -582,7 +648,7 @@ kubeEventTail:
   resources:
     limits:
       cpu: "1"
-      memory: 45Mi
+      memory: 100Mi
     requests:
       cpu: 100m
       memory: 45Mi
@@ -741,6 +807,16 @@ oidc:
   # below secret will be mounted to the pachd pod at /dexcreds/ so for example serviceAccountFilePath: /dexcreds/googleAuth.json
   dexCredentialSecretName: ""
   mockIDP: true
+  # additionalClients specifies a list of clients for the cluster to recognize
+  # See the ecample below or the dex docs (https://dexidp.io/docs/using-dex/#configuring-your-app).
+  # additionalOIDCClient:
+  #   - id: example-app
+  #     secret: example-app-secret
+  #     name: 'Example App'
+  #     redirectURIs:
+  #     - 'http://127.0.0.1:5555/callback'
+  additionalClients: []
+  additionalClientsSecretName: ""
   #TODO scopes:
 
 testConnection:

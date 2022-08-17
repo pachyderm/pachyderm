@@ -4,13 +4,14 @@ import (
 	"context"
 	gotls "crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"runtime/debug"
 	"runtime/pprof"
-	"syscall"
+	"time"
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
@@ -67,8 +68,11 @@ import (
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
 
-var mode string
-var readiness bool
+var (
+	mode          string
+	readiness     bool
+	notifySignals = []os.Signal{os.Interrupt}
+)
 
 type bootstrapper interface {
 	EnvBootstrap(context.Context) error
@@ -83,32 +87,35 @@ func init() {
 func main() {
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
 	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+	maxprocs.Set(maxprocs.Logger(log.Printf)) //nolint:errcheck
+	log.Infof("version info: %v", version.Version)
+	ctx, cancel := signal.NotifyContext(context.Background(), notifySignals...)
+	defer cancel()
 
 	switch {
 	case readiness:
-		cmdutil.Main(doReadinessCheck, &serviceenv.GlobalConfiguration{})
+		cmdutil.Main(ctx, doReadinessCheck, &serviceenv.GlobalConfiguration{})
 	case mode == "full", mode == "", mode == "$(MODE)":
 		// Because of the way Kubernetes environment substitution works,
 		// a reference to an unset variable is not replaced with the
 		// empty string, but instead the reference is passed unchanged;
 		// because of this, '$(MODE)' should be recognized as an unset —
 		// i.e., default — mode.
-		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "enterprise":
-		cmdutil.Main(doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
+		cmdutil.Main(ctx, doEnterpriseMode, &serviceenv.EnterpriseServerConfiguration{})
 	case mode == "sidecar":
-		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "paused":
-		cmdutil.Main(doPausedMode, &serviceenv.PachdFullConfiguration{})
+		cmdutil.Main(ctx, doPausedMode, &serviceenv.PachdFullConfiguration{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
-func newInternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+func newInternalServer(ctx context.Context, authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
 	return grpcutil.NewServer(
-		context.Background(),
+		ctx,
 		false,
 		grpc.ChainUnaryInterceptor(
 			errorsmw.UnaryServerInterceptor,
@@ -125,9 +132,9 @@ func newInternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *
 	)
 }
 
-func newExternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
+func newExternalServer(ctx context.Context, authInterceptor *authmw.Interceptor, loggingInterceptor *loggingmw.LoggingInterceptor) (*grpcutil.Server, error) {
 	return grpcutil.NewServer(
-		context.Background(),
+		ctx,
 		true,
 		// Add an UnknownServiceHandler to catch the case where the user has a client with the wrong major version.
 		// Weirdly, GRPC seems to run the interceptor stack before the UnknownServiceHandler, so this is never called
@@ -153,7 +160,7 @@ func newExternalServer(authInterceptor *authmw.Interceptor, loggingInterceptor *
 	)
 }
 
-func setup(config interface{}, service string) (env *serviceenv.NonblockingServiceEnv, err error) {
+func setup(config interface{}, service string) (env serviceenv.ServiceEnv, err error) {
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
 	case "debug":
 		log.SetLevel(log.DebugLevel)
@@ -185,7 +192,7 @@ func setup(config interface{}, service string) (env *serviceenv.NonblockingServi
 	return env, err
 }
 
-func setupDB(ctx context.Context, env *serviceenv.NonblockingServiceEnv) error {
+func setupDB(ctx context.Context, env serviceenv.ServiceEnv) error {
 	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(context.Background(), log.StandardLogger(), env.GetDBClient()); err != nil {
 		return err
@@ -199,16 +206,17 @@ func setupDB(ctx context.Context, env *serviceenv.NonblockingServiceEnv) error {
 	return nil
 }
 
-func doReadinessCheck(config interface{}) error {
+func doReadinessCheck(ctx context.Context, config interface{}) error {
 	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
-	return env.GetPachClient(context.Background()).Health()
+	return env.GetPachClient(ctx).Health()
 }
 
-func doEnterpriseMode(config interface{}) (retErr error) {
+func doEnterpriseMode(ctx context.Context, config interface{}) (retErr error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
 		if retErr != nil {
 			log.WithError(retErr).Print("failed to start server")
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			_ = pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) // swallow error, not much we can do if we can't write to stderr
 		}
 	}()
 
@@ -216,7 +224,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := setupDB(context.Background(), env); err != nil {
+	if err := setupDB(ctx, env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -226,12 +234,12 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger(), loggingmw.WithLogFormat(env.Config().LogFormat))
-	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
+	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -331,7 +339,7 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 			return err
 		}
 		for _, b := range bootstrappers {
-			if err := b.EnvBootstrap(context.Background()); err != nil {
+			if err := b.EnvBootstrap(ctx); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
@@ -346,20 +354,19 @@ func doEnterpriseMode(config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	errChan := make(chan error, 1)
-	go waitForError("External Enterprise GRPC Server", errChan, true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Enterprise GRPC Server", true, func() error {
 		return externalServer.Wait()
-	})
-	go waitForError("Internal Enterprise GRPC Server", errChan, true, func() error {
+	}))
+	eg.Go(maybeIgnoreErrorFunc("Internal Enterprise GRPC Server", true, func() error {
 		return internalServer.Wait()
-	})
-	return <-errChan
+	}))
+	return errors.EnsureStack(eg.Wait())
 }
 
-func doSidecarMode(config interface{}) (retErr error) {
+func doSidecarMode(ctx context.Context, config interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-sidecar")
@@ -368,7 +375,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	server, err := newInternalServer(authInterceptor, loggingInterceptor)
+	server, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -477,20 +484,18 @@ func doSidecarMode(config interface{}) (retErr error) {
 	return server.Wait()
 }
 
-func doFullMode(config interface{}) (retErr error) {
-	var ctx = context.Background()
-	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+func doFullMode(ctx context.Context, config interface{}) (retErr error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	env, err := setup(config, "pachyderm-pachd-full")
 	if err != nil {
 		return err
 	}
-	if err := setupDB(context.Background(), env); err != nil {
+	if err := setupDB(ctx, env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -504,12 +509,12 @@ func doFullMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
+	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -682,7 +687,7 @@ func doFullMode(config interface{}) (retErr error) {
 			return err
 		}
 		for _, b := range bootstrappers {
-			if err := b.EnvBootstrap(context.Background()); err != nil {
+			if err := b.EnvBootstrap(ctx); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
@@ -697,54 +702,40 @@ func doFullMode(config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	errChan := make(chan error, 1)
-	go waitForError("External Pachd GRPC Server", errChan, true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
-	})
-	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
+	}))
+	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
-	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return errors.EnsureStack(server.ListenAndServe())
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
-	})
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	})
-	go func(c chan os.Signal) {
-		<-c
+	}))
+	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
+	eg.Go(func() error {
+		<-ctx.Done() // wait for main context to complete
+		var (
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			eg, _       = errgroup.WithContext(ctx)
+		)
+		defer cancel()
 		log.Println("terminating; waiting for pachd server to gracefully stop")
-		var g, _ = errgroup.WithContext(ctx)
-		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
-		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
-	}(interruptChan)
-	return <-errChan
+		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		err := eg.Wait()
+		if err != nil {
+			log.Errorf("error waiting for pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
+		return errors.EnsureStack(err)
+	})
+	return errors.EnsureStack(eg.Wait())
 }
 
-func doPausedMode(config interface{}) (retErr error) {
-	var ctx = context.Background()
-	interruptChan := make(chan os.Signal, 1)
-	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+func doPausedMode(ctx context.Context, config interface{}) (retErr error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	log.Println("starting up in paused mode")
@@ -752,7 +743,7 @@ func doPausedMode(config interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	if err := setupDB(context.Background(), env); err != nil {
+	if err := setupDB(ctx, env); err != nil {
 		return err
 	}
 	if !env.Config().EnterpriseMember {
@@ -762,12 +753,12 @@ func doPausedMode(config interface{}) (retErr error) {
 	// Setup External Pachd GRPC Server.
 	authInterceptor := authmw.NewInterceptor(env.AuthServer)
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(env.Logger())
-	externalServer, err := newExternalServer(authInterceptor, loggingInterceptor)
+	externalServer, err := newExternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
 	// Setup Internal Pachd GRPC Server.
-	internalServer, err := newInternalServer(authInterceptor, loggingInterceptor)
+	internalServer, err := newInternalServer(ctx, authInterceptor, loggingInterceptor)
 	if err != nil {
 		return err
 	}
@@ -887,45 +878,33 @@ func doPausedMode(config interface{}) (retErr error) {
 	// Create the goroutines for the servers.
 	// Any server error is considered critical and will cause Pachd to exit.
 	// The first server that errors will have its error message logged.
-	errChan := make(chan error, 1)
-	go waitForError("External Pachd GRPC Server", errChan, true, func() error {
+	eg.Go(maybeIgnoreErrorFunc("External Pachd GRPC Server", true, func() error {
 		return externalServer.Wait()
-	})
-	go waitForError("Internal Pachd GRPC Server", errChan, true, func() error {
+	}))
+	eg.Go(maybeIgnoreErrorFunc("Internal Pachd GRPC Server", true, func() error {
 		return internalServer.Wait()
-	})
-	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
-		server := s3.Server(env.Config().S3GatewayPort, router)
-		certPath, keyPath, err := tls.GetCertPaths()
-		if err != nil {
-			log.Warnf("s3gateway TLS disabled: %v", err)
-			return errors.EnsureStack(server.ListenAndServe())
-		}
-		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
-		// Read TLS cert and key
-		err = cLoader.LoadAndStart()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
-		}
-		server.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
-		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
-	})
-	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
-	})
-	go func(c chan os.Signal) {
-		<-c
+	}))
+	eg.Go(maybeIgnoreErrorFunc("S3 Server", requireNoncriticalServers, func() error { return s3Server{env.GetPachClient, env.Config().S3GatewayPort}.listenAndServe(ctx) }))
+	eg.Go(maybeIgnoreErrorFunc("Prometheus Server", requireNoncriticalServers, func() error { return prometheusServer{port: env.Config().PrometheusPort}.listenAndServe(ctx) }))
+	eg.Go(func() error {
+		<-ctx.Done() // wait for main context to complete
+		var (
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			eg, _       = errgroup.WithContext(ctx)
+		)
+		defer cancel()
 		log.Println("terminating; waiting for paused pachd server to gracefully stop")
-		var g, _ = errgroup.WithContext(ctx)
-		g.Go(func() error { externalServer.Server.GracefulStop(); return nil })
-		g.Go(func() error { internalServer.Server.GracefulStop(); return nil })
-		g.Wait()
-		log.Println("gRPC server gracefully stopped")
-	}(interruptChan)
-	return <-errChan
+		eg.Go(func() error { externalServer.Server.GracefulStop(); return nil })
+		eg.Go(func() error { internalServer.Server.GracefulStop(); return nil })
+		err := eg.Wait()
+		if err != nil {
+			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
+		} else {
+			log.Println("gRPC server gracefully stopped")
+		}
+		return errors.EnsureStack(err)
+	})
+	return errors.EnsureStack(eg.Wait())
 }
 
 func logGRPCServerSetup(name string, f func() error) (retErr error) {
@@ -940,12 +919,94 @@ func logGRPCServerSetup(name string, f func() error) (retErr error) {
 	return f()
 }
 
-func waitForError(name string, errChan chan error, required bool, f func() error) {
-	if err := f(); !errors.Is(err, http.ErrServerClosed) {
-		if !required {
-			log.Errorf("error setting up and/or running %v: %v", name, err)
-		} else {
-			errChan <- errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
+// maybeIgnoreErrorFunc returns a function that runs f; if f returns an HTTP server
+// closed error it returns nil; if required is false it returns nil; otherwise
+// it returns whatever f returns.
+func maybeIgnoreErrorFunc(name string, required bool, f func() error) func() error {
+	return func() error {
+		if err := f(); err != nil {
+			if errors.Is(err, http.ErrServerClosed) {
+				return nil
+			}
+			if !required {
+				log.Errorf("error setting up and/or running %v: %v", name, err)
+				return nil
+			}
+			return errors.Wrapf(err, "error setting up and/or running %v (use --require-critical-servers-only deploy flag to ignore errors from noncritical servers)", name)
 		}
+		return nil
+	}
+}
+
+type s3Server struct {
+	clientFactory s3.ClientFactory
+	port          uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ss s3Server) listenAndServe(ctx context.Context) error {
+	var (
+		router = s3.Router(s3.NewMasterDriver(), ss.clientFactory)
+		srv    = s3.Server(ss.port, router)
+		errCh  = make(chan error, 1)
+	)
+	srv.BaseContext = func(net.Listener) context.Context { return ctx }
+	go func() {
+		var (
+			certPath, keyPath, err = tls.GetCertPaths()
+		)
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			errCh <- errors.EnsureStack(srv.ListenAndServe())
+		}
+		cLoader := tls.NewCertLoader(certPath, keyPath, tls.CertCheckFrequency)
+		// Read TLS cert and key
+		err = cLoader.LoadAndStart()
+		if err != nil {
+			errCh <- errors.Wrapf(err, "couldn't load TLS cert for s3gateway: %v", err)
+		}
+		srv.TLSConfig = &gotls.Config{GetCertificate: cLoader.GetCertificate}
+		errCh <- errors.EnsureStack(srv.ListenAndServeTLS(certPath, keyPath))
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		log.Info("terminating S3 server due to cancelled context")
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
+	}
+}
+
+type prometheusServer struct {
+	port uint16
+}
+
+// listenAndServe listens until ctx is cancelled; it then gracefully shuts down
+// the server, returning once all requests have been handled.
+func (ps prometheusServer) listenAndServe(ctx context.Context) error {
+	var (
+		mux = http.NewServeMux()
+		srv = http.Server{
+			Addr:        fmt.Sprintf(":%v", ps.port),
+			Handler:     mux,
+			BaseContext: func(net.Listener) context.Context { return ctx },
+		}
+		errCh = make(chan error, 1)
+	)
+	mux.Handle("/metrics", promhttp.Handler())
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+	select {
+	case <-ctx.Done():
+		// NOTE: using context.Background here means that shutdown will
+		// wait until all requests terminate.
+		log.Info("terminating S3 server due to cancelled context")
+		return errors.EnsureStack(srv.Shutdown(context.Background()))
+	case err := <-errCh:
+		return err
 	}
 }

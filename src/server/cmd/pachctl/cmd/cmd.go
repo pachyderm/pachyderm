@@ -5,9 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"syscall"
@@ -342,7 +343,7 @@ Environment variables:
 			if !verbose {
 				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 			} else {
 				log.SetLevel(log.DebugLevel)
 				// etcd overrides grpc's logs--there's no way to enable one without
@@ -353,8 +354,8 @@ Environment variables:
 				logger := log.StandardLogger()
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(
 					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
-					ioutil.Discard,
-					ioutil.Discard,
+					io.Discard,
+					io.Discard,
 				))
 				cmdutil.PrintErrorStacks = true
 			}
@@ -456,6 +457,18 @@ Environment variables:
 		"'pachctl version' will run on the active enterprise context.")
 	versionCmd.Flags().AddFlagSet(outputFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
+
+	buildInfo := &cobra.Command{
+		Short: "Print go buildinfo.",
+		Long:  "Print information about the build environment.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			info, _ := debug.ReadBuildInfo()
+			fmt.Println(info)
+			return nil
+		}),
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(buildInfo, "buildinfo"))
+
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",

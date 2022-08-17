@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -302,7 +301,7 @@ func NewMountManager(c *client.APIClient, target string, opts *Options) (ret *Mo
 	if err := opts.validate(c); err != nil {
 		return nil, err
 	}
-	rootDir, err := ioutil.TempDir("", "pfs")
+	rootDir, err := os.MkdirTemp("", "pfs")
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -367,10 +366,11 @@ func (mm *MountManager) Run() error {
 	}
 	go func() {
 		<-mm.opts.getUnmount()
-		server.Unmount()
+		server.Unmount() //nolint:errcheck
 	}()
 	server.Wait()
-	defer mm.FinishAll()
+
+	defer mm.FinishAll() //nolint:errcheck
 	if err := mm.uploadFiles(""); err != nil {
 		return err
 	}
@@ -422,7 +422,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -441,7 +441,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -583,7 +583,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 		mm.Datums = []*pps.DatumInfo{}
 	})
 	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -650,7 +650,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/_show_datum").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -722,7 +722,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
@@ -744,7 +744,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		mm.configMu.Lock()
@@ -789,7 +789,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, false)
@@ -818,7 +818,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 
 		go func() {
 			resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OIDCState: state})
@@ -826,7 +826,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			config.WritePachTokenToConfig(resp.PachToken, false)
+			config.WritePachTokenToConfig(resp.PachToken, false) //nolint:errcheck
 			mm.Client.SetAuthToken(resp.PachToken)
 		}()
 	})
@@ -853,7 +853,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 
 		context.SessionToken = ""
-		cfg.Write()
+		cfg.Write() //nolint:errcheck
 		mm.Client.SetAuthToken("")
 	})
 	router.Methods("GET").Path("/health").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -863,7 +863,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(marshalled)
+		w.Write(marshalled) //nolint:errcheck
 	})
 
 	// TODO: switch http server for gRPC server and bind to a unix socket not a
@@ -882,7 +882,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
 		}
-		srv.Shutdown(context.Background())
+		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
 	return errors.EnsureStack(srv.ListenAndServe())

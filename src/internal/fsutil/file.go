@@ -1,14 +1,13 @@
 package fsutil
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func WithTmpFile(prefix string, cb func(*os.File) error) (retErr error) {
-	f, err := ioutil.TempFile(os.TempDir(), prefix)
+	f, err := os.CreateTemp(os.TempDir(), prefix)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

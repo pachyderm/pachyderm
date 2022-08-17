@@ -2,7 +2,7 @@ package fuse
 
 import (
 	"fmt"
-	"io/ioutil"
+
 	"os"
 	"os/signal"
 	pathpkg "path"
@@ -81,7 +81,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			}
 		}
 	}
-	rootDir, err := ioutil.TempDir("", "pfs")
+	rootDir, err := os.MkdirTemp("", "pfs")
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -105,7 +105,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		case <-sigChan:
 		case <-opts.getUnmount():
 		}
-		server.Unmount()
+		server.Unmount() //nolint:errcheck
 	}()
 	server.Wait()
 	mfcs := make(map[string]*client.ModifyFileClient)

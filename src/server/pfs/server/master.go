@@ -32,12 +32,12 @@ const (
 func (d *driver) master(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
 	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
-	backoff.RetryUntilCancel(ctx, func() error {
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		masterCtx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer masterLock.Unlock(masterCtx)
+		defer masterLock.Unlock(masterCtx) //nolint:errcheck
 		eg, ctx := errgroup.WithContext(masterCtx)
 		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
@@ -95,7 +95,7 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		ctx, cancel := context.WithCancel(ctx)
 		repos[key] = cancel
 		go func() {
-			backoff.RetryUntilCancel(ctx, func() error {
+			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 				return d.finishRepoCommits(ctx, compactor, key)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)

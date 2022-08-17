@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"net/http"
 	"net/url"
 	"os"
@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
@@ -793,7 +792,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 
 			createPipelineRequest := ppsutil.PipelineReqFromInfo(pipelineInfo)
-			f, err := ioutil.TempFile("", args[0])
+			f, err := os.CreateTemp("", args[0])
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -1020,7 +1019,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return err
 			}
 			defer client.Close()
-			fileBytes, err := ioutil.ReadFile(file)
+			fileBytes, err := os.ReadFile(file)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -1121,7 +1120,9 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	}
 	commands = append(commands, cmdutil.CreateAliases(listSecret, "list secret", secrets))
 
+	var dagSpecFile string
 	var seed int64
+	var parallelism int64
 	var podPatchFile string
 	runLoadTest := &cobra.Command{
 		Use:   "{{alias}} <spec-file> ",
@@ -1142,16 +1143,23 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
 				}
 				fmt.Println()
 				return nil
 			}
+			var dagSpec []byte
+			if dagSpecFile != "" {
+				var err error
+				dagSpec, err = os.ReadFile(dagSpecFile)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+			}
 			var podPatch []byte
 			if podPatchFile != "" {
-				podPatch, err = ioutil.ReadFile(podPatchFile)
+				podPatch, err = os.ReadFile(podPatchFile)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1163,19 +1171,20 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				if fi.IsDir() {
 					return nil
 				}
-				spec, err := ioutil.ReadFile(file)
+				loadSpec, err := os.ReadFile(file)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
-					Spec:     string(spec),
-					Seed:     seed,
-					PodPatch: string(podPatch),
+				resp, err := c.PpsAPIClient.RunLoadTest(c.Ctx(), &pps.RunLoadTestRequest{
+					DagSpec:     string(dagSpec),
+					LoadSpec:    string(loadSpec),
+					Seed:        seed,
+					Parallelism: parallelism,
+					PodPatch:    string(podPatch),
 				})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1185,8 +1194,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return errors.EnsureStack(err)
 		}),
 	}
+	runLoadTest.Flags().StringVarP(&dagSpecFile, "dag", "d", "", "The DAG specification file to use for the load test")
 	runLoadTest.Flags().Int64VarP(&seed, "seed", "s", 0, "The seed to use for generating the load.")
-	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "p", "", "The pod patch file to use for the pipelines.")
+	runLoadTest.Flags().Int64VarP(&parallelism, "parallelism", "p", 0, "The parallelism to use for the pipelines.")
+	runLoadTest.Flags().StringVarP(&podPatchFile, "pod-patch", "", "", "The pod patch file to use for the pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(runLoadTest, "run pps-load-test"))
 
 	return commands
@@ -1203,7 +1214,7 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 	if pipelinePath == "-" {
 		cmdutil.PrintStdinReminder()
 		var err error
-		pipelineBytes, err = ioutil.ReadAll(os.Stdin)
+		pipelineBytes, err = io.ReadAll(os.Stdin)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
@@ -1217,13 +1228,13 @@ func readPipelineBytes(pipelinePath string) (pipelineBytes []byte, retErr error)
 				retErr = err
 			}
 		}()
-		pipelineBytes, err = ioutil.ReadAll(resp.Body)
+		pipelineBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	} else {
 		var err error
-		pipelineBytes, err = ioutil.ReadFile(pipelinePath)
+		pipelineBytes, err = os.ReadFile(pipelinePath)
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

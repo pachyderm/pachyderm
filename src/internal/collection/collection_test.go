@@ -499,7 +499,7 @@ func collectionTests(
 						return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", oobID)
 					}
 
-					rw.DeleteAll()
+					require.NoError(t, rw.DeleteAll())
 
 					for _, id := range idRange(0, defaultCollectionSize) {
 						if err := rw.Get(id, testProto); !col.IsErrNotFound(err) {

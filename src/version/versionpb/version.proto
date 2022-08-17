@@ -10,6 +10,11 @@ message Version {
   uint32 minor = 2;
   uint32 micro = 3;
   string additional = 4;
+  string git_commit = 5;
+  string git_tree_modified = 6;
+  string build_date = 7;
+  string go_version = 8;
+  string platform = 9;
 }
 
 service API {

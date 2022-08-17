@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -88,27 +88,27 @@ func TestBasicServerSameNames(t *testing.T) {
 
 		defer resp.Body.Close()
 		mountResp := &ListMountResponse{}
-		json.NewDecoder(resp.Body).Decode(mountResp)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
 		require.Equal(t, "repo", (*mountResp).Mounted["repo"].Repo)
 		require.Equal(t, "master", (*mountResp).Mounted["repo"].Branch)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
@@ -137,23 +137,23 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
@@ -182,23 +182,23 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "newname", filepath.Base(repos[0].Name()))
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "newname"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "newname"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
@@ -220,7 +220,7 @@ func TestRepoAccess(t *testing.T) {
 		require.NoError(t, err)
 
 		reposResp := &ListRepoResponse{}
-		json.NewDecoder(resp.Body).Decode(reposResp)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
 		require.Equal(t, "write", (*reposResp)["repo1"].Authorization)
 	})
 
@@ -229,7 +229,7 @@ func TestRepoAccess(t *testing.T) {
 		require.NoError(t, err)
 
 		reposResp := &ListRepoResponse{}
-		json.NewDecoder(resp.Body).Decode(reposResp)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
 		require.Equal(t, "none", (*reposResp)["repo1"].Authorization)
 
 		mr := MountRequest{
@@ -281,7 +281,7 @@ func TestUnmountAll(t *testing.T) {
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 
@@ -290,10 +290,10 @@ func TestUnmountAll(t *testing.T) {
 
 		defer resp.Body.Close()
 		unmountResp := &ListRepoResponse{}
-		json.NewDecoder(resp.Body).Decode(unmountResp)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(unmountResp))
 		require.Equal(t, 2, len(*unmountResp))
 
-		repos, err = ioutil.ReadDir(mountPoint)
+		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(repos))
 	})
@@ -314,7 +314,7 @@ func TestConfig(t *testing.T) {
 		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
 		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(m)
+		require.NoError(t, json.NewEncoder(b).Encode(m))
 
 		putResp, err := put("config", b)
 		require.NoError(t, err)
@@ -323,14 +323,14 @@ func TestConfig(t *testing.T) {
 		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
 		m = map[string]string{"pachd_address": cfg.PachdAddress}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(m)
+		require.NoError(t, json.NewEncoder(b).Encode(m))
 
 		putResp, err = put("config", b)
 		require.NoError(t, err)
 		defer putResp.Body.Close()
 
 		putConfig := &Config{}
-		json.NewDecoder(putResp.Body).Decode(putConfig)
+		require.NoError(t, json.NewDecoder(putResp.Body).Decode(putConfig))
 
 		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
 		require.NoError(t, err)
@@ -345,7 +345,7 @@ func TestConfig(t *testing.T) {
 		defer getResp.Body.Close()
 
 		getConfig := &Config{}
-		json.NewDecoder(getResp.Body).Decode(getConfig)
+		require.NoError(t, json.NewDecoder(getResp.Body).Decode(getConfig))
 
 		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
 		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
@@ -355,7 +355,7 @@ func TestConfig(t *testing.T) {
 func TestAuthLoginLogout(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	tu.ConfigureOIDCProvider(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
 	c = tu.UnauthenticatedPachClient(t, c)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
@@ -367,7 +367,7 @@ func TestAuthLoginLogout(t *testing.T) {
 			AuthUrl string `json:"auth_url"`
 		}
 		getAuthLogin := &AuthLoginResp{}
-		json.NewDecoder(authResp.Body).Decode(getAuthLogin)
+		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
 
 		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
 		time.Sleep(1 * time.Second)
@@ -435,16 +435,16 @@ func TestMultipleMount(t *testing.T) {
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
 		require.Equal(t, "mount2", filepath.Base(repos[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
-		data, err = ioutil.ReadFile(filepath.Join(mountPoint, "mount2", "dir", "file"))
+		data, err = os.ReadFile(filepath.Join(mountPoint, "mount2", "dir", "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 
@@ -456,12 +456,12 @@ func TestMultipleMount(t *testing.T) {
 		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
-		repos, err = ioutil.ReadDir(mountPoint)
+		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
 
-		data, err = ioutil.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
+		data, err = os.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 
@@ -568,7 +568,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 		// we currently have 0 commits
 		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
@@ -620,7 +620,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 		// we currently have 0 commits
 		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
@@ -674,7 +674,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		// we currently have 0 commits
 		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
@@ -696,7 +696,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.Equal(t, 1, len(commits))
 
 		// another file!
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
@@ -747,7 +747,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		// we currently have 0 commits
 		require.Equal(t, 0, len(commits))
 		defer resp.Body.Close()
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)
@@ -769,7 +769,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 		require.Equal(t, 1, len(commits))
 
 		// another file!
-		err = ioutil.WriteFile(
+		err = os.WriteFile(
 			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
 		)
 		require.NoError(t, err)

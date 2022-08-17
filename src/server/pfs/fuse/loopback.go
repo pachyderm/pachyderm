@@ -168,7 +168,8 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		// TODO multierr
+		syscall.Rmdir(p) //nolint:errcheck
 		return nil, fs.ToErrno(err)
 	}
 
@@ -194,7 +195,8 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		// TODO multierr
+		syscall.Rmdir(p) //nolint:errcheck // favour outer error instead
 		return nil, fs.ToErrno(err)
 	}
 
@@ -326,8 +328,9 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 		return nil, fs.ToErrno(err)
 	}
 	st := syscall.Stat_t{}
-	if syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p)
+	if err := syscall.Lstat(p, &st); err != nil {
+		// TODO multierr
+		syscall.Unlink(p) //nolint:errcheck // favour outer error instead
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -359,8 +362,9 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 		}
 	}()
 	st := syscall.Stat_t{}
-	if syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p)
+	if err := syscall.Lstat(p, &st); err != nil {
+		// TODO multierr
+		syscall.Unlink(p) //nolint:errcheck
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -457,7 +461,9 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 	p := n.path()
 	fsa, ok := f.(fs.FileSetattrer)
 	if ok && fsa != nil {
-		fsa.Setattr(ctx, in, out)
+		if errno := fsa.Setattr(ctx, in, out); errno != 0 {
+			return errno
+		}
 	} else {
 		if m, ok := in.GetMode(); ok {
 			if err := syscall.Chmod(p, m); err != nil {
@@ -512,7 +518,9 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 
 	fga, ok := f.(fs.FileGetattrer)
 	if ok && fga != nil {
-		fga.Getattr(ctx, out)
+		if errno := fga.Getattr(ctx, out); errno != 0 {
+			return errno
+		}
 	} else {
 		st := syscall.Stat_t{}
 		err := syscall.Lstat(p, &st)

@@ -95,7 +95,10 @@ func TestActivate(t *testing.T) {
 	resp, err := rootClient.AuthAPIClient.Activate(context.Background(), &auth.ActivateRequest{})
 	require.NoError(t, err)
 	rootClient.SetAuthToken(resp.PachToken)
-	defer rootClient.Deactivate(rootClient.Ctx(), &auth.DeactivateRequest{})
+	defer func() {
+		_, err := rootClient.Deactivate(rootClient.Ctx(), &auth.DeactivateRequest{})
+		require.NoError(t, err)
+	}()
 
 	// Check that the token 'c' received from pachd authenticates them as "pach:root"
 	who, err := rootClient.WhoAmI(rootClient.Ctx(), &auth.WhoAmIRequest{})
@@ -654,17 +657,19 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	})
 
 	// Make current enterprise token expire
-	rootClient.License.Activate(rootClient.Ctx(),
+	_, err = rootClient.License.Activate(rootClient.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
-	rootClient.Enterprise.Activate(rootClient.Ctx(),
+	require.NoError(t, err)
+	_, err = rootClient.Enterprise.Activate(rootClient.Ctx(),
 		&enterprise.ActivateRequest{
 			LicenseServer: "localhost:1650",
 			Id:            "localhost",
 			Secret:        "localhost",
 		})
+	require.NoError(t, err)
 
 	// wait for Enterprise token to expire
 	require.NoError(t, backoff.Retry(func() error {
@@ -952,7 +957,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.Branch.Name, commit.ID))
 
-	robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
+	_, err = robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
 }
 

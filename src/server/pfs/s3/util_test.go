@@ -5,7 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"net"
 	"os"
 	"path/filepath"
@@ -28,7 +28,7 @@ func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (st
 		return "", errors.EnsureStack(err)
 	}
 	defer func() { err = obj.Close() }()
-	bytes, err := ioutil.ReadAll(obj)
+	bytes, err := io.ReadAll(obj)
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}
@@ -137,9 +137,7 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
-	go func() {
-		server.Serve(listener)
-	}()
+	go server.Serve(listener) //nolint:errcheck
 
 	port := listener.Addr().(*net.TCPAddr).Port
 

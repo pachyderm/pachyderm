@@ -36,7 +36,7 @@ for d in $all_versions; do
 EOF
 done
    cat <<EOF >>overrides/partials/versions.html
-        <option style="color:white;background-color:#4b2a5c;" value="2.3.x">2.3.x-alpha</option>"
+        <option style="color:white;background-color:#4b2a5c;" value="2.3.x">2.3.x-rc</option>"
 EOF
 
     cat <<EOF >>overrides/partials/versions.html
