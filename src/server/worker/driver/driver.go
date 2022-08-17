@@ -363,7 +363,7 @@ func (d *driver) RunUserCode(
 		return errors.EnsureStack(err)
 	}
 
-	err = ex.WaitOrStop(ctx, cmd, os.Kill, time.Second*15)
+	err = ex.WaitOrStop(ctx, cmd, os.Kill, time.Second*30)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
