@@ -3,13 +3,12 @@ package server
 import (
 	"context"
 	"fmt"
-	"hash/crc32"
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
+
+	"github.com/hashicorp/go-multierror"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -43,14 +42,14 @@ func (d *driver) master(ctx context.Context) {
 			d.log.Info("Skipping Storage GC")
 		} else {
 			eg.Go(func() error {
-				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "gc"))
+				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "storage-gc"))
 				d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
-				gcCtx, err := lock.Lock(ctx)
+				ctx, err := lock.Lock(ctx)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
 				defer func() {
-					if err := lock.Unlock(gcCtx); err != nil {
+					if err := lock.Unlock(ctx); err != nil {
 						d.log.Errorf("error unlocking in pfs master: %v", err)
 					}
 				}()
@@ -63,14 +62,14 @@ func (d *driver) master(ctx context.Context) {
 			d.log.Info("Skipping Chunk Storage GC")
 		} else {
 			eg.Go(func() error {
-				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "chunk"))
+				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "chunk-gc"))
 				d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
-				gcCtx, err := lock.Lock(ctx)
+				ctx, err := lock.Lock(ctx)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
 				defer func() {
-					if err := lock.Unlock(gcCtx); err != nil {
+					if err := lock.Unlock(ctx); err != nil {
 						d.log.Errorf("error unlocking in pfs master: %v", err)
 					}
 				}()
@@ -79,7 +78,6 @@ func (d *driver) master(ctx context.Context) {
 			})
 		}
 		eg.Go(func() error {
-			fmt.Printf("lock: starting finishing commits...\n")
 			return d.finishCommits(ctx)
 		})
 		return errors.EnsureStack(eg.Wait())
@@ -89,20 +87,9 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) finishCommits(ctx context.Context) error {
-	ring, err := consistenthashing.New(ctx, path.Join(d.prefix, masterLockPath, "ring"),
-		d.etcdClient, d.log, crc32.ChecksumIEEE)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := ring.ErrGroup.Wait(); err != nil {
-			d.log.Errorf("error waiting for ring: %v", err)
-		}
-	}()
-	if err := ring.AddNode(ctx, uuid.New()); err != nil {
-		return err
-	}
+func (d *driver) finishCommits(ctx context.Context) (retErr error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	repos := make(map[string]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
@@ -110,56 +97,57 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		}
 	}()
 	compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
-	err = d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
-		if ev.Type == watch.EventError {
-			return ev.Err
-		}
-		key := string(ev.Key)
-		lockPrefix := path.Join(d.prefix, masterLockPath, "repos", key)
-		if ev.Type == watch.EventDelete {
-			if cancel, ok := repos[key]; ok {
-				d.log.Infof("released lock for %s", key)
-				err = ring.Unlock(lockPrefix)
-				cancel()
-				if err != nil {
-					return err
+	return consistenthashing.WithRing(ctx, d.etcdClient, d.log, path.Join(d.prefix, masterLockPath, "ring"),
+		func(ctx context.Context, ring *consistenthashing.Ring) error {
+			err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+				if ev.Type == watch.EventError {
+					return ev.Err
 				}
-			}
-			delete(repos, key)
-			return nil
-		}
-		if _, ok := repos[key]; ok {
-			return nil
-		}
-		ctx, cancel := context.WithCancel(ctx)
-		repos[key] = cancel
-		go func() {
-			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-				_, err := ring.Lock(ctx, lockPrefix)
-				if err != nil {
-					return errors.Wrap(err, "error locking repo lock")
-				}
-				d.log.Infof("got lock for %s", key)
-				defer func() {
-					unlockErr := ring.Unlock(lockPrefix)
-					d.log.Infof("released lock for %s", key)
-					if err == nil {
-						err = unlockErr
-					} else if unlockErr != nil {
-						err = errors.New(
-							fmt.Sprintf("error unlocking repo lock: original err: %v unlock err: %v",
-								err.Error(), unlockErr.Error()))
+				key := string(ev.Key)
+				lockPrefix := path.Join("repos", key)
+				if ev.Type == watch.EventDelete {
+					if cancel, ok := repos[key]; ok {
+						if err := ring.Unlock(lockPrefix); err != nil {
+							return err
+						}
+						cancel()
 					}
+					delete(repos, key)
+					return nil
+				}
+				if _, ok := repos[key]; ok {
+					return nil
+				}
+				ctx, cancel := context.WithCancel(ctx)
+				repos[key] = cancel
+				go func() {
+					backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+						ctx, cancel := context.WithCancel(ctx)
+						defer cancel()
+						lockCtx, err := ring.Lock(ctx, lockPrefix)
+						if err != nil {
+							return errors.Wrap(err, "error locking repo lock")
+						}
+						defer func() {
+							if err := ring.Unlock(lockPrefix); err != nil {
+								if retErr == nil {
+									retErr = err
+								} else {
+									retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
+								}
+							}
+						}()
+						return d.finishRepoCommits(lockCtx, compactor, key)
+					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+						log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
+						return nil
+					})
 				}()
-				return d.finishRepoCommits(ctx, compactor, key)
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
 				return nil
 			})
-		}()
-		return nil
-	})
-	return errors.EnsureStack(err)
+			return errors.EnsureStack(err)
+		},
+	)
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {
