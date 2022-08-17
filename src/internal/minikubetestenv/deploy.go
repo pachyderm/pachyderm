@@ -227,7 +227,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
 			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
-			"ingress.host":                       fmt.Sprintf("%s:%v", host, clientPort),
+			"proxy.host":                       fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},

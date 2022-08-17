@@ -1198,6 +1198,9 @@
                 "enabled": {
                     "type": "boolean"
                 },
+                "host": {
+                    "type": "string"
+                },
                 "image": {
                     "type": "object",
                     "properties": {
