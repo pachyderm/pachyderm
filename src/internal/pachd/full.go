@@ -17,7 +17,6 @@ type fullBuilder struct {
 }
 
 func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
-
 	if fb.env.Config().EnterpriseMember {
 		return nil
 	}
@@ -44,7 +43,7 @@ func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
 	})
 	fb.bootstrappers = append(fb.bootstrappers, apiServer)
 	fb.env.SetEnterpriseServer(apiServer)
-	fb.licenseEnv.EnterpriseServer = apiServer
+	fb.daemon.license.EnterpriseServer = apiServer
 	return nil
 }
 

@@ -33,7 +33,7 @@ func (eb *enterpriseBuilder) registerEnterpriseServer(ctx context.Context) error
 	})
 	eb.bootstrappers = append(eb.bootstrappers, apiServer)
 	eb.env.SetEnterpriseServer(apiServer)
-	eb.licenseEnv.EnterpriseServer = apiServer
+	eb.daemon.license.EnterpriseServer = apiServer
 	return nil
 }
 

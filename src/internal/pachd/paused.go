@@ -41,7 +41,7 @@ func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	})
 	pb.bootstrappers = append(pb.bootstrappers, apiServer)
 	pb.env.SetEnterpriseServer(apiServer)
-	pb.licenseEnv.EnterpriseServer = apiServer
+	pb.daemon.license.EnterpriseServer = apiServer
 
 	// Stop workers because unpaused pachds in the process
 	// of rolling may have started them back up.

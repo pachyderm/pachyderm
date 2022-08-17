@@ -61,10 +61,10 @@ type envBootstrapper interface {
 
 // builder provides the base daemon builder structure.
 type builder struct {
-	env                serviceenv.ServiceEnv
-	daemon             daemon
-	txnEnv             *transactionenv.TransactionEnv
-	licenseEnv         *licenseserver.Env
+	env    serviceenv.ServiceEnv
+	daemon daemon
+	txnEnv *transactionenv.TransactionEnv
+	//licenseEnv         *licenseserver.Env
 	enterpriseEnv      *eprsserver.Env
 	reporter           *metrics.Reporter
 	authInterceptor    *authmw.Interceptor
@@ -224,15 +224,11 @@ func (b builder) forGRPCServer(f func(*grpc.Server)) {
 }
 
 func (b *builder) registerLicenseServer(ctx context.Context) error {
-	b.licenseEnv = licenseserver.EnvFromServiceEnv(b.env)
-	apiServer, err := licenseserver.New(b.licenseEnv)
-	if err != nil {
-		return err
-	}
+	b.daemon.license = licenseserver.New(b.env.GetDBClient(), b.env.GetPostgresListener(), b.env.Config(), b.env.EnterpriseServer())
 	b.forGRPCServer(func(s *grpc.Server) {
-		licenseclient.RegisterAPIServer(s, apiServer)
+		licenseclient.RegisterAPIServer(s, b.daemon.license)
 	})
-	b.bootstrappers = append(b.bootstrappers, apiServer)
+	b.bootstrappers = append(b.bootstrappers, b.daemon.license)
 	return nil
 }
 func (b *builder) registerIdentityServer(ctx context.Context) error {

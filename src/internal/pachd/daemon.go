@@ -27,6 +27,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 )
 
 // daemon is a Pachyderm daemon.
@@ -35,6 +36,7 @@ type daemon struct {
 	internal, external *grpcutil.Server
 	s3                 *s3Server
 	prometheus         *prometheusServer
+	license            *licenseserver.APIServer
 
 	// configuration
 	criticalServersOnly bool

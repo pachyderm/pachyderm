@@ -213,10 +213,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(&licenseserver.Env{})
-			if err != nil {
-				return err
-			}
+			licenseAPIServer := licenseserver.New(nil, nil, nil, nil)
 			licenseclient.RegisterAPIServer(externalServer.Server, licenseAPIServer)
 			return nil
 		}); err != nil {
