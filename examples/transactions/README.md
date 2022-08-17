@@ -39,7 +39,7 @@ result to the `model` repository. You can adapt this example
 to your pipelines as needed.
 
 The following diagram describes the pipeline structure:
-
+  
 ![transactions diagram](../../doc/docs/master/assets/images/examples_transaction.svg)
 
 To set up the pipeline, complete the following steps:
