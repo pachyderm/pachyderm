@@ -12,7 +12,6 @@ export type EventType = 'identify' | 'page' | 'track';
 type Track = (...args: any[]) => void;
 type Page = (...args: any[]) => void;
 type Identify = (...args: any[]) => void;
-type GetAnonymousId = (...args: any[]) => void;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 enum QueryStringCookies {
@@ -92,15 +91,12 @@ export const fireIdentify = (
   authCreatedAt: number,
   identify: Identify,
   track: Track,
-  getAnonymousId: GetAnonymousId,
 ) => {
   try {
     const trackingCookies = getTrackingCookies();
-    const anonymousId = getAnonymousId();
     const createdAt = new Date(authCreatedAt * 1000).toISOString();
 
     identify(authId, {
-      anonymous_id: anonymousId,
       email: authEmail,
       created_at: createdAt,
       ...trackingCookies,
@@ -110,7 +106,6 @@ export const fireIdentify = (
       authCreatedAt: createdAt,
       authEmail,
       authId,
-      anonymousId,
       ...trackingCookies,
     });
   } catch (err) {

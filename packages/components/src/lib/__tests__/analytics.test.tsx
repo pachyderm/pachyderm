@@ -25,8 +25,7 @@ jest.mock('@sentry/react', () => ({
 }));
 
 describe('lib/analytics', () => {
-  let getAnonymousId = jest.fn(),
-    identify = jest.fn(),
+  let identify = jest.fn(),
     page = jest.fn(),
     track = jest.fn();
 
@@ -36,7 +35,6 @@ describe('lib/analytics', () => {
     Cookies.remove('latest_utm_content');
     Cookies.remove('source_utm_source');
     Cookies.remove('source_utm_content');
-    getAnonymousId = jest.fn(() => 'mock-anonymous-id');
     identify = jest.fn();
     page = jest.fn();
     track = jest.fn();
@@ -72,11 +70,9 @@ describe('lib/analytics', () => {
       new Date(1605719038392).getTime() / 1000,
       identify,
       track,
-      getAnonymousId,
     );
 
     expect(identify).toHaveBeenCalledWith('7', {
-      anonymous_id: 'mock-anonymous-id',
       email: 'cloud@avalanche.org',
       created_at: '2020-11-18T17:03:58.392Z',
       latest_utm_source: 'shinra',
@@ -85,7 +81,6 @@ describe('lib/analytics', () => {
       source_utm_content: 'mako',
     });
     expect(track).toHaveBeenCalledWith('authenticated', {
-      anonymousId: 'mock-anonymous-id',
       authCreatedAt: '2020-11-18T17:03:58.392Z',
       authEmail: 'cloud@avalanche.org',
       authId: '7',
@@ -185,7 +180,6 @@ describe('lib/analytics', () => {
       new Date(1605719038392).getTime() / 1000,
       identify,
       track,
-      getAnonymousId,
     );
     expect(captureException).toHaveBeenCalledWith(
       '[Analytics Error]: Operation: track, Event: identify, ID: 7, Error: Analytics exploded!',

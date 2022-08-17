@@ -16,7 +16,6 @@ export type UseAnalyticsProps = {
   clusterId?: string;
   provider: {
     /* eslint-disable @typescript-eslint/no-explicit-any */
-    getAnonymousId: (...args: any[]) => void;
     identify: (...args: any[]) => void;
     page: (...args: any[]) => void;
     track: (...args: any[]) => void;
@@ -52,20 +51,9 @@ const useAnalytics = ({
   }, [provider]);
 
   useEffect(() => {
-    if (window.analyticsIdentified) {
-      return;
-    }
-
-    if (createdAt && email && id) {
+    if (!window.analyticsIdentified && createdAt && email && id) {
       window.analyticsIdentified = true;
-      fireIdentify(
-        id,
-        email,
-        createdAt,
-        provider.identify,
-        provider.track,
-        provider.getAnonymousId,
-      );
+      fireIdentify(id, email, createdAt, provider.identify, provider.track);
     }
   }, [createdAt, id, email, provider]);
 
