@@ -31,7 +31,7 @@ describe('Community Edition', () => {
   
     it('should remove the community edition banner when an enterprise license is entered', () => {
       cy.findByText('Community Edition').should('exist');
-      cy.findByText('Upgrade to Enterprise').parent().parent().should('have.attr', 'href', 'http://pachyderm.com/trial-console')
+      cy.findByText('Upgrade to Enterprise').parent().parent().should('have.attr', 'href', 'https://www.pachyderm.com/trial-console/?utm_source=console')
 
       cy.exec("jq -r .pachyderm version.json").then((res) => {
         cy.exec("echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate");

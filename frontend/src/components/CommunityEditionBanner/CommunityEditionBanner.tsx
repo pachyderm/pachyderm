@@ -43,8 +43,9 @@ const CommunityEditionBanner: React.FC<CommunityEditionBannerProps> = ({
             : null}
         </div>
         <Button
-          href="http://pachyderm.com/trial-console"
+          href="https://www.pachyderm.com/trial-console/?utm_source=console"
           buttonType="secondary"
+          data-testid="CommunityEditionBanner__enterpriseUpgrade"
         >
           Upgrade to Enterprise
         </Button>
