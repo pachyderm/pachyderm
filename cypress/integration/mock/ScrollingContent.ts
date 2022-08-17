@@ -72,7 +72,7 @@ describe('Console Scrolling Content', () => {
     cy.findAllByText(/^View(\sProject)*$/).eq(1).click();
     cy.findByText('View List').click();
     cy.findByText('Info').click();
-    cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 6);
+    cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 8);
     cy.get(`[aria-labelledby="info"]`).children().first().children().first().should('be.visible');
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('be.visible');
     cy.isInViewport(() => cy.get(`[aria-labelledby="info"]`).children().first().children().last());
@@ -88,7 +88,7 @@ describe('Console Scrolling Content', () => {
     cy.findAllByText(/^View(\sProject)*$/).eq(1).click();
     cy.findByText('View List').click();
     cy.findByText('Pipelines').click();
-    cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 20);
+    cy.get(`[aria-labelledby="info"]`).children().first().children().should('have.length', 22);
     cy.get(`[aria-labelledby="info"]`).children().first().children().first().should('be.visible');
     cy.get(`[aria-labelledby="info"]`).children().first().children().last().should('not.be.visible');
     cy.get(`[aria-labelledby="info"]`).scrollTo('bottom')
