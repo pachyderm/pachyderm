@@ -363,19 +363,24 @@ func (d *driver) RunUserCode(
 		return errors.EnsureStack(err)
 	}
 
-	_, err = cmd.Process.Wait()
-	if err != nil {
+	done := make(chan error)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	select {
+	case err := <-done:
 		return errors.EnsureStack(err)
 	}
+
 	if common.IsDone(ctx) {
 		if err2 := ctx.Err(); err2 != nil {
 			return errors.EnsureStack(err2)
 		}
 	}
-	err = ex.WaitOrStop(ctx, cmd, os.Kill, time.Second*30)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
+	//err = ex.WaitOrStop(ctx, cmd, os.Kill, time.Second*30)
+	//if err != nil {
+	//	return errors.EnsureStack(err)
+	//}
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
