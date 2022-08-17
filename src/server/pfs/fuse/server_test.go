@@ -82,7 +82,7 @@ func TestBasicServerSameNames(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -133,7 +133,7 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -178,7 +178,7 @@ func TestBasicServerDifferingNames(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -242,7 +242,7 @@ func TestRepoAccess(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, _ = put("_mount", b)
 		require.Equal(t, 500, resp.StatusCode)
 	})
@@ -277,7 +277,7 @@ func TestUnmountAll(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -431,7 +431,7 @@ func TestMultipleMount(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		_, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -452,7 +452,7 @@ func TestMultipleMount(t *testing.T) {
 			Mounts: []string{"mount2"},
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(ur)
+		require.NoError(t, json.NewEncoder(b).Encode(ur))
 		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
@@ -475,7 +475,7 @@ func TestMultipleMount(t *testing.T) {
 			},
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, _ := put("_mount", b)
 		require.Equal(t, 500, resp.StatusCode)
 	})
@@ -495,7 +495,7 @@ func TestMountNonexistentRepo(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, _ := put("_mount", b)
 		require.Equal(t, 400, resp.StatusCode)
 	})
@@ -555,7 +555,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -576,7 +576,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 			Mounts: []string{"repo"},
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(ur)
+		require.NoError(t, json.NewEncoder(b).Encode(ur))
 		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
@@ -607,7 +607,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -629,7 +629,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 			Mount: "repo",
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(cr)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
 		_, err = put("_commit", b)
 		require.NoError(t, err)
 
@@ -661,7 +661,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -683,7 +683,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 			Mount: "repo",
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(cr)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
 		_, err = put("_commit", b)
 		require.NoError(t, err)
 
@@ -702,7 +702,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 		require.NoError(t, err)
 
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(cr)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
 		_, err = put("_commit", b)
 		require.NoError(t, err)
 
@@ -734,7 +734,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 			},
 		}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(mr)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
 		resp, err := put("_mount", b)
 		require.NoError(t, err)
 
@@ -756,7 +756,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 			Mount: "repo",
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(cr)
+		require.NoError(t, json.NewEncoder(b).Encode(cr))
 		_, err = put("_commit", b)
 		require.NoError(t, err)
 
@@ -777,7 +777,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 			Mounts: []string{"repo"},
 		}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(ur)
+		require.NoError(t, json.NewEncoder(b).Encode(ur))
 		_, err = put("_unmount", b)
 		require.NoError(t, err)
 
@@ -816,15 +816,15 @@ func TestMountDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr := &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 1, mdr.NumDatums)
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -836,12 +836,12 @@ func TestMountDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr = &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 	})
@@ -870,15 +870,15 @@ func TestCrossDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr := &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo1"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo1"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo2_dev"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo2_dev"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 	})
@@ -907,7 +907,7 @@ func TestUnionDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr := &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 3, mdr.NumDatums)
@@ -934,15 +934,15 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr := &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 4, mdr.NumDatums)
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint))
+		files, err := os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo1"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -954,15 +954,15 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr = &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint))
+		files, err = os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
 		require.Equal(t, 3, len(files)) // Need to account for "out" rw mount
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo1_dev"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1_dev"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 	})
@@ -983,20 +983,20 @@ func TestShowDatum(t *testing.T) {
 		require.NoError(t, err)
 
 		mdr := &MountDatumResponse{}
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		datum1Id := mdr.Id
 		require.Equal(t, 2, mdr.NumDatums)
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo_dev"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo_dev"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
 		resp, err = put("_show_datum?idx=1", nil)
 		require.NoError(t, err)
 
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
@@ -1004,7 +1004,7 @@ func TestShowDatum(t *testing.T) {
 		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
 		require.NoError(t, err)
 
-		json.NewDecoder(resp.Body).Decode(mdr)
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		require.Equal(t, datum1Id, mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
