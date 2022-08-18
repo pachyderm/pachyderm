@@ -13,9 +13,11 @@ interface retryAnalyticsContextResponse {
 const MAX_RETRY = 30;
 
 async function retryAnalyticsContext() {
-  const retryObj = operation({retries: MAX_RETRY});
-  return new Promise<retryAnalyticsContextResponse>((resolve) => {
-    retryObj.attempt(async () => {
+  const retryObj = operation({
+    retries: MAX_RETRY,
+  });
+  return new Promise<retryAnalyticsContextResponse>((resolve, reject) => {
+    retryObj.attempt(async (currentAttempt) => {
       try {
         const pachClient = pachydermClient({
           pachdAddress: process.env.PACHD_ADDRESS,
@@ -28,13 +30,16 @@ async function retryAnalyticsContext() {
         ]);
 
         const {expiration, state} = enterpriseInfoToGQLInfo(enterpriseInfo);
-        resolve({
+        return resolve({
           anonymousId: clusterInfo.id,
           expiration: expiration,
           enterpriseState: state,
         });
       } catch (err) {
-        retryObj.retry(new Error());
+        if (currentAttempt === MAX_RETRY) {
+          return reject(retryObj.mainError());
+        }
+        retryObj.retry(new Error(JSON.stringify(err)));
       }
     });
   });
