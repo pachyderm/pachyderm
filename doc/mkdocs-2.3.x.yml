@@ -19,7 +19,7 @@ pach_branch: '2.3.x'
 copyright: 'Copyright Pachyderm Inc, 2022'
 # Version of Pachyderm featured in the product
 
-pach_featured_version: '2.2.7'
+pach_featured_version: '2.2.8'
 # Latest version of Pachyderm
 pach_latest_version: '2.3.0-rc.2'
 pach_major_minor_version: '2.3'
