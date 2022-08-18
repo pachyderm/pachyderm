@@ -76,6 +76,10 @@ spec:
          {{- end }}
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
+          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRESQL_PASSWORD
+          value: "password"
+          {{- else }}
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
