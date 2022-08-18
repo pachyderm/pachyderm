@@ -146,7 +146,6 @@ func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Sugges
 		})
 	}
 	return result, samePart(parsePart(text))
-
 }
 
 const (
