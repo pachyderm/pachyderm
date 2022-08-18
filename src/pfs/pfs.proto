@@ -53,6 +53,7 @@ message RepoInfo {
     int64 size_bytes = 1;
   }
   Details details = 7;
+  Project project = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
@@ -162,6 +163,15 @@ message FileInfo {
   google.protobuf.Timestamp committed = 3;
   int64 size_bytes = 4;
   bytes hash = 5;
+}
+
+message Project {
+  string name = 1;
+}
+
+message ProjectInfo {
+  Project project = 1;
+  string description = 2;
 }
 
 // PFS API
@@ -283,6 +293,34 @@ message DeleteBranchRequest {
   Branch branch = 1;
   bool force = 2;
 }
+
+message CreateProjectRequest {
+  Project project = 1;
+  string description = 2;
+}
+
+message CreateProjectResponse {}
+
+message InspectProjectRequest {
+  Project project = 1;
+}
+
+message InspectProjectResponse {
+  ProjectInfo project_info = 1;
+}
+
+message ListProjectRequest {}
+
+message ListProjectResponse {
+  repeated ProjectInfo project_infos = 1;
+}
+
+message DeleteProjectRequest {
+  Project project = 1;
+  bool force = 2;
+}
+
+message DeleteProjectResponse {}
 
 enum Delimiter {
   NONE = 0;
@@ -604,4 +642,14 @@ service API {
 
   // Egress writes data from a commit to an external system
   rpc Egress(EgressRequest) returns (EgressResponse) {}
+
+  // Project API
+  // CreateProject creates a new project.
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse) {}
+  // InspectProject returns info about a project.
+  rpc InspectProject(InspectProjectRequest) returns (InspectProjectResponse) {}
+  // ListProject returns info about all projects.
+  rpc ListProject(ListProjectRequest) returns (ListProjectResponse) {}
+  // DeleteProject deletes a project.
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse) {}
 }

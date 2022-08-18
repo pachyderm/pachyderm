@@ -79,6 +79,7 @@ type driver struct {
 	repos    col.PostgresCollection
 	commits  col.PostgresCollection
 	branches col.PostgresCollection
+	projects col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -100,6 +101,7 @@ func newDriver(env Env) (*driver, error) {
 	repos := pfsdb.Repos(env.DB, env.Listener)
 	commits := pfsdb.Commits(env.DB, env.Listener)
 	branches := pfsdb.Branches(env.DB, env.Listener)
+	projects := pfsdb.Projects(env.DB, env.Listener)
 
 	// Setup driver struct.
 	d := &driver{
@@ -110,6 +112,7 @@ func newDriver(env Env) (*driver, error) {
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
+		projects:   projects,
 		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -417,6 +420,46 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
 			return grpcutil.ScrubGRPC(err)
 		}
+	}
+	return nil
+}
+
+func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
+	if err := d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.projects.ReadWrite(txnCtx.SqlTx).Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+			Project:     req.Project,
+			Description: req.Description,
+		})
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
+	pi := &pfs.ProjectInfo{}
+	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
+		return nil, err
+	}
+	return pi, nil
+}
+
+func (d *driver) listProject(ctx context.Context) ([]*pfs.ProjectInfo, error) {
+	projectInfo := &pfs.ProjectInfo{}
+	pis := make([]*pfs.ProjectInfo, 0)
+	if err := d.projects.ReadOnly(ctx).List(projectInfo, nil, func(string) error {
+		pis = append(pis, proto.Clone(projectInfo).(*pfs.ProjectInfo))
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return pis, nil
+}
+
+// TODO: delete all repos and pipelines within project
+func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
+		return errors.Wrapf(err, "delete project %q", project.Name)
 	}
 	return nil
 }
