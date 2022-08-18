@@ -2,6 +2,7 @@
 package pfsdb
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -18,6 +19,7 @@ const (
 	reposCollectionName    = "repos"
 	branchesCollectionName = "branches"
 	commitsCollectionName  = "commits"
+	projectsCollectionName = "projects"
 )
 
 var ReposTypeIndex = &col.Index{
@@ -175,6 +177,40 @@ func Branches(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollect
 	)
 }
 
+func ProjectKey(project *pfs.Project) string {
+	return project.Name
+}
+
+func Projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		projectsCollectionName,
+		db,
+		listener,
+		&pfs.ProjectInfo{},
+		nil,
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if project, ok := key.(*pfs.Project); !ok {
+				return "", errors.New("key must be a project")
+			} else {
+				return ProjectKey(project), nil
+			}
+		}),
+		col.WithKeyCheck(func(key string) error {
+			alphanumeric := regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(key)
+			if !alphanumeric {
+				return errors.New("project key must be alphanumeric")
+			}
+			return nil
+		}),
+		col.WithNotFoundMessage(func(key interface{}) string {
+			return pfsserver.ErrProjectNotFound{Project: key.(*pfs.Project)}.Error()
+		}),
+		col.WithExistsMessage(func(key interface{}) string {
+			return pfsserver.ErrProjectExists{Project: key.(*pfs.Project)}.Error()
+		}),
+	)
+}
+
 // AllCollections returns a list of all the PFS collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
@@ -185,5 +221,14 @@ func CollectionsV0() []col.PostgresCollection {
 		col.NewPostgresCollection(reposCollectionName, nil, nil, nil, reposIndexes),
 		col.NewPostgresCollection(commitsCollectionName, nil, nil, nil, commitsIndexes),
 		col.NewPostgresCollection(branchesCollectionName, nil, nil, nil, branchesIndexes),
+	}
+}
+
+// returns collections released in v2.4.0 - specifically the projects collection
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV2_4_0() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(projectsCollectionName, nil, nil, nil, nil),
 	}
 }
