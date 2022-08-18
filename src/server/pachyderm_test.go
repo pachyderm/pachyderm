@@ -4574,7 +4574,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		require.NoErrorWithinTRetry(t, time.Minute*5, func() error {
 			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
