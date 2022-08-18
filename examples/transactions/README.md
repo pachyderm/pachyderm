@@ -111,14 +111,14 @@ Add the data to the parameters repository by splitting each line into a separate
 
 ### 4. Run the Transaction
 
-1. Start a Transaction
+1. Start a Transaction:
 
    ```shell
    $ pachctl start transaction
    Started new transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    ```
-2. Start Two Commits
-   - Commit to the `raw_data` repository
+2. Start Two Commits:
+   - Commit to the `raw_data` repository:
 
    ```shell
    $ pachctl start commit raw_data@master
@@ -126,14 +126,14 @@ Add the data to the parameters repository by splitting each line into a separate
    42b893e48e7d40f1bb5ed770526a9a07
    ```
 
-   - Commit to the `parameters` repository
+   - Commit to the `parameters` repository:
 
    ```shell
    $ pachctl start commit parameters@master
    Added to transaction: 854e8503-6e5d-4542-805c-a73a39200bf8
    c4dc446b25e54a938a67a5e913b3f9a4
    ```
-3. Finish the Transaction
+3. Finish the Transaction:
 
    ```shell
    $ pachctl finish transaction
