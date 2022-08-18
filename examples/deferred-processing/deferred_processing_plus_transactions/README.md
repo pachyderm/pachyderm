@@ -128,7 +128,7 @@ before you run this example.
 4. View the list of jobs:
    
    ```shell
-   $ pachctl list job
+   $ pachctl list job -x
    ID                               PIPELINE   STARTED            DURATION  RESTART PROGRESS  DL       UL       STATE   
    2288709b4d8044409c2232d673ec8f23 montage_dp 55 seconds ago     1 second  0       0 + 0 / 0 0B       0B       success 
    6d9d4cf0f6524b0ca126fa97141303ea edges_dp   About a minute ago 4 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success 
@@ -155,7 +155,7 @@ before you run this example.
 6. View the list of jobs, again. 
 
    ```shell
-   $ pachctl list job
+   $ pachctl list job -x
    ID                               PIPELINE   STARTED            DURATION  RESTART PROGRESS  DL       UL       STATE   
    c7e69e46e9954611ad8efc8aeac47f2a edges_dp   12 seconds ago     3 seconds 0       1 + 3 / 4 175.1KiB 92.18KiB success 
    2288709b4d8044409c2232d673ec8f23 montage_dp About a minute ago 1 second  0       0 + 0 / 0 0B       0B       success 
@@ -178,7 +178,7 @@ before you run this example.
 8. Listing jobs will show that a job got triggered on `montage_dp`:
 
     ```shell
-    $ pachctl list job
+    $ pachctl list job -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     e5a116fd9c2e4678a0f49fcb2f8c8331 montage_dp 10 seconds ago 4 seconds 0       1 + 0 / 1 919.6KiB 1.055MiB success 
     c7e69e46e9954611ad8efc8aeac47f2a edges_dp   42 seconds ago 3 seconds 0       1 + 3 / 4 175.1KiB 92.18KiB success 
@@ -192,7 +192,7 @@ before you run this example.
 
     ```shell
     $ pachctl put file images_dp_1@master:2GI70mb.jpg -f http://imgur.com/2GI70mb.jpg
-    $ pachctl list job
+    $ pachctl list job -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     65eacaae2e63461bbfc1ed609e8b6f5e edges_dp   8 seconds ago  3 seconds 0       1 + 4 / 5 204KiB   18.89KiB success 
     e5a116fd9c2e4678a0f49fcb2f8c8331 montage_dp 13 minutes ago 4 seconds 0       1 + 0 / 1 919.6KiB 1.055MiB success 
@@ -207,7 +207,7 @@ before you run this example.
 
     ```shell
     $ pachctl create branch edges_dp@master --head dev
-    $ pachctl list job
+    $ pachctl list job -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     65eddcb60ae1475aa6d59b2baa69c78e montage_dp 8 seconds ago  5 seconds 0       1 + 0 / 1 938.5KiB 1.066MiB success 
     65eacaae2e63461bbfc1ed609e8b6f5e edges_dp   3 minutes ago  3 seconds 0       1 + 4 / 5 204KiB   18.89KiB success 
@@ -241,8 +241,7 @@ you can explore how transactions work in combination with deferred processing.
     
     ```shell
     $ pachctl put file images_dp_2@master:3Kr6Mr6.jpg  -f http://imgur.com/3Kr6Mr6.jpg
-    $ pachctl list job
-    $ pachctl list job
+    $ pachctl list job -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     9c97578031544cab9cc5fb64e9d77153 montage_dp 9 seconds ago  5 seconds 0       1 + 0 / 1 1015KiB  1.292MiB success 
     65eddcb60ae1475aa6d59b2baa69c78e montage_dp 28 seconds ago 5 seconds 0       1 + 0 / 1 938.5KiB 1.066MiB success 
@@ -292,7 +291,7 @@ you can explore how transactions work in combination with deferred processing.
     
     ```shell
     $ pachctl put file images_dp_2@master:9iIlokw.jpg -f http://imgur.com/9iIlokw.jpg
-    $ pachctl list job
+    $ pachctl list job -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     9c97578031544cab9cc5fb64e9d77153 montage_dp 18 minutes ago 5 seconds 0       1 + 0 / 1 1015KiB  1.292MiB success 
     65eddcb60ae1475aa6d59b2baa69c78e montage_dp 19 minutes ago 5 seconds 0       1 + 0 / 1 938.5KiB 1.066MiB success 
@@ -309,7 +308,7 @@ you can explore how transactions work in combination with deferred processing.
 
     ```
     $ pachctl finish commit images_dp_2@master
-    $ pachctl list job
+    $ pachctl list job -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     76f1e7c311fd4529938653787b1d283a montage_dp 14 seconds ago 6 seconds 0       1 + 0 / 1 1.175MiB 1.587MiB success 
     9c97578031544cab9cc5fb64e9d77153 montage_dp 19 minutes ago 5 seconds 0       1 + 0 / 1 1015KiB  1.292MiB success 
