@@ -11,7 +11,8 @@ This package also supports a second way of chunking data, [chunk.Batcher], used 
 Some implementation details might not make sense based on the current code (e.g. the [chunk.Ref.Edge] check in [chunk.StableDataRefs]).
 The algorithms for file and index chunking have changed in 2.x, and we must support previously-written data.
 Here are some examples of conditions in past data which current code will not generate:
-  - a file may be split across multiple chunks, some of which also contain other files
+  - a file that is split across multiple chunks may share some of them with other files
+	(in current code, a file split across chunks will be the only file in those chunks)
   - related, even small files may be split across multiple chunks
   - an index range data reference may start part way through a chunk
 */

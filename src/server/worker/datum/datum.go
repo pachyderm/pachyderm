@@ -1,7 +1,7 @@
 /*
 Package datum handles datums, the core units of work in a pipeline.
 
-We use a specific file system structure to store datums, whether in meta commits or in temporary lists during job processing.
+We use a specific file system structure to store datums, whether in meta commits or in temporary file sets during job processing.
 Every datum has a JSON-marshalled [datum.Meta] at the file path
 
 	/meta/<datum-ID>/meta
