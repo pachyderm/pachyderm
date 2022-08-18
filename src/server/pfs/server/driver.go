@@ -426,10 +426,10 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
 	if err := d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return d.projects.ReadWrite(txnCtx.SqlTx).Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+		return errors.EnsureStack(d.projects.ReadWrite(txnCtx.SqlTx).Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,
 			Description: req.Description,
-		})
+		}))
 	}); err != nil {
 		return err
 	}
@@ -439,7 +439,7 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
 	pi := &pfs.ProjectInfo{}
 	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return pi, nil
 }
@@ -451,7 +451,7 @@ func (d *driver) listProject(ctx context.Context) ([]*pfs.ProjectInfo, error) {
 		pis = append(pis, proto.Clone(projectInfo).(*pfs.ProjectInfo))
 		return nil
 	}); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return pis, nil
 }

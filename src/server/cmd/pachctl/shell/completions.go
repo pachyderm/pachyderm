@@ -142,7 +142,7 @@ func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Sugges
 	for _, pi := range resp.ProjectInfos {
 		result = append(result, prompt.Suggest{
 			Text:        pi.Project.Name,
-			Description: fmt.Sprintf("%s", pi.Description),
+			Description: pi.Description,
 		})
 	}
 	return result, samePart(parsePart(text))
