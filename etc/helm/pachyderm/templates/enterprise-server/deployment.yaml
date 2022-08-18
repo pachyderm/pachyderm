@@ -28,9 +28,11 @@ spec:
         {{- end }}
       name: pach-enterprise
       namespace: {{ .Release.Namespace }}
-      {{- if .Values.enterpriseServer.annotations }}
-      annotations: {{ toYaml .Values.enterpriseServer.annotations | nindent 4 }}
-      {{- end }}
+      annotations:
+        checksum/helm-values: {{ toJson .Values | sha256sum }}
+        {{- if .Values.enterpriseServer.annotations }}
+        {{ toYaml .Values.enterpriseServer.annotations | nindent 8 }}
+        {{- end }}
     spec:
       {{- if .Values.enterpriseServer.priorityClassName }}
       priorityClassName: {{ .Values.enterpriseServer.priorityClassName }}
@@ -177,10 +179,6 @@ spec:
             secretKeyRef:
               name: pachyderm-console-secret
               key: OAUTH_CLIENT_SECRET
-        {{- end }}
-        {{- if .Release.IsUpgrade }}
-        - name: UPGRADE_NO_OP
-          value: {{ randAlphaNum 32 }}
         {{- end }}
         envFrom:
           - secretRef:
