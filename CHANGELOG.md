@@ -1,5 +1,7 @@
 
 # Changelog
+## 2.2.8
+
 ## 2.2.7
 - Don’t segfault on nil field - #8001
 - Update RCs unconditionally. - #7995
