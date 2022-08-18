@@ -20,7 +20,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	ex "github.com/pachyderm/pachyderm/v2/src/internal/exec"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -437,15 +436,7 @@ func (d *driver) RunUserErrorHandlingCode(
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
-	err = ex.WaitOrStop(ctx, cmd, os.Kill, time.Second*15)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	if common.IsDone(ctx) {
-		if err2 := ctx.Err(); err2 != nil {
-			return errors.EnsureStack(err2)
-		}
-	}
+	err = cmd.Wait()
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
 	// Stdin. This is a fairly common thing to do, bash by default ignores
@@ -463,6 +454,11 @@ func (d *driver) RunUserErrorHandlingCode(
 			}
 		}
 		return errors.EnsureStack(err)
+	}
+	if common.IsDone(ctx) {
+		if err2 := ctx.Err(); err2 != nil {
+			return errors.EnsureStack(err2)
+		}
 	}
 	return nil
 }
