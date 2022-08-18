@@ -33,6 +33,11 @@ export type Account = {
   name?: Maybe<Scalars['String']>;
 };
 
+export type AdminInfo = {
+  __typename?: 'AdminInfo';
+  clusterId?: Maybe<Scalars['String']>;
+};
+
 export type AuthConfig = {
   __typename?: 'AuthConfig';
   authEndpoint: Scalars['String'];
@@ -569,6 +574,7 @@ export type PutFilesFromUrLsArgs = {
 export type Query = {
   __typename?: 'Query';
   account: Account;
+  adminInfo: AdminInfo;
   authConfig: AuthConfig;
   branch: Branch;
   commit: Commit;
@@ -904,6 +910,7 @@ export type DirectiveResolverFn<
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = ResolversObject<{
   Account: ResolverTypeWrapper<Account>;
+  AdminInfo: ResolverTypeWrapper<AdminInfo>;
   AuthConfig: ResolverTypeWrapper<AuthConfig>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']>;
   Branch: ResolverTypeWrapper<Branch>;
@@ -995,6 +1002,7 @@ export type ResolversTypes = ResolversObject<{
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = ResolversObject<{
   Account: Account;
+  AdminInfo: AdminInfo;
   AuthConfig: AuthConfig;
   Boolean: Scalars['Boolean'];
   Branch: Branch;
@@ -1078,6 +1086,18 @@ export type AccountResolvers<
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type AdminInfoResolvers<
+  ContextType = Context,
+  ParentType extends ResolversParentTypes['AdminInfo'] = ResolversParentTypes['AdminInfo'],
+> = ResolversObject<{
+  clusterId?: Resolver<
+    Maybe<ResolversTypes['String']>,
+    ParentType,
+    ContextType
+  >;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -1536,6 +1556,7 @@ export type QueryResolvers<
   ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query'],
 > = ResolversObject<{
   account?: Resolver<ResolversTypes['Account'], ParentType, ContextType>;
+  adminInfo?: Resolver<ResolversTypes['AdminInfo'], ParentType, ContextType>;
   authConfig?: Resolver<ResolversTypes['AuthConfig'], ParentType, ContextType>;
   branch?: Resolver<
     ResolversTypes['Branch'],
@@ -1804,6 +1825,7 @@ export type VertexResolvers<
 
 export type Resolvers<ContextType = Context> = ResolversObject<{
   Account?: AccountResolvers<ContextType>;
+  AdminInfo?: AdminInfoResolvers<ContextType>;
   AuthConfig?: AuthConfigResolvers<ContextType>;
   Branch?: BranchResolvers<ContextType>;
   BranchInfo?: BranchInfoResolvers<ContextType>;
@@ -2063,6 +2085,13 @@ export type GetAccountQuery = {
     email: string;
     name?: string | null;
   };
+};
+
+export type GetAdminInfoQueryVariables = Exact<{[key: string]: never}>;
+
+export type GetAdminInfoQuery = {
+  __typename?: 'Query';
+  adminInfo: {__typename?: 'AdminInfo'; clusterId?: string | null};
 };
 
 export type AuthConfigQueryVariables = Exact<{[key: string]: never}>;

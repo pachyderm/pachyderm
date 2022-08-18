@@ -3,6 +3,7 @@ import merge from 'lodash/merge';
 import authenticated from '@dash-backend/middleware/authenticated';
 import {Resolvers} from '@graphqlTypes';
 
+import adminResolver from './Admin';
 import authResolver from './Auth';
 import branchResolver from './Branch';
 import commitResolver from './Commit';
@@ -31,6 +32,7 @@ const resolvers: Resolvers = merge(
   commitResolver,
   branchResolver,
   enterpriseResolver,
+  adminResolver,
   {},
 );
 

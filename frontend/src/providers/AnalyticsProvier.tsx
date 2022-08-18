@@ -2,9 +2,10 @@ import {useAnalytics} from '@pachyderm/components';
 import * as Sentry from '@sentry/react';
 import LogRocket from 'logrocket';
 import React from 'react';
-import {getAnonymousId, identify, page, track} from 'rudder-sdk-js';
+import {identify, page, track} from 'rudder-sdk-js';
 
 import useAccount from '@dash-frontend/hooks/useAccount';
+import useAdminInfo from '@dash-frontend/hooks/useAdminInfo';
 import useAuth from '@dash-frontend/hooks/useAuth';
 
 const enableTelemetry =
@@ -13,13 +14,13 @@ const enableTelemetry =
 const AnalyticsProvider: React.FC = ({children}) => {
   const {loggedIn} = useAuth();
   const {account} = useAccount({skip: !loggedIn});
-
+  const {clusterId} = useAdminInfo({skip: !loggedIn});
   const analytics = useAnalytics({
     createdAt: Date.now(),
     email: account?.email,
     id: account?.id,
+    clusterId: clusterId || undefined,
     provider: {
-      getAnonymousId,
       identify,
       page,
       track,

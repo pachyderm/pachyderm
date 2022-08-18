@@ -2,7 +2,6 @@ import {Server} from 'http';
 import {AddressInfo} from 'net';
 import path from 'path';
 
-import {pachydermClient} from '@pachyderm/node-pachyderm';
 import Analytics from '@rudderstack/rudder-sdk-node';
 import * as Sentry from '@sentry/node';
 import cookieParser from 'cookie-parser';
@@ -16,6 +15,7 @@ import log from '@dash-backend/lib/log';
 import createWebsocketServer from './createWebsocketServer';
 import uploadsRouter from './handlers/handleFileUpload';
 import fileUploads from './lib/FileUploads';
+import retryAnalyticsContext from './lib/retryAnalyticsContext';
 
 const PORT = process.env.GRAPHQL_PORT || '3000';
 const FE_BUILD_DIRECTORY =
@@ -80,24 +80,40 @@ const attachAnalytics = async () => {
     process.env.NODE_RUDDERSTACK_ID,
     'https://pachyderm-dataplane.rudderstack.com/v1/batch',
   );
-  const pachClient = pachydermClient({
-    pachdAddress: process.env.PACHD_ADDRESS,
-    ssl: false,
-  });
-  const clusterInfo = await pachClient.admin().inspectCluster();
-  log.addStream({
-    level: 'info',
-    stream: {
-      write: (log: unknown) => {
-        analyticsClient.track({
-          event: JSON.stringify(log),
-          anonymousId: clusterInfo.id,
-        });
-      },
-    },
-    type: 'raw',
-  });
-  log.info('Telemetry stream to rudderstack started');
+  try {
+    const {anonymousId, expiration, enterpriseState} =
+      await retryAnalyticsContext();
+
+    if (anonymousId) {
+      // Gather info about the cluster on launch
+      analyticsClient.track({
+        event: 'cluster_info',
+        anonymousId,
+        properties: {
+          expiration,
+          enterpriseState,
+        },
+      });
+
+      log.addStream({
+        level: 'info',
+        stream: {
+          write: (log: unknown) => {
+            analyticsClient.track({
+              event: 'log',
+              anonymousId,
+              properties: {data: JSON.stringify(log)},
+            });
+          },
+        },
+        type: 'raw',
+      });
+      log.info('Telemetry stream to rudderstack started');
+    }
+  } catch (e) {
+    log.error('Error starting telemetry stream');
+    log.error(e);
+  }
 };
 
 const createServer = () => {

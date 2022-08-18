@@ -29,7 +29,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                 class="_children_1ktzr_8"
               >
                 <div
-                  class="_base_19s37_1 _plum_19s37_22"
+                  class="_base_t8rkp_1 _plum_t8rkp_22"
                 >
                   <svg
                     height="20"
@@ -122,7 +122,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="_base_19s37_1 chevron undefined _small_19s37_54"
+              class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
             >
               <svg
                 height="20"
@@ -182,7 +182,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                    class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
                   >
                     <svg
                       height="20"
@@ -248,7 +248,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                    class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
                   >
                     <svg
                       height="20"
@@ -321,7 +321,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="_base_19s37_1 chevron undefined _small_19s37_54"
+              class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
             >
               <svg
                 height="20"
@@ -387,7 +387,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="_base_19s37_1 chevron undefined _small_19s37_54"
+              class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
             >
               <svg
                 height="20"
@@ -433,7 +433,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                    class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
                   >
                     <svg
                       height="20"
@@ -544,7 +544,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
             class="header"
           >
             <div
-              class="_base_19s37_1 chevron undefined _small_19s37_54"
+              class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
             >
               <svg
                 height="20"
@@ -590,7 +590,7 @@ exports[`PipelineSpec should correctly render JSON spec 1`] = `
                   class="header"
                 >
                   <div
-                    class="_base_19s37_1 chevron undefined _small_19s37_54"
+                    class="_base_t8rkp_1 chevron undefined _small_t8rkp_54"
                   >
                     <svg
                       height="20"

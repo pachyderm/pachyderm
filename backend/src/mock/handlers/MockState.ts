@@ -11,9 +11,11 @@ import {
   ModifyFileRequest,
   DiffFileResponse,
   GetStateResponse,
+  ClusterInfo,
 } from '@pachyderm/node-pachyderm';
 import cloneDeep from 'lodash/cloneDeep';
 
+import admin from '@dash-backend/mock/fixtures/admin';
 import commits from '@dash-backend/mock/fixtures/commits';
 import datums from '@dash-backend/mock/fixtures/datums';
 import diffResponses from '@dash-backend/mock/fixtures/diffResponses';
@@ -60,6 +62,7 @@ export type StateType = {
     [projectId: string]: {[pipelineId: string]: {[jobId: string]: DatumInfo[]}};
   };
   enterprise: GetStateResponse;
+  admin: ClusterInfo;
 };
 
 const defaultState: StateType = {
@@ -78,6 +81,7 @@ const defaultState: StateType = {
   projectInfo,
   datums,
   enterprise: enterpriseStates.active,
+  admin: admin,
 };
 
 class MockState {

@@ -656,6 +656,63 @@ export type GetAccountQueryResult = Apollo.QueryResult<
   Types.GetAccountQuery,
   Types.GetAccountQueryVariables
 >;
+export const GetAdminInfoDocument = gql`
+  query getAdminInfo {
+    adminInfo {
+      clusterId
+    }
+  }
+`;
+
+/**
+ * __useGetAdminInfoQuery__
+ *
+ * To run a query within a React component, call `useGetAdminInfoQuery` and pass it any options that fit your needs.
+ * When your component renders, `useGetAdminInfoQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useGetAdminInfoQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useGetAdminInfoQuery(
+  baseOptions?: Apollo.QueryHookOptions<
+    Types.GetAdminInfoQuery,
+    Types.GetAdminInfoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useQuery<
+    Types.GetAdminInfoQuery,
+    Types.GetAdminInfoQueryVariables
+  >(GetAdminInfoDocument, options);
+}
+export function useGetAdminInfoLazyQuery(
+  baseOptions?: Apollo.LazyQueryHookOptions<
+    Types.GetAdminInfoQuery,
+    Types.GetAdminInfoQueryVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useLazyQuery<
+    Types.GetAdminInfoQuery,
+    Types.GetAdminInfoQueryVariables
+  >(GetAdminInfoDocument, options);
+}
+export type GetAdminInfoQueryHookResult = ReturnType<
+  typeof useGetAdminInfoQuery
+>;
+export type GetAdminInfoLazyQueryHookResult = ReturnType<
+  typeof useGetAdminInfoLazyQuery
+>;
+export type GetAdminInfoQueryResult = Apollo.QueryResult<
+  Types.GetAdminInfoQuery,
+  Types.GetAdminInfoQueryVariables
+>;
 export const AuthConfigDocument = gql`
   query authConfig {
     authConfig {

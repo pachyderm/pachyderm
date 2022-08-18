@@ -10,6 +10,7 @@ import {
   PfsAPIService,
   PpsAPIService,
   ProjectsAPIService,
+  AdminAPIService,
 } from '@pachyderm/node-pachyderm';
 import cors from 'cors';
 import express from 'express';
@@ -21,6 +22,7 @@ import {generateIdTokenForAccount} from '@dash-backend/testHelpers';
 import accounts from './fixtures/accounts';
 import keys from './fixtures/keys';
 import openIdConfiguration from './fixtures/openIdConfiguration';
+import admin from './handlers/admin';
 import auth from './handlers/auth';
 import enterprise from './handlers/enterprise';
 import MockState from './handlers/MockState';
@@ -56,6 +58,7 @@ const createServer = () => {
   grpcServer.addService(AuthAPIService, auth.getService());
   grpcServer.addService(ProjectsAPIService, projects.getService());
   grpcServer.addService(EnterpriseAPIService, enterprise.getService());
+  grpcServer.addService(AdminAPIService, admin.getService());
 
   // allow cors request to dev auth server
   // for devtools

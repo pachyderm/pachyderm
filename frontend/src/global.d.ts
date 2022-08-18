@@ -43,6 +43,7 @@ declare global {
 declare interface Window {
   analyticsInitialized?: boolean;
   analyticsIdentified?: boolean;
+  clusterIdentified?: boolean;
   pachDashConfig?: {
     REACT_APP_RUNTIME_ISSUER_URI: string;
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX: string;

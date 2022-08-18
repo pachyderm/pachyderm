@@ -170,11 +170,11 @@ type RepoInfo {
 }
 
 type Diff {
-  size: Float!,
-  sizeDisplay: String!,
-  filesAdded: Int!,
-  filesUpdated: Int!,
-  filesDeleted: Int!,
+  size: Float!
+  sizeDisplay: String!
+  filesAdded: Int!
+  filesUpdated: Int!
+  filesDeleted: Int!
 }
 
 type Commit {
@@ -188,7 +188,7 @@ type Commit {
   finished: Int!
   sizeBytes: Float!
   sizeDisplay: String!
-  diff: Diff,
+  diff: Diff
 }
 
 type Repo {
@@ -308,8 +308,8 @@ input FileQueryArgs {
 }
 
 type FileQueryResponse {
-  diff: Diff,
-  files: [File!]!,
+  diff: Diff
+  files: [File!]!
 }
 
 input ProjectDetailsQueryArgs {
@@ -536,6 +536,10 @@ type EnterpriseInfo {
   expiration: Int!
 }
 
+type AdminInfo {
+  clusterId: String
+}
+
 type Query {
   project(id: ID!): Project!
   projects: [Project!]!
@@ -561,6 +565,7 @@ type Query {
   datum(args: DatumQueryArgs!): Datum!
   datums(args: DatumsQueryArgs!): [Datum!]
   enterpriseInfo: EnterpriseInfo!
+  adminInfo: AdminInfo!
 }
 
 type Subscription {
@@ -588,7 +593,6 @@ input OpenCommitInput {
 input FinishCommitArgs {
   commit: OpenCommitInput!
   projectId: String!
-
 }
 
 type Mutation {
