@@ -17,13 +17,21 @@ type fullBuilder struct {
 }
 
 func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
-
 	if fb.env.Config().EnterpriseMember {
 		return nil
 	}
 	return fb.builder.registerIdentityServer(ctx)
 }
 
+// registerEnterpriseServer registers a FULL-mode enterprise server.  This
+// differs from enterprise mode in that the mode & unpaused-mode options are
+// passed; it differs from sidecar mode in that the mode & unpaused-mode options
+// are passed, the heartbeat is enabled and the license environment’s enterprise
+// server is set; it differs from paused mode in that the mode option is in full
+// mode.
+//
+// TODO: refactor the four modes to have a cleaner license/enterprise server
+// abstraction.
 func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
 	fb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		fb.env,

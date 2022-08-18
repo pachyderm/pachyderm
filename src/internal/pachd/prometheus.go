@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -18,7 +19,7 @@ type prometheusServer struct {
 
 // listenAndServe listens until ctx is cancelled; it then gracefully shuts down
 // the server, returning once all requests have been handled.
-func (ps prometheusServer) listenAndServe(ctx context.Context) error {
+func (ps prometheusServer) listenAndServe(ctx context.Context, shutdownTimeout time.Duration) error {
 	var (
 		mux = http.NewServeMux()
 		srv = http.Server{
@@ -34,10 +35,10 @@ func (ps prometheusServer) listenAndServe(ctx context.Context) error {
 	}()
 	select {
 	case <-ctx.Done():
-		// NOTE: using context.Background here means that shutdown will
-		// wait until all requests terminate.
-		log.Info("terminating S3 server due to cancelled context")
-		return errors.EnsureStack(srv.Shutdown(context.Background()))
+		log.Info("terminating Prometheus server due to cancelled context")
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		return errors.EnsureStack(srv.Shutdown(ctx))
 	case err := <-errCh:
 		return err
 	}

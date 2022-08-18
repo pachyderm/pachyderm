@@ -49,6 +49,13 @@ func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
 	return nil
 }
 
+// registerEnterpriseServer registers a SIDECAR-mode enterprise server.  This
+// differs from full & paused modes in that the mode & unpaused-mode options are
+// not passed and there is no license server; and from enterprise mode in that
+// heartbeat is false and there is no license server.
+//
+// TODO: refactor the four modes to have a cleaner license/enterprise server
+// abstraction.
 func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	sb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		sb.env,
@@ -64,7 +71,6 @@ func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
 	sb.forGRPCServer(func(s *grpc.Server) {
 		enterprise.RegisterAPIServer(s, apiServer)
 	})
-	sb.bootstrappers = append(sb.bootstrappers, apiServer)
 	sb.env.SetEnterpriseServer(apiServer)
 	return nil
 }

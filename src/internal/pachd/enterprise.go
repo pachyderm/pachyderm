@@ -15,6 +15,15 @@ type enterpriseBuilder struct {
 	builder
 }
 
+// registerEnterpriseServer registers an ENTERPRISE-mode enterprise server.
+// This differs from a full-mode enterprise server in that the mode &
+// unpaused-mode options are not passed; it differs from sidecar in that
+// heartbeat is enabled and the license environment’s enterprise server is set;
+// it differs from paused mode in that the mode & unpaused-mode options are not
+// passed.
+//
+// TODO: refactor the four modes to have a cleaner license/enterprise server
+// abstraction.
 func (eb *enterpriseBuilder) registerEnterpriseServer(ctx context.Context) error {
 	eb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		eb.env,

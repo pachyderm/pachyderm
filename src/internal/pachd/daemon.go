@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/pprof"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -58,22 +59,46 @@ func (d *daemon) serve(ctx context.Context) (err error) {
 		}))
 	}
 	if d.s3 != nil {
-		eg.Go(maybeIgnoreErrorFunc("S3 Server", !d.criticalServersOnly, func() error { return d.s3.listenAndServe(ctx) }))
+		eg.Go(maybeIgnoreErrorFunc("S3 Server", !d.criticalServersOnly, func() error { return d.s3.listenAndServe(ctx, 10*time.Second) }))
 	}
 	if d.prometheus != nil {
-		eg.Go(maybeIgnoreErrorFunc("Prometheus Server", !d.criticalServersOnly, func() error { return d.prometheus.listenAndServe(ctx) }))
+		eg.Go(maybeIgnoreErrorFunc("Prometheus Server", !d.criticalServersOnly, func() error { return d.prometheus.listenAndServe(ctx, 10*time.Second) }))
 	}
 	eg.Go(func() error {
 		<-ctx.Done() // wait for main context to complete
-		var eg = new(errgroup.Group)
-		log.Println("terminating; waiting for paused pachd server to gracefully stop")
-		eg.Go(func() error { d.external.Server.GracefulStop(); return nil })
-		eg.Go(func() error { d.internal.Server.GracefulStop(); return nil })
+		var (
+			eg     = new(errgroup.Group)
+			doneCh = make(chan struct{})
+		)
+		log.Println("terminating; waiting for pachd server to gracefully stop")
+		if d.external != nil {
+			eg.Go(func() error { d.external.Server.GracefulStop(); return nil })
+		}
+		if d.internal != nil {
+			eg.Go(func() error { d.internal.Server.GracefulStop(); return nil })
+		}
+		go func() {
+			select {
+			case <-time.After(10 * time.Second):
+				log.Println("pachd did not gracefully stop")
+				if d.external != nil {
+					d.external.Server.Stop()
+					log.Println("stopped external server")
+				}
+				if d.internal != nil {
+					d.internal.Server.Stop()
+					log.Println("stopped internal server")
+				}
+			case <-doneCh:
+				return
+			}
+		}()
 		err := eg.Wait()
 		if err != nil {
 			log.Errorf("error waiting for paused pachd server to gracefully stop: %v", err)
 		} else {
-			log.Println("gRPC server gracefully stopped")
+			log.Println("gRPC server stopped")
+			close(doneCh)
 		}
 		return errors.EnsureStack(err)
 	})

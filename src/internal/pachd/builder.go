@@ -148,22 +148,8 @@ func (b *builder) maybeInitReporter(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) initAuthInterceptor() {
-	b.authInterceptor = authmw.NewInterceptor(b.env.AuthServer)
-}
-
-func (b *builder) initLoggingInterceptor() {
-	b.loggingInterceptor = loggingmw.NewLoggingInterceptor(b.env.Logger())
-}
-
 func (b *builder) initInternalServer(ctx context.Context) error {
 	var err error
-	if b.authInterceptor == nil {
-		b.initAuthInterceptor()
-	}
-	if b.loggingInterceptor == nil {
-		b.initLoggingInterceptor()
-	}
 	b.daemon.internal, err = grpcutil.NewServer(
 		ctx,
 		false,
@@ -185,12 +171,6 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 
 func (b *builder) initExternalServer(ctx context.Context) error {
 	var err error
-	if b.authInterceptor == nil {
-		b.initAuthInterceptor()
-	}
-	if b.loggingInterceptor == nil {
-		b.initLoggingInterceptor()
-	}
 	b.daemon.external, err = grpcutil.NewServer(
 		ctx,
 		true,

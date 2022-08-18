@@ -21,6 +21,14 @@ func newPausedBuilder(config any) *pausedBuilder {
 	return &pausedBuilder{newBuilder(config, "pachyderm-pachd-paused")}
 }
 
+// registerEnterpriseServer registers a PAUSED-mode enterprise server.  This
+// differs from full mode in the mode option is set to paused; from enterprise
+// mode in that the mode & unpaused-mode options are passed; and from sidecar
+// mode in that the mode & unpaused-mode options are passed and the heartbeat is
+// true.
+//
+// TODO: refactor the four modes to have a cleaner license/enterprise server
+// abstraction.
 func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
 	pb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
 		pb.env,
