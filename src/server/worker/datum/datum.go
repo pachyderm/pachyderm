@@ -6,7 +6,7 @@ Every datum has a JSON-marshalled [datum.Meta] at the file path
 
 	/meta/<datum-ID>/meta
 
-When computing a job's list of datums, the ID is prefixed with an index so that datums are in a cache-friendly order.
+When computing a job's list of datums, the ID is prefixed with an index via [datum.WithPrefixIndex] to ensure a cache-friendly ordering.
 Meta commits additionally track output files, so that they can be deleted per datum.
 These files are under
 

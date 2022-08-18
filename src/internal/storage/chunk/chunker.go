@@ -25,7 +25,7 @@ const (
 )
 
 // ComputeChunks splits a stream of data into chunks using a content-defined chunking algorithm.
-// DefaultAverageBits determinds the typical chunk size by controlling the rarity of split points,
+// DefaultAverageBits determines the typical chunk size by controlling the rarity of split points,
 // determined by the hash of a moving window of the input stream.
 // The motivation is for typical file modifications (insertions, changes, deletions)
 // to only affect a small number of chunks.

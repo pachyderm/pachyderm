@@ -29,6 +29,18 @@ func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
 	}
 }
 
+// Compact consolidates a list of file sets for more efficient access. It decides how much work to do using by
+// requiring that each file set should be at least a certain multiplier (the LevelFactor) larger than the next.
+// In particular, it's possible that no work is ultimately done.
+//
+// Once a specific list of file sets is selected for compaction, the list is repeatedly split into subsets
+// (with length up to maxFanIn) and recombined until there is only a single file set left.
+// Each step has three phases, each processed in parallel through the task service:
+//   - sharding, where the full file data is split into roughly equal ranges for more efficient distribution
+//   - compaction, where a new file set is created by rewriting data from each file set being compacted.
+//     This is the most expensive operation, where the file indices are rewritten for efficient access in the final
+//     lexicographical order, and small file data may be rewritten to reduce chunk fragmentation.
+//   - concatenation, where the newly-created file sets, containing disjoint path ranges, are concatenated in order
 func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		return c.compact(ctx, taskDoer, ids, ttl)

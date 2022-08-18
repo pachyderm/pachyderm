@@ -11,7 +11,11 @@ The writer creates intermediate index levels automatically when accumulated inde
 
 Note that file indices are inherently tied to a datum, with a default value for user-supplied files.
 While it's an error for a commit's file system to contain the same file path under multiple datums,
-it's valid for one of its component file sets to exhibit this duplication.
+it's valid for one of its component file sets to exhibit this duplication:
+  - a commit is generally the result of several file sets
+  - deletion is part of a file set just the same as adding data
+  - thus the seemingly duplicate file may end up being deleted in a later file set
+
 Low-level consumers should be aware of this and not assume that a given path will only appear once.
 
 See the backwards compatibility section in the [chunk] documentation for some caveats that also apply to indices.

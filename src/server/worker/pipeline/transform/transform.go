@@ -16,7 +16,8 @@ For every commit in the current job's meta commit's ancestry
   - there is a corresponding output commit
   - there is a job
 
-The output and meta commit status and contents are kept in sync, though can diverge after validation and compaction.
+The output and meta commit status and contents are kept in sync before and during a job,
+although after finishing, only the output commit will reflect any validation errors.
 
 An output commit is errored (i.e. has nonempty [pfs.CommitInfo.Error]) if and only if the corresponding job failed.
 
@@ -46,7 +47,8 @@ Most of the remaining steps take place in registry.processJobRunning inside the 
     Serial datums are those present in both the current job and the base job, but that need to be recomputed either because of the [pps.PipelineInfo_Details.ReprocessSpec] or because the underlying file contents changed.
     Unchanged datums present in both jobs can just be skipped.
     Deleted datums are those present in the base job but not the current job.
-    Because Pachyderm's file system is diff based, the information about both serial and deleted datums must be explicitly deleted from the output.
+    Because Pachyderm's file system is diff based and commits automatically inherit the file system of an ancestors (see the PFS driver's getFileSet),
+    the information about both serial and deleted datums must be explicitly deleted from the output.
     The meta commit stores the output files associated with every datum, so we iterate through and remove them with a [datum.Deleter].
  10. The serial datums are sent through registry.processDatums, just like the parallel datums.
  11. If the [pps.PipelineInfo_Details] has [pps.Egress], the job moves to [pps.JobState_JOB_EGRESSING] and egress takes place.
