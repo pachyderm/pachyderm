@@ -447,7 +447,7 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 func (d *driver) listProject(ctx context.Context) ([]*pfs.ProjectInfo, error) {
 	projectInfo := &pfs.ProjectInfo{}
 	pis := make([]*pfs.ProjectInfo, 0)
-	if err := d.projects.ReadOnly(ctx).List(projectInfo, nil, func(string) error {
+	if err := d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
 		pis = append(pis, proto.Clone(projectInfo).(*pfs.ProjectInfo))
 		return nil
 	}); err != nil {

@@ -1026,7 +1026,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 					Project: &pfs.Project{Name: args[0]},
 				})
 			if err != nil {
-				grpcutil.ScrubGRPC(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			if raw {
 				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(resp.ProjectInfo))
@@ -1066,7 +1066,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
 			for _, pi := range resp.ProjectInfos {
 				pretty.PrintProject(writer, pi)
 			}
@@ -1074,7 +1074,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 		}),
 	}
 	listProject.Flags().AddFlagSet(outputFlags)
-	commands = append(commands, cmdutil.CreateAliases(listBranch, "list project", projects))
+	commands = append(commands, cmdutil.CreateAliases(listProject, "list project", projects))
 
 	deleteProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
