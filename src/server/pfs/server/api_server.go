@@ -350,7 +350,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 
 // CreateProject implements the protobuf pfs.CreateProject RPC
 func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (response *pfs.CreateProjectResponse, retErr error) {
-	if err := a.driver.createProject(ctx); err != nil {
+	if err := a.driver.createProject(ctx, request); err != nil {
 		return nil, err
 	}
 	return &pfs.CreateProjectResponse{}, nil

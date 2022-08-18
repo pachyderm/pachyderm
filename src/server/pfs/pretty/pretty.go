@@ -121,6 +121,17 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintln(w)
 }
 
+// PrintProject pretty-prints a Branch.
+func PrintProject(w io.Writer, projectInfo *pfs.ProjectInfo) {
+	fmt.Fprintf(w, "%s\t", projectInfo.Project.Name)
+	if projectInfo.Description != "" {
+		fmt.Fprintf(w, "%s", projectInfo.Description)
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	fmt.Fprintln(w)
+}
+
 // PrintDetailedBranchInfo pretty-prints detailed branch info.
 func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
@@ -133,6 +144,18 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 		return errors.EnsureStack(err)
 	}
 	return errors.EnsureStack(template.Execute(os.Stdout, branchInfo))
+}
+
+// PrintDetailedProjectInfo pretty-prints detailed project info.
+func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
+	template, err := template.New("ProjectInfo").Funcs(funcMap).Parse(
+		`Name: {{.Project.Name}}{{if .Description}}
+Description: {{ .Description}} {{end}}
+`)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	return errors.EnsureStack(template.Execute(os.Stdout, projectInfo))
 }
 
 // PrintCommitInfo pretty-prints commit info.
