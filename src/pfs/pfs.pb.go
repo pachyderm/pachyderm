@@ -30,15 +30,23 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// These are the different places where a commit may be originated from
+// These are the different reasons a commit may have been created
 type OriginKind int32
 
 const (
 	OriginKind_ORIGIN_KIND_UNKNOWN OriginKind = 0
-	OriginKind_USER                OriginKind = 1
-	OriginKind_AUTO                OriginKind = 2
-	OriginKind_FSCK                OriginKind = 3
-	OriginKind_ALIAS               OriginKind = 4
+	// A user-originated commit, typically from modifying a source repo.
+	// Updating a pipeline also creates a USER commit on the pipeline's spec repo.
+	OriginKind_USER OriginKind = 1
+	// A commit created from the provenance propagation algorithm, on a pipeline's output or meta repo.
+	OriginKind_AUTO OriginKind = 2
+	// A commit created by fsck while restoring a broken invariant
+	OriginKind_FSCK OriginKind = 3
+	// An alias commit is effectively a copy of another commit. Unlike the other kinds, aliases have special handling.
+	// Changes to an alias commit's parent state are automatically applied to the alias itself.
+	// Alias commits are created when moving a branch for deferred processing,
+	// as well as automatically to encode provenance relationships.
+	OriginKind_ALIAS OriginKind = 4
 )
 
 var OriginKind_name = map[int32]string{
