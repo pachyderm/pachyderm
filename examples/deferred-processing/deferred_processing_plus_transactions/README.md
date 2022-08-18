@@ -159,7 +159,7 @@ This configuration enables you to verify the files being processed by visually i
    edges_dp   aff6af7211b04355a24c25b111d35791 16 minutes ago Less than a second 0       0 + 0 / 0 0B       0B       success
     ```
 
-10. Move the `master` branch in `edges_dp` to point dev again to trigger another job: 
+10. Move the `master` branch in `edges_dp` to again point to the `dev` branch as its head (triggering another job): 
 
     ```shell
     $ pachctl create branch edges_dp@master --head dev
@@ -181,74 +181,46 @@ This configuration enables you to verify the files being processed by visually i
 
 After you test deferred processing, you can explore how transactions work in combination with deferred processing.
 
-1. If you want to run a particular set of data in `images_dp_2` 
-    against a particular branch of `edges_dp`,
-    you need to perform two operations
-    - commit data to `images_dp_2` and
-    - point `edges_dp@master` to the specific commit of interest.
-    
-    If you do not use a transaction, this will result in two jobs being triggered, one for the new commit and a second when we move `edges_dp@master` branch.
-    - `images_dp_2@master` running against whatever is currently in `edges_dp@master`
-    - `images_dp_2@master` running against whatever you set `edges_dp@master` to
-    
-    Remember that in step 10 above, 
-    we performed the `create branch` operation against `edges_dp`.
-    Now we perform the commit to `images_dp_2`.
-    and see that another job got triggered.
-    
-    ```shell
-    $ pachctl put file images_dp_2@master:3Kr6Mr6.jpg  -f http://imgur.com/3Kr6Mr6.jpg
-    $ pachctl list job -x
-    ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
-    9c97578031544cab9cc5fb64e9d77153 montage_dp 9 seconds ago  5 seconds 0       1 + 0 / 1 1015KiB  1.292MiB success 
-    65eddcb60ae1475aa6d59b2baa69c78e montage_dp 28 seconds ago 5 seconds 0       1 + 0 / 1 938.5KiB 1.066MiB success 
-    65eacaae2e63461bbfc1ed609e8b6f5e edges_dp   3 minutes ago  3 seconds 0       1 + 4 / 5 204KiB   18.89KiB success 
-    e5a116fd9c2e4678a0f49fcb2f8c8331 montage_dp 16 minutes ago 4 seconds 0       1 + 0 / 1 919.6KiB 1.055MiB success 
-    c7e69e46e9954611ad8efc8aeac47f2a edges_dp   16 minutes ago 3 seconds 0       1 + 3 / 4 175.1KiB 92.18KiB success 
-    2288709b4d8044409c2232d673ec8f23 montage_dp 18 minutes ago 1 second  0       0 + 0 / 0 0B       0B       success 
-    6d9d4cf0f6524b0ca126fa97141303ea edges_dp   18 minutes ago 4 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success 
-    fcaf537975554935b0f15d184d7a0984 edges_dp   18 minutes ago 3 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success 
-    ```
-    
-2. If you want to just have one job 
-    where `images_dp_2@master` runs against whatever you set `edges_dp@master` to,
-    you can use Pachyderm transactions.
-    First step is to start a transaction.
+>**Scenario**:
+>You want to run a particular set of data in `images_dp_2` against a particular branch of `edges_dp` without triggering two jobs (one for the new commit, and one for moving `edges_dp@master`).
+
+
+
+1. Start a transaction:
     
     ```shell
     $ pachctl start transaction
     Started new transaction: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     ```
     
-3. Once the transaction is started,
-    you start all commits and branch creations 
-    within the scope of the transaction. 
+2. Start all commits: 
     
     ```shell
     $ pachctl start commit  images_dp_2@master
     Added to transaction: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     de55d4856e814c41a65836321fe672fa
+    ```
+
+3. Create `master` branch pointing to `--head dev`:
+    ```
     $ pachctl create branch edges_dp@master --head dev
     Added to transaction: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     ```
-
-
-4.  Before you put any files in a repo, 
-    you need to finish the transaction.
-    When you run `pachctl finish transaction`, Pachyderm groups all the commits and branches together,
-    triggering when the last commit in the transaction is finished.
-    
+4.  Finish the transaction to group all of the commits and branches together:
     ```shell
     $ pachctl finish transaction
     Completed transaction with 2 requests: 11fbbcbd-6cda-42fa-b1fe-cd63b292582e
     ```
     
-5.  Commit a file, 
-    and job list will show no new jobs.
+5.  Commit a file:
     
     ```shell
     $ pachctl put file images_dp_2@master:9iIlokw.jpg -f http://imgur.com/9iIlokw.jpg
-    $ pachctl list job -x
+    ```
+6. List jobs:
+ 
+    ```shell
+    $ pachctl list jobs -x
     ID                               PIPELINE   STARTED        DURATION  RESTART PROGRESS  DL       UL       STATE   
     9c97578031544cab9cc5fb64e9d77153 montage_dp 18 minutes ago 5 seconds 0       1 + 0 / 1 1015KiB  1.292MiB success 
     65eddcb60ae1475aa6d59b2baa69c78e montage_dp 19 minutes ago 5 seconds 0       1 + 0 / 1 938.5KiB 1.066MiB success 
@@ -260,8 +232,7 @@ After you test deferred processing, you can explore how transactions work in com
     fcaf537975554935b0f15d184d7a0984 edges_dp   38 minutes ago 3 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success 
     ```
 
-6.  Finish the commit that you started during the transaction.
-    That will start the job.
+7.  Finish the commit that you started during the transaction to start the job:
 
     ```
     $ pachctl finish commit images_dp_2@master
