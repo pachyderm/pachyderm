@@ -22,9 +22,9 @@ In the OpenCV Example:
 
 ## Start Here
 
-The following diagram demonstrates the DAG that is used in this example:
+The following diagram demonstrates the DAG that is used in this example and can be found in the Console UI:
 
-![Example DAG](example_dag.png)
+![Example DAG](dp_w_transactions.png)
 
 The DAG shown extends upon the OpenCV example by adding:
 
@@ -256,6 +256,12 @@ After you test deferred processing, you can explore how transactions work in com
     NAME         TYPE SIZE     
     /montage.png file 720.3KiB 
    ```
+
+### 4. View Output
+
+You can preview the output through the Console UI:
+
+![Example Output](dp_w_transactions_output.gif)
 
 
 ## Summary
