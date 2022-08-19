@@ -22,7 +22,7 @@ const (
 )
 
 // set this to false if you want to keep the database around
-var Cleanup = true
+var cleanup = true
 
 const postgresMaxConnections = 100
 
@@ -75,7 +75,7 @@ func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
 func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) {
 	_, err := db.Exec(`CREATE DATABASE ` + dbName)
 	require.NoError(t, err)
-	if Cleanup {
+	if cleanup {
 		t.Cleanup(func() {
 			q := fmt.Sprintf("DROP DATABASE %s", dbName)
 			if db.DriverName() == "pgx" || db.DriverName() == "postgres" {
