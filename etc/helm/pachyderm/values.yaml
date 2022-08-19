@@ -221,7 +221,7 @@ loki-stack:
       accessModes:
         - ReadWriteOnce
       size: 10Gi
-      storageClassName: standard
+      storageClassName: ""
       annotations: {}
       priorityClassName: ""
       nodeSelector: {}
