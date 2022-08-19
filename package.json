@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "check-version": "node scripts/checkVersion.js",
     "cypress:ci": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config video=true --spec 'cypress/integration/unauthenticated/**/*' --record --group e2e",
     "cypress:ci-auth": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config video=true --spec 'cypress/integration/authenticated/**/*' --record --group e2e-auth",
     "cypress:ci-mock": "NODE_ENV=test dotenv-flow -- cypress run  --browser chrome --config video=true scrollBehavior=false --spec 'cypress/integration/mock/**/*' --record --group e2e-mock",

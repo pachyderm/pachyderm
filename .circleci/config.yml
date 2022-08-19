@@ -60,7 +60,6 @@ jobs:
             - run: npm ci
             - run: cd backend && npm ci
             - run: cd frontend && npm ci
-            - run: npm run check-version
             - run: etc/testing/circle/install.sh
             - run: etc/testing/circle/start-kind.sh
             - run: etc/testing/circle/deploy-pachyderm.sh
