@@ -4600,7 +4600,6 @@ func TestDatumStatusRestart(t *testing.T) {
 			return errors.Errorf("worker status from wrong job")
 		})
 	}
-	//time.Sleep(time.Minute * 1)
 	checkStatus()
 	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
 	checkStatus()
