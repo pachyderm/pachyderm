@@ -42,7 +42,6 @@ func TestAmazonClient(t *testing.T) {
 
 	// Test the Amazon client against ECS
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		t.Skip("skipping until ECS issue is understood")
 		t.Parallel()
 		id, secret, bucket, region, endpoint := LoadECSParameters(t)
 		amazonTests(t, ECSBackend, id, secret, bucket, region, endpoint)
