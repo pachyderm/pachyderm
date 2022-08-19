@@ -362,20 +362,7 @@ func (d *driver) RunUserCode(
 		return errors.EnsureStack(err)
 	}
 
-	//done := make(chan error)
-	//go func() {
-	//	done <- cmd.Wait()
-	//}()
-	//select {
-	//case err := <-done:
-	//	return errors.EnsureStack(err)
-	//}
-
 	err = cmd.Wait()
-	//err = ex.WaitOrStop(ctx, cmd, os.Kill, time.Second*30)
-	//if err != nil {
-	//	return errors.EnsureStack(err)
-	//}
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
@@ -434,8 +421,7 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	// A context w a deadline will successfully cancel/kill
-	// the running process (minus zombies)
+
 	err = cmd.Wait()
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
