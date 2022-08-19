@@ -27,7 +27,8 @@ At minimum, a Cron pipeline must include all of the following parameters:
 | Parameters  | Description  |
 | ---------- | ------------ |
 | `"name"`   | A descriptive name of the cron pipeline. |
-| `"spec"`   | The interval between scheduled cron jobs; accepts [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) inputs as well as `never`, `@hourly`, `@daily`, `@weekly`, `@monthly`, `@yearly`, `@reboot`, and `@every ...`|
+| `"spec"`   | The interval between scheduled cron jobs; accepts [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) inputs, [Predefined Schedules](https://pkg.go.dev/github.com/robfig/cron#hdr-Predefined_schedules) (`@daily`), and [Intervals](https://pkg.go.dev/github.com/robfig/cron#hdr-Intervals) (`@every 1h30m20s`)|
+
 
 ### Callouts
 
