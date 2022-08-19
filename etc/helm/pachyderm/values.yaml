@@ -241,7 +241,8 @@ loki-stack:
     enabled: false
   promtail:
     config:
-      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
+      clients:
+        - url: "http://{{ .Release.Name }}-loki:3100/loki/api/v1/push"
       snippets:
         # The scrapeConfigs section is copied from loki-stack-2.6.4
         # The pipeline_stages.match stanza has been added to prevent multiple lokis in a cluster from mixing their logs.

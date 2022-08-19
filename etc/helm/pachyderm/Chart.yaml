@@ -61,6 +61,6 @@ dependencies:
   repository: "file://./dependencies/postgresql"
   condition: postgresql.enabled
 - name: loki-stack
-  version: "2.6.4"
+  version: "2.7.0"
   repository: "https://grafana.github.io/helm-charts"
   condition: pachd.lokiDeploy
