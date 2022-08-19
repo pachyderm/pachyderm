@@ -17,7 +17,7 @@ async function retryAnalyticsContext() {
     retries: MAX_RETRY,
   });
   return new Promise<retryAnalyticsContextResponse>((resolve, reject) => {
-    retryObj.attempt(async (currentAttempt) => {
+    retryObj.attempt(async () => {
       try {
         const pachClient = pachydermClient({
           pachdAddress: process.env.PACHD_ADDRESS,
@@ -36,10 +36,9 @@ async function retryAnalyticsContext() {
           enterpriseState: state,
         });
       } catch (err) {
-        if (currentAttempt === MAX_RETRY) {
-          return reject(retryObj.mainError());
+        if (!retryObj.retry(new Error())) {
+          return reject('Maximum retries reached');
         }
-        retryObj.retry(new Error(JSON.stringify(err)));
       }
     });
   });
