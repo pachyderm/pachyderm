@@ -7043,7 +7043,7 @@ func TestService(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	annotations := map[string]string{"foo": "bar"}
@@ -7115,28 +7115,36 @@ func TestService(t *testing.T) {
 		require.NotEqual(t, "", address)
 		return address
 	}()
-
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if string(content) != "foo" {
-			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	checkFile := func(expected string) {
+		require.NoError(t, backoff.Retry(func() error {
+			resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
+			content, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			if string(content) != expected {
+				return errors.Errorf("wrong content for file1: expected %s, got %s", expected, string(content))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	}
+	checkFile("foo")
 
+	// overwrite file, and check that we can access the new contents
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file1", strings.NewReader("bar")))
+	checkFile("bar")
 }
 
 func TestServiceEnvVars(t *testing.T) {

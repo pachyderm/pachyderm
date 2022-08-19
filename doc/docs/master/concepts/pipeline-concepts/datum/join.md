@@ -194,15 +194,10 @@ join. The change to the pipeline spec is simple:
  }
 ```
 
-Your code will see the joined pairs that it saw before. In addition to
-those five datums, your code will also see three new ones: one for each of the
-parameter files which didn't have a match. Note that this means that your code needs
-to handle (not crash) the case where some of the inputs are represented under `/pfs`.
-
-Your code will see the joined pairs that it saw before. In addition to
-those five datums, your code will also see three new ones: 
-one for each `parameters` file that didn't match. Note that this means that your code needs
-to handle (not crash) the case where some of the inputs are represented under `/pfs`.
+Your code will see the joined pairs that it saw before. In addition to those
+five datums, your code will also see three new ones: one for each of the files
+in `parameters` that didn't match. Note that this means that your code needs to
+handle (not crash) the case where input files are missing from `/pfs/readings`.
 
 
 

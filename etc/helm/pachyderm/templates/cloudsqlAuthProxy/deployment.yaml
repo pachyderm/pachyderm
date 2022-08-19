@@ -38,7 +38,9 @@ spec:
         image: {{ .Values.cloudsqlAuthProxy.image.repository }}:{{ .Values.cloudsqlAuthProxy.image.tag }}
         command:
           - "/cloud_sql_proxy"
-        #  - "-enable-iam-login"
+          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+          - "-enable-iam-login"
+          {{- end }}
           - "-instances={{ .Values.cloudsqlAuthProxy.connectionName }}=tcp:0.0.0.0:{{ .Values.cloudsqlAuthProxy.port }}"
         ports:
         - containerPort: {{ .Values.cloudsqlAuthProxy.port }}
