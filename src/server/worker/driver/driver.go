@@ -361,10 +361,13 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	if common.IsDone(ctx) {
-		if err2 := ctx.Err(); err2 != nil {
+	select {
+	case <-ctx.Done():
+		err2 := ctx.Err()
+		if err2 != nil {
 			return errors.EnsureStack(err2)
 		}
+	default:
 	}
 	err = cmd.Wait()
 
@@ -418,10 +421,13 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	if common.IsDone(ctx) {
-		if err2 := ctx.Err(); err2 != nil {
+	select {
+	case <-ctx.Done():
+		err2 := ctx.Err()
+		if err2 != nil {
 			return errors.EnsureStack(err2)
 		}
+	default:
 	}
 
 	err = cmd.Wait()
