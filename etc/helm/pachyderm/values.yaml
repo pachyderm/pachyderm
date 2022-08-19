@@ -134,8 +134,8 @@ etcd:
   # --etcd-storage-class argument to pachctl deploy.
   # More info for setting up storage classes on various cloud providers:
   # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
-  # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
-  # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
+  # GCP: https://cloud.google.com/compute/docs/disks/performance#disk_types
+  # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage#storage-classes
   storageClass: ""
   # storageSize specifies the size of the volume to use for etcd.
   # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
@@ -221,7 +221,11 @@ loki-stack:
       accessModes:
         - ReadWriteOnce
       size: 10Gi
-      storageClassName: standard
+      # More info for setting up storage classes on various cloud providers:
+      # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
+      # GCP: https://cloud.google.com/compute/docs/disks/performance#disk_types
+      # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage#storage-classes
+      storageClassName: ""
       annotations: {}
       priorityClassName: ""
       nodeSelector: {}
@@ -701,10 +705,9 @@ postgresql:
     # See notes in Bitnami chart values.yaml file for more information.
     # More info for setting up storage classes on various cloud providers:
     # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
-    # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
-    # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
+    # GCP: https://cloud.google.com/compute/docs/disks/performance#disk_types
+    # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage#storage-classes
     storageClass: ""
-
     # storageSize specifies the size of the volume to use for postgresql
     # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
     # Recommended Minimum Disk size for Google/GCP: 50Gi        - 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
