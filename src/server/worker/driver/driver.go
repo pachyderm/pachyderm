@@ -361,7 +361,11 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-
+	if common.IsDone(ctx) {
+		if err2 := ctx.Err(); err2 != nil {
+			return errors.EnsureStack(err2)
+		}
+	}
 	err = cmd.Wait()
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
@@ -382,13 +386,6 @@ func (d *driver) RunUserCode(
 		}
 		return errors.EnsureStack(err)
 	}
-
-	if common.IsDone(ctx) {
-		if err2 := ctx.Err(); err2 != nil {
-			return errors.EnsureStack(err2)
-		}
-	}
-
 	return nil
 }
 
@@ -421,6 +418,11 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	if common.IsDone(ctx) {
+		if err2 := ctx.Err(); err2 != nil {
+			return errors.EnsureStack(err2)
+		}
+	}
 
 	err = cmd.Wait()
 	// We ignore broken pipe errors, these occur very occasionally if a user
@@ -440,11 +442,6 @@ func (d *driver) RunUserErrorHandlingCode(
 			}
 		}
 		return errors.EnsureStack(err)
-	}
-	if common.IsDone(ctx) {
-		if err2 := ctx.Err(); err2 != nil {
-			return errors.EnsureStack(err2)
-		}
 	}
 	return nil
 }
