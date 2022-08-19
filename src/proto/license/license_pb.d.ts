@@ -283,6 +283,8 @@ export class UpdateClusterRequest extends jspb.Message {
     setUserAddress(value: string): UpdateClusterRequest;
     getClusterDeploymentId(): string;
     setClusterDeploymentId(value: string): UpdateClusterRequest;
+    getSecret(): string;
+    setSecret(value: string): UpdateClusterRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): UpdateClusterRequest.AsObject;
@@ -300,6 +302,7 @@ export namespace UpdateClusterRequest {
         address: string,
         userAddress: string,
         clusterDeploymentId: string,
+        secret: string,
     }
 }
 

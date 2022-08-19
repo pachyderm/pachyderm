@@ -1759,6 +1759,11 @@ export class ListDatumRequest extends jspb.Message {
     getInput(): Input | undefined;
     setInput(value?: Input): ListDatumRequest;
 
+    hasFilter(): boolean;
+    clearFilter(): void;
+    getFilter(): ListDatumRequest.Filter | undefined;
+    setFilter(value?: ListDatumRequest.Filter): ListDatumRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListDatumRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListDatumRequest): ListDatumRequest.AsObject;
@@ -1773,7 +1778,32 @@ export namespace ListDatumRequest {
     export type AsObject = {
         job?: Job.AsObject,
         input?: Input.AsObject,
+        filter?: ListDatumRequest.Filter.AsObject,
     }
+
+
+    export class Filter extends jspb.Message { 
+        clearStateList(): void;
+        getStateList(): Array<DatumState>;
+        setStateList(value: Array<DatumState>): Filter;
+        addState(value: DatumState, index?: number): DatumState;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): Filter.AsObject;
+        static toObject(includeInstance: boolean, msg: Filter): Filter.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: Filter, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): Filter;
+        static deserializeBinaryFromReader(message: Filter, reader: jspb.BinaryReader): Filter;
+    }
+
+    export namespace Filter {
+        export type AsObject = {
+            stateList: Array<DatumState>,
+        }
+    }
+
 }
 
 export class DatumSetSpec extends jspb.Message { 
@@ -2345,6 +2375,58 @@ export namespace ActivateAuthResponse {
     }
 }
 
+export class RunLoadTestRequest extends jspb.Message { 
+    getDagSpec(): string;
+    setDagSpec(value: string): RunLoadTestRequest;
+    getLoadSpec(): string;
+    setLoadSpec(value: string): RunLoadTestRequest;
+    getSeed(): number;
+    setSeed(value: number): RunLoadTestRequest;
+    getParallelism(): number;
+    setParallelism(value: number): RunLoadTestRequest;
+    getPodPatch(): string;
+    setPodPatch(value: string): RunLoadTestRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RunLoadTestRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RunLoadTestRequest): RunLoadTestRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RunLoadTestRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RunLoadTestRequest;
+    static deserializeBinaryFromReader(message: RunLoadTestRequest, reader: jspb.BinaryReader): RunLoadTestRequest;
+}
+
+export namespace RunLoadTestRequest {
+    export type AsObject = {
+        dagSpec: string,
+        loadSpec: string,
+        seed: number,
+        parallelism: number,
+        podPatch: string,
+    }
+}
+
+export class RunLoadTestResponse extends jspb.Message { 
+    getError(): string;
+    setError(value: string): RunLoadTestResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RunLoadTestResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: RunLoadTestResponse): RunLoadTestResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RunLoadTestResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RunLoadTestResponse;
+    static deserializeBinaryFromReader(message: RunLoadTestResponse, reader: jspb.BinaryReader): RunLoadTestResponse;
+}
+
+export namespace RunLoadTestResponse {
+    export type AsObject = {
+        error: string,
+    }
+}
+
 export class RenderTemplateRequest extends jspb.Message { 
     getTemplate(): string;
     setTemplate(value: string): RenderTemplateRequest;
@@ -2405,6 +2487,7 @@ export enum JobState {
     JOB_KILLED = 6,
     JOB_EGRESSING = 7,
     JOB_FINISHING = 8,
+    JOB_UNRUNNABLE = 9,
 }
 
 export enum DatumState {

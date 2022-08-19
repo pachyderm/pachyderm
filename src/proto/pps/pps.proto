@@ -69,6 +69,7 @@ enum JobState {
   JOB_KILLED = 6;
   JOB_EGRESSING = 7;
   JOB_FINISHING = 8;
+  JOB_UNRUNNABLE = 9;
 }
 
 message Metadata {
@@ -567,6 +568,11 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
+  // Filter restricts returned DatumInfo messages to those which match
+  // all of the filtered attributes.
+  message Filter {
+    repeated DatumState state = 1;  // Must match one of the given states.
+  }
   // Job and Input are two different ways to specify the datums you want.
   // Only one can be set.
   // Job is the job to list datums from.
@@ -575,6 +581,7 @@ message ListDatumRequest {
   // The datums listed are the ones that would be run if a pipeline was created
   // with the provided input.
   Input input = 2;
+  Filter filter = 3;
   // TODO:
   //int64 page_size = 2;
   //int64 page = 3;
@@ -723,6 +730,18 @@ message SecretInfos {
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
+message RunLoadTestRequest {
+  string dag_spec = 1; 
+  string load_spec = 2;
+  int64 seed = 3;
+  int64 parallelism = 4;
+  string pod_patch = 5;
+}
+
+message RunLoadTestResponse {
+  string error = 1;
+}
+
 message RenderTemplateRequest {
   string template = 1;
   map<string, string> args = 2;
@@ -773,9 +792,9 @@ service API {
   rpc UpdateJobState(UpdateJobStateRequest) returns(google.protobuf.Empty) {}
 
   // RunLoadTest runs a load test.
-  rpc RunLoadTest(pfs_v2.RunLoadTestRequest) returns (pfs_v2.RunLoadTestResponse) {}
+  rpc RunLoadTest(RunLoadTestRequest) returns (RunLoadTestResponse) {}
   // RunLoadTestDefault runs the default load test.
-  rpc RunLoadTestDefault(google.protobuf.Empty) returns (pfs_v2.RunLoadTestResponse) {}
+  rpc RunLoadTestDefault(google.protobuf.Empty) returns (RunLoadTestResponse) {}
 
   // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
   rpc RenderTemplate(RenderTemplateRequest) returns (RenderTemplateResponse) {}
@@ -783,3 +802,4 @@ service API {
   // ListTask lists PPS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 }
+

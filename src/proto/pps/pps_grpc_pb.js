@@ -21,28 +21,6 @@ function deserialize_google_protobuf_Empty(buffer_arg) {
   return google_protobuf_empty_pb.Empty.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
-function serialize_pfs_v2_RunLoadTestRequest(arg) {
-  if (!(arg instanceof pfs_pfs_pb.RunLoadTestRequest)) {
-    throw new Error('Expected argument of type pfs_v2.RunLoadTestRequest');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_RunLoadTestRequest(buffer_arg) {
-  return pfs_pfs_pb.RunLoadTestRequest.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
-function serialize_pfs_v2_RunLoadTestResponse(arg) {
-  if (!(arg instanceof pfs_pfs_pb.RunLoadTestResponse)) {
-    throw new Error('Expected argument of type pfs_v2.RunLoadTestResponse');
-  }
-  return Buffer.from(arg.serializeBinary());
-}
-
-function deserialize_pfs_v2_RunLoadTestResponse(buffer_arg) {
-  return pfs_pfs_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
-}
-
 function serialize_pps_v2_ActivateAuthRequest(arg) {
   if (!(arg instanceof pps_pps_pb.ActivateAuthRequest)) {
     throw new Error('Expected argument of type pps_v2.ActivateAuthRequest');
@@ -327,6 +305,28 @@ function serialize_pps_v2_RunCronRequest(arg) {
 
 function deserialize_pps_v2_RunCronRequest(buffer_arg) {
   return pps_pps_pb.RunCronRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_RunLoadTestRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.RunLoadTestRequest)) {
+    throw new Error('Expected argument of type pps_v2.RunLoadTestRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_RunLoadTestRequest(buffer_arg) {
+  return pps_pps_pb.RunLoadTestRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_RunLoadTestResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.RunLoadTestResponse)) {
+    throw new Error('Expected argument of type pps_v2.RunLoadTestResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_RunLoadTestResponse(buffer_arg) {
+  return pps_pps_pb.RunLoadTestResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_RunPipelineRequest(arg) {
@@ -738,12 +738,12 @@ runLoadTest: {
     path: '/pps_v2.API/RunLoadTest',
     requestStream: false,
     responseStream: false,
-    requestType: pfs_pfs_pb.RunLoadTestRequest,
-    responseType: pfs_pfs_pb.RunLoadTestResponse,
-    requestSerialize: serialize_pfs_v2_RunLoadTestRequest,
-    requestDeserialize: deserialize_pfs_v2_RunLoadTestRequest,
-    responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
-    responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
+    requestType: pps_pps_pb.RunLoadTestRequest,
+    responseType: pps_pps_pb.RunLoadTestResponse,
+    requestSerialize: serialize_pps_v2_RunLoadTestRequest,
+    requestDeserialize: deserialize_pps_v2_RunLoadTestRequest,
+    responseSerialize: serialize_pps_v2_RunLoadTestResponse,
+    responseDeserialize: deserialize_pps_v2_RunLoadTestResponse,
   },
   // RunLoadTestDefault runs the default load test.
 runLoadTestDefault: {
@@ -751,11 +751,11 @@ runLoadTestDefault: {
     requestStream: false,
     responseStream: false,
     requestType: google_protobuf_empty_pb.Empty,
-    responseType: pfs_pfs_pb.RunLoadTestResponse,
+    responseType: pps_pps_pb.RunLoadTestResponse,
     requestSerialize: serialize_google_protobuf_Empty,
     requestDeserialize: deserialize_google_protobuf_Empty,
-    responseSerialize: serialize_pfs_v2_RunLoadTestResponse,
-    responseDeserialize: deserialize_pfs_v2_RunLoadTestResponse,
+    responseSerialize: serialize_pps_v2_RunLoadTestResponse,
+    responseDeserialize: deserialize_pps_v2_RunLoadTestResponse,
   },
   // RenderTemplate renders the provided template and arguments into a list of Pipeline specicifications
 renderTemplate: {

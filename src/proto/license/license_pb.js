@@ -2379,7 +2379,8 @@ proto.license_v2.UpdateClusterRequest.toObject = function(includeInstance, msg) 
     id: jspb.Message.getFieldWithDefault(msg, 1, ""),
     address: jspb.Message.getFieldWithDefault(msg, 2, ""),
     userAddress: jspb.Message.getFieldWithDefault(msg, 3, ""),
-    clusterDeploymentId: jspb.Message.getFieldWithDefault(msg, 4, "")
+    clusterDeploymentId: jspb.Message.getFieldWithDefault(msg, 4, ""),
+    secret: jspb.Message.getFieldWithDefault(msg, 5, "")
   };
 
   if (includeInstance) {
@@ -2431,6 +2432,10 @@ proto.license_v2.UpdateClusterRequest.deserializeBinaryFromReader = function(msg
     case 4:
       var value = /** @type {string} */ (reader.readString());
       msg.setClusterDeploymentId(value);
+      break;
+    case 5:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setSecret(value);
       break;
     default:
       reader.skipField();
@@ -2486,6 +2491,13 @@ proto.license_v2.UpdateClusterRequest.serializeBinaryToWriter = function(message
   if (f.length > 0) {
     writer.writeString(
       4,
+      f
+    );
+  }
+  f = message.getSecret();
+  if (f.length > 0) {
+    writer.writeString(
+      5,
       f
     );
   }
@@ -2561,6 +2573,24 @@ proto.license_v2.UpdateClusterRequest.prototype.getClusterDeploymentId = functio
  */
 proto.license_v2.UpdateClusterRequest.prototype.setClusterDeploymentId = function(value) {
   return jspb.Message.setProto3StringField(this, 4, value);
+};
+
+
+/**
+ * optional string secret = 5;
+ * @return {string}
+ */
+proto.license_v2.UpdateClusterRequest.prototype.getSecret = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 5, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.license_v2.UpdateClusterRequest} returns this
+ */
+proto.license_v2.UpdateClusterRequest.prototype.setSecret = function(value) {
+  return jspb.Message.setProto3StringField(this, 5, value);
 };
 
 

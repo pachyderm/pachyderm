@@ -73,6 +73,7 @@ goog.exportSymbol('proto.pfs_v2.FileInfo', null, global);
 goog.exportSymbol('proto.pfs_v2.FileType', null, global);
 goog.exportSymbol('proto.pfs_v2.FinishCommitRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.FsckRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.FsckRequest.ZombieCheckCase', null, global);
 goog.exportSymbol('proto.pfs_v2.FsckResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.GetCacheRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.GetCacheResponse', null, global);
@@ -1066,7 +1067,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.pfs_v2.FsckRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.pfs_v2.FsckRequest.oneofGroups_);
 };
 goog.inherits(proto.pfs_v2.FsckRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -11496,6 +11497,32 @@ proto.pfs_v2.DiffFileResponse.prototype.hasOldFile = function() {
 
 
 
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.pfs_v2.FsckRequest.oneofGroups_ = [[2,3]];
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.FsckRequest.ZombieCheckCase = {
+  ZOMBIE_CHECK_NOT_SET: 0,
+  ZOMBIE_TARGET: 2,
+  ZOMBIE_ALL: 3
+};
+
+/**
+ * @return {proto.pfs_v2.FsckRequest.ZombieCheckCase}
+ */
+proto.pfs_v2.FsckRequest.prototype.getZombieCheckCase = function() {
+  return /** @type {proto.pfs_v2.FsckRequest.ZombieCheckCase} */(jspb.Message.computeOneofCase(this, proto.pfs_v2.FsckRequest.oneofGroups_[0]));
+};
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -11527,7 +11554,9 @@ proto.pfs_v2.FsckRequest.prototype.toObject = function(opt_includeInstance) {
  */
 proto.pfs_v2.FsckRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    fix: jspb.Message.getBooleanFieldWithDefault(msg, 1, false)
+    fix: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    zombieTarget: (f = msg.getZombieTarget()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
+    zombieAll: jspb.Message.getBooleanFieldWithDefault(msg, 3, false)
   };
 
   if (includeInstance) {
@@ -11568,6 +11597,15 @@ proto.pfs_v2.FsckRequest.deserializeBinaryFromReader = function(msg, reader) {
       var value = /** @type {boolean} */ (reader.readBool());
       msg.setFix(value);
       break;
+    case 2:
+      var value = new proto.pfs_v2.Commit;
+      reader.readMessage(value,proto.pfs_v2.Commit.deserializeBinaryFromReader);
+      msg.setZombieTarget(value);
+      break;
+    case 3:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setZombieAll(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -11604,6 +11642,21 @@ proto.pfs_v2.FsckRequest.serializeBinaryToWriter = function(message, writer) {
       f
     );
   }
+  f = message.getZombieTarget();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.pfs_v2.Commit.serializeBinaryToWriter
+    );
+  }
+  f = /** @type {boolean} */ (jspb.Message.getField(message, 3));
+  if (f != null) {
+    writer.writeBool(
+      3,
+      f
+    );
+  }
 };
 
 
@@ -11622,6 +11675,79 @@ proto.pfs_v2.FsckRequest.prototype.getFix = function() {
  */
 proto.pfs_v2.FsckRequest.prototype.setFix = function(value) {
   return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+/**
+ * optional Commit zombie_target = 2;
+ * @return {?proto.pfs_v2.Commit}
+ */
+proto.pfs_v2.FsckRequest.prototype.getZombieTarget = function() {
+  return /** @type{?proto.pfs_v2.Commit} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.Commit, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Commit|undefined} value
+ * @return {!proto.pfs_v2.FsckRequest} returns this
+*/
+proto.pfs_v2.FsckRequest.prototype.setZombieTarget = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.pfs_v2.FsckRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.FsckRequest} returns this
+ */
+proto.pfs_v2.FsckRequest.prototype.clearZombieTarget = function() {
+  return this.setZombieTarget(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.FsckRequest.prototype.hasZombieTarget = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional bool zombie_all = 3;
+ * @return {boolean}
+ */
+proto.pfs_v2.FsckRequest.prototype.getZombieAll = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 3, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.FsckRequest} returns this
+ */
+proto.pfs_v2.FsckRequest.prototype.setZombieAll = function(value) {
+  return jspb.Message.setOneofField(this, 3, proto.pfs_v2.FsckRequest.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.pfs_v2.FsckRequest} returns this
+ */
+proto.pfs_v2.FsckRequest.prototype.clearZombieAll = function() {
+  return jspb.Message.setOneofField(this, 3, proto.pfs_v2.FsckRequest.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.FsckRequest.prototype.hasZombieAll = function() {
+  return jspb.Message.getField(this, 3) != null;
 };
 
 
