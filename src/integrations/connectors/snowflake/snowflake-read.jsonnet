@@ -1,4 +1,9 @@
-function(name, cronSpec, account, user, warehouse, role, database, schema, query, format, hasHeader='false', outputFile='0000', image='pachyderm/snowflake')
+/*
+COPY INTO <stage> FROM <query>
+GET
+*/
+function(name, cronSpec, image='pachyderm/snowflake', account, user, warehouse, role, database, schema, query, fileFormat, copyOptions='', hasHeader='false', outputFile='0000')
+  local copyInto = 'COPY INTO @~/%(name)s/%(outputFile)s FROM (%(query)s) FILE_FORMAT = %(fileFormat)s %(copyOptions)s' % { name: name, outputFile: outputFile, query: query, fileFormat: fileFormat, copyOptions: copyOptions };
   {
     pipeline: {
       name: name,
@@ -11,10 +16,13 @@ function(name, cronSpec, account, user, warehouse, role, database, schema, query
       },
     },
     transform: {
-      cmd: ['sh'],
+      cmd: ['bash'],
       stdin: [
-        'mkdir -p $(dirname /pfs/out/%s)' % outputFile,
-        'snowsql -o friendly=false -o header=%s -o timing=false -o output_format=%s -q %s > /pfs/out/%s' % [hasHeader, format, std.escapeStringBash(query), outputFile],
+        'set -eo pipefail',
+        'outputdir=$(dirname /pfs/out/%s)' % outputFile,
+        'mkdir -p $outputdir',
+        'snowsql -q %s' % std.escapeStringBash(copyInto),
+        'snowsql -q "GET @~/%(name)s/%(outputFile)s file://${outputdir}"' % { name: name, outputFile: outputFile },
       ],
       env: {
         SNOWSQL_ACCOUNT: account,

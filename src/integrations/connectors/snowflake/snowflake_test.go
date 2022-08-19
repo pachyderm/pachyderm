@@ -18,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	sdataTU "github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -62,7 +61,7 @@ func TestSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateSecret(b))
 
 	// create ephemeral input and output databases
-	testutil.Cleanup = false
+	// testutil.Cleanup = false
 	tableName := "test_table"
 	inDB, inDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
 	require.NoError(t, pachsql.CreateTestTable(inDB, tableName, &snowflakeRow{}))
@@ -70,7 +69,7 @@ func TestSnowflake(t *testing.T) {
 	require.NoError(t, pachsql.CreateTestTable(outDB, tableName, &snowflakeRow{}))
 
 	// load some example data into input table
-	nRows := 100
+	nRows := 10
 	require.NoError(t, sdataTU.GenerateTestData(inDB, tableName, nRows, &snowflakeRow{}))
 
 	// create read pipeline that reads data from input table and writes to output repo
@@ -83,15 +82,16 @@ func TestSnowflake(t *testing.T) {
 			"name":     readPipeline,
 			"cronSpec": "@yearly", // we want to manually trigger this
 			// Snowflake
-			"account":    os.Getenv("SNOWFLAKE_ACCOUNT"),
-			"user":       os.Getenv("SNOWFLAKE_USER"),
-			"role":       os.Getenv("SNOWFLAKE_USER_ROLE"),
-			"warehouse":  "COMPUTE_WH",
-			"database":   inDBName,
-			"schema":     "public",
-			"query":      fmt.Sprintf("select * from %s", tableName),
-			"format":     "csv",
-			"outputFile": "test_table/test_table.csv",
+			"account":     os.Getenv("SNOWFLAKE_ACCOUNT"),
+			"user":        os.Getenv("SNOWFLAKE_USER"),
+			"role":        os.Getenv("SNOWFLAKE_USER_ROLE"),
+			"warehouse":   "COMPUTE_WH",
+			"database":    inDBName,
+			"schema":      "public",
+			"query":       fmt.Sprintf("select * from %s", tableName),
+			"fileFormat":  `(type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22' COMPRESSION=NONE FILE_EXTENSION='')`,
+			"outputFile":  "test_table/test_table.csv",
+			"copyOptions": "OVERWRITE = TRUE SINGLE = TRUE",
 		},
 		Template: readTemplate,
 	})
@@ -103,15 +103,15 @@ func TestSnowflake(t *testing.T) {
 			"inputRepo": readPipeline,
 			"name":      writePipeline,
 			// Snowflake
-			"account":     os.Getenv("SNOWFLAKE_ACCOUNT"),
-			"user":        os.Getenv("SNOWFLAKE_USER"),
-			"role":        os.Getenv("SNOWFLAKE_USER_ROLE"),
-			"warehouse":   "COMPUTE_WH",
-			"database":    outDBName,
-			"schema":      "public",
-			"table":       tableName,
-			"fileFormat":  `(type = csv field_optionally_enclosed_by = '0x22')`,
-			"copyOptions": "PURGE = true",
+			"account":    os.Getenv("SNOWFLAKE_ACCOUNT"),
+			"user":       os.Getenv("SNOWFLAKE_USER"),
+			"role":       os.Getenv("SNOWFLAKE_USER_ROLE"),
+			"warehouse":  "COMPUTE_WH",
+			"database":   outDBName,
+			"schema":     "public",
+			"table":      tableName,
+			"fileFormat": `(type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22')`,
+			// "copyOptions": "PURGE=TRUE",
 		},
 		Template: writeTemplate,
 	})
