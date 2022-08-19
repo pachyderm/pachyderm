@@ -69,6 +69,13 @@ func (api *adminServerAPI) InspectCluster(ctx context.Context, req *types.Empty)
 	if api.mock.InspectCluster.handler != nil {
 		return api.mock.InspectCluster.handler(ctx, req)
 	}
+	return &admin.ClusterInfo{
+		ID:                   "i_am_a_test_cluster",
+		DeploymentID:         "why_hello",
+		XXX_NoUnkeyedLiteral: struct{}{},
+		XXX_unrecognized:     []byte{},
+		XXX_sizecache:        0,
+	}, nil
 	return nil, errors.Errorf("unhandled pachd mock admin.InspectCluster")
 }
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	minio "github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -397,6 +398,56 @@ func masterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient,
 	checkListObjects(t, ch, nil, nil, []string{}, []string{})
 }
 
+func masterPutConflictingObjectsSpark(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	repo := tu.UniqueString("testputconflicting")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", "", nil))
+	bucketName := fmt.Sprintf("branch.%s", repo)
+
+	r := strings.NewReader("content1")
+	_, err := minioClient.PutObject(bucketName, "file/0", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	// this should act as a PFS PutFile
+	r2 := strings.NewReader("content2")
+	_, err = minioClient.PutObject(bucketName, "file/0/1", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	fetchedContent, err := getObject(t, minioClient, bucketName, "file/0")
+	require.NoError(t, err)
+	require.Equal(t, "content1", fetchedContent)
+
+	fetchedContent2, err := getObject(t, minioClient, bucketName, "file/0/1")
+	require.NoError(t, err)
+	require.Equal(t, "content2", fetchedContent2)
+
+	// deleting one of the paths and then reading from the other file should not
+	// fail (which we saw failing when spark was writing thru s3g)
+
+	err = minioClient.RemoveObject(bucketName, "file/0")
+	require.NoError(t, err)
+
+	fetchedContent2, err = getObject(t, minioClient, bucketName, "file/0/1")
+	require.NoError(t, err)
+	require.Equal(t, "content2", fetchedContent2)
+
+	/*
+		luke@mind:~/pp/pachyderm$ pachctl list commit testputconflicting5c30d4f22018@branch --raw|grep error
+		"error": "file / directory path collision (/file/0/1)",
+	*/
+
+	outRepo := client.NewRepo(repo)
+	ll, _ := pachClient.ListCommit(outRepo, outRepo.NewCommit("branch", ""), nil, 0)
+	for _, l := range ll {
+		require.Equal(t, l.Error, "")
+	}
+	spew.Dump(ll)
+
+	// time.Sleep(1000 * time.Second)
+
+	// TODO: check whether both files exist
+}
+
 func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
@@ -533,78 +584,84 @@ func TestMasterDriver(t *testing.T) {
 	t.Parallel()
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-		t.Run("ListBuckets", func(t *testing.T) {
-			masterListBuckets(t, pachClient, minioClient)
-		})
-		t.Run("ListBucketsBranchless", func(t *testing.T) {
-			masterListBucketsBranchless(t, pachClient, minioClient)
-		})
-		t.Run("GetObject", func(t *testing.T) {
-			masterGetObject(t, pachClient, minioClient)
-		})
-		t.Run("GetObjectInBranch", func(t *testing.T) {
-			masterGetObjectInBranch(t, pachClient, minioClient)
-		})
-		t.Run("StatObject", func(t *testing.T) {
-			masterStatObject(t, pachClient, minioClient)
-		})
 		t.Run("PutObject", func(t *testing.T) {
 			masterPutObject(t, pachClient, minioClient)
 		})
-		t.Run("RemoveObject", func(t *testing.T) {
-			masterRemoveObject(t, pachClient, minioClient)
+		t.Run("PutObjectConflictingObjectsSpark", func(t *testing.T) {
+			masterPutConflictingObjectsSpark(t, pachClient, minioClient)
 		})
-		t.Run("LargeObjects", func(t *testing.T) {
-			masterLargeObjects(t, pachClient, minioClient)
-		})
-		t.Run("GetObjectNoHead", func(t *testing.T) {
-			masterGetObjectNoHead(t, pachClient, minioClient)
-		})
-		t.Run("GetObjectNoBranch", func(t *testing.T) {
-			masterGetObjectNoBranch(t, pachClient, minioClient)
-		})
-		t.Run("GetObjectNoRepo", func(t *testing.T) {
-			masterGetObjectNoRepo(t, pachClient, minioClient)
-		})
-		t.Run("MakeBucket", func(t *testing.T) {
-			masterMakeBucket(t, pachClient, minioClient)
-		})
-		t.Run("MakeBucketWithBranch", func(t *testing.T) {
-			masterMakeBucketWithBranch(t, pachClient, minioClient)
-		})
-		t.Run("MakeBucketWithRegion", func(t *testing.T) {
-			masterMakeBucketWithRegion(t, pachClient, minioClient)
-		})
-		t.Run("MakeBucketRedundant", func(t *testing.T) {
-			masterMakeBucketRedundant(t, pachClient, minioClient)
-		})
-		t.Run("MakeBucketDifferentBranches", func(t *testing.T) {
-			masterMakeBucketDifferentBranches(t, pachClient, minioClient)
-		})
-		t.Run("BucketExists", func(t *testing.T) {
-			masterBucketExists(t, pachClient, minioClient)
-		})
-		t.Run("RemoveBucket", func(t *testing.T) {
-			masterRemoveBucket(t, pachClient, minioClient)
-		})
-		t.Run("RemoveBucketBranchless", func(t *testing.T) {
-			masterRemoveBucketBranchless(t, pachClient, minioClient)
-		})
-		t.Run("ListObjectsPaginated", func(t *testing.T) {
-			masterListObjectsPaginated(t, pachClient, minioClient)
-		})
-		t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
-			masterListObjectsHeadlessBranch(t, pachClient, minioClient)
-		})
-		t.Run("ListObjectsRecursive", func(t *testing.T) {
-			masterListObjectsRecursive(t, pachClient, minioClient)
-		})
-		t.Run("ListSystemRepoBucket", func(t *testing.T) {
-			masterListSystemRepoBuckets(t, pachClient, minioClient)
-		})
-		t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
-			masterResolveSystemRepoBucket(t, pachClient, minioClient)
-		})
+		// t.Run("ListBuckets", func(t *testing.T) {
+		// 	masterListBuckets(t, pachClient, minioClient)
+		// })
+		// t.Run("ListBucketsBranchless", func(t *testing.T) {
+		// 	masterListBucketsBranchless(t, pachClient, minioClient)
+		// })
+		// t.Run("GetObject", func(t *testing.T) {
+		// 	masterGetObject(t, pachClient, minioClient)
+		// })
+		// t.Run("GetObjectInBranch", func(t *testing.T) {
+		// 	masterGetObjectInBranch(t, pachClient, minioClient)
+		// })
+		// t.Run("StatObject", func(t *testing.T) {
+		// 	masterStatObject(t, pachClient, minioClient)
+		// })
+		// t.Run("PutObject", func(t *testing.T) {
+		// 	masterPutObject(t, pachClient, minioClient)
+		// })
+		// t.Run("RemoveObject", func(t *testing.T) {
+		// 	masterRemoveObject(t, pachClient, minioClient)
+		// })
+		// t.Run("LargeObjects", func(t *testing.T) {
+		// 	masterLargeObjects(t, pachClient, minioClient)
+		// })
+		// t.Run("GetObjectNoHead", func(t *testing.T) {
+		// 	masterGetObjectNoHead(t, pachClient, minioClient)
+		// })
+		// t.Run("GetObjectNoBranch", func(t *testing.T) {
+		// 	masterGetObjectNoBranch(t, pachClient, minioClient)
+		// })
+		// t.Run("GetObjectNoRepo", func(t *testing.T) {
+		// 	masterGetObjectNoRepo(t, pachClient, minioClient)
+		// })
+		// t.Run("MakeBucket", func(t *testing.T) {
+		// 	masterMakeBucket(t, pachClient, minioClient)
+		// })
+		// t.Run("MakeBucketWithBranch", func(t *testing.T) {
+		// 	masterMakeBucketWithBranch(t, pachClient, minioClient)
+		// })
+		// t.Run("MakeBucketWithRegion", func(t *testing.T) {
+		// 	masterMakeBucketWithRegion(t, pachClient, minioClient)
+		// })
+		// t.Run("MakeBucketRedundant", func(t *testing.T) {
+		// 	masterMakeBucketRedundant(t, pachClient, minioClient)
+		// })
+		// t.Run("MakeBucketDifferentBranches", func(t *testing.T) {
+		// 	masterMakeBucketDifferentBranches(t, pachClient, minioClient)
+		// })
+		// t.Run("BucketExists", func(t *testing.T) {
+		// 	masterBucketExists(t, pachClient, minioClient)
+		// })
+		// t.Run("RemoveBucket", func(t *testing.T) {
+		// 	masterRemoveBucket(t, pachClient, minioClient)
+		// })
+		// t.Run("RemoveBucketBranchless", func(t *testing.T) {
+		// 	masterRemoveBucketBranchless(t, pachClient, minioClient)
+		// })
+		// t.Run("ListObjectsPaginated", func(t *testing.T) {
+		// 	masterListObjectsPaginated(t, pachClient, minioClient)
+		// })
+		// t.Run("ListObjectsHeadlessBranch", func(t *testing.T) {
+		// 	masterListObjectsHeadlessBranch(t, pachClient, minioClient)
+		// })
+		// t.Run("ListObjectsRecursive", func(t *testing.T) {
+		// 	masterListObjectsRecursive(t, pachClient, minioClient)
+		// })
+		// t.Run("ListSystemRepoBucket", func(t *testing.T) {
+		// 	masterListSystemRepoBuckets(t, pachClient, minioClient)
+		// })
+		// t.Run("ResolveSystemRepoBucket", func(t *testing.T) {
+		// 	masterResolveSystemRepoBucket(t, pachClient, minioClient)
+		// })
 		// TODO: Refer to masterAuthV2 function definition.
 		//t.Run("AuthV2", func(t *testing.T) {
 		//	masterAuthV2(t, pachClient, minioClient)

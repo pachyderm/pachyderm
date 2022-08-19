@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -142,6 +143,8 @@ func testRunner(t *testing.T, pachClient *client.APIClient, group string, driver
 	}()
 
 	port := listener.Addr().(*net.TCPAddr).Port
+	log.Printf("listening on zee s3 port %d", port)
+	log.Printf("listening on zee pach port %d", pachClient.GetAddress().Port)
 
 	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "", "", false)
 	require.NoError(t, err)

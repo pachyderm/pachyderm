@@ -225,6 +225,7 @@ func workerListObjectsRecursive(t *testing.T, s *workerTestState) {
 }
 
 func TestWorkerDriver(t *testing.T) {
+	return
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
