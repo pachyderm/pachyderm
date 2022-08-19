@@ -35,7 +35,7 @@ kubeVersion: ">= 1.16.0-0"
 icon: https://www.pachyderm.com/wp-content/themes/pachyderm/dist/img/favicons/favicon-32x32.png
 
 annotations:
-  artifacthub.io/prerelease: "true" # NOTE: update prior to releasing
+  artifacthub.io/prerelease: "false" # NOTE: update prior to releasing
   artifacthub.io/license: "Apache-2.0"
   artifacthub.io/links: |
     - name: "Pachyderm"
