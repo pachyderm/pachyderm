@@ -804,21 +804,6 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 		hasNewCommits = true
 
-		// Create aliases for any provenant branches which are not already part of this CommitSet
-		for _, provOfSubvB := range subvBI.Provenance {
-			provOfSubvBI, err := getBranchInfo(provOfSubvB)
-			if err != nil {
-				return err
-			}
-			if provOfSubvBI.Head.ID != txnCtx.CommitSetID {
-				if _, err := d.aliasCommit(txnCtx, provOfSubvBI.Head, provOfSubvBI.Head.Branch); err != nil {
-					return err
-				}
-				// Update the cached branch head
-				provOfSubvBI.Head.ID = txnCtx.CommitSetID
-			}
-		}
-
 		if subvBI.Head.ID == txnCtx.CommitSetID {
 			continue // this branch is already updated
 		}
@@ -889,11 +874,73 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 	}
 
+	// Create aliases on any reachable components of the provenance graph
+	if err := d.walkProvenanceGraph(txnCtx, subvBIs, func(bi *pfs.BranchInfo) error {
+		if bi.Head.ID != txnCtx.CommitSetID {
+			_, err := d.aliasCommit(txnCtx, bi.Head, bi.Head.Branch)
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	// If we have any PFS changes in this transaction, write out the CommitSet
 	if hasNewCommits {
 		txnCtx.PropagateJobs()
 	}
 
+	return nil
+}
+
+func (d *driver) walkProvenanceGraph(txnCtx *txncontext.TransactionContext, start []*pfs.BranchInfo, cb func(*pfs.BranchInfo) error) error {
+	seen := make(map[string]struct{})
+	for _, info := range start {
+		seen[pfsdb.BranchKey(info.Branch)] = struct{}{}
+	}
+	toVisit := start
+	// depth first search to call cb on all branches connected by provenance exactly once
+	// note that this code does quadratically many map lookups,
+	// but only one database query per branch, which likely dominates running time
+	for len(toVisit) > 0 {
+		next := toVisit[len(toVisit)-1]
+		toVisit = toVisit[:len(toVisit)-1]
+		if err := cb(next); err != nil {
+			return err
+		}
+		if next.Branch.Repo.Type == pfs.UserRepoType {
+			// check for a meta branch and add it to visit stack if it exists
+			metaBranch := client.NewSystemRepo(next.Branch.Repo.Name, pfs.MetaRepoType).NewBranch(next.Branch.Name)
+			metaKey := pfsdb.BranchKey(metaBranch)
+			if _, ok := seen[metaKey]; ok {
+				continue
+			}
+			seen[metaKey] = struct{}{}
+			info := &pfs.BranchInfo{}
+			if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(metaBranch, info); err != nil {
+				if !col.IsErrNotFound(err) {
+					return errors.EnsureStack(err)
+				}
+			} else {
+				// the meta branch exists
+				toVisit = append(toVisit, info)
+			}
+		}
+		for _, list := range [][]*pfs.Branch{next.Subvenance, next.Provenance} {
+			for _, b := range list {
+				key := pfsdb.BranchKey(b)
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				info := &pfs.BranchInfo{}
+				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, info); err != nil {
+					return errors.EnsureStack(err)
+				}
+				toVisit = append(toVisit, info)
+			}
+		}
+	}
 	return nil
 }
 
