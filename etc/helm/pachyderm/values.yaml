@@ -134,8 +134,8 @@ etcd:
   # --etcd-storage-class argument to pachctl deploy.
   # More info for setting up storage classes on various cloud providers:
   # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
-  # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
-  # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
+  # GCP: https://cloud.google.com/compute/docs/disks/performance#disk_types
+  # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage#storage-classes
   storageClass: ""
   # storageSize specifies the size of the volume to use for etcd.
   # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
@@ -221,7 +221,11 @@ loki-stack:
       accessModes:
         - ReadWriteOnce
       size: 10Gi
-      storageClassName: standard
+      # More info for setting up storage classes on various cloud providers:
+      # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
+      # GCP: https://cloud.google.com/compute/docs/disks/performance#disk_types
+      # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage#storage-classes
+      storageClassName: ""
       annotations: {}
       priorityClassName: ""
       nodeSelector: {}
@@ -701,10 +705,9 @@ postgresql:
     # See notes in Bitnami chart values.yaml file for more information.
     # More info for setting up storage classes on various cloud providers:
     # AWS: https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
-    # GCP: https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/ssd-pd
-    # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage
+    # GCP: https://cloud.google.com/compute/docs/disks/performance#disk_types
+    # Azure: https://docs.microsoft.com/en-us/azure/aks/concepts-storage#storage-classes
     storageClass: ""
-
     # storageSize specifies the size of the volume to use for postgresql
     # Recommended Minimum Disk size for Microsoft/Azure: 256Gi  - 1,100 IOPS https://azure.microsoft.com/en-us/pricing/details/managed-disks/
     # Recommended Minimum Disk size for Google/GCP: 50Gi        - 1,500 IOPS https://cloud.google.com/compute/docs/disks/performance
@@ -725,6 +728,7 @@ cloudsqlAuthProxy:
   # connectionName may be found by running `gcloud sql instances describe INSTANCE_NAME --project PROJECT_ID`
   connectionName: ""
   serviceAccount: ""
+  iamLogin: false
   port: 5432
   enabled: false
   image:
@@ -831,6 +835,10 @@ proxy:
   # ingress is also enabled, any Ingress traffic will be routed through the proxy before being sent
   # to pachd or Console.
   enabled: false
+  # The external hostname (including port if nonstandard) that the proxy will be reachable at.
+  # If you have ingress enabled and an ingress hostname defined, the proxy will use that.
+  # Ingress will be deprecated in the future so configuring the proxy host instead is recommended.
+  host: ""
   # The number of proxy replicas to run.  1 should be fine, but if you want more for higher
   # availability, that's perfectly reasonable.  Each replica can handle 50,000 concurrent
   # connections.  There is an affinity rule to prefer scheduling the proxy pods on the same node as

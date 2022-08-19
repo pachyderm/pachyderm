@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/helm-values: {{ toJson .Values | sha256sum }}
         checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
         {{- if .Values.pachd.annotations -}}
         {{ toYaml .Values.pachd.annotations | nindent 8 }}
@@ -61,11 +62,16 @@ spec:
         - name: POSTGRES_SSL
           value: "require"
         {{- end }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "Using-iamLogin"
+        {{- else }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
@@ -307,10 +313,6 @@ spec:
         - name: IDENTITY_SERVER_DATABASE
           value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
         {{ end }}
-        {{- if .Release.IsUpgrade }}
-        - name: UPGRADE_NO_OP
-          value: {{ randAlphaNum 32 }}
-        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
