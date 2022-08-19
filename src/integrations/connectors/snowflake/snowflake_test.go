@@ -4,6 +4,7 @@ package snowflake
 
 import (
 	"context"
+	"database/sql"
 	_ "embed"
 	"errors"
 	"fmt"
@@ -11,11 +12,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/integrations/connectors/common"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	sdataTU "github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -27,6 +28,16 @@ var (
 	//go:embed snowflake-write.jsonnet
 	writeTemplate string
 )
+
+type snowflakeRow struct {
+	Id           int16         `column:"c_id" dtype:"SMALLINT" constraint:"PRIMARY KEY NOT NULL"`
+	A            string        `column:"c_a" dtype:"VARCHAR(100)" constraint:"NOT NULL"`
+	SmallintNull sql.NullInt16 `column:"c_smallint_null" dtype:"SMALLINT" constraint:"NULL"`
+}
+
+func (row *snowflakeRow) SetID(id int16) {
+	row.Id = id
+}
 
 func TestSnowflake(t *testing.T) {
 	if testing.Short() {
@@ -52,16 +63,15 @@ func TestSnowflake(t *testing.T) {
 
 	// create ephemeral input and output databases
 	testutil.Cleanup = false
-	spec := snowflakeSpec{}
+	tableName := "test_table"
 	inDB, inDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
-	require.NoError(t, pachsql.CreateTestTable(inDB, "test_table", spec.testRow()))
+	require.NoError(t, pachsql.CreateTestTable(inDB, tableName, &snowflakeRow{}))
 	outDB, outDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
-	require.NoError(t, pachsql.CreateTestTable(outDB, "test_table", spec.testRow()))
+	require.NoError(t, pachsql.CreateTestTable(outDB, tableName, &snowflakeRow{}))
 
 	// load some example data into input table
-	tableName := "test_table"
-	nRows := 10
-	require.NoError(t, common.GenerateTestData(inDB, tableName, nRows, spec.testRow()))
+	nRows := 100
+	require.NoError(t, sdataTU.GenerateTestData(inDB, tableName, nRows, &snowflakeRow{}))
 
 	// create read pipeline that reads data from input table and writes to output repo
 	ctx := context.Background()
@@ -139,5 +149,5 @@ func TestSnowflake(t *testing.T) {
 	// finally verify that the target table actually has any data
 	var count int
 	require.NoError(t, outDB.QueryRow("select count(*) from test_table").Scan(&count))
-	require.Equal(t, 10, count)
+	require.Equal(t, nRows, count)
 }
