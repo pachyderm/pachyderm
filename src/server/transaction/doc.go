@@ -19,7 +19,10 @@ In pachctl, a transaction can be initiated via
 This will generate a transaction object in the cluster and save its ID into the local pachyderm config (~/.pachyderm/config.json by default).
 
 While there is a transaction object in the config file, all transaction-supporting API requests will append the request to the transaction instead of running directly.
-These commands are:
+Transaction behavior is triggered by the pach-transaction field in the gRPC context metadata.
+Both the client (to attach the metadata) and server (to interpret it) need to support transactions for this to work.
+Non-transactional commands issued with an active transaction will be executed normally, which can lead to unexpected results.
+The supported commands are:
   - create repo
   - delete repo
   - start commit
