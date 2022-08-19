@@ -76,11 +76,16 @@ spec:
          {{- end }}
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
+          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRESQL_PASSWORD
+          value: "password"
+          {{- else }}
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+          {{- end }}
         image: "{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
