@@ -15,13 +15,13 @@ pachctl start commit <repo>@<branch> [flags]
 ```
 
 # Start a commit in repo "test" on branch "master"
-pachctl start commit test@master
+$ pachctl start commit test@master
 
 # Start a commit with "master" as the parent in repo "test", on a new branch "patch"; essentially a fork.
-pachctl start commit test@patch -p master
+$ pachctl start commit test@patch -p master
 
 # Start a commit with XXX as the parent in repo "test" on the branch "fork"
-pachctl start commit test@fork -p XXX
+$ pachctl start commit test@fork -p XXX
 ```
 
 ### Options

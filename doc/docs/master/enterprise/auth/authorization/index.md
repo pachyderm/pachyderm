@@ -7,7 +7,7 @@
     - your [IdP connector is set](../authentication/idp-dex.md).
 
 Pachyderm authorization feature follows a **Role Based Access Control** model (RBAC).
-The access control is based on **Roles**  assigned to **Users**, granting them a set of permissions on Pachyderm's **Ressources** (**Role Bindings**). 
+The access control is based on **Roles**  assigned to **Users**, granting them a set of permissions on Pachyderm's **Resources** (**Role Bindings**). 
 
 In this page we will introduce Pachyderm's various Type of Users, Ressources, and Roles.
 
