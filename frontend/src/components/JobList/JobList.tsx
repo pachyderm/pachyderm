@@ -1,6 +1,5 @@
 import {ApolloError} from '@apollo/client';
 import {JobOverviewFragment, JobSetFieldsFragment} from '@graphqlTypes';
-import classnames from 'classnames';
 import React, {useEffect} from 'react';
 import {Helmet} from 'react-helmet';
 import {useHistory} from 'react-router';

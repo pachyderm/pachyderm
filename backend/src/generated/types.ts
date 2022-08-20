@@ -352,6 +352,7 @@ export enum JobState {
   JOB_STARTING = 'JOB_STARTING',
   JOB_STATE_UNKNOWN = 'JOB_STATE_UNKNOWN',
   JOB_SUCCESS = 'JOB_SUCCESS',
+  JOB_UNRUNNABLE = 'JOB_UNRUNNABLE',
 }
 
 export type JobsQueryArgs = {

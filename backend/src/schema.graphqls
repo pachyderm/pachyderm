@@ -55,6 +55,7 @@ enum JobState {
   JOB_KILLED
   JOB_EGRESSING
   JOB_FINISHING
+  JOB_UNRUNNABLE
 }
 
 enum NodeState {

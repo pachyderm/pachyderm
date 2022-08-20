@@ -186,6 +186,7 @@ describe('Search', () => {
       JobState.JOB_STARTING,
       JobState.JOB_STATE_UNKNOWN,
       JobState.JOB_SUCCESS,
+      JobState.JOB_UNRUNNABLE,
     ]);
     assertDropdown().toBeHidden();
   });

@@ -29,6 +29,7 @@ export const gqlJobStateToNodeState = (jobState: JobState) => {
       return NodeState.BUSY;
     case JobState.JOB_FAILURE:
     case JobState.JOB_KILLED:
+    case JobState.JOB_UNRUNNABLE:
       return NodeState.ERROR;
     default:
       return NodeState.IDLE;

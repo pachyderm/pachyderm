@@ -70,6 +70,8 @@ export const toGQLJobState = (jobState: JobState) => {
       return GQLJobState.JOB_SUCCESS;
     case JobState.JOB_FINISHING:
       return GQLJobState.JOB_FINISHING;
+    case JobState.JOB_UNRUNNABLE:
+      return GQLJobState.JOB_UNRUNNABLE;
     default:
       throw new ApolloError(`Unknown job state ${jobState}`);
   }
