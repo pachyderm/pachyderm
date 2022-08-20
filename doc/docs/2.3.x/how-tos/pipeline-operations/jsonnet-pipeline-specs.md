@@ -76,7 +76,7 @@ You can quickly generate several pipelines from the same jsonnet pipeline specif
 by adding a prefix or a suffix to its generic name.
 
 !!! Info 
-    Your .jsonnet file can create multiple pipelines at once as illustrated in our [group example](https://github.com/pachyderm/pachyderm/tree/2.3.x/examples/group){target=_blank}.
+    Your .jsonnet file can create multiple pipelines at once as illustrated in our [group example](https://github.com/pachyderm/pachyderm/tree/master/examples/group){target=_blank}.
 
 ## Use Cases
 
