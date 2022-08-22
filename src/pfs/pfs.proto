@@ -297,6 +297,7 @@ message DeleteBranchRequest {
 message CreateProjectRequest {
   Project project = 1;
   string description = 2;
+  bool update = 3;
 }
 
 message CreateProjectResponse {}

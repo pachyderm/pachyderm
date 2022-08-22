@@ -2,7 +2,6 @@
 package pfsdb
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
@@ -194,13 +193,6 @@ func Projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollect
 			} else {
 				return ProjectKey(project), nil
 			}
-		}),
-		col.WithKeyCheck(func(key string) error {
-			alphanumeric := regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(key)
-			if !alphanumeric {
-				return errors.New("project key must be alphanumeric")
-			}
-			return nil
 		}),
 		col.WithNotFoundMessage(func(key interface{}) string {
 			return pfsserver.ErrProjectNotFound{Project: key.(*pfs.Project)}.Error()
