@@ -27,7 +27,7 @@ https://helium.pachyderm.io/v1/api/workspace
 # wait for helium to kick off to pulumi before pinging it.
 sleep 5
 
-for _ in $(seq 108); do
+for _ in $(seq 180); do
   STATUS=$(curl -s -H "Authorization: Bearer ${HELIUM_API_TOKEN}" "https://helium.pachyderm.io/v1/api/workspace/${WORKSPACE}" | jq .Workspace.Status | tr -d '"')
   if [[ ${STATUS} == "ready" ]]
   then
@@ -51,6 +51,7 @@ pachctlCtx=$(echo "{\"pachd_address\": ${withEnvoy}, \"source\": 2}" | tr -d \\)
 echo ${pachctlCtx}
 echo ${pachctlCtx} | pachctl config set context "${WORKSPACE}" --overwrite && pachctl config set active-context "${HELIUM_WORKSPACE}"
 echo "${HELIUM_PACHCTL_AUTH_TOKEN}" | pachctl auth use-auth-token
+
 # Print client and server versions, for debugging.  (Also waits for proxy to discover pachd, etc.)
 READY=false
 for i in $(seq 1 20); do

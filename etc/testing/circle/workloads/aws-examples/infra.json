@@ -3,8 +3,8 @@
         "nodepools": [
             {
                 "nodeType": "m5.8xlarge",
-                "nodeNumInstances": 4,
-                "nodeDiskType": "gp3",
+                "nodeNumInstances": 2,
+                "nodeDiskType": "gp2",
                 "nodeDiskSize": 2000,
                 "nodeDiskIOPS": 10000
             }
