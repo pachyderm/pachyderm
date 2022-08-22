@@ -4551,7 +4551,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 20",
+			"sleep 2",
 		},
 		nil,
 		client.NewPFSInput(dataRepo, "/*"),
@@ -4574,7 +4574,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	// it's called, the datum being processes was started at a new and later time
 	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		require.NoErrorWithinTRetry(t, time.Minute*2, func() error {
 			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
 			require.NoError(t, err)
 			if len(jobInfo.Details.WorkerStatus) == 0 {
