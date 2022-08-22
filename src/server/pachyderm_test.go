@@ -4545,13 +4545,13 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipeline")
-	// This pipeline sleeps for 20 secs per datum
+	// This pipeline sleeps for 1 sec per datum
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 2",
+			"sleep 1",
 		},
 		nil,
 		client.NewPFSInput(dataRepo, "/*"),
