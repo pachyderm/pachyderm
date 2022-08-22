@@ -28,6 +28,7 @@ var (
 	writeTemplate string
 )
 
+// For generating test data
 type snowflakeRow struct {
 	Id           int16         `column:"c_id" dtype:"SMALLINT" constraint:"PRIMARY KEY NOT NULL"`
 	A            string        `column:"c_a" dtype:"VARCHAR(100)" constraint:"NOT NULL"`
@@ -38,7 +39,7 @@ func (row *snowflakeRow) SetID(id int16) {
 	row.Id = id
 }
 
-func TestSnowflake(t *testing.T) {
+func TestSnowflakeReadWrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -110,7 +111,6 @@ func TestSnowflake(t *testing.T) {
 			"schema":     "public",
 			"table":      tableName,
 			"fileFormat": `(type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22')`,
-			// "copyOptions": "PURGE=TRUE",
 		},
 		Template: writeTemplate,
 	})

@@ -1,13 +1,32 @@
 /* Snowflake Read Connector
 
+Runs a user's query in a pipeline at a regular cadence configured via cron. Currently, the results are written to a single file only, but in the future we should consider supporting multiple files.
+Importantly, we expose many useful Snowflake features via fileFormat and copyOptions.
 
+At a high level, this is a 2 step process:
+  1: COPY INTO <user_stage> FROM <query>
+  Unloads data from a user's query into the user's stage under the directory named after this pipeline.
+  2: GET <user_stage> file:///pfs/out
+  Downloads the files from the Snoflake user stage to local /pfs/out
 
-Step 1: COPY INTO <user_stage> FROM <query>
-
-
-Step 2: GET <user_stage> file:///pfs/out
+Arguments:
+  name : pipeline name
+  cronSpec : cadence at which to run this pipeline
+  image : Docker image containing snowsql
+  --------------
+  account : Snowflake account identifier (<orgname>-<account_name>)
+  user : Snowflake user
+  role : Snowflake role
+  warehouse : Snowflake warehouse
+  database : Snowflake database
+  schema : Snowflake schema
+  query : the query to run on Snowflake 
+  fileFormat : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#format-type-options-formattypeoptions
+  copyOptions : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#copy-options-copyoptions
+  --------------
+  outputFile : name of the file in the output repo, can have nested directories e.g. /pfs/out/a/b/my-data.csv
 */
-function(name, cronSpec, image='pachyderm/snowflake', account, user, warehouse, role, database, schema, query, fileFormat, copyOptions='', hasHeader='false', outputFile='0000')
+function(name, cronSpec, image='pachyderm/snowflake', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='OVERWRITE = TRUE SINGLE = TRUE', outputFile='0000')
   {
     pipeline: {
       name: name,
