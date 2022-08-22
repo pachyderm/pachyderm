@@ -1007,7 +1007,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 
 		}),
 	}
-	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly created project.")
+	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly-created project.")
 	commands = append(commands, cmdutil.CreateAliases(createProject, "create project", projects))
 
 	updateProject := &cobra.Command{
