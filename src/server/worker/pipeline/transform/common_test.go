@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -120,11 +119,6 @@ func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
 	return "mockImage", nil
-}
-
-func newPachEnv(t *testing.T, dbConfig serviceenv.ConfigOption) *testpachd.RealEnv {
-	env := testpachd.NewRealEnv(t, dbConfig)
-	return env
 }
 
 // newTestEnv provides a test env with etcd and pachd instances and connected

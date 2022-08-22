@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -33,7 +34,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 
-	env := newPachEnv(t, dbConfig)
+	env := testpachd.NewRealEnv(t, dbConfig)
 	eg, ctx := errgroup.WithContext(env.PachClient.Ctx())
 
 	// Set env vars that the object storage layer expects in the env
@@ -186,9 +187,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	reg, err := newRegistry(env.driver, env.logger)
 	require.NoError(t, err)
 	eg.Go(func() error {
-		if err = reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo)); err != nil {
-			return err
-		}
+		_ = reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		return nil
 	})
 	return ctx, jobInfo
