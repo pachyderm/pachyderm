@@ -61,7 +61,6 @@ func TestSnowflake(t *testing.T) {
 	require.NoError(t, c.CreateSecret(b))
 
 	// create ephemeral input and output databases
-	// testutil.Cleanup = false
 	tableName := "test_table"
 	inDB, inDBName := testsnowflake.NewEphemeralSnowflakeDB(t)
 	require.NoError(t, pachsql.CreateTestTable(inDB, tableName, &snowflakeRow{}))

@@ -1,9 +1,13 @@
-/*
-COPY INTO <stage> FROM <query>
-GET
+/* Snowflake Read Connector
+
+
+
+Step 1: COPY INTO <user_stage> FROM <query>
+
+
+Step 2: GET <user_stage> file:///pfs/out
 */
 function(name, cronSpec, image='pachyderm/snowflake', account, user, warehouse, role, database, schema, query, fileFormat, copyOptions='', hasHeader='false', outputFile='0000')
-  local copyInto = 'COPY INTO @~/%(name)s/%(outputFile)s FROM (%(query)s) FILE_FORMAT = %(fileFormat)s %(copyOptions)s' % { name: name, outputFile: outputFile, query: query, fileFormat: fileFormat, copyOptions: copyOptions };
   {
     pipeline: {
       name: name,
@@ -18,10 +22,9 @@ function(name, cronSpec, image='pachyderm/snowflake', account, user, warehouse, 
     transform: {
       cmd: ['bash'],
       stdin: [
-        'set -eo pipefail',
         'outputdir=$(dirname /pfs/out/%s)' % outputFile,
         'mkdir -p $outputdir',
-        'snowsql -q %s' % std.escapeStringBash(copyInto),
+        'snowsql -q "COPY INTO @~/%(name)s/%(outputFile)s FROM (%(query)s) FILE_FORMAT = %(fileFormat)s %(copyOptions)s"' % {name: name, outputFile: outputFile, query: query, fileFormat: fileFormat, copyOptions: copyOptions},
         'snowsql -q "GET @~/%(name)s/%(outputFile)s file://${outputdir}"' % { name: name, outputFile: outputFile },
       ],
       env: {
