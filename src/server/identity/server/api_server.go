@@ -52,7 +52,9 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		if err := yaml.Unmarshal([]byte(a.env.Config.IdentityConfig), &config); err != nil {
 			return errors.Wrapf(err, "unmarshal IdentityConfig with value: %q", a.env.Config.IdentityConfig)
 		}
-		a.setIdentityServerConfig(ctx, &identity.SetIdentityServerConfigRequest{Config: &config})
+		if _, err := a.setIdentityServerConfig(ctx, &identity.SetIdentityServerConfigRequest{Config: &config}); err != nil {
+			return errors.Wrapf(err, "failed to set identity server config")
+		}
 		a.env.Logger.Info("Successfully configured identity server config via environment")
 	}
 	if a.env.Config.IdentityConnectors != "" {

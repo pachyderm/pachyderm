@@ -255,7 +255,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
 	commitsetID := outputCommit.ID
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) error {
+	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
 			input.Pfs.Commit = commitsetID
 		}
@@ -335,13 +335,19 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	jobInfo.Reason = reason
 	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
 	// store commit states.
+
+	// only try to close meta commits for transform pipelines. We can't simply ignore a NotFound error
+	// because the real error happens on the server and is returned by RunBatchInTransaction itself
+	hasMeta := jobInfo.GetDetails().GetSpout() == nil && jobInfo.GetDetails().GetService() == nil
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: MetaCommit(jobInfo.OutputCommit),
-			Error:  reason,
-			Force:  true,
-		}); err != nil {
-			return errors.EnsureStack(err)
+		if hasMeta {
+			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: MetaCommit(jobInfo.OutputCommit),
+				Error:  reason,
+				Force:  true,
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
@@ -379,7 +385,7 @@ func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
 	var found bool
-	pps.VisitInput(in, func(in *pps.Input) error {
+	pps.VisitInput(in, func(in *pps.Input) error { //nolint:errcheck
 		if in.Pfs != nil && in.Pfs.S3 {
 			found = true
 			return errutil.ErrBreak

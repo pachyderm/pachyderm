@@ -27,3 +27,5 @@ data:
       redirect_uris:
       - {{ include "pachyderm.consoleRedirectURI" . | quote }}
     {{- end }}
+  trusted-peers: |
+{{ toYaml .Values.pachd.additionalTrustedPeers | indent 4 }}

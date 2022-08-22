@@ -651,7 +651,7 @@ func TestUnnamedPipeline(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")
 // 	}
-// 	ioutil.WriteFile("test-push-images.json", []byte(`{
+// 	os.WriteFile("test-push-images.json", []byte(`{
 //   "pipeline": {
 //     "name": "test_push_images"
 //   },

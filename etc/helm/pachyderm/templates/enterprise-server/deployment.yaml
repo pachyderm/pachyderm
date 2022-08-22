@@ -28,9 +28,11 @@ spec:
         {{- end }}
       name: pach-enterprise
       namespace: {{ .Release.Namespace }}
-      {{- if .Values.enterpriseServer.annotations }}
-      annotations: {{ toYaml .Values.enterpriseServer.annotations | nindent 4 }}
-      {{- end }}
+      annotations:
+        checksum/helm-values: {{ toJson .Values | sha256sum }}
+        {{- if .Values.enterpriseServer.annotations }}
+        {{ toYaml .Values.enterpriseServer.annotations | nindent 8 }}
+        {{- end }}
     spec:
       {{- if .Values.enterpriseServer.priorityClassName }}
       priorityClassName: {{ .Values.enterpriseServer.priorityClassName }}
@@ -109,7 +111,7 @@ spec:
               name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
               key: "enterprise-secret"
         {{- end }}
-        {{- if and (include "pachyderm.enterpriseLicenseKeySecretName" .) .Values.pachd.activateAuth }}
+        {{- if and (include "pachyderm.withEnterprise" .) .Values.pachd.activateAuth }}
         - name: ACTIVATE_AUTH
           value: "true"
         - name: AUTH_ROOT_TOKEN
@@ -140,6 +142,24 @@ spec:
             configMapKeyRef:
               name: "pachyderm-identity-config"
               key: "oidc-clients"
+        {{- if or .Values.oidc.additionalClientsSecretName .Values.oidc.additionalClients }}
+        - name: IDP_ADDITIONAL_CLIENTS
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.oidc.additionalClientsSecretName }}
+              name: {{ .Values.oidc.additionalClientsSecretName }}
+              {{- else }}
+              name: "pachyderm-identity-extras"
+              {{- end }}
+              key: "additional-oidc-clients"
+        {{- end }}
+        {{- if .Values.pachd.additionalTrustedPeers }}
+        - name: TRUSTED_PEERS
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "trusted-peers"
+        {{- end }}
         {{- if or (include  "pachyderm.mockIDPRoleBindings" .) .Values.pachd.pachAuthClusterRoleBindings }}
         - name: AUTH_CLUSTER_RBAC
           valueFrom:
@@ -159,10 +179,6 @@ spec:
             secretKeyRef:
               name: pachyderm-console-secret
               key: OAUTH_CLIENT_SECRET
-        {{- end }}
-        {{- if .Release.IsUpgrade }}
-        - name: UPGRADE_NO_OP
-          value: {{ randAlphaNum 32 }}
         {{- end }}
         envFrom:
           - secretRef:

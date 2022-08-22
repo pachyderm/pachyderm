@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -13,10 +14,10 @@ import (
 type appEnv struct{}
 
 func main() {
-	cmdutil.Main(do, &appEnv{})
+	cmdutil.Main(context.Background(), do, &appEnv{})
 }
 
-func do(appEnvObj interface{}) error {
+func do(ctx context.Context, appEnvObj interface{}) error {
 	// Set 'os.Args[0]' so that examples use the expected command name
 	os.Args[0] = "pachctl"
 

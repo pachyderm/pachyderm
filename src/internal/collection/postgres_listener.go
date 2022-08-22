@@ -103,7 +103,7 @@ func (pw *postgresWatcher) Close() {
 	pw.closer.Do(func() {
 		// Close the 'done' channel to interrupt any waiting writes
 		close(pw.done)
-		pw.listener.Unregister(pw)
+		pw.listener.Unregister(pw) //nolint:errcheck
 	})
 }
 
@@ -123,7 +123,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 				// unregister the watcher and stop forwarding notifications.
 				select {
 				case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
-					pw.listener.Unregister(pw)
+					pw.listener.Unregister(pw) //nolint:errcheck
 				case <-pw.done:
 				}
 				return
@@ -136,7 +136,7 @@ func (pw *postgresWatcher) forwardNotifications(ctx context.Context) {
 			// unregister the watcher and stop forwarding notifications.
 			select {
 			case pw.c <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}:
-				pw.listener.Unregister(pw)
+				pw.listener.Unregister(pw) //nolint:errcheck
 			case <-pw.done:
 			}
 			return
@@ -192,7 +192,7 @@ func (pw *postgresWatcher) send(event *postgresEvent) {
 		go func() {
 			// Unregister the watcher first, so we stop attempting to send it events
 			// (this will happen again in pw.Close(), but it will be a no-op).
-			pw.listener.Unregister(pw)
+			pw.listener.Unregister(pw) //nolint:errcheck
 
 			select {
 			case pw.buf <- &postgresEvent{err: errors.New("watcher buffer is full, aborting watch")}:
@@ -379,8 +379,7 @@ func (l *postgresListener) reset(err error) {
 	l.channels = make(map[string]notifierSet)
 	l.channelMu.Unlock()
 	if !l.closed {
-		// `reset` is only ever called in the case of an error, so it should be fine to discard this error
-		l.getPQL().UnlistenAll()
+		l.getPQL().UnlistenAll() //nolint:errcheck // `reset` is only ever called in the case of an error
 	}
 }
 

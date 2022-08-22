@@ -129,7 +129,7 @@ func newDriver(env Env) (*driver, error) {
 	d.storage = fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, fileset.StorageOptions(&storageConfig)...)
 	// Set up compaction worker.
 	taskSource := env.TaskService.NewSource(storageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, d.storage)
+	go compactionWorker(env.BackgroundContext, taskSource, d.storage) //nolint:errcheck
 	d.commitStore = newPostgresCommitStore(env.DB, tracker, d.storage)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, tracker, 10000)
@@ -747,12 +747,30 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 	}
 
 	// subvBIMap = ( ⋃{b.subvenance | b ∈ branches} ) ∪ branches
+	// (after branches has been pruned of no-op members, which don't actually need propagation)
 	subvBIMap := map[string]*pfs.BranchInfo{}
 	for _, branch := range branches {
 		branchInfo, err := getBranchInfo(branch)
 		if err != nil {
 			return err
 		}
+
+		// We need to create new commits or aliases if any of this branch and its
+		// provenances disagree on their commit set.
+		ids := []string{branchInfo.Head.ID}
+		for _, provBranch := range branchInfo.Provenance {
+			provInfo, err := getBranchInfo(provBranch)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, provInfo.Head.ID)
+		}
+		if allSameString(ids) && ids[0] != txnCtx.CommitSetID {
+			// this branch hasn't changed during the transaction, and is still consistent with its provenance,
+			// so we don't need to include it or its subvenance
+			continue
+		}
+
 		subvBIMap[pfsdb.BranchKey(branch)] = branchInfo
 		for _, subvBranch := range branchInfo.Subvenance {
 			subvInfo, err := getBranchInfo(subvBranch)
@@ -763,7 +781,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		}
 	}
 
-	// 'subvBIs' is the collection of downstream branches that may get a new
+	// 'subvBIs' is the collection of downstream branches that will get a new
 	// commit. Populate subvBIs and sort it so that upstream branches are
 	// processed before their descendants (this guarantees that if branch B is
 	// provenant on branch A, we create a new commit in A before creating a new
@@ -776,30 +794,12 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 		return len(subvBIs[i].Provenance) < len(subvBIs[j].Provenance)
 	})
 
-	// Iterate through downstream branches and determine which need a new commit.
+	// Iterate through downstream branches and add new commits.
 	hasNewCommits := false
 	for _, subvBI := range subvBIs {
 		// Do not propagate an open commit onto spout output branches (which should
 		// only have a single provenance on a spec commit)
 		if len(subvBI.Provenance) == 1 && subvBI.Provenance[0].Repo.Type == pfs.SpecRepoType {
-			continue
-		}
-
-		// We need to create new commits or aliases if any of this branch and its
-		// provenances disagree on their commitset.
-		ids := []string{subvBI.Head.ID}
-		for _, provOfSubvB := range subvBI.Provenance {
-			provOfSubvBI, err := getBranchInfo(provOfSubvB)
-			if err != nil {
-				return err
-			}
-			ids = append(ids, provOfSubvBI.Head.ID)
-		}
-
-		if allSameString(ids) {
-			if ids[0] == txnCtx.CommitSetID {
-				hasNewCommits = true
-			}
 			continue
 		}
 		hasNewCommits = true
@@ -1871,9 +1871,11 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 
 	lastRev := int64(-1)
 	branchInfo := &pfs.BranchInfo{}
-	listCallback := func(key string, createRev int64) error {
+	listCallback := func(_ string, createRev int64) error {
 		if createRev != lastRev {
-			sendBis()
+			if err := sendBis(); err != nil {
+				return errors.EnsureStack(err)
+			}
 			lastRev = createRev
 		}
 		bis = append(bis, proto.Clone(branchInfo).(*pfs.BranchInfo))

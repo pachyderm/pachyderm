@@ -36,6 +36,8 @@ spec:
       - env:
         - name: POSTGRESQL_USERNAME
           value: {{ .Values.global.postgresql.postgresqlUsername }}
+        - name: POSTGRESQL_DATABASE
+          value: {{ .Values.global.postgresql.postgresqlDatabase }}
         - name: PGBOUNCER_SET_USER
           value: "True"
         - name: POSTGRESQL_HOST
@@ -74,11 +76,16 @@ spec:
          {{- end }}
         - name: PGBOUNCER_UNIX_SOCKET_DIR
           value: " "
+          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRESQL_PASSWORD
+          value: "password"
+          {{- else }}
         - name: POSTGRESQL_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+          {{- end }}
         image: "{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
         imagePullPolicy: IfNotPresent
         name: pg-bouncer
@@ -88,7 +95,7 @@ spec:
             command:
               - "/bin/sh"
               - "-c"
-              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/ --tuples-only --command="SELECT 1;" | grep -q "1"
+              - psql postgresql://$POSTGRESQL_USERNAME:$POSTGRESQL_PASSWORD@127.0.0.1:$PGBOUNCER_PORT/$POSTGRESQL_DATABASE --tuples-only --command="SELECT 1;" | grep -q "1"
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 1
@@ -102,10 +109,9 @@ spec:
         ports:
         - containerPort: 5432
           name: client-port
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256M
+        {{- if .Values.pgbouncer.resources }}
+        resources: {{ toYaml .Values.pgbouncer.resources | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /opt/bitnami/pgbouncer/conf/
           name: config

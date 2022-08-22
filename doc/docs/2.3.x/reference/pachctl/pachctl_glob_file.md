@@ -20,7 +20,7 @@ pachctl glob file "<repo>@<branch-or-commit>:<pattern>" [flags]
 $ pachctl glob file "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-$ pachctl glob file "foo@master:data/*" 
+$ pachctl glob file "foo@master:data/*"
 
 # If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.
 ```
