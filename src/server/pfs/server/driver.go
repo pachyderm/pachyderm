@@ -2103,7 +2103,6 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		}
 		return nil
 	})
-
 }
 
 func (d *driver) makeEmptyCommit(txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo) (*pfs.Commit, error) {
