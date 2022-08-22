@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -398,6 +399,39 @@ func masterListObjectsHeadlessBranch(t *testing.T, pachClient *client.APIClient,
 	checkListObjects(t, ch, nil, nil, []string{}, []string{})
 }
 
+func masterGetMissingObjects(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
+	/*
+		Listing missing objects should give a 404, not a 500.
+	*/
+	repo := tu.UniqueString("testgetmissingobjects")
+	require.NoError(t, pachClient.CreateRepo(repo))
+	require.NoError(t, pachClient.CreateBranch(repo, "master", "", "", nil))
+	bucketName := fmt.Sprintf("master.%s", repo)
+
+	r := strings.NewReader("content1")
+	_, err := minioClient.PutObject(bucketName, "0/1", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	require.NoError(t, err)
+
+	fetchedContent, err := getObject(t, minioClient, bucketName, "3/")
+	log.Printf(">>>>>>>>>>>>>>>> 3/ err=%s", err)
+	require.Equal(t, fmt.Sprintf("%s", err), "The specified key does not exist.")
+	fetchedContent, err = getObject(t, minioClient, bucketName, "3")
+	log.Printf(">>>>>>>>>>>>>>>> 3 err=%s", err)
+	require.Equal(t, fmt.Sprintf("%s", err), "The specified key does not exist.")
+
+	fetchedContent, err = getObject(t, minioClient, bucketName, "0")
+	log.Printf(">>>>>>>>>>>>>>>> 0 err=%s", err)
+	require.Equal(t, fmt.Sprintf("%s", err), "The specified key does not exist.")
+	fetchedContent, err = getObject(t, minioClient, bucketName, "0/")
+	log.Printf(">>>>>>>>>>>>>>>> 0/ err=%s", err)
+	require.Equal(t, fmt.Sprintf("%s", err), "The specified key does not exist.")
+
+	fetchedContent, err = getObject(t, minioClient, bucketName, "0/1")
+	require.NoError(t, err)
+	require.Equal(t, "content1", fetchedContent)
+
+}
+
 func masterPutConflictingObjectsSpark(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testputconflicting")
 	require.NoError(t, pachClient.CreateRepo(repo))
@@ -584,12 +618,13 @@ func TestMasterDriver(t *testing.T) {
 	t.Parallel()
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	testRunner(t, env.PachClient, "master", NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
-		t.Run("PutObject", func(t *testing.T) {
-			masterPutObject(t, pachClient, minioClient)
+		t.Run("GetMissingObject", func(t *testing.T) {
+			masterGetMissingObjects(t, pachClient, minioClient)
 		})
 		t.Run("PutObjectConflictingObjectsSpark", func(t *testing.T) {
 			masterPutConflictingObjectsSpark(t, pachClient, minioClient)
 		})
+
 		// t.Run("ListBuckets", func(t *testing.T) {
 		// 	masterListBuckets(t, pachClient, minioClient)
 		// })
