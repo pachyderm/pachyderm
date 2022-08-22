@@ -14,6 +14,7 @@ pachd:
   metrics:
     enabled: false
   clusterDeploymentID: dev
+  logLevel: "debug"
   # to enable enterprise features pass in pachd.activateEnterprise=true, and a valid pachd.enterpriseLicenseKey
   activateEnterprise: false
   # enterpriseLicenseKey: ""

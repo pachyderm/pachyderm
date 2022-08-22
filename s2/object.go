@@ -139,12 +139,14 @@ func (h *objectHandler) head(w http.ResponseWriter, r *http.Request) {
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	h.logger.Debugf(">>> in get(%+v), vars=%+v", r, vars)
 	bucket := vars["bucket"]
 	key := vars["key"]
 	versionId := r.FormValue("versionId")
 
 	result, err := h.controller.GetObject(r, bucket, key, versionId)
 	if err != nil {
+		h.logger.Debugf(">>> error calling GetObject(%s, %s): %s", bucket, key, err)
 		WriteError(h.logger, w, r, err)
 		return
 	}
@@ -157,12 +159,15 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.DeleteMarker {
+		h.logger.Debugf(">>> result.DeleteMarker is true")
 		w.Header().Set("x-amz-delete-marker", "true")
 		WriteError(h.logger, w, r, NoSuchKeyError(r))
 		return
 	}
 
+	h.logger.Debugf(">>> calling ServeContent; result=%+v", result)
 	http.ServeContent(w, r, key, result.ModTime, result.Content)
+	h.logger.Debugf(">>> done with ServeContent, w=%+v", w)
 }
 
 func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {

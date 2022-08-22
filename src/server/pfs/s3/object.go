@@ -15,6 +15,28 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
+/*
+
+Plan:
+
+PUT /0
+PUT /0/1 -->
+	for each prefix, starting at the root, if there are any any files in pfs
+	that match that prefix, then we MUST change our path to avoid a file/dir
+	conflict.
+
+
+
+*/
+
+func encode(s string) string {
+	return strings.ReplaceAll(s, `/`, `\`)
+}
+
+func decode(s string) string {
+	return strings.ReplaceAll(s, `\`, `/`)
+}
+
 func (c *controller) InspectObject(r *http.Request, bucketName, file, version string) (*s2.InspectObjectResult, error) {
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
