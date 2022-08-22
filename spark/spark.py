@@ -5,7 +5,7 @@ import time
 import os
 
 conf = SparkConf()
-conf.set('spark.hadoop.fs.s3a.endpoint', "http://localhost:30601")
+conf.set('spark.hadoop.fs.s3a.endpoint', "http://localhost:30600")
 conf.set('spark.hadoop.fs.s3a.impl', "org.apache.hadoop.fs.s3a.S3AFileSystem")
 conf.set('spark.hadoop.fs.s3a.access.key', 'lemon')
 conf.set('spark.hadoop.fs.s3a.secret.key', 'lemon')
@@ -45,6 +45,6 @@ df = spark.createDataFrame([ Row(a=1, b=2.,) ])
 df.show()
 
 # df.write.parquet('s3a://master.rando2/nonemptyprefix6', mode="overwrite")
-df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.rando2/nonemptyprefix10")
+df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.rando2/nonemptyprefix11")
 # df.coalesce(1).write.format("parquet").mode("overwrite").save("local")
 
