@@ -19,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	logutil "github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
@@ -106,9 +105,6 @@ func newBuilder(config interface{}, service string) (b builder) {
 		log.Printf("no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
 	}
 	b.env = serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	if b.env.Config().LogFormat == "text" {
-		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-	}
 	profileutil.StartCloudProfiler(service, b.env.Config())
 	debug.SetGCPercent(b.env.Config().GCPercent)
 	if b.env.Config().EtcdPrefix == "" {
