@@ -17,7 +17,7 @@ read the following recommendations to set up your infrastructure in production.
     We are now shipping Pachyderm with an **embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, our new recommended architecture and [deployment instructions](../../deploy-w-proxy/) overwrite the following instructions.
+    If you choose to deploy Pachyderm with a Proxy, our new recommended architecture and [deployment instructions](../deploy-w-proxy.md) overwrite the following instructions.
 
 For production deployments,
 we recommend that you:

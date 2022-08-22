@@ -113,6 +113,8 @@ spec:
         {{- end }}
         volumeMounts:
         - mountPath: /home/
+          name: home
+        - mountPath: /tmp/
           name: tmp
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - mountPath: /pach-tls/certs
@@ -144,6 +146,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: tmp
+      - emptyDir: {}
+        name: home
       {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
       - name: pachd-tls-cert
         secret:

@@ -259,5 +259,3 @@ Let's keep using our Auth0 example as an illustration, and:
     ```
     !!! Info "Useful note"
         The following command `pachctl auth get-groups` lists the groups that have been defined on your cluster.
-
-
