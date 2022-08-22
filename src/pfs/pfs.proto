@@ -21,6 +21,7 @@ message Repo {
   option (gogoproto.goproto_stringer) = false;
   string name = 1;
   string type = 2;
+  Project project = 3;
 }
 
 message Branch {
@@ -53,7 +54,6 @@ message RepoInfo {
     int64 size_bytes = 1;
   }
   Details details = 7;
-  Project project = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
