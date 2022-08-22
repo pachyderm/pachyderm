@@ -515,7 +515,7 @@ jobs:
       - run:
           name: "test aws examples"
           command: |
-           etc/testing/circle/run_release_tests.sh "aws"
+            etc/testing/circle/run_release_tests.sh "aws"
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
@@ -536,11 +536,11 @@ jobs:
       - run:
           name: "test customer workload"
           command: |
-           etc/testing/circle/run_cust_release_tests.sh
+            etc/testing/circle/run_cust_release_tests.sh
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
-          destination: debug-dump 
+          destination: debug-dump
   release-github-draft:
     docker:
       - image: cimg/base:stable
