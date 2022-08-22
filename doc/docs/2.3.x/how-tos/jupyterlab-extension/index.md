@@ -3,6 +3,9 @@
 
 ![Mount extension in action](../images/mount-extension.gif)
 
+!!! Warning "Experimental"
+    The JupyterLab Mount Extension is an [experimental feature](https://docs.pachyderm.com/latest/reference/supported-releases/#experimental){target=_blank}. We hope you'll try it out (and work with us to improve it! [Get in touch](https://www.pachyderm.com/slack/]), but it's not ready for self-service usage in production, as it may make sudden, breaking changes
+
  We implemented a [JupyterLab extension](https://pypi.org/project/jupyterlab-pachyderm/){target=_blank} that selectively **maps the contents of data repositories right into your Jupyter environment**. Any named branch in a repo can be “mounted” into your file system via the Jupyter environment, making it feel like the data in Pachyderm is on your computer. 
 
  For Data Scientists whose data are stored in Pachyderm, the extension provides a seamless way to:
