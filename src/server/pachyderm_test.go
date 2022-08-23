@@ -4012,7 +4012,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	require.Equal(t, 11, len(commitInfos))
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
