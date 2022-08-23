@@ -425,8 +425,21 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
+	if err := ancestry.ValidateName(req.Project.Name); err != nil {
+		return errors.Wrapf(err, "invalid project name")
+	}
 	if err := d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.projects.ReadWrite(txnCtx.SqlTx).Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+		projects := d.projects.ReadWrite(txnCtx.SqlTx)
+		if req.Update {
+			if err := projects.Get(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{}); err != nil {
+				return errors.Wrapf(err, "update project")
+			}
+			return errors.EnsureStack(projects.Put(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+				Project:     req.Project,
+				Description: req.Description,
+			}))
+		}
+		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,
 			Description: req.Description,
 		}))
@@ -2072,10 +2085,19 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	pis, err := d.listProject(ctx)
+	if err != nil {
+		return err
+	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+		}
+		for _, projectInfo := range pis {
+			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
 				return err
 			}
 		}

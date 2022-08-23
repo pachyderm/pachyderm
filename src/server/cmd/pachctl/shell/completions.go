@@ -1,7 +1,6 @@
 package shell
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -134,7 +133,7 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 
 func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	resp, err := c.ListProject(context.Background(), &pfs.ListProjectRequest{})
+	resp, err := c.ListProject(c.Ctx(), &pfs.ListProjectRequest{})
 	if err != nil {
 		return nil, CacheNone
 	}

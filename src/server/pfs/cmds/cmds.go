@@ -1007,8 +1007,33 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 
 		}),
 	}
-	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly created project.")
+	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly-created project.")
 	commands = append(commands, cmdutil.CreateAliases(createProject, "create project", projects))
+
+	updateProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Update a project.",
+		Long:  "Update a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.CreateProject(
+				c.Ctx(),
+				&pfs.CreateProjectRequest{
+					Project:     &pfs.Project{Name: args[0]},
+					Description: description,
+					Update:      true,
+				})
+			return grpcutil.ScrubGRPC(err)
+
+		}),
+	}
+	updateProject.Flags().StringVarP(&description, "description", "d", "", "The description of the update project.")
+	shell.RegisterCompletionFunc(updateProject, shell.ProjectCompletion)
+	commands = append(commands, cmdutil.CreateAliases(updateProject, "update project", projects))
 
 	inspectProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
