@@ -2,9 +2,9 @@ package clusterstate
 
 import (
 	"context"
-	"fmt"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -17,7 +17,7 @@ var state_2_4_0 migrations.State = state_2_3_0.
 	Apply("Add default project", func(ctx context.Context, env migrations.Env) error {
 		col := pfsdb.CollectionsV2_4_0()[0].ReadWrite(env.Tx)
 		if err := col.Create(pfs.DefaultProject, &pfs.Project{Name: pfs.DefaultProject}); err != nil {
-			return fmt.Errorf("could not create default project: %w", err)
+			return errors.Errorf("could not create default project: %w", err)
 		}
 		return nil
 	})
