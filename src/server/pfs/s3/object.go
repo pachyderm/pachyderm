@@ -48,7 +48,8 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 
 	modTime, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return nil, err
+		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit)")
+		// return nil, err
 	}
 
 	content, err := pc.GetFileReadSeeker(bucket.Commit, file)
