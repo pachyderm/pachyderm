@@ -15,7 +15,7 @@ var state_2_4_0 migrations.State = state_2_3_0.
 		return col.SetupPostgresCollections(ctx, env.Tx, pfsdb.CollectionsV2_4_0()...)
 	}).
 	Apply("Add default project", func(ctx context.Context, env migrations.Env) error {
-		col := pfsdb.CollectionsV2_4_0()[0].ReadWrite(env.Tx)
+		col := pfsdb.Projects(nil, nil).ReadWrite(env.Tx)
 		if err := col.Create(pfs.DefaultProject, &pfs.Project{Name: pfs.DefaultProject}); err != nil {
 			return errors.Errorf("could not create default project: %w", err)
 		}
