@@ -366,12 +366,8 @@ func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProj
 }
 
 // ListProject implements the protobuf pfs.ListProject RPC
-func (a *apiServer) ListProject(ctx context.Context, request *pfs.ListProjectRequest) (response *pfs.ListProjectResponse, retErr error) {
-	pis, err := a.driver.listProject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pfs.ListProjectResponse{ProjectInfos: pis}, nil
+func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) (retErr error) {
+	return a.driver.listProject(srv.Context(), srv.Send)
 }
 
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
