@@ -580,13 +580,15 @@ jobs:
     docker:
       - image: cimg/base:stable
     steps:
-      run: |
-        jobid=$( curl --request GET --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/job \
-        --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}' | jq -r '.items[]  | select(.name == "sign-off") | .approval_request_id' )
+      - run: 
+          name: auto sign-off release
+          command: |
+            jobid=$( curl --request GET --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/job \
+            --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}' | jq -r '.items[]  | select(.name == "sign-off") | .approval_request_id' )
 
-        curl --request POST \
-        --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/approve/${jobid} \
-        --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}'
+            curl --request POST \
+            --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/approve/${jobid} \
+            --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}'
   release-github-draft:
     docker:
       - image: cimg/base:stable
