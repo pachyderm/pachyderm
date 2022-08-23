@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
-	"github.com/sirupsen/logrus"
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	gofuse "github.com/hanwen/go-fuse/v2/fuse"
@@ -29,45 +28,28 @@ const (
 func parseRepoOpts(args []string) (map[string]*fuse.RepoOptions, error) {
 	result := make(map[string]*fuse.RepoOptions)
 	for _, arg := range args {
-		var repo string
-		var flag string
 		opts := &fuse.RepoOptions{}
-		repoAndRest := strings.Split(arg, "@")
-		if len(repoAndRest) == 1 {
-			// No branch specified
-			opts.Branch = "master"
-			repoAndFlag := strings.Split(repoAndRest[0], "+")
-			repo = repoAndFlag[0]
-			if len(repoAndFlag) > 1 {
-				flag = repoAndFlag[1]
-			}
-			opts.Repo = repo
-		} else {
-			repo = repoAndRest[0]
-			branchAndFlag := strings.Split(repoAndRest[1], "+")
-			opts.Branch = branchAndFlag[0]
-			if len(branchAndFlag) > 1 {
-				flag = branchAndFlag[1]
-			}
-			opts.Repo = repo
+		fileAndFlag := strings.Split(arg, "+")
+		file, err := cmdutil.ParseFile(fileAndFlag[0])
+		if err != nil {
+			return nil, err
 		}
-		if flag != "" {
-			for _, c := range flag {
+		opts.Name = file.Commit.Branch.Repo.Name
+		opts.File = file
+		if len(fileAndFlag) > 1 {
+			for _, c := range fileAndFlag[1] {
 				if c != 'w' && c != 'r' {
 					return nil, errors.Errorf("invalid format %q: unrecognized mode: %q", arg, c)
 				}
 			}
-			if strings.Contains("w", flag) {
+			if strings.Contains("w", fileAndFlag[1]) {
 				opts.Write = true
 			}
 		}
-		if repo == "" {
-			return nil, errors.Errorf("invalid format %q: repo cannot be empty", arg)
+		if opts.File.Commit.Branch.Name == "" {
+			opts.File.Commit.Branch.Name = "master"
 		}
-		// NB: `pachctl mount` always mounts a repo at its own name, but that
-		// key can be something else
-		opts.Name = repo
-		result[repo] = opts
+		result[opts.File.Commit.Branch.Repo.Name] = opts
 	}
 	return result, nil
 }
@@ -105,41 +87,15 @@ func mountCmds() []*cobra.Command {
 				RepoOptions: repoOpts,
 			}
 			// Prints a warning if we're on macOS
-			printWarning()
+			PrintWarning()
 			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo@branch+w\", where the trailing flag \"+w\" indicates write.")
+	mount.Flags().VarP(&repoOpts, "repos", "r", "Repos and branches / commits to mount, arguments should be of the form \"repo[@branch=commit][+w]\", where the trailing flag \"+w\" indicates write. You can omit the branch when specifying a commit unless the same commit ID is on multiple branches in the repo.")
 	mount.MarkFlagCustom("repos", "__pachctl_get_repo_branch")
 	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
-
-	var mountDir string
-	mountServer := &cobra.Command{
-		Use:   "{{alias}}",
-		Short: "Start a mount server for controlling FUSE mounts via a local REST API.",
-		Long:  "Starts a REST mount server, running in the foreground and logging to stdout.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-
-			// Show info messages to user by default
-			logrus.SetLevel(logrus.InfoLevel)
-
-			c, err := client.NewOnUserMachine("fuse")
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-
-			serverOpts := &fuse.ServerOptions{
-				MountDir: mountDir,
-			}
-			printWarning()
-			return fuse.Server(c, serverOpts)
-		}),
-	}
-	mountServer.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")
-	commands = append(commands, cmdutil.CreateAlias(mountServer, "mount-server"))
 
 	var all bool
 	unmount := &cobra.Command{
@@ -152,8 +108,9 @@ func mountCmds() []*cobra.Command {
 			}
 			if all {
 				stdin := strings.NewReader(fmt.Sprintf(`
-		mount | grep fuse.%s | cut -f 3 -d " "
-		`, name))
+					mount | grep -w %s | grep fuse | cut -f 3 -d " "`,
+					name,
+				))
 				var stdout bytes.Buffer
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,

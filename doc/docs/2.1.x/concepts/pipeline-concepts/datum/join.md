@@ -55,7 +55,7 @@ For example, `$1` indicates that you want Pachyderm to match based on
 capture group `1`. Similarly, `$2` matches the capture group `2`.
 `$1$2` means that it must match both capture groups `1` and `2`.
 
-See the full `join` input configuration in the [pipeline specification](../../../reference/pipeline_spec.md).
+See the full `join` input configuration in the [pipeline specification](../../../reference/pipeline-spec.md).
 
 You can test your glob pattern and capture groups by using the
 `pachctl list datum -f <your_pipeline_spec.json>` command as described in
@@ -143,7 +143,7 @@ All files with indices from `1` to `5` match. The files
 with indices from `6` to `8` do not match. Therefore, you only get five
 datums for this job.
 
-To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank}.
 
 ## Outer Join
 
@@ -206,4 +206,4 @@ to handle (not crash) the case where some of the inputs are represented under `/
 
 
 
-To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank}.

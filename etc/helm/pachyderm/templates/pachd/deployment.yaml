@@ -22,9 +22,10 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/helm-values: {{ toJson .Values | sha256sum }}
         checksum/storage-secret: {{ include (print $.Template.BasePath "/pachd/storage-secret.yaml") . | sha256sum }}
         {{- if .Values.pachd.annotations -}}
-        {{ toYaml .Values.pachd.annotations | nindent 4 }}
+        {{ toYaml .Values.pachd.annotations | nindent 8 }}
         {{- end }}
       labels:
         app: pachd
@@ -35,20 +36,13 @@ spec:
       name: pachd
       namespace: {{ .Release.Namespace }}
     spec:
+      {{- if .Values.pachd.priorityClassName }}
+      priorityClassName: {{ .Values.pachd.priorityClassName }}
+      {{- end }}
       {{-  if .Values.pachd.affinity }}
       affinity: {{ toYaml .Values.pachd.affinity | nindent 8 }}
       {{- end }}
       {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
-      {{- if .Values.pachd.securityContext.enabled }}
-      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
-      securityContext:
-        runAsUser: 0 # Need to run as root local for hostpath support
-      {{- else }}
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-      {{- end }}
-      {{- end }}
       containers:
       - command:
         - /pachd
@@ -66,13 +60,18 @@ spec:
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
         {{- if .Values.global.postgresql.ssl }}
         - name: POSTGRES_SSL
-          value: {{ .Values.global.postgresql.ssl | quote }}
+          value: "require"
         {{- end }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "Using-iamLogin"
+        {{- else }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
@@ -149,13 +148,113 @@ spec:
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.putFileConcurrencyLimit | quote }}
+        {{- if .Values.pachd.storage.compactionShardSizeThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_SIZE_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardSizeThreshold | quote }}
+        {{- end }}
+        {{- if .Values.pachd.storage.compactionShardCountThreshold }}
+        - name: STORAGE_COMPACTION_SHARD_COUNT_THRESHOLD
+          value: {{ .Values.pachd.storage.compactionShardCountThreshold | quote }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
         {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: TLS_CERT_SECRET_NAME
-          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}  
+          value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+        {{- end }}
+        {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
+              key: "enterprise-license-key"
+          {{- if (include "pachyderm.upstreamIDPsSecretName" .) }}
+        - name: IDP_CONNECTORS
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.upstreamIDPsSecretName" .) | trim | quote }}
+              key: "upstream-idps"
+        - name: IDP_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "identity-config"
+          {{- end }}
+        {{- end }}
+        {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
+        - name: ENTERPRISE_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
+              key: "enterprise-secret"
+        {{- end }}
+        {{- if and (include "pachyderm.withEnterprise" .) .Values.pachd.activateAuth }}
+        - name: ACTIVATE_AUTH
+          value: "true"
+        - name: AUTH_ROOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+            {{- if .Values.pachd.rootTokenSecretName }}
+              name: {{ .Values.pachd.rootTokenSecretName | quote }}
+            {{- else }}
+              name: "pachyderm-auth"
+            {{- end }}
+              key: "root-token"
+        - name: AUTH_CONFIG
+          valueFrom:
+            secretKeyRef:
+              name: "pachyderm-auth"
+              key: "auth-config"
+        - name: AUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.pachd.oauthClientSecretSecretName }}
+              name: {{ .Values.pachd.oauthClientSecretSecretName | quote }}
+              {{- else }}
+              name: "pachyderm-auth"
+              {{- end }}
+              key: "pachd-oauth-client-secret"
+        - name: IDP_CLIENTS
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "oidc-clients"
+        {{- if or .Values.oidc.additionalClientsSecretName .Values.oidc.additionalClients }}
+        - name: IDP_ADDITIONAL_CLIENTS
+          valueFrom:
+            secretKeyRef:
+              {{- if .Values.oidc.additionalClientsSecretName }}
+              name: {{ .Values.oidc.additionalClientsSecretName }}
+              {{- else }}
+              name: "pachyderm-identity-extras"
+              {{- end }}
+              key: "additional-oidc-clients"
+        {{- end }}
+        {{- if .Values.pachd.additionalTrustedPeers }}
+        - name: TRUSTED_PEERS
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-identity-config"
+              key: "trusted-peers"
+        {{- end }}
+        {{- if or (include  "pachyderm.mockIDPRoleBindings" .) .Values.pachd.pachAuthClusterRoleBindings }}
+        - name: AUTH_CLUSTER_RBAC
+          valueFrom:
+            secretKeyRef:
+              name: "pachyderm-auth"
+              key: "cluster-role-bindings"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.console.enabled }}
+        - name: CONSOLE_OAUTH_ID
+          value: {{ .Values.console.config.oauthClientID | quote }}
+        - name: CONSOLE_OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ default ("pachyderm-console-secret") .Values.console.config.oauthClientSecretSecretName  }}
+              key: OAUTH_CLIENT_SECRET
         {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
@@ -174,9 +273,44 @@ spec:
           value:  {{.Values.global.noProxy}}
         {{ end }}
         - name: ENABLE_WORKER_SECURITY_CONTEXTS
-          value: {{ .Values.pachd.securityContext.enabled | quote }}
+          value: {{ .Values.global.securityContexts.enabled | quote }}
+        - name: ENABLE_PREFLIGHT_CHECKS
+          value: {{ .Values.pachd.preflightChecks.enabled | quote }}
         - name: UNPAUSED_MODE
           value: "full"
+        {{- if .Values.pachd.activateEnterpriseMember }}
+        - name: ENTERPRISE_MEMBER
+          value: {{ .Values.pachd.activateEnterpriseMember | quote }}
+        - name: ENTERPRISE_SERVER_ADDRESS
+          value: {{ required "To register a pachd instance with an enterprise server, the enterprise server's address must be provided." .Values.pachd.enterpriseServerAddress | quote }}
+        - name: ENTERPRISE_SERVER_TOKEN
+          {{- if .Values.pachd.enterpriseServerTokenSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseServerTokenSecretName | quote}}
+              value: enterprise-server-token
+          {{- else if .Values.pachd.enterpriseServerToken }}
+          value: {{ .Values.pachd.enterpriseServerToken | quote }}
+          {{- else if .Values.pachd.enterpriseRootTokenSecretName }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.enterpriseRootTokenSecretName | quote}}
+              value: enterprise-root-token
+          {{- else if .Values.pachd.enterpriseRootToken }}
+          value: {{ .Values.pachd.enterpriseRootToken | quote }}
+          {{- else }}
+          {{ fail "To register this pachd as an enterprise member, the enterprise server token must be provided." }}
+          {{- end }}
+        - name: ENTERPRISE_MEMBER_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: "pachyderm-enterprise-config"
+              key: "enterprise-cluster"
+        {{- end }}
+        {{ if .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        - name: IDENTITY_SERVER_DATABASE
+          value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
+        {{ end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
@@ -215,10 +349,26 @@ spec:
             command:
             - /pachd
             - --readiness
+        livenessProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
+        startupProbe:
+          exec:
+            command:
+            - /pachd
+            - --readiness
+          failureThreshold: 10
+          timeoutSeconds: 30
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /pach
           name: pach-disk
         - mountPath: /pachyderm-storage-secret
@@ -227,6 +377,33 @@ spec:
         - mountPath: /pachd-tls-cert
           name: pachd-tls-cert
         {{- end }}
+        {{- if .Values.oidc.dexCredentialSecretName }}
+        - mountPath: /dexcreds
+          name: dex-creds
+          readOnly: true
+        {{- end }}
+      {{- if .Values.global.securityContexts.enabled }}
+      {{- if and (eq (include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
+      securityContext:
+        runAsUser: 0 # Need to run as root local for hostpath support
+      {{- else }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{- end }}
+      {{- end }}
       {{-  if .Values.pachd.nodeSelector }}
       nodeSelector: {{ toYaml .Values.pachd.nodeSelector | nindent 8 }}
       {{- end }}
@@ -236,7 +413,10 @@ spec:
       {{-  if .Values.pachd.tolerations }}
       tolerations: {{ toYaml .Values.pachd.tolerations | nindent 8 }}
       {{- end }}
+      automountServiceAccountToken: true
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: pach-disk
         {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         hostPath:
@@ -250,5 +430,11 @@ spec:
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
+      {{- end }}
+      {{- if .Values.oidc.dexCredentialSecretName }}
+      - name: dex-creds
+        secret:
+          defaultMode: 420
+          secretName: {{ .Values.oidc.dexCredentialSecretName }}
       {{- end }}
 {{- end }}

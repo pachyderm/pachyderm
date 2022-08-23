@@ -23,14 +23,17 @@ SQL_MEM="7680MB"
 # The following variables probably shouldn't be changed
 CLUSTER_NAME="${NAME}-gke"
 BUCKET_NAME="${NAME}-gcs"
+LOKI_BUCKET_NAME="${NAME}-logs-gcs"
 CLOUDSQL_INSTANCE_NAME="${NAME}-sql"
 GSA_NAME="${NAME}-gsa"
+LOKI_GSA_NAME="${NAME}-loki-gsa"
 STATIC_IP_NAME="${NAME}-ip"
 
 ROLE1="roles/cloudsql.client"
 ROLE2="roles/storage.admin"
 
 SERVICE_ACCOUNT="${GSA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+LOKI_SERVICE_ACCOUNT="${LOKI_GSA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 PACH_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/pachyderm]"
 SIDECAR_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/pachyderm-worker]"
 CLOUDSQLAUTHPROXY_WI="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/k8s-cloudsql-auth-proxy]"
@@ -50,6 +53,10 @@ gcloud config set compute/zone ${GCP_ZONE}
 
 gcloud config set container/cluster ${CLUSTER_NAME}
 
+gcloud services enable container.googleapis.com
+
+gcloud services enable sqladmin.googleapis.com
+
 gcloud container clusters create ${CLUSTER_NAME} \
  --machine-type=${CLUSTER_MACHINE_TYPE} \
  --workload-pool=${PROJECT_ID}.svc.id.goog \
@@ -68,6 +75,7 @@ gcloud container clusters create ${CLUSTER_NAME} \
 gcloud container clusters get-credentials ${CLUSTER_NAME}
 
 gsutil mb -l ${GCP_REGION} gs://${BUCKET_NAME}
+gsutil mb -l ${GCP_REGION} gs://${LOKI_BUCKET_NAME}
 
 gcloud sql instances create ${CLOUDSQL_INSTANCE_NAME} \
   --database-version=POSTGRES_13 \
@@ -106,7 +114,17 @@ gcloud iam service-accounts add-iam-policy-binding ${SERVICE_ACCOUNT} \
     --role roles/iam.workloadIdentityUser \
     --member "${CLOUDSQLAUTHPROXY_WI}"
 
-gcloud sql databases create pachyderm -i ${CLOUDSQL_INSTANCE_NAME}
+gcloud iam service-accounts create ${LOKI_GSA_NAME}
+
+gcloud iam service-accounts keys create "${LOKI_GSA_NAME}-key.json" --iam-account="$LOKI_SERVICE_ACCOUNT"
+
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+    --member="serviceAccount:${LOKI_SERVICE_ACCOUNT}" \
+    --role="${ROLE2}"
+
+kubectl create secret generic loki-service-account --from-file="${LOKI_GSA_NAME}-key.json"
+
+gcloud sql databases create pachyderm -i "${CLOUDSQL_INSTANCE_NAME}"
 
 gcloud sql databases create dex -i ${CLOUDSQL_INSTANCE_NAME}
 
@@ -122,7 +140,9 @@ pachd:
     aPIGrpcport:    31400
     loadBalancerIP: ${STATIC_IP_ADDR}
   image:
-    tag: "2.1.1"
+    tag: "2.2.0"
+  lokiDeploy: true
+  lokiLogging: true
   storage:
     google:
       bucket: "${BUCKET_NAME}"
@@ -157,6 +177,41 @@ global:
     postgresqlSSL: "disable"
     postgresqlUsername: "postgres"
     postgresqlPassword: "${SQL_ADMIN_PASSWORD}"
+
+loki-stack:
+  loki:
+    env:
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      value: /etc/secrets/${LOKI_GSA_NAME}-key.json
+    extraVolumes:
+      - name: loki-service-account
+        secret:
+          secretName: loki-service-account
+    extraVolumeMounts:
+      - name: loki-service-account
+        mountPath: /etc/secrets
+    config:
+      schema_config:
+        configs:
+        - from: 1989-11-09
+          object_store: gcs
+          store: boltdb
+          schema: v11
+          index:
+            prefix: loki_index_
+          chunks:
+            prefix: loki_chunks_
+      storage_config:
+        gcs:
+          bucket_name: "${LOKI_BUCKET_NAME}"
+        # https://github.com/grafana/loki/issues/256
+        bigtable:
+          project: project
+          instance: instance
+        boltdb:
+          directory: /data/loki/indices
+  grafana:
+    enabled: true
 EOF
 
 helm repo add pach https://helm.pachyderm.com

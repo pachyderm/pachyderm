@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sort"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 	"unicode"
@@ -42,7 +45,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/status"
 )
@@ -341,7 +343,7 @@ Environment variables:
 			if !verbose {
 				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, io.Discard, io.Discard))
 			} else {
 				log.SetLevel(log.DebugLevel)
 				// etcd overrides grpc's logs--there's no way to enable one without
@@ -352,8 +354,8 @@ Environment variables:
 				logger := log.StandardLogger()
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(
 					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
-					ioutil.Discard,
-					ioutil.Discard,
+					io.Discard,
+					io.Discard,
 				))
 				cmdutil.PrintErrorStacks = true
 			}
@@ -455,6 +457,18 @@ Environment variables:
 		"'pachctl version' will run on the active enterprise context.")
 	versionCmd.Flags().AddFlagSet(outputFlags)
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
+
+	buildInfo := &cobra.Command{
+		Short: "Print go buildinfo.",
+		Long:  "Print information about the build environment.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			info, _ := debug.ReadBuildInfo()
+			fmt.Println(info)
+			return nil
+		}),
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(buildInfo, "buildinfo"))
+
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",
@@ -654,7 +668,9 @@ This resets the cluster to its initial state.`,
 
 			fmt.Println("CTRL-C to exit")
 			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
+			// Handle Control-C, closing the terminal window, and pkill (and friends)
+			// cleanly.
+			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
 			<-ch
 
 			return nil

@@ -27,7 +27,7 @@ echo "$ENT_ACT_CODE" | pachctl license activate && echo
 set -x
 
 # Make sure the pachyderm client can connect, write data, and create pipelines
-go test -v -count=1 ./src/server -run TestSimplePipeline
+go test -v -count=1 -tags=k8s ./src/server -run TestSimplePipeline
 
 # Make sure that config's pachd_address isn't disfigured by pachctl cmds that
 # modify the pachctl config (bug fix)

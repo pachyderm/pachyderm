@@ -4,11 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
 	"text/template"
 	"unicode"
+
+	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // dedent is a helper function that trims repeated, leading spaces from several
@@ -74,10 +79,7 @@ func Cmd(name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// BashCmd is a convenience function that:
-// 1. Performs a Go template substitution on 'cmd' using the strings in 'subs'
-// 2. Returns a command that runs the result string from 1 as a Bash script
-func BashCmd(cmd string, subs ...string) *exec.Cmd {
+func bashCmd(cmd string, subs ...string) io.Reader {
 	if len(subs)%2 == 1 {
 		panic("some variable does not have a corresponding value")
 	}
@@ -94,7 +96,6 @@ func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	buf := &bytes.Buffer{}
 	buf.WriteString(`
 set -e -o pipefail
-
 # Try to ignore pipefail errors (encountered when writing to a closed pipe).
 # Processes like 'yes' are essentially guaranteed to hit this, and because of
 # -e -o pipefail they will crash the whole script. We need these options,
@@ -106,7 +107,6 @@ function yes {
 	/usr/bin/yes || test "$?" -eq "${pipeerr}"
 }
 export -f yes # use in subshells too
-
 which match >/dev/null || {
 	echo "You must have 'match' installed to run these tests. Please run:" >&2
 	echo "  go install ./src/testing/match" >&2
@@ -115,12 +115,69 @@ which match >/dev/null || {
 	buf.WriteRune('\n')
 
 	// do the substitution
-	template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap)
+	if err := template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, subsMap); err != nil {
+		panic(err)
+	}
+	return buf
+}
+
+// BashCmd is a convenience function that:
+// 1. Performs a Go template substitution on 'cmd' using the strings in 'subs'
+// 2. Returns a command that runs the result string from 1 as a Bash script
+func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	res := exec.Command("/bin/bash")
 	res.Stderr = os.Stderr
 	// useful for debugging, but makes logs too noisy:
 	// res.Stdout = os.Stdout
-	res.Stdin = buf
+	res.Stdin = bashCmd(cmd, subs...)
 	res.Env = os.Environ()
 	return res
+}
+func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...string) *exec.Cmd {
+	t.Helper()
+
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(bashCmd(cmd, subs...))
+	require.NoError(t, err)
+
+	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
+	if _, err := os.Open(config); err != nil {
+		_, err = os.Create(config)
+		require.NoError(t, err)
+		// remove the empty file so that a config can be generated
+		require.NoError(t, os.Remove(config))
+		t.Cleanup(func() {
+			// since this call gets run multiple times, ignore error
+			_ = os.Remove(config)
+		})
+		return BashCmd(`
+		export PACH_CONFIG={{.config}}
+		pachctl config set context  --overwrite {{ .context }} <<EOF
+		{
+		  "source": 2,
+		  "session_token": "{{.token}}",
+		  "pachd_address": "grpc://{{.host}}:{{.port}}",
+		  "cluster_deployment_id": "dev"
+		}
+		EOF
+		pachctl config set active-context {{ .context }}
+		{{.cmd}}
+		`,
+			"config", config,
+			"context", t.Name(),
+			"token", c.AuthToken(),
+			"host", c.GetAddress().Host,
+			"port", fmt.Sprint(c.GetAddress().Port),
+			"cmd", buf.String(),
+		)
+	}
+	return BashCmd(`
+	export PACH_CONFIG={{.config}}
+	pachctl config set active-context {{ .context }}
+	{{.cmd}}
+	`,
+		"config", config,
+		"context", t.Name(),
+		"cmd", buf.String(),
+	)
 }

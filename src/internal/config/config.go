@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -104,7 +103,7 @@ func (c *Config) ActiveEnterpriseContext(errorOnNoActive bool) (string, *Context
 // in cachedConfig.
 func fetchCachedConfig(p string) error {
 	cachedConfig = &Config{}
-	if raw, err := ioutil.ReadFile(p); err == nil {
+	if raw, err := os.ReadFile(p); err == nil {
 		err = serde.Decode(raw, cachedConfig)
 		if err != nil {
 			return errors.Wrapf(err, "could not parse config json at %q", p)
@@ -172,7 +171,7 @@ func Read(ignoreCache, readOnly bool) (*Config, error) {
 		} else if updated && !readOnly {
 			log.Debugf("Rewriting config at %q.", p)
 
-			if err := cachedConfig.write(); err != nil {
+			if err := cachedConfig.write(p); err != nil {
 				return nil, errors.Wrapf(err, "could not rewrite config at %q", p)
 			}
 		}
@@ -217,7 +216,7 @@ func (c *Config) InitV2() error {
 func (c *Config) Write() error {
 	configMu.Lock()
 	defer configMu.Unlock()
-	return c.write()
+	return c.write(configPath())
 }
 
 // Write writes the configuration in 'c' to this machine's Pachyderm config
@@ -225,7 +224,7 @@ func (c *Config) Write() error {
 // Note: Write() overwrites both the on-disk config and the cachedConfig;
 // configMu must be locked by the caller to ensure that Write() calls are
 // serialized and that these two representations stay in sync.
-func (c *Config) write() error {
+func (c *Config) write(path string) error {
 	if c.V1 != nil {
 		panic("config V1 included (this is a bug)")
 	}
@@ -235,7 +234,6 @@ func (c *Config) write() error {
 		return err
 	}
 
-	p := configPath()
 	// Because we're writing the config back to disk, we'll also need to make sure
 	// that the directory we're writing the config into exists. The approach we
 	// use for doing this depends on whether PACH_CONFIG is being used (if it is,
@@ -244,9 +242,9 @@ func (c *Config) write() error {
 	if _, ok := os.LookupEnv(configEnvVar); ok {
 		// using overridden config path: check that the parent dir exists, but don't
 		// create any new directories
-		d := filepath.Dir(p)
+		d := filepath.Dir(path)
 		if _, err := os.Stat(d); err != nil {
-			return errors.Wrapf(err, "cannot use config at %s: could not stat parent directory", p)
+			return errors.Wrapf(err, "cannot use config at %s: could not stat parent directory", path)
 		}
 	} else {
 		// using the default config path, create the config directory
@@ -258,7 +256,7 @@ func (c *Config) write() error {
 
 	// Write to a temporary file first, then rename the temporary file to `p`.
 	// This ensures the write is atomic on POSIX.
-	tmpfile, err := ioutil.TempFile("", "pachyderm-config-*.json")
+	tmpfile, err := os.CreateTemp("", "pachyderm-config-*.json")
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -270,20 +268,24 @@ func (c *Config) write() error {
 	if err = tmpfile.Close(); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if err = os.Rename(tmpfile.Name(), p); err != nil {
+	if err = os.Rename(tmpfile.Name(), path); err != nil {
 		// A rename could fail if the temporary directory is mounted on a
 		// different device than the config path. If the rename failed, try to
 		// just copy the bytes instead. Note that a destructive disk error could
 		// leave cachedConfig out of date.
 		// TODO(msteffen) attempt to backup the config if it exists & restore on
 		// failure.
-		if err = ioutil.WriteFile(p, rawConfig, 0644); err != nil {
-			return errors.Wrapf(err, "failed to copy updated config file from %s to %s", tmpfile.Name(), p)
+		if err = os.WriteFile(path, rawConfig, 0644); err != nil {
+			return errors.Wrapf(err, "failed to copy updated config file from %s to %s", tmpfile.Name(), path)
 		}
 	}
 
 	// essentially short-cuts reading the new config back from disk
-	cachedConfig = proto.Clone(c).(*Config)
+	// Note: this will only fail in the case that the caller passes
+	// in a config path to the API with WritePachTokenToConfigPath()
+	if path == configPath() {
+		cachedConfig = proto.Clone(c).(*Config)
+	}
 	return nil
 }
 
@@ -294,6 +296,23 @@ func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 	if err != nil {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
+	return writePachTokenToConfig(token, cfg, configPath(), enterpriseContext)
+}
+
+func WritePachTokenToConfigPath(token string, path string, enterpriseContext bool) error {
+	config := &Config{}
+	var raw []byte
+	var err error
+	if raw, err = os.ReadFile(path); err != nil {
+		return errors.Wrapf(err, "could not read config at %q", path)
+	}
+	if err = serde.Decode(raw, config); err != nil {
+		return errors.Wrapf(err, "could not parse config json at %q", path)
+	}
+	return writePachTokenToConfig(token, config, path, enterpriseContext)
+}
+
+func writePachTokenToConfig(token string, cfg *Config, path string, enterpriseContext bool) error {
 	if enterpriseContext {
 		_, context, err := cfg.ActiveEnterpriseContext(true)
 		if err != nil {
@@ -307,7 +326,9 @@ func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 		}
 		context.SessionToken = token
 	}
-	if err := cfg.Write(); err != nil {
+	configMu.Lock()
+	defer configMu.Unlock()
+	if err := cfg.write(path); err != nil {
 		return errors.Wrapf(err, "error writing pachyderm config")
 	}
 	return nil

@@ -1,4 +1,5 @@
-//nolint:wrapcheck
+//go:build k8s
+
 package client
 
 import (

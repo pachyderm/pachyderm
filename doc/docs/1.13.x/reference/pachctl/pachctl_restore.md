@@ -15,10 +15,10 @@ pachctl restore [flags]
 ```
 
 # Restore from a local file:
-$ pachctl restore < backup
+pachctl restore < backup
 
 # Restore from s3:
-$ pachctl restore -u s3://bucket/backup
+pachctl restore -u s3://bucket/backup
 ```
 
 ### Options

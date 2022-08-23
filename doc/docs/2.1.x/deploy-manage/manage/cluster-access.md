@@ -42,32 +42,32 @@ To view active context, type:
 
 * View the active context:
 
-  ```shell
-  pachctl config get active-context
-  ```
+    ```shell
+    pachctl config get active-context
+    ```
 
-  **System response:**
+    **System response:**
 
-  ```shell
-  local-1
-  ```
+    ```shell
+    local-1
+    ```
 
 * List all contexts and view the current context:
 
-  ```shell
-  pachctl config list context
-  ```
+    ```shell
+    pachctl config list context
+    ```
 
-  **System response:**
+    **System response:**
 
-  ```shell
-    ACTIVE  NAME
-            default
-            local
-    *       local-1
-  ```
+    ```shell
+      ACTIVE  NAME
+              default
+              local
+      *       local-1
+    ```
 
-  The active context is marked with an asterisk.
+    The active context is marked with an asterisk.
 
 ## Change the Active Context
 
@@ -102,81 +102,81 @@ the following steps:
 1. Create a new Pachyderm context with a specific `pachd` IP address
 and a client certificate:
 
-   ```shell
-   echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
-   ```
+    ```shell
+    echo '{"pachd_address":"10.10.10.130:650", "server_cas":"insert your base 64 encoded key.pem"}' | pachctl config set context new-local
+    ```
 
-   **System response:**
+    **System response:**
 
-   ```shell
-   Reading from stdin
-   ```
+    ```shell
+    Reading from stdin
+    ```
 
 1. Verify your configuration by running the following command:
 
-   ```shell
-   pachctl config get context new-local
-   {
-     "pachd_address": "10.10.10.130:650",
-     "server_cas": "key.pem"
-   }
-   ```
+    ```shell
+    pachctl config get context new-local
+    {
+      "pachd_address": "10.10.10.130:650",
+      "server_cas": "insert your base 64 encoded key.pem"
+    }
+    ```
 
 ## Update an Existing Context
 
 You can update an existing context with new parameters, such
 as a Pachyderm IP address, certificate authority (CA), and others.
-For the list of parameters, see [Pachyderm Config Specification](../../reference/config_spec.md).
+For the list of parameters, see [Pachyderm Config Specification](../../reference/config-spec.md).
 
 To update the Active Context, run the following commands:
 
 1. Update the context with a new `pachd` address:
 
-   ```shell
-   pachctl config update context local-1 --pachd-address 10.10.10.131
-   ```
+    ```shell
+    pachctl config update context local-1 --pachd-address 10.10.10.131
+    ```
 
-   The `pachctl config update` command supports the `--pachd-address`
-   flag only.
+    The `pachctl config update` command supports the `--pachd-address`
+    flag only.
 
 1. Verify that the context has been updated:
 
-   ```shell
-   pachctl config get context local-1
-   ```
+    ```shell
+    pachctl config get context local-1
+    ```
 
-   **System response:**
+    **System response:**
 
-   ```shell
-   {
-     "pachd_address": "10.10.10.131"
-   }
-   ```
+    ```shell
+    {
+      "pachd_address": "10.10.10.131"
+    }
+    ```
 
 1. Alternatively, you can update multiple properties by using
 an `echo` script:
 
-   ```shell
-   echo '{"pachd_address":"10.10.10.132", "server_cas":"key.pem"}' | pachctl config set context local-1 --overwrite
-   ```
+    ```shell
+    echo '{"pachd_address":"10.10.10.132", "server_cas":"insert your base 64 encoded key.pem"}' | pachctl config set context local-1 --overwrite
+    ```
 
-   **System response:**
+    **System response:**
 
-   ```shell
-   Reading from stdin.
-   ```
+    ```shell
+    Reading from stdin.
+    ```
 
 1. Verify that the changes were applied:
 
-   ```shell
-   pachctl config get context local-1
-   ```
+    ```shell
+    pachctl config get context local-1
+    ```
 
-   **System response:**
+    **System response:**
 
-   ```shell
-   {
-     "pachd_address": "10.10.10.132",
-     "server_cas": "key.pem"
-   }
-   ```
+    ```shell
+    {
+      "pachd_address": "10.10.10.132",
+      "server_cas": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVEakNDQXZhZ0F3SUJBZ0lERDkyc01BMEdDU3FHU0liM0RRRUJDd1VBTUVVeEN6QUpCZ05WQkFZVEFrUkYKTVJVd0V3WURWUVFLREF4RUxWUnlkWE4wSUVkdFlrZ3hIekFkQmdOVkJBTU1Ga1F0VkZKVlUxUWdVbTl2ZENCRApRU0F6SURJd01UTXdIaGNOTVRNd09USXdNRGd5TlRVeFdoY05Namd3T1RJd01EZ3lOVFV4V2pCRk1Rc3dDUVlEClZRUUdFd0pFUlRFVk1CTUdBMVVFQ2d3TVJDMVVjblZ6ZENCSGJXSklNUjh3SFFZRFZRUUREQlpFTFZSU1ZWTlUKSUZKdmIzUWdRMEVnTXlBeU1ERXpNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQQp4SHRDa29JZjdPMVVtSTRTd01vSjM1TnVPcE5jRytRUWQ1NU9hWWhzOXVGcDh2YWJvbUd4dlFjZ2RKaGw4WXdtCkNNMm9OY3FBTnRGamJlaEVlb0xEYkY3ZXUrZzIwc1JvTm95Zk1yMkVJdURjd3U0UVJqbHRyNU01cm9mbXc3d0oKeVN4cloxdlptM1oxVEF2Z3U4WFh2RDU1OGwrKzBaQlgrYTcyWmw4eHY5TnRqNmU2U3ZNalpidTM3Nk1sMXdycQpXTGJ2aVByNmViSlNXTlh3ckl5aFVYUXBsYXBSTzVBeUE1OGNjblNRM2ozdFlkTGw0LzFrUitXNXQwcXA5eCt1CmxvWUVyQy9qcElGM3Qxb1cvOWdQUC9hM2VNeWtyL3BiUEJKYnFGS0pjdStJODlWRWdZYVZJNTk3M2J6Wk5POTgKbER5cXdFSEM0NTFRR3NEa0dTTDhzd0lEQVFBQm80SUJCVENDQVFFd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBZApCZ05WSFE0RUZnUVVQNURJZmNjVmIvTWtqNm5ETDB1aUR5R3lMK2N3RGdZRFZSMFBBUUgvQkFRREFnRUdNSUcrCkJnTlZIUjhFZ2JZd2diTXdkS0J5b0hDR2JteGtZWEE2THk5a2FYSmxZM1J2Y25rdVpDMTBjblZ6ZEM1dVpYUXYKUTA0OVJDMVVVbFZUVkNVeU1GSnZiM1FsTWpCRFFTVXlNRE1sTWpBeU1ERXpMRTg5UkMxVWNuVnpkQ1V5TUVkdApZa2dzUXoxRVJUOWpaWEowYVdacFkyRjBaWEpsZG05allYUnBiMjVzYVhOME1EdWdPYUEzaGpWb2RIUndPaTh2ClkzSnNMbVF0ZEhKMWMzUXVibVYwTDJOeWJDOWtMWFJ5ZFhOMFgzSnZiM1JmWTJGZk0xOHlNREV6TG1OeWJEQU4KQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBRGxrT1dPUjBTQ05FenpRaHRad1VHcTJhUzdlemlHMWNxUmR3OENxZgpqWHY1ZTRYNnh6bm9FQWl3TlN0Znp3TFMwNXpJQ3g3dUJWU3VONU1FQ1gxc2o4SjB2UGdjbEw0eEFVQXQ4eVFnCnQ0UlZMRnpJOVhSS0VCbUxvOGZ0TmRZSlNOTU93TG81cUxCR0FyRGJ4b2had3I3OGU3RXJ6MzVpaDFXV3pBRnYKbTJjaGxUV0wrQkQ4Y1J1M1N6ZHBwanZXN0l2dXdiRHpKY21Qa24yaDZzUEtSTDhtcFhTU25PTjA2NTEwMmN0TgpoOWo4dEdsc2k2QkRCMkI0bCtuWmszekNScnliTjFLajdZbzhFNmw3VTB0Sm1oRUZMQXR1VnF3ZkxvSnM0R2xuCnRRNXRMZG5rd0JYeFAvb1ljdUVWYlNkYkxUQW9LNTlJbW1Rcm1lL3lkVWxmWEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg=="
+    }
+    ```

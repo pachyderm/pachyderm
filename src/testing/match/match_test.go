@@ -49,6 +49,6 @@ func TestMatchInvertedFail(t *testing.T) {
 	buf := &bytes.Buffer{}
 	c.Stderr = buf
 	require.YesError(t, c.Run())
-	require.True(t, bytes.Contains(buf.Bytes(), []byte("did not expect to find")))
+	require.True(t, bytes.Contains(buf.Bytes(), []byte("failed to find")))
 	require.True(t, bytes.Contains(buf.Bytes(), []byte("test")))
 }

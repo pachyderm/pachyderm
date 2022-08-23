@@ -12,16 +12,19 @@
 package ppsutil
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"crypto/md5"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -40,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 // PipelineRepo creates a pfs repo for a given pipeline.
@@ -53,7 +57,7 @@ func PipelineRcName(name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
-	name = strings.Replace(name, "_", "-", -1)
+	name = strings.ReplaceAll(name, "_", "-")
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 
@@ -251,7 +255,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
 	commitsetID := outputCommit.ID
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) error {
+	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
 			input.Pfs.Commit = commitsetID
 		}
@@ -331,13 +335,19 @@ func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.Job
 	jobInfo.Reason = reason
 	// TODO: Leaning on the reason rather than state for commit errors seems a bit sketchy, but we don't
 	// store commit states.
+
+	// only try to close meta commits for transform pipelines. We can't simply ignore a NotFound error
+	// because the real error happens on the server and is returned by RunBatchInTransaction itself
+	hasMeta := jobInfo.GetDetails().GetSpout() == nil && jobInfo.GetDetails().GetService() == nil
 	_, err := pachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
-		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: MetaCommit(jobInfo.OutputCommit),
-			Error:  reason,
-			Force:  true,
-		}); err != nil {
-			return errors.EnsureStack(err)
+		if hasMeta {
+			if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: MetaCommit(jobInfo.OutputCommit),
+				Error:  reason,
+				Force:  true,
+			}); err != nil {
+				return errors.EnsureStack(err)
+			}
 		}
 		if _, err := builder.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
@@ -375,7 +385,7 @@ func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
 	var found bool
-	pps.VisitInput(in, func(in *pps.Input) error {
+	pps.VisitInput(in, func(in *pps.Input) error { //nolint:errcheck
 		if in.Pfs != nil && in.Pfs.S3 {
 			found = true
 			return errutil.ErrBreak
@@ -462,4 +472,95 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	}
 
 	return curr, nil
+}
+
+// ListPipelineInfo enumerates all PPS pipelines in the database, filters them
+// based on 'request', and then calls 'f' on each value
+func ListPipelineInfo(ctx context.Context,
+	pipelines collection.PostgresCollection,
+	pipeline *pps.Pipeline,
+	history int64,
+	f func(*pps.PipelineInfo) error) error {
+	p := &pps.PipelineInfo{}
+	versionMap := make(map[string]uint64)
+	checkPipelineVersion := func(_ string) error {
+		// Erase any AuthToken - this shouldn't be returned to anyone (the workers
+		// won't use this function to get their auth token)
+		p.AuthToken = ""
+		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
+		if last, ok := versionMap[p.Pipeline.Name]; ok {
+			if p.Version < last {
+				// don't send, exit early
+				return nil
+			}
+		} else {
+			// we haven't seen this pipeline yet, rely on sort order and assume this is latest
+			var lastVersionToSend uint64
+			if history < 0 || uint64(history) >= p.Version {
+				lastVersionToSend = 1
+			} else {
+				lastVersionToSend = p.Version - uint64(history)
+			}
+			versionMap[p.Pipeline.Name] = lastVersionToSend
+		}
+
+		return f(p)
+	}
+	if pipeline != nil {
+		if err := pipelines.ReadOnly(ctx).GetByIndex(
+			ppsdb.PipelinesNameIndex,
+			pipeline.Name,
+			p,
+			col.DefaultOptions(),
+			checkPipelineVersion); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if len(versionMap) == 0 {
+			// pipeline didn't exist after all
+			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
+		}
+		return nil
+	}
+	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+}
+
+func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		msg := new(pps.LogMessage)
+		if plainText {
+			msg.Message = scanner.Text()
+		} else {
+			logBytes := scanner.Bytes()
+			if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+				continue
+			}
+
+			// Filter out log lines that don't match on pipeline or job
+			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+				continue
+			}
+			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+				continue
+			}
+			if request.Datum != nil && request.Datum.ID != msg.DatumID {
+				continue
+			}
+			if request.Master != msg.Master {
+				continue
+			}
+			if !common.MatchDatum(request.DataFilters, msg.Data) {
+				continue
+			}
+		}
+		// Log message passes all filters -- return it
+		msg.Message = strings.TrimSuffix(msg.Message, "\n")
+		if err := send(msg); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
 }

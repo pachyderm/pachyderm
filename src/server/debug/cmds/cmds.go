@@ -1,8 +1,11 @@
 package cmds
 
 import (
+	"fmt"
 	"os"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -19,6 +22,7 @@ func Cmds() []*cobra.Command {
 
 	var duration time.Duration
 	var pachd bool
+	var database bool
 	var pipeline string
 	var worker string
 	profile := &cobra.Command{
@@ -39,7 +43,7 @@ func Cmds() []*cobra.Command {
 				Name:     args[0],
 				Duration: d,
 			}
-			filter, err := createFilter(pachd, pipeline, worker)
+			filter, err := createFilter(pachd, database, pipeline, worker)
 			if err != nil {
 				return err
 			}
@@ -64,7 +68,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			defer client.Close()
-			filter, err := createFilter(pachd, pipeline, worker)
+			filter, err := createFilter(pachd, database, pipeline, worker)
 			if err != nil {
 				return err
 			}
@@ -89,7 +93,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 			defer client.Close()
-			filter, err := createFilter(pachd, pipeline, worker)
+			filter, err := createFilter(pachd, database, pipeline, worker)
 			if err != nil {
 				return err
 			}
@@ -99,10 +103,26 @@ func Cmds() []*cobra.Command {
 		}),
 	}
 	dump.Flags().BoolVar(&pachd, "pachd", false, "Only collect the dump from pachd.")
+	dump.Flags().BoolVar(&database, "database", false, "Only collect the dump from pachd's database.")
 	dump.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the dump from the worker pods for the given pipeline.")
 	dump.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the dump from the given worker pod.")
 	dump.Flags().Int64VarP(&limit, "limit", "l", 0, "Limit sets the limit for the number of commits / jobs that are returned for each repo / pipeline in the dump.")
 	commands = append(commands, cmdutil.CreateAlias(dump, "debug dump"))
+
+	var serverPort int
+	analyze := &cobra.Command{
+		Use:   "{{alias}} <file>",
+		Short: "Start a local pachd server to analyze a debug dump.",
+		Long:  "Start a local pachd server to analyze a debug dump.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			dump := shell.NewDumpServer(args[0], uint16(serverPort))
+			fmt.Println("listening on", dump.Address())
+			select {}
+		}),
+	}
+	analyze.Flags().IntVarP(&serverPort, "port", "p", 0,
+		"launch a debug server on the given port. If unset, choose a free port automatically")
+	commands = append(commands, cmdutil.CreateAlias(analyze, "debug analyze"))
 
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",
@@ -113,10 +133,13 @@ func Cmds() []*cobra.Command {
 	return commands
 }
 
-func createFilter(pachd bool, pipeline, worker string) (*debug.Filter, error) {
+func createFilter(pachd, database bool, pipeline, worker string) (*debug.Filter, error) {
 	var f *debug.Filter
 	if pachd {
 		f = &debug.Filter{Filter: &debug.Filter_Pachd{Pachd: true}}
+	}
+	if database {
+		f = &debug.Filter{Filter: &debug.Filter_Database{Database: true}}
 	}
 	if pipeline != "" {
 		if f != nil {

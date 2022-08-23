@@ -78,6 +78,16 @@ func (reg *registry) failJob(pj *pendingJob, reason string) error {
 	return nil
 }
 
+func (reg *registry) markJobUnrunnable(pj *pendingJob, reason string) error {
+	pj.logger.Logf("marking job unrunnable with reason: %s", reason)
+	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
+	if err := ppsutil.FinishJob(reg.driver.PachClient(), pj.ji, pps.JobState_JOB_UNRUNNABLE, reason); err != nil {
+		return err
+	}
+	pj.clearCache()
+	return nil
+}
+
 func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	pj.logger.Logf("killing job with reason: %s", reason)
 	// Use the registry's driver so that the job's supervision goroutine cannot cancel us
@@ -142,7 +152,9 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		if pj.ji.Details.JobTimeout != nil {
 			pj.logger.Logf("cancelling job at: %+v", afterTime)
 			timer := time.AfterFunc(afterTime, func() {
-				reg.killJob(pj, "job timed out")
+				if err := reg.killJob(pj, " jobtimed out"); err != nil {
+					pj.logger.Logf("error killing job: %v", err)
+				}
 			})
 			defer timer.Stop()
 		}
@@ -256,8 +268,8 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 		return err
 	}
 	if len(failed) > 0 {
-		reason := fmt.Sprintf("inputs failed: %s", strings.Join(failed, ", "))
-		return reg.failJob(pj, reason)
+		reason := fmt.Sprintf("unrunnable because the following upstream pipelines failed: %s", strings.Join(failed, ", "))
+		return reg.markJobUnrunnable(pj, reason)
 	}
 	pj.ji.State = pps.JobState_JOB_RUNNING
 	return pj.writeJobInfo()
@@ -276,6 +288,9 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	ctx := pachClient.Ctx()
 	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID, pj.cache)
 	if err := func() error {
+		if err := pj.writeDatumCount(ctx, taskDoer); err != nil {
+			return err
+		}
 		if err := pj.withParallelDatums(ctx, taskDoer, func(ctx context.Context, fileSetID string) error {
 			return reg.processDatums(ctx, pj, taskDoer, fileSetID)
 		}); err != nil {
@@ -461,10 +476,32 @@ func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
 }
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {
-	url := pj.ji.Details.Egress.URL
-	err := pj.driver.PachClient().GetFileURL(pj.commitInfo.Commit, "/", url)
-	// file not found means the commit is empty, nothing to egress
-	if err != nil && !pfsserver.IsFileNotFoundErr(err) {
+	client := pj.driver.PachClient()
+	egress := pj.ji.Details.Egress
+	var request pfs.EgressRequest
+	request.Commit = pj.commitInfo.Commit
+	// For backwards compatibility, egress still works with just a URL to object storage.
+	if egress.URL != "" {
+		request.Target = &pfs.EgressRequest_ObjectStorage{ObjectStorage: &pfs.ObjectStorageEgress{Url: egress.URL}}
+	} else {
+		switch egress.Target.(type) {
+		case *pps.Egress_ObjectStorage:
+			request.Target = &pfs.EgressRequest_ObjectStorage{ObjectStorage: egress.GetObjectStorage()}
+		case *pps.Egress_SqlDatabase:
+			request.Target = &pfs.EgressRequest_SqlDatabase{SqlDatabase: egress.GetSqlDatabase()}
+		}
+	}
+	if err := backoff.RetryUntilCancel(client.Ctx(), func() error {
+		// file not found means the commit is empty, nothing to egress
+		// TODO explicitly handle/swallow more unrecoverable errors from SqlDatabase, to prevent job being stuck in egressing.
+		if _, err := client.Egress(client.Ctx(), &request); err != nil && !pfsserver.IsFileNotFoundErr(err) {
+			return err
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		pj.logger.Logf("error processing egress: %v, retrying in %v", err, d)
+		return nil
+	}); err != nil {
 		return err
 	}
 	return reg.succeedJob(pj)

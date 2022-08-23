@@ -5,7 +5,7 @@
     in **Pachyderm 1.12 and newer releases**.
     The implementation of spouts 
     in previous releases
-    is now [deprecated](../../../../contributing/supported-releases/#deprecated).
+    is now [deprecated](../../../../reference/supported-releases/#deprecated).
     We recommend upgrading 
     to the latest version
     of Pachyderm
@@ -83,7 +83,7 @@ To create a spout pipeline, you will need:
 
 
 A minimum spout specification must include the following
-parameters in the [pipeline specification](../../../reference/pipeline_spec.md):
+parameters in the [pipeline specification](../../../reference/pipeline-spec.md):
 
 | Parameter   | Description |
 | ----------- | ----------- |

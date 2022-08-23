@@ -70,7 +70,7 @@ To create a spout pipeline, you will need:
 
 
 A minimum spout specification must include the following
-parameters in the [pipeline specification](../../../reference/pipeline_spec.md):
+parameters in the [pipeline specification](../../../reference/pipeline-spec.md):
 
 | Parameter   | Description |
 | ----------- | ----------- |
@@ -112,7 +112,7 @@ Here is an example of a minimum spout pipeline specification:
 
 
 For a first overview of how spouts work, see
-our [spout101 example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/spout101){target=_blank}.
+our [spout101 example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/spouts/spout101){target=_blank}.
 
 
 

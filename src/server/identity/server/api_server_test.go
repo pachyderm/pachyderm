@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -7,9 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -19,10 +24,7 @@ func TestAuthNotActivated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	_, err := client.SetIdentityServerConfig(client.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Equal(t, "rpc error: code = Unimplemented desc = the auth service is not activated", err.Error())
@@ -81,12 +83,9 @@ func TestUserNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-
+	c, _ := minikubetestenv.AcquireCluster(t)
+	aliceClient := tu.AuthenticatedPachClient(t, c, alice)
 	_, err := aliceClient.SetIdentityServerConfig(aliceClient.Ctx(), &identity.SetIdentityServerConfigRequest{})
 	require.YesError(t, err)
 	require.Matches(t, fmt.Sprintf("rpc error: code = Unknown desc = %v is not authorized to perform this operation", alice), err.Error())
@@ -145,10 +144,8 @@ func TestSetConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 	// Configure an IDP connector, so the web server will start
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
@@ -163,7 +160,7 @@ func TestSetConfiguration(t *testing.T) {
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer: "http://localhost:30658/",
+			Issuer: "http://localhost:30658/dex",
 		},
 	})
 	require.NoError(t, err)
@@ -173,26 +170,24 @@ func TestSetConfiguration(t *testing.T) {
 		resp, err := adminClient.GetIdentityServerConfig(adminClient.Ctx(), &identity.GetIdentityServerConfigRequest{})
 		require.NoError(t, err)
 		return require.EqualOrErr(
-			"http://localhost:30658/", resp.Config.Issuer,
+			"http://localhost:30658/dex", resp.Config.Issuer,
 		)
 	}, backoff.NewTestingBackOff()))
 
-	resp, err := http.Get(fmt.Sprintf("http://%v/.well-known/openid-configuration", tu.DexHost(adminClient)))
+	resp, err := http.Get(fmt.Sprintf("http://%v/dex/.well-known/openid-configuration", tu.DexHost(adminClient)))
 	require.NoError(t, err)
 
 	var oidcConfig map[string]interface{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&oidcConfig))
-	require.Equal(t, "http://localhost:30658/", oidcConfig["issuer"].(string))
+	require.Equal(t, "http://localhost:30658/dex", oidcConfig["issuer"].(string))
 }
 
 func TestOIDCClientCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 	client := &identity.OIDCClient{
 		Id:           "id",
@@ -236,16 +231,19 @@ func TestIDPConnectorCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	adminClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 	conn := &identity.IDPConnector{
-		Id:         "id",
-		Name:       "name",
-		Type:       "mockPassword",
-		JsonConfig: `{"username": "test", "password": "test"}`,
+		Id:   "id",
+		Name: "name",
+		Type: "mockPassword",
+		Config: &types.Struct{
+			Fields: map[string]*types.Value{
+				"password": {Kind: &types.Value_StringValue{StringValue: "test"}},
+				"username": {Kind: &types.Value_StringValue{StringValue: "test"}},
+			},
+		},
 	}
 
 	_, err := adminClient.CreateIDPConnector(adminClient.Ctx(), &identity.CreateIDPConnectorRequest{
@@ -282,25 +280,23 @@ func TestShortenIDTokenExpiry(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	tu.ConfigureOIDCProvider(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, err := adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
 		Config: &identity.IdentityServerConfig{
-			Issuer:              "http://pachd:1658/",
+			Issuer:              "http://pachd:1658/dex",
 			IdTokenExpiry:       "1h",
 			RotationTokenExpiry: "5h",
 		},
 	})
 	require.NoError(t, err)
 
-	token := tu.GetOIDCTokenForTrustedApp(t)
+	token := tu.GetOIDCTokenForTrustedApp(t, c)
 
 	// Exchange the ID token for a pach token and confirm the expiration is < 1h
-	testClient := tu.GetUnauthenticatedPachClient(t)
+	testClient := tu.UnauthenticatedPachClient(t, c)
 	authResp, err := testClient.Authenticate(testClient.Ctx(),
 		&auth.AuthenticateRequest{IdToken: token})
 	require.NoError(t, err)

@@ -12,20 +12,19 @@
 # Pachyderm – The Leader in Data Versioning and Pipelines for MLOps
 
 
-Pachyderm is the leader in data versioning and pipelines for MLOps.  We provide the data foundation that allows data science teams to automate and scale their machine learning lifecycle while guaranteeing reproducibility. With investment from Benchmark,  Microsoft M12, and others, Pachyderm, Inc. offers a commercial Pachyderm Enterprise Edition and an open source Pachyderm Community Edition. Pachyderm helps customers get their ML and AI projects to market faster, lower data processing and storage costs, and supports strict data governance requirements.
+Pachyderm is cost-effective at scale, enabling data engineering teams to automate complex pipelines with sophisticated data transformations across any type of data. Our unique approach provides parallelized processing of multi-stage, language-agnostic pipelines with data versioning and data lineage tracking. Pachyderm delivers the ultimate CI/CD engine for data. 
 
 ## Features
 
-- Automated Data Versioning — Pachyderm’s Data Versioning gives teams an automated and performant way to keep track of all data changes
-- Data-Driven Pipelines — Pachyderm’s Containerized Pipelines speed data processing while lowering compute costs
-- Immutable Data Lineage — Pachyderm’s Data Lineage provides an immutable record for all activities and assets in the ML lifecycle
-- Console — The Pachyderm Console provides an intuitive visualization of your DAG (directed acyclic graph) and aids in reproducibility
-- Notebooks — Pachyderm Notebooks provide an easy way to interact with Pachyderm Data Versioning and Pipelines via Jupyter notebooks
-- Enterprise Administration — Pachyderm provides robust tools for deploying and administering Pachyderm at scale across different teams in your organization
+- Data-driven pipelines automatically trigger based on detecting data changes.
+- Immutable data lineage with data versioning of any data type. 
+- Autoscaling and parallel processing built on Kubernetes for resource orchestration.
+- Uses standard object stores for data storage with automatic deduplication.  
+- Runs across all major cloud providers and on-premises installations.
 
 
 ## Getting Started
-To start deploying your end-to-end version-controlled data pipelines, try us for free on [Hub](https://docs.pachyderm.com/latest/pachhub/pachhub_getting_started/) with little to no setup or run Pachyderm [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/). You can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
+To start deploying your end-to-end version-controlled data pipelines, run Pachyderm [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/) or you can also [deploy on AWS/GCE/Azure](https://docs.pachyderm.com/latest/deploy-manage/deploy/amazon_web_services/) in about 5 minutes. 
 
 You can also refer to our complete [documentation](https://docs.pachyderm.com) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
@@ -68,4 +67,4 @@ We remain committed to the culture of open source, developing our product transp
 
 Under the Pachyderm Community License, you can access the source code and modify or redistribute it; there is only one thing you cannot do, and that is use it to make a competing offering. 
 
-Check out our [License FAQ Page](https://pachyderm.com/about/pachyderm-community-license-faq/) for more information.
+Check out our [License FAQ Page](https://www.pachyderm.com/community-license-faq/) for more information.

@@ -2,20 +2,19 @@
 package client
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
 	// Import registers the grpc GZIP encoder
@@ -218,7 +217,7 @@ func WithMaxConcurrentStreams(streams int) Option {
 }
 
 func addCertFromFile(pool *x509.CertPool, path string) error {
-	bytes, err := ioutil.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return errors.Wrapf(err, "could not read x509 cert from \"%s\"", path)
 	}
@@ -235,6 +234,15 @@ func WithRootCAs(path string) Option {
 	return func(settings *clientSettings) error {
 		settings.caCerts = x509.NewCertPool()
 		return addCertFromFile(settings.caCerts, path)
+	}
+}
+
+// WithCertPool instructs the New* functions to create a client that uses the provided cert pool to
+// validate the server's identity when connecting with TLS.
+func WithCertPool(pool *x509.CertPool) Option {
+	return func(settings *clientSettings) error {
+		settings.caCerts = pool
+		return nil
 	}
 }
 
@@ -361,7 +369,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 				if info.IsDir() {
 					return nil // We'll just read the children of any directories when we traverse them
 				}
-				pemBytes, err := ioutil.ReadFile(p)
+				pemBytes, err := os.ReadFile(p)
 				if err != nil {
 					log.Warnf("could not read server CA certs at %s: %v", p, err)
 					return nil
@@ -776,7 +784,7 @@ func DefaultDialOptions() []grpc.DialOption {
 func (c *APIClient) connect(timeout time.Duration, unaryInterceptors []grpc.UnaryClientInterceptor, streamInterceptors []grpc.StreamClientInterceptor) error {
 	dialOptions := DefaultDialOptions()
 	if c.caCerts == nil {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))

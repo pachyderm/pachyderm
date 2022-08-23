@@ -1,3 +1,5 @@
+//go:build k8s
+
 /*
 This test is for PPS pipelines that use S3 inputs/outputs. Most of these
 pipelines use the pachyderm/s3testing image, which exists on dockerhub but can
@@ -20,47 +22,34 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // This test is designed to run against pachyderm in custom namespaces and with
 // auth on or off. It reads env vars into here and adjusts tests to make sure
 // our s3 gateway feature works in those contexts
-var Namespace string
 
-func init() {
-	var ok bool
-	Namespace, ok = os.LookupEnv("PACH_NAMESPACE")
-	if !ok {
-		Namespace = v1.NamespaceDefault
-	}
-}
-
-func initPachClient(t testing.TB) (*client.APIClient, string) {
+func initPachClient(t testing.TB) (*client.APIClient, string, string) {
+	c, ns := minikubetestenv.AcquireCluster(t)
 	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
-		c := tu.GetPachClient(t)
-		require.NoError(t, c.DeleteAll())
-		return c, ""
+		return c, "", ns
 	}
-	tu.ActivateAuth(t)
-	c := tu.GetAuthenticatedPachClient(t, tu.UniqueString("user-"))
-	return c, c.AuthToken()
+	c = tu.AuthenticatedPachClient(t, c, tu.UniqueString("user-"))
+	return c, c.AuthToken(), ns
 }
 
 func TestS3PipelineErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c, _ := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, _, _ := initPachClient(t)
 
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -133,9 +122,7 @@ func TestS3Input(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -190,27 +177,27 @@ func TestS3Input(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "pfs_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
 		strings.Contains(buf.String(), "out") && !strings.Contains(buf.String(), "input_repo"),
 		"expected \"out\" but not \"input_repo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_buckets", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_buckets", &buf))
 	require.True(t,
 		strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
 		"expected \"input_repo\" but not \"out\" in %s: %q", "s3_buckets", buf.String())
 
 	// Check files in input_repo
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_files", &buf))
 	require.Matches(t, "foo", buf.String())
 
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -225,8 +212,7 @@ func TestS3Chain(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, userToken, _ := initPachClient(t)
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -280,7 +266,7 @@ func TestS3Chain(t *testing.T) {
 	require.NoError(t, err)
 	for i := 0; i < numPipelines; i++ {
 		var buf bytes.Buffer
-		c.GetFile(client.NewCommit(pipelines[i], "master", ""), "/file", &buf)
+		require.NoError(t, c.GetFile(client.NewCommit(pipelines[i], "master", ""), "/file", &buf))
 		require.Equal(t, i+1, strings.Count(buf.String(), "1\n"))
 	}
 }
@@ -289,9 +275,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c, _ := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, _, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -331,17 +315,15 @@ func TestNamespaceInEndpoint(t *testing.T) {
 
 	// check S3_ENDPOINT variable
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "s3_endpoint", &buf)
-	require.True(t, strings.Contains(buf.String(), ".default"))
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_endpoint", &buf))
+	require.True(t, strings.Contains(buf.String(), "."+ns))
 }
 
 func TestS3Output(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -395,14 +377,14 @@ func TestS3Output(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "pfs_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
 		!strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
 		"expected \"input_repo\" but not \"out\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_buckets", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_buckets", &buf))
 	require.True(t,
 		!strings.Contains(buf.String(), "input_repo") && strings.Contains(buf.String(), "out"),
 		"expected \"out\" but not \"input_repo\" in %s: %q", "s3_buckets", buf.String())
@@ -410,7 +392,7 @@ func TestS3Output(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -425,9 +407,7 @@ func TestFullS3(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, userToken, ns := initPachClient(t)
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -482,14 +462,14 @@ func TestFullS3(t *testing.T) {
 
 	// check files in /pfs
 	var buf bytes.Buffer
-	c.GetFile(pipelineCommit, "pfs_files", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "pfs_files", &buf))
 	require.True(t,
 		!strings.Contains(buf.String(), "input_repo") && !strings.Contains(buf.String(), "out"),
 		"expected neither \"out\" nor \"input_repo\" in %s: %q", "pfs_files", buf.String())
 
 	// check s3 buckets
 	buf.Reset()
-	c.GetFile(pipelineCommit, "s3_buckets", &buf)
+	require.NoError(t, c.GetFile(pipelineCommit, "s3_buckets", &buf))
 	require.True(t,
 		strings.Contains(buf.String(), "out") && strings.Contains(buf.String(), "input_repo"),
 		"expected both \"input_repo\" and \"out\" in %s: %q", "s3_buckets", buf.String())
@@ -497,7 +477,7 @@ func TestFullS3(t *testing.T) {
 	// Check that no service is left over
 	k := tu.GetKubeClient(t)
 	require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-		svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+		svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		for _, s := range svcs.Items {
 			if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline.Name, jobInfo.Job.ID) {
@@ -514,8 +494,7 @@ func TestS3SkippedDatums(t *testing.T) {
 	}
 	name := t.Name()
 
-	c, userToken := initPachClient(t)
-	defer tu.DeleteAll(t)
+	c, userToken, ns := initPachClient(t)
 
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
@@ -546,7 +525,7 @@ func TestS3SkippedDatums(t *testing.T) {
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
 						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						Namespace, background,
+						ns, background,
 					),
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
@@ -588,9 +567,9 @@ func TestS3SkippedDatums(t *testing.T) {
 			iS := fmt.Sprintf("%d", i)
 			bgc, err := c.StartCommit(background, "master")
 			require.NoError(t, err)
-			c.DeleteFile(bgc, "/round")
+			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			c.FinishCommit(background, bgc.Branch.Name, bgc.ID)
+			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -607,7 +586,7 @@ func TestS3SkippedDatums(t *testing.T) {
 
 			// check output
 			var buf bytes.Buffer
-			c.GetFile(pipelineCommit, "out", &buf)
+			require.NoError(t, c.GetFile(pipelineCommit, "out", &buf))
 			s := bufio.NewScanner(&buf)
 			for s.Scan() {
 				// [0] = bg, [1] = pfsin, [2] = s3in
@@ -625,16 +604,16 @@ func TestS3SkippedDatums(t *testing.T) {
 		// Increment "/round" in 'background'
 		bgc, err := c.StartCommit(background, "master")
 		require.NoError(t, err)
-		c.DeleteFile(bgc, "/round")
+		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		c.FinishCommit(background, bgc.Branch.Name, bgc.ID)
+		require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
 
 		//  Put new file in 's3in' to create a new datum and trigger a job
 		s3c, err := c.StartCommit(s3in, "master")
 		require.NoError(t, err)
-		c.DeleteFile(s3Commit, "/file")
+		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID)
+		require.NoError(t, c.FinishCommit(s3in, s3c.Branch.Name, s3c.ID))
 
 		_, err = c.WaitCommit(pipeline, "master", "")
 		require.NoError(t, err)
@@ -648,7 +627,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			// Check that no service is left over
 			k := tu.GetKubeClient(t)
 			require.NoErrorWithinTRetry(t, 68*time.Second, func() error {
-				svcs, err := k.CoreV1().Services(Namespace).List(context.Background(), metav1.ListOptions{})
+				svcs, err := k.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
 				require.NoError(t, err)
 				for _, s := range svcs.Items {
 					if s.ObjectMeta.Name == ppsutil.SidecarS3GatewayService(jis[j].Job.Pipeline.Name, jis[j].Job.ID) {
@@ -703,8 +682,9 @@ func TestS3SkippedDatums(t *testing.T) {
 					fmt.Sprintf(
 						// access background repo via regular s3g (not S3_ENDPOINT, which
 						// can only access inputs)
-						"aws --endpoint=http://pachd.%s:30600 s3 cp s3://master.%s/round /tmp/bg",
-						Namespace, background,
+						// NOTE: in tests the S3G port is assigned dynamically in src/internal/minikubetestenv/deploy.go
+						"aws --endpoint=http://pachd.%s:%v s3 cp s3://master.%s/round /tmp/bg",
+						ns, c.GetAddress().Port+3, background,
 					),
 					"cat /pfs/in/* >/tmp/pfsin",
 					// Write the "background" value to a new file in every datum. As

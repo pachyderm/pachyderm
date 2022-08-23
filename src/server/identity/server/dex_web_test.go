@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -16,10 +18,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	logrus "github.com/sirupsen/logrus"
 
 	dex_storage "github.com/dexidp/dex/storage"
 	dex_memory "github.com/dexidp/dex/storage/memory"
+	logrus "github.com/sirupsen/logrus"
 )
 
 func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
@@ -52,9 +54,15 @@ func TestLazyStartWebServer(t *testing.T) {
 		RedirectURIs: []string{"http://example.com/callback"},
 	}))
 
-	req := httptest.NewRequest("GET", "/auth?client_id=test&nonce=abc&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&response_type=code&scope=openid+profile+email&state=abcd", nil)
-
+	// check if the dex server returns 200 on '/'
+	req := httptest.NewRequest("GET", "/", nil)
 	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
+
+	req = httptest.NewRequest("GET", "/auth?client_id=test&nonce=abc&redirect_uri=http%3A%2F%2Fexample.com%2Fcallback&response_type=code&scope=openid+profile+email&state=abcd", nil)
+
+	recorder = httptest.NewRecorder()
 	server.ServeHTTP(recorder, req)
 	require.Equal(t, http.StatusFound, recorder.Result().StatusCode)
 	require.Matches(t, "/placeholder", recorder.Result().Header.Get("Location"))
@@ -139,7 +147,17 @@ func TestUpdateIDP(t *testing.T) {
 
 	// update the connector config
 	_, err = api.UpdateIDPConnector(context.Background(), &identity.UpdateIDPConnectorRequest{
-		Connector: &identity.IDPConnector{Id: "conn", Type: "github", JsonConfig: `{"clientID": "test2", "redirectURI": "/callback"}`, ConfigVersion: 1},
+		Connector: &identity.IDPConnector{
+			Id:   "conn",
+			Type: "github",
+			Config: &types.Struct{
+				Fields: map[string]*types.Value{
+					"clientID":    {Kind: &types.Value_StringValue{StringValue: "test2"}},
+					"redirectURI": {Kind: &types.Value_StringValue{StringValue: "/callback"}},
+				},
+			},
+			ConfigVersion: 1,
+		},
 	})
 	require.NoError(t, err)
 

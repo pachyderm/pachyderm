@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	goerr "errors"
 	"fmt"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 
 	oidc "github.com/coreos/go-oidc"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 )
 
@@ -399,7 +399,12 @@ func (a *apiServer) handleOIDCExchangeInternal(ctx context.Context, authCode, st
 }
 
 func (a *apiServer) serveOIDC() error {
+	mux := http.NewServeMux()
+	// serve 200 on '/' for health checks
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "200 OK")
+	})
 	// serve OIDC handler to exchange the auth code
-	http.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
-	return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config.OidcPort), nil))
+	mux.HandleFunc("/authorization-code/callback", a.handleOIDCExchange)
+	return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", a.env.Config.OidcPort), mux))
 }

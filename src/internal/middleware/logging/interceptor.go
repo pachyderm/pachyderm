@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gogo/protobuf/types"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -112,6 +114,14 @@ var endpoints = map[string]logConfig{
 		},
 	},
 
+	"/enterprise_v2.API/GetState": {
+		transformResponse: func(r interface{}) interface{} {
+			copyResp := proto.Clone(r.(*enterprise.GetStateResponse)).(*enterprise.GetStateResponse)
+			copyResp.ActivationCode = ""
+			return copyResp
+		},
+	},
+
 	"/enterprise_v2.API/Activate": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*enterprise.ActivateRequest)).(*enterprise.ActivateRequest)
@@ -123,6 +133,7 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/CreateIDPConnector": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.CreateIDPConnectorRequest)).(*identity.CreateIDPConnectorRequest)
+			copyReq.Connector.Config = &types.Struct{}
 			copyReq.Connector.JsonConfig = ""
 			return copyReq
 		},
@@ -131,6 +142,7 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/GetIDPConnector": {
 		transformResponse: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.GetIDPConnectorResponse)).(*identity.GetIDPConnectorResponse)
+			copyReq.Connector.Config = &types.Struct{}
 			copyReq.Connector.JsonConfig = ""
 			return copyReq
 		},
@@ -139,6 +151,7 @@ var endpoints = map[string]logConfig{
 	"/identity_v2.API/UpdateIDPConnector": {
 		transformRequest: func(r interface{}) interface{} {
 			copyReq := proto.Clone(r.(*identity.UpdateIDPConnectorRequest)).(*identity.UpdateIDPConnectorRequest)
+			copyReq.Connector.Config = &types.Struct{}
 			copyReq.Connector.JsonConfig = ""
 			return copyReq
 		},
@@ -148,6 +161,7 @@ var endpoints = map[string]logConfig{
 		transformResponse: func(r interface{}) interface{} {
 			copyResp := proto.Clone(r.(*identity.ListIDPConnectorsResponse)).(*identity.ListIDPConnectorsResponse)
 			for _, c := range copyResp.Connectors {
+				c.Config = &types.Struct{}
 				c.JsonConfig = ""
 			}
 			return copyResp
@@ -347,6 +361,7 @@ func isNilInterface(x interface{}) bool {
 }
 
 func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
+	ctx = withMethodName(ctx, info.FullMethod)
 	start := time.Now()
 	config := getConfig(info.FullMethod)
 	level := defaultLevel(nil)
@@ -379,7 +394,9 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
 	start := time.Now()
 	config := getConfig(info.FullMethod)
-	wrapper := &streamWrapper{stream: stream}
+	wrapper := &streamWrapper{stream: stream,
+		ctx: withMethodName(stream.Context(), info.FullMethod),
+	}
 
 	// Log the first received message as the request
 	var req interface{}
@@ -426,6 +443,7 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 
 type streamWrapper struct {
 	stream      grpc.ServerStream
+	ctx         context.Context
 	received    int
 	sent        int
 	onFirstSend func(interface{})
@@ -445,7 +463,7 @@ func (sw *streamWrapper) SetTrailer(m metadata.MD) {
 }
 
 func (sw *streamWrapper) Context() context.Context {
-	return sw.stream.Context()
+	return sw.ctx
 }
 
 func (sw *streamWrapper) SendMsg(m interface{}) error {

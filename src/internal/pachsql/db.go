@@ -1,6 +1,7 @@
 package pachsql
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"strings"
@@ -22,11 +23,33 @@ const (
 	SnowflakeComputingDomain = ".snowflakecomputing.com"
 )
 
+const (
+	listTablesQuery = `
+		SELECT schemaname, tablename
+		FROM pg_catalog.pg_tables
+		WHERE schemaname != 'pg_catalog'
+		  AND schemaname != 'information_schema'
+		ORDER BY schemaname, tablename;
+	`
+)
+
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
 
 // Tx is an alias for sqlx.Tx which is the standard transaction type used throughout the project
 type Tx = sqlx.Tx
+
+// Stmt is an alias for sqlx.Stmt which is the standard prepared statement type used throught the project
+type Stmt = sqlx.Stmt
+
+// SchemaTable stores a given table's name and schema.
+type SchemaTable struct {
+	SchemaName string `json:"schemaname"`
+	TableName  string `json:"tablename"`
+}
+
+// RowMap is an alias for map[string]interface{} which is the type used by sqlx.MapScan()
+type RowMap = map[string]interface{}
 
 // OpenURL returns a database connection pool to the database specified by u
 // If password != "" then it will be used for authentication.
@@ -53,6 +76,15 @@ func OpenURL(u URL, password string) (*DB, error) {
 	}
 	res, err := sqlx.Open(driver, dsn)
 	return res, errors.EnsureStack(err)
+}
+
+// ListTables returns an array of SchemaTable structs that represent the tables.
+func ListTables(ctx context.Context, db *DB) ([]SchemaTable, error) {
+	var tables []SchemaTable
+	if err := sqlx.SelectContext(ctx, db, &tables, listTablesQuery); err != nil {
+		return nil, errors.Wrap(err, "list tables")
+	}
+	return tables, nil
 }
 
 func postgresDSN(u URL, password string) (string, error) {
@@ -115,29 +147,30 @@ func snowflakeDSN(u URL, password string) (string, error) {
 	// however, the "snowflakecomputing.com" can be left out
 	// example: jsmith@my_organization-my_account/mydb/testschema?warehouse=mywh
 	// in this case, the account_identifier is my_organization-my_account
-	var account, host string
-	if u.Port == 0 {
-		account = strings.TrimSuffix(u.Host, SnowflakeComputingDomain)
-	} else {
-		account = u.Params["account"]
-		host = u.Host
-	}
-
 	params := make(map[string]*string, len(u.Params))
 	for k, v := range u.Params {
+		v := v
 		params[k] = &v
+	}
+	var account, host string
+	if u.Port == 0 {
+		// note sf.DSN will automatically set port to 443
+		account = strings.TrimSuffix(u.Host, SnowflakeComputingDomain)
+	} else if u.Host != "" && params["account"] != nil {
+		host = u.Host
+		account = *params["account"]
+		delete(params, "account")
 	}
 
 	cfg := &sf.Config{
-		Account:   account,
-		User:      u.User,
-		Password:  password,
-		Database:  u.Database,
-		Schema:    u.Schema,
-		Host:      host,
-		Port:      int(u.Port),
-		Warehouse: u.Params["warehouse"],
-		Params:    params,
+		Account:  account,
+		User:     u.User,
+		Password: password,
+		Database: u.Database,
+		Schema:   u.Schema,
+		Host:     host,
+		Port:     int(u.Port),
+		Params:   params,
 	}
 	dsn, err := sf.DSN(cfg)
 	if err != nil {

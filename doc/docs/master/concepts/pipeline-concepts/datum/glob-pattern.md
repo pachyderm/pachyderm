@@ -15,7 +15,7 @@ define data distribution.
 The glob pattern applies to all of the directories/files in the branch specified by the [`pfs` section of the pipeline specification (referred to as PFS inputs)](../#pfs-input-and-glob-pattern). The directories/files that match are the [datums](../) that will be processed by the worker(s) that run your pipeline code. 
 
 !!! Important
-        You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline_spec/#pipeline-specification). 
+        You must **configure a glob pattern for each PFS input** of a [pipeline specification](../../../../reference/pipeline-spec/#pipeline-specification). 
 
 
 We have listed some commonly used glob patterns. We will later illustrate their use in an example:
@@ -101,7 +101,7 @@ Now let's consider what the following glob patterns would match respectively:
     ```
 
 !!! See "See Also"
-        - To understand how Pachyderm scales, read [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed_computing/){target=_blank}.
+        - To understand how Pachyderm scales, read [Distributed Computing](https://docs.pachyderm.com/latest/concepts/advanced-concepts/distributed-computing/){target=_blank}.
         - To learn about Datums' incremental processing, read our [Datum Processing](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/#datum-processing){target=_blank} section.
 
 ## Test a Glob pattern
@@ -179,7 +179,7 @@ You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the da
 
 !!! example
     ```shell
-    $ pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
+    pachctl list datum edges@b8687e9720f04b7ab53ae8c64541003b
     ```
     **System Response:**
 
@@ -200,7 +200,7 @@ You can use the `pachctl list datum <pipeline>@<job_ID>` command to check the da
     - You might want to follow up with [inspect datum pipeline@job_number datum ID](https://docs.pachyderm.com/latest/reference/pachctl/pachctl_inspect_datum/){target=_blank} to detail the files that a specific datum includes.
     
         ```shell
-        $ pachctl inspect datum edges@b8687e9720f04b7ab53ae8c64541003b a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
+        pachctl inspect datum edges@b8687e9720f04b7ab53ae8c64541003b a4149cd1907145f982e0eb49c50af3f1d4d8fecaa8647d62f2d9d93e30578df8
         ```
         **System Response:**
         ```

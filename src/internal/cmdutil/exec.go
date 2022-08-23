@@ -3,7 +3,6 @@ package cmdutil
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os/exec"
 	"strings"
 
@@ -44,7 +43,7 @@ func RunIODirPath(ioObj IO, dirPath string, args ...string) error {
 		cmd.Env = ioObj.Environ
 	}
 	if err := cmd.Run(); err != nil {
-		stderrContent, _ := ioutil.ReadAll(debugStderr)
+		stderrContent, _ := io.ReadAll(debugStderr)
 		if len(stderrContent) > 0 {
 			return errors.Wrapf(err, "%s\nStderr: %s\nError", strings.Join(args, " "), string(stderrContent))
 		}

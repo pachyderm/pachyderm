@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 )
@@ -44,10 +45,10 @@ func cp(src, dst string) error {
 }
 
 func main() {
-	if err := cp("/app/worker", "/pach-bin/worker"); err != nil {
-		panic(err)
-	}
-	if err := cp("/app/pachctl", "/pach-bin/pachctl"); err != nil {
-		panic(err)
+	for _, bin := range []string{"worker", "pachctl", "pachtf"} {
+		src, dst := fmt.Sprintf("/app/%s", bin), fmt.Sprintf("/pach-bin/%s", bin)
+		if err := cp(src, dst); err != nil {
+			panic(err)
+		}
 	}
 }

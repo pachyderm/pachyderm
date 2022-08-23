@@ -23,7 +23,8 @@ const (
 	DefaultMemoryThreshold = units.GB
 	// DefaultShardThreshold is the default for the size threshold that must
 	// be met before a shard is created by the shard function.
-	DefaultShardThreshold = units.GB
+	DefaultShardSizeThreshold  = units.GB
+	DefaultShardCountThreshold = 1000000
 	// DefaultCompactionFixedDelay is the default fixed delay for compaction.
 	// This is expressed as the number of primitive filesets.
 	// TODO: Potentially remove this configuration.
@@ -32,6 +33,9 @@ const (
 	// DefaultCompactionLevelFactor is the default factor that level sizes increase by in a compacted fileset.
 	DefaultCompactionLevelFactor = 10
 	DefaultPrefetchLimit         = 10
+	DefaultBatchThreshold        = units.MB
+	// DefaultIndexCacheSize is the default size of the index cache.
+	DefaultIndexCacheSize = 100
 
 	// TrackerPrefix is used for creating tracker objects for filesets
 	TrackerPrefix = "fileset/"
@@ -47,13 +51,14 @@ var (
 
 // Storage is the abstraction that manages fileset storage.
 type Storage struct {
-	tracker                      track.Tracker
-	store                        MetadataStore
-	chunks                       *chunk.Storage
-	memThreshold, shardThreshold int64
-	compactionConfig             *CompactionConfig
-	filesetSem                   *semaphore.Weighted
-	prefetchLimit                int
+	tracker                                               track.Tracker
+	store                                                 MetadataStore
+	chunks                                                *chunk.Storage
+	idxCache                                              *index.Cache
+	memThreshold, shardSizeThreshold, shardCountThreshold int64
+	compactionConfig                                      *CompactionConfig
+	filesetSem                                            *semaphore.Weighted
+	prefetchLimit                                         int
 }
 
 type CompactionConfig struct {
@@ -63,11 +68,13 @@ type CompactionConfig struct {
 // NewStorage creates a new Storage.
 func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts ...StorageOption) *Storage {
 	s := &Storage{
-		store:          mds,
-		tracker:        tr,
-		chunks:         chunks,
-		memThreshold:   DefaultMemoryThreshold,
-		shardThreshold: DefaultShardThreshold,
+		store:               mds,
+		tracker:             tr,
+		chunks:              chunks,
+		idxCache:            index.NewCache(chunks, DefaultIndexCacheSize),
+		memThreshold:        DefaultMemoryThreshold,
+		shardSizeThreshold:  DefaultShardSizeThreshold,
+		shardCountThreshold: DefaultShardCountThreshold,
 		compactionConfig: &CompactionConfig{
 			FixedDelay:  DefaultCompactionFixedDelay,
 			LevelFactor: DefaultCompactionLevelFactor,
@@ -91,7 +98,7 @@ func (s *Storage) ChunkStorage() *chunk.Storage {
 
 // NewUnorderedWriter creates a new unordered file set writer.
 func (s *Storage) NewUnorderedWriter(ctx context.Context, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
-	return newUnorderedWriter(ctx, s, s.memThreshold, opts...)
+	return newUnorderedWriter(ctx, s, s.memThreshold, s.shardCountThreshold/2, opts...)
 }
 
 // NewWriter creates a new file set writer.
@@ -100,11 +107,11 @@ func (s *Storage) NewWriter(ctx context.Context, opts ...WriterOption) *Writer {
 }
 
 func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
-	return newWriter(ctx, s, s.tracker, s.chunks, opts...)
+	return newWriter(ctx, s, opts...)
 }
 
 func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
-	return newReader(s.store, s.chunks, fileSet, opts...)
+	return newReader(s.store, s.chunks, s.idxCache, fileSet, opts...)
 }
 
 // Open opens a file set for reading.
@@ -225,17 +232,44 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // The path ranges must be non-overlapping and the ranges must be lexigraphically sorted.
 // Concat always returns the ID of a primitive fileset.
 func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-	fsw := s.NewWriter(ctx, WithTTL(ttl))
+	var additiveIndexes, deletiveIndexes []*index.Index
+	var size int64
 	for _, id := range ids {
-		fs, err := s.Open(ctx, []ID{id})
+		md, err := s.store.Get(ctx, id)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
-		if err := CopyFiles(ctx, fsw, fs, true); err != nil {
-			return nil, err
+		prim := md.GetPrimitive()
+		if prim == nil {
+			return nil, errors.Errorf("file set %v is not primitive", id)
 		}
+		additiveIndexes = append(additiveIndexes, prim.Additive)
+		deletiveIndexes = append(deletiveIndexes, prim.Deletive)
+		size += prim.SizeBytes
 	}
-	return fsw.Close()
+	additive, err := s.concat(ctx, additiveIndexes)
+	if err != nil {
+		return nil, err
+	}
+	deletive, err := s.concat(ctx, deletiveIndexes)
+	if err != nil {
+		return nil, err
+	}
+	return s.newPrimitive(ctx, &Primitive{
+		Additive:  additive,
+		Deletive:  deletive,
+		SizeBytes: size,
+	}, ttl)
+}
+
+func (s *Storage) concat(ctx context.Context, indexes []*index.Index) (*index.Index, error) {
+	mergeIndex := index.NewWriter(ctx, s.ChunkStorage(), "index-concat")
+	if err := index.Merge(ctx, s.ChunkStorage(), indexes, func(idx *index.Index) error {
+		return mergeIndex.WriteIndex(idx)
+	}); err != nil {
+		return nil, err
+	}
+	return mergeIndex.Close()
 }
 
 // Drop allows a fileset to be deleted if it is not otherwise referenced.

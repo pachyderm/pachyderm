@@ -1,0 +1,16 @@
+count: 5 
+modifications:
+  - count: 5 
+    putFile:
+      count: 1 
+      source: "random"
+fileSources:
+  - name: "random"
+    random:
+      sizes:
+        - min: 100000000
+          max: 1000000000
+          prob: 100
+validator:
+  frequency:
+    count: 5 

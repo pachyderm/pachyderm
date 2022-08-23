@@ -18,7 +18,7 @@ to know the current job ID, you can use the `PACH_JOB_ID`
 environment variable to refer to the current job ID.
 
 !!! note "See Also:"
-    [Local Deployment](../../../getting_started/local_installation/)
+    [Local Deployment](../../../getting-started/local-installation/)
 
 ## `pachd` Environment Variables
 
@@ -149,4 +149,4 @@ little of the Pachyderm API is idempotent, but in some specific cases it can be
 a viable approach.
 
 !!! note "See Also"
-    - [transform.env](../../../reference/pipeline_spec/#transform-required)
+    - [transform.env](../../../reference/pipeline-spec/#transform-required)

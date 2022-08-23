@@ -60,9 +60,14 @@ func NewWorker(
 	}
 
 	if pipelineInfo.Details.Transform.Image != "" && pipelineInfo.Details.Transform.Cmd == nil {
-		ppsutil.FailPipeline(env.Context(), env.GetDBClient(), driver.Pipelines(),
+		if err := ppsutil.FailPipeline(
+			env.Context(),
+			env.GetDBClient(),
+			driver.Pipelines(),
 			pipelineInfo.SpecCommit,
-			"nothing to run: no transform.cmd")
+			"nothing to run: no transform.cmd"); err != nil {
+			return nil, err
+		}
 	}
 
 	worker := &Worker{
@@ -80,8 +85,7 @@ func NewWorker(
 func (w *Worker) worker() {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.NewStatlessLogger(w.driver.PipelineInfo())
-
-	backoff.RetryUntilCancel(ctx, func() error {
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 
@@ -117,7 +121,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
 	b.InitialInterval = 10 * time.Second
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error { //nolint:errcheck
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := context.WithCancel(w.driver.PachClient().Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
@@ -125,7 +129,7 @@ func (w *Worker) master(env serviceenv.ServiceEnv) {
 		if err != nil {
 			return errors.Wrap(err, "locking master lock")
 		}
-		defer masterLock.Unlock(ctx)
+		defer masterLock.Unlock(ctx) //nolint:errcheck
 
 		// Create a new driver that uses a new cancelable pachClient
 		return runSpawner(w.driver.WithContext(ctx), logger)

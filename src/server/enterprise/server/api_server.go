@@ -1,21 +1,13 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -24,8 +16,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/keycache"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
+	logrus "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -38,11 +39,12 @@ const (
 	heartbeatFrequency = time.Hour
 	heartbeatTimeout   = time.Minute
 
-	updatedAtFieldName = "pachyderm.com/updatedAt"
+	updatedAtFieldName   = "pachyderm.com/updatedAt"
+	restartedAtFieldName = "kubectl.kubernetes.io/restartedAt"
 )
 
 type apiServer struct {
-	env Env
+	env *Env
 
 	enterpriseTokenCache *keycache.Cache
 
@@ -54,7 +56,7 @@ type apiServer struct {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
+func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.EtcdClient,
@@ -77,6 +79,48 @@ func NewEnterpriseServer(env Env, heartbeat bool) (ec.APIServer, error) {
 		go s.heartbeatRoutine()
 	}
 	return s, nil
+}
+
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
+	if !a.env.Config.EnterpriseMember {
+		return nil
+	}
+	a.env.Logger.Info("Started to configure enterprise member cluster via environment")
+	var cluster *lc.AddClusterRequest
+	if err := yaml.Unmarshal([]byte(a.env.Config.EnterpriseMemberConfig), &cluster); err != nil {
+		return errors.Wrapf(err, "unmarshal enterprise cluster %q", a.env.Config.EnterpriseMemberConfig)
+	}
+	cluster.ClusterDeploymentId = a.env.Config.DeploymentID
+	cluster.Secret = a.env.Config.EnterpriseSecret
+	es, err := client.NewFromURI(a.env.Config.EnterpriseServerAddress)
+	if err != nil {
+		return errors.Wrap(err, "connect to enterprise server")
+	}
+	es.SetAuthToken(a.env.Config.EnterpriseServerToken)
+	if _, err := es.License.AddCluster(es.Ctx(), cluster); err != nil {
+		if !lc.IsErrDuplicateClusterID(err) {
+			return errors.Wrap(err, "add enterprise cluster")
+		}
+		if _, err = es.License.UpdateCluster(es.Ctx(), &lc.UpdateClusterRequest{
+			Id:                  cluster.Id,
+			Address:             cluster.Address,
+			UserAddress:         cluster.UserAddress,
+			ClusterDeploymentId: cluster.ClusterDeploymentId,
+			Secret:              cluster.Secret,
+		}); err != nil {
+			return errors.Wrap(err, "update enterprise cluster")
+		}
+	}
+	ctx = internalauth.AsInternalUser(ctx, auth.InternalPrefix+"enterprise-service")
+	if _, err = a.Activate(ctx, &ec.ActivateRequest{
+		LicenseServer: a.env.Config.EnterpriseServerAddress,
+		Id:            cluster.Id,
+		Secret:        cluster.Secret,
+	}); err != nil {
+		return errors.Wrap(err, "activate enterprise service")
+	}
+	a.env.Logger.Info("Successfully configured enterprise member cluster via environment")
+	return nil
 }
 
 // heartbeatRoutine should  be run in a goroutine and attempts to heartbeat to the license service.
@@ -390,6 +434,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		}
 		// Since pachd-config is not managed by Helm, it may not exist.
 		c = newPachdConfigMap(namespace, a.env.unpausedMode)
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		c.Data["MODE"] = "paused"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
 			return errors.Errorf("could not create configmap: %w", err)
@@ -426,7 +471,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		if c.Annotations == nil {
 			c.Annotations = make(map[string]string)
 		}
-		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339)
+		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		if _, err := cc.Update(ctx, c, metav1.UpdateOptions{}); err != nil {
 			return errors.Errorf("could not update configmap: %w", err)
 		}
@@ -440,7 +485,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		}
 		// Updating the spec rolls the deployment, killing each pod and causing
 		// a new one to start.
-		d.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+		d.Spec.Template.Annotations[restartedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		if _, err := dd.Update(ctx, d, metav1.UpdateOptions{}); err != nil {
 			return err //nolint:wrapcheck
 		}
@@ -455,8 +500,9 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 func newPachdConfigMap(namespace, unpausedMode string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pachd-config",
-			Namespace: namespace,
+			Name:        "pachd-config",
+			Namespace:   namespace,
+			Annotations: make(map[string]string),
 		},
 		Data: map[string]string{"MODE": unpausedMode},
 	}
@@ -528,9 +574,9 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 			Status: ec.PauseStatusResponse_UNPAUSED,
 		}, nil
 	}
-	updatedAt, err := time.Parse(time.RFC3339, c.Annotations[updatedAtFieldName])
+	updatedAt, err := time.Parse(time.RFC3339Nano, c.Annotations[updatedAtFieldName])
 	if err != nil {
-		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations["pachyderm.com/updatedAt"], err)
+		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations[updatedAtFieldName], err)
 	}
 
 	pods := kc.CoreV1().Pods(a.env.namespace)
@@ -542,7 +588,22 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 	}
 	var sawAfter, sawBefore bool
 	for _, p := range pp.Items {
-		if p.CreationTimestamp.Time.Before(updatedAt) {
+		// We cannot rely on p.CreationTimestamp.Time, because it only
+		// has one-second resolution.  Instead, we store our own
+		// nanosecond-resolution timestamp.
+		//
+		// If the pod does not have the Kubernetes restartedAt
+		// annotation, then it must have existed before the configMap
+		// was updated.
+		if p.Annotations[restartedAtFieldName] == "" {
+			sawBefore = true
+			continue
+		}
+		restartedAt, err := time.Parse(time.RFC3339Nano, p.Annotations[restartedAtFieldName])
+		if err != nil {
+			return nil, errors.Errorf("could not parse restarted time %v: %v", p.Annotations[restartedAtFieldName], err)
+		}
+		if restartedAt.Before(updatedAt) {
 			sawBefore = true
 		} else {
 			sawAfter = true

@@ -504,12 +504,30 @@ func (c APIClient) ClearCommit(repoName string, branchName string, commitID stri
 	return err
 }
 
+type FsckOption func(*pfs.FsckRequest)
+
+func WithZombieCheckAll() FsckOption {
+	return func(req *pfs.FsckRequest) {
+		req.ZombieCheck = &pfs.FsckRequest_ZombieAll{ZombieAll: true}
+	}
+}
+
+func WithZombieCheckTarget(c *pfs.Commit) FsckOption {
+	return func(req *pfs.FsckRequest) {
+		req.ZombieCheck = &pfs.FsckRequest_ZombieTarget{ZombieTarget: c}
+	}
+}
+
 // Fsck performs checks on pfs. Errors that are encountered will be passed
 // onError. These aren't errors in the traditional sense, in that they don't
 // prevent the completion of fsck. Errors that do prevent completion will be
 // returned from the function.
-func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error) error {
-	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix})
+func (c APIClient) Fsck(fix bool, cb func(*pfs.FsckResponse) error, opts ...FsckOption) error {
+	req := &pfs.FsckRequest{Fix: fix}
+	for _, o := range opts {
+		o(req)
+	}
+	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), req)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}

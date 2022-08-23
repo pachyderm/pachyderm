@@ -1,36 +1,38 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
+	"github.com/sirupsen/logrus"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/license"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/random"
 	lc "github.com/pachyderm/pachyderm/v2/src/license"
 )
 
 const (
-	licenseRecordKey = "license"
+	licenseRecordKey             = "license"
+	localhostEnterpriseClusterId = "localhost"
 )
 
 type apiServer struct {
-	env Env
+	env *Env
 
 	// license is the database record where we store the active enterprise license
 	license col.PostgresCollection
 }
 
-// New returns an implementation of license.APIServer.
-func New(env Env) (lc.APIServer, error) {
+// New returns an implementation of license.APIServer, and a function that bootstraps the license server via environment.
+func New(env *Env) (*apiServer, error) {
 	s := &apiServer{
 		env:     env,
 		license: licenseCollection(env.DB, env.Listener),
@@ -38,8 +40,67 @@ func New(env Env) (lc.APIServer, error) {
 	return s, nil
 }
 
+func (a *apiServer) EnvBootstrap(ctx context.Context) error {
+	if a.env.Config.LicenseKey == "" && a.env.Config.EnterpriseSecret == "" {
+		return nil
+	}
+	if a.env.Config.LicenseKey == "" || a.env.Config.EnterpriseSecret == "" {
+		return errors.New("License server failed to bootstrap via environment; Either both or neither of LICENSE_KEY and ENTERPRISE_SECRET must be set.")
+	}
+	logrus.Info("Started to configure license server via environment")
+	localhostPeerAddr := "grpc://localhost:" + fmt.Sprint(a.env.Config.PeerPort)
+	if err := func() error {
+		ctx = auth.AsInternalUser(ctx, "license-server")
+		_, err := a.activate(ctx, &lc.ActivateRequest{ActivationCode: a.env.Config.LicenseKey})
+		if err != nil {
+			return errors.Wrapf(err, "activate the license service")
+		}
+		_, err = a.AddCluster(ctx, &lc.AddClusterRequest{
+			Id:               localhostEnterpriseClusterId,
+			Address:          localhostPeerAddr,
+			UserAddress:      localhostPeerAddr,
+			Secret:           a.env.Config.EnterpriseSecret,
+			EnterpriseServer: true,
+		})
+		if err != nil {
+			if errors.As(err, lc.ErrDuplicateClusterID) {
+				_, err = a.UpdateCluster(ctx, &lc.UpdateClusterRequest{
+					Id:          localhostEnterpriseClusterId,
+					Address:     localhostPeerAddr,
+					UserAddress: localhostPeerAddr,
+					Secret:      a.env.Config.EnterpriseSecret,
+				})
+				if err != nil {
+					return errors.Wrapf(err, "update localhost cluster in the license service")
+				}
+			} else {
+				return errors.Wrapf(err, "add localhost cluster in the license service")
+			}
+		}
+		_, err = a.env.EnterpriseServer.Activate(ctx, &ec.ActivateRequest{
+			Id:            localhostEnterpriseClusterId,
+			LicenseServer: localhostPeerAddr,
+			Secret:        a.env.Config.EnterpriseSecret})
+		if err != nil {
+			return errors.Wrapf(errors.EnsureStack(err), "activate localhost cluster in the enterprise service")
+		}
+		return nil
+	}(); err != nil {
+		return errors.Errorf("bootstrap license service from the environment: %v", err)
+	}
+	logrus.Info("Successfully configured license server via environment")
+	return nil
+}
+
 // Activate implements the Activate RPC
-func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
+func (a *apiServer) Activate(ctx context.Context, req *lc.ActivateRequest) (*lc.ActivateResponse, error) {
+	if a.env.Config.LicenseKey != "" {
+		return nil, errors.New("license.Activate() is disabled when the license key is configured via environment")
+	}
+	return a.activate(ctx, req)
+}
+
+func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp *lc.ActivateResponse, retErr error) {
 	// Validate the activation code
 	expiration, err := license.Validate(req.ActivationCode)
 	if err != nil {
@@ -122,18 +183,6 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 	if address == "" {
 		return errors.New("no address provided for cluster")
 	}
-
-	pachClient, err := client.NewFromURI(address)
-	if err != nil {
-		return errors.Wrapf(err, "unable to create client for %q", address)
-	}
-
-	// Make an RPC that doesn't need auth - we don't care about the response, the pachd version is
-	// included in the heartbeat
-	_, err = pachClient.GetVersion(ctx, &types.Empty{})
-	if err != nil {
-		return errors.Wrapf(err, "unable to connect to pachd at %q", address)
-	}
 	return nil
 }
 
@@ -183,7 +232,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 	}
 
 	if count != 1 {
-		return nil, lc.ErrInvalidIDOrSecret
+		return nil, errors.Wrapf(lc.ErrInvalidIDOrSecret, "got %d, want 1 for cluster id %q", count, req.Id)
 	}
 
 	if _, err := a.env.DB.ExecContext(ctx, `UPDATE license.clusters SET version=$1, auth_enabled=$2, client_id=$3, last_heartbeat=NOW() WHERE id=$4`, req.Version, req.AuthEnabled, req.ClientId, req.Id); err != nil {
@@ -253,6 +302,7 @@ func (a *apiServer) UpdateCluster(ctx context.Context, req *lc.UpdateClusterRequ
 	fieldValues["address"] = req.Address
 	fieldValues["user_address"] = req.UserAddress
 	fieldValues["cluster_deployment_id"] = req.ClusterDeploymentId
+	fieldValues["secret"] = req.Secret
 
 	var setFields string
 	for k, v := range fieldValues {

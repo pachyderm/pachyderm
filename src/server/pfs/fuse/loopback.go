@@ -16,6 +16,7 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -33,6 +34,32 @@ const (
 	dirty                  // we have full content for this file and the user has written to it
 )
 
+func (l *loopbackRoot) setState(mountName, state string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.stateMap[mountName] = state
+}
+
+func (l *loopbackRoot) getState(mountName string) string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	s, ok := l.stateMap[mountName]
+	if !ok {
+		return ""
+	}
+	return s
+}
+
+// func (l *loopbackRoot) deleteState(mountName string) {
+// 	l.mu.Lock()
+// 	defer l.mu.Unlock()
+// 	_, ok := l.stateMap[mountName]
+// 	if !ok {
+// 		return
+// 	}
+// 	delete(l.stateMap, mountName)
+// }
+
 type loopbackRoot struct {
 	loopbackNode
 
@@ -45,6 +72,7 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
+	stateMap map[string]string       // key is mount name, value is 'mounted', etc
 	repoOpts map[string]*RepoOptions // key is mount name
 	branches map[string]string       // key is mount name
 	commits  map[string]string       // key is mount name
@@ -140,7 +168,8 @@ func (n *loopbackNode) Mknod(ctx context.Context, name string, mode, rdev uint32
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		// TODO multierr
+		syscall.Rmdir(p) //nolint:errcheck
 		return nil, fs.ToErrno(err)
 	}
 
@@ -166,7 +195,8 @@ func (n *loopbackNode) Mkdir(ctx context.Context, name string, mode uint32, out 
 	}
 	st := syscall.Stat_t{}
 	if err := syscall.Lstat(p, &st); err != nil {
-		syscall.Rmdir(p)
+		// TODO multierr
+		syscall.Rmdir(p) //nolint:errcheck // favour outer error instead
 		return nil, fs.ToErrno(err)
 	}
 
@@ -298,8 +328,9 @@ func (n *loopbackNode) Symlink(ctx context.Context, target, name string, out *fu
 		return nil, fs.ToErrno(err)
 	}
 	st := syscall.Stat_t{}
-	if syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p)
+	if err := syscall.Lstat(p, &st); err != nil {
+		// TODO multierr
+		syscall.Unlink(p) //nolint:errcheck // favour outer error instead
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -331,8 +362,9 @@ func (n *loopbackNode) Link(ctx context.Context, target fs.InodeEmbedder, name s
 		}
 	}()
 	st := syscall.Stat_t{}
-	if syscall.Lstat(p, &st); err != nil {
-		syscall.Unlink(p)
+	if err := syscall.Lstat(p, &st); err != nil {
+		// TODO multierr
+		syscall.Unlink(p) //nolint:errcheck
 		return nil, fs.ToErrno(err)
 	}
 	node := &loopbackNode{}
@@ -429,7 +461,9 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 	p := n.path()
 	fsa, ok := f.(fs.FileSetattrer)
 	if ok && fsa != nil {
-		fsa.Setattr(ctx, in, out)
+		if errno := fsa.Setattr(ctx, in, out); errno != 0 {
+			return errno
+		}
 	} else {
 		if m, ok := in.GetMode(); ok {
 			if err := syscall.Chmod(p, m); err != nil {
@@ -484,7 +518,9 @@ func (n *loopbackNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.Se
 
 	fga, ok := f.(fs.FileGetattrer)
 	if ok && fga != nil {
-		fga.Getattr(ctx, out)
+		if errno := fga.Getattr(ctx, out); errno != 0 {
+			return errno
+		}
 	} else {
 		st := syscall.Stat_t{}
 		err := syscall.Lstat(p, &st)
@@ -516,6 +552,7 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 		branches:   opts.getBranches(),
 		commits:    make(map[string]string),
 		files:      make(map[string]fileState),
+		stateMap:   make(map[string]string),
 	}
 	return n, nil
 }
@@ -540,15 +577,15 @@ func (n *loopbackNode) mkdirMountNames() (retErr error) {
 // download files into the loopback filesystem, if meta is true then only the
 // directory structure will be created, no actual data will be downloaded,
 // files will be truncated to their actual sizes (but will be all zeros).
-func (n *loopbackNode) download(path string, state fileState) (retErr error) {
-	if n.getFileState(path) >= state {
+func (n *loopbackNode) download(origPath string, state fileState) (retErr error) {
+	if n.getFileState(origPath) >= state {
 		// Already got this file, so we can just return
 		return nil
 	}
 	if err := n.mkdirMountNames(); err != nil {
 		return err
 	}
-	path = n.trimPath(path)
+	path := n.trimPath(origPath)
 	parts := strings.Split(path, "/")
 	defer func() {
 		if retErr == nil {
@@ -561,11 +598,28 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 		return nil // already downloaded in downloadRepos
 	}
 	name := parts[0]
+	st := n.root().getState(name)
+	// don't download while we're anything other than mounted
+	// TODO: we probably want some more locking/coordination (in the other
+	// direction) to stop the state machine changing state _during_ a download()
+	// NB: empty string case is to support pachctl mount as well as mount-server
+	if !(st == "" || st == "mounted") {
+		logrus.Infof(
+			"Skipping download('%s') because %s state was %s; "+
+				"getFileState(%s) -> %d, state=%d",
+			origPath, name, st, origPath, n.getFileState(origPath), state,
+		)
+		// return an error to stop an empty directory listing being cached by
+		// the OS
+		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
+	}
 	branch := n.root().branch(name)
 	commit, err := n.commit(name)
 	if err != nil {
 		return err
 	}
+	// log the commit
+	logrus.Infof("Downloading %s from %s@%s", origPath, name, commit)
 	if commit == "" {
 		return nil
 	}
@@ -573,12 +627,23 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	repoName := ro.Repo
-	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), pathpkg.Join(parts[1:]...), func(fi *pfs.FileInfo) (retErr error) {
+	// Define the callback up front because we use it in two paths
+	createFile := func(fi *pfs.FileInfo) (retErr error) {
+		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
+			return nil
+		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
 		p := n.filePath(name, fi)
+		// If file manifestation is successful to the given state level, cache
+		// that we know about it, to avoid a subsequent stat() going back to
+		// Pachyderm over gRPC
+		defer func() {
+			if retErr == nil {
+				n.setFileState(p, state)
+			}
+		}()
 		// Make sure the directory exists
 		// I think this may be unnecessary based on the constraints the
 		// OS imposes, but don't want to rely on that, especially
@@ -602,7 +667,10 @@ func (n *loopbackNode) download(path string, state fileState) (retErr error) {
 			return err
 		}
 		return nil
-	}); err != nil && !errutil.IsNotFoundError(err) &&
+	}
+	filePath := pathpkg.Join(parts[1:]...)
+	repoName := ro.File.Commit.Branch.Repo.Name
+	if err := n.c().ListFile(client.NewCommit(repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}
@@ -643,7 +711,7 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	repoName := ro.Repo
+	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
 	bi, err := n.root().c.InspectBranch(repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {

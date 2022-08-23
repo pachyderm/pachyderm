@@ -2,9 +2,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gogo/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -16,7 +19,6 @@ import (
 
 	dex_server "github.com/dexidp/dex/server"
 	dex_storage "github.com/dexidp/dex/storage"
-	"github.com/gogo/protobuf/proto"
 	logrus "github.com/sirupsen/logrus"
 )
 
@@ -254,7 +256,13 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/approval", w.interceptApproval(server))
-	mux.HandleFunc("/", server.ServeHTTP)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			fmt.Fprintf(w, "200 OK")
+			return
+		}
+		server.ServeHTTP(w, r)
+	})
 
 	instrumented := promhttp.InstrumentHandlerInFlight(dexRequestsInFlightMetric,
 		promhttp.InstrumentHandlerDuration(dexRequestsDurationMetric,

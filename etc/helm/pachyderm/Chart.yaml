@@ -21,21 +21,21 @@ type: application
 # each time you make changes to the chart and its templates, including
 # the app version.  Versions are expected to follow Semantic
 # Versioning (https://semver.org/)
-version: 2.1.0
+version: 2.3.0-rc.1
 
 # This is the version number of the application being deployed. This
 # version number should be incremented each time you make changes to
 # the application. Versions are not expected to follow Semantic
 # Versioning. They should reflect the version the application is
 # using.
-appVersion: 2.1.0
+appVersion: 2.3.0-rc.1
 
 kubeVersion: ">= 1.16.0-0"
 
-icon: https://www.pachyderm.com/favicons/favicon-32x32.png
+icon: https://www.pachyderm.com/wp-content/themes/pachyderm/assets/img/favicons/favicon-32x32.png
 
 annotations:
-  artifacthub.io/prerelease: "false" # NOTE: update prior to releasing
+  artifacthub.io/prerelease: "true" # NOTE: update prior to releasing
   artifacthub.io/license: "Apache-2.0"
   artifacthub.io/links: |
     - name: "Pachyderm"
@@ -52,15 +52,15 @@ sources:
   - https://github.com/pachyderm/pachyderm
   - https://github.com/pachyderm/helmchart
 
-# Note this chart has one diverged change: 
+# Note this chart has one diverged change:
 # Adding a label variable to the volumeClaimTemplate in the Postgres Stateful set
 # TODO: Upstream this change
 dependencies:
 - name: postgresql
   version: "10.8.0"
-  repository: "file://../charts/postgresql"
+  repository: "file://./dependencies/postgresql"
   condition: postgresql.enabled
 - name: loki-stack
-  version: "2.5.1"
+  version: "2.6.4"
   repository: "https://grafana.github.io/helm-charts"
   condition: pachd.lokiDeploy

@@ -13,7 +13,7 @@
 
 At the end of this page, you will understand how a group input aggregates the data and what their resulting datums look like. 
 
-You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline_spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you need to specify a `group_by` that will define the captured group (from your glob pattern) to consider when grouping your files. 
+You configure a group in the [pipeline specification](https://docs.pachyderm.com/latest/reference/pipeline-spec/) file by adding a `group` input around the one or many pfs repositories you want to aggregate together. At each input repo level included in your group, you need to specify a `group_by` that will define the captured group (from your glob pattern) to consider when grouping your files. 
 
 > Remember, in Pachyderm, the group operates at the file-path level, **not** the content of the files themselves. Therefore, the structure of your directories and file naming conventions are key elements when implementing your use cases in Pachyderm.
 
@@ -28,8 +28,8 @@ For these examples, we recommend being familiar with the following concepts:
 Additionally, make sure that you understand the concept of [datum](https://docs.pachyderm.com/latest/concepts/pipeline-concepts/datum/relationship-between-datums/). 
 
 ***Prerequisite***
-- Pachyderm running [locally](https://docs.pachyderm.com/latest/getting_started/local_installation/).
-- [pachctl command-line ](https://docs.pachyderm.com/latest/getting_started/local_installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
+- Pachyderm running [locally](https://docs.pachyderm.com/latest/getting-started/local-installation/).
+- [pachctl command-line ](https://docs.pachyderm.com/latest/getting-started/local-installation/#install-pachctl) installed, and your context created (i.e., you are logged in)
 
 ***Getting started***
 - Clone this repo.

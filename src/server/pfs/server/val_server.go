@@ -1,13 +1,15 @@
 package server
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
-	"golang.org/x/net/context"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 // TODO: Block tmp repo writes.
@@ -184,6 +186,14 @@ func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.Transa
 		return errors.New("branch and head commit must belong to the same repo")
 	}
 	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
+}
+
+func (a *validatedAPIServer) Egress(ctx context.Context, request *pfs.EgressRequest) (*pfs.EgressResponse, error) {
+	err := pfsserver.ValidateSQLDatabaseEgress(request.GetSqlDatabase())
+	if err != nil {
+		return nil, err
+	}
+	return a.apiServer.Egress(ctx, request)
 }
 
 func validateFile(file *pfs.File) error {

@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -34,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	txncmds "github.com/pachyderm/pachyderm/v2/src/server/transaction/cmds"
 )
@@ -41,6 +41,12 @@ import (
 const (
 	// DefaultParallelism is the default parallelism used by 'get file' and 'put file'.
 	DefaultParallelism = 10
+
+	// Plural variables are used below for user convenience.
+	branches = "branches"
+	commits  = "commits"
+	files    = "files"
+	repos    = "repos"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -64,7 +70,7 @@ func Cmds() []*cobra.Command {
 Repos contain version-controlled directories and files. Files can be of any size
 or type (e.g. csv, binary, images, etc).`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(repoDocs, "repo", " repo$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
 	var description string
 	createRepo := &cobra.Command{
@@ -92,7 +98,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	commands = append(commands, cmdutil.CreateAlias(createRepo, "create repo"))
+	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -121,7 +127,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
 	shell.RegisterCompletionFunc(updateRepo, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(updateRepo, "update repo"))
+	commands = append(commands, cmdutil.CreateAliases(updateRepo, "update repo", repos))
 
 	inspectRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -155,7 +161,7 @@ or type (e.g. csv, binary, images, etc).`,
 	inspectRepo.Flags().AddFlagSet(outputFlags)
 	inspectRepo.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectRepo, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
+	commands = append(commands, cmdutil.CreateAliases(inspectRepo, "inspect repo", repos))
 
 	var all bool
 	var repoType string
@@ -206,7 +212,7 @@ or type (e.g. csv, binary, images, etc).`,
 	listRepo.Flags().AddFlagSet(timestampFlags)
 	listRepo.Flags().BoolVar(&all, "all", false, "include system repos of all types")
 	listRepo.Flags().StringVar(&repoType, "type", "", "only include repos of the given type")
-	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
+	commands = append(commands, cmdutil.CreateAliases(listRepo, "list repo", repos))
 
 	var force bool
 	deleteRepo := &cobra.Command{
@@ -246,7 +252,7 @@ or type (e.g. csv, binary, images, etc).`,
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
 	shell.RegisterCompletionFunc(deleteRepo, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
+	commands = append(commands, cmdutil.CreateAliases(deleteRepo, "delete repo", repos))
 
 	commitDocs := &cobra.Command{
 		Short: "Docs for commits.",
@@ -262,7 +268,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(commitDocs, "commit", " commit$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(commitDocs, "commit", " commit$", commits))
 
 	var parent string
 	startCommit := &cobra.Command{
@@ -323,7 +329,7 @@ $ {{alias}} test@fork -p XXX`,
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 	shell.RegisterCompletionFunc(startCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(startCommit, "start commit"))
+	commands = append(commands, cmdutil.CreateAliases(startCommit, "start commit", commits))
 
 	finishCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -358,7 +364,7 @@ $ {{alias}} test@fork -p XXX`,
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 	finishCommit.Flags().BoolVarP(&force, "force", "f", false, "finish the commit even if it has provenance, which could break jobs; prefer 'stop job'")
 	shell.RegisterCompletionFunc(finishCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(finishCommit, "finish commit"))
+	commands = append(commands, cmdutil.CreateAliases(finishCommit, "finish commit", commits))
 
 	inspectCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -404,7 +410,7 @@ $ {{alias}} test@fork -p XXX`,
 	inspectCommit.Flags().AddFlagSet(outputFlags)
 	inspectCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
+	commands = append(commands, cmdutil.CreateAliases(inspectCommit, "inspect commit", commits))
 
 	var from string
 	var number int64
@@ -620,7 +626,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.Flags().AddFlagSet(outputFlags)
 	listCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(listCommit, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
+	commands = append(commands, cmdutil.CreateAliases(listCommit, "list commit", commits))
 
 	waitCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -661,7 +667,7 @@ $ {{alias}} foo@XXX -b bar@baz`,
 	}
 	waitCommit.Flags().AddFlagSet(outputFlags)
 	waitCommit.Flags().AddFlagSet(timestampFlags)
-	commands = append(commands, cmdutil.CreateAlias(waitCommit, "wait commit"))
+	commands = append(commands, cmdutil.CreateAliases(waitCommit, "wait commit", commits))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
@@ -748,7 +754,7 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().AddFlagSet(outputFlags)
 	subscribeCommit.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(subscribeCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
+	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, "subscribe commit", commits))
 
 	squashCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
@@ -769,7 +775,7 @@ The squash will fail if it includes a commit with no children`,
 		}),
 	}
 	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(squashCommit, "squash commit"))
+	commands = append(commands, cmdutil.CreateAliases(squashCommit, "squash commit", commits))
 
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
@@ -790,7 +796,7 @@ This operation is only supported if none of the sub-commits have children.`,
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
+	commands = append(commands, cmdutil.CreateAliases(deleteCommit, "delete commit", commits))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
@@ -802,7 +808,7 @@ branch, known as the HEAD commit. All commits are on exactly one branch.
 
 Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(branchDocs, "branch", " branch$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(branchDocs, "branch", " branch$", branches))
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
@@ -870,7 +876,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	createBranch.Flags().StringVar(&trigger.Size_, "trigger-size", "", "The data size to use in triggering.")
 	createBranch.Flags().Int64Var(&trigger.Commits, "trigger-commits", 0, "The number of commits to use in triggering.")
 	createBranch.Flags().BoolVar(&trigger.All, "trigger-all", false, "Only trigger when all conditions are met, rather than when any are met.")
-	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
+	commands = append(commands, cmdutil.CreateAliases(createBranch, "create branch", branches))
 
 	inspectBranch := &cobra.Command{
 		Use:   "{{alias}}  <repo>@<branch>",
@@ -906,7 +912,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	inspectBranch.Flags().AddFlagSet(outputFlags)
 	inspectBranch.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(inspectBranch, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectBranch, "inspect branch"))
+	commands = append(commands, cmdutil.CreateAliases(inspectBranch, "inspect branch", branches))
 
 	listBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -945,7 +951,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	listBranch.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(listBranch, shell.RepoCompletion)
-	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
+	commands = append(commands, cmdutil.CreateAliases(listBranch, "list branch", branches))
 
 	deleteBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch>",
@@ -970,7 +976,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteBranch, "delete branch"))
+	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
@@ -980,7 +986,7 @@ Files can be of any type (e.g. csv, binary, images, etc) or size and can be
 written to started (but not finished) commits with 'put file'. Files can be read
 from commits with 'get file'.`,
 	}
-	commands = append(commands, cmdutil.CreateDocsAlias(fileDocs, "file", " file$"))
+	commands = append(commands, cmdutil.CreateDocsAliases(fileDocs, "file", " file$", files))
 
 	var filePaths []string
 	var inputFile string
@@ -1045,6 +1051,14 @@ $ {{alias}} repo@branch -i http://host/path`,
 			}
 			defer c.Close()
 			defer progress.Wait()
+
+			// check whether or not the repo exists before attempting to upload
+			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Name); err != nil {
+				if errutil.IsNotFoundError(err) {
+					return err
+				}
+				return errors.Wrapf(err, "could not inspect repo %s", err, file.Commit.Branch.Repo.Name)
+			}
 
 			// TODO: Rethink put file parallelism for 2.0.
 			// Doing parallel uploads at the file level for small files will be bad, but we still want a clear way to parallelize large file uploads.
@@ -1146,7 +1160,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			}
 			return nil, shell.SameFlag(flag)
 		})
-	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
+	commands = append(commands, cmdutil.CreateAliases(putFile, "put file", files))
 
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
@@ -1180,7 +1194,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	}
 	copyFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	shell.RegisterCompletionFunc(copyFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
+	commands = append(commands, cmdutil.CreateAliases(copyFile, "copy file", files))
 
 	var outputPath string
 	var offsetBytes int64
@@ -1190,7 +1204,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 		Short: "Return the contents of a file.",
 		Long:  "Return the contents of a file.",
 		Example: `
-# get file "XXX" on branch "master" in repo "foo"
+# get a single file "XXX" on branch "master" in repo "foo"
 $ {{alias}} foo@master:XXX
 
 # get file "XXX" in the parent of the current head of branch "master"
@@ -1203,7 +1217,11 @@ $ {{alias}} foo@master^2:XXX
 
 # get file "test[].txt" on branch "master" in repo "foo"
 # the path is interpreted as a glob pattern: quote and protect regex characters
-$ {{alias}} 'foo@master:/test\[\].txt'`,
+$ {{alias}} 'foo@master:/test\[\].txt'
+
+# get all files under the directory "XXX" on branch "master" in repo "foo"
+$ {{alias}} foo@master:XXX -r
+`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			if !enableProgress {
 				progress.Disable()
@@ -1268,19 +1286,23 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 				defer f.Close()
 				w = f
 			}
-			if err := c.GetFile(file.Commit, file.Path, w); err != nil {
-				return errors.Errorf("File %s not found. Command only supports file paths", file.Path)
+			if err := c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes)); err != nil {
+				msg := err.Error()
+				if strings.Contains(msg, pfsserver.GetFileTARSuggestion) {
+					err = errors.New(strings.ReplaceAll(msg, pfsserver.GetFileTARSuggestion, "Try again with the -r flag"))
+				}
+				return errors.Wrapf(err, "couldn't download %s from %s", file.Path, file.Commit)
 			}
 			return nil
 		}),
 	}
-	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
+	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Download multiple files, or recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "{true|false} Whether or not to print the progress bars.")
 	getFile.Flags().Int64Var(&offsetBytes, "offset", 0, "The number of bytes in the file to skip ahead when reading.")
 	getFile.Flags().BoolVar(&retry, "retry", false, "{true|false} Whether to append the missing bytes to an existing file. No-op if the file doesn't exist.")
 	shell.RegisterCompletionFunc(getFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
+	commands = append(commands, cmdutil.CreateAliases(getFile, "get file", files))
 
 	inspectFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
@@ -1313,7 +1335,7 @@ $ {{alias}} 'foo@master:/test\[\].txt'`,
 	}
 	inspectFile.Flags().AddFlagSet(outputFlags)
 	shell.RegisterCompletionFunc(inspectFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
+	commands = append(commands, cmdutil.CreateAliases(inspectFile, "inspect file", files))
 
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
@@ -1369,10 +1391,10 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 	listFile.Flags().AddFlagSet(outputFlags)
 	listFile.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(listFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
+	commands = append(commands, cmdutil.CreateAliases(listFile, "list file", files))
 
 	globFile := &cobra.Command{
-		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
+		Use:   `{{alias}} "<repo>@<branch-or-commit>:<pattern>"`,
 		Short: "Return files that match a glob pattern in a commit.",
 		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
 		Example: `
@@ -1382,7 +1404,9 @@ $ {{alias}} 'foo@master:dir\[1\]'`,
 $ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
-$ {{alias}} "foo@master:data/*"`,
+$ {{alias}} "foo@master:data/*"
+
+# If you only want to view all files on a given repo branch, use "list file -f <repo>@<branch>" instead.`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
@@ -1418,7 +1442,7 @@ $ {{alias}} "foo@master:data/*"`,
 	globFile.Flags().AddFlagSet(outputFlags)
 	globFile.Flags().AddFlagSet(timestampFlags)
 	shell.RegisterCompletionFunc(globFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
+	commands = append(commands, cmdutil.CreateAliases(globFile, "glob file", files))
 
 	var shallow bool
 	var nameOnly bool
@@ -1522,7 +1546,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	diffFile.Flags().AddFlagSet(timestampFlags)
 	diffFile.Flags().AddFlagSet(pagerFlags)
 	shell.RegisterCompletionFunc(diffFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
+	commands = append(commands, cmdutil.CreateAliases(diffFile, "diff file", files))
 
 	deleteFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
@@ -1548,7 +1572,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	}
 	deleteFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete the files in a directory.")
 	shell.RegisterCompletionFunc(deleteFile, shell.FileCompletion)
-	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
+	commands = append(commands, cmdutil.CreateAliases(deleteFile, "delete file", files))
 
 	objectDocs := &cobra.Command{
 		Short: "Docs for objects.",
@@ -1559,6 +1583,8 @@ Objects are a low-level resource and should not be accessed directly by most use
 	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
 
 	var fix bool
+	var zombie string
+	var zombieAll bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
@@ -1569,25 +1595,44 @@ Objects are a low-level resource and should not be accessed directly by most use
 				return err
 			}
 			defer c.Close()
-			errors := false
+			foundErrors := false
+			var opts []client.FsckOption
+			if zombieAll {
+				if zombie != "" {
+					return errors.New("either check all pipelines for zombie files or provide a single commit")
+				}
+				opts = append(opts, client.WithZombieCheckAll())
+			} else if zombie != "" {
+				commit, err := cmdutil.ParseCommit(zombie)
+				if err != nil {
+					return err
+				}
+				if commit.ID == "" && commit.Branch.Name == "" {
+					return errors.Errorf("provide a specific commit or branch for zombie detection on %s", commit.Branch.Repo)
+				}
+				opts = append(opts, client.WithZombieCheckTarget(commit))
+			}
+
 			if err = c.Fsck(fix, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
-					errors = true
+					foundErrors = true
 					fmt.Printf("Error: %s\n", resp.Error)
 				} else {
 					fmt.Printf("Fix applied: %v", resp.Fix)
 				}
 				return nil
-			}); err != nil {
+			}, opts...); err != nil {
 				return err
 			}
-			if !errors {
+			if !foundErrors {
 				fmt.Println("No errors found.")
 			}
 			return nil
 		}),
 	}
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
+	fsck.Flags().BoolVar(&zombieAll, "zombie-all", false, "Check all pipelines for zombie files: files corresponding to old inputs that were not properly deleted")
+	fsck.Flags().StringVar(&zombie, "zombie", "", "A single commit to check for zombie files")
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var branchStr string
@@ -1612,7 +1657,6 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
@@ -1627,7 +1671,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if fi.IsDir() {
 					return nil
 				}
-				spec, err := ioutil.ReadFile(file)
+				spec, err := os.ReadFile(file)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1646,7 +1690,6 @@ Objects are a low-level resource and should not be accessed directly by most use
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				fmt.Println(resp.Spec)
 				resp.Spec = ""
 				if err := cmdutil.Encoder(output, os.Stdout).EncodeProto(resp); err != nil {
 					return errors.EnsureStack(err)
@@ -1739,7 +1782,7 @@ func dlFile(pachClient *client.APIClient, f *pfs.File) (_ string, retErr error) 
 	if err := os.MkdirAll(tempDir, 0777); err != nil {
 		return "", errors.EnsureStack(err)
 	}
-	file, err := ioutil.TempFile(tempDir, filepath.Base(f.Path+"_"))
+	file, err := os.CreateTemp(tempDir, filepath.Base(f.Path+"_"))
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}

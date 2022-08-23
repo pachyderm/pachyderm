@@ -74,6 +74,7 @@ func (tester *ChannelWatchTester) nextEvent(timeout time.Duration) *watch.Event 
 }
 
 func (tester *ChannelWatchTester) Write(item *col.TestItem) {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return putItem(item)(rw)
 	})
@@ -81,6 +82,7 @@ func (tester *ChannelWatchTester) Write(item *col.TestItem) {
 }
 
 func (tester *ChannelWatchTester) Delete(id string) {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return errors.EnsureStack(rw.Delete(id))
 	})
@@ -88,6 +90,7 @@ func (tester *ChannelWatchTester) Delete(id string) {
 }
 
 func (tester *ChannelWatchTester) DeleteAll() {
+	tester.t.Helper()
 	err := tester.writer(context.Background(), func(rw col.ReadWriteCollection) error {
 		return errors.EnsureStack(rw.DeleteAll())
 	})
@@ -99,6 +102,7 @@ func (tester *ChannelWatchTester) ExpectEvent(expected TestEvent) {
 }
 
 func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
+	tester.t.Helper()
 	actual := []TestEvent{}
 	for range expected {
 		ev := tester.nextEvent(5 * time.Second)
@@ -123,6 +127,7 @@ func (tester *ChannelWatchTester) ExpectEventSet(expected ...TestEvent) {
 }
 
 func (tester *ChannelWatchTester) ExpectError(err error) {
+	tester.t.Helper()
 	ev := tester.nextEvent(5 * time.Second)
 	require.NotNil(tester.t, ev)
 	require.Equal(tester.t, TestEvent{watch.EventError, "", nil}, newTestEvent(tester.t, ev))
@@ -130,6 +135,7 @@ func (tester *ChannelWatchTester) ExpectError(err error) {
 }
 
 func (tester *ChannelWatchTester) ExpectNoEvents() {
+	tester.t.Helper()
 	require.Nil(tester.t, tester.nextEvent(100*time.Millisecond))
 }
 
@@ -207,6 +213,7 @@ func watchTests(
 		defer watcher.Close()
 
 		ev := nextEvent(watcher.Watch(), 5*time.Second)
+		require.NotNil(t, ev)
 		require.Equal(t, TestEvent{watch.EventError, "", nil}, newTestEvent(t, ev))
 		require.YesError(t, ev.Err)
 		require.True(t, errors.Is(ev.Err, context.Canceled))
@@ -220,7 +227,7 @@ func watchTests(
 			defer cancel()
 			reader, writer := newCollection(context.Background(), t)
 			row := makeProto(makeID(4))
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader))
 			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
@@ -233,11 +240,40 @@ func watchTests(
 			tester.ExpectNoEvents()
 		})
 
+		suite.Run("InterruptionDuringBackfill", func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			reader, writer := newCollection(context.Background(), t)
+			for i := 0; i < 10; i++ {
+				require.NoError(t, writer(context.Background(), putItem(makeProto(makeID(i)))))
+			}
+
+			watcher := makeWatcher(ctx, t, reader)
+			tester := NewWatchTester(t, writer, watcher)
+			cancel()
+			var canceled bool
+			for i := 0; i < 11; i++ {
+				// Consume events until we receive the cancellation event.  (Some
+				// events may have arrived before cancellation.)
+				ev := nextEvent(watcher.Watch(), time.Second)
+				require.NotNil(t, ev, "event %v should not be nil, since we haven't been canceled yet", i)
+				if ev.Err == nil {
+					continue
+				}
+				require.ErrorIs(t, ev.Err, context.Canceled)
+				canceled = true
+				break
+			}
+			require.True(t, canceled, "we should have gotten the cancellation event in the loop")
+			tester.ExpectNoEvents()
+		})
+
 		suite.Run("Delete", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
 			row := makeProto(makeID(1))
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader))
 			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
@@ -252,8 +288,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -287,7 +323,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
 			row := makeProto(makeID(1), originalValue)
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader))
 			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
@@ -307,7 +343,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
-			writer(context.Background(), putItem(makeProto(makeID(3))))
+			require.NoError(t, writer(context.Background(), putItem(makeProto(makeID(3)))))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
 				res, err := watchRead.Watch()
 				return res, errors.EnsureStack(err)
@@ -329,7 +365,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
-			writer(context.Background(), putItem(makeProto(makeID(1))))
+			require.NoError(t, writer(context.Background(), putItem(makeProto(makeID(1)))))
 
 			events := []*watch.Event{}
 			err := watchRead.WatchF(func(ev *watch.Event) error {
@@ -347,8 +383,8 @@ func watchTests(
 			watchRead := reader(context.Background())
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			events := []TestEvent{}
 			err := watchRead.WatchF(func(ev *watch.Event) error {
@@ -393,7 +429,7 @@ func watchTests(
 			defer cancel()
 			reader, writer := newCollection(context.Background(), t)
 			row := makeProto(makeID(4))
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader, row.ID))
 			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
@@ -411,8 +447,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, rowA.ID))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -429,8 +465,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, rowA.ID))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -460,8 +496,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2))
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, rowA.ID))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -486,7 +522,7 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
 			row := makeProto(makeID(1))
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
 				res, err := watchRead.WatchOne(row.ID)
 				return res, errors.EnsureStack(err)
@@ -509,7 +545,7 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
 			row := makeProto(makeID(1))
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			events := []*watch.Event{}
 			err := watchRead.WatchOneF(row.ID, func(ev *watch.Event) error {
@@ -526,8 +562,8 @@ func watchTests(
 			watchRead := reader(context.Background())
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			events := []TestEvent{}
 			err := watchRead.WatchOneF(rowA.ID, func(ev *watch.Event) error {
@@ -552,7 +588,7 @@ func watchTests(
 			defer cancel()
 			reader, writer := newCollection(context.Background(), t)
 			row := makeProto(makeID(4), originalValue)
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(ctx, t, reader, originalValue))
 			tester.ExpectEvent(TestEvent{watch.EventPut, row.ID, row})
@@ -585,8 +621,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), changedValue)
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, originalValue))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -603,8 +639,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), changedValue)
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, originalValue))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -621,8 +657,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), changedValue)
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, originalValue))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -637,8 +673,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), changedValue)
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, originalValue))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -654,8 +690,8 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), changedValue)
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			tester := NewWatchTester(t, writer, makeWatcher(context.Background(), t, reader, originalValue))
 			tester.ExpectEvent(TestEvent{watch.EventPut, rowA.ID, rowA})
@@ -675,7 +711,7 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
 			row := makeProto(makeID(1), originalValue)
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
 				res, err := watchRead.WatchByIndex(TestSecondaryIndex, originalValue)
 				return res, errors.EnsureStack(err)
@@ -698,7 +734,7 @@ func watchTests(
 			reader, writer := newCollection(context.Background(), t)
 			watchRead := reader(canceledContext())
 			row := makeProto(makeID(1), originalValue)
-			writer(context.Background(), putItem(row))
+			require.NoError(t, writer(context.Background(), putItem(row)))
 
 			events := []*watch.Event{}
 			err := watchRead.WatchByIndexF(TestSecondaryIndex, originalValue, func(ev *watch.Event) error {
@@ -715,8 +751,8 @@ func watchTests(
 			watchRead := reader(context.Background())
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), originalValue)
-			writer(context.Background(), putItem(rowA))
-			writer(context.Background(), putItem(rowB))
+			require.NoError(t, writer(context.Background(), putItem(rowA)))
+			require.NoError(t, writer(context.Background(), putItem(rowB)))
 
 			events := []TestEvent{}
 			err := watchRead.WatchByIndexF(TestSecondaryIndex, originalValue, func(ev *watch.Event) error {

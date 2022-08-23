@@ -27,11 +27,11 @@ Let's first generate your secret configuration file using the `kubectl` command.
 
 - for a generic authentication secret:
    ```shell
-   $ kubectl create secret generic mysecretname --from-literal=username=<myusername> --from-literal=password=<mypassword> --dry-run=client  --output=json > myfirstsecret.json
+   kubectl create secret generic mysecretname --from-literal=username=<myusername> --from-literal=password=<mypassword> --dry-run=client  --output=json > myfirstsecret.json
    ```
 - for a tls secret:
    ```shell
-   $ kubectl create secret tls mysecretname --cert=<Path to your certificate> --key=<Path to your SSH key> --dry-run=client  --output=json > myfirstsecret.json 
+   kubectl create secret tls mysecretname --cert=<Path to your certificate> --key=<Path to your SSH key> --dry-run=client  --output=json > myfirstsecret.json 
    ```
 - for a docker registry secret:
    ```shell
@@ -58,7 +58,7 @@ Find more detailed information on the [creation of Secrets](https://kubernetes.i
 ### Create your Secret in Pachyderm
 Next, run the following to actually create the secret in the Pachyderm Kubernetes cluster:
 ```shell
-$ pachctl create secret -f myfirstsecret.json 
+pachctl create secret -f myfirstsecret.json 
 ```
 
 You can run `pachctl list secret` to verify that your secret has been properly created.
@@ -74,7 +74,7 @@ You can now edit your pipeline specification file as follow.
 
 
 ## Reference a Secret in Pachyderm's specification file
-Now that your secret is created on Pachyderm cluster, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline_spec/#manifest-format).
+Now that your secret is created on Pachyderm cluster, you will need to notify your pipeline by updating your pipeline [specification file](https://docs.pachyderm.com/latest/reference/pipeline-spec/#manifest-format).
 In Pachyderm, a Secret can be used in three different ways:
 
 1. **As a container environment variable**:

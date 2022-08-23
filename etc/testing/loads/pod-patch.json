@@ -1,0 +1,5 @@
+[
+     { "op": "replace", "path": "/containers/1/resources/requests", "value": { "cpu": "4", "memory": "6G" } },
+     { "op": "add", "path": "/containers/1/resources/limits", "value": { "cpu": "4", "memory": "6G" } },
+     { "op": "add", "path": "/nodeSelector", "value": { "load-test": "enabled" } }
+]

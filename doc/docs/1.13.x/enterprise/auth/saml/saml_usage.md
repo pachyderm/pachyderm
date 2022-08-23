@@ -10,7 +10,7 @@ demo](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv/README.
 - In the CLI, that would look like:
 
     ```shell
-    $ pachctl auth use-auth-token
+    pachctl auth use-auth-token
     ```
 
     **System response:**
@@ -20,7 +20,7 @@ demo](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv/README.
     ```
 
     ```shell
-    $ pachctl auth whoami
+    pachctl auth whoami
     ```
 
     **System response:**
@@ -33,17 +33,17 @@ demo](https://github.com/pachyderm/pachyderm/blob/1.13.x/examples/opencv/README.
 repository.
 
     ```shell
-    $ pachctl create repo images
-    $ pachctl create pipeline -f examples/opencv/edges.json
-    $ pachctl create pipeline -f examples/opencv/montage.json
-    $ pachctl put file images@master -i examples/opencv/images.txt
-    $ pachctl put file images@master -i examples/opencv/images2.txt
+    pachctl create repo images
+    pachctl create pipeline -f examples/opencv/edges.json
+    pachctl create pipeline -f examples/opencv/montage.json
+    pachctl put file images@master -i examples/opencv/images.txt
+    pachctl put file images@master -i examples/opencv/images2.txt
     ```
 
     View the list of existing repositories:
 
     ```shell
-    $ pachctl list repo
+    pachctl list repo
     ```
 
     **System response:**
@@ -57,7 +57,7 @@ repository.
     ... And the list of jobs:
 
     ```shell
-    $ pachctl list job
+    pachctl list job
     ```
 
     **System response:**
@@ -98,8 +98,8 @@ from the settings panel:
 ![OTP Image](../../../assets/images/saml_display_otp.png)
 
 ```shell
-    $ pachctl auth login --code auth_code:73db4686e3e142508fa74aae920cc58b
-    $ pachctl auth whoami
+    pachctl auth login --code auth_code:73db4686e3e142508fa74aae920cc58b
+    pachctl auth whoami
 ```
 
 **System response:**
@@ -121,7 +121,7 @@ We will give the example of an **admin granting a user access**. This can be
 accomplished on the CLI :
 
 ```shell
-    $ pachctl auth set saml:msteffen@pachyderm.io reader images
+    pachctl auth set saml:msteffen@pachyderm.io reader images
 ```
 
 Now, the `images` repo is no longer locked when that user views the DAG:
@@ -138,7 +138,7 @@ attribute in the Pachyderm auth config. Here, we will grant access to the *Every
 group:
 
 ```shell
-    $ pachctl auth set group/saml:Everyone owner edges
+    pachctl auth set group/saml:Everyone owner edges
 ```
 
 Now, the edges repo is also not locked:
@@ -156,7 +156,7 @@ Now, the edges repo is also not locked:
     This change is reflected in the CLI as well:
 
     ```shell
-        $ pachctl auth get edges
+        pachctl auth get edges
     ```
     **System response:**
 

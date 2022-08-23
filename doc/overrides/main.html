@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
-  <script src="//d2wy8f7a9ursnm.cloudfront.net/v7/bugsnag.min.js"></script>
-  <script>Bugsnag.start({ apiKey: '8f81cbe33181807ab3d63705fe0546db' })</script>
-  <script> 
+<meta property="og:image" content="/assets/images/Pachyderm_stacked--tagline--1200.png">
+<meta name="google-site-verification" content="7rEzMy5G3gRKP8fGc44XdP3HDSgDZOi8K8GUaVSm9pY" />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script> 
     rudderanalytics = window.rudderanalytics = [];
 
     var  methods = [
@@ -60,10 +61,27 @@
         }
       );
     }
+
+
+
+  jQuery(function() {
+    jQuery("[data-clickid]").click(function () {
+        rudderanalytics.track(
+            "Click",
+            {
+                context: {
+                    traits: {
+                        clickid: jQuery(this).attr("data-clickid")
+                    }
+                }
+            }
+        );
+    });
+  });
   </script>
   <script src="https://cdn.rudderlabs.com/sm/rudder-analytics.min.js"></script>
   
-  <link href=https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Montserrat:800,400,700" rel="stylesheet">
 
   <!-- Determine title -->
   {% set title = config.site_name %}
@@ -155,11 +173,8 @@ body {
 
 
    <a href="https://github.com/pachyderm/pachyderm/releases/tag/v{{ config.pach_latest_version }}" class="md-announce md-link1">
-     Pachyderm {{ config.pach_featured_version }} is out! Download <strong>here.</strong> 
+     Pachyderm {{ config.pach_featured_version }} is out! Download <strong>here.</strong> 2.3.0 and later versions support ARM-based architectures!!!
    </a>
-   <a href="https://docs.pachyderm.com/2.1.x/getting_started/whats_new/" class="md-announce md-link1">
-      &nbsp; <strong>What's new?</strong> 
-  </a>
    <div class="tx-hero" style="float:right">
   
    <!--a class="hub-button" href="https://hub.pachyderm.com">Try on Hub!

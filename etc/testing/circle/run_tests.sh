@@ -1,9 +1,6 @@
 #!/bin/bash
 
-set -ex
-
-# shellcheck disable=SC1090
-source "$(dirname "$0")/env.sh"
+set -exo pipefail
 
 VM_IP="$(minikube ip)"
 export VM_IP
@@ -39,7 +36,7 @@ function test_bucket {
 
     echo "Running bucket $bucket_num of $num_buckets"
     # shellcheck disable=SC2207
-    tests=( $(go test -v  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+    tests=( $(go test -v -tags=k8s  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
     # Add anchors for the regex so we don't run collateral tests
     tests=( "${tests[@]/#/^}" )
     tests=( "${tests[@]/%/\$\$}" )
@@ -70,14 +67,11 @@ case "${BUCKET}" in
     make test-transaction
     make test-s3gateway-unit
     make test-worker
+    bash -ceo pipefail "go test -p 1 -count 1 ./src/server/debug/... ${TESTFLAGS}"
     # these tests require secure env vars to run, which aren't available
     # when the PR is coming from an outside contributor - so we just
     # disable them
     # make test-tls
-    ;;
-  INTERNAL)
-    go install -v ./src/testing/match
-    bash -ceo pipefail "go test -p 1 -count 1 ./src/internal/... ${TESTFLAGS}"
     ;;
   EXAMPLES)
     echo "Running the example test suite"
@@ -87,18 +81,19 @@ case "${BUCKET}" in
     make test-pfs-server
     make test-fuse
     ;;
+  S3_AUTH)
+    export PACH_TEST_WITH_AUTH=1
+    go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 420s -v | stdbuf -i0 tee -a /tmp/results
+    ;;
   PPS?)
-    make docker-build-kafka
+    # make docker-build-kafka
     bucket_num="${BUCKET#PPS}"
     test_bucket "./src/server" test-pps "${bucket_num}" "${PPS_BUCKETS}"
-    if [[ "${bucket_num}" -eq "${PPS_BUCKETS}" ]]; then
-      export PACH_TEST_WITH_AUTH=1
-      go test -v -count=1 ./src/server/pps/server -timeout 420s
-    fi
     ;;
   AUTH)
     make test-identity
     make test-auth
+    make test-admin
     ;;
   ENTERPRISE)
     make test-license

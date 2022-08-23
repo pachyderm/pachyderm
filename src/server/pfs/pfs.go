@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
@@ -134,6 +135,13 @@ type ErrSquashWithoutChildren struct {
 type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
+
+const GetFileTARSuggestion = "Use GetFileTAR instead"
+
+var (
+	ErrMatchedNonFile       = fmt.Errorf("cannot get directory or non-regular file. %s", GetFileTARSuggestion)
+	ErrMatchedMultipleFiles = fmt.Errorf("matched multiple files. %s", GetFileTARSuggestion)
+)
 
 func (e ErrFileNotFound) Error() string {
 	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
@@ -423,4 +431,18 @@ func IsDropWithChildrenErr(err error) bool {
 		return false
 	}
 	return dropWithChildrenRe.MatchString(err.Error())
+}
+
+func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {
+	if sql == nil {
+		return nil
+	}
+	secret := sql.GetSecret()
+	if secret == nil {
+		return errors.Errorf("egress.sql_database.secret is required")
+	}
+	if secret.Name == "" || secret.Key == "" {
+		return errors.Errorf("egress.sql_database.secret.name and egress.sql_database.secret.key are required")
+	}
+	return nil
 }

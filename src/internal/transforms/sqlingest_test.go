@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,7 +33,7 @@ func TestSQLIngest(t *testing.T) {
 		name := fmt.Sprintf("%04d", i)
 		// query would normally be different per shard
 		query := "select * from test_data"
-		err := ioutil.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		err := os.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
 		require.NoError(t, err)
 	}
 
@@ -57,6 +56,83 @@ func TestSQLIngest(t *testing.T) {
 	require.Equal(t, outputName, dirEnts[0].Name())
 	lineCount := countLinesInFile(t, filepath.Join(outputDir, outputName))
 	require.Equal(t, N, lineCount)
+}
+
+func TestCSVSQLIngest(t *testing.T) {
+	ctx := context.Background()
+	inputDir, outputDir := t.TempDir(), t.TempDir()
+	u := dockertestenv.NewMySQLURL(t)
+	const N = 100
+	loadDB(t, u, N)
+
+	// write queries
+	const Shards = 2
+	for i := 0; i < Shards; i++ {
+		name := fmt.Sprintf("%04d", i)
+		// query would normally be different per shard
+		query := "select * from test_data"
+		err := os.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		require.NoError(t, err)
+	}
+
+	err := SQLIngest(ctx, SQLIngestParams{
+		Logger: logrus.StandardLogger(),
+
+		InputDir:  inputDir,
+		OutputDir: outputDir,
+
+		URL:      u,
+		Password: dockertestenv.MySQLPassword,
+		Format:   "csv",
+	})
+	require.NoError(t, err)
+
+	// check the file exists
+	dirEnts, err := os.ReadDir(outputDir)
+	require.NoError(t, err)
+	require.Len(t, dirEnts, Shards)
+	require.Equal(t, outputName, dirEnts[0].Name())
+	lineCount := countLinesInFile(t, filepath.Join(outputDir, outputName))
+	require.Equal(t, N, lineCount)
+}
+
+func TestCSVHeaderSQLIngest(t *testing.T) {
+	ctx := context.Background()
+	inputDir, outputDir := t.TempDir(), t.TempDir()
+	u := dockertestenv.NewMySQLURL(t)
+	const N = 100
+	loadDB(t, u, N)
+
+	// write queries
+	const Shards = 2
+	for i := 0; i < Shards; i++ {
+		name := fmt.Sprintf("%04d", i)
+		// query would normally be different per shard
+		query := "select * from test_data"
+		err := os.WriteFile(filepath.Join(inputDir, name), []byte(query), 0755)
+		require.NoError(t, err)
+	}
+
+	err := SQLIngest(ctx, SQLIngestParams{
+		Logger: logrus.StandardLogger(),
+
+		InputDir:  inputDir,
+		OutputDir: outputDir,
+
+		URL:       u,
+		Password:  dockertestenv.MySQLPassword,
+		Format:    "csv",
+		HasHeader: true,
+	})
+	require.NoError(t, err)
+
+	// check the file exists
+	dirEnts, err := os.ReadDir(outputDir)
+	require.NoError(t, err)
+	require.Len(t, dirEnts, Shards)
+	require.Equal(t, outputName, dirEnts[0].Name())
+	lineCount := countLinesInFile(t, filepath.Join(outputDir, outputName))
+	require.Equal(t, N+1, lineCount)
 }
 
 func countLinesInFile(t testing.TB, p string) int {
@@ -96,7 +172,7 @@ func TestSQLQueryGeneration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dirEnts, 1)
 	require.Equal(t, outputName, dirEnts[0].Name())
-	data, err := ioutil.ReadFile(filepath.Join(outputDir, outputName))
+	data, err := os.ReadFile(filepath.Join(outputDir, outputName))
 	require.NoError(t, err)
 	t.Log(string(data))
 }
@@ -104,7 +180,7 @@ func TestSQLQueryGeneration(t *testing.T) {
 func writeCronFile(t testing.TB, inputDir string) {
 	now := time.Now().UTC()
 	timestampStr := now.Format(time.RFC3339)
-	err := ioutil.WriteFile(filepath.Join(inputDir, timestampStr), nil, 0755)
+	err := os.WriteFile(filepath.Join(inputDir, timestampStr), nil, 0755)
 	require.NoError(t, err)
 }
 

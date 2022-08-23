@@ -6,8 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"math/rand"
+	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -21,14 +22,17 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/gogo/protobuf/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -3394,10 +3398,6 @@ func TestPFS(suite *testing.T) {
 		_, err = env.PachClient.StartCommit(repo, "master")
 		require.NoError(t, err)
 
-		err = env.PachClient.DeleteFile(commit, "dir2/dir3/*")
-		require.NoError(t, err)
-		err = env.PachClient.DeleteFile(commit, "dir?/*")
-		require.NoError(t, err)
 		err = env.PachClient.DeleteFile(commit, "/")
 		require.NoError(t, err)
 		checks = func() {
@@ -3490,7 +3490,7 @@ func TestPFS(suite *testing.T) {
 		for i := 0; i < 25; i++ {
 			next := fmt.Sprintf("%d,%d,%d,%d\n", 4*i, (4*i)+1, (4*i)+2, (4*i)+3)
 			expected.WriteString(next)
-			env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next))
+			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next)))
 		}
 		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.ID))
 
@@ -3600,10 +3600,15 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "files", masterCommit, "files", client.WithAppendCopyFile()))
 		require.NoError(t, env.PachClient.CopyFile(otherCommit, "file0", masterCommit, "files/0", client.WithAppendCopyFile()))
+		require.NoError(t, env.PachClient.CopyFile(otherCommit, "all", masterCommit, "/", client.WithAppendCopyFile()))
 		require.NoError(t, finishCommit(env.PachClient, repo, otherCommit.Branch.Name, otherCommit.ID))
 
 		for i := 0; i < numFiles; i++ {
 			_, err = env.PachClient.InspectFile(otherCommit, fmt.Sprintf("files/%d", i))
+			require.NoError(t, err)
+		}
+		for i := 0; i < numFiles; i++ {
+			_, err = env.PachClient.InspectFile(otherCommit, fmt.Sprintf("all/files/%d", i))
 			require.NoError(t, err)
 		}
 		_, err = env.PachClient.InspectFile(otherCommit, "files/0")
@@ -3928,7 +3933,7 @@ func TestPFS(suite *testing.T) {
 		bCommit1 := inspect("B", "master", "")
 		commit3, err = env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		finishCommit(env.PachClient, "A", commit3.Branch.Name, commit3.ID)
+		require.NoError(t, finishCommit(env.PachClient, "A", commit3.Branch.Name, commit3.ID))
 		// Re-inspect bCommit1, which has been updated by StartCommit
 		bCommit1, bCommit2 := inspect("B", bCommit1.Commit.Branch.Name, bCommit1.Commit.ID), inspect("B", "master", "")
 		require.Equal(t, bCommit1.Commit.ID, bCommit2.ParentCommit.ID)
@@ -3958,7 +3963,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateRepo("A"))
 		commit, err := env.PachClient.StartCommit("A", "master")
 		require.NoError(t, err)
-		finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID)
+		require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.ID))
 		commit2, err := env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
 			Branch: client.NewBranch("A", "master2"),
 			Parent: client.NewCommit("A", "master", ""),
@@ -4335,13 +4340,13 @@ func TestPFS(suite *testing.T) {
 
 		var readyCommitsB, readyCommitsC int64
 		go func() {
-			pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			_ = pachClient.SubscribeCommit(client.NewRepo("B"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommitsB, 1)
 				return nil
 			})
 		}()
 		go func() {
-			pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			_ = pachClient.SubscribeCommit(client.NewRepo("C"), "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				atomic.AddInt64(&readyCommitsC, 1)
 				return nil
 			})
@@ -4908,7 +4913,7 @@ func TestPFS(suite *testing.T) {
 			return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 		}
 		monkeyRetry := func(t *testing.T, f func() error, errMsg string) {
-			backoff.Retry(func() error {
+			backoff.Retry(func() error { //nolint:errcheck
 				err := f()
 				if err != nil {
 					require.True(t, obj.IsMonkeyError(err), "Expected monkey error (%s), %s", err.Error(), errMsg)
@@ -5874,7 +5879,7 @@ func TestPFS(suite *testing.T) {
 			fsSpec := fileSetSpec{}
 			for j := 0; j < filesPer; j++ {
 				name := fmt.Sprintf("file%02d", j)
-				data, err := ioutil.ReadAll(randomReader(fileSetSize))
+				data, err := io.ReadAll(randomReader(fileSetSize))
 				require.NoError(t, err)
 				file := tarutil.NewMemFile(name, data)
 				hdr, err := file.Header()
@@ -6136,6 +6141,146 @@ func TestPFS(suite *testing.T) {
 		require.YesError(t, err)
 		require.True(t, errutil.IsNotFoundError(err))
 		require.False(t, strings.Contains(err.Error(), pfs.UserRepoType))
+	})
+
+	suite.Run("EgressToPostgres", func(_suite *testing.T) {
+		os.Setenv("PACHYDERM_SQL_PASSWORD", tu.DefaultPostgresPassword)
+
+		type Schema struct {
+			Id    int    `column:"ID" dtype:"INT"`
+			A     string `column:"A" dtype:"VARCHAR(100)"`
+			Datum string `column:"DATUM" dtype:"INT"`
+		}
+
+		type File struct {
+			data string
+			path string
+		}
+
+		tests := []struct {
+			name           string
+			files          []File
+			options        *pfs.SQLDatabaseEgress
+			tables         []string
+			expectedCounts map[string]int64
+		}{
+			{
+				name: "CSV",
+				files: []File{
+					{"1,Foo,101\n2,Bar,102", "/test_table/0000"},
+					{"3,Hello,103\n4,World,104", "/test_table/subdir/0001"},
+					{"1,this is in test_table2,201", "/test_table2/0000"},
+					{"", "/empty_table/0000"},
+				},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
+					},
+				},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+			{
+				name: "JSON",
+				files: []File{
+					{`{"ID":1,"A":"Foo","DATUM":101}
+					  {"ID":2,"A":"Bar","DATUM":102}`, "/test_table/0000"},
+					{`{"ID":3,"A":"Hello","DATUM":103}
+					  {"ID":4,"A":"World","DATUM":104}`, "/test_table/subdir/0001"},
+					{`{"ID":1,"A":"Foo","DATUM":201}`, "/test_table2/0000"},
+					{"", "/empty_table/0000"},
+				},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type:    pfs.SQLDatabaseEgress_FileFormat_JSON,
+						Columns: []string{"ID", "A", "DATUM"},
+					},
+				},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+			{
+				name: "HEADER_CSV",
+				files: []File{
+					{"ID,A,DATUM\n1,Foo,101\n2,Bar,102", "/test_table/0000"},
+					{"ID,A,DATUM\n3,Hello,103\n4,World,104", "/test_table/subdir/0001"},
+					{"ID,A,DATUM\n1,this is in test_table2,201", "/test_table2/0000"},
+					{"ID,A,DATUM", "/empty_table/0000"},
+				},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type:    pfs.SQLDatabaseEgress_FileFormat_CSV,
+						Columns: []string{"ID", "A", "DATUM"},
+					},
+				},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+			{
+				name: "HEADER_CSV_JUMBLED",
+				files: []File{
+					{"A,ID,DATUM\nFoo,1,101\nBar,2,102", "/test_table/0000"},
+					{"A,DATUM,ID\nHello,103,3\nWorld,104,4", "/test_table/subdir/0001"},
+					{"DATUM,A,ID\n201,this is in test_table2,1", "/test_table2/0000"},
+					{"DATUM,ID,A", "/empty_table/0000"},
+				},
+				options: &pfs.SQLDatabaseEgress{
+					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
+						Type:    pfs.SQLDatabaseEgress_FileFormat_CSV,
+						Columns: []string{"ID", "A", "DATUM"},
+					},
+				},
+				tables:         []string{"test_table", "test_table2", "empty_table"},
+				expectedCounts: map[string]int64{"test_table": 4, "test_table2": 1, "empty_table": 0},
+			},
+		}
+		for _, test := range tests {
+			_suite.Run(test.name, func(t *testing.T) {
+				env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+				// setup target database
+				dbName := tu.GenerateEphemeralDBName(t)
+				tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
+				db := tu.OpenDB(t,
+					dbutil.WithMaxOpenConns(1),
+					dbutil.WithUserPassword(tu.DefaultPostgresUser, tu.DefaultPostgresPassword),
+					dbutil.WithHostPort(dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort),
+					dbutil.WithDBName(dbName),
+				)
+				for _, tableName := range test.tables {
+					require.NoError(t, pachsql.CreateTestTable(db, tableName, Schema{}))
+				}
+
+				// setup source repo based on target database, and generate fake data
+				require.NoError(t, env.PachClient.CreateRepo(dbName))
+				commit := client.NewCommit(dbName, "master", "")
+				for _, f := range test.files {
+					require.NoError(t, env.PachClient.PutFile(
+						commit,
+						f.path,
+						strings.NewReader(f.data)))
+				}
+
+				// run Egress to copy data from source commit to target database
+				test.options.Secret = &pfs.SQLDatabaseEgress_Secret{Name: "does not matter", Key: "does not matter"}
+				test.options.Url = fmt.Sprintf("postgres://%s@%s:%d/%s", tu.DefaultPostgresUser, dockertestenv.PGBouncerHost(), dockertestenv.PGBouncerPort, dbName)
+				resp, err := env.PachClient.Egress(env.PachClient.Ctx(),
+					&pfs.EgressRequest{
+						Commit: commit,
+						Target: &pfs.EgressRequest_SqlDatabase{
+							SqlDatabase: test.options,
+						},
+					})
+				require.NoError(t, err)
+				require.Equal(t, test.expectedCounts, resp.GetSqlDatabase().GetRowsWritten())
+
+				// verify that actual rows got written to db
+				var count int64
+				for table, expected := range test.expectedCounts {
+					require.NoError(t, db.QueryRow(fmt.Sprintf("select count(*) from %s", table)).Scan(&count))
+					require.Equal(t, expected, count)
+				}
+			})
+		}
 	})
 }
 

@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -13,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -33,9 +36,8 @@ func TestSpoutPachctl(t *testing.T) {
 	}
 
 	t.Run("SpoutAuth", func(t *testing.T) {
-		tu.DeleteAll(t)
-		defer tu.DeleteAll(t)
-		c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+		c, _ := minikubetestenv.AcquireCluster(t)
+		c = tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauth")
@@ -95,8 +97,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 	})
 	t.Run("SpoutAuthEnabledAfter", func(t *testing.T) {
-		tu.DeleteAll(t)
-		c := tu.GetPachClient(t)
+		c, _ := minikubetestenv.AcquireCluster(t)
 
 		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
@@ -136,13 +137,21 @@ func TestSpoutPachctl(t *testing.T) {
 
 		// activate auth, which will generate a new PPS token for the pipeline and trigger
 		// the RC to be recreated
-		c = tu.GetAuthenticatedPachClient(t, auth.RootUser)
-		defer tu.DeleteAll(t)
+		c = tu.AuthenticateClient(t, c, auth.RootUser)
 
-		// make sure we can delete commits
-		commitInfo, err := c.InspectCommit(pipeline, "master", "")
-		require.NoError(t, err)
-		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
+		// Make sure we can delete commits. This needs to be retried because we race between
+		// seeing the latest commit in commitInfo and dropping it, and we can't drop a
+		// commit other than the most recent.
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			commitInfo, err := c.InspectCommit(pipeline, "master", "")
+			if err != nil {
+				return fmt.Errorf("inspect commit: %w", err) //nolint:wrapcheck
+			}
+			if err := c.DropCommitSet(commitInfo.Commit.ID); err != nil {
+				return fmt.Errorf("drop commit set: %w", err) //nolint:wrapcheck
+			}
+			return nil
+		}, "should be able to drop the latest commit")
 
 		// get 6 successive commits
 		countBreakFunc = newCountBreakFunc(6)
@@ -179,8 +188,7 @@ func TestSpoutPachctl(t *testing.T) {
 }
 
 func testSpout(t *testing.T, usePachctl bool) {
-	tu.DeleteAll(t)
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	putFileCommand := func(branch, flags, file string) string {
 		if usePachctl {
@@ -444,7 +452,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Spout: &pps.Spout{
 					Service: &pps.Service{
 						InternalPort: 8000,
-						ExternalPort: 31800,
+						ExternalPort: 31803,
 					},
 				},
 			})
@@ -452,12 +460,12 @@ func testSpout(t *testing.T, usePachctl bool) {
 		time.Sleep(20 * time.Second)
 
 		host := c.GetAddress().Host
-		serviceAddr := net.JoinHostPort(host, "31800")
+		serviceAddr := net.JoinHostPort(host, "31803")
 
 		// Write a tar stream with a single file to
 		// the tcp connection of the pipeline service's
 		// external port.
-		backoff.Retry(func() error {
+		backoff.Retry(func() error { //nolint:errcheck
 			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
 			if err != nil {
 				return errors.EnsureStack(err)

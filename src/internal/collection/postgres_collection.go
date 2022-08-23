@@ -467,6 +467,19 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 	})
 }
 
+// NOTE: Internally, List scans the collection using multiple queries,
+// making this method susceptible to inconsistent reads
+func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+	ctx, cf := context.WithCancel(context.Background())
+	defer cf()
+	return c.postgresCollection.list(ctx, nil, opts, c.tx, func(m *model) error {
+		if err := proto.Unmarshal(m.Proto, val); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return f(m.Key)
+	})
+}
+
 func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val proto.Message, opts *Options, f func(string, int64) error) error {
 	fakeRev := int64(0)
 	lastTimestamp := time.Time{}
@@ -557,7 +570,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			return errutil.ErrBreak
 		}
 
-		return watcher.sendInitial(&watch.Event{
+		return watcher.sendInitial(c.ctx, &watch.Event{
 			Key:      []byte(m.Key),
 			Value:    m.Proto,
 			Type:     watch.EventPut,
@@ -565,16 +578,16 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			Rev:      m.UpdatedAt.Unix(),
 		})
 	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
-		// Ignore any additional error here - we're already attempting to send an error to the user
-		watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-		watcher.listener.Unregister(watcher)
+		// use a background context in case we failed with context cancelled
+		watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck // already sending the error from c.list()
+		watcher.listener.Unregister(watcher)                                                      //nolint:errcheck
 		return
 	}
 
 	if bufEvent != nil {
-		if err := watcher.sendInitial(bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-			watcher.sendInitial(&watch.Event{Type: watch.EventError, Err: err})
-			watcher.listener.Unregister(watcher)
+		if err := watcher.sendInitial(c.ctx, bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+			watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck
+			watcher.listener.Unregister(watcher)                                                      //nolint:errcheck
 			return
 		}
 	}

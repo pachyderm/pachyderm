@@ -26,7 +26,7 @@ This ability to track down related commits and jobs with one global identifier b
 ## List All Global Commits And Global Jobs
 You can list all global commits by running the following command: 
 ```shell
-$ pachctl list commit
+pachctl list commit
 ```
 Each global commit displays how many (sub) commits it is made of.
 ```
@@ -37,7 +37,7 @@ e050771b5c6f4082aed48a059e1ac203 4          ▇▇▇▇▇▇▇▇ 24 seconds 
 ```
 Similarly, if you run the equivalent command for global jobs:
 ```shell
-$ pachctl list job
+pachctl list job
 ```
 you will notice that the job IDs are shared with the global commit IDs.
 
@@ -61,7 +61,7 @@ in the global commit ID 1035715e796f45caae7a1d3ffd1f93ca.
 
 To list all (sub) commits involved in a global commit:
 ```shell
-$ pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
+pachctl list commit 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 REPO         BRANCH COMMIT                           FINISHED      SIZE        ORIGIN DESCRIPTION
@@ -76,7 +76,7 @@ montage      master 1035715e796f45caae7a1d3ffd1f93ca 4 minutes ago 1.292MiB    A
 
 Similarly, change `commit` in `job` to list all (sub) jobs linked to your global job ID.
 ```shell
-$ pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
+pachctl list job 1035715e796f45caae7a1d3ffd1f93ca
 ```
 ```
 ID                               PIPELINE STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
@@ -90,7 +90,7 @@ For more information, see [Datum Processing States](../../../concepts/pipeline-c
 
 !!! Note
      The global commit and global job above are the result of
-     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting_started/beginner_tutorial/).
+     a `pachctl put file images@master -i images.txt` in the images repo of [the open cv example](../../../getting-started/beginner-tutorial/).
 
 The following diagram illustrates the global commit and its various components:
     ![global_commit_after_putfile](../images/global_commit_after_putfile.png)
@@ -104,7 +104,7 @@ Let's take a look at the origin of each commit.
 1. Inspect the commit ID 1035715e796f45caae7a1d3ffd1f93ca in the `images` repo,  the repo in which our change (`put file`) has originated:
 
     ```shell
-    $ pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
+    pachctl inspect commit images@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     Note that this original commit is of `USER` origin (i.e., the result of a user change).
 
@@ -116,7 +116,7 @@ Let's take a look at the origin of each commit.
 
 1. Inspect the following commit 1035715e796f45caae7a1d3ffd1f93ca produced in the output repos of the edges pipeline:
     ```shell
-    $ pachctl inspect commit edges@1035715e796f45caae7a1d3ffd1f93ca --raw
+    pachctl inspect commit edges@1035715e796f45caae7a1d3ffd1f93ca --raw
     ```
     ```json
     {
@@ -180,14 +180,14 @@ Let's take a look at the origin of each commit.
 
 - Besides  the `USER` and `AUTO` commits, notice a set of `ALIAS` commits in `edges.spec` and `montage.spec`:
 ```shell
-$ pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
+pachctl inspect commit edges.spec@336f02bdbbbb446e91ba27d2d2b516c6 --raw
 ```
 The version of each pipeline within their respective `.spec` repos are neither the result of a user change, nor of an automatic change.
 They have, however, contributed to the creation of the previous `AUTO` commits. 
 To make sure that we have a complete view of all the data and pipeline versions involved in all the commits resulting from the initial 
 `put file`, their version is kept as `ALIAS` commits under the same global ID.
 
-For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID){target=_blank}.
+For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/globalID){target=_blank}.
 
 ## Track Provenance Downstream
 
@@ -200,7 +200,7 @@ Change `commit` in `job` to list the jobs related to your global job as they fin
 
 ## Squash And Delete Commit
 
-See [`squash commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing_data_from_pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
+See [`squash commit`](../../../how-tos/basic-data-operations/removing-data-from-pachyderm/#squash-non-head-commits) and  [`delete commit`](../../../how-tos/basic-data-operations/removing-data-from-pachyderm/#delete-the-head-of-a-branch) in the `Delete a Commit / Delete Data` page of the How-Tos section of this Documentation.
 
 
 

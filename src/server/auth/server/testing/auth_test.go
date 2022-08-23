@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -23,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -66,10 +69,11 @@ func TestGetSetBasic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
@@ -184,10 +188,11 @@ func TestGetSetReverse(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
@@ -309,10 +314,11 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
@@ -364,10 +370,11 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
@@ -392,8 +399,9 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	type createArgs struct {
 		client     *client.APIClient
 		name, repo string
@@ -412,7 +420,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		)
 	}
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
@@ -472,7 +480,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := bobClient.WaitCommit(goodPipeline, "master", "")
 		return err
 	})
@@ -585,8 +593,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
 	type createArgs struct {
 		client *client.APIClient
 		name   string
@@ -605,8 +612,10 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			args.update,
 		)
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create two repos, and check that alice is the owner of the new repos
 	dataRepo1 := tu.UniqueString(t.Name())
@@ -779,10 +788,11 @@ func TestPipelineRevoke(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo, and adds bob as a reader
 	repo := tu.UniqueString(t.Name())
@@ -886,10 +896,11 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1017,9 +1028,11 @@ func TestStopJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1082,10 +1095,11 @@ func TestListAndInspectRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo and makes Bob a writer
 	repoWriter := tu.UniqueString(t.Name())
@@ -1190,10 +1204,11 @@ func TestGetPermissions(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, rootClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a repo and makes Bob a writer
 	repo := tu.UniqueString(t.Name())
@@ -1232,10 +1247,11 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1256,10 +1272,11 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	client, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, client)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
+	aliceClient, anonClient := tu.AuthenticateClient(t, client, alice), tu.UnauthenticatedPachClient(t, client)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1282,13 +1299,14 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	// Dont't run this test in parallel, since it deactivates the auth system
 	// globally, so any tests running concurrently will fail
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1329,10 +1347,11 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1351,10 +1370,10 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	tu.ActivateAuth(t)
-	anonClient := tu.GetUnauthenticatedPachClient(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	anonClient := tu.UnauthenticatedPachClient(t, c)
 
 	// anonClient tries and fails to create a repo
 	repo := tu.UniqueString(t.Name())
@@ -1368,10 +1387,11 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	inputRepo := tu.UniqueString(t.Name())
@@ -1416,11 +1436,11 @@ func TestAuthorizedEveryone(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1480,11 +1500,11 @@ func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1518,11 +1538,11 @@ func TestDeleteAllRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin creates a repo
 	adminRepo := tu.UniqueString(t.Name())
@@ -1549,10 +1569,11 @@ func TestListDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repoA := tu.UniqueString(t.Name())
@@ -1583,7 +1604,7 @@ func TestListDatum(t *testing.T) {
 		err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), file, strings.NewReader("test"))
 		require.NoError(t, err)
 	}
-	require.NoErrorWithinT(t, 45*time.Second, func() error {
+	require.NoErrorWithinT(t, 90*time.Second, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1641,10 +1662,11 @@ func TestListJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1667,7 +1689,7 @@ func TestListJob(t *testing.T) {
 	var err error
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1715,10 +1737,11 @@ func TestInspectDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -1742,7 +1765,7 @@ func TestInspectDatum(t *testing.T) {
 	// alice commits to the input repo, and the pipeline runs successfully
 	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1919,10 +1942,11 @@ func TestPipelineNewInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates three repos and commits to them
 	var repo []string
@@ -1964,7 +1988,7 @@ func TestPipelineNewInput(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[2]))
 
 	// make sure the pipeline runs
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -1995,7 +2019,7 @@ func TestPipelineNewInput(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[0]))
 
 	// make sure the pipeline still runs
-	require.NoErrorWithinT(t, time.Minute, func() error {
+	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
 		return err
 	})
@@ -2005,16 +2029,16 @@ func TestModifyMembers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
 	bob := robot(tu.UniqueString("bob"))
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// This is a sequence dependent list of tests
 	tests := []struct {
@@ -2131,15 +2155,15 @@ func TestSetGroupsForUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	groups := []string{organization, engineering}
 	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
@@ -2222,15 +2246,15 @@ func TestGetOwnGroups(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
 		Username: alice,
@@ -2238,7 +2262,7 @@ func TestGetOwnGroups(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 	groups, err := aliceClient.GetGroups(aliceClient.Ctx(), &auth.GetGroupsRequest{})
 	require.NoError(t, err)
 	require.ElementsEqual(t, []string{organization, engineering, security}, groups.Groups)
@@ -2254,10 +2278,11 @@ func TestGetJobsBugFix(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, anonClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetUnauthenticatedPachClient(t)
+	aliceClient, anonClient := tu.AuthenticateClient(t, c, alice), tu.UnauthenticatedPachClient(t, c)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
@@ -2305,9 +2330,11 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	alice := tu.UniqueString("alice")
 	authResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{
 		Robot: alice,
@@ -2319,7 +2346,8 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	if ip == "" {
 		ip = "127.0.0.1"
 	}
-	address := net.JoinHostPort(ip, "30600")
+	// Port set dynamically in src/internal/minikubetestenv/deploy.go
+	address := net.JoinHostPort(ip, fmt.Sprint(c.GetAddress().Port+3))
 
 	// anon login via V2 - should fail
 	minioClientV2, err := minio.NewV2(address, "", "", false)
@@ -2352,10 +2380,11 @@ func TestDeleteFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
@@ -2396,10 +2425,11 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
@@ -2440,8 +2470,11 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin makes alice an fs admin
 	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
@@ -2462,11 +2495,11 @@ func TestExtractAuthToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice can't extract auth tokens because she's not an admin
 	_, err := aliceClient.ExtractAuthTokens(aliceClient.Ctx(), &auth.ExtractAuthTokensRequest{})
@@ -2511,9 +2544,9 @@ func TestRestoreAuthToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	// Create a request to restore a token with known plaintext
 	req := &auth.RestoreAuthTokenRequest{
 		Token: &auth.TokenInfo{
@@ -2523,7 +2556,7 @@ func TestRestoreAuthToken(t *testing.T) {
 	}
 
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice can't restore auth tokens because she's not an admin
 	_, err := aliceClient.RestoreAuthToken(aliceClient.Ctx(), req)
@@ -2580,16 +2613,15 @@ func TestDebug(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	// Get all the authenticated clients at the beginning of the test.
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs
 	// change and recreates all the pods, which used to race with collecting logs.
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
 	alice := robot(tu.UniqueString("alice"))
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	dataRepo := tu.UniqueString("TestDebug_data")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
@@ -2603,7 +2635,7 @@ func TestDebug(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-				"sleep 15",
+				"sleep 45",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -2624,44 +2656,52 @@ func TestDebug(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobInfos))
 
-	// Only admins can collect a debug dump.
-	buf := &bytes.Buffer{}
-	require.YesError(t, aliceClient.Dump(nil, 0, buf))
-	require.NoError(t, adminClient.Dump(nil, 0, buf))
-	gr, err := gzip.NewReader(buf)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, gr.Close())
-	}()
-	// Check that all of the expected files were returned.
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
+	require.YesError(t, aliceClient.Dump(nil, 0, &bytes.Buffer{}))
+
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		// Only admins can collect a debug dump.
+		buf := &bytes.Buffer{}
+		require.NoError(t, adminClient.Dump(nil, 0, buf))
+		gr, err := gzip.NewReader(buf)
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
+			return err //nolint:wrapcheck
 		}
-		for pattern, g := range expectedFiles {
-			if g.Match(hdr.Name) {
-				delete(expectedFiles, pattern)
-				break
+		defer func() {
+			require.NoError(t, gr.Close())
+		}()
+		// Check that all of the expected files were returned.
+		tr := tar.NewReader(gr)
+		for {
+			hdr, err := tr.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err //nolint:wrapcheck
+			}
+			for pattern, g := range expectedFiles {
+				if g.Match(hdr.Name) {
+					delete(expectedFiles, pattern)
+					break
+				}
 			}
 		}
-	}
-	require.Equal(t, 0, len(expectedFiles))
+		if len(expectedFiles) > 0 {
+			return errors.Errorf("Debug dump hasn't produced the exepcted files: %v", expectedFiles)
+		}
+		return nil
+	})
 }
 
 func TestDeleteExpiredAuthTokens(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	// generate auth credentials
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// create a token that will instantly expire, a token that will expire later, and a token that will never expire
 	noExpirationResp, noExpErr := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "robot:alice"})
@@ -2722,13 +2762,13 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	repo := tu.UniqueString("TestRotateAuthToken")
 	require.NoError(t, aliceClient.CreateRepo(repo))
@@ -2787,13 +2827,13 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	adminClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	aliceRepo := tu.UniqueString("alice_repo")
 	err := aliceClient.CreateRepo(aliceRepo)
@@ -2823,9 +2863,11 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
 
 	// alice can view the pipeline logs
-	pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
-	pipelineLogsIter.Next()
-	require.NoError(t, pipelineLogsIter.Err())
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
+		pipelineLogsIter.Next()
+		return pipelineLogsIter.Err()
+	}, "alice can view the pipeline logs")
 
 	// PachdLogReaderRole grants authorized retrieval of pachd logs
 	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
@@ -2846,9 +2888,11 @@ func TestRolesForPermission(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.GetRolesForPermission(aliceClient.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission_REPO_READ})
 	require.NoError(t, err)
 
@@ -2867,10 +2911,11 @@ func TestLoad(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
+	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &types.Empty{})
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}

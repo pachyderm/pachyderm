@@ -1,3 +1,5 @@
+//go:build k8s
+
 package server
 
 import (
@@ -5,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -18,7 +21,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
@@ -66,7 +69,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipelineName,
@@ -88,7 +91,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := tu.GetPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
 	require.NoError(t, c.CreateRepo(dataRepo))

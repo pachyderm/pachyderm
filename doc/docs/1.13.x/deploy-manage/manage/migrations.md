@@ -5,7 +5,7 @@ cluster to get access to bug fixes and new features.
 
 !!! Info
     Visit [**Upgrade** Pachyderm](upgrades.md) if you need to
-    **move between minor releases or point releases**,
+    **move between minor releases or patch releases**,
     such as from 1.12.3 to 1.13.0.
 
 !!! Warning
@@ -52,7 +52,7 @@ file and then restore from that file.
 To back up your cluster, complete the following steps:
 
 1. Back up your cluster by running the `pachctl export` command with the
-`--no-object` flag as described in [Back up Your Cluster](../backup_restore/).
+`--no-object` flag as described in [Back up Your Cluster](../backup-restore/).
 
 1. In your cloud provider, create a new S3 bucket with the same Permissions
 policy that you assigned to the original cluster bucket. For example,
@@ -256,7 +256,7 @@ To restore your cluster, complete the following steps:
 1. If you deployed your new cluster into a different namespace on the same Kubernetes cluster as your old cluster, verify that you on the correct namespace:
 
       ```shell
-      $ pachctl config get context `pachctl config get active-context`
+      pachctl config get context `pachctl config get active-context`
       ```
 
       **Example System Response:**
@@ -301,7 +301,7 @@ To restore your cluster, complete the following steps:
 
 1. Configure any external data loading systems to point at the new,
 upgraded Pachyderm cluster and play back transactions from the checkpoint
-established at [Pause External Data Operations](../backup_restore/#pause-external-data-loading-operations).
+established at [Pause External Data Operations](../backup-restore/#pause-external-data-loading-operations).
 Perform any reconfiguration to data loading or unloading operations.
 Confirm that the data output is as expected and the new cluster is operating as expected.
 

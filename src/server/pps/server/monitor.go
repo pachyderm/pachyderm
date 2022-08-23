@@ -24,9 +24,6 @@ import (
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
-const crashingBackoff = time.Second * 15
-const scaleUpInterval = time.Second * 30
-
 // startMonitor starts a new goroutine running monitorPipeline for
 // 'pipelineInfo.Pipeline'.
 //
@@ -91,7 +88,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 	pipeline := pipelineInfo.Pipeline.Name
 	log.Printf("PPS master: monitoring pipeline %q", pipeline)
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error {
+	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
 			eg.Go(func() error {
 				return backoff.RetryNotify(func() error {
@@ -108,7 +105,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 		ciChan := make(chan *pfs.CommitInfo, 1)
 		eg.Go(func() error {
 			defer close(ciChan)
-			return backoff.RetryNotify(func() error {
+			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
 				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
@@ -132,13 +129,12 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 					pc.env.EtcdClient, pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
-				if err := pc.transitionPipelineState(ctx,
+				if err := pc.psDriver.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
 					[]pps.PipelineState{
 						pps.PipelineState_PIPELINE_RUNNING,
 						pps.PipelineState_PIPELINE_CRASHING,
 					}, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
-
 					pte := &ppsutil.PipelineTransitionError{}
 					if errors.As(err, &pte) {
 						if pte.Current == pps.PipelineState_PIPELINE_PAUSED {
@@ -150,10 +146,10 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return nil
 						} else if pte.Current != pps.PipelineState_PIPELINE_STANDBY {
 							// it's fine if we were already in standby
-							return err
+							return errors.EnsureStack(err)
 						}
 					} else {
-						return err
+						return errors.EnsureStack(err)
 					}
 				}
 				for {
@@ -176,7 +172,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
-						if err := pc.transitionPipelineState(ctx,
+						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{pps.PipelineState_PIPELINE_STANDBY},
 							pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -186,7 +182,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								// pipeline is stopped, exit monitorPipeline (see above)
 								return nil
 							}
-							return err
+							return errors.EnsureStack(err)
 						}
 
 						// Stay running while commits are available and there's still job-related compaction to do
@@ -223,7 +219,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							}
 						}
 
-						if err := pc.transitionPipelineState(ctx,
+						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
 							[]pps.PipelineState{
 								pps.PipelineState_PIPELINE_RUNNING,
@@ -238,7 +234,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								// controller
 								return nil
 							}
-							return err
+							return errors.EnsureStack(err)
 						}
 					case <-ctx.Done():
 						return errors.EnsureStack(ctx.Err())
@@ -256,19 +252,19 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	pipeline := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
-	parallelism := pipelineInfo.Parallelism
-	if parallelism == 0 {
-		parallelism = 1
-	}
-	pipelineRCName := ppsutil.PipelineRcName(pipeline, pipelineInfo.Version)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
-		workerStatus, err := workerserver.Status(ctx, pipelineRCName,
+		currRC, _, err := pc.getRC(ctx, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		parallelism := int(*currRC.Spec.Replicas)
+		workerStatus, err := workerserver.Status(ctx, pipeline, pipelineInfo.Version,
 			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
 		}
-		if int(parallelism) == len(workerStatus) {
-			if err := pc.transitionPipelineState(ctx,
+		if len(workerStatus) >= parallelism && int(currRC.Status.ReadyReplicas) >= parallelism {
+			if err := pc.psDriver.TransitionState(ctx,
 				pipelineInfo.SpecCommit,
 				[]pps.PipelineState{pps.PipelineState_PIPELINE_CRASHING},
 				pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
@@ -277,7 +273,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			cancelInner() // done--pipeline is out of CRASHING
 		}
 		return nil // loop again to check for new workers
-	}), backoff.NewConstantBackOff(crashingBackoff),
+	}), backoff.NewConstantBackOff(pc.crashingBackoff),
 		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be

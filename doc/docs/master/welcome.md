@@ -29,11 +29,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="getting_started/local_installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting-started/local-installation/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Install Pachyderm on Your Computer
           </a>
           </li>
-          <li><a href="getting_started/beginner_tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="getting-started/beginner-tutorial/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Beginner Tutorial
           </a>
         </li>
@@ -52,7 +52,7 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-          <li><a href="deploy-manage/deploy/google_cloud_platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+          <li><a href="deploy-manage/deploy/google-cloud-platform/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
           Deploy Pachyderm
           </a>
           </li>
@@ -98,11 +98,11 @@ email at support@pachyderm.io.
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <ul>
-           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/ml/hyperparameter" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Distributed Hyperparameter Tuning
            </a>
            </li>
-           <li><a href="https://github.com/pachyderm/pachyderm/tree/master/examples/gatk" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/gatk" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Variant Discovery with GATK
            </a>
            </li>
@@ -150,11 +150,11 @@ email at support@pachyderm.io.
        </div>
        <div class="mdl-card__actions mdl-card--border">
          <ul>
-           <li><a href="how-tos/time_windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="how-tos/time-windows" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Process Time-Windowed Data
            </a>
            </li>
-           <li><a href="concepts/advanced-concepts/deferred_processing/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
+           <li><a href="concepts/advanced-concepts/deferred-processing/" class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect">
            Deferred Processing of Data
            </a>
            </li>

@@ -3,6 +3,7 @@ package chunk
 import (
 	"bytes"
 	"context"
+	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -61,15 +62,9 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...Re
 	return newReader(ctx, client, s.memCache, s.deduper, s.prefetchLimit, dataRefs, opts...)
 }
 
-// NewWriter creates a new Writer for a stream of bytes to be chunked.
-// Chunks are created based on the content, then hashed and deduplicated/uploaded to
-// object storage.
-func (s *Storage) NewWriter(ctx context.Context, name string, cb WriterCallback, opts ...WriterOption) *Writer {
-	if name == "" {
-		panic("name must not be empty")
-	}
-	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
-	return newWriter(ctx, client, s.memCache, s.deduper, s.createOpts, cb, opts...)
+func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) io.Reader {
+	client := NewClient(s.store, s.db, s.tracker, nil)
+	return newDataReader(ctx, client, s.memCache, s.deduper, dataRef, 0)
 }
 
 // List lists all of the chunks in object storage.

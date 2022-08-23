@@ -1,6 +1,7 @@
 package serviceenv
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -11,11 +12,13 @@ import (
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	etcd "go.etcd.io/etcd/client/v3"
-	"golang.org/x/net/context"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	kube "k8s.io/client-go/kubernetes"
@@ -45,12 +48,15 @@ const clusterIDKey = "cluster-id"
 // separate goroutines.
 type ServiceEnv interface {
 	AuthServer() auth_server.APIServer
+	IdentityServer() identity.APIServer
 	PfsServer() pfs_server.APIServer
 	PpsServer() pps_server.APIServer
 	EnterpriseServer() enterprise_server.APIServer
 	SetAuthServer(auth_server.APIServer)
+	SetIdentityServer(identity.APIServer)
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
+	SetEnterpriseServer(enterprise_server.APIServer)
 
 	Config() *Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
@@ -61,6 +67,7 @@ type ServiceEnv interface {
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
 	GetPostgresListener() col.PostgresListener
+	InitDexDB()
 	GetDexDB() dex_storage.Storage
 	ClusterID() string
 	Context() context.Context
@@ -122,6 +129,7 @@ type NonblockingServiceEnv struct {
 	listener col.PostgresListener
 
 	authServer       auth_server.APIServer
+	identityServer   identity.APIServer
 	ppsServer        pps_server.APIServer
 	pfsServer        pfs_server.APIServer
 	enterpriseServer enterprise_server.APIServer
@@ -196,7 +204,7 @@ func (env *NonblockingServiceEnv) initClusterID() error {
 		if resp.Count == 0 {
 			// This might error if it races with another pachd trying to set the
 			// cluster id so we ignore the error.
-			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
+			client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes()) //nolint:errcheck
 		} else if err != nil {
 			return errors.EnsureStack(err)
 		} else {
@@ -237,6 +245,18 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 	opts = append(opts,
 		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
 		grpc.WithChainStreamInterceptor(grpc_prometheus.StreamClientInterceptor))
+
+	// Configure the etcd client logger to match Pachyderm's logging conventions
+	// as closely as possible (see src/internal/log/log.go)
+	logConfig := zap.NewProductionConfig()
+	logConfig.EncoderConfig.MessageKey = "message"
+	logConfig.EncoderConfig.LevelKey = "severity"
+	logConfig.EncoderConfig.TimeKey = "time"
+	logConfig.EncoderConfig.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	logConfig.EncoderConfig.LineEnding = zapcore.DefaultLineEnding
+	logConfig.EncoderConfig.EncodeLevel = zapcore.LowercaseLevelEncoder
+	logConfig.EncoderConfig.EncodeDuration = zapcore.SecondsDurationEncoder
+
 	return backoff.Retry(func() error {
 		var err error
 		env.etcdClient, err = etcd.New(etcd.Config{
@@ -247,6 +267,7 @@ func (env *NonblockingServiceEnv) initEtcdClient() error {
 			DialOptions:        opts,
 			MaxCallSendMsgSize: math.MaxInt32,
 			MaxCallRecvMsgSize: math.MaxInt32,
+			LogConfig:          &logConfig,
 		})
 		if err != nil {
 			return errors.Wrapf(err, "failed to initialize etcd client")
@@ -370,6 +391,7 @@ func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
 		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
 		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
+		dbutil.WithSSLMode(env.config.PostgresSSL),
 	)
 	// The postgres listener is lazily initialized to avoid consuming too many
 	// postgres resources by having idle client connections, so construction
@@ -406,7 +428,7 @@ func (env *NonblockingServiceEnv) GetEtcdClient() *etcd.Client {
 }
 
 func (env *NonblockingServiceEnv) GetTaskService(prefix string) task.Service {
-	return task.NewEtcdService(env.etcdClient, prefix)
+	return task.NewEtcdService(env.GetEtcdClient(), prefix)
 }
 
 // GetKubeClient returns the already connected Kubernetes API client without
@@ -512,6 +534,16 @@ func (env *NonblockingServiceEnv) AuthServer() auth_server.APIServer {
 // SetAuthServer registers an Auth APIServer with this service env
 func (env *NonblockingServiceEnv) SetAuthServer(s auth_server.APIServer) {
 	env.authServer = s
+}
+
+// IdentityServer returns the registered Identity APIServer
+func (env *NonblockingServiceEnv) IdentityServer() identity.APIServer {
+	return env.identityServer
+}
+
+// SetIdentityServer registers an Identity APIServer with this service env
+func (env *NonblockingServiceEnv) SetIdentityServer(s identity.APIServer) {
+	env.identityServer = s
 }
 
 // PpsServer returns the registered PPS APIServer

@@ -54,11 +54,7 @@ func indexOfCompacted(factor int64, inputs []*Primitive) int {
 // Compact does not renew ids.
 // It is the responsibility of the caller to renew ids.  In some cases they may be permanent and not require renewal.
 func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts ...index.Option) (*ID, error) {
-	var size int64
-	w := s.newWriter(ctx, WithTTL(ttl), WithIndexCallback(func(idx *index.Index) error {
-		size += index.SizeBytes(idx)
-		return nil
-	}))
+	w := s.newWriter(ctx, WithTTL(ttl))
 	fs, err := s.Open(ctx, ids, opts...)
 	if err != nil {
 		return nil, err
@@ -87,7 +83,7 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, ttl time.Dura
 	}
 	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
 	var id *ID
-	if err := miscutil.LogStep(fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
+	if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
 		id, err = compact(ctx, ids[i:], ttl)
 		return err
 	}); err != nil {

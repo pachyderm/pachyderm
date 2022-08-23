@@ -14,7 +14,7 @@ import (
 // New returns a new uuid.
 func New() string {
 	var result string
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error { //nolint:errcheck
 		uuid, err := uuid.NewV4()
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -30,12 +30,12 @@ func New() string {
 
 // NewWithoutDashes returns a new uuid without no "-".
 func NewWithoutDashes() string {
-	return strings.Replace(New(), "-", "", -1)
+	return strings.ReplaceAll(New(), "-", "")
 }
 
 // NewWithoutUnderscores returns a new uuid without no "_".
 func NewWithoutUnderscores() string {
-	return strings.Replace(New(), "_", "", -1)
+	return strings.ReplaceAll(New(), "_", "")
 }
 
 // IsUUIDWithoutDashes checks whether a string is a UUID without dashes

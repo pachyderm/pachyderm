@@ -1,14 +1,17 @@
+//go:build k8s
+
 package server
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -22,10 +25,7 @@ func TestActivate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate Enterprise
 	tu.ActivateEnterprise(t, client)
@@ -43,10 +43,8 @@ func TestExpired(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateEnterprise(t, client)
 
 	expires := time.Now().Add(-30 * time.Second)
 	expiresProto, err := types.TimestampProto(expires)
@@ -73,10 +71,9 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	aliceClient := tu.GetAuthenticatedPachClient(t, "robot:alice")
+	client, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, client)
+	aliceClient := tu.AuthenticateClient(t, client, "robot:alice")
 	_, err := aliceClient.License.GetActivationCode(aliceClient.Ctx(), &license.GetActivationCodeRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -88,10 +85,7 @@ func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 
 	// Activate Enterprise, which activates a license and adds a "localhost" cluster
 	tu.ActivateEnterprise(t, client)
@@ -128,10 +122,9 @@ func TestDeleteAllNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	aliceClient := tu.GetAuthenticatedPachClient(t, "robot:alice")
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	aliceClient := tu.AuthenticateClient(t, c, "robot:alice")
 	_, err := aliceClient.License.DeleteAll(aliceClient.Ctx(), &license.DeleteAllRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -142,14 +135,8 @@ func TestClusterCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
-
-	// Activate enterprise, which will register the localhost cluster
-	tu.ActivateEnterprise(t, client)
-	tu.ActivateAuth(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, client)
 
 	clusters, err := client.License.ListClusters(client.Ctx(), &license.ListClustersRequest{})
 	require.NoError(t, err)
@@ -259,44 +246,36 @@ func TestClusterCRUD(t *testing.T) {
 
 // TestAddClusterUnreachable tries to add a cluster with a misconfigured address
 // and confirms there's an error
-func TestAddClusterUnreachable(t *testing.T) {
+func TestAddClusterAddressValidation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, client)
 
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
-		Address: "grpc://bad.example",
+		Address: "",
 	})
 	require.YesError(t, err)
-	require.Matches(t, "unable to create client", err.Error())
+	require.Matches(t, "no address provided for cluster", err.Error())
 }
 
 // TestUpdateClusterUnreachable tries to update an existing cluster with a misconfigured address
 // and confirms there's an error
-func TestUpdateClusterUnreachable(t *testing.T) {
+func TestUpdateClusterAddressValidation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, client)
 
 	_, err := client.License.UpdateCluster(client.Ctx(), &license.UpdateClusterRequest{
 		Id:      "localhost",
-		Address: "grpc://bad.example",
+		Address: "",
 	})
 	require.YesError(t, err)
-	require.Matches(t, "unable to create client", err.Error())
+	require.Matches(t, "No cluster fields were provided to the UpdateCluster RPC", err.Error())
 }
 
 // TestAddClusterNoLicense tries to add a cluster with no license configured and
@@ -305,11 +284,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	client := tu.GetPachClient(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
 		Id:      "new",
 		Address: "grpc://localhost:1650",
@@ -324,10 +299,9 @@ func TestClusterCRUDNotAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	aliceClient := tu.GetAuthenticatedPachClient(t, "robot:alice")
+	client, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, client)
+	aliceClient := tu.AuthenticateClient(t, client, "robot:alice")
 
 	_, err := aliceClient.License.AddCluster(aliceClient.Ctx(), &license.AddClusterRequest{})
 	require.YesError(t, err)
@@ -358,9 +332,9 @@ func TestHeartbeat(t *testing.T) {
 	}
 
 	// Reset the cluster and enable auth, to make sure heartbeat works with auth enabled
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	rootClient := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Confirm the localhost cluster is configured as expected
 	clusters, err := rootClient.License.ListClusters(rootClient.Ctx(), &license.ListClustersRequest{})
@@ -369,7 +343,7 @@ func TestHeartbeat(t *testing.T) {
 	require.Equal(t, false, clusters.Clusters[0].AuthEnabled)
 
 	// Heartbeat using the correct shared secret, confirm the activation code is returned
-	pachClient := tu.GetUnauthenticatedPachClient(t)
+	pachClient := tu.UnauthenticatedPachClient(t, c)
 	resp, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
 		Secret:      "localhost",
@@ -393,13 +367,8 @@ func TestHeartbeatWrongSecret(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	// Reset the cluster and enable auth, to make sure heartbeat works with auth enabled
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
 	// Heartbeat using the wrong shared secret
-	pachClient := tu.GetUnauthenticatedPachClient(t)
+	pachClient, _ := minikubetestenv.AcquireCluster(t)
 	_, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
 		Secret:      "wrong secret",
@@ -413,14 +382,8 @@ func TestListUserClusters(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-	client := tu.GetPachClient(t)
-
-	// Activate enterprise, which will register the localhost cluster
-	tu.ActivateEnterprise(t, client)
-	tu.ActivateAuth(t)
+	client, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, client)
 
 	resp, err := client.Enterprise.GetState(client.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)

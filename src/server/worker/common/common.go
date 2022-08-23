@@ -5,10 +5,28 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
+
+const (
+	// MetaPrefix is the prefix for the meta path.
+	MetaPrefix = "meta"
+	// MetaFileName is the name of the meta file.
+	MetaFileName = "meta"
+	// PFSPrefix is the prefix for the pfs path.
+	PFSPrefix = "pfs"
+	// OutputPrefix is the prefix for the output path.
+	OutputPrefix = "out"
+	// TmpFileName is the name of the tmp file.
+	TmpFileName = "tmp"
+)
+
+func MetaFilePath(id string) string {
+	return path.Join(MetaPrefix, id, MetaFileName)
+}
 
 // IsDone returns true if the given context has been canceled, or false otherwise
 func IsDone(ctx context.Context) bool {
@@ -25,14 +43,14 @@ func DatumID(inputs []*Input) string {
 	hash := pfs.NewHash()
 	for _, input := range inputs {
 		hash.Write([]byte(input.Name))
-		binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
 		file := input.FileInfo.File
 		hash.Write([]byte(file.Commit.Branch.Repo.Name))
-		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name)))
 		hash.Write([]byte(file.Commit.Branch.Name))
-		binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
 		hash.Write([]byte(input.FileInfo.File.Path))
-		binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }

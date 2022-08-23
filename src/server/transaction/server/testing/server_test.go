@@ -1,3 +1,5 @@
+//go:build k8s
+
 package testing
 
 import (
@@ -8,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -472,8 +475,7 @@ func TestTransactions(suite *testing.T) {
 }
 
 func TestCreatePipelineTransaction(t *testing.T) {
-	c := testutil.GetPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	c, _ := minikubetestenv.AcquireCluster(t)
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
@@ -493,7 +495,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	commit := client.NewCommit(repo, "master", "")
-	c.PutFile(commit, "foo", strings.NewReader("bar"))
+	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)

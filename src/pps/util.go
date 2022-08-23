@@ -95,7 +95,7 @@ func InputName(input *Input) string {
 
 // SortInput sorts an Input.
 func SortInput(input *Input) {
-	VisitInput(input, func(input *Input) error {
+	VisitInput(input, func(input *Input) error { //nolint:errcheck
 		SortInputs := func(inputs []*Input) {
 			sort.SliceStable(inputs, func(i, j int) bool { return InputName(inputs[i]) < InputName(inputs[j]) })
 		}
@@ -116,7 +116,7 @@ func SortInput(input *Input) {
 // InputBranches returns the branches in an Input.
 func InputBranches(input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
-	VisitInput(input, func(input *Input) error {
+	VisitInput(input, func(input *Input) error { //nolint:errcheck
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{
@@ -166,7 +166,7 @@ func PipelineStateFromName(name string) (PipelineState, error) {
 // otherwise.
 func IsTerminal(state JobState) bool {
 	switch state {
-	case JobState_JOB_SUCCESS, JobState_JOB_FAILURE, JobState_JOB_KILLED:
+	case JobState_JOB_SUCCESS, JobState_JOB_FAILURE, JobState_JOB_KILLED, JobState_JOB_UNRUNNABLE:
 		return true
 	case JobState_JOB_CREATED, JobState_JOB_STARTING, JobState_JOB_RUNNING, JobState_JOB_EGRESSING, JobState_JOB_FINISHING:
 		return false

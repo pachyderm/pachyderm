@@ -19,4 +19,5 @@ type APIServer interface {
 	UpdateJobStateInTransaction(*txncontext.TransactionContext, *pps_client.UpdateJobStateRequest) error
 	CreatePipelineInTransaction(*txncontext.TransactionContext, *pps_client.CreatePipelineRequest) error
 	InspectPipelineInTransaction(*txncontext.TransactionContext, string) (*pps_client.PipelineInfo, error)
+	ActivateAuthInTransaction(*txncontext.TransactionContext, *pps_client.ActivateAuthRequest) (*pps_client.ActivateAuthResponse, error)
 }

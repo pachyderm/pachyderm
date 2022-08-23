@@ -4,8 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
-	"log"
+	
 	"os"
 	"os/user"
 	"path"
@@ -30,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO(2.0 optional):
@@ -97,6 +97,9 @@ type Driver interface {
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
 	NewSQLTx(func(*pachsql.Tx) error) error
+
+	// Returns the image ID associated with a container running in the worker pod
+	GetContainerImageID(context.Context, string) (string, error)
 }
 
 type driver struct {
@@ -196,7 +199,11 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 	}()
 	scanner := bufio.NewScanner(passwd)
 	for scanner.Scan() {
-		parts := strings.Split(scanner.Text(), ":")
+		text := scanner.Text()
+		parts := strings.Split(text, ":")
+		if got, want := len(parts), 6; got < want {
+			return nil, errors.Errorf("malformed /etc/passwd line %q: got %d fields, want at least %d", text, got, want)
+		}
 		if parts[0] == userOrUID || parts[2] == userOrUID {
 			result := &user.User{
 				Username: parts[0],
@@ -210,7 +217,7 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 					// groupOrGid is a group
 					group, err := lookupGroup(groupOrGID)
 					if err != nil {
-						return nil, errors.EnsureStack(err)
+						return nil, errors.Wrapf(err, "lookup group for group %v (for user id %v)", groupOrGID, userOrUID)
 					}
 					result.Gid = group.Gid
 				} else {
@@ -222,9 +229,9 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrapf(err, "scanning /etc/passwd")
 	}
-	return nil, errors.Errorf("user %s not found", userArg)
+	return nil, errors.Errorf("guess uid from transform user by reading /etc/passwd: user %s not found", userArg)
 }
 
 func lookupGroup(group string) (_ *user.Group, retErr error) {
@@ -239,7 +246,11 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 	}()
 	scanner := bufio.NewScanner(groupFile)
 	for scanner.Scan() {
-		parts := strings.Split(scanner.Text(), ":")
+		text := scanner.Text()
+		parts := strings.Split(text, ":")
+		if got, want := len(parts), 3; got < want {
+			return nil, errors.Errorf("malformed /etc/group line %q, got %d fields, want at least %d", text, got, want)
+		}
 		if parts[0] == group {
 			return &user.Group{
 				Gid:  parts[2],
@@ -247,7 +258,10 @@ func lookupGroup(group string) (_ *user.Group, retErr error) {
 			}, nil
 		}
 	}
-	return nil, errors.Errorf("group %s not found", group)
+	if err := scanner.Err(); err != nil {
+		return nil, errors.Wrapf(err, "scanning /etc/group")
+	}
+	return nil, errors.Errorf("guess gid from transform user: group %s not found", group)
 }
 
 func (d *driver) WithContext(ctx context.Context) Driver {
@@ -471,7 +485,7 @@ func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
-	entries, err := ioutil.ReadDir(d.InputDir())
+	entries, err := os.ReadDir(d.InputDir())
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -532,4 +546,19 @@ func (d *driver) UserCodeEnv(
 	}
 
 	return result
+}
+
+func (d *driver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
+	pod, err := d.env.GetKubeClient().CoreV1().Pods(d.env.Config().Namespace).Get(
+		ctx,
+		d.env.Config().WorkerSpecificConfiguration.PodName,
+		metav1.GetOptions{})
+
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == containerName {
+			imageID := containerStatus.ImageID
+			return imageID, nil
+		}
+	}
+	return "", errors.Wrapf(err, "failed to get image id for container %s", containerName)
 }

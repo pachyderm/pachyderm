@@ -7,7 +7,7 @@
     - your [IdP connector is set](../authentication/idp-dex.md).
 
 Pachyderm authorization feature follows a **Role Based Access Control** model (RBAC).
-The access control is based on **Roles**  assigned to **Users**, granting them a set of permissions on Pachyderm's **Ressources** (**Role Bindings**). 
+The access control is based on **Roles**  assigned to **Users**, granting them a set of permissions on Pachyderm's **Resources** (**Role Bindings**). 
 
 In this page we will introduce Pachyderm's various Type of Users, Ressources, and Roles.
 
@@ -33,9 +33,6 @@ Pachyderm defines 5 type of User:
 - A **All Cluster Users** (`allClusterUsers`) : A general subject that represents **everyone who has logged in to a cluster**.
 ## Resources
 Pachyderm has 2 types of resources: **Repositories**: `repo`, **Clusters**: `cluster`. 
-
-!!! Coming soon
-    Two additionnal tiers, a `project` tier between the cluster and repo levels, and the `enterprise` tier, above all clusters, at the enterprise server level, are in the works. Clusters contain one to many projects. Projects contain one to many repositories.
 
 ## Roles
 Pachyderm has a number of predefined roles granting permissions to its Resources.

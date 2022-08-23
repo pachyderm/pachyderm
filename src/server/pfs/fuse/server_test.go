@@ -1,3 +1,5 @@
+//go:build k8s
+
 package fuse
 
 import (
@@ -5,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,9 +19,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 func put(path string, body io.Reader) (*http.Response, error) {
@@ -69,26 +73,32 @@ func TestBasicServerSameNames(t *testing.T) {
 	require.NoError(t, err)
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
 
-		_, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		defer resp.Body.Close()
+		repoResp := &ListRepoResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(repoResp))
+		require.Equal(t, "repo", (*repoResp)["repo"].Name)
+		require.Equal(t, "master", (*repoResp)["repo"].Branches["master"].Name)
+
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
@@ -107,23 +117,23 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 		_, err := put("repos/repo/dev/_mount?name=repo&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "repo", filepath.Base(repos[0].Name()))
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
@@ -142,25 +152,58 @@ func TestBasicServerDifferingNames(t *testing.T) {
 		_, err := put("repos/repo/master/_mount?name=newname&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
 		require.Equal(t, "newname", filepath.Base(repos[0].Name()))
 
-		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "newname"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "newname"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "newname", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
 		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
+		data, err := os.ReadFile(filepath.Join(mountPoint, "newname", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
+	})
+}
+
+func TestRepoAccess(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	alice, bob := "robot"+tu.UniqueString("alice"), "robot"+tu.UniqueString("bob")
+	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
+
+	require.NoError(t, aliceClient.CreateRepo("repo1"))
+	commit := client.NewCommit("repo1", "master", "")
+	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, aliceClient, nil, func(mountPoint string) {
+		resp, err := get("repos")
+		require.NoError(t, err)
+
+		reposResp := &ListRepoResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
+		require.Equal(t, (*reposResp)["repo1"].Authorization, "write")
+	})
+
+	withServerMount(t, bobClient, nil, func(mountPoint string) {
+		resp, err := get("repos")
+		require.NoError(t, err)
+
+		reposResp := &ListRepoResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(reposResp))
+		require.Equal(t, (*reposResp)["repo1"].Authorization, "none")
+
+		resp, _ = put("repos/repo1/master/_mount?name=repo1&mode=ro", nil)
+		require.Equal(t, resp.StatusCode, 500)
 	})
 }
 
@@ -183,24 +226,28 @@ func TestUnmountAll(t *testing.T) {
 		_, err = put("repos/repo2/master/_mount?name=repo2&mode=ro", nil)
 		require.NoError(t, err)
 
-		repos, err := ioutil.ReadDir(mountPoint)
+		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(repos))
 
-		_, err = put("repos/_unmount", nil)
+		resp, err := put("repos/_unmount", nil)
 		require.NoError(t, err)
 
-		repos, err = ioutil.ReadDir(mountPoint)
+		defer resp.Body.Close()
+		unmountResp := &ListRepoResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(unmountResp))
+		require.Equal(t, 2, len(*unmountResp))
+
+		repos, err = os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(repos))
 	})
 }
 
 func TestConfig(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetAuthenticatedPachClient(t, auth.RootUser)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	c = tu.AuthenticateClient(t, c, auth.RootUser)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
 		type Config struct {
@@ -212,35 +259,23 @@ func TestConfig(t *testing.T) {
 		invalidCfg := &Config{ClusterStatus: "INVALID", PachdAddress: "bad_address"}
 		m := map[string]string{"pachd_address": invalidCfg.PachdAddress}
 		b := new(bytes.Buffer)
-		json.NewEncoder(b).Encode(m)
+		require.NoError(t, json.NewEncoder(b).Encode(m))
 
-		// This put call takes 30 seconds since the client attempts to connect to an
-		// endpoint for 30 seconds before timing out if it can't.
 		putResp, err := put("config", b)
 		require.NoError(t, err)
-		defer putResp.Body.Close()
-
-		putConfig := &Config{}
-		json.NewDecoder(putResp.Body).Decode(putConfig)
-
-		invalidCfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(invalidCfg.PachdAddress)
-		require.NoError(t, err)
-
-		require.Equal(t, invalidCfg.ClusterStatus, putConfig.ClusterStatus)
-		require.Equal(t, invalidCfgParsedPachdAddress.Qualified(), putConfig.PachdAddress)
-		require.NotEqual(t, invalidCfgParsedPachdAddress.Qualified(), c.GetAddress().Qualified())
+		require.Equal(t, 500, putResp.StatusCode)
 
 		cfg := &Config{ClusterStatus: "AUTH_ENABLED", PachdAddress: c.GetAddress().Qualified()}
 		m = map[string]string{"pachd_address": cfg.PachdAddress}
 		b = new(bytes.Buffer)
-		json.NewEncoder(b).Encode(m)
+		require.NoError(t, json.NewEncoder(b).Encode(m))
 
 		putResp, err = put("config", b)
 		require.NoError(t, err)
 		defer putResp.Body.Close()
 
-		putConfig = &Config{}
-		json.NewDecoder(putResp.Body).Decode(putConfig)
+		putConfig := &Config{}
+		require.NoError(t, json.NewDecoder(putResp.Body).Decode(putConfig))
 
 		cfgParsedPachdAddress, err := grpcutil.ParsePachdAddress(cfg.PachdAddress)
 		require.NoError(t, err)
@@ -255,7 +290,7 @@ func TestConfig(t *testing.T) {
 		defer getResp.Body.Close()
 
 		getConfig := &Config{}
-		json.NewDecoder(getResp.Body).Decode(getConfig)
+		require.NoError(t, json.NewDecoder(getResp.Body).Decode(getConfig))
 
 		require.Equal(t, cfg.ClusterStatus, getConfig.ClusterStatus)
 		require.Equal(t, cfg.PachdAddress, getConfig.PachdAddress)
@@ -263,12 +298,10 @@ func TestConfig(t *testing.T) {
 }
 
 func TestAuthLoginLogout(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	// Auth is activated in this step
-	tu.ConfigureOIDCProvider(t)
-	c := tu.GetUnauthenticatedPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c))
+	c = tu.UnauthenticatedPachClient(t, c)
 
 	withServerMount(t, c, nil, func(mountPoint string) {
 		authResp, err := put("auth/_login", nil)
@@ -279,7 +312,7 @@ func TestAuthLoginLogout(t *testing.T) {
 			AuthUrl string `json:"auth_url"`
 		}
 		getAuthLogin := &AuthLoginResp{}
-		json.NewDecoder(authResp.Body).Decode(getAuthLogin)
+		require.NoError(t, json.NewDecoder(authResp.Body).Decode(getAuthLogin))
 
 		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
 		time.Sleep(1 * time.Second)
@@ -296,32 +329,74 @@ func TestAuthLoginLogout(t *testing.T) {
 }
 
 func TestUnauthenticatedCode(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
-
-	c := tu.GetUnauthenticatedPachClient(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 200, resp.StatusCode)
 	})
 
-	tu.ActivateAuth(t)
-	c = tu.GetUnauthenticatedPachClient(t)
+	c = tu.UnauthenticatedPachClient(t, c)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 401, resp.StatusCode)
 	})
 
-	c = tu.GetAuthenticatedPachClient(t, "test")
+	c = tu.AuthenticateClient(t, c, "test")
 	withServerMount(t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 200, resp.StatusCode)
 	})
 }
 
+func TestMultipleMount(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "master", "")
+	err := env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, env.PachClient.CreateRepo("repo2"))
+	commit = client.NewCommit("repo2", "master", "")
+	err = env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		_, err := put("repos/repo/master/_mount?name=mount1&mode=ro", nil)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_mount?name=mount2&mode=ro", nil)
+		require.NoError(t, err)
+
+		repos, err := os.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(repos))
+		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
+		require.Equal(t, "mount2", filepath.Base(repos[1].Name()))
+
+		data, err := os.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+		data, err = os.ReadFile(filepath.Join(mountPoint, "mount2", "dir", "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+
+		_, err = put("repos/repo/master/_unmount?name=mount2", nil)
+		require.NoError(t, err)
+
+		repos, err = os.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(repos))
+		require.Equal(t, "mount1", filepath.Base(repos[0].Name()))
+
+		data, err = os.ReadFile(filepath.Join(mountPoint, "mount1", "dir", "file"))
+		require.NoError(t, err)
+		require.Equal(t, "foo", string(data))
+
+		resp, _ := put("repos/repo2/master/_mount?name=mount1&mode=ro", nil)
+		require.Equal(t, 500, resp.StatusCode)
+	})
+}
+
 func TestMountNonexistentRepo(t *testing.T) {
-	tu.DeleteAll(t)
-	defer tu.DeleteAll(t)
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
@@ -358,10 +433,196 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 		}
 	}()
 	go func() {
-		mountErr = Server(c, sopts)
+		mountErr = Server(sopts, c)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.
 	time.Sleep(2 * time.Second)
 	f(dir)
+}
+
+func TestRwUnmountCreatesCommit(t *testing.T) {
+	// Unmounting a mounted read-write filesystem which has had some data
+	// written to it results in a new commit with that data in it.
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = os.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_unmount?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+	})
+}
+
+func TestRwCommitCreatesCommit(t *testing.T) {
+	// Commit operation creates a commit.
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = os.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+	})
+}
+
+func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
+	// Two sequential commit operations create two commits (and they contain the
+	// correct files).
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = os.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+
+		// another file!
+		err = os.WriteFile(
+			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 2)
+	})
+}
+
+func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
+	// Commit and then unmount results in two commits, since unmounting creates
+	// one too.
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo("repo"))
+	client.NewCommit("repo", "master", "")
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		resp, err := put("repos/repo/master/_mount?name=repo&mode=rw", nil)
+		require.NoError(t, err)
+
+		commits, err := env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// the commit created above isn't actually written until we unmount, so
+		// we currently have 0 commits
+		require.Equal(t, len(commits), 0)
+		defer resp.Body.Close()
+		err = os.WriteFile(
+			filepath.Join(mountPoint, "repo", "file1"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_commit?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 1)
+
+		// another file!
+		err = os.WriteFile(
+			filepath.Join(mountPoint, "repo", "file2"), []byte("hello"), 0644,
+		)
+		require.NoError(t, err)
+		_, err = put("repos/repo/master/_unmount?name=repo", nil)
+		require.NoError(t, err)
+
+		commits, err = env.PachClient.ListCommitByRepo(&pfs.Repo{
+			Name: "repo",
+			Type: pfs.UserRepoType,
+		})
+		require.NoError(t, err)
+		// we have one more commit than we did previously!
+		require.Equal(t, len(commits), 2)
+	})
+}
+
+func TestHealth(t *testing.T) {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	_, err := get("health")
+	require.YesError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		_, err = get("health")
+		require.NoError(t, err)
+	})
 }

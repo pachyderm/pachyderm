@@ -96,7 +96,7 @@ a public or private image registry, such as
 Alternatively, you can use the Pachyderm's built-in functionality to
 tag, and push images by running the `pachctl update pipeline` command
 with the `--push-images` flag. For more information, see
-[Update a pipeline](../../pipeline-operations/updating_pipelines).
+[Update a pipeline](../../pipeline-operations/updating-pipelines).
 
 1. Log in to an image registry.
 
@@ -135,7 +135,7 @@ parameters:
     require you to specify all of these parameters. 
     Spout pipelines, for example, do not have input repos.
 
-Check our reference [pipeline specification](../../../reference/pipeline_spec) page, for a list of all available fields in a pipeline specification file.
+Check our reference [pipeline specification](../../../reference/pipeline-spec) page, for a list of all available fields in a pipeline specification file.
 
 You can store your pipeline specifications locally or in a remote location, such
 as a GitHub repository.
@@ -187,6 +187,6 @@ parameter, as well as many others, in the pipeline specification.
      ```
 
 !!! note "See Also:"
-    - [Updating Pipelines](../../pipeline-operations/updating_pipelines)
+    - [Updating Pipelines](../../pipeline-operations/updating-pipelines)
  
 

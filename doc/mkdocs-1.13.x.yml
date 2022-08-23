@@ -13,7 +13,7 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.1.4'
+pach_featured_version: '2.3.1'
 pach_latest_version: '1.13.4'
 pach_major_minor_version: '1.13'
 search_index_version: '1.13.x'
@@ -101,18 +101,16 @@ nav:
         - Contributing:
             - Setup for Contributors: contributing/setup.md
             - Repo Layout: contributing/repo-layout.md
-            - Supported releases: contributing/supported-releases.md   
             - Coding Conventions: contributing/coding-conventions.md
             - Documentation Style Guide: contributing/docs-style-guide.md
-            - Gcloud Cluster Setup: contributing/gcloud-setup.md 
             - Developing Pachyderm in Windows with VSCode: contributing/windows.md
     - Getting Started:
-        - Overview: getting_started/index.md
-        - Local Installation: getting_started/local_installation.md
-        - Install pachctl Autocompletion: getting_started/install-pachctl-completion.md
-        - Use Pachctl Shell: deploy-manage/manage/pachctl_shell.md
-        - Deploy Pachyderm on Windows: getting_started/wsl-deploy.md
-        - Beginner Tutorial: getting_started/beginner_tutorial.md
+        - Overview: getting-started/index.md
+        - Local Installation: getting-started/local-installation.md
+        - Install pachctl Autocompletion: getting-started/install-pachctl-completion.md
+        - Use Pachctl Shell: deploy-manage/manage/pachctl-shell.md
+        - Deploy Pachyderm on Windows: getting-started/wsl-deploy.md
+        - Beginner Tutorial: getting-started/beginner-tutorial.md
     - Concepts:
         - Overview: concepts/index.md
         - Versioned Data Concepts:
@@ -140,8 +138,8 @@ nav:
                 - Group: concepts/pipeline-concepts/datum/group.md
                 - Datum Processing States: concepts/pipeline-concepts/datum/datum-processing-states.md
         - Advanced Concepts:
-            - Deferred Processing of Data: concepts/advanced-concepts/deferred_processing.md
-            - Distributed Computing: concepts/advanced-concepts/distributed_computing.md
+            - Deferred Processing of Data: concepts/advanced-concepts/deferred-processing.md
+            - Distributed Computing: concepts/advanced-concepts/distributed-computing.md
     - How-Tos:
         - Overview: how-tos/index.md
         - Workflow: 
@@ -159,11 +157,11 @@ nav:
                 - Export Your Data with egress: how-tos/basic-data-operations/export-data-out-pachyderm/export-data-egress.md
                 - Mount a Repo to a Local Computer: how-tos/basic-data-operations/export-data-out-pachyderm/mount-repo-to-local-computer.md        
             - Ingress and Egress Data from an External Object Store: how-tos/basic-data-operations/ingressing_from_diff_cloud.md
-            - Delete Data: how-tos/basic-data-operations/removing_data_from_pachyderm.md
+            - Delete Data: how-tos/basic-data-operations/removing-data-from-pachyderm.md
         - Pipeline Operations:
             - Test your datums: concepts/pipeline-concepts/datum/glob-pattern/#test-your-datums
             - Create a Pipeline: how-tos/pipeline-operations/create-pipeline.md
-            - Update a Pipeline: how-tos/pipeline-operations/updating_pipelines.md
+            - Update a Pipeline: how-tos/pipeline-operations/updating-pipelines.md
             - Run a Pipeline on a Specific Commit: how-tos/pipeline-operations/run_pipeline.md
             - Delete a Pipeline: how-tos/pipeline-operations/delete-pipeline.md
             - Monitor Job Progress: how-tos/pipeline-operations/monitor-job-progress.md
@@ -173,9 +171,9 @@ nav:
                 - Overview: how-tos/advanced-data-operations/splitting-data/index.md
                 - Splitting Data for Distributed Processing: how-tos/advanced-data-operations/splitting-data/splitting.md
                 - Adjusting Data Processing by Splitting Data: how-tos/advanced-data-operations/splitting-data/adjusting_data_processing_w_split.md
-            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time_windows.md
+            - Processing Time-Windowed Data: how-tos/advanced-data-operations/time-windows.md
             - Use Transactions: how-tos/advanced-data-operations/use-transactions-to-run-multiple-commands.md
-            - Skip Failed Datums: how-tos/advanced-data-operations/err_cmd.md    
+            - Skip Failed Datums: how-tos/advanced-data-operations/err-cmd.md    
             - Attach a Volume to your Pipeline:  how-tos/advanced-data-operations/mount-volume.md   
         - Use Pachyderm IDE:
             - Overview: how-tos/use-pachyderm-ide/index.md
@@ -184,20 +182,19 @@ nav:
         - Overview: deploy-manage/index.md
         - Deploy Pachyderm:
             - Overview: deploy-manage/deploy/index.md
-            - Getting Started with Pachyderm Hub: hub/hub_getting_started.md
-            - Deploy with Helm: deploy-manage/deploy/helm_install.md
+            - Deploy with Helm: deploy-manage/deploy/helm-install.md
             - Production Deployments:
-                - Deploy on GKE: deploy-manage/deploy/google_cloud_platform.md
                 - Deploy on AWS:
                     - Overview: deploy-manage/deploy/amazon_web_services/index.md
                     - Deploy Pachyderm on Amazon EKS: deploy-manage/deploy/amazon_web_services/deploy-eks.md
                     - Deploy Kubernetes with kops: deploy-manage/deploy/amazon_web_services/aws-deploy-kubernetes-kops.md
                     - Deploy Pachyderm on AWS: deploy-manage/deploy/amazon_web_services/aws-deploy-pachyderm.md
                     - Deploy a Pachyderm Cluster with CloudFront: deploy-manage/deploy/amazon_web_services/aws_cloudfront.md
+                - Deploy on GKE: deploy-manage/deploy/google-cloud-platform.md
                 - Deploy on Azure: deploy-manage/deploy/azure.md
                 - Deploy on IBM CLoud: deploy-manage/deploy/ibmcloud-openshift.md
                 - Deploy on OpenShift: deploy-manage/deploy/openshift.md
-                - Deploy On-Premises: deploy-manage/deploy/on_premises.md
+                - Deploy On-Premises: deploy-manage/deploy/on-premises.md
             - Deploy Pachyderm IDE: deploy-manage/deploy/deploy-pachyderm-ide.md
             - Create a Custom Deployment:
                 - Overview: deploy-manage/deploy/deploy_custom/index.md
@@ -209,7 +206,7 @@ nav:
                 - Additional flags: deploy-manage/deploy/deploy_custom/deploy_custom_additional_flags.md
             - Additional Customizations:
                 - Import a Kubernetes Context: deploy-manage/deploy/import-kubernetes-context.md
-                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy_w_tls.md
+                - Deploy Pachyderm with TLS: deploy-manage/deploy/deploy-w-tls.md
                 - Deploy in a Custom Namespace: deploy-manage/deploy/namespaces.md
                 - Deploy a Custom Object Store: deploy-manage/deploy/non-cloud-object-stores.md
                 - Configure RBAC: deploy-manage/deploy/rbac.md
@@ -222,8 +219,6 @@ nav:
                 - Enable logs aggregation with Loki: deploy-manage/deploy/loki.md
                 - Monitor cluster metrics with Prometheus: 
                     - Set up Prometheus: deploy-manage/deploy/prometheus/index.md
-                    - List of pachd metrics: deploy-manage/deploy/prometheus/pachd_metrics.md
-                    - List of pipeline metrics: deploy-manage/deploy/prometheus/job_metrics.md
                 - Configure Environment Variables: deploy-manage/deploy/environment-variables.md
         - Manage Pachyderm:
             - Overview: deploy-manage/manage/index.md
@@ -236,21 +231,22 @@ nav:
                 - Unsupported Operations: deploy-manage/manage/s3gateway/unsupported-operations.md
             - Disable Usage Metrics: deploy-manage/manage/disable-metrics.md
             - Upgrades and Migrations:
-                - Overview: deploy-manage/manage/upgrades_migrations.md
+                - Overview: deploy-manage/manage/upgrades-migrations.md
                 - Migrate to a Major Version: deploy-manage/manage/migrations.md
                 - Upgrade your Cluster: deploy-manage/manage/upgrades.md
-            - Backup and Restore: deploy-manage/manage/backup_restore.md
+            - Backup and Restore: deploy-manage/manage/backup-restore.md
             - Optimize Performance:
-                - Storage Use Optimization: deploy-manage/manage/data_management.md
+                - Storage Use Optimization: deploy-manage/manage/data-management.md
                 - Use GPUs: deploy-manage/manage/gpus.md
                 - Share GPU Resources: deploy-manage/manage/sharing_gpu_resources.md
     - Reference:
         - Overview: reference/index.md
-        - COMMUNITY EDITION LIMITS: reference/scaling_limits.md
-        - Pipeline Specification: reference/pipeline_spec.md
-        - Pachyderm Config Specification: reference/config_spec.md
+        - COMMUNITY EDITION LIMITS: reference/scaling-limits.md
+        - Supported releases: reference/supported-releases.md
+        - Pipeline Specification: reference/pipeline-spec.md
+        - Pachyderm Config Specification: reference/config-spec.md
         - Pachyderm Language Clients: reference/clients.md
-        - S3 Gateway API Reference: reference/s3gateway_api.md
+        - S3 Gateway API Reference: reference/s3gateway-api.md
         - Pachctl Reference:
             - reference/pachctl/pachctl.md
             - reference/pachctl/pachctl_auth.md
@@ -420,9 +416,9 @@ nav:
         - Advanced Statistics: enterprise/stats.md
     - Troubleshooting:
         - Overview: troubleshooting/index.md
-        - General Troubleshooting: troubleshooting/general_troubleshooting.md
-        - Deployment Troubleshooting: troubleshooting/deploy_troubleshooting.md
-        - Pipeline Troubleshooting: troubleshooting/pipeline_troubleshooting.md
+        - General Troubleshooting: troubleshooting/general-troubleshooting.md
+        - Deployment Troubleshooting: troubleshooting/deploy-troubleshooting.md
+        - Pipeline Troubleshooting: troubleshooting/pipeline-troubleshooting.md
 
 # Google Analytics
 #google_analytics:

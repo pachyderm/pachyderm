@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"math/rand"
 	"net/http"
 	"sync"
@@ -126,7 +126,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 	f.stopChans = append(f.stopChans, stopChan)
 	f.stopChansLock.Unlock()
 
-	fw, err := portforward.New(dialer, ports, stopChan, readyChan, ioutil.Discard, f.logger)
+	fw, err := portforward.New(dialer, ports, stopChan, readyChan, io.Discard, f.logger)
 	if err != nil {
 		return 0, err
 	}

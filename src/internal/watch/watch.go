@@ -117,13 +117,20 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			internalWatcher.Close()
 		}()
 		for _, etcdKv := range resp.Kvs {
-			eventCh <- &Event{
+			e := &Event{
 				Key:      bytes.TrimPrefix(etcdKv.Key, []byte(trimPrefix)),
 				Value:    etcdKv.Value,
 				Type:     EventPut,
 				Rev:      etcdKv.ModRevision,
 				Ver:      etcdKv.Version,
 				Template: template,
+			}
+			select {
+			case eventCh <- e:
+			case <-done:
+				return nil
+			case <-ctx.Done():
+				return errors.EnsureStack(ctx.Err())
 			}
 		}
 		for {
@@ -175,7 +182,7 @@ func NewEtcdWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix
 			}
 			nextRevision = resp.Header.Revision + 1
 		}
-	}()
+	}() //nolint:errcheck
 
 	return &etcdWatcher{
 		eventCh: eventCh,

@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	gotls "crypto/tls"
 	"fmt"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 
 	adminclient "github.com/pachyderm/pachyderm/v2/src/admin"
 	authclient "github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	eprsclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	identityclient "github.com/pachyderm/pachyderm/v2/src/identity"
@@ -46,7 +46,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -54,7 +53,9 @@ import (
 
 func RunLocal() (retErr error) {
 	config := &serviceenv.PachdFullConfiguration{}
-	cmdutil.Populate(config)
+	if err := cmdutil.Populate(config); err != nil {
+		return err
+	}
 
 	config.PostgresSSL = "disable"
 
@@ -68,7 +69,7 @@ func RunLocal() (retErr error) {
 	defer func() {
 		if retErr != nil {
 			log.Errorf("error: %v", retErr)
-			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2) //nolint:errcheck
 		}
 	}()
 	switch logLevel := os.Getenv("LOG_LEVEL"); logLevel {
@@ -167,6 +168,7 @@ func RunLocal() (retErr error) {
 				return err
 			}
 			identityclient.RegisterAPIServer(externalServer.Server, idAPIServer)
+			env.SetIdentityServer(idAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -211,7 +213,7 @@ func RunLocal() (retErr error) {
 			return err
 		}
 		if err := logGRPCServerSetup("License API", func() error {
-			licenseAPIServer, err := licenseserver.New(licenseserver.Env{})
+			licenseAPIServer, err := licenseserver.New(&licenseserver.Env{})
 			if err != nil {
 				return err
 			}
@@ -245,6 +247,7 @@ func RunLocal() (retErr error) {
 				env,
 				env.Config().PachdPodName,
 				nil,
+				env.GetDBClient(),
 			))
 			return nil
 		}); err != nil {
@@ -297,6 +300,7 @@ func RunLocal() (retErr error) {
 				false,
 			)
 			identityclient.RegisterAPIServer(internalServer.Server, idAPIServer)
+			env.SetIdentityServer(idAPIServer)
 			return nil
 		}); err != nil {
 			return err
@@ -382,9 +386,7 @@ func RunLocal() (retErr error) {
 		return internalServer.Wait()
 	})
 	go waitForError("S3 Server", errChan, requireNoncriticalServers, func() error {
-		router := s3.Router(s3.NewMasterDriver(), func() (*client.APIClient, error) {
-			return client.NewFromURI(fmt.Sprintf("localhost:%d", env.Config().PeerPort))
-		})
+		router := s3.Router(s3.NewMasterDriver(), env.GetPachClient)
 		server := s3.Server(env.Config().S3GatewayPort, router)
 
 		if err != nil {
@@ -405,8 +407,9 @@ func RunLocal() (retErr error) {
 		return errors.EnsureStack(server.ListenAndServeTLS(certPath, keyPath))
 	})
 	go waitForError("Prometheus Server", errChan, requireNoncriticalServers, func() error {
-		http.Handle("/metrics", promhttp.Handler())
-		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), nil))
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		return errors.EnsureStack(http.ListenAndServe(fmt.Sprintf(":%v", env.Config().PrometheusPort), mux))
 	})
 	return <-errChan
 }
