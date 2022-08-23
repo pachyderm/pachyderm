@@ -25,7 +25,7 @@ You can hold a commit open during a job with `python_pachyderm`.
 ```python
 with client.commit("spark_s3g_demo", "master") as commit:
     print(f"Opening commit {commit} for spark job")
-    df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.spark_s3g_demo/nonemptyprefix13")
+    df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.spark_s3g_demo/example")
     print(f"Closing {commit}")
 ```
 
