@@ -341,9 +341,7 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 				if idx.Path == prev.Path {
 					validationError = fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, idx.Path, idx.File.Datum)
 				} else if strings.HasPrefix(idx.Path, prev.Path+"/") {
-					// for compatibility with S3 semantics, we allow files /0
-					// and /0/1 to simultaneously exist.
-					validationError = "" //was: fmt.Sprintf("file / directory path collision (%v)", idx.Path)
+					validationError = fmt.Sprintf("file / directory path collision (%v)", idx.Path)
 				}
 			}
 			prev = idx

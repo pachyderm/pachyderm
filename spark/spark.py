@@ -44,7 +44,13 @@ print(sc.getConf().getAll())
 df = spark.createDataFrame([ Row(a=1, b=2.,) ])
 df.show()
 
-# df.write.parquet('s3a://master.rando2/nonemptyprefix6', mode="overwrite")
-df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.rando2/nonemptyprefix11")
-# df.coalesce(1).write.format("parquet").mode("overwrite").save("local")
+import python_pachyderm
+client = python_pachyderm.Client()
+
+with client.commit("rando2", "master") as commit:
+    print(f"Opening commit {commit} for spark job")
+    # df.write.parquet('s3a://master.rando2/nonemptyprefix6', mode="overwrite")
+    df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.rando2/nonemptyprefix13")
+    print(f"Closing {commit}")
+    # df.coalesce(1).write.format("parquet").mode("overwrite").save("local")
 
