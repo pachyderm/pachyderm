@@ -62,7 +62,7 @@ wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.3/hadoop-aw
 wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.264/aws-java-sdk-bundle-1.12.264.jar
 ```
 
-Now run the example:
+Now write this `spark.py`:
 
 ```python
 from pyspark.sql import SparkSession, Row, DataFrame
@@ -104,4 +104,9 @@ with client.commit(repo, branch) as commit:
     print(f"Opening commit {commit} for spark job")
     df.coalesce(1).write.format("parquet").mode("overwrite").save(f"s3a://{branch}.{repo}/example_data")
     print(f"Closing {commit}")
+```
+
+And run it with:
+```
+spark-submit --jars 'hadoop-aws-3.3.3.jar,aws-java-sdk-bundle-1.12.264.jar' spark.py 2>&1 |tee -a spark-log.txt
 ```
