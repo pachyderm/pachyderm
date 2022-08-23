@@ -18,7 +18,7 @@ conf.set('spark.hadoop.fs.s3a.connection.ssl.enabled', 'false')
 You may need to customize these for your own Pachyderm installation.
 
 You need to ensure you open a commit for the duration of the Spark job, otherwise you will see errors.
-This is because Spark's s3a driver writes temporary files with the same names as directories. This works in S3 but not when closing commits: in this case you get a "file / directory path collision" error on the commits that the S3 gateway generates. Holding a commit open throughout the Spark job allows it to complete without errors.
+This is because Spark's s3a driver writes temporary files with the same names as directories. This works in S3, but not in Pachyderm when closing commits: in this case you get a "file / directory path collision" error on the commits that the S3 gateway generates. Holding a commit open throughout the Spark job allows it to complete without errors.
 
 You can hold a commit open during a job with `python_pachyderm`.
 
