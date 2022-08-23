@@ -89,6 +89,17 @@ func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
 }
 
 func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
+	// TODO: This code ensures that we only read metadata for the meta files.
+	// There may be a better way to do this.
+	if pathRange == nil {
+		pathRange = &pfs.PathRange{}
+	}
+	if pathRange.Lower == "" {
+		pathRange.Lower = path.Join("/", common.MetaPrefix)
+	}
+	if pathRange.Upper == "" {
+		pathRange.Upper = path.Join("/", common.MetaPrefix+"_")
+	}
 	req := &pfs.GetFileRequest{
 		File:      commit.NewFile(path.Join("/", common.MetaFilePath("*"))),
 		PathRange: pathRange,

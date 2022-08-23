@@ -216,7 +216,8 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			if baseFileSetID != "" {
 				fileSetIDs = append(fileSetIDs, baseFileSetID)
 			}
-			shards, err := common.Shard(pachClient, fileSetIDs)
+			// TODO: We may want to create additional shards if the new job has much less datums.
+			shards, err := pachClient.ShardFileSet(fileSetID)
 			if err != nil {
 				return err
 			}
