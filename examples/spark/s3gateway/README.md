@@ -110,3 +110,5 @@ And run it with:
 ```
 spark-submit --jars 'hadoop-aws-3.3.3.jar,aws-java-sdk-bundle-1.12.264.jar' spark.py 2>&1 |tee -a spark-log.txt
 ```
+
+If you have any issues, please report them to us on Slack, and include the `spark-log.txt` file.
