@@ -289,6 +289,19 @@ func (c *Config) write(path string) error {
 	return nil
 }
 
+func WritePachTokenToConfigPath(token string, path string, enterpriseContext bool) error {
+	config := &Config{}
+	var raw []byte
+	var err error
+	if raw, err = os.ReadFile(path); err != nil {
+		return errors.Wrapf(err, "could not read config at %q", path)
+	}
+	if err = serde.Decode(raw, config); err != nil {
+		return errors.Wrapf(err, "could not parse config json at %q", path)
+	}
+	return writePachTokenToConfig(token, config, path, enterpriseContext)
+}
+
 // WritePachTokenToConfig sets the auth token for the current pachctl config.
 // Used during tests to ensure we don't lose access to a cluster if a test fails.
 func WritePachTokenToConfig(token string, enterpriseContext bool) error {
@@ -297,7 +310,7 @@ func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
 	return writePachTokenToConfig(token, cfg, configPath(), enterpriseContext)
-}
+} //
 
 func writePachTokenToConfig(token string, cfg *Config, path string, enterpriseContext bool) error {
 	if enterpriseContext {
