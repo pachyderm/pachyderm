@@ -212,10 +212,6 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 		pachClient := pj.driver.PachClient()
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
-			fileSetIDs := []string{fileSetID}
-			if baseFileSetID != "" {
-				fileSetIDs = append(fileSetIDs, baseFileSetID)
-			}
 			// TODO: We may want to create additional shards if the new job has much less datums.
 			shards, err := pachClient.ShardFileSet(fileSetID)
 			if err != nil {

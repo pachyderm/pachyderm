@@ -11,10 +11,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (a *apiServer) worker() error {
+func (a *apiServer) worker() {
 	ctx := a.env.BackgroundContext
 	taskSource := a.env.TaskService.NewSource(ppsTaskNamespace)
-	return backoff.RetryUntilCancel(ctx, func() error {
+	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *types.Any) (*types.Any, error) {
 			switch {
 			case datum.IsTask(input):
