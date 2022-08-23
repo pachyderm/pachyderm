@@ -311,6 +311,10 @@ spec:
         - name: IDENTITY_SERVER_DATABASE
           value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
         {{ end }}
+        {{- if .Release.IsUpgrade }}
+        - name: UPGRADE_NO_OP
+          value: {{ randAlphaNum 32 }}
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
