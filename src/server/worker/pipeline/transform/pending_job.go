@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -303,14 +302,8 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 		pachClient := pj.driver.PachClient()
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
-			baseFileSetID, err := pachClient.GetFileSet(baseMetaCommit.Branch.Repo.Name, baseMetaCommit.Branch.Name, baseMetaCommit.ID)
-			if err != nil {
-				return err
-			}
-			if err := renewer.Add(ctx, baseFileSetID); err != nil {
-				return err
-			}
-			shards, err := common.Shard(pachClient, []string{fileSetID, baseFileSetID})
+			// TODO: We may want to create additional shards if the new job has much less datums.
+			shards, err := pachClient.ShardFileSet(fileSetID)
 			if err != nil {
 				return err
 			}
