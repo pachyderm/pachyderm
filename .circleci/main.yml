@@ -7,6 +7,11 @@ aliases:
       ignore: /.*/
     tags:
       only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  - &only-nightly-tags
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^v\d+\.\d+\.\d+-nightly+(\.[0-9A-Za-z-]+)*?$/
 
 orbs:
   go: circleci/go@1.7.1
@@ -21,6 +26,9 @@ parameters:
   go-version:
     type: string
     default: "1.19"
+  working-pachyderm-version:
+    type: string
+    default: "v2.4.0"
 
 executors:
   docker-go:
@@ -542,6 +550,43 @@ jobs:
       - store_artifacts:
           path: /tmp/debug-dump
           destination: debug-dump
+  create-nightly-tag:
+    executor: docker-go
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"
+      - run:
+          name: create nightly tag if new commits
+          command: |
+            changes=$( env -i git log --pretty=oneline --since='yesterday' | wc -l )
+            if [ $changes -gt 0 ]; then
+              TIMESTAMP=$(date +'%Y%m%d%T' | sed 's/://g')
+              WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
+              NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
+              git tag -f -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
+              git push -f origin ${NIGHTLY}
+            else
+              echo "No new changes, skipping tonight's build."
+            fi
+  auto-approve:
+    resource_class: small
+    docker:
+      - image: cimg/base:stable
+    steps:
+      run: |
+        jobid=$( curl --request GET --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/job \
+        --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}' | jq -r '.items[]  | select(.name == "sign-off") | .approval_request_id' )
+
+        curl --request POST \
+        --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/approve/${jobid} \
+        --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}'
   release-github-draft:
     docker:
       - image: cimg/base:stable
@@ -678,6 +723,16 @@ workflows:
                   #- LOAD13
                   #- LOAD14
                   #- LOAD15
+  create-nightly-tag:
+    triggers:
+      - schedule:
+          cron: "0 6 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - create-nightly-tag
   rootless-tests:
     jobs:
       - rootless
@@ -743,6 +798,10 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      - auto-approve:
+          filters: *only-nightly-tags
+          requires:
+            - pachyderm-prerelease-testing
       - sign-off:
           filters: *only-release-tags
           type: approval
