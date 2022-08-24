@@ -65,7 +65,7 @@ const pages = [
           <h6>This tutorial uses real resources</h6>
         </div>
         <p>
-          We will provde the files needed to run this tutorial, but you will be
+          We will provide the files needed to run this tutorial, but you will be
           creating real repositories and pipelines. You can continue to use this
           project to play test Pachyderm after the tutorial is completed. When
           you&apos;re ready to delete everything, you can follow this guide on
