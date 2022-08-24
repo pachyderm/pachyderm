@@ -4551,7 +4551,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 1",
+			"sleep 10",
 		},
 		nil,
 		client.NewPFSInput(dataRepo, "/*"),
@@ -4569,8 +4569,8 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	_, err = c.WaitJob(pipeline, commit1.ID, true)
-	require.NoError(t, err)
+	//_, err = c.WaitJob(pipeline, commit1.ID, true)
+	//require.NoError(t, err)
 	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
 	_, err = c.WaitJob(pipeline, commit1.ID, true)
 	require.NoError(t, err)
