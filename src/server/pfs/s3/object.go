@@ -6,6 +6,7 @@ package s3
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -44,7 +45,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 
 	// We use listFileResult[0] rather than InspectFile result since InspectFile
 	// on a path that has both a file and a directory in it returns the
-	// directory. However, ListFile will show it as a file, if it exists.
+	// directory. However, ListFile
 	var firstFile *pfs.FileInfo
 	err = pc.ListFile(bucket.Commit, file, func(fi *pfs.FileInfo) (retErr error) {
 		if firstFile == nil {
@@ -62,9 +63,16 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	}
 	fileInfo := firstFile
 
+	// fileInfo, err := pc.InspectFile(bucket.Commit, file)
+	// if err != nil {
+	// 	return nil, maybeNotFoundError(r, err)
+	// }
+
 	// the exact object named does not exist, but perhaps is a "directory".
 	// "directories" do not actually exist, and certainly cannot be read.
 	// ("seeker can't seek")
+
+	log.Printf("==================== %s - %s", fileInfo.File.Path[1:], file)
 	if fileInfo.File.Path[1:] != file {
 		return nil, s2.NoSuchKeyError(r)
 	}
