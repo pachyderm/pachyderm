@@ -51,7 +51,6 @@ func EnsureStack(err error) error {
 	if _, ok := err.(StackTracer); ok {
 		return err
 	}
-
 	return WithStack(err)
 }
 
