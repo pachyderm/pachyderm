@@ -369,7 +369,9 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 
 // ListProject lists projects
 func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
-	defer grpcutil.ScrubGRPC(retErr)
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.ListProject(
