@@ -30,3 +30,4 @@ linters-settings:
     ignoreInterfaceRegexps:
       - ^fileset\.
       - ^collection\.
+      - ^track\.
