@@ -4551,7 +4551,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 10",
+			"sleep 1",
 		},
 		nil,
 		client.NewPFSInput(dataRepo, "/*"),
