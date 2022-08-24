@@ -817,6 +817,27 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				// Update the cached branch head
 				provOfSubvBI.Head.ID = txnCtx.CommitSetID
 			}
+			// if this is a pipeline output branch, we need to also create an alias commit on the meta branch
+			// to maintain pipeline system invariants.
+			if provOfSubvBI.Branch.Repo.Type == pfs.UserRepoType {
+				metaBranch := client.NewSystemRepo(provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
+					NewBranch(provOfSubvBI.Branch.Name)
+				metaBI, err := getBranchInfo(metaBranch)
+				if err != nil {
+					if col.IsErrNotFound(err) {
+						// no corresponding meta branch, so not a pipeline. Ignore
+						continue
+					}
+					return err
+				}
+				// create the alias if necessary, just like above
+				if metaBI.Head.ID != txnCtx.CommitSetID {
+					if _, err := d.aliasCommit(txnCtx, metaBI.Head, metaBI.Head.Branch); err != nil {
+						return err
+					}
+					metaBI.Head.ID = txnCtx.CommitSetID
+				}
+			}
 		}
 
 		if subvBI.Head.ID == txnCtx.CommitSetID {
