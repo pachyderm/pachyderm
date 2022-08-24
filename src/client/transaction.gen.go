@@ -413,7 +413,7 @@ func (c *unsupportedPfsBuilderClient) ListFile(_ context.Context, _ *pfs_v2.List
 	return nil, unsupportedError("ListFile")
 }
 
-func (c *unsupportedPfsBuilderClient) ListProject(_ context.Context, _ *pfs_v2.ListProjectRequest, opts ...grpc.CallOption) (*pfs_v2.ListProjectResponse, error) {
+func (c *unsupportedPfsBuilderClient) ListProject(_ context.Context, _ *pfs_v2.ListProjectRequest, opts ...grpc.CallOption) (pfs_v2.API_ListProjectClient, error) {
 	return nil, unsupportedError("ListProject")
 }
 

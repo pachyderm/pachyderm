@@ -457,16 +457,14 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	return pi, nil
 }
 
-func (d *driver) listProject(ctx context.Context) ([]*pfs.ProjectInfo, error) {
+func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}
-	pis := make([]*pfs.ProjectInfo, 0)
 	if err := d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
-		pis = append(pis, proto.Clone(projectInfo).(*pfs.ProjectInfo))
-		return nil
+		return cb(proto.Clone(projectInfo).(*pfs.ProjectInfo))
 	}); err != nil {
-		return nil, errors.EnsureStack(err)
+		return errors.EnsureStack(err)
 	}
-	return pis, nil
+	return nil
 }
 
 // TODO: delete all repos and pipelines within project
@@ -2085,8 +2083,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	pis, err := d.listProject(ctx)
-	if err != nil {
+	var projectInfos []*pfs.ProjectInfo
+	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
+		projectInfos = append(projectInfos, pi)
+		return nil
+	}); err != nil {
 		return err
 	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -2096,7 +2097,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 				return err
 			}
 		}
-		for _, projectInfo := range pis {
+		for _, projectInfo := range projectInfos {
 			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
 				return err
 			}

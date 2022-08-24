@@ -1075,14 +1075,13 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 				return err
 			}
 			defer c.Close()
-			resp, err := c.PfsAPIClient.ListProject(c.Ctx(), &pfs.ListProjectRequest{})
+			pis, err := c.ListProject()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				for _, pi := range resp.ProjectInfos {
+				for _, pi := range pis {
 					if err := encoder.EncodeProto(pi); err != nil {
 						return errors.EnsureStack(err)
 					}
@@ -1092,7 +1091,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
-			for _, pi := range resp.ProjectInfos {
+			for _, pi := range pis {
 				pretty.PrintProject(writer, pi)
 			}
 			return writer.Flush()

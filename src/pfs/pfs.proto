@@ -313,10 +313,6 @@ message InspectProjectResponse {
 
 message ListProjectRequest {}
 
-message ListProjectResponse {
-  repeated ProjectInfo project_infos = 1;
-}
-
 message DeleteProjectRequest {
   Project project = 1;
   bool force = 2;
@@ -651,7 +647,7 @@ service API {
   // InspectProject returns info about a project.
   rpc InspectProject(InspectProjectRequest) returns (InspectProjectResponse) {}
   // ListProject returns info about all projects.
-  rpc ListProject(ListProjectRequest) returns (ListProjectResponse) {}
+  rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
   // DeleteProject deletes a project.
   rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse) {}
 }

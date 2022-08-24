@@ -133,12 +133,12 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 
 func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	resp, err := c.ListProject(c.Ctx(), &pfs.ListProjectRequest{})
+	pis, err := c.ListProject()
 	if err != nil {
 		return nil, CacheNone
 	}
 	var result []prompt.Suggest
-	for _, pi := range resp.ProjectInfos {
+	for _, pi := range pis {
 		result = append(result, prompt.Suggest{
 			Text:        pi.Project.Name,
 			Description: pi.Description,
