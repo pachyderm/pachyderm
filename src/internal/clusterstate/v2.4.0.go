@@ -17,10 +17,10 @@ var state_2_4_0 migrations.State = state_2_3_0.
 	Apply("Add default project", func(ctx context.Context, env migrations.Env) error {
 		var defaultProject = &pfs.ProjectInfo{
 			Project: &pfs.Project{
-				Name: pfs.DefaultProject,
+				Name: pfs.DefaultProjectName,
 			},
 		}
-		if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create(pfs.DefaultProject, defaultProject); err != nil {
+		if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create(pfs.DefaultProjectName, defaultProject); err != nil {
 			return errors.Errorf("could not create default project: %w", err)
 		}
 		return nil
