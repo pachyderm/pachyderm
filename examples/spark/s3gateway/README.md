@@ -54,9 +54,10 @@ Install the dependencies, Java:
 sudo apt install openjdk-11-jdk openjdk-11-jre
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 ```
-PySpark:
+PySpark and Python-Pachyderm:
 ```
 pip3 install pyspark==3.3.0
+pip3 install python-pachyderm==7.3.2
 ```
 Some jars:
 ```
@@ -107,6 +108,8 @@ with client.commit(repo, branch) as commit:
     df.coalesce(1).write.format("parquet").mode("overwrite").save(f"s3a://{branch}.{repo}/example_data")
     print(f"Closing {commit}")
 ```
+
+If necessary (and if you are usuing `localhost` in your endpoint), you may need to run `pachctl port-forward` in another terminal to forward the 30600 port to your Pachyderm instance.
 
 And run it with:
 ```

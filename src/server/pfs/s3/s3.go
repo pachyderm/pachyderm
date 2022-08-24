@@ -13,7 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"golang.org/x/net/context"
 
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
