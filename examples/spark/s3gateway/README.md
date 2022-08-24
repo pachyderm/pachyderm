@@ -3,7 +3,7 @@
 In Pachyderm 2.3.2+, Pachyderm's S3 Gateway has been made compatible with Spark's s3a adapter.
 This means that you can write to a Pachyderm repo from a distributed Spark cluster.
 
-⚠️ TODO: 2.3.2 hasn't been released with this fix yet. For now you can use custom pachd image `pachyderm/pachd:3651a2ad82b5c4dab2d63d4860b97486d1eac32a` to test it!
+⚠️ TODO: 2.3.2 hasn't been released with this fix yet. For now you can use custom pachd image `pachyderm/pachd:18e1a0dc425fa5df8a68148d85074795666ab640` (based on Pachyderm 2.3.x) to test it!
 
 You can connect Spark to Pachyderm's S3 gateway with, for example, options like the following:
 
