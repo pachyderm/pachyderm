@@ -6,13 +6,11 @@ package s3
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 )
@@ -43,38 +41,9 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		commitID = version
 	}
 
-	// We use listFileResult[0] rather than InspectFile result since InspectFile
-	// on a path that has both a file and a directory in it returns the
-	// directory. However, ListFile
-	var firstFile *pfs.FileInfo
-	err = pc.ListFile(bucket.Commit, file, func(fi *pfs.FileInfo) (retErr error) {
-		if firstFile == nil {
-			firstFile = fi
-		}
-		// TODO: would be nice to stop iterating after the first one
-		return nil
-	})
+	fileInfo, err := pc.InspectFile(bucket.Commit, file)
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
-	}
-	if firstFile == nil {
-		// we never set it, probably zero results
-		return nil, s2.NoSuchKeyError(r)
-	}
-	fileInfo := firstFile
-
-	// fileInfo, err := pc.InspectFile(bucket.Commit, file)
-	// if err != nil {
-	// 	return nil, maybeNotFoundError(r, err)
-	// }
-
-	// the exact object named does not exist, but perhaps is a "directory".
-	// "directories" do not actually exist, and certainly cannot be read.
-	// ("seeker can't seek")
-
-	log.Printf("==================== %s - %s", fileInfo.File.Path[1:], file)
-	if fileInfo.File.Path[1:] != file {
-		return nil, s2.NoSuchKeyError(r)
 	}
 
 	modTime, err := types.TimestampFromProto(fileInfo.Committed)
