@@ -19,17 +19,26 @@ conf.set('spark.hadoop.fs.s3a.connection.ssl.enabled', 'false')
 
 You may need to customize these for your own Pachyderm installation.
 
+```python
+conf.set("spark.hadoop.fs.s3a.change.detection.mode", 'none')
+conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
+```
+
+We need to disable change detection, otherwise Etag issues will cause the Spark job to hang.
+
 You need to ensure you open a commit for the duration of the Spark job, otherwise you will see errors.
 This is because Spark's s3a driver writes temporary files with the same names as directories. This works in S3, but not in Pachyderm when closing commits: in this case you get a "file / directory path collision" error on the commits that the S3 gateway generates. Holding a commit open throughout the Spark job allows it to complete without errors.
 
 You can hold a commit open during a job with `python_pachyderm`.
 
 ```python
-with client.commit("spark_s3g_demo", "master") as commit:
+with client.commit("spark-s3g-demo", "master") as commit:
     print(f"Opening commit {commit} for spark job")
-    df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.spark_s3g_demo/example")
+    df.coalesce(1).write.format("parquet").mode("overwrite").save("s3a://master.spark-s3g-demo/example")
     print(f"Closing {commit}")
 ```
+
+⚠️ Don't use pachyderm repo names with an underscore (`_`) in them, s3a fails to connect to these, giving the mysterious error `bucket is null/empty`, hyphens however (`-`) work fine!
 
 Another issue is that the Java S3 driver assumes that ETags are generated as MD5 hashes. Pachyderm doesn't do that, so we have to disable integrity checking on writes.
 
@@ -45,8 +54,8 @@ sc.setSystemProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", 
 Putting this all together, we get the following example of writing to Pachyderm from pyspark.
 Start by creating the repo and the branch:
 ```
-pachctl create repo spark_s3g_demo
-pachctl create branch spark_s3g_demo@master
+pachctl create repo spark-s3g-demo
+pachctl create branch spark-s3g-demo@master
 ```
 
 Install the dependencies, Java:
@@ -73,6 +82,7 @@ from pyspark.context import SparkContext
 from pyspark import SparkConf
 import time
 import os
+import python_pachyderm
 
 conf = SparkConf()
 conf.set('spark.hadoop.fs.s3a.endpoint', "http://localhost:30600")
@@ -81,6 +91,8 @@ conf.set('spark.hadoop.fs.s3a.access.key', 'anything_matching')
 conf.set('spark.hadoop.fs.s3a.secret.key', 'anything_matching')
 conf.set('spark.hadoop.fs.s3a.path.style.access', 'true')
 conf.set('spark.hadoop.fs.s3a.connection.ssl.enabled', 'false')
+conf.set("spark.hadoop.fs.s3a.change.detection.mode", 'none')
+conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
 
 sc = SparkContext(conf=conf)
 sc.setLogLevel("DEBUG")
@@ -97,15 +109,14 @@ print(sc.getConf().getAll())
 df = spark.createDataFrame([ Row(a=1, b=2.,) ])
 df.show()
 
-repo = "spark_s3g_demo"
+repo = "spark-s3g-demo"
 branch = "master"
 
-import python_pachyderm
 client = python_pachyderm.Client()
 
 with client.commit(repo, branch) as commit:
     print(f"Opening commit {commit} for spark job")
-    df.coalesce(1).write.format("parquet").mode("overwrite").save(f"s3a://{branch}.{repo}/example_data")
+    df.coalesce(1).write.format("parquet").mode("overwrite").save(f"s3a://{branch}.{repo}/example-data")
     print(f"Closing {commit}")
 ```
 
