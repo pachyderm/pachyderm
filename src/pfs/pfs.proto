@@ -300,14 +300,8 @@ message CreateProjectRequest {
   bool update = 3;
 }
 
-message CreateProjectResponse {}
-
 message InspectProjectRequest {
   Project project = 1;
-}
-
-message InspectProjectResponse {
-  ProjectInfo project_info = 1;
 }
 
 message ListProjectRequest {}
@@ -316,8 +310,6 @@ message DeleteProjectRequest {
   Project project = 1;
   bool force = 2;
 }
-
-message DeleteProjectResponse {}
 
 enum Delimiter {
   NONE = 0;
@@ -642,11 +634,11 @@ service API {
 
   // Project API
   // CreateProject creates a new project.
-  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse) {}
+  rpc CreateProject(CreateProjectRequest) returns (google.protobuf.Empty) {}
   // InspectProject returns info about a project.
-  rpc InspectProject(InspectProjectRequest) returns (InspectProjectResponse) {}
+  rpc InspectProject(InspectProjectRequest) returns (ProjectInfo) {}
   // ListProject returns info about all projects.
   rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
   // DeleteProject deletes a project.
-  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse) {}
+  rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty) {}
 }

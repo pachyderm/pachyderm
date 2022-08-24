@@ -428,25 +428,20 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 	if err := ancestry.ValidateName(req.Project.Name); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
-	if err := d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		projects := d.projects.ReadWrite(txnCtx.SqlTx)
+		projectInfo := &pfs.ProjectInfo{}
 		if req.Update {
-			if err := projects.Get(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{}); err != nil {
-				return errors.Wrapf(err, "update project")
-			}
-			return errors.EnsureStack(projects.Put(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
-				Project:     req.Project,
-				Description: req.Description,
+			return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
+				projectInfo.Description = req.Description
+				return nil
 			}))
 		}
 		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,
 			Description: req.Description,
 		}))
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
@@ -459,12 +454,9 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}
-	if err := d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
 		return cb(proto.Clone(projectInfo).(*pfs.ProjectInfo))
-	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
+	}))
 }
 
 // TODO: delete all repos and pipelines within project

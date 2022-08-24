@@ -367,9 +367,9 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListRepoByType returns info about Repos of the given type
-// The if repoType is empty, all Repos will be included
+// ListProject lists projects
 func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
+	defer grpcutil.ScrubGRPC(retErr)
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PfsAPIClient.ListProject(
@@ -377,7 +377,7 @@ func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 		&pfs.ListProjectRequest{},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return nil, err
 	}
 	return clientsdk.ListProjectInfo(client)
 }

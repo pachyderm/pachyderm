@@ -439,10 +439,10 @@ type createBranchFunc func(context.Context, *pfs.CreateBranchRequest) (*types.Em
 type inspectBranchFunc func(context.Context, *pfs.InspectBranchRequest) (*pfs.BranchInfo, error)
 type listBranchFunc func(*pfs.ListBranchRequest, pfs.API_ListBranchServer) error
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*types.Empty, error)
-type createProjectFunc func(context.Context, *pfs.CreateProjectRequest) (*pfs.CreateProjectResponse, error)
-type inspectProjectFunc func(context.Context, *pfs.InspectProjectRequest) (*pfs.InspectProjectResponse, error)
+type createProjectFunc func(context.Context, *pfs.CreateProjectRequest) (*types.Empty, error)
+type inspectProjectFunc func(context.Context, *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error)
 type listProjectFunc func(*pfs.ListProjectRequest, pfs.API_ListProjectServer) error
-type deleteProjectFunc func(context.Context, *pfs.DeleteProjectRequest) (*pfs.DeleteProjectResponse, error)
+type deleteProjectFunc func(context.Context, *pfs.DeleteProjectRequest) (*types.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
 type getFileTARFunc func(*pfs.GetFileRequest, pfs.API_GetFileTARServer) error
 type getFileFunc func(*pfs.GetFileRequest, pfs.API_GetFileServer) error
@@ -729,13 +729,13 @@ func (api *pfsServerAPI) DeleteBranch(ctx context.Context, req *pfs.DeleteBranch
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.DeleteBranch")
 }
-func (api *pfsServerAPI) CreateProject(ctx context.Context, req *pfs.CreateProjectRequest) (*pfs.CreateProjectResponse, error) {
+func (api *pfsServerAPI) CreateProject(ctx context.Context, req *pfs.CreateProjectRequest) (*types.Empty, error) {
 	if api.mock.CreateProject.handler != nil {
 		return api.mock.CreateProject.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.CreateProject")
 }
-func (api *pfsServerAPI) InspectProject(ctx context.Context, req *pfs.InspectProjectRequest) (*pfs.InspectProjectResponse, error) {
+func (api *pfsServerAPI) InspectProject(ctx context.Context, req *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error) {
 	if api.mock.InspectProject.handler != nil {
 		return api.mock.InspectProject.handler(ctx, req)
 	}
@@ -747,7 +747,7 @@ func (api *pfsServerAPI) ListProject(req *pfs.ListProjectRequest, srv pfs.API_Li
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListProject")
 }
-func (api *pfsServerAPI) DeleteProject(ctx context.Context, req *pfs.DeleteProjectRequest) (*pfs.DeleteProjectResponse, error) {
+func (api *pfsServerAPI) DeleteProject(ctx context.Context, req *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if api.mock.DeleteProject.handler != nil {
 		return api.mock.DeleteProject.handler(ctx, req)
 	}
