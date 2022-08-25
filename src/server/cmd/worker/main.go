@@ -37,9 +37,6 @@ func do(ctx context.Context, config interface{}) error {
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 
 	log.SetFormatter(logutil.FormatterFunc(logutil.JSONPretty))
-	if env.Config().LogFormat == "text" {
-		log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
-	}
 
 	// Enable cloud profilers if the configuration allows.
 	profileutil.StartCloudProfiler("pachyderm-worker", env.Config())
