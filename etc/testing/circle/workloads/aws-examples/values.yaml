@@ -1,0 +1,59 @@
+etcd:
+  storageClass: "gp2"
+  storageSize: "10Gi"
+  resources:
+    requests:
+      cpu: 4
+      memory: "4Gi"
+      
+pgbouncer:
+  maxConnections: 1500
+  defaultPoolSize: 100
+
+loki-stack:
+    promtail:
+        config:
+            snippets:
+                common:
+                  - action: replace
+                    source_labels:
+                      - __meta_kubernetes_pod_node_name
+                    target_label: node_name
+                  - action: replace
+                    source_labels:
+                      - __meta_kubernetes_namespace
+                    target_label: namespace
+                  - action: replace
+                    replacement: $1
+                    separator: /
+                    source_labels:
+                      - namespace
+                      - app
+                    target_label: job
+                  - action: replace
+                    source_labels:
+                      - __meta_kubernetes_pod_name
+                    target_label: pod
+                  - action: replace
+                    source_labels:
+                      - __meta_kubernetes_pod_container_name
+                    target_label: container
+                  - action: replace
+                    replacement: /var/log/pods/*$1/*.log
+                    separator: /
+                    source_labels:
+                      - __meta_kubernetes_pod_uid
+                      - __meta_kubernetes_pod_container_name
+                    target_label: __path__
+                  - action: replace
+                    regex: true/(.*)
+                    replacement: /var/log/pods/*$1/*.log
+                    separator: /
+                    source_labels:
+                      - __meta_kubernetes_pod_annotationpresent_kubernetes_io_config_hash
+                      - __meta_kubernetes_pod_annotation_kubernetes_io_config_hash
+                      - __meta_kubernetes_pod_container_name
+                    target_label: __path__
+                  - action: labelmap
+                    regex: __meta_kubernetes_pod_label_(.+)  
+
