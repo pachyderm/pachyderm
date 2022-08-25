@@ -7,6 +7,11 @@ setup: true
 orbs:
   continuation: circleci/continuation@0.1.2
 
+parameters:
+  run_load_tests:
+    type: boolean
+    default: false
+
 # our defined job, and its steps
 jobs:
   setup:
