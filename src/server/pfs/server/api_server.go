@@ -349,7 +349,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 }
 
 // CreateProject implements the protobuf pfs.CreateProject RPC
-func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (*types.Empty, error) {
 	if err := a.driver.createProject(ctx, request); err != nil {
 		return nil, err
 	}
@@ -357,21 +357,17 @@ func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjec
 }
 
 // InspectProject implements the protobuf pfs.InspectProject RPC
-func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProjectRequest) (response *pfs.ProjectInfo, retErr error) {
-	pi, err := a.driver.inspectProject(ctx, request.Project)
-	if err != nil {
-		return nil, err
-	}
-	return pi, nil
+func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error) {
+	return a.driver.inspectProject(ctx, request.Project)
 }
 
 // ListProject implements the protobuf pfs.ListProject RPC
-func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) (retErr error) {
+func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) error {
 	return a.driver.listProject(srv.Context(), srv.Send)
 }
 
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
-func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
 	}); err != nil {
