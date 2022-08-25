@@ -452,10 +452,11 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	return pi, nil
 }
 
+// The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}
 	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
-		return cb(proto.Clone(projectInfo).(*pfs.ProjectInfo))
+		return cb(projectInfo)
 	}))
 }
 
@@ -2077,7 +2078,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
-		projectInfos = append(projectInfos, pi)
+		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
 		return nil
 	}); err != nil {
 		return err
