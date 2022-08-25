@@ -47,6 +47,7 @@ const (
 	commits  = "commits"
 	files    = "files"
 	repos    = "repos"
+	projects = "projects"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -977,6 +978,150 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
 	shell.RegisterCompletionFunc(deleteBranch, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteBranch, "delete branch", branches))
+
+	projectDocs := &cobra.Command{
+		Short: "Docs for projects.",
+		Long: `Projects are the top level organizational objects in Pachyderm.
+
+Projects contain pachyderm objects such as Repos and Pipelines.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAliases(projectDocs, "project", " project", projects))
+
+	createProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Create a new project.",
+		Long:  "Create a new project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.CreateProject(
+				c.Ctx(),
+				&pfs.CreateProjectRequest{
+					Project:     &pfs.Project{Name: args[0]},
+					Description: description,
+				})
+			return grpcutil.ScrubGRPC(err)
+
+		}),
+	}
+	createProject.Flags().StringVarP(&description, "description", "d", "", "The description of the newly-created project.")
+	commands = append(commands, cmdutil.CreateAliases(createProject, "create project", projects))
+
+	updateProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Update a project.",
+		Long:  "Update a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.CreateProject(
+				c.Ctx(),
+				&pfs.CreateProjectRequest{
+					Project:     &pfs.Project{Name: args[0]},
+					Description: description,
+					Update:      true,
+				})
+			return grpcutil.ScrubGRPC(err)
+
+		}),
+	}
+	updateProject.Flags().StringVarP(&description, "description", "d", "", "The description of the updated project.")
+	shell.RegisterCompletionFunc(updateProject, shell.ProjectCompletion)
+	commands = append(commands, cmdutil.CreateAliases(updateProject, "update project", projects))
+
+	inspectProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Inspect a project.",
+		Long:  "Inspect a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			pi, err := c.PfsAPIClient.InspectProject(
+				c.Ctx(),
+				&pfs.InspectProjectRequest{
+					Project: &pfs.Project{Name: args[0]},
+				})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if raw {
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(pi))
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+			return pretty.PrintDetailedProjectInfo(pi)
+		}),
+	}
+	inspectProject.Flags().AddFlagSet(outputFlags)
+	shell.RegisterCompletionFunc(inspectProject, shell.ProjectCompletion)
+	commands = append(commands, cmdutil.CreateAliases(inspectProject, "inspect project", projects))
+
+	listProject := &cobra.Command{
+		Use:   "{{alias}} <repo>",
+		Short: "Return all projects.",
+		Long:  "Return all projects.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			pis, err := c.ListProject()
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if raw {
+				encoder := cmdutil.Encoder(output, os.Stdout)
+				for _, pi := range pis {
+					if err := encoder.EncodeProto(pi); err != nil {
+						return errors.EnsureStack(err)
+					}
+				}
+				return grpcutil.ScrubGRPC(err)
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
+			for _, pi := range pis {
+				pretty.PrintProjectInfo(writer, pi)
+			}
+			return writer.Flush()
+		}),
+	}
+	listProject.Flags().AddFlagSet(outputFlags)
+	commands = append(commands, cmdutil.CreateAliases(listProject, "list project", projects))
+
+	deleteProject := &cobra.Command{
+		Use:   "{{alias}} <project>",
+		Short: "Delete a project.",
+		Long:  "Delete a project.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.DeleteProject(
+				c.Ctx(),
+				&pfs.DeleteProjectRequest{
+					Project: &pfs.Project{Name: args[0]},
+					Force:   force,
+				})
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	shell.RegisterCompletionFunc(deleteProject, shell.ProjectCompletion)
+	deleteProject.Flags().BoolVarP(&force, "force", "f", false, "remove the project regardless of errors; use with care")
+	commands = append(commands, cmdutil.CreateAliases(deleteProject, "delete project", projects))
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
