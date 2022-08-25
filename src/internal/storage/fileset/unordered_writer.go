@@ -163,10 +163,9 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 		if err != nil {
 			return err
 		}
-		err = fs.Iterate(uw.ctx, func(f File) error {
+		return fs.Iterate(uw.ctx, func(f File) error {
 			return uw.Delete(ctx, f.Index().Path, datum)
 		})
-		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
 	if int64(uw.buffer.Count()) >= uw.fileThreshold {
@@ -179,7 +178,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
-	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
+	return fs.Iterate(ctx, func(f File) error {
 		if !appendFile {
 			uw.buffer.Delete(f.Index().Path, datum)
 		}
@@ -188,7 +187,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 			return uw.serialize(ctx)
 		}
 		return nil
-	}))
+	})
 }
 
 // Close closes the writer.
