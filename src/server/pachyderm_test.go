@@ -10972,3 +10972,27 @@ func TestZombieCheck(t *testing.T) {
 	require.Equal(t, 1, len(messages))
 	require.Matches(t, "zombie", messages[0])
 }
+
+func TestConsistentHashingPFS(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.WithPachdReplicas(2))
+	numTestRepos := 100
+	eg, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < numTestRepos; i++ {
+		eg.Go(func() error {
+			require.NoErrorWithinT(t, time.Second*60, func() error {
+				repo := tu.UniqueString(t.Name())
+				require.NoError(t, c.CreateRepo(repo))
+				commit := client.NewCommit(repo, "master", "")
+				require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+				_, err := c.WaitCommit(repo, commit.Branch.Name, commit.ID)
+				return err
+			}, "commit should finish in time")
+			return nil
+		})
+	}
+	require.NoError(t, eg.Wait(), "all repos should finish")
+}

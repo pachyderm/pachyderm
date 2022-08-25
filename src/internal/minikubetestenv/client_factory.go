@@ -55,6 +55,10 @@ func WithCertPool(pool *x509.CertPool) Option {
 	}
 }
 
+func WithPachdReplicas(replicas int) Option {
+	return WithValueOverrides(map[string]string{"pachd.replicas": strconv.Itoa(replicas)})
+}
+
 func WithValueOverrides(v map[string]string) Option {
 	return func(as *acquireSettings) {
 		as.ValueOverrides = v
@@ -163,6 +167,7 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 			availableClusters: map[string]struct{}{},
 			sem:               *semaphore.NewWeighted(int64(*poolSize)),
 		}
+		updateCorednsConfigMap(t)
 	})
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	assigned, clusterIdx := clusterFactory.assignCluster()
@@ -185,6 +190,7 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 			availableClusters: map[string]struct{}{},
 			sem:               *semaphore.NewWeighted(int64(*poolSize)),
 		}
+		updateCorednsConfigMap(t)
 	})
 
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))

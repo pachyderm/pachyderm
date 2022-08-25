@@ -227,7 +227,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
 			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
-			"proxy.host":                       fmt.Sprintf("%s:%v", host, clientPort),
+			"proxy.host":                         fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
@@ -358,16 +358,35 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 		label = "app=pach-enterprise"
 	}
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+		deployments, err := kubeClient.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+		if err != nil {
+			return errors.Wrap(err, "error getting deployment")
+		}
+		if len(deployments.Items) == 0 {
+			return errors.New("no deployments found")
+		}
+		for _, d := range deployments.Items {
+			if d.Status.ReadyReplicas != *d.Spec.Replicas || *d.Spec.Replicas != d.Status.Replicas {
+				return errors.New("deployment not ready")
+			}
+		}
 		pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
 		}
 		var unacceptablePachds []string
+		deployment := deployments.Items[0]
+		if len(pachds.Items) != int(*deployment.Spec.Replicas) {
+			return errors.New("not enough pachd instances")
+		}
 		for _, p := range pachds.Items {
-			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready && len(pachds.Items) == 1 {
-				return nil
+			if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) && p.Status.ContainerStatuses[0].Ready {
+				continue
 			}
 			unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%#v", p.Name, p.Spec.Containers[0].Image, p.Status))
+		}
+		if len(unacceptablePachds) == 0 {
+			return nil
 		}
 		return errors.Errorf("deployment in progress: pachds: %v", strings.Join(unacceptablePachds, "; "))
 	})
@@ -419,9 +438,21 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
 		// Ensure that pachd is really ready to receive requests.
-		if _, err := c.InspectCluster(); err != nil {
-			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
-			return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
+		// Dumb heuristic to make sure we hit the servers across a small number of instances.
+		for i := 0; i < 5; i++ {
+			if _, err := c.InspectCluster(); err != nil {
+				t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, err)
+				return errors.Wrapf(err, "failed to inspect cluster on port %v", pachAddress.Port)
+			}
+			if _, err := c.ListRepo(); err != nil {
+				t.Logf("retryable: failed to list repos on port : %v: %v", pachAddress.Port, err)
+				return errors.Wrapf(err, "failed to list repos on port : %v: %v", pachAddress.Port)
+			}
+			if _, err := c.ListPipeline(false); err != nil {
+				t.Logf("retryable: failed to list pipelines on port : %v: %v", pachAddress.Port, err)
+				return errors.Wrapf(err, "failed to list pipelines on port : %v: %v", pachAddress.Port)
+			}
+			time.Sleep(time.Second * 1)
 		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(50*time.Second)))
@@ -539,6 +570,41 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
 	}
 	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+}
+
+// set the coredns ttl to 0 to cut down on waiting time when tearing down and creating new pachd instances.
+func updateCorednsConfigMap(t testing.TB) {
+	data := `.:53 {
+    errors
+    health {
+       lameduck 5s
+    }
+    ready
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+       pods insecure
+       fallthrough in-addr.arpa ip6.arpa
+       ttl 0
+    }
+    prometheus :9153
+    forward . /etc/resolv.conf {
+       max_concurrent 1000
+    }
+    cache 30
+    loop
+    reload
+    loadbalance
+}
+` // needs to be on a newline to prevent the YAML chomping indicator being inserted.
+	cfg := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "coredns",
+			Namespace: "kube-system",
+		},
+		Data: map[string]string{"Corefile": data},
+	}
+	kubeClient := testutil.GetKubeClient(t)
+	_, err := kubeClient.CoreV1().ConfigMaps("kube-system").Update(context.Background(), cfg, metav1.UpdateOptions{FieldManager: "application/apply-patch"})
+	require.NoError(t, err, "update should succeed")
 }
 
 func PutNamespace(t testing.TB, namespace string) {
