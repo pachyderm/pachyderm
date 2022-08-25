@@ -29,7 +29,6 @@ export type Mount = {
   latest_commit: string;
 };
 
-
 export type Repo = {
   repo: string;
   authorization: authorization;
@@ -39,7 +38,7 @@ export type Repo = {
 export type ListMountsResponse = {
   mounted: Map<string, Mount>;
   unmounted: Map<string, Repo>;
-}
+};
 
 export type AuthConfig = {
   cluster_status: clusterStatus;

@@ -39,13 +39,9 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
   const unmount = async () => {
     setDisabled(true);
     try {
-      const data = await requestAPI<ListMountsResponse>(
-        '_unmount',
-        'PUT',
-        {
-          mounts: [`${item.name}`],
-        },
-      );
+      const data = await requestAPI<ListMountsResponse>('_unmount', 'PUT', {
+        mounts: [`${item.name}`],
+      });
       updateData(data);
       open('');
     } catch {
@@ -90,7 +86,8 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
         >
           {buttonText}
         </button>
-        {<span
+        {
+          <span
             className="pachyderm-mount-list-item-status"
             data-testid="ListItem__status"
           >

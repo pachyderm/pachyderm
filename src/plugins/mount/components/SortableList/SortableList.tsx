@@ -14,7 +14,7 @@ type SortableListProps = {
 const nameComparator = {
   name: 'Name',
   func: stringComparator,
-  accessor: (item: Mount | Repo) => 'name' in item ? item.name : item.repo,
+  accessor: (item: Mount | Repo) => ('name' in item ? item.name : item.repo),
 };
 
 const SortableList: React.FC<SortableListProps> = ({
@@ -47,21 +47,23 @@ const SortableList: React.FC<SortableListProps> = ({
       </div>
       <ul className="pachyderm-mount-sortableList-content">
         {sortedData &&
-          sortedData.map((item: Mount | Repo) => 'name' in item ? (
-            <ListMount
-              item={item}
-              key={item.name}
-              open={open}
-              updateData={updateData}
-            />
-          ) : (
-            <ListUnmount
-              item={item}
-              key={item.repo}
-              open={open}
-              updateData={updateData}
-            />
-          ))}
+          sortedData.map((item: Mount | Repo) =>
+            'name' in item ? (
+              <ListMount
+                item={item}
+                key={item.name}
+                open={open}
+                updateData={updateData}
+              />
+            ) : (
+              <ListUnmount
+                item={item}
+                key={item.repo}
+                open={open}
+                updateData={updateData}
+              />
+            ),
+          )}
       </ul>
     </div>
   );

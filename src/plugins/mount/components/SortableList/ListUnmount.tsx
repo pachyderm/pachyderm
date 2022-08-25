@@ -37,8 +37,6 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
   const hasBranches = item?.branches?.length > 0;
   const buttonText = 'Mount';
 
-  const openFolder = () => {};
-
   const onClickHandler = () => {
     mount();
   };
@@ -47,20 +45,19 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
     setDisabled(true);
     try {
       if (selectedBranch) {
-        const data = await requestAPI<ListMountsResponse>(
-          "_mount",
-          'PUT',
-          {
-            mounts: [
-              {
-                name: selectedBranch === 'master' ? item.repo : `${item.repo}_${selectedBranch}`,
-                repo: item.repo,
-                branch: selectedBranch,
-                mode: 'ro',
-              },
-            ],
-          },
-        );
+        const data = await requestAPI<ListMountsResponse>('_mount', 'PUT', {
+          mounts: [
+            {
+              name:
+                selectedBranch === 'master'
+                  ? item.repo
+                  : `${item.repo}_${selectedBranch}`,
+              repo: item.repo,
+              branch: selectedBranch,
+              mode: 'ro',
+            },
+          ],
+        });
         updateData(data);
       }
       open('');
@@ -116,7 +113,6 @@ const ListUnmount: React.FC<ListUnmountProps> = ({item, open, updateData}) => {
         className={`pachyderm-mount-list-item-name-branch-wrapper ${
           disabled ? 'pachyderm-mount-sortableList-disabled' : ''
         }`}
-        onClick={openFolder}
       >
         <span className="pachyderm-mount-list-item-name" title={item.repo}>
           {item.repo}

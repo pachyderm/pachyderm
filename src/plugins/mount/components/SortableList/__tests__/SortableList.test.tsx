@@ -95,9 +95,7 @@ describe('sortable list components', () => {
       {
         repo: 'images',
         authorization: 'off',
-        branches: [
-          'master',
-        ],
+        branches: ['master'],
       },
     ];
 
@@ -112,20 +110,16 @@ describe('sortable list components', () => {
     mountButton.click();
 
     await waitFor(() => {
-      expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
-        '_mount',
-        'PUT',
-        {
-          mounts: [
-            {
-              name: 'images',
-              repo: 'images',
-              branch: 'master',
-              mode: 'ro',
-            },
-          ],
-        },
-      );
+      expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
+        mounts: [
+          {
+            name: 'images',
+            repo: 'images',
+            branch: 'master',
+            mode: 'ro',
+          },
+        ],
+      });
     });
     expect(mountButton).toBeDisabled();
     expect(updateData).toBeCalledWith([]);
@@ -203,10 +197,7 @@ describe('sortable list components', () => {
       {
         repo: 'images',
         authorization: 'off',
-        branches: [
-          'master',
-          'develop',
-        ],
+        branches: ['master', 'develop'],
       },
     ];
 
@@ -219,20 +210,16 @@ describe('sortable list components', () => {
     fireEvent.change(select, {target: {value: 'develop'}});
 
     getByText('Mount').click();
-    expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
-      '_mount',
-      'PUT',
-      {
-        mounts: [
-          {
-            name: 'images_develop',
-            repo: 'images',
-            branch: 'develop',
-            mode: 'ro',
-          }
-        ]
-      }
-    );
+    expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
+      mounts: [
+        {
+          name: 'images_develop',
+          repo: 'images',
+          branch: 'develop',
+          mode: 'ro',
+        },
+      ],
+    });
   });
 
   it('should display state and status of mounted brach', async () => {

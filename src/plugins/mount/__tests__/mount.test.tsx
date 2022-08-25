@@ -19,7 +19,6 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import { ListMountsResponse } from '../types';
 
 jest.mock('../../../handler');
 
@@ -33,7 +32,7 @@ const items = {
       repo: 'data',
       branches: [],
     },
-  ]
+  ],
 };
 
 describe('mount plugin', () => {
@@ -46,9 +45,7 @@ describe('mount plugin', () => {
   let restorer: ILayoutRestorer;
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
   beforeEach(() => {
-    mockRequestAPI.requestAPI.mockImplementation(
-      mockedRequestAPI(items),
-    );
+    mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI(items));
 
     const opener = {
       open: (widget: Widget) => jest.fn(),
@@ -91,14 +88,14 @@ describe('mount plugin', () => {
               repo: 'images',
               branch: 'master',
               state: 'mounted',
-            }
+            },
           ],
           unmounted: [
             {
               repo: 'data',
               branches: [],
-            }
-          ]
+            },
+          ],
         }),
       );
     const plugin = new MountPlugin(app, docManager, factory, restorer);
