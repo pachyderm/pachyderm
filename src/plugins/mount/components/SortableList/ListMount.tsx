@@ -19,14 +19,13 @@ type ListMountProps = {
 
 const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
   const [disabled, setDisabled] = useState<boolean>(false);
+  const branch = item.branch;
+  const buttonText = 'Unmount';
+  const behind = item.how_many_commits_behind;
 
   useEffect(() => {
     setDisabled(DISABLED_STATES.includes(item.state));
   }, [item]);
-
-  const branch = item.branch;
-  const buttonText = 'Unmount';
-  const behind = item.how_many_commits_behind;
 
   const openFolder = () => {
     open(item.name);

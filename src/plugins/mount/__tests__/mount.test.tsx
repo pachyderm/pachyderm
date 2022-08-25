@@ -84,16 +84,20 @@ describe('mount plugin', () => {
         mockedRequestAPI({
           mounted: [
             {
-              name: 'images',
-              repo: 'images',
-              branch: 'master',
-              state: 'mounted',
+              images: {
+                name: 'images',
+                repo: 'images',
+                branch: 'master',
+                state: 'mounted',
+              },
             },
           ],
           unmounted: [
             {
-              repo: 'data',
-              branches: [],
+              data: {
+                repo: 'data',
+                branches: [],
+              },
             },
           ],
         }),

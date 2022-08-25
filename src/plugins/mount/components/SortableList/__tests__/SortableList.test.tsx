@@ -32,10 +32,10 @@ describe('sortable list components', () => {
     );
     const listItem = getByTestId('ListItem__noBranches');
     expect(listItem).toHaveTextContent('images');
-    expect(listItem).toHaveTextContent('No Branches');
+    expect(listItem).toHaveTextContent('No branches');
     expect(listItem).toHaveAttribute(
       'title',
-      'A repository must have a branch in order to mount it',
+      "Either all branches are mounted or the repo doesn't have a branch",
     );
   });
 

@@ -128,8 +128,8 @@ export class PollMounts {
   updateData = (data: ListMountsResponse): void => {
     if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
       this._rawData = data;
-      this.mounted = Array.from(data.mounted.values());
-      this.unmounted = Array.from(data.unmounted.values());
+      this.mounted = Array.from(Object.values(data.mounted));
+      this.unmounted = Array.from(Object.values(data.unmounted));
     }
   };
 

@@ -36,8 +36,8 @@ export type Repo = {
 };
 
 export type ListMountsResponse = {
-  mounted: Map<string, Mount>;
-  unmounted: Map<string, Repo>;
+  mounted: {[key: string]: Mount};
+  unmounted: {[key: string]: Repo};
 };
 
 export type AuthConfig = {
