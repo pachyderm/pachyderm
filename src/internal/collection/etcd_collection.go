@@ -31,7 +31,7 @@ var (
 	// ErrNotClaimed is an error used to indicate that a different requester beat
 	// the current requester to a key claim.
 	ErrNotClaimed = errors.New("NOT_CLAIMED")
-	ttl           = int64(30)
+	DefaultTTL    = int64(30)
 )
 
 type etcdCollection struct {
@@ -99,7 +99,7 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 				return errors.EnsureStack(err)
 			}
 			claimed = true
-			return errors.EnsureStack(readWriteC.PutTTL(key, val, ttl))
+			return errors.EnsureStack(readWriteC.PutTTL(key, val, DefaultTTL))
 		}
 		claimed = false
 		return nil
@@ -144,7 +144,7 @@ func (r *Renewer) Put(ctx context.Context, key string, val proto.Message) error 
 }
 
 func (c *etcdCollection) WithRenewer(ctx context.Context, cb func(context.Context, *Renewer) error) error {
-	resp, err := c.etcdClient.Grant(ctx, ttl)
+	resp, err := c.etcdClient.Grant(ctx, DefaultTTL)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
