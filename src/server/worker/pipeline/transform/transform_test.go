@@ -86,6 +86,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 		},
 	})
 	require.NoError(t, err)
+	// the worker needs all meta commits to have an output commit. we force close this so its skipped by worker code
 	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: metaRepo.NewBranch("master")})
 	require.NoError(t, err)
 	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true, Error: "force close"})
@@ -225,6 +226,7 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
 	ctx = withTimeout(ctx, 10*time.Second)
 	<-ctx.Done()
+	// PFS master transitions the job from finishing to finished so dont test that here
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 	// Ensure the output commit is successful
