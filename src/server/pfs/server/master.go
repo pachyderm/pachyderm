@@ -130,11 +130,7 @@ func (d *driver) finishCommits(ctx context.Context) (retErr error) {
 						}
 						defer func() {
 							if err := ring.Unlock(lockPrefix); err != nil {
-								if retErr == nil {
-									retErr = err
-								} else {
-									retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
-								}
+								retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
 							}
 						}()
 						return d.finishRepoCommits(lockCtx, compactor, key)

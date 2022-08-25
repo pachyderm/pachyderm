@@ -35,12 +35,12 @@ type lockTestConfig struct {
 	keys           *sync.Map
 	workers        int
 	workerIds      map[int]string
-	workersReady   chan bool
+	workersReady   chan struct{}
 	ringConfig     testRingConfig
-	beginLocking   chan bool
-	doneLocking    chan bool
-	beginUnlocking chan bool
-	doneUnlocking  chan bool
+	beginLocking   chan struct{}
+	doneLocking    chan struct{}
+	beginUnlocking chan struct{}
+	doneUnlocking  chan struct{}
 }
 
 func setupTest(t *testing.T) testRingConfig {
@@ -75,12 +75,12 @@ func TestWatch(t *testing.T) {
 	err := WithRing(config.ctx, config.client, logrus.New(), "master", func(ctx context.Context, ring *Ring) error {
 		err := WithRing(config.ctx, config.client, logrus.New(), "master", func(ctx context.Context, innerRing *Ring) error {
 			time.Sleep(2 * time.Second)
-			require.Len(t, ring.Members(), 2, "there should be 2 total members")
+			require.Len(t, ring.MemberIds(), 2, "there should be 2 total members")
 			return nil
 		})
 		require.NoError(t, err, "should be able to create second ring")
 		time.Sleep(2 * time.Second)
-		require.Len(t, ring.Members(), 1, "there should be only 1 member")
+		require.Len(t, ring.MemberIds(), 1, "there should be only 1 member")
 		return nil
 	})
 	require.NoError(t, err, "should be able to create first ring")
@@ -158,7 +158,7 @@ func TestLockingWithAddWorker(t *testing.T) {
 	test.workers++
 	memberToAdd := strconv.Itoa((test.workers - 1) * 100)
 	test.workerIds[test.workers-1] = memberToAdd
-	test.beginLocking <- true
+	test.beginLocking <- struct{}{}
 	test.eg.Go(func() error {
 		test.runWorker(test.ctx, t, memberToAdd)
 		return nil
@@ -195,11 +195,11 @@ func setupLockTest(t *testing.T, numNodes, numLocks int) lockTestConfig {
 	}
 	test.eg, test.ctx = errgroup.WithContext(test.ringConfig.ctx)
 	test.ctx, test.cancel = context.WithCancel(test.ctx)
-	test.workersReady = make(chan bool, numNodes)
-	test.beginLocking = make(chan bool, numNodes)
-	test.doneLocking = make(chan bool, numLocks)
-	test.beginUnlocking = make(chan bool, numLocks)
-	test.doneUnlocking = make(chan bool, numLocks)
+	test.workersReady = make(chan struct{}, numNodes)
+	test.beginLocking = make(chan struct{}, numNodes)
+	test.doneLocking = make(chan struct{}, numLocks)
+	test.beginUnlocking = make(chan struct{}, numLocks)
+	test.doneUnlocking = make(chan struct{}, numLocks)
 	// starting from 1 is intentional here, allows the lock distribution to be even.
 	for i := 1; i <= test.locks; i++ {
 		key := strconv.Itoa(i%test.workers*100 + i)
@@ -216,7 +216,7 @@ func (test *lockTestConfig) lockAllLocks() {
 		<-test.workersReady
 	}
 	for i := 0; i < test.workers; i++ {
-		test.beginLocking <- true
+		test.beginLocking <- struct{}{}
 	}
 	for i := 0; i < test.locks; i++ {
 		<-test.doneLocking
@@ -225,7 +225,7 @@ func (test *lockTestConfig) lockAllLocks() {
 
 func (test *lockTestConfig) unlockAllLocks() {
 	for i := 0; i < test.locks; i++ {
-		test.beginUnlocking <- true
+		test.beginUnlocking <- struct{}{}
 	}
 	for i := 0; i < test.locks; i++ {
 		<-test.doneUnlocking
@@ -248,11 +248,10 @@ func (test *lockTestConfig) locksPerWorker() map[string]int {
 
 func (test *lockTestConfig) runWorker(ctx context.Context, t *testing.T, id string) {
 	collection.DefaultTTL = 1
-	idGen = func() string { return id }
 	eg, ctx := errgroup.WithContext(ctx)
-	err := WithRing(ctx, test.ringConfig.client, logrus.New(), "master", func(ctx context.Context, ring *Ring) error {
+	err := withRing(ctx, test.ringConfig.client, logrus.New(), "master", id, func(ctx context.Context, ring *Ring) error {
 		time.Sleep(time.Second * 1)
-		test.workersReady <- true
+		test.workersReady <- struct{}{}
 		<-test.beginLocking
 		test.keys.Range(func(k any, v any) bool {
 			key := k.(string)
@@ -275,7 +274,7 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		return err
 	}
 	test.keys.Store(key, memberId)
-	test.doneLocking <- true
+	test.doneLocking <- struct{}{}
 	select {
 	case <-test.beginUnlocking:
 	case <-ctx.Done():
@@ -289,6 +288,6 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		logrus.WithField("member", memberId).WithField("lock", key).Errorf("should be able to unlock key")
 	}
 	require.NoError(t, err, "should be able to unlock key")
-	test.doneUnlocking <- true
+	test.doneUnlocking <- struct{}{}
 	return nil
 }

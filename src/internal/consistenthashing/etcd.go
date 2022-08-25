@@ -8,29 +8,23 @@ import (
 	"sync"
 	"time"
 
-	"go.etcd.io/etcd/client/v3/concurrency"
-
-	"golang.org/x/sync/errgroup"
-
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/gogo/protobuf/types"
+	"github.com/hashicorp/go-multierror"
+	"github.com/sirupsen/logrus"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
-
-	"github.com/sirupsen/logrus"
-
-	etcd "go.etcd.io/etcd/client/v3"
 )
 
 var (
-	// these variables are overridable for testing purposes.
+	// hashFn is overridable for testing purposes.
 	hashFn = crc32.ChecksumIEEE
-	idGen  = uuid.New
 )
 
 // Ring is a consistent hash Ring. Each process should only create one instance with a given prefix. Nodes can be
@@ -38,7 +32,6 @@ var (
 // or deleted.
 type Ring struct {
 	client    *etcd.Client
-	hashFn    func([]byte) uint32
 	stateLock sync.Mutex
 	logger    *logrus.Logger
 	members   []member
@@ -66,20 +59,34 @@ type lockInfo struct {
 	ctx  context.Context
 }
 
-func (ring *Ring) Members() []member {
-	return ring.members
+// MemberIds returns the id of each member in the ring.
+func (ring *Ring) MemberIds() []string {
+	ring.stateLock.Lock()
+	defer ring.stateLock.Unlock()
+	var ids []string
+	for _, member := range ring.members {
+		ids = append(ids, member.Id)
+	}
+	return ids
 }
 
+// WithRing instantiates a ring that lives for the duration of the callback 'cb'. While a ring instance is live,
+// it refreshes a lease in etcd and watches the ring prefix for add member and delete member events.
 func WithRing(ctx context.Context, client *etcd.Client, logger *logrus.Logger, prefix string, cb func(ctx context.Context, ring *Ring) error) error {
+	return withRing(ctx, client, logger, prefix, uuid.New(), cb)
+}
+
+func withRing(ctx context.Context, client *etcd.Client, logger *logrus.Logger, prefix, id string, cb func(ctx context.Context, ring *Ring) error) error {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	eg, ctx := errgroup.WithContext(cancelCtx)
-	id := idGen()
 	ring := ring(client, logger, prefix, id)
+	defer ring.logger.WithFields(ring.memberLogFields()).Infof("shutting down ring")
 	etcdCol := collection.NewEtcdCollection(ring.client, path.Join(ring.prefix, "nodes"), nil, nil, nil, nil)
-	eg.Go(func() error { return ring.watch(ctx, cancel, etcdCol) })
-	eg.Go(func() error { return ring.createNode(ctx, cancel, etcdCol, ring.node.Id) })
+	eg.Go(func() error { return ring.watch(ctx, etcdCol) })
+	eg.Go(func() error { return ring.createNode(ctx, etcdCol, ring.node.Id) })
 	eg.Go(func() error {
+		ring.logger.WithFields(ring.memberLogFields()).Infof("started ring")
 		if err := cb(ctx, ring); err != nil {
 			return err
 		}
@@ -93,8 +100,6 @@ func WithRing(ctx context.Context, client *etcd.Client, logger *logrus.Logger, p
 	return errors.EnsureStack(err)
 }
 
-// ring is the default constructor for Ring. Creating a Ring starts a goroutine to watch prefix in etcd and creates a
-// node that continuously refreshes a lease in etcd.
 func ring(client *etcd.Client, logger *logrus.Logger, prefix string, id string) *Ring {
 	localMember := member{
 		Id:   id,
@@ -102,7 +107,6 @@ func ring(client *etcd.Client, logger *logrus.Logger, prefix string, id string) 
 	}
 	return &Ring{
 		client:  client,
-		hashFn:  hashFn,
 		logger:  logger,
 		members: []member{localMember},
 		node: node{
@@ -114,28 +118,24 @@ func ring(client *etcd.Client, logger *logrus.Logger, prefix string, id string) 
 }
 
 // createNode creates a lease, inserts itself as a key to etcd, keeps the lease alive in the background.
-func (ring *Ring) createNode(ctx context.Context, cancel context.CancelFunc, col collection.EtcdCollection, id string) error {
+func (ring *Ring) createNode(ctx context.Context, col collection.EtcdCollection, id string) error {
 	if err := col.Claim(ctx, id, &types.BoolValue{Value: true},
 		func(ctx context.Context) error {
 			// keep the lease alive until the context is canceled.
 			<-ctx.Done()
-			return errors.EnsureStack(ctx.Err())
-		}); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil
-		}
-		cancel()
+		}); err != nil {
 		ring.logger.WithFields(ring.memberLogFields()).Errorf("failed to renew etcd lease: %v", err)
 		return errors.EnsureStack(err)
 	}
 	return nil
 }
 
-// watch watches etcd keys with prefix Ring.prefix to determine if a node has been added or removed.
-// When a node is added, the ring calls rebalance to release any locks that no longer associate to its node. Rebalance
+// watch watches etcd keys with prefix Ring.prefix to determine if a member has been added or removed.
+// When a member is added, the ring calls rebalance to release any locks that no longer associate to its node. Rebalance
 // on delete happens by default since each member attempts to retrieve all locks. When a member is deleted,
 // the pending calls to Lock by each member will go through on the nodes that associates to given lock.
-func (ring *Ring) watch(ctx context.Context, cancel context.CancelFunc, col collection.EtcdCollection) error {
+func (ring *Ring) watch(ctx context.Context, col collection.EtcdCollection) error {
 	if err := col.ReadOnly(ctx).WatchF(func(event *watch.Event) error {
 		ring.stateLock.Lock()
 		defer ring.stateLock.Unlock()
@@ -154,22 +154,18 @@ func (ring *Ring) watch(ctx context.Context, cancel context.CancelFunc, col coll
 		return nil
 	}); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			ring.logger.WithFields(ring.memberLogFields()).Infof("shutting down ring")
 			return nil
 		}
-		cancel()
 		ring.logger.WithFields(ring.memberLogFields()).Errorf("failed watch: %v", err)
 		return errors.EnsureStack(err)
 	}
 	return nil
 }
 
-// etcdToMember converts an etcd key in a ring's collection to a node ID.
 func (ring *Ring) etcdToMember(key string) string {
 	return path.Base(key)
 }
 
-// keyWithRingPrefix prepends the ring prefix to a key to prevent key collisions with other rings.
 func (ring *Ring) keyWithRingPrefix(key string) string {
 	return path.Join(ring.prefix, key)
 }
@@ -178,7 +174,7 @@ func (ring *Ring) keyWithRingPrefix(key string) string {
 func (ring *Ring) rebalance() error {
 	var errs error
 	for key, lockInfo := range ring.node.locks {
-		if ring.get(key).Id == ring.node.Id || lockInfo.lock == nil {
+		if ring.get(key).Id == ring.node.Id {
 			continue
 		}
 		if err := lockInfo.lock.Unlock(lockInfo.ctx); err != nil {
@@ -190,7 +186,6 @@ func (ring *Ring) rebalance() error {
 	return errors.EnsureStack(errs)
 }
 
-// get is a convenience wrapper around getIndex that returns the member that associates to a key.
 func (ring *Ring) get(key string) member {
 	return ring.members[ring.getIndex(key)]
 }
@@ -198,7 +193,7 @@ func (ring *Ring) get(key string) member {
 // getIndex returns the index of the member associated with key. A key belongs to the first member whose hash is
 // greater than the key. If no Members are greater, then the Ring wraps around to the first member.
 func (ring *Ring) getIndex(key string) int {
-	keyHash := ring.hashFn([]byte(key))
+	keyHash := hashFn([]byte(key))
 	index := sort.Search(len(ring.members), func(i int) bool {
 		return ring.members[i].hash >= keyHash
 	})
@@ -209,11 +204,10 @@ func (ring *Ring) getIndex(key string) int {
 	return index
 }
 
-// insertById is a convenience wrapper for insert that constructs the member on behalf of the caller.
 func (ring *Ring) insertById(id string) {
 	member := member{
 		Id:   id,
-		hash: ring.hashFn([]byte(id)),
+		hash: hashFn([]byte(id)),
 	}
 	ring.insert(member)
 }
@@ -236,16 +230,15 @@ func (ring *Ring) insert(member member) {
 	ring.members[index] = member
 }
 
-// removeById is a convenience wrapper for remove that constructs the member on behalf of the caller.
 func (ring *Ring) removeById(id string) {
 	member := member{
 		Id:   id,
-		hash: ring.hashFn([]byte(id)),
+		hash: hashFn([]byte(id)),
 	}
 	ring.remove(member)
 }
 
-// remove removes the member from Ring.members if it exists.
+// remove deletes the member from Ring.members if it exists.
 func (ring *Ring) remove(member member) {
 	index := sort.Search(len(ring.members), func(i int) bool {
 		return ring.members[i].hash >= member.hash
@@ -304,7 +297,7 @@ func (ring *Ring) Unlock(key string) error {
 	defer ring.stateLock.Unlock()
 	key = ring.keyWithRingPrefix(key)
 	info, exists := ring.node.locks[key]
-	if !exists || info.lock == nil {
+	if !exists {
 		return nil // lock does not exist in this local process.
 	}
 	if err := info.lock.Unlock(info.ctx); err != nil {
