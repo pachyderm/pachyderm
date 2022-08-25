@@ -180,6 +180,10 @@ spec:
               name: pachyderm-console-secret
               key: OAUTH_CLIENT_SECRET
         {{- end }}
+        {{- if .Release.IsUpgrade }}
+        - name: UPGRADE_NO_OP
+          value: {{ randAlphaNum 32 }}
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-deployment-id-secret
