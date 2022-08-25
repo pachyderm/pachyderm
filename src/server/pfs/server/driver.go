@@ -79,6 +79,7 @@ type driver struct {
 	repos    col.PostgresCollection
 	commits  col.PostgresCollection
 	branches col.PostgresCollection
+	projects col.PostgresCollection
 
 	storage     *fileset.Storage
 	commitStore commitStore
@@ -100,6 +101,7 @@ func newDriver(env Env) (*driver, error) {
 	repos := pfsdb.Repos(env.DB, env.Listener)
 	commits := pfsdb.Commits(env.DB, env.Listener)
 	branches := pfsdb.Branches(env.DB, env.Listener)
+	projects := pfsdb.Projects(env.DB, env.Listener)
 
 	// Setup driver struct.
 	d := &driver{
@@ -110,6 +112,7 @@ func newDriver(env Env) (*driver, error) {
 		repos:      repos,
 		commits:    commits,
 		branches:   branches,
+		projects:   projects,
 		log:        env.Logger,
 	}
 	// Setup tracker and chunk / fileset storage.
@@ -417,6 +420,50 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 		if err := d.env.AuthServer.DeleteRoleBindingInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_REPO, Name: repo.Name}); err != nil && !auth.IsErrNotActivated(err) {
 			return grpcutil.ScrubGRPC(err)
 		}
+	}
+	return nil
+}
+
+func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
+	if err := ancestry.ValidateName(req.Project.Name); err != nil {
+		return errors.Wrapf(err, "invalid project name")
+	}
+	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		projects := d.projects.ReadWrite(txnCtx.SqlTx)
+		projectInfo := &pfs.ProjectInfo{}
+		if req.Update {
+			return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
+				projectInfo.Description = req.Description
+				return nil
+			}))
+		}
+		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
+			Project:     req.Project,
+			Description: req.Description,
+		}))
+	})
+}
+
+func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
+	pi := &pfs.ProjectInfo{}
+	if err := d.projects.ReadOnly(ctx).Get(pfsdb.ProjectKey(project), pi); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return pi, nil
+}
+
+// The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
+func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
+	projectInfo := &pfs.ProjectInfo{}
+	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+		return cb(projectInfo)
+	}))
+}
+
+// TODO: delete all repos and pipelines within project
+func (d *driver) deleteProject(txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+	if err := d.projects.ReadWrite(txnCtx.SqlTx).Delete(pfsdb.ProjectKey(project)); err != nil {
+		return errors.Wrapf(err, "delete project %q", project.Name)
 	}
 	return nil
 }
@@ -2050,10 +2097,22 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	var projectInfos []*pfs.ProjectInfo
+	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
+		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
+		return nil
+	}); err != nil {
+		return err
+	}
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		// the list does not use the transaction
 		for _, repoInfo := range repoInfos {
 			if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+				return err
+			}
+		}
+		for _, projectInfo := range projectInfos {
+			if err := d.deleteProject(txnCtx, projectInfo.Project, true); err != nil {
 				return err
 			}
 		}

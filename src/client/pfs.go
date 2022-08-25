@@ -367,6 +367,23 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
+// ListProject lists projects
+func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	ctx, cf := context.WithCancel(c.Ctx())
+	defer cf()
+	client, err := c.PfsAPIClient.ListProject(
+		ctx,
+		&pfs.ListProjectRequest{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return clientsdk.ListProjectInfo(client)
+}
+
 func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
 	req := &pfs.InspectCommitSetRequest{
 		CommitSet: NewCommitSet(id),

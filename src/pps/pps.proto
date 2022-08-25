@@ -313,6 +313,7 @@ message Worker {
 
 message Pipeline {
   string name = 1;
+  pfs_v2.Project project = 2;
 }
 
 enum PipelineState {
