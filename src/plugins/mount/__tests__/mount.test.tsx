@@ -19,19 +19,22 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
+import { ListMountsResponse } from '../types';
 
 jest.mock('../../../handler');
 
-const defaultRepos = [
-  {
-    repo: 'images',
-    branches: [],
-  },
-  {
-    repo: 'data',
-    branches: [],
-  },
-];
+const items = {
+  unmounted: [
+    {
+      repo: 'images',
+      branches: [],
+    },
+    {
+      repo: 'data',
+      branches: [],
+    },
+  ]
+};
 
 describe('mount plugin', () => {
   let app: JupyterLab;
@@ -44,7 +47,7 @@ describe('mount plugin', () => {
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
   beforeEach(() => {
     mockRequestAPI.requestAPI.mockImplementation(
-      mockedRequestAPI(defaultRepos),
+      mockedRequestAPI(items),
     );
 
     const opener = {
@@ -76,30 +79,27 @@ describe('mount plugin', () => {
     });
   });
 
-  it.skip('should poll for repos', async () => {
+  it.skip('should poll for mounts', async () => {
     mockRequestAPI.requestAPI
-      .mockImplementationOnce(mockedRequestAPI(defaultRepos)) // call to api from setup function, part of auth flow.
-      .mockImplementationOnce(mockedRequestAPI(defaultRepos))
+      .mockImplementationOnce(mockedRequestAPI(items)) // call to api from setup function, part of auth flow.
+      .mockImplementationOnce(mockedRequestAPI(items))
       .mockImplementationOnce(
-        mockedRequestAPI([
-          {
-            repo: 'images',
-            branches: [
-              {
-                branch: 'master',
-                mount: [
-                  {
-                    state: 'mounted',
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            repo: 'data',
-            branches: [],
-          },
-        ]),
+        mockedRequestAPI({
+          mounted: [
+            {
+              name: 'images',
+              repo: 'images',
+              branch: 'master',
+              state: 'mounted',
+            }
+          ],
+          unmounted: [
+            {
+              repo: 'data',
+              branches: [],
+            }
+          ]
+        }),
       );
     const plugin = new MountPlugin(app, docManager, factory, restorer);
 
@@ -117,7 +117,7 @@ describe('mount plugin', () => {
       expect(plugin.unmountedRepos.length).toEqual(1);
       expect(plugin.unmountedRepos[0].repo).toEqual('data');
       expect(plugin.mountedRepos.length).toEqual(1);
-      expect(plugin.mountedRepos[0].repo).toEqual('images');
+      expect(plugin.mountedRepos[0].name).toEqual('images');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(3);
     });
   });

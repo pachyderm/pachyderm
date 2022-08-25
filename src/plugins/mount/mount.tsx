@@ -8,9 +8,9 @@ import {settingsIcon} from '@jupyterlab/ui-components';
 import {Signal} from '@lumino/signaling';
 
 import {mountLogoIcon} from '../../utils/icons';
-import {PollRepos} from './pollRepos';
+import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
-import {AuthConfig, IMountPlugin, Repo} from './types';
+import {AuthConfig, IMountPlugin, Repo, Mount} from './types';
 import Config from './components/Config/Config';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
@@ -26,7 +26,7 @@ export class MountPlugin implements IMountPlugin {
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
   private _mountBrowser: FileBrowser;
-  private _poller: PollRepos;
+  private _poller: PollMounts;
   private _panel: SplitPanel;
 
   private _showConfig = false;
@@ -40,7 +40,7 @@ export class MountPlugin implements IMountPlugin {
     restorer: ILayoutRestorer,
   ) {
     this._app = app;
-    this._poller = new PollRepos('PollRepos');
+    this._poller = new PollMounts('PollMounts');
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
@@ -119,7 +119,7 @@ export class MountPlugin implements IMountPlugin {
             </div>
             <SortableList
               open={this.open}
-              repos={mounted ? mounted : this._poller.mounted}
+              items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
             />
           </div>
@@ -137,7 +137,7 @@ export class MountPlugin implements IMountPlugin {
             </div>
             <SortableList
               open={this.open}
-              repos={unmounted ? unmounted : this._poller.unmounted}
+              items={unmounted ? unmounted : this._poller.unmounted}
               updateData={this._poller.updateData}
             />
           </div>
@@ -255,7 +255,7 @@ export class MountPlugin implements IMountPlugin {
     this._loader.setHidden(true);
   };
 
-  get mountedRepos(): Repo[] {
+  get mountedRepos(): Mount[] {
     this._poller.poll.tick;
     return this._poller.mounted;
   }
