@@ -81,7 +81,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		}
 		return nil
 	})
-	return errors.EnsureStack(err)
+	return err
 }
 
 func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, f fileset.File) (*pfs.FileInfo, bool, error) {

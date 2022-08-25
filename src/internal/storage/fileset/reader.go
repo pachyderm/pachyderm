@@ -33,7 +33,7 @@ func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache
 func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
 	md, err := r.store.Get(ctx, r.id)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {
