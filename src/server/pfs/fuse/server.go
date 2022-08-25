@@ -211,9 +211,7 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 			for branch := range umbranches {
 				rr.Branches = append(rr.Branches, branch)
 			}
-			if len(rr.Branches) == 0 {
-				delete(mr.Unmounted, repo)
-			} else {
+			if len(rr.Branches) != 0 {
 				mr.Unmounted[repo] = rr
 			}
 		}
