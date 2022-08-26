@@ -8,9 +8,11 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 )
 
@@ -33,6 +35,20 @@ func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
 		auth.RegisterAPIServer(s, apiServer)
 	})
 	sb.env.SetAuthServer(apiServer)
+	return nil
+}
+
+func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
+	env, err := pfs_server.EnvFromServiceEnv(sb.env, sb.txnEnv)
+	if err != nil {
+		return err
+	}
+	apiServer, err := pfs_server.NewSidecarAPIServer(*env)
+	if err != nil {
+		return err
+	}
+	sb.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
+	sb.env.SetPfsServer(apiServer)
 	return nil
 }
 
