@@ -113,7 +113,7 @@ docker-build-spout-test:
 	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
 
 docker-build-connectors:
-	docker build -t pachyderm/snowflake:local src/integrations/connectors/snowflake/
+	docker build -t pachyderm/snowflake:local -f src/integrations/connectors/snowflake/Dockerfile .
 
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install

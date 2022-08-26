@@ -25,7 +25,7 @@ func init() {
 	flag.StringVar(&partitionBy, "partitionBy", "", "expression for the partition key")
 	flag.StringVar(&fileFormat, "fileFormat", "", "configure file format options")
 	flag.StringVar(&copyOptions, "copyOptions", "", "configure options for copying files to stage")
-	flag.StringVar(&outputDir, "outputDir", "/pfs/out", "local directory to save results of query")
+	flag.StringVar(&outputDir, "outputDir", "", "local directory to save results of query")
 	flag.BoolVar(&header, "header", false, "whether to include header in the output files")
 	flag.BoolVar(&debug, "debug", false, "set to true for logging debug messages from Snowflake")
 }
@@ -49,7 +49,7 @@ func getDSN() (string, error) {
 	warehouse := env("SNOWSQL_WH", false)
 	database := env("SNOWSQL_DATABASE", true)
 	schema := env("SNOWSQL_SCHEMA", false)
-	password := env("SNOWSQL_PASSWORD", true)
+	password := env("SNOWSQL_PWD", true)
 
 	cfg := &sf.Config{
 		Account:   account,
@@ -67,14 +67,14 @@ func getDSN() (string, error) {
 func copyIntoStage(db *sqlx.DB, stage string) error {
 	// Create a named Snowflake stage based off of the pipeline name
 	// should this be a temporary stage?
-	if _, err := db.Exec(fmt.Sprintf("CREATE OR REPLACE TEMPORARY STAGE %s", stage)); err != nil {
+	if _, err := db.Exec(fmt.Sprintf("CREATE OR REPLACE STAGE %s", stage)); err != nil {
 		return errors.Errorf("error creating named stage: %s, error: %v", stage, err)
 	}
 
 	// run COPY INTO <stage> FROM <query>
 	copyIntoQuery := fmt.Sprintf("COPY INTO @%s FROM (%s)", stage, query)
 	if partitionBy != "" {
-		copyIntoQuery += fmt.Sprintf(" PARTITION BY = %s", partitionBy)
+		copyIntoQuery += fmt.Sprintf(" PARTITION BY (%s)", partitionBy)
 	}
 	if fileFormat != "" {
 		copyIntoQuery += fmt.Sprintf(" FILE_FORMAT = %s", fileFormat)
@@ -85,6 +85,7 @@ func copyIntoStage(db *sqlx.DB, stage string) error {
 	if header {
 		copyIntoQuery += " HEADER = TRUE"
 	}
+	log.Infof("Running query: %s", copyIntoQuery)
 	if _, err := db.Exec(copyIntoQuery); err != nil {
 		return errors.Errorf("error copying data to stage: %v", err)
 	}
@@ -112,19 +113,20 @@ func listFromStage(db *sqlx.DB, stage string) ([]string, error) {
 }
 
 func downloadFromStage(db *sqlx.DB, stage string, files []string, outputDir string) error {
+	// todo make this run goroutines for each file
 	// download files from stage to /pfs/out
 	// file shards can be of the path pipelineName/a/b/c/filename.txt
 	// we want to write this to /pfs/out/a/b/c/filename.txt so we need to create the parent directoires
 	for _, file := range files {
 		outputFile := filepath.Join(outputDir, strings.TrimPrefix(file, stage))
 		outputFileDir, _ := filepath.Split(outputFile)
-		if err := os.MkdirAll(outputFileDir, 0777); err != nil {
+		if err := os.MkdirAll(outputFileDir, 0775); err != nil {
 			return errors.Errorf("could not make parent dir %s: %v", outputFileDir, err)
 		}
 		if _, err := db.Exec(fmt.Sprintf("GET @%s file://%s", file, outputFileDir)); err != nil {
 			return errors.Errorf("could not download @%s to %s: %v", file, outputFileDir, err)
 		}
-		log.Infof("downloaded %s", file)
+		log.Infof("downloaded %s to %s", file, outputFileDir)
 	}
 	return nil
 }
@@ -164,7 +166,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// todo make this run goroutines for each file
 	if err := downloadFromStage(db, stage, files, outputDir); err != nil {
 		log.Fatal(err)
 	}

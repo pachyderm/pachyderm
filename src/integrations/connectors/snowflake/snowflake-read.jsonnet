@@ -20,13 +20,13 @@ Arguments:
   warehouse : Snowflake warehouse
   database : Snowflake database
   schema : Snowflake schema
-  query : the query to run on Snowflake 
+  query : the query to run on Snowflake
   fileFormat : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#format-type-options-formattypeoptions
   copyOptions : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#copy-options-copyoptions
   --------------
   outputFile : name of the file in the output repo, can have nested directories e.g. /pfs/out/a/b/my-data.csv
 */
-function(name, cronSpec, image='pachyderm/snowflake', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='OVERWRITE = TRUE SINGLE = TRUE', outputFile='0000')
+function(name, cronSpec, image='pachyderm/snowflake:local', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='', partitionBy='', header=false)
   {
     pipeline: {
       name: name,
@@ -39,12 +39,10 @@ function(name, cronSpec, image='pachyderm/snowflake', account, user, role, wareh
       },
     },
     transform: {
-      cmd: ['bash'],
+      cmd: ['sh'],
       stdin: [
-        'outputdir=$(dirname /pfs/out/%s)' % outputFile,
-        'mkdir -p $outputdir',
-        'snowsql -q "COPY INTO @~/%(name)s/%(outputFile)s FROM (%(query)s) FILE_FORMAT = %(fileFormat)s %(copyOptions)s"' % {name: name, outputFile: outputFile, query: query, fileFormat: fileFormat, copyOptions: copyOptions},
-        'snowsql -q "GET @~/%(name)s/%(outputFile)s file://${outputdir}"' % { name: name, outputFile: outputFile },
+        'snowpach -query=%(query)s -fileFormat=%(fileFormat)s -partitionBy=%(partitionBy)s -outputDir=/tmp/out -header=%(header)s' % { query: std.escapeStringBash(query), fileFormat: std.escapeStringBash(fileFormat), partitionBy: std.escapeStringBash(partitionBy), header: header},
+        'mv /tmp/out/* /pfs/out'
       ],
       env: {
         SNOWSQL_ACCOUNT: account,
