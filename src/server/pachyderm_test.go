@@ -3345,7 +3345,7 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinT(t, time.Second*60, func() error {
+		require.NoErrorWithinT(t, time.Second*120, func() error {
 			_, err := c.WaitCommit(pipelines[9], "master", "")
 			return err
 		})
