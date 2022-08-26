@@ -4551,7 +4551,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 10",
+			"sleep 1",
 		},
 		nil,
 		client.NewPFSInput(dataRepo, "/*"),
@@ -4569,11 +4569,40 @@ func TestDatumStatusRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	//_, err = c.WaitJob(pipeline, commit1.ID, true)
-	//require.NoError(t, err)
+	var datumStarted time.Time
+	// checkStatus waits for 'pipeline' to start and makes sure that each time
+	// it's called, the datum being processes was started at a new and later time
+	// (than the last time checkStatus was called)
+	checkStatus := func() {
+		require.NoErrorWithinTRetry(t, time.Minute*2, func() error {
+			jobInfo, err := c.InspectJob(pipeline, commit1.ID, true)
+			require.NoError(t, err)
+			if len(jobInfo.Details.WorkerStatus) == 0 {
+				return errors.Errorf("no worker statuses")
+			}
+			workerStatus := jobInfo.Details.WorkerStatus[0]
+			if workerStatus.JobID == jobInfo.Job.ID {
+				if workerStatus.DatumStatus == nil {
+					return errors.Errorf("no datum status")
+				}
+				// The first time this function is called, datumStarted is zero
+				// so `Before` is true for any non-zero time.
+				started, err := types.TimestampFromProto(workerStatus.DatumStatus.Started)
+				if err != nil {
+					return errors.Errorf("could not convert timestamp: %v", err)
+				}
+				if !datumStarted.Before(started) {
+					return errors.Errorf("%v ≮ %v", datumStarted, started)
+				}
+				datumStarted = started
+				return nil
+			}
+			return errors.Errorf("worker status from wrong job")
+		})
+	}
+	checkStatus()
 	require.NoError(t, c.RestartDatum(pipeline, commit1.ID, []string{"/file"}))
-	_, err = c.WaitJob(pipeline, commit1.ID, true)
-	require.NoError(t, err)
+	checkStatus()
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.ID)
 	require.NoError(t, err)
