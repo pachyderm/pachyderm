@@ -16,7 +16,6 @@ import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
-import { requestAPI } from 'handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
@@ -171,11 +170,9 @@ export class MountPlugin implements IMountPlugin {
               refresh={this.refresh}
             />
           </>
-        )
-
-        }
-      </UseSignal>
-    )
+        )}
+      </UseSignal>,
+    );
 
     this._loader = ReactWidget.create(
       <>
@@ -238,7 +235,7 @@ export class MountPlugin implements IMountPlugin {
     });
   };
 
-  refresh = () => {
+  refresh = (): void => {
     this._app.commands.execute('filebrowser:refresh');
     this._app.commands.execute('filebrowser:open-path', {
       path: MOUNT_BROWSER_NAME,
@@ -260,7 +257,7 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.setHidden(true);
     this._showDatum = shouldShow;
     this._showDatumSignal.emit(shouldShow);
-  }
+  };
 
   setShowConfig = (shouldShow: boolean): void => {
     if (shouldShow) {
@@ -317,9 +314,8 @@ export class MountPlugin implements IMountPlugin {
       // try {
       //   const res = await requestAPI<any>(`_show_datum?idx=0`, 'PUT')
       // } catch (e) {
-        
+
       // }
-      
     }
     this._loader.setHidden(true);
   };

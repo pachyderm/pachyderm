@@ -1,6 +1,6 @@
 import React from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
-import { useDatum } from './hooks/useDatum';
+import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
 
 type DatumProps = {
@@ -9,11 +9,7 @@ type DatumProps = {
   refresh: () => void;
 };
 
-const Datum: React.FC<DatumProps> = ({
-  showDatum,
-  setShowDatum,
-  refresh,
-}) => {
+const Datum: React.FC<DatumProps> = ({showDatum, setShowDatum, refresh}) => {
   const {
     loading,
     shouldShowCycler,
@@ -24,12 +20,8 @@ const Datum: React.FC<DatumProps> = ({
     inputSpec,
     setInputSpec,
     callMountDatums,
-    callShowDatum,
     callUnmountAll,
-  } = useDatum(
-    showDatum,
-    refresh
-  )
+  } = useDatum(showDatum, refresh);
 
   return (
     <>
@@ -39,8 +31,8 @@ const Datum: React.FC<DatumProps> = ({
             data-testid="Datum__back"
             className="pachyderm-button-link"
             onClick={() => {
-              callUnmountAll()
-              setShowDatum(false)
+              callUnmountAll();
+              setShowDatum(false);
             }}
           >
             Back{' '}
@@ -74,47 +66,44 @@ const Datum: React.FC<DatumProps> = ({
               Mount Datums
             </button>
           </span>
-
-          {
-            shouldShowCycler && (
-              <div className="pachyderm-mount-datum-cycler-title">
-                Datum
-                <button
-                  className="pachyderm-button-link"
-                  disabled={currentDatumIdx <= 0}
-                  onClick={() => {
-                    if (currentDatumIdx >= 1) {
-                      setCurrentDatumIdx(currentDatumIdx-1);
-                    }
-                  }}
-                  >
-                  <caretLeftIcon.react
-                    tag="span"
-                    className="pachyderm-mount-datum-left"
-                  />
-                </button>
-                {"(" + (currentDatumIdx+1) + "/" + numDatums + ")"}
-                <button
-                  className="pachyderm-button-link"
-                  disabled={currentDatumIdx >= numDatums-1}
-                  onClick={() => {
-                    if (currentDatumIdx < numDatums-1) {
-                      setCurrentDatumIdx(currentDatumIdx+1);
-                    }
-                  }}
-                  >
-                  <caretRightIcon.react
-                    tag="span"
-                    className="pachyderm-mount-datum-right"
-                  />
-                </button>
-              </div>
-            )
-          }
+          {shouldShowCycler && (
+            <div className="pachyderm-mount-datum-cycler-title">
+              Datum
+              <button
+                className="pachyderm-button-link"
+                disabled={currentDatumIdx <= 0}
+                onClick={() => {
+                  if (currentDatumIdx >= 1) {
+                    setCurrentDatumIdx(currentDatumIdx - 1);
+                  }
+                }}
+              >
+                <caretLeftIcon.react
+                  tag="span"
+                  className="pachyderm-mount-datum-left"
+                />
+              </button>
+              {'(' + (currentDatumIdx + 1) + '/' + numDatums + ')'}
+              <button
+                className="pachyderm-button-link"
+                disabled={currentDatumIdx >= numDatums - 1}
+                onClick={() => {
+                  if (currentDatumIdx < numDatums - 1) {
+                    setCurrentDatumIdx(currentDatumIdx + 1);
+                  }
+                }}
+              >
+                <caretRightIcon.react
+                  tag="span"
+                  className="pachyderm-mount-datum-right"
+                />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
-  )
-}
+  );
+};
 
 export default Datum;

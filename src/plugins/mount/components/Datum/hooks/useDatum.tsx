@@ -6,12 +6,11 @@ export type useDatumResponse = {
   shouldShowCycler: boolean;
   currentDatumId: string;
   currentDatumIdx: number;
-  setCurrentDatumIdx: (idx: number) => void
+  setCurrentDatumIdx: (idx: number) => void;
   numDatums: number;
   inputSpec: string;
-  setInputSpec: (input: string) => void
+  setInputSpec: (input: string) => void;
   callMountDatums: () => Promise<void>;
-  callShowDatum: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
 };
 
@@ -19,7 +18,7 @@ export const useDatum = (
   showDatum: boolean,
   refresh: () => void,
 ): useDatumResponse => {
-  const [loading, setLoading] = useState(false);  
+  const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
   const [currentDatumId, setCurrentDatumId] = useState('');
   const [currentDatumIdx, setCurrentDatumIdx] = useState(-1);
@@ -30,12 +29,12 @@ export const useDatum = (
     if (showDatum && currentDatumIdx !== -1) {
       callShowDatum();
     }
-  }, [currentDatumIdx, showDatum])
+  }, [currentDatumIdx, showDatum]);
 
   // TODO: out still showing after unmount all
   // useEffect(() => {
   //   if (!showDatum) {
-  //     callUnmountAll()      
+  //     callUnmountAll()
   //   }
   // }, [showDatum])
 
@@ -43,12 +42,10 @@ export const useDatum = (
     setLoading(true);
 
     try {
-      await callUnmountAll()
-      const res = await requestAPI<any>('_mount_datums', 'PUT',
-      {
+      await callUnmountAll();
+      const res = await requestAPI<any>('_mount_datums', 'PUT', {
         input: JSON.parse(inputSpec),
-      }
-      );
+      });
       refresh();
       setCurrentDatumId(res.id);
       setCurrentDatumIdx(res.idx);
@@ -63,7 +60,9 @@ export const useDatum = (
   const callShowDatum = async () => {
     setLoading(true);
     try {
-      const res = await requestAPI<any>(`_show_datum?idx=${currentDatumIdx}`, 'PUT',
+      const res = await requestAPI<any>(
+        `_show_datum?idx=${currentDatumIdx}`,
+        'PUT',
       );
       refresh();
       setCurrentDatumId(res.id);
@@ -87,7 +86,7 @@ export const useDatum = (
     } catch (e) {
       console.log(e);
     }
-    console.log("===> CALLING UMOUNT ALL")
+    console.log('===> CALLING UMOUNT ALL');
     setLoading(false);
   };
 
@@ -101,7 +100,6 @@ export const useDatum = (
     inputSpec,
     setInputSpec,
     callMountDatums,
-    callShowDatum,
     callUnmountAll,
-  }
+  };
 };
