@@ -26,7 +26,7 @@ Arguments:
   --------------
   outputFile : name of the file in the output repo, can have nested directories e.g. /pfs/out/a/b/my-data.csv
 */
-function(name, cronSpec, image='pachyderm/snowflake:local', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='', partitionBy='', header=false)
+function(name, cronSpec, image='pachyderm/snowflake:local', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='', partitionBy='', header=false, debug=false)
   {
     pipeline: {
       name: name,
@@ -41,7 +41,8 @@ function(name, cronSpec, image='pachyderm/snowflake:local', account, user, role,
     transform: {
       cmd: ['sh'],
       stdin: [
-        'snowpach -query=%(query)s -fileFormat=%(fileFormat)s -partitionBy=%(partitionBy)s -outputDir=/tmp/out -header=%(header)s' % { query: std.escapeStringBash(query), fileFormat: std.escapeStringBash(fileFormat), partitionBy: std.escapeStringBash(partitionBy), header: header},
+        'snowpach read -query=%(query)s -fileFormat=%(fileFormat)s -partitionBy=%(partitionBy)s -outputDir=/tmp/out -header=%(header)s -debug=%(debug)s' % { query: std.escapeStringBash(query), fileFormat: std.escapeStringBash(fileFormat), partitionBy: std.escapeStringBash(partitionBy), header: header, debug: debug},
+        // we are writing to /tmp/out first because for unknown reasons, snowpach writes corrupted data to /pfs but not /tmp
         'mv /tmp/out/* /pfs/out'
       ],
       env: {

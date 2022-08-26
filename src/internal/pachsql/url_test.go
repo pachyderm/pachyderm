@@ -79,7 +79,7 @@ func TestParseURL(t *testing.T) {
 
 func TestSnowflakeConnection(t *testing.T) {
 	user := os.Getenv("SNOWFLAKE_USER")
-	role := os.Getenv("SNOWFLAKE_USER_ROLE")
+	role := os.Getenv("SNOWFLAKE_ROLE")
 	account := os.Getenv("SNOWFLAKE_ACCOUNT")
 	host := account + ".snowflakecomputing.com"
 	password := os.Getenv("SNOWFLAKE_PASSWORD")

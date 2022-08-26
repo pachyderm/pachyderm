@@ -35,21 +35,11 @@ Arguments:
   database : Snowflake database
   schema : Snowflake schema
   fileFormat : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-table.html#format-type-options-formattypeoptions
-  copyOptions : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-table.html#copy-options-copyoptions 
+  copyOptions : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-table.html#copy-options-copyoptions
   --------------
   table : target table name (leave blank if you want Pachyderm to infer table names from input repo directories)
 */
-function(name, inputRepo, image='pachyderm/snowflake', account, user, role, warehouse, database, schema, fileFormat, copyOptions='PURGE = TRUE', table='')
-  local stdin = if table == '' then [
-    'table=$(basename /pfs/in/*)',
-    'snowsql -q "put file:///pfs/in/${table}/* @%${table} OVERWRITE = TRUE"',
-    'snowsql --single-transaction -q "DELETE FROM ${table}; COPY INTO ${table} FROM @%%${table} FILE_FORMAT = %(format)s %(copyOptions)s"' % { format: fileFormat, copyOptions: copyOptions },
-  ] else [
-    'for f in $(find /pfs/in -type f -follow -print); do',
-    'snowsql -q "put file://${f} @%%%s OVERWRITE = TRUE"' % table,
-    'done',
-    'snowsql --single-transaction -q "DELETE FROM %(table)s; COPY INTO %(table)s FROM @%%%(table)s FILE_FORMAT = %(format)s %(copyOptions)s;"' % { table: table, format: fileFormat, copyOptions: copyOptions },
-  ];
+function(name, inputRepo, image='pachyderm/snowflake', account, user, role, warehouse, database, schema, fileFormat, copyOptions='PURGE = TRUE', table='', debug=false)
   {
     pipeline: {
       name: name,
@@ -62,8 +52,10 @@ function(name, inputRepo, image='pachyderm/snowflake', account, user, role, ware
       },
     },
     transform: {
-      cmd: ['bash'],
-      stdin: stdin,
+      cmd: ['sh'],
+      stdin: [
+        'snowpach write -fileFormat=%(fileFormat)s -table=%(table)s -inputDir=/pfs/in -debug=%(debug)s' % {fileFormat: std.escapeStringBash(fileFormat), table: table, debug: debug},
+      ],
       env: {
         SNOWSQL_ACCOUNT: account,
         SNOWSQL_USER: user,
@@ -81,4 +73,5 @@ function(name, inputRepo, image='pachyderm/snowflake', account, user, role, ware
       ],
       image: image,
     },
+    datum_tries: 1,
   }

@@ -16,19 +16,11 @@ import (
 )
 
 var (
-	header, debug                                          bool
-	query, outputDir, partitionBy, fileFormat, copyOptions string
+	header, debug                           bool
+	fileFormat, copyOptions                 string // common between read and write
+	query, inputDir, outputDir, partitionBy string // read
+	targetTable                             string // write
 )
-
-func init() {
-	flag.StringVar(&query, "query", "", "a SQL query")
-	flag.StringVar(&partitionBy, "partitionBy", "", "expression for the partition key")
-	flag.StringVar(&fileFormat, "fileFormat", "", "configure file format options")
-	flag.StringVar(&copyOptions, "copyOptions", "", "configure options for copying files to stage")
-	flag.StringVar(&outputDir, "outputDir", "", "local directory to save results of query")
-	flag.BoolVar(&header, "header", false, "whether to include header in the output files")
-	flag.BoolVar(&debug, "debug", false, "set to true for logging debug messages from Snowflake")
-}
 
 var (
 	log = logrus.StandardLogger()
@@ -42,6 +34,8 @@ func env(k string, failOnMissing bool) string {
 	return ""
 }
 
+// SNOWSQL_X env variables are defined by the snowsql CLI
+// we inherit this convention for convenience
 func getDSN() (string, error) {
 	account := env("SNOWSQL_ACCOUNT", true)
 	user := env("SNOWSQL_USER", true)
@@ -64,20 +58,27 @@ func getDSN() (string, error) {
 	return sf.DSN(cfg)
 }
 
-func copyIntoStage(db *sqlx.DB, stage string) error {
+func createTempStage(db *sqlx.DB, stage string) error {
 	// Create a named Snowflake stage based off of the pipeline name
 	// should this be a temporary stage?
-	if _, err := db.Exec(fmt.Sprintf("CREATE OR REPLACE STAGE %s", stage)); err != nil {
-		return errors.Errorf("error creating named stage: %s, error: %v", stage, err)
+	if result, err := db.Exec(fmt.Sprintf("CREATE TEMPORARY STAGE %s", stage)); err != nil {
+		fmt.Println(result)
+		return errors.Errorf("error creating temp stage: %s, error: %v", stage, err)
 	}
+	return nil
+}
 
+func copyIntoStage(db *sqlx.DB, stage string) error {
+	if err := createTempStage(db, stage); err != nil {
+		return err
+	}
 	// run COPY INTO <stage> FROM <query>
 	copyIntoQuery := fmt.Sprintf("COPY INTO @%s FROM (%s)", stage, query)
 	if partitionBy != "" {
 		copyIntoQuery += fmt.Sprintf(" PARTITION BY (%s)", partitionBy)
 	}
 	if fileFormat != "" {
-		copyIntoQuery += fmt.Sprintf(" FILE_FORMAT = %s", fileFormat)
+		copyIntoQuery += fmt.Sprintf(" FILE_FORMAT = (%s)", fileFormat)
 	}
 	if copyOptions != "" {
 		copyIntoQuery += fmt.Sprintf(" %s", copyOptions)
@@ -85,7 +86,6 @@ func copyIntoStage(db *sqlx.DB, stage string) error {
 	if header {
 		copyIntoQuery += " HEADER = TRUE"
 	}
-	log.Infof("Running query: %s", copyIntoQuery)
 	if _, err := db.Exec(copyIntoQuery); err != nil {
 		return errors.Errorf("error copying data to stage: %v", err)
 	}
@@ -119,7 +119,7 @@ func downloadFromStage(db *sqlx.DB, stage string, files []string, outputDir stri
 	// we want to write this to /pfs/out/a/b/c/filename.txt so we need to create the parent directoires
 	for _, file := range files {
 		outputFile := filepath.Join(outputDir, strings.TrimPrefix(file, stage))
-		outputFileDir, _ := filepath.Split(outputFile)
+		outputFileDir := filepath.Dir(outputFile)
 		if err := os.MkdirAll(outputFileDir, 0775); err != nil {
 			return errors.Errorf("could not make parent dir %s: %v", outputFileDir, err)
 		}
@@ -131,42 +131,169 @@ func downloadFromStage(db *sqlx.DB, stage string, files []string, outputDir stri
 	return nil
 }
 
-func main() {
-	flag.Parse()
-
-	sfLogger := sf.GetLogger()
-	if debug {
-		sfLogger.SetLogLevel("debug")
-	}
-
+func connect() (*sqlx.DB, error) {
 	dsn, err := getDSN()
 	if err != nil {
 		log.Fatalf("failed to get Snowflake DSN from environment: %s, error: %v", dsn, err)
 	}
-
 	db, err := sqlx.Open("snowflake", dsn)
 	if err != nil {
-		log.Fatalf("failed to connect to db: %v, error: %v", db, err)
+		return nil, errors.Errorf("failed to connect to db: %v, error: %v", db, err)
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("error verifying connection to database: %v", err)
+		return nil, errors.Errorf("error verifying connection to database: %v", err)
 	}
+	return db, nil
+}
 
-	stage := env("PPS_PIPELINE_NAME", true)
+func read(db *sqlx.DB) error {
+	stage := env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
 	if err := copyIntoStage(db, stage); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	files, err := listFromStage(db, stage)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if err := downloadFromStage(db, stage, files, outputDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeTable(db *sqlx.DB, files []string, table string) error {
+	if len(files) == 0 {
+		return nil
+	}
+	// create temporary stage to stage files
+	stage := env("PPS_PIPELINE_NAME", true) + env("PACH_JOB_ID", false)
+	if err := createTempStage(db, stage); err != nil {
+		return err
+	}
+
+	// for all files in /pfs/in, run PUT file:///pfs/in/<filepath> @%<table>
+	for _, file := range files {
+		in := "file://" + file
+		out := fmt.Sprintf("@%s/%s", stage, table) + filepath.Dir(file)
+		if _, err := db.Exec(fmt.Sprintf("PUT %s %s", in, out)); err != nil {
+			return err
+		}
+	}
+
+	// in a single transaction run DELETE FROM table; COPY INTO <table> FROM <table_stage>
+	ctx := context.Background()
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s", table)); err != nil {
+		return err
+	}
+	copyIntoQuery := fmt.Sprintf("COPY INTO %s FROM @%s/%s", table, stage, table)
+	if fileFormat != "" {
+		copyIntoQuery += fmt.Sprintf(" FILE_FORMAT = (%s)", fileFormat)
+	}
+
+	if _, err := tx.ExecContext(ctx, copyIntoQuery); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func write(db *sqlx.DB) error {
+	switch targetTable {
+	case "":
+		// infer target table based on /pfs/in/tablename
+	default:
+		// remember that /pfs/in has symbolic links so filepath.Walk doesn't work
+		// if err := filepath.WalkDir(root, func(path string, dirEnt fs.DirEntry, err error) error {
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	if dirEnt.IsDir() || dirEnt.Type().IsDir() {
+		// 		fmt.Println(">>>", path, "is a directory")
+		// 		return nil
+		// 	}
+		// 	info, err := dirEnt.Info()
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	if info.IsDir() {
+		// 		return nil
+		// 	}
+		// 	fmt.Println(">>> adding", path, "to list of files", dirEnt)
+		// 	files = append(files, path)
+		// 	return nil
+		// }); err != nil {
+		// 	return err
+		// }
+		files, err := filepath.Glob(filepath.Join(inputDir, "/*/*"))
+		if err != nil {
+			return err
+		}
+		return writeTable(db, files, targetTable)
+	}
+	return nil
+}
+
+func main() {
+	readCmd := flag.NewFlagSet("read", flag.ExitOnError)
+	readCmd.BoolVar(&debug, "debug", false, "set Snowflake log level to 'debug'")
+	readCmd.StringVar(&query, "query", "", "a SQL query")
+	readCmd.StringVar(&partitionBy, "partitionBy", "", "expression for the partition key")
+	readCmd.StringVar(&fileFormat, "fileFormat", "", "configure file format options")
+	readCmd.StringVar(&copyOptions, "copyOptions", "", "configure options for copying files to stage")
+	readCmd.StringVar(&outputDir, "outputDir", "", "local directory to save results of query")
+	readCmd.BoolVar(&header, "header", false, "whether to include header in the output files")
+
+	writeCmd := flag.NewFlagSet("write", flag.ExitOnError)
+	writeCmd.BoolVar(&debug, "debug", false, "set Snowflake log level to 'debug'")
+	writeCmd.StringVar(&inputDir, "inputDir", "", "example /pfs/in")
+	writeCmd.StringVar(&targetTable, "table", "", "target table")
+	writeCmd.StringVar(&fileFormat, "fileFormat", "", "configure file format options")
+	writeCmd.StringVar(&copyOptions, "copyOptions", "", "configure options for copying files to stage")
+
+	if len(os.Args) < 2 {
+		log.Fatal("expected 'read' or 'write' subcommands")
+		os.Exit(1)
+	}
+
+	db, err := connect()
+	if err != nil {
 		log.Fatal(err)
+	}
+	defer db.Close()
+
+	sfLogger := sf.GetLogger()
+	switch os.Args[1] {
+	case "read":
+		readCmd.Parse(os.Args[2:])
+		if debug {
+			sfLogger.SetLogLevel("debug")
+		}
+		if err := read(db); err != nil {
+			log.Fatal(err)
+		}
+	case "write":
+		writeCmd.Parse(os.Args[2:])
+		if debug {
+			sfLogger.SetLogLevel("debug")
+		}
+		if err := write(db); err != nil {
+			log.Fatal(err)
+		}
+	default:
+		log.Fatal("subcommand must be either read or write")
 	}
 }

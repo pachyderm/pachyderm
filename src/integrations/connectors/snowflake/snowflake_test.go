@@ -58,7 +58,7 @@ func TestSnowflakeReadWrite(t *testing.T) {
 			"name": "snowflake-secret",
 			"creationTimestamp": null
 		}
-	}`, os.Getenv("SNOWFLAKE_PASSWORD")))
+	}`, os.Getenv("SNOWSQL_PWD")))
 	require.NoError(t, c.CreateSecret(b))
 
 	// create ephemeral input and output databases
@@ -81,16 +81,17 @@ func TestSnowflakeReadWrite(t *testing.T) {
 			"image":    "pachyderm/snowflake:local",
 			"name":     readPipeline,
 			"cronSpec": "@yearly", // we want to manually trigger this
+			"debug":    "true",
 			// Snowflake
-			"account":     os.Getenv("SNOWFLAKE_ACCOUNT"),
-			"user":        os.Getenv("SNOWFLAKE_USER"),
-			"role":        os.Getenv("SNOWFLAKE_USER_ROLE"),
+			"account":     os.Getenv("SNOWSQL_ACCOUNT"),
+			"user":        os.Getenv("SNOWSQL_USER"),
+			"role":        os.Getenv("SNOWSQL_ROLE"),
 			"warehouse":   "COMPUTE_WH",
 			"database":    inDBName,
 			"schema":      "public",
 			"query":       fmt.Sprintf("select * from %s", tableName),
-			"fileFormat":  `(type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22' COMPRESSION=NONE FILE_EXTENSION='')`,
-			"outputFile":  "test_table/test_table.csv",
+			"partitionBy": "to_varchar(C_ID)",
+			"fileFormat":  "type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22' COMPRESSION = NONE",
 			"copyOptions": "OVERWRITE = TRUE SINGLE = TRUE",
 		},
 		Template: readTemplate,
@@ -102,15 +103,16 @@ func TestSnowflakeReadWrite(t *testing.T) {
 			"image":     "pachyderm/snowflake:local",
 			"inputRepo": readPipeline,
 			"name":      writePipeline,
+			"debug":     "true",
 			// Snowflake
-			"account":    os.Getenv("SNOWFLAKE_ACCOUNT"),
-			"user":       os.Getenv("SNOWFLAKE_USER"),
-			"role":       os.Getenv("SNOWFLAKE_USER_ROLE"),
+			"account":    os.Getenv("SNOWSQL_ACCOUNT"),
+			"user":       os.Getenv("SNOWSQL_USER"),
+			"role":       os.Getenv("SNOWSQL_ROLE"),
 			"warehouse":  "COMPUTE_WH",
 			"database":   outDBName,
 			"schema":     "public",
 			"table":      tableName,
-			"fileFormat": `(type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22')`,
+			"fileFormat": "type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22'",
 		},
 		Template: writeTemplate,
 	})
@@ -135,9 +137,9 @@ func TestSnowflakeReadWrite(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.GetState())
 
-	files, err := c.ListFileAll(commitInfo.Commit, "/test_table")
+	files, err := c.ListFileAll(commitInfo.Commit, "/")
 	require.NoError(t, err)
-	require.Len(t, files, 1)
+	require.Len(t, files, nRows)
 
 	commitInfo, err = c.WaitCommit(writePipeline, "master", "")
 	require.NoError(t, err)
