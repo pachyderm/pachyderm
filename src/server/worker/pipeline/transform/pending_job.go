@@ -100,14 +100,16 @@ func (pj *pendingJob) load() error {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Branch.Repo.Name,
-			pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		// both commits must have succeeded - a validation error will only show up in the output
-		if metaCI.Error == "" && outputCI.Error == "" {
-			break
+		if metaCI.Origin.Kind == pfs.OriginKind_AUTO {
+			outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Branch.Repo.Name,
+				pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			// both commits must have succeeded - a validation error will only show up in the output
+			if metaCI.Error == "" && outputCI.Error == "" {
+				break
+			}
 		}
 		pj.baseMetaCommit = metaCI.ParentCommit
 	}

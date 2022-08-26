@@ -981,7 +981,7 @@ Any pachctl command that can take a commit, can take a branch name instead.`,
 
 	projectDocs := &cobra.Command{
 		Short: "Docs for projects.",
-		Long: `Projects, are the top level organizational objects in Pachyderm.
+		Long: `Projects are the top level organizational objects in Pachyderm.
 
 Projects contain pachyderm objects such as Repos and Pipelines.`,
 	}
@@ -1031,21 +1031,21 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 
 		}),
 	}
-	updateProject.Flags().StringVarP(&description, "description", "d", "", "The description of the update project.")
+	updateProject.Flags().StringVarP(&description, "description", "d", "", "The description of the updated project.")
 	shell.RegisterCompletionFunc(updateProject, shell.ProjectCompletion)
 	commands = append(commands, cmdutil.CreateAliases(updateProject, "update project", projects))
 
 	inspectProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
-		Short: "Create a new project.",
-		Long:  "Create a new project.",
+		Short: "Inspect a project.",
+		Long:  "Inspect a project.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			resp, err := c.PfsAPIClient.InspectProject(
+			pi, err := c.PfsAPIClient.InspectProject(
 				c.Ctx(),
 				&pfs.InspectProjectRequest{
 					Project: &pfs.Project{Name: args[0]},
@@ -1054,11 +1054,11 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if raw {
-				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(resp.ProjectInfo))
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(pi))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return pretty.PrintDetailedProjectInfo(resp.ProjectInfo)
+			return pretty.PrintDetailedProjectInfo(pi)
 		}),
 	}
 	inspectProject.Flags().AddFlagSet(outputFlags)
@@ -1092,7 +1092,7 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.ProjectHeader)
 			for _, pi := range pis {
-				pretty.PrintProject(writer, pi)
+				pretty.PrintProjectInfo(writer, pi)
 			}
 			return writer.Flush()
 		}),
@@ -1102,8 +1102,8 @@ Projects contain pachyderm objects such as Repos and Pipelines.`,
 
 	deleteProject := &cobra.Command{
 		Use:   "{{alias}} <project>",
-		Short: "Create a new project.",
-		Long:  "Create a new project.",
+		Short: "Delete a project.",
+		Long:  "Delete a project.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {

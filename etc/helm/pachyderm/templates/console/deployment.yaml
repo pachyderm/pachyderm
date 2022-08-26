@@ -88,6 +88,10 @@ spec:
             secretKeyRef:
               name: {{ .Values.console.config.oauthClientSecretSecretName | default "pachyderm-console-secret"}}
               key: OAUTH_CLIENT_SECRET
+        {{- if .Release.IsUpgrade }}
+        - name: UPGRADE_NO_OP
+          value: {{ randAlphaNum 32 }}
+        {{- end }}
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: NODE_EXTRA_CA_CERTS
           value:  /pach-tls/certs/root.crt

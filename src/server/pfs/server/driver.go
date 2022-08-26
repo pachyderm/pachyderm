@@ -428,25 +428,20 @@ func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectReques
 	if err := ancestry.ValidateName(req.Project.Name); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
-	if err := d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		projects := d.projects.ReadWrite(txnCtx.SqlTx)
+		projectInfo := &pfs.ProjectInfo{}
 		if req.Update {
-			if err := projects.Get(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{}); err != nil {
-				return errors.Wrapf(err, "update project")
-			}
-			return errors.EnsureStack(projects.Put(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
-				Project:     req.Project,
-				Description: req.Description,
+			return errors.EnsureStack(projects.Update(pfsdb.ProjectKey(req.Project), projectInfo, func() error {
+				projectInfo.Description = req.Description
+				return nil
 			}))
 		}
 		return errors.EnsureStack(projects.Create(pfsdb.ProjectKey(req.Project), &pfs.ProjectInfo{
 			Project:     req.Project,
 			Description: req.Description,
 		}))
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
@@ -457,14 +452,12 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	return pi, nil
 }
 
+// The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	projectInfo := &pfs.ProjectInfo{}
-	if err := d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
-		return cb(proto.Clone(projectInfo).(*pfs.ProjectInfo))
-	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	return nil
+	return errors.EnsureStack(d.projects.ReadOnly(ctx).List(projectInfo, col.DefaultOptions(), func(string) error {
+		return cb(projectInfo)
+	}))
 }
 
 // TODO: delete all repos and pipelines within project
@@ -870,6 +863,27 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 				}
 				// Update the cached branch head
 				provOfSubvBI.Head.ID = txnCtx.CommitSetID
+			}
+			// if this is a pipeline output branch, we need to also create an alias commit on the meta branch
+			// to maintain pipeline system invariants.
+			if provOfSubvBI.Branch.Repo.Type == pfs.UserRepoType {
+				metaBranch := client.NewSystemRepo(provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
+					NewBranch(provOfSubvBI.Branch.Name)
+				metaBI, err := getBranchInfo(metaBranch)
+				if err != nil {
+					if col.IsErrNotFound(err) {
+						// no corresponding meta branch, so not a pipeline. Ignore
+						continue
+					}
+					return err
+				}
+				// create the alias if necessary, just like above
+				if metaBI.Head.ID != txnCtx.CommitSetID {
+					if _, err := d.aliasCommit(txnCtx, metaBI.Head, metaBI.Head.Branch); err != nil {
+						return err
+					}
+					metaBI.Head.ID = txnCtx.CommitSetID
+				}
 			}
 		}
 
@@ -2085,7 +2099,7 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	}
 	var projectInfos []*pfs.ProjectInfo
 	if err := d.listProject(ctx, func(pi *pfs.ProjectInfo) error {
-		projectInfos = append(projectInfos, pi)
+		projectInfos = append(projectInfos, proto.Clone(pi).(*pfs.ProjectInfo))
 		return nil
 	}); err != nil {
 		return err

@@ -309,7 +309,7 @@ func (c *unsupportedPfsBuilderClient) CreateFileSet(_ context.Context, opts ...g
 	return nil, unsupportedError("CreateFileSet")
 }
 
-func (c *unsupportedPfsBuilderClient) CreateProject(_ context.Context, _ *pfs_v2.CreateProjectRequest, opts ...grpc.CallOption) (*pfs_v2.CreateProjectResponse, error) {
+func (c *unsupportedPfsBuilderClient) CreateProject(_ context.Context, _ *pfs_v2.CreateProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CreateProject")
 }
 
@@ -325,7 +325,7 @@ func (c *unsupportedPfsBuilderClient) DeleteBranch(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("DeleteBranch")
 }
 
-func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2.DeleteProjectRequest, opts ...grpc.CallOption) (*pfs_v2.DeleteProjectResponse, error) {
+func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2.DeleteProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteProject")
 }
 
@@ -389,7 +389,7 @@ func (c *unsupportedPfsBuilderClient) InspectFile(_ context.Context, _ *pfs_v2.I
 	return nil, unsupportedError("InspectFile")
 }
 
-func (c *unsupportedPfsBuilderClient) InspectProject(_ context.Context, _ *pfs_v2.InspectProjectRequest, opts ...grpc.CallOption) (*pfs_v2.InspectProjectResponse, error) {
+func (c *unsupportedPfsBuilderClient) InspectProject(_ context.Context, _ *pfs_v2.InspectProjectRequest, opts ...grpc.CallOption) (*pfs_v2.ProjectInfo, error) {
 	return nil, unsupportedError("InspectProject")
 }
 

@@ -123,8 +123,8 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintln(w)
 }
 
-// PrintProject pretty-prints a project.
-func PrintProject(w io.Writer, projectInfo *pfs.ProjectInfo) {
+// PrintProjectInfo pretty-prints a project.
+func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo) {
 	fmt.Fprintf(w, "%s\t", projectInfo.Project.Name)
 	if projectInfo.Description != "" {
 		fmt.Fprintf(w, "%s", projectInfo.Description)

@@ -32,7 +32,7 @@ appVersion: 2.3.0-rc.1
 
 kubeVersion: ">= 1.16.0-0"
 
-icon: https://www.pachyderm.com/wp-content/themes/pachyderm/dist/img/favicons/favicon-32x32.png
+icon: https://www.pachyderm.com/wp-content/themes/pachyderm/assets/img/favicons/favicon-32x32.png
 
 annotations:
   artifacthub.io/prerelease: "true" # NOTE: update prior to releasing
