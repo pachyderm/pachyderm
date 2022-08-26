@@ -363,9 +363,9 @@ func (d *driver) RunUserCode(
 	}
 	select {
 	case <-ctx.Done():
-		err2 := ctx.Err()
-		if err2 != nil {
-			return errors.EnsureStack(err2)
+		err = ctx.Err()
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
 	default:
 	}
@@ -423,9 +423,9 @@ func (d *driver) RunUserErrorHandlingCode(
 	}
 	select {
 	case <-ctx.Done():
-		err2 := ctx.Err()
-		if err2 != nil {
-			return errors.EnsureStack(err2)
+		err = ctx.Err()
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
 	default:
 	}
