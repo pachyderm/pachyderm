@@ -22,6 +22,9 @@ var (
 	targetTable                             string // write
 )
 
+func init() {
+}
+
 var (
 	log = logrus.StandardLogger()
 )
@@ -200,6 +203,9 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 	if fileFormat != "" {
 		copyIntoQuery += fmt.Sprintf(" FILE_FORMAT = (%s)", fileFormat)
 	}
+	if copyOptions != "" {
+		copyIntoQuery += fmt.Sprintf(" %s", copyOptions)
+	}
 
 	if _, err := tx.ExecContext(ctx, copyIntoQuery); err != nil {
 		return err
@@ -211,33 +217,16 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 	return nil
 }
 
+// Two modes
+// mode 1: no target table is provided, so infer table names based on top level directory
+// mode 2: target table name is provided, so all files in input directory load into that table
 func write(db *sqlx.DB) error {
 	switch targetTable {
 	case "":
+		// TODO
 		// infer target table based on /pfs/in/tablename
 	default:
-		// remember that /pfs/in has symbolic links so filepath.Walk doesn't work
-		// if err := filepath.WalkDir(root, func(path string, dirEnt fs.DirEntry, err error) error {
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	if dirEnt.IsDir() || dirEnt.Type().IsDir() {
-		// 		fmt.Println(">>>", path, "is a directory")
-		// 		return nil
-		// 	}
-		// 	info, err := dirEnt.Info()
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	if info.IsDir() {
-		// 		return nil
-		// 	}
-		// 	fmt.Println(">>> adding", path, "to list of files", dirEnt)
-		// 	files = append(files, path)
-		// 	return nil
-		// }); err != nil {
-		// 	return err
-		// }
+		// remember that /pfs/in has symbolic links so filepath.Walk() doesn't work
 		files, err := filepath.Glob(filepath.Join(inputDir, "/*/*"))
 		if err != nil {
 			return err
@@ -248,6 +237,7 @@ func write(db *sqlx.DB) error {
 }
 
 func main() {
+	// TODO should we use cobra?
 	readCmd := flag.NewFlagSet("read", flag.ExitOnError)
 	readCmd.BoolVar(&debug, "debug", false, "set Snowflake log level to 'debug'")
 	readCmd.StringVar(&query, "query", "", "a SQL query")
@@ -263,18 +253,19 @@ func main() {
 	writeCmd.StringVar(&targetTable, "table", "", "target table")
 	writeCmd.StringVar(&fileFormat, "fileFormat", "", "configure file format options")
 	writeCmd.StringVar(&copyOptions, "copyOptions", "", "configure options for copying files to stage")
-
 	if len(os.Args) < 2 {
 		log.Fatal("expected 'read' or 'write' subcommands")
 		os.Exit(1)
 	}
 
+	// attempt to connect to database and verify connection
 	db, err := connect()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
+	// snowflake logger can tell us what queries are running, useful for debugging
 	sfLogger := sf.GetLogger()
 	switch os.Args[1] {
 	case "read":
@@ -294,6 +285,6 @@ func main() {
 			log.Fatal(err)
 		}
 	default:
-		log.Fatal("subcommand must be either read or write")
+		log.Fatal("subcommand must be either 'read' or 'write'")
 	}
 }

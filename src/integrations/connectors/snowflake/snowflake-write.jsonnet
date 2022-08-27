@@ -26,20 +26,20 @@ For each datum, we infer target table name from directory name, and copy all of 
 Arguments:
   name : pipeline name
   inputRepo: input repo name
-  image : Docker image containing snowsql
-  --------------
+  image : Docker image, usually used for testing
+
   account : Snowflake account identifier (<orgname>-<account_name>)
   user : Snowflake user
   role : Snowflake role
   warehouse : Snowflake warehouse
   database : Snowflake database
   schema : Snowflake schema
+
   fileFormat : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-table.html#format-type-options-formattypeoptions
   copyOptions : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-table.html#copy-options-copyoptions
-  --------------
   table : target table name (leave blank if you want Pachyderm to infer table names from input repo directories)
 */
-function(name, inputRepo, image='pachyderm/snowflake', account, user, role, warehouse, database, schema, fileFormat, copyOptions='PURGE = TRUE', table='', debug=false)
+function(name, inputRepo, image='pachyderm/snowflake:latest', account, user, role, warehouse, database, schema, fileFormat, copyOptions='PURGE = TRUE', table='', debug=false)
   {
     pipeline: {
       name: name,
@@ -54,7 +54,7 @@ function(name, inputRepo, image='pachyderm/snowflake', account, user, role, ware
     transform: {
       cmd: ['sh'],
       stdin: [
-        'snowpach write -fileFormat=%(fileFormat)s -table=%(table)s -inputDir=/pfs/in -debug=%(debug)s' % {fileFormat: std.escapeStringBash(fileFormat), table: table, debug: debug},
+        'snowpach write -fileFormat=%(fileFormat)s -copyOptions=%(copyOptions)s -table=%(table)s -inputDir=/pfs/in -debug=%(debug)s' % { fileFormat: std.escapeStringBash(fileFormat), copyOptions: std.escapeStringBash(copyOptions), table: table, debug: debug },
       ],
       env: {
         SNOWSQL_ACCOUNT: account,
@@ -73,5 +73,4 @@ function(name, inputRepo, image='pachyderm/snowflake', account, user, role, ware
       ],
       image: image,
     },
-    datum_tries: 1,
   }

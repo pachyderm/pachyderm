@@ -1,6 +1,6 @@
 /* Snowflake Read Connector
 
-Runs a user's query in a pipeline at a regular cadence configured via cron. Currently, the results are written to a single file only, but in the future we should consider supporting multiple files.
+Runs a user's query in a pipeline at a regular cadence configured via cron. 
 Importantly, we expose many useful Snowflake features via fileFormat and copyOptions.
 
 At a high level, this is a 2 step process:
@@ -12,21 +12,21 @@ At a high level, this is a 2 step process:
 Arguments:
   name : pipeline name
   cronSpec : cadence at which to run this pipeline
-  image : Docker image containing snowsql
-  --------------
+  image : Docker image, usually changed for testing
+
   account : Snowflake account identifier (<orgname>-<account_name>)
   user : Snowflake user
   role : Snowflake role
   warehouse : Snowflake warehouse
   database : Snowflake database
   schema : Snowflake schema
+
   query : the query to run on Snowflake
   fileFormat : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#format-type-options-formattypeoptions
   copyOptions : documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#copy-options-copyoptions
-  --------------
-  outputFile : name of the file in the output repo, can have nested directories e.g. /pfs/out/a/b/my-data.csv
+  partitionBy: specify an expression used to partition the table rows into separate files; documented at https://docs.snowflake.com/en/sql-reference/sql/copy-into-location.html#copy-options-copyoptions:~:text=Optional%20Parameters-,PARTITION%20BY,-expr
 */
-function(name, cronSpec, image='pachyderm/snowflake:local', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='', partitionBy='', header=false, debug=false)
+function(name, cronSpec, image='pachyderm/snowflake:latest', account, user, role, warehouse, database, schema, query, fileFormat, copyOptions='', partitionBy='', header=false, debug=false)
   {
     pipeline: {
       name: name,

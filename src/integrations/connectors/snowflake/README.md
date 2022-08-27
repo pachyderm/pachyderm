@@ -19,6 +19,9 @@ pachctl update pipeline --jsonnet src/integrations/connectors/snowflake/snowflak
     --arg partitionBy='to_varchar(C_ID)'
 ```
 
+TODO
+- support user defined output file or output directory
+
 ## Write
 
 ```
@@ -36,3 +39,7 @@ pachctl update pipeline --jsonnet src/integrations/connectors/snowflake/snowflak
     --arg table='test_table' \
     --arg fileFormat="type = csv FIELD_OPTIONALLY_ENCLOSED_BY = '0x22'"
 ```
+
+TODO
+- add support for VALIDATION_MODE in `COPY INTO <table>` query
+- support upserts without dropping table every time
