@@ -47,6 +47,8 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
 	idx = proto.Clone(idx).(*Index)
+	idx.NumFiles = 1
+	idx.SizeBytes = SizeBytes(idx)
 	return w.writeIndex(idx, 0)
 }
 
@@ -98,6 +100,14 @@ func (w *Writer) callback(level int) chunk.ChunkFunc {
 			ChunkRef: chunkRef,
 		}
 		idx.File = nil
+		idx.NumFiles = 0
+		for _, meta := range metas {
+			idx.NumFiles += meta.(*Index).NumFiles
+		}
+		idx.SizeBytes = 0
+		for _, meta := range metas {
+			idx.SizeBytes += meta.(*Index).SizeBytes
+		}
 		// Write index entry in next index level.
 		return w.writeIndex(idx, level+1)
 	}

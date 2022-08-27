@@ -81,11 +81,12 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []files
 
 // TODO: The task length stuff could probably be simplified.
 func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, []int, error) {
-	var shards []*index.PathRange
-	if err := c.storage.EstimateShards(ctx, ids, func(pathRange *index.PathRange) error {
-		shards = append(shards, pathRange)
-		return nil
-	}); err != nil {
+	fs, err := c.storage.Open(ctx, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	shards, err := fs.Shards(ctx)
+	if err != nil {
 		return nil, nil, err
 	}
 	var inputs []*types.Any
@@ -210,11 +211,12 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 }
 
 func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (string, int64, error) {
-	var shards []*index.PathRange
-	if err := c.storage.EstimateShards(ctx, []fileset.ID{id}, func(pathRange *index.PathRange) error {
-		shards = append(shards, pathRange)
-		return nil
-	}); err != nil {
+	fs, err := c.storage.Open(ctx, []fileset.ID{id})
+	if err != nil {
+		return "", 0, err
+	}
+	shards, err := fs.Shards(ctx)
+	if err != nil {
 		return "", 0, err
 	}
 	var inputs []*types.Any
@@ -306,16 +308,20 @@ func processShardTask(ctx context.Context, storage *fileset.Storage, task *Shard
 			Lower: task.PathRange.Lower,
 			Upper: task.PathRange.Upper,
 		}
-		return storage.Shard(ctx, ids, pathRange, func(pathRange *index.PathRange) error {
+		shards, err := storage.Shard(ctx, ids, pathRange)
+		if err != nil {
+			return err
+		}
+		for _, shard := range shards {
 			result.CompactTasks = append(result.CompactTasks, &CompactTask{
 				Inputs: task.Inputs,
 				PathRange: &PathRange{
-					Lower: pathRange.Lower,
-					Upper: pathRange.Upper,
+					Lower: shard.Lower,
+					Upper: shard.Upper,
 				},
 			})
-			return nil
-		})
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}

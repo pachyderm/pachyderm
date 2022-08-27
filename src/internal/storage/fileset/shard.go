@@ -7,53 +7,43 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
-func (s *Storage) EstimateShards(ctx context.Context, ids []ID, cb index.ShardCallback) error {
-	fs, err := s.Open(ctx, ids)
-	if err != nil {
-		return err
-	}
-	err = fs.Shard(ctx, cb)
-	return errors.EnsureStack(err)
-}
-
 // Shard shards the file set into path ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
-func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRange, cb index.ShardCallback) error {
+func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRange) ([]*index.PathRange, error) {
 	fs, err := s.Open(ctx, ids, index.WithRange(pathRange))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return shard(ctx, fs, s.shardSizeThreshold, s.shardCountThreshold, pathRange, cb)
+	return shard(ctx, fs, s.shardCountThreshold, s.shardSizeThreshold, pathRange)
 }
 
 // shard creates shards (path ranges) from the file set streams being merged.
 // A shard is created when the size of the files is greater than or equal to the passed
 // in size threshold or the file count is greater than or equal to the passed in count threshold.
-// For each shard, the callback is called with the path range for the shard.
-func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64, basePathRange *index.PathRange, cb index.ShardCallback) error {
+func shard(ctx context.Context, fs FileSet, countThreshold, sizeThreshold int64, basePathRange *index.PathRange) ([]*index.PathRange, error) {
+	var shards []*index.PathRange
 	pathRange := &index.PathRange{
 		Lower: basePathRange.Lower,
 	}
-	var size, count int64
+	var count, size int64
 	if err := fs.Iterate(ctx, func(f File) error {
-		if size >= sizeThreshold || count >= countThreshold {
+		if count >= countThreshold || size >= sizeThreshold {
 			pathRange.Upper = f.Index().Path
-			if err := cb(pathRange); err != nil {
-				return err
-			}
+			shards = append(shards, pathRange)
 			pathRange = &index.PathRange{
 				Lower: f.Index().Path,
 			}
-			size = 0
 			count = 0
+			size = 0
 		}
-		size += index.SizeBytes(f.Index())
 		count++
+		size += index.SizeBytes(f.Index())
 		return nil
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
 	pathRange.Upper = basePathRange.Upper
-	return cb(pathRange)
+	shards = append(shards, pathRange)
+	return shards, nil
 }

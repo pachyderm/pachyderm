@@ -473,21 +473,22 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 }
 
 func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.PathRange, error) {
-	var shards []*pfs.PathRange
 	fs, err := d.storage.Open(ctx, []fileset.ID{fsid})
 	if err != nil {
 		return nil, err
 	}
-	if err := fs.Shard(ctx, func(pathRange *index.PathRange) error {
-		shards = append(shards, &pfs.PathRange{
-			Lower: pathRange.Lower,
-			Upper: pathRange.Upper,
-		})
-		return nil
-	}); err != nil {
-		return nil, errors.EnsureStack(err)
+	shards, err := fs.Shards(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return shards, nil
+	var pathRanges []*pfs.PathRange
+	for _, shard := range shards {
+		pathRanges = append(pathRanges, &pfs.PathRange{
+			Lower: shard.Lower,
+			Upper: shard.Upper,
+		})
+	}
+	return pathRanges, nil
 }
 
 func (d *driver) addFileSet(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {

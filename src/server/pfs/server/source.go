@@ -43,6 +43,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 
 // Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
 // during iteration, and the File.
+// TODO: Handle directory with path range.
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()

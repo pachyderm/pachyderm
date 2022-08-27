@@ -30,6 +30,7 @@ func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache
 }
 
 // Iterate iterates over the files in the file set.
+// TODO: Filtering should be a configuration on the iteration, not the abstraction.
 func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
 	md, err := r.store.Get(ctx, r.id)
 	if err != nil {
@@ -51,17 +52,17 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...b
 	})
 }
 
-func (r *Reader) Shard(ctx context.Context, cb index.ShardCallback) error {
+func (r *Reader) Shards(ctx context.Context) ([]*index.PathRange, error) {
 	md, err := r.store.Get(ctx, r.id)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {
-		return errors.Errorf("file set %v is not primitive", r.id)
+		return nil, errors.Errorf("file set %v is not primitive", r.id)
 	}
 	ir := index.NewReader(r.chunks, nil, prim.Additive)
-	return ir.Shard(ctx, cb)
+	return ir.Shards(ctx)
 }
 
 // FileReader is an abstraction for reading a file.
