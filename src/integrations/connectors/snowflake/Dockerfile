@@ -1,26 +1,18 @@
 # syntax=docker/dockerfile:1
 
-# Build snowpach
-FROM golang:1.19-alpine AS build
+FROM golang:1.19 AS build
 
 WORKDIR /app
+COPY go.mod go.sum ./
+COPY src ./src
 
-COPY go.mod ./
-COPY go.sum ./
 RUN go mod download
 
-COPY src ./src
-RUN ls -la ./src/*
-RUN go build -o snowpach ./src/integrations/connectors/snowflake/snowpach/
+RUN CGO_ENABLED=0 go build -o /go/bin/snowpach ./src/integrations/connectors/snowflake/snowpach
 
-# Deploy
-FROM alpine:3.16.2
+# We need debug for shell, since we have an issue with directly writing to /pfs/out
+FROM gcr.io/distroless/static-debian11:debug
 
-COPY --from=build /app/snowpach /usr/local/bin/
+COPY --from=build /go/bin/snowpach /usr/local/bin/
 
-RUN addgroup -g 1000 snowflake && adduser -u 1000 -G snowflake -h /home/snowflake -D snowflake
-USER snowflake:snowflake
-
-WORKDIR /home/snowflake
-
-ENTRYPOINT ["snowpach"]
+CMD ["snowpach"]

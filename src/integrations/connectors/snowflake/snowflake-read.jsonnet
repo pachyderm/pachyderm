@@ -4,10 +4,8 @@ Runs a user's query in a pipeline at a regular cadence configured via cron.
 Importantly, we expose many useful Snowflake features via fileFormat and copyOptions.
 
 At a high level, this is a 2 step process:
-  1: COPY INTO <user_stage> FROM <query>
-  Unloads data from a user's query into the user's stage under the directory named after this pipeline.
-  2: GET <user_stage> file:///pfs/out
-  Downloads the files from the Snoflake user stage to local /pfs/out
+  1: COPY INTO <temp stage> FROM <query> : which unloads data from a user's query into the user's stage under the directory named after this pipeline.
+  2: GET <temp stage> file:///pfs/out : downloads the files from the Snoflake user stage to local /pfs/out
 
 Arguments:
   name : pipeline name

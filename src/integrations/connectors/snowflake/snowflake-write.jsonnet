@@ -3,15 +3,16 @@
 Loads files from PFS to Snowflake table. Importantly, it is the responsibility of the user to ensure matching schema between files in Pachyderm and target tables.
 To ensure proper syncing of deletes, we first wipe the target table before inserting new data.
 
-At a high level, this is a three step process:
-1. PUT file:///pfs/in/... <table_stage>
-2. DELETE FROM <table>
-3. COPY INTO <table> FROM <table_stage>
+At a high level, this is a 2 step process:
+1. PUT file:///pfs/in/... <temp stage>
+2. Within a transaction
+  2.1. DELETE FROM <table>
+  2.2. COPY INTO <table> FROM <temp stage>
+Note that we use a transaction to protect against losing data in the event of an error.
 
-We support two modes:
 Mode 1: The target table name is provided via Jsonnet argument `table`. As result, we copy all files from /pfs/in/* to this target table.
 
-Mode 2. We infer table names from top level directories in /pfs/in. Datums are sharded at the top level directory level.
+Mode 2: We infer table names from top level directories in /pfs/in. Datums are sharded at the top level directory level.
 
 Example:
 
