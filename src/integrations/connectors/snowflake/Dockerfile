@@ -11,7 +11,7 @@ RUN go mod download
 
 COPY src ./src
 RUN ls -la ./src/*
-RUN go build -o snowpach ./src/integrations/connectors/snowflake/cmd/
+RUN go build -o snowpach ./src/integrations/connectors/snowflake/snowpach/
 
 # Deploy
 FROM alpine:3.16.2

@@ -19,21 +19,21 @@ import (
 )
 
 func DSN() (string, error) {
-	user := os.Getenv("SNOWFLAKE_USER")
+	user := os.Getenv("SNOWSQL_USER")
 	if user == "" {
-		return "", errors.EnsureStack(errors.New("empty SNOWFLAKE_USER"))
+		return "", errors.EnsureStack(errors.New("empty SNOWSQL_USER"))
 	}
-	accountID := os.Getenv("SNOWFLAKE_ACCOUNT")
+	accountID := os.Getenv("SNOWSQL_ACCOUNT")
 	if accountID == "" {
-		return "", errors.EnsureStack(errors.New("empty SNOWFLAKE_ACCOUNT"))
+		return "", errors.EnsureStack(errors.New("empty SNOWSQL_ACCOUNT"))
 	}
 	return fmt.Sprintf("snowflake://%s@%s", user, accountID), nil
 }
 
 func getURLAndPassword(t testing.TB) (*pachsql.URL, string) {
-	password := os.Getenv("SNOWFLAKE_PASSWORD")
+	password := os.Getenv("SNOWSQL_PWD")
 	if password == "" {
-		t.Fatal("empty SNOWFLAKE_PASSWORD")
+		t.Fatal("empty SNOWSQL_PWD")
 	}
 	dsn, err := DSN()
 	if err != nil {
