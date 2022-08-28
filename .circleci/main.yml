@@ -291,17 +291,21 @@ jobs:
       GOOGLE_COMPUTE_REGION: us-east1
     steps:
       - checkout
-      - gcp-cli/initialize
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run: |
-          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run:
-          command: etc/testing/circle/run_all_load_tests.sh
-          no_output_timeout: 1h
-      - store_artifacts:
-          path: /tmp/debug-dump
-          destination: debug-dump
+      - when:
+          condition:
+            equal: [true, << pipeline.parameters.run_load_tests >>]
+          steps:
+            - gcp-cli/initialize
+            - go/install:
+                version: << pipeline.parameters.go-version >>
+            - run: |
+                echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            - run:
+                command: etc/testing/circle/run_all_load_tests.sh
+                no_output_timeout: 1h
+            - store_artifacts:
+                path: /tmp/debug-dump
+                destination: debug-dump
   rootless:
     resource_class: large
     machine:
@@ -668,6 +672,28 @@ workflows:
   integration-tests:
     jobs:
       - build-docker-images
+      - nightly-load:
+          requires:
+            - build-docker-images
+          matrix:
+            parameters:
+              bucket:
+                - LOAD1
+                - LOAD2
+                - LOAD3
+                - LOAD4
+                - LOAD5
+                - LOAD6
+                - LOAD7
+                - LOAD8
+                - LOAD9
+                - LOAD10
+                - LOAD11
+                - LOAD12
+                  # Disabled for now since they take too long, may consider reenabling later.
+                  #- LOAD13
+                  #- LOAD14
+                  #- LOAD15
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
           upload: true
@@ -698,29 +724,6 @@ workflows:
   helm-tests:
     jobs:
       - helm-tests
-  nightly_load_tests:
-    when: << pipeline.parameters.run_load_tests >>
-    jobs:
-      - nightly-load:
-          matrix:
-            parameters:
-              bucket:
-                - LOAD1
-                - LOAD2
-                - LOAD3
-                - LOAD4
-                - LOAD5
-                - LOAD6
-                - LOAD7
-                - LOAD8
-                - LOAD9
-                - LOAD10
-                - LOAD11
-                - LOAD12
-                  # Disabled for now since they take too long, may consider reenabling later.
-                  #- LOAD13
-                  #- LOAD14
-                  #- LOAD15
   rootless-tests:
     jobs:
       - rootless
