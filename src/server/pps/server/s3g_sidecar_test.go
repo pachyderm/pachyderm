@@ -119,7 +119,7 @@ func TestS3PipelineErrors(t *testing.T) {
 	require.Matches(t, "join", err.Error())
 }
 
-func testS3Input(t *testing.T, c *client.APIClient, userToken, ns, projectName string) {
+func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(projectName, repo))
 	masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
@@ -137,10 +137,6 @@ func testS3Input(t *testing.T, c *client.APIClient, userToken, ns, projectName s
 				"ls -R /pfs >/pfs/out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls >/pfs/out/s3_buckets",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls s3://input_repo >/pfs/out/s3_files",
-			},
-			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -209,21 +205,18 @@ func TestS3Input(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken, ns := initPachClient(t)
-	if userToken == "" {
-		userToken = "abc123"
-	}
+	c, _, ns := initPachClient(t)
 	t.Run("DefaultProject", func(t *testing.T) {
-		testS3Input(t, c, userToken, ns, pfs.DefaultProjectName)
+		testS3Input(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
 		projectName := tu.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
-		testS3Input(t, c, userToken, ns, projectName)
+		testS3Input(t, c, ns, projectName)
 	})
 }
 
-func testS3Chain(t *testing.T, c *client.APIClient, userToken, ns, projectName string) {
+func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
 	dataCommit := client.NewProjectCommit(projectName, dataRepo, "master", "")
@@ -246,10 +239,6 @@ func testS3Chain(t *testing.T, c *client.APIClient, userToken, ns, projectName s
 						"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 						"echo '1' >> /tmp/s3in",
 						"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/s3in s3://out/file",
-					},
-					Env: map[string]string{
-						"AWS_ACCESS_KEY_ID":     userToken,
-						"AWS_SECRET_ACCESS_KEY": userToken,
 					},
 				},
 				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -286,17 +275,14 @@ func TestS3Chain(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken, ns := initPachClient(t)
-	if userToken == "" {
-		userToken = "abc123"
-	}
+	c, _, ns := initPachClient(t)
 	t.Run("DefaultProject", func(t *testing.T) {
-		testS3Chain(t, c, userToken, ns, pfs.DefaultProjectName)
+		testS3Chain(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
 		projectName := tu.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
-		testS3Chain(t, c, userToken, ns, projectName)
+		testS3Chain(t, c, ns, projectName)
 	})
 }
 
@@ -349,7 +335,7 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	require.True(t, strings.Contains(buf.String(), "."+ns))
 }
 
-func testS3Output(t *testing.T, c *client.APIClient, userToken, ns, projectName string) {
+func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(projectName, repo))
 	masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
@@ -366,10 +352,6 @@ func testS3Output(t *testing.T, c *client.APIClient, userToken, ns, projectName 
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
-			},
-			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -433,21 +415,18 @@ func TestS3Output(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken, ns := initPachClient(t)
-	if userToken == "" {
-		userToken = "abc123"
-	}
+	c, _, ns := initPachClient(t)
 	t.Run("DefaultProject", func(t *testing.T) {
-		testS3Output(t, c, userToken, ns, pfs.DefaultProjectName)
+		testS3Output(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
 		projectName := tu.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
-		testS3Output(t, c, userToken, ns, projectName)
+		testS3Output(t, c, ns, projectName)
 	})
 }
 
-func testFullS3(t *testing.T, c *client.APIClient, userToken, ns, projectName string) {
+func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateProjectRepo(projectName, repo))
 	masterCommit := client.NewProjectCommit(projectName, repo, "master", "")
@@ -464,10 +443,6 @@ func testFullS3(t *testing.T, c *client.APIClient, userToken, ns, projectName st
 			Stdin: []string{
 				"ls -R /pfs | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/pfs_files",
 				"aws --endpoint=${S3_ENDPOINT} s3 ls | aws --endpoint=${S3_ENDPOINT} s3 cp - s3://out/s3_buckets",
-			},
-			Env: map[string]string{
-				"AWS_ACCESS_KEY_ID":     userToken,
-				"AWS_SECRET_ACCESS_KEY": userToken,
 			},
 		},
 		ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -532,22 +507,19 @@ func TestFullS3(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken, ns := initPachClient(t)
-	if userToken == "" {
-		userToken = "abc123"
-	}
+	c, _, ns := initPachClient(t)
 	t.Run("DefaultProject", func(t *testing.T) {
-		testFullS3(t, c, userToken, ns, pfs.DefaultProjectName)
+		testFullS3(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
 		projectName := tu.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
-		testFullS3(t, c, userToken, ns, projectName)
+		testFullS3(t, c, ns, projectName)
 	})
 }
 
 // repoBucket returns the bucket name for a repo.
-func testS3SkippedDatums(t *testing.T, c *client.APIClient, userToken, ns, projectName string, repoBucket func(project, repo string) string) {
+func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName string, repoBucket func(project, repo string) string) {
 	t.Run("S3Inputs", func(t *testing.T) {
 		// TODO(2.0 optional): Duplicate file paths from different datums no longer allowed.
 		t.Skip("Duplicate file paths from different datums no longer allowed.")
@@ -582,10 +554,6 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, userToken, ns, proje
 					"aws --endpoint=${S3_ENDPOINT} s3 cp s3://s3g_in/file /tmp/s3in",
 					"cat /pfs/pfs_in/* >/tmp/pfsin",
 					"echo \"$(cat /tmp/bg) $(cat /tmp/pfsin) $(cat /tmp/s3in)\" >/pfs/out/out",
-				},
-				Env: map[string]string{
-					"AWS_ACCESS_KEY_ID":     userToken,
-					"AWS_SECRET_ACCESS_KEY": userToken,
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
@@ -751,10 +719,6 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, userToken, ns, proje
 					// outputs, we should only see one such file in every job's output.
 					"aws --endpoint=${S3_ENDPOINT} s3 cp /tmp/bg s3://out/bg/\"$(cat /tmp/bg)\"",
 				},
-				Env: map[string]string{
-					"AWS_ACCESS_KEY_ID":     userToken,
-					"AWS_SECRET_ACCESS_KEY": userToken,
-				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
 			Input: &pps.Input{
@@ -824,17 +788,14 @@ func TestS3SkippedDatums(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, userToken, ns := initPachClient(t)
-	if userToken == "" {
-		userToken = "abc123"
-	}
+	c, _, ns := initPachClient(t)
 	t.Run("DefaultProject", func(t *testing.T) {
-		testS3SkippedDatums(t, c, userToken, ns, pfs.DefaultProjectName, func(p, r string) string { return r })
+		testS3SkippedDatums(t, c, ns, pfs.DefaultProjectName, func(p, r string) string { return r })
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
 		projectName := tu.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
-		testS3SkippedDatums(t, c, userToken, ns, projectName, func(p, r string) string { return r + "." + p })
+		testS3SkippedDatums(t, c, ns, projectName, func(p, r string) string { return r + "." + p })
 	})
 }
 
