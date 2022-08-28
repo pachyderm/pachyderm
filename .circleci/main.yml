@@ -291,21 +291,17 @@ jobs:
       GOOGLE_COMPUTE_REGION: us-east1
     steps:
       - checkout
-      - when:
-          condition:
-            equal: [true, << pipeline.parameters.run_load_tests >>]
-          steps:
-            - gcp-cli/initialize
-            - go/install:
-                version: << pipeline.parameters.go-version >>
-            - run: |
-                echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-            - run:
-                command: etc/testing/circle/run_all_load_tests.sh
-                no_output_timeout: 1h
-            - store_artifacts:
-                path: /tmp/debug-dump
-                destination: debug-dump
+      - gcp-cli/initialize
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run: |
+          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          command: etc/testing/circle/run_all_load_tests.sh
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
   rootless:
     resource_class: large
     machine:
