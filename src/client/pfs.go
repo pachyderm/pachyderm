@@ -17,6 +17,11 @@ func NewCommitSet(id string) *pfs.CommitSet {
 	return &pfs.CommitSet{ID: id}
 }
 
+// NewProject creates a pfs.Project
+func NewProject(name string) *pfs.Project {
+	return &pfs.Project{Name: name}
+}
+
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
@@ -367,7 +372,45 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	return grpcutil.ScrubGRPC(err)
 }
 
-// ListProject lists projects
+// CreateProject creates a new Project object in pfs with the given name.
+func (c APIClient) CreateProject(name string) error {
+	_, err := c.PfsAPIClient.CreateProject(
+		c.Ctx(),
+		&pfs.CreateProjectRequest{
+			Project: NewProject(name),
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// UpdateProject upserts a project with the given name.
+func (c APIClient) UpdateProject(projectName, description string) error {
+	_, err := c.PfsAPIClient.CreateProject(
+		c.Ctx(),
+		&pfs.CreateProjectRequest{
+			Project:     NewProject(projectName),
+			Description: description,
+			Update:      true,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// InspectProject returns info about a specific Project.
+func (c APIClient) InspectProject(name string) (*pfs.ProjectInfo, error) {
+	resp, err := c.PfsAPIClient.InspectProject(
+		c.Ctx(),
+		&pfs.InspectProjectRequest{
+			Project: NewProject(name),
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return resp, nil
+}
+
+// ListProject lists projects.
 func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
@@ -382,6 +425,22 @@ func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 		return nil, err
 	}
 	return clientsdk.ListProjectInfo(client)
+}
+
+// DeleteProject deletes a project.
+//
+// If "force" is set to true, the project will be removed regardless of errors.
+// This argument should be used with care.
+func (c APIClient) DeleteProject(projectName string, force bool) error {
+	request := &pfs.DeleteProjectRequest{
+		Project: NewProject(projectName),
+		Force:   force,
+	}
+	_, err := c.PfsAPIClient.DeleteProject(
+		c.Ctx(),
+		request,
+	)
+	return grpcutil.ScrubGRPC(err)
 }
 
 func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
