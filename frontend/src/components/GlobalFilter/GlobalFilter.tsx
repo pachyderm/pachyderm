@@ -8,6 +8,7 @@ import {
   Button,
   CheckmarkSVG,
 } from '@pachyderm/components';
+import classnames from 'classnames';
 import React from 'react';
 
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-frontend/constants/pachCore';
@@ -33,12 +34,14 @@ const GlobalFilter: React.FC = () => {
         <Button
           buttonType="tertiary"
           onClick={() => setDropdownOpen(true)}
-          className={styles.filter}
+          className={classnames(styles.filter, {
+            [styles.active]: globalIdFilter,
+          })}
         >
+          {globalIdFilter && <div className={styles.dot} />}
           {!globalIdFilter
             ? 'Filter by Global ID'
             : `Global ID: ${globalIdFilter.slice(0, 8)}`}
-          {globalIdFilter && <div className={styles.dot} />}
         </Button>
         {dropdownOpen && (
           <div className={styles.dropdownBase}>

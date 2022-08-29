@@ -5,13 +5,11 @@ import {
   Icon,
   StatusBlockedSVG,
   StatusPausedSVG,
-  GlobalIdSVG,
   CaptionTextSmall,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import deriveRepoNameFromNode from '@dash-frontend/lib/deriveRepoNameFromNode';
 import {Node} from '@dash-frontend/lib/types';
 
@@ -36,7 +34,6 @@ const getIcon = (node: Node) => {
 };
 
 const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
-  const {viewState} = useUrlQueryState();
   const nodeName =
     node.type !== NodeType.PIPELINE ? deriveRepoNameFromNode(node) : node.id;
 
@@ -72,7 +69,6 @@ const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
           <StatusPausedSVG />
         </Icon>
       )}
-      {viewState.globalIdFilter && <GlobalIdSVG />}
     </Link>
   );
 };

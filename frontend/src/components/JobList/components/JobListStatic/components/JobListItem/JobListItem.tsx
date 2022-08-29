@@ -3,19 +3,12 @@ import {
   JobSetFieldsFragment,
   JobState,
 } from '@graphqlTypes';
-import {
-  ArrowRightSVG,
-  Tooltip,
-  GlobalIdSVG,
-  Group,
-  ButtonLink,
-} from '@pachyderm/components';
+import {ArrowRightSVG, Tooltip, Group, ButtonLink} from '@pachyderm/components';
 import classNames from 'classnames';
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
@@ -38,7 +31,6 @@ const JobListItem: React.FC<JobListItemProps> = ({
   cardStyle,
 }) => {
   const {jobId} = useUrlState();
-  const {viewState} = useUrlQueryState();
 
   return (
     <li data-testid="JobListItem__job">
@@ -94,7 +86,6 @@ const JobListItem: React.FC<JobListItemProps> = ({
                 <ArrowRightSVG aria-hidden className={styles.icon} />
               )
             )}
-            {viewState.globalIdFilter && <GlobalIdSVG />}
           </Group>
         </Tooltip>
       </Link>
