@@ -268,6 +268,39 @@ func TestSynonymsDocs(t *testing.T) {
 	}
 }
 
+func TestProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// using xargs to trim newlines
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION$'
+                pachctl create project foo 
+                pachctl list project | match "foo     -"
+		`,
+	).Run())
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+                pachctl create project foo
+                `,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                pachctl update project foo -d "bar"
+                pachctl inspect project foo | xargs | match "Name: foo Description: bar"
+                pachctl delete project foo
+                `,
+	).Run())
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+                pachctl inspect project foo
+                `,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                pachctl list project | xargs | match '^PROJECT DESCRIPTION$'
+                pachctl create project foo
+                `,
+	).Run())
+}
+
 func resourcesMap() map[string][]string {
 	return map[string][]string{
 		branch: {create, delete, inspect, list},
