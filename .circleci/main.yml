@@ -701,7 +701,10 @@ workflows:
   nightly_load_tests:
     when: << pipeline.parameters.run_load_tests >>
     jobs:
+      - build-docker-images
       - nightly-load:
+          requires:
+            - build-docker-images
           matrix:
             parameters:
               bucket:
