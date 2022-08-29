@@ -31,13 +31,6 @@ export const useDatum = (
     }
   }, [currentDatumIdx, showDatum]);
 
-  // TODO: out still showing after unmount all
-  // useEffect(() => {
-  //   if (!showDatum) {
-  //     callUnmountAll()
-  //   }
-  // }, [showDatum])
-
   const callMountDatums = async () => {
     setLoading(true);
 
@@ -54,11 +47,13 @@ export const useDatum = (
     } catch (e) {
       console.log(e);
     }
+
     setLoading(false);
   };
 
   const callShowDatum = async () => {
     setLoading(true);
+    
     try {
       const res = await requestAPI<any>(
         `_show_datum?idx=${currentDatumIdx}`,
@@ -77,6 +72,7 @@ export const useDatum = (
     setLoading(true);
 
     try {
+      refresh();
       await requestAPI<any>('_unmount_all', 'PUT');
       refresh();
       setCurrentDatumId('');
@@ -86,7 +82,7 @@ export const useDatum = (
     } catch (e) {
       console.log(e);
     }
-    console.log('===> CALLING UMOUNT ALL');
+
     setLoading(false);
   };
 
