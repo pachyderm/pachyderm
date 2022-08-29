@@ -21,15 +21,12 @@ pachctl version --client-only
 VERSION="$(pachctl version --client-only)"
 export VERSION
 
-# Build and push docker images.
-make docker-build
-make docker-push
 
 JOB=$(echo "$CIRCLE_JOB" | tr '[:upper:]' '[:lower:]')
 
 # # provision a pulumi load test env
 curl -X POST -H "Authorization: Bearer ${HELIUM_API_TOKEN}" \
- -F name=commit-"${CIRCLE_SHA1:0:7}-${JOB}" -F pachdVersion="${VERSION}" -F valuesYaml=@etc/testing/circle/helm-load-env-values.yaml \
+ -F name=commit-"${CIRCLE_SHA1:0:7}-${JOB}" -F pachdVersion="${CIRCLE_SHA1}" -F valuesYaml=@etc/testing/circle/helm-load-env-values.yaml \
   https://helium.pachyderm.io/v1/api/workspace
 
 # wait for helium to kick off to pulumi before pinging it.
