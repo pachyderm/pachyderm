@@ -15,7 +15,7 @@ export const useDAGData = ({
   projectId,
   nodeHeight,
   nodeWidth,
-  direction = DagDirection.RIGHT,
+  direction = DagDirection.DOWN,
 }: GetDagQueryProps) => {
   const [loadingDags, setLoadingDags] = useState(true);
   const [dagError, setDagError] = useState<string>();

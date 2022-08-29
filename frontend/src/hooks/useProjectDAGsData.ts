@@ -35,7 +35,7 @@ export const useProjectDagsData = ({
   projectId,
   nodeWidth,
   nodeHeight,
-  direction = DagDirection.RIGHT,
+  direction = DagDirection.DOWN,
 }: useProjectDagsDataProps) => {
   const {repoId, pipelineId, projectId: routeProjectId} = useUrlState();
   const browserHistory = useHistory();

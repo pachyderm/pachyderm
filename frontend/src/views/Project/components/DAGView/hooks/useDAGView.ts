@@ -96,7 +96,7 @@ export const useDAGView = (
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const dagDirection =
-    viewState.dagDirection || dagDirectionSetting || DagDirection.RIGHT;
+    viewState.dagDirection || dagDirectionSetting || DagDirection.DOWN;
 
   const skipCenterOnSelect =
     viewState.skipCenterOnSelect || skipCenterOnSelectSetting;

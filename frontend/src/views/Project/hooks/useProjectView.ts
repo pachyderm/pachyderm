@@ -18,7 +18,7 @@ export const useProjectView = () => {
   });
 
   const dagDirection =
-    viewState.dagDirection || dagDirectionSetting || DagDirection.RIGHT;
+    viewState.dagDirection || dagDirectionSetting || DagDirection.DOWN;
 
   const {dags, loading, error} = useProjectDagsData({
     jobSetId: viewState.globalIdFilter || undefined,

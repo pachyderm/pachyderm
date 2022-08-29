@@ -30,7 +30,7 @@ const normalizeDAGData = async (
   vertices: Vertex[],
   nodeWidth: number,
   nodeHeight: number,
-  direction: DagDirection = DagDirection.RIGHT,
+  direction: DagDirection = DagDirection.DOWN,
 ) => {
   const elk = new ELK();
 
@@ -235,7 +235,7 @@ const buildDags = async (
   vertices: Vertex[],
   nodeWidth: number,
   nodeHeight: number,
-  direction = DagDirection.RIGHT,
+  direction = DagDirection.DOWN,
   setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
 ) => {
   try {
