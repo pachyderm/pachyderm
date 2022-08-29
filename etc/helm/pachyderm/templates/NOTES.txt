@@ -10,6 +10,10 @@ pachctl config set active-context local
 pachctl port-forward
 {{- end -}}
 
+{{- if eq .Values.pachd.logFormat "text" }}
+WARNING: setting log format to text is deprecated in 2.3 and will be removed in 2.4.
+{{- end -}}
+
 {{ if and (.Values.oidc.mockIDP) (.Values.pachd.enterpriseLicenseKey) (.Values.pachd.activateAuth) }}
 WARNING: Your cluster is configured with a default login of admin:password
 {{- end -}}
