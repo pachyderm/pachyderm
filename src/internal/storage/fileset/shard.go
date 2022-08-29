@@ -11,7 +11,7 @@ import (
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
 func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRange) ([]*index.PathRange, error) {
-	fs, err := s.Open(ctx, ids, index.WithRange(pathRange))
+	fs, err := s.Open(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func shard(ctx context.Context, fs FileSet, countThreshold, sizeThreshold int64,
 		count++
 		size += index.SizeBytes(f.Index())
 		return nil
-	}); err != nil {
+	}, index.WithRange(basePathRange)); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	pathRange.Upper = basePathRange.Upper

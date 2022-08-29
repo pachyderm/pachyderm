@@ -158,13 +158,13 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 			}
 			ids = []ID{*parentID}
 		}
-		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(p))
+		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...))
 		if err != nil {
 			return err
 		}
 		err = fs.Iterate(uw.ctx, func(f File) error {
 			return uw.Delete(ctx, f.Index().Path, datum)
-		})
+		}, index.WithPrefix(p))
 		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
@@ -174,7 +174,7 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool, opts ...index.Option) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
@@ -187,7 +187,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 			return uw.serialize(ctx)
 		}
 		return nil
-	}))
+	}, opts...))
 }
 
 // Close closes the writer.

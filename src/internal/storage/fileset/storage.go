@@ -110,13 +110,12 @@ func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
 	return newWriter(ctx, s, opts...)
 }
 
-func (s *Storage) newReader(fileSet ID, opts ...index.Option) *Reader {
-	return newReader(s.store, s.chunks, s.idxCache, fileSet, opts...)
+func (s *Storage) newReader(id ID) *Reader {
+	return newReader(s.store, s.chunks, s.idxCache, id)
 }
 
 // Open opens a file set for reading.
-// TODO: It might make sense to have some of the file set transforms as functional options here.
-func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (FileSet, error) {
+func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 	var err error
 	ids, err = s.Flatten(ctx, ids)
 	if err != nil {
@@ -124,7 +123,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID, opts ...index.Option) (Fil
 	}
 	var fss []FileSet
 	for _, id := range ids {
-		fss = append(fss, s.newReader(id, opts...))
+		fss = append(fss, s.newReader(id))
 	}
 	if len(fss) == 0 {
 		return emptyFileSet{}, nil

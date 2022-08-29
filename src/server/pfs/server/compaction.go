@@ -379,13 +379,15 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 		if err != nil {
 			return err
 		}
-		pathRange := &index.PathRange{
-			Lower: task.PathRange.Lower,
-			Upper: task.PathRange.Upper,
-		}
-		fs, err := storage.Open(ctx, []fileset.ID{*id}, index.WithRange(pathRange))
+		fs, err := storage.Open(ctx, []fileset.ID{*id})
 		if err != nil {
 			return err
+		}
+		opts := []index.Option{
+			index.WithRange(&index.PathRange{
+				Lower: task.PathRange.Lower,
+				Upper: task.PathRange.Upper,
+			}),
 		}
 		var prev *index.Index
 		if err := fs.Iterate(ctx, func(f fileset.File) error {
@@ -400,7 +402,7 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 			prev = idx
 			result.SizeBytes += index.SizeBytes(idx)
 			return nil
-		}); err != nil {
+		}, opts...); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil

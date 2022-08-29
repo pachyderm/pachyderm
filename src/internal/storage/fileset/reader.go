@@ -9,50 +9,35 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
-// Reader is an abstraction for reading a fileset.
+// Reader is an abstraction for reading a file set.
 type Reader struct {
-	store     MetadataStore
-	chunks    *chunk.Storage
-	idxCache  *index.Cache
-	id        ID
-	indexOpts []index.Option
+	store    MetadataStore
+	chunks   *chunk.Storage
+	idxCache *index.Cache
+	id       ID
 }
 
-func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache, id ID, opts ...index.Option) *Reader {
-	r := &Reader{
-		store:     store,
-		chunks:    chunks,
-		idxCache:  idxCache,
-		id:        id,
-		indexOpts: opts,
+func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache, id ID) *Reader {
+	return &Reader{
+		store:    store,
+		chunks:   chunks,
+		idxCache: idxCache,
+		id:       id,
 	}
-	return r
 }
 
-// Iterate iterates over the files in the file set.
-// TODO: Filtering should be a configuration on the iteration, not the abstraction.
-func (r *Reader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
-	md, err := r.store.Get(ctx, r.id)
+func (r *Reader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	prim, err := r.getPrimitive(ctx)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
-	prim := md.GetPrimitive()
-	if prim == nil {
-		return errors.Errorf("file set %v is not primitive", r.id)
-	}
-	if len(deletive) > 0 && deletive[0] {
-		ir := index.NewReader(r.chunks, r.idxCache, prim.Deletive, r.indexOpts...)
-		return ir.Iterate(ctx, func(idx *index.Index) error {
-			return cb(newFileReader(r.chunks, idx))
-		})
-	}
-	ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, r.indexOpts...)
+	ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, opts...)
 	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(r.chunks, idx))
 	})
 }
 
-func (r *Reader) Shards(ctx context.Context) ([]*index.PathRange, error) {
+func (r *Reader) getPrimitive(ctx context.Context) (*Primitive, error) {
 	md, err := r.store.Get(ctx, r.id)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -60,6 +45,25 @@ func (r *Reader) Shards(ctx context.Context) ([]*index.PathRange, error) {
 	prim := md.GetPrimitive()
 	if prim == nil {
 		return nil, errors.Errorf("file set %v is not primitive", r.id)
+	}
+	return prim, nil
+}
+
+func (r *Reader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	prim, err := r.getPrimitive(ctx)
+	if err != nil {
+		return err
+	}
+	ir := index.NewReader(r.chunks, r.idxCache, prim.Deletive, opts...)
+	return ir.Iterate(ctx, func(idx *index.Index) error {
+		return cb(newFileReader(r.chunks, idx))
+	})
+}
+
+func (r *Reader) Shards(ctx context.Context) ([]*index.PathRange, error) {
+	prim, err := r.getPrimitive(ctx)
+	if err != nil {
+		return nil, err
 	}
 	ir := index.NewReader(r.chunks, nil, prim.Additive)
 	return ir.Shards(ctx)
