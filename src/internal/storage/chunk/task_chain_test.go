@@ -2,12 +2,12 @@ package chunk
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"golang.org/x/sync/semaphore"
 )
@@ -68,7 +68,7 @@ func TestTaskChain(t *testing.T) {
 		}))
 		// The error may not be acknowledged by the next create task call because of goroutine scheduling.
 		// So, we ignore the error.
-		tc.CreateTask(func(_ context.Context) (func() error, error) {
+		tc.CreateTask(func(_ context.Context) (func() error, error) { //nolint:errcheck
 			time.Sleep(time.Second)
 			return func() error { return nil }, nil
 		})
