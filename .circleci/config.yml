@@ -11,6 +11,12 @@ parameters:
   run_load_tests:
     type: boolean
     default: false
+  run_nightly_tag:
+    type: boolean
+    default: false
+  run_ci:
+    type: boolean
+    default: true
 
 # our defined job, and its steps
 jobs:

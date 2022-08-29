@@ -6,12 +6,13 @@ aliases:
     branches:
       ignore: /.*/
     tags:
-      only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      # will ignore nightly
+      only: /^v\d+\.\d+\.\d+(-(?!nightly)[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   - &only-nightly-tags
     branches:
-      ignore: /.*/
+      only: master
     tags:
-      only: /^v\d+\.\d+\.\d+-nightly+(\.[0-9A-Za-z-]+)*?$/
+      only: /^v\d+\.\d+\.\d+-(nightly)+(\.[0-9A-Za-z-]+)*?$/
   - &only-alpha-tags
     branches:
       ignore: /.*/
@@ -37,6 +38,12 @@ parameters:
   run_load_tests:
     type: boolean
     default: false
+  run_nightly_tag:
+    type: boolean
+    default: false
+  run_ci:
+    type: boolean
+    default: true
 
 executors:
   docker-go:
@@ -571,32 +578,13 @@ jobs:
             git config --global user.email "buildbot@pachyderm.io"
             git config --global user.name "pachydermbuildbot"
       - run:
-          name: create nightly tag if new commits
+          name: create nightly tag
           command: |
-            changes=$( env -i git log --pretty=oneline --since='yesterday' | wc -l )
-            if [ $changes -gt 0 ]; then
-              TIMESTAMP=$(date +'%Y%m%d%T' | sed 's/://g')
-              WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
-              NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
-              git tag -f -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
-              git push -f origin ${NIGHTLY}
-            else
-              echo "No new changes, skipping tonight's build."
-            fi
-  auto-approve:
-    resource_class: small
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - run:
-          name: auto sign-off release
-          command: |
-            jobid=$( curl --request GET --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/job \
-            --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}' | jq -r '.items[]  | select(.name == "sign-off") | .approval_request_id' )
-
-            curl --request POST \
-            --url https://circleci.com/api/v2/workflow/${CIRCLE_WORKFLOW_ID}/approve/${jobid} \
-            --header 'authorization: Basic ${CIRCLE_BUILD_BOT_API_TOKEN}'
+            TIMESTAMP=$(date +'%Y%m%d')
+            WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
+            NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
+            git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
+            git push origin ${NIGHTLY}
   aws-prerelease-testing:
     resource_class: large
     machine:
@@ -713,6 +701,7 @@ jobs:
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${additional}
 workflows:
   integration-tests:
+    when: << pipeline.parameters.run_ci >>
     jobs:
       - build-docker-images
       - build-pachctl-bin:
@@ -743,6 +732,7 @@ workflows:
                 - S3_AUTH
                 - EXAMPLES
   helm-tests:
+    when: << pipeline.parameters.run_ci >>
     jobs:
       - helm-tests
   nightly_load_tests:
@@ -769,19 +759,15 @@ workflows:
                   #- LOAD14
                   #- LOAD15
   create-nightly-tag:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
+    when: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - create-nightly-tag
   rootless-tests:
+    when: << pipeline.parameters.run_ci >>
     jobs:
       - rootless
   deploy-tests:
+    when: << pipeline.parameters.run_ci >>
     jobs:
       - deploy-tests
   release:
@@ -843,10 +829,6 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
-      - auto-approve:
-          filters: *only-nightly-tags
-          requires:
-            - pachyderm-prerelease-testing
       - aws-prerelease-testing:
           filters: *only-release-tags
           requires:
@@ -890,3 +872,83 @@ workflows:
           filters: *only-release-tags
           requires:
             - sign-off
+  nightly-release:
+    jobs:
+      - helm-tests:
+          filters: *only-nightly-tags
+      - integration-tests:
+          matrix:
+            parameters:
+              bucket:
+                - MISC
+                # If you want to update the number of PPS buckets, you'll need to
+                # update the value of PPS_BUCKETS above
+                - AUTH
+                - ENTERPRISE
+                - PFS
+                - PPS1
+                - PPS2
+                - PPS3
+                - PPS4
+                - PPS5
+                - PPS6
+                - PPS7
+                - PPS8
+                - S3_AUTH
+                - EXAMPLES
+          filters: *only-nightly-tags
+      - helm-build:
+          filters: *only-nightly-tags
+          requires:
+            - helm-tests
+            - integration-tests
+      - build-docker-images:
+          appVersion: ${CIRCLE_TAG:1}
+          filters: *only-nightly-tags
+          requires:
+            - helm-tests
+            - integration-tests
+      - build-pachctl-bin:
+          version: ${CIRCLE_TAG:1}
+          filters: *only-nightly-tags
+          requires:
+            - helm-tests
+            - integration-tests
+      - helm-publish:
+          name: publish-chart-preview
+          preview: true
+          filters: *only-nightly-tags
+          requires:
+            - helm-build
+      - release-github-draft:
+          filters: *only-nightly-tags
+          requires:
+            - build-pachctl-bin
+      - gcp-prerelease-testing:
+          filters: *only-nightly-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - release-docker-hub:
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
+      - push_redhat:
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
+      - release-github:
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
+      - release-hombrew-tap:
+          filters: *only-nightly-tags
+          requires:
+            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+      - helm-publish:
+          name: publish-helm-chart
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
