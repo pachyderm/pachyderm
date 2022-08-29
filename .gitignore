@@ -60,6 +60,7 @@ bin/**
 # python stuff
 *.pyc
 __pycache__
+*.egg-info/
 
 # local env vars
 /.envrc
