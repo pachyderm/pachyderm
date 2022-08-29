@@ -144,7 +144,7 @@ func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Sugges
 			Description: pi.Description,
 		})
 	}
-	return result, samePart(parsePart(text))
+	return result, CacheNone
 }
 
 const (

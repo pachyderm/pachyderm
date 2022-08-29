@@ -3,7 +3,6 @@ package fileset
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
@@ -48,7 +47,7 @@ func shard(ctx context.Context, fs FileSet, sizeThreshold, countThreshold int64,
 		count++
 		return nil
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	pathRange.Upper = ""
 	return cb(pathRange)

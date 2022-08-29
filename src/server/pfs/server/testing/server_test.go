@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	
+
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -101,6 +101,68 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 
 func TestPFS(suite *testing.T) {
 	suite.Parallel()
+
+	suite.Run("InvalidProject", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		require.YesError(t, env.PachClient.CreateProject("/repo"))
+
+		require.NoError(t, env.PachClient.CreateProject("lenny"))
+		require.NoError(t, env.PachClient.CreateProject("lenny123"))
+		require.NoError(t, env.PachClient.CreateProject("lenny_123"))
+		require.NoError(t, env.PachClient.CreateProject("lenny-123"))
+
+		require.YesError(t, env.PachClient.CreateProject("lenny.123"))
+		require.YesError(t, env.PachClient.CreateProject("lenny:"))
+		require.YesError(t, env.PachClient.CreateProject("lenny,"))
+		require.YesError(t, env.PachClient.CreateProject("lenny#"))
+	})
+
+	suite.Run("DefaultProject", func(t *testing.T) {
+		t.Parallel()
+		env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+
+		// the default project should already exist
+		pp, err := env.PachClient.ListProject()
+		require.NoError(t, err)
+		var sawDefault bool
+		for _, p := range pp {
+			if p.Project.Name == pfs.DefaultProjectName {
+				sawDefault = true
+			}
+		}
+		require.True(t, sawDefault)
+		// this should fail because the default project already exists
+		require.YesError(t, env.PachClient.CreateProject(pfs.DefaultProjectName))
+		// but this should succeed
+		var desc = "A different description."
+		require.NoError(t, env.PachClient.UpdateProject(pfs.DefaultProjectName, desc))
+		// and it should have taken effect
+		pp, err = env.PachClient.ListProject()
+		require.NoError(t, err)
+		for _, p := range pp {
+			if p.Project.Name == pfs.DefaultProjectName {
+				require.Equal(t, desc, p.Description)
+			}
+		}
+		// deleting the default project is allowed, too
+		require.NoError(t, env.PachClient.DeleteProject(pfs.DefaultProjectName, false))
+		// and now there should be no default project
+		sawDefault = false
+		pp, err = env.PachClient.ListProject()
+		require.NoError(t, err)
+		for _, p := range pp {
+			if p.Project.Name == pfs.DefaultProjectName {
+				sawDefault = true
+			}
+		}
+		require.False(t, sawDefault)
+		// redeleting should be an error
+		require.YesError(t, env.PachClient.DeleteProject(pfs.DefaultProjectName, false))
+		// force-deleting should error too (FIXME: confirm)
+		require.YesError(t, env.PachClient.DeleteProject(pfs.DefaultProjectName, true))
+	})
 
 	suite.Run("InvalidRepo", func(t *testing.T) {
 		t.Parallel()

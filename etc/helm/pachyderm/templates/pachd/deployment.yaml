@@ -128,8 +128,6 @@ spec:
         - name: GOMAXPROCS # Needs to be PR'd to 2.0
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
-        - name: LOG_FORMAT
-          value: {{ .Values.pachd.logFormat }}
         - name: LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
         - name: PACH_NAMESPACE
@@ -313,6 +311,10 @@ spec:
         - name: IDENTITY_SERVER_DATABASE
           value: {{ .Values.global.postgresql.identityDatabaseFullNameOverride }}
         {{ end }}
+        {{- if .Release.IsUpgrade }}
+        - name: UPGRADE_NO_OP
+          value: {{ randAlphaNum 32 }}
+        {{- end }}
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret

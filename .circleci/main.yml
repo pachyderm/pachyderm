@@ -7,6 +7,11 @@ aliases:
       ignore: /.*/
     tags:
       only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  - &only-alpha-tags
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^v\d+\.\d+\.\d+-alpha+(\.[0-9A-Za-z-]+)*?$/
 
 orbs:
   go: circleci/go@1.7.1
@@ -21,6 +26,9 @@ parameters:
   go-version:
     type: string
     default: "1.19"
+  run_load_tests:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -521,7 +529,7 @@ jobs:
           command: |
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
-  pachyderm-prerelease-testing:
+  gcp-prerelease-testing:
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -535,9 +543,51 @@ jobs:
             ls -la dist-pach/*
             ls -la cr-release-packages/*
       - run:
-          name: "test examples"
+          name: "test gcp examples"
           command: |
             etc/testing/circle/run_release_tests.sh
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
+  aws-prerelease-testing:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: echo bins
+          command: |
+            ls -la dist-pach/*
+            ls -la cr-release-packages/*
+      - run:
+          name: "test aws examples"
+          command: |
+            etc/testing/circle/run_release_tests.sh "aws"
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
+  cust-prerelease-testing:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: echo bins
+          command: |
+            ls -la dist-pach/*
+            ls -la cr-release-packages/*
+      - run:
+          name: "test customer workload"
+          command: |
+            etc/testing/circle/run_cust_release_tests.sh
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
@@ -649,14 +699,7 @@ workflows:
     jobs:
       - helm-tests
   nightly_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - 2.3.x
-                - master
+    when: << pipeline.parameters.run_load_tests >>
     jobs:
       - nightly-load:
           matrix:
@@ -736,8 +779,22 @@ workflows:
           filters: *only-release-tags
           requires:
             - build-pachctl-bin
-      - pachyderm-prerelease-testing:
+      - gcp-prerelease-testing:
           filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - aws-prerelease-testing:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - cust-prerelease-testing:
+          filters: *only-alpha-tags
           requires:
             - build-docker-images
             - build-pachctl-bin

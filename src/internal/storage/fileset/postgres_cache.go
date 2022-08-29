@@ -107,7 +107,7 @@ func (c *Cache) applyEvictionPolicy(tx *pachsql.Tx) error {
 	`); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return errors.EnsureStack(c.tracker.DeleteTx(tx, cacheTrackerKey(key)))
+	return c.tracker.DeleteTx(tx, cacheTrackerKey(key))
 }
 
 func (c *Cache) Get(ctx context.Context, key string) (*types.Any, error) {
@@ -144,7 +144,7 @@ func (c *Cache) Clear(ctx context.Context, tagPrefix string) error {
 			`, key); err != nil {
 				return errors.EnsureStack(err)
 			}
-			return errors.EnsureStack(c.tracker.DeleteTx(tx, cacheTrackerKey(key)))
+			return c.tracker.DeleteTx(tx, cacheTrackerKey(key))
 		}); err != nil {
 			return err
 		}

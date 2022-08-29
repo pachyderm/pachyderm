@@ -3851,6 +3851,13 @@ func TestPipelineThatSymlinks(t *testing.T) {
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
+// DAG:
+//
+// A
+// |
+// B  D
+// | /
+// C
 func TestChainedPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3911,7 +3918,7 @@ func TestChainedPipelines(t *testing.T) {
 
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(commitInfos))
+	require.Equal(t, 8, len(commitInfos))
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfo.Commit, "bFile", &buf))
@@ -4005,7 +4012,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	require.Equal(t, 11, len(commitInfos))
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
@@ -4014,7 +4021,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	commitInfos, err = c.WaitCommitSetAll(eCommit2.ID)
 	require.NoError(t, err)
-	require.Equal(t, 10, len(commitInfos))
+	require.Equal(t, 11, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil, -1, true)
