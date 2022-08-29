@@ -54,7 +54,6 @@ message RepoInfo {
     int64 size_bytes = 1;
   }
   Details details = 7;
-  Project project = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
