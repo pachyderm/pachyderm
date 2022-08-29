@@ -18,6 +18,8 @@ const (
 	UserRepoType = "user"
 	MetaRepoType = "meta"
 	SpecRepoType = "spec"
+
+	DefaultProjectName = "default"
 )
 
 // NewHash returns a hash that PFS uses internally to compute checksums.
