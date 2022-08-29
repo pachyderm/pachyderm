@@ -291,6 +291,7 @@ func (mm *MountManager) UnmountAll() error {
 			}
 		}
 	}
+	delete(mm.root.repoOpts, "out")
 
 	return nil
 }
@@ -629,14 +630,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				return
 			}
 		}
-		func() {
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-			mm.root.repoOpts["out"] = &RepoOptions{
-				Name:  "out",
-				File:  &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
-				Write: true}
-		}()
+		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
 			Id:        mm.Datums[0].Datum.ID,
@@ -709,6 +703,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				return
 			}
 		}
+		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
 			Id:        di.Datum.ID,
@@ -1056,7 +1051,7 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 				Repo:   repo,
 				Branch: branch,
 				Files:  []string{fi.File.Path},
-				Mode:   "rw",
+				Mode:   "ro",
 			}
 			mounts[mount] = mi
 		}
@@ -1073,6 +1068,15 @@ func datumToMounts(d *pps.DatumInfo) []*MountInfo {
 func removeOutDir(mm *MountManager) error {
 	cleanPath := mm.root.rootPath + "/out"
 	return errors.EnsureStack(os.RemoveAll(cleanPath))
+}
+
+func createLocalOutDir(mm *MountManager) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	mm.root.repoOpts["out"] = &RepoOptions{
+		Name:  "out",
+		File:  &pfs.File{Commit: &pfs.Commit{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: "out"}}}},
+		Write: true}
 }
 
 type MountState struct {
