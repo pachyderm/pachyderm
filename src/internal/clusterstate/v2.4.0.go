@@ -21,7 +21,7 @@ var state_2_4_0 migrations.State = state_2_3_0.
 			},
 		}
 		if err := pfsdb.Projects(nil, nil).ReadWrite(env.Tx).Create(pfs.DefaultProjectName, defaultProject); err != nil {
-			return errors.Errorf("could not create default project: %w", err)
+			return errors.Wrap(err, "could not create default project")
 		}
 		return nil
 	})
