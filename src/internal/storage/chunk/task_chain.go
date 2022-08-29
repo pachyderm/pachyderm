@@ -3,6 +3,7 @@ package chunk
 import (
 	"context"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -39,6 +40,7 @@ type TaskChainFunc = func(context.Context) (serCB func() error, err error)
 // CreateTask creates a new task in the task chain.
 func (c *TaskChain) CreateTask(cb TaskChainFunc) error {
 	if err := c.sem.Acquire(c.ctx, 1); err != nil {
+		err = multierror.Append(c.eg.Wait(), err)
 		return errors.EnsureStack(err)
 	}
 	// get our place in line for the serial portion

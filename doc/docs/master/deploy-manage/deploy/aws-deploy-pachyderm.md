@@ -282,7 +282,7 @@ Configure your DB instance as follows.
 !!! Warning "One last step"
       Once your instance is created: 
 
-      - If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}. This second database is not needed when your cluster is managed by an enterprise server.
+      - If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup.md), you will need to create a second database named "dex" in your RDS instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}. This second database is not needed when your cluster is managed by an enterprise server.
       - Additionally, create a new user account and **grant it full CRUD permissions to both `pachyderm` and (when applicable) `dex` databases**. Read about managing PostgreSQL users and roles in this [blog](https://aws.amazon.com/blogs/database/managing-postgresql-users-and-roles/). Pachyderm will use the same username to connect to `pachyderm` as well as to `dex`. 
 
 ### Update your values.yaml 
@@ -571,7 +571,7 @@ pachd               {{ config.pach_latest_version }}
 
 Once your cluster is up and running, you can helm install JupyterHub on your Pachyderm cluster and experiment with your data in Pachyderm from your Notebook cells. 
 
-Check out our [JupyterHub and Pachyderm Mount Extension](../../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} page for installation instructions. 
+Check out our [JupyterHub and Pachyderm Mount Extension](../../how-tos/jupyterlab-extension/index.md){target=_blank} page for installation instructions. 
 
 Use Pachyderm's default image and values.yaml [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank} or follow the instructions to update your own.
 

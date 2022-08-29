@@ -23,14 +23,13 @@ Note that each web UI addresses different use cases:
       installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).  
       New Kubernetes nodes cannot be added to this single-node cluster.   
   
-  
 Pachyderm uses `Helm` for all deployments.  
 
 !!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/).  
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-manage/deploy/deploy-w-proxy.md).
 
 ## Prerequisites  
 
@@ -322,7 +321,7 @@ authenticate again (to Pachyderm this time) with the mock User (username: `admin
 !!! Note
       You do not need a local Pachyderm cluster already running to install Pachyderm JupyterLab Mount Extension. However, **you need a running cluster to connect your Mount Extension to**; therefore, we recommend that you [install Pachyderm locally](#local-installation) first.
 
-- To install [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
+- To install [JupyterHub and the Mount Extension](../how-tos/jupyterlab-extension/index.md#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
 
       ```shell
       helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/

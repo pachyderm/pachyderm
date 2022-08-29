@@ -8,9 +8,9 @@
     "cmd": [ "/bin/ash" ],
     "stdin": [
        "cp /pfs/raw_data/iris.csv /tmp/iris.csv",
-       "for cf in /pfs/c-parameters/c_parameters.txt/*",
+       "for cf in /pfs/c-parameters/c_parameters/*",
        "do",
-       "for gf in /pfs/gamma-parameters/gamma_parameters.txt/*",
+       "for gf in /pfs/gamma-parameters/gamma_parameters/*",
        "do",
        "cparam=`cat $cf`",
        "gammaparam=`cat $gf`",
@@ -34,14 +34,14 @@
         "pfs": {
           "name": "c-parameters",
           "repo": "parameters",
-          "glob": "/c_parameters.txt/*"
+          "glob": "/c_parameters/*"
         }
       },
       {
         "pfs": {
           "name": "gamma-parameters",
           "repo": "parameters",
-          "glob": "/gamma_parameters.txt/*"
+          "glob": "/gamma_parameters/*"
         }
       }
     ]

@@ -27,9 +27,11 @@ spec:
         {{- end }}
       name: console
       namespace: {{ .Release.Namespace }}
-      {{- if .Values.console.annotations }}
-      annotations: {{ toYaml .Values.console.annotations | nindent 4 }}
-      {{- end }}
+      annotations:
+        checksum/helm-values: {{ toJson .Values | sha256sum }}
+        {{- if .Values.console.annotations -}}
+        {{ toYaml .Values.console.annotations | nindent 8 }}
+        {{- end }}
     spec:
       {{- if .Values.console.priorityClassName }}
       priorityClassName: {{ .Values.console.priorityClassName }}
@@ -115,6 +117,8 @@ spec:
         {{- end }}
         volumeMounts:
         - mountPath: /home/
+          name: home
+        - mountPath: /tmp/
           name: tmp
         {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - mountPath: /pach-tls/certs
@@ -146,6 +150,8 @@ spec:
       volumes:
       - emptyDir: {}
         name: tmp
+      - emptyDir: {}
+        name: home
       {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
       - name: pachd-tls-cert
         secret:

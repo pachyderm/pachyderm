@@ -185,7 +185,7 @@ func (s *Storage) Flatten(ctx context.Context, ids []ID) ([]ID, error) {
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, err
 		}
 		switch x := md.Value.(type) {
 		case *Metadata_Primitive:
@@ -282,7 +282,7 @@ func (s *Storage) Drop(ctx context.Context, id ID) error {
 func (s *Storage) SetTTL(ctx context.Context, id ID, ttl time.Duration) (time.Time, error) {
 	oid := id.TrackerID()
 	res, err := s.tracker.SetTTL(ctx, oid, ttl)
-	return res, errors.EnsureStack(err)
+	return res, err
 }
 
 // SizeUpperBound returns an upper bound for the size of the data in the file set in bytes.
@@ -310,7 +310,7 @@ func (s *Storage) Size(ctx context.Context, id ID) (int64, error) {
 		total += index.SizeBytes(f.Index())
 		return nil
 	}); err != nil {
-		return 0, errors.EnsureStack(err)
+		return 0, err
 	}
 	return total, nil
 }
@@ -349,7 +349,7 @@ func (s *Storage) NewGC(d time.Duration) *track.GarbageCollector {
 
 func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
 	exists, err := s.store.Exists(ctx, id)
-	return exists, errors.EnsureStack(err)
+	return exists, err
 }
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
@@ -376,10 +376,10 @@ func (s *Storage) newPrimitiveTx(tx *pachsql.Tx, prim *Primitive, ttl time.Durat
 		pointsTo = append(pointsTo, chunkID.TrackerID())
 	}
 	if err := s.store.SetTx(tx, id, md); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	if err := s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	return &id, nil
 }
@@ -412,10 +412,10 @@ func (s *Storage) newCompositeTx(tx *pachsql.Tx, comp *Composite, ttl time.Durat
 		pointsTo = append(pointsTo, id.TrackerID())
 	}
 	if err := s.store.SetTx(tx, id, md); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	if err := s.tracker.CreateTx(tx, id.TrackerID(), pointsTo, ttl); err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	return &id, nil
 }
@@ -423,7 +423,7 @@ func (s *Storage) newCompositeTx(tx *pachsql.Tx, comp *Composite, ttl time.Durat
 func (s *Storage) getPrimitive(ctx context.Context, id ID) (*Primitive, error) {
 	md, err := s.store.Get(ctx, id)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {
@@ -446,5 +446,5 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, oid string) error {
 	if err != nil {
 		return err
 	}
-	return errors.EnsureStack(d.store.DeleteTx(tx, *id))
+	return d.store.DeleteTx(tx, *id)
 }

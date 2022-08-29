@@ -86,7 +86,7 @@ will run once all the input commits have been finished**.
           In the case of a transaction, the workers will wait until all of the input commits are finished to process them in one batch. All of those commits and jobs will be part of the same global commit/job and share the same globalID (**`Transaction ID`**). Without a transaction, each commit would trigger its own separate job.
 
 
-      We have used the [inner join pipeline](https://github.com/pachyderm/pachyderm/tree/2.3.x/examples/joins){target=_blank} in our joins example to illustrate the difference between no transaction and the use a transaction, all other things being equal. Make sure to follow the example README if you want to run those pachctl commands yourself.
+      We have used the [inner join pipeline](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank} in our joins example to illustrate the difference between no transaction and the use a transaction, all other things being equal. Make sure to follow the example README if you want to run those pachctl commands yourself.
 
       ![Tx vs no Tx](../../images/flow-control-with-and-without-trx.png)
         
@@ -255,5 +255,5 @@ and potentially wasting work.
 
 
 To get a better understanding of how transactions work in practice, try
-[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/2.3.x/examples/transactions/){target=_blank}.
+[Use Transactions with Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/transactions/){target=_blank}.
 

@@ -11,6 +11,7 @@ Pachyderm supports the latest Generally Available (GA) release and the previous 
 
 | Version  | Release Status | Support |
 | -------- | -------------- | ------- |
+| 2.3.x    | GA             | Yes     |
 | 2.2.x    | GA             | Yes     |
 | 2.1.x    | GA             | Yes     |
 | 2.0.x    | GA             | Yes     |
@@ -90,9 +91,10 @@ A release under development may undergo several pre-release stages before becomi
 
 ## Experimental Features
 
-| Feature           | Version | Date       |
-| ----------------- | --------| ---------- |
-| Service Pipelines | 1.9.9   | 2019-11-06 |
+| Feature              | Version | Date       |
+| -------------------- | --------| ---------- |
+| JupyterLab Extension | 1.9.9   | 2019-11-06 |
+| Service Pipelines    | 0.6.0   | 2022-06-15 |
 
 ## Deprecated Features
 

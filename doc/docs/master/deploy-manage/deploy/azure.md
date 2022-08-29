@@ -20,15 +20,21 @@ Service environment (AKS).
 
 In particular, you will:
 
-1. [Install Prerequisites](#1-install-prerequisites)
-1. [Deploy Kubernetes](#2-deploy-kubernetes)
-1. [Create an Azure Storage Container For Your Data](#3-create-an-azure-storage-container-for-your-data)
-1. [Persistent Volumes Creation](#4-persistent-volumes-creation)
-1. [Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server-database) 
-1. [Deploy Pachyderm](#6-deploy-pachyderm)
-1. [Have 'pachctl' and your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
-1. [Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
-1. (Optional) Install [JupyterHub and Pachyderm Mount Extension](#9-notebooks-users-install-pachyderm-jupyterlab-mount-extension) to experiment with your data in Pachyderm from your Notebook cells. 
+- [Azure](#azure)
+  - [1. Install Prerequisites](#1-install-prerequisites)
+  - [2. Deploy Kubernetes](#2-deploy-kubernetes)
+  - [3. Create an Azure Storage Container For Your Data](#3-create-an-azure-storage-container-for-your-data)
+  - [4. Persistent Volumes Creation](#4-persistent-volumes-creation)
+  - [5. Create an Azure Managed PostgreSQL Server Database](#5-create-an-azure-managed-postgresql-server-database)
+    - [Create A PostgreSQL Server Instance¶](#create-a-postgresql-server-instance)
+    - [Create Your Databases](#create-your-databases)
+    - [Update your yaml values](#update-your-yaml-values)
+  - [6. Deploy Pachyderm](#6-deploy-pachyderm)
+    - [Update Your Values.yaml](#update-your-valuesyaml)
+    - [Deploy Pachyderm On The Kubernetes Cluster](#deploy-pachyderm-on-the-kubernetes-cluster)
+  - [7. Have 'pachctl' And Your Cluster Communicate](#7-have-pachctl-and-your-cluster-communicate)
+  - [8. Check That Your Cluster Is Up And Running](#8-check-that-your-cluster-is-up-and-running)
+  - [9. NOTEBOOKS USERS: Install Pachyderm JupyterLab Mount Extension](#9-notebooks-users-install-pachyderm-jupyterlab-mount-extension)
 
 ## 1. Install Prerequisites
 
@@ -281,21 +287,21 @@ Once created, go back to your newly created database, and:
    
    Alternativelly, in the **Connection Security** of your newly created server, *Allow access to Azure services* (This is equivalent to running `az postgres server firewall-rule create --server-name <your_server_name> --resource-group <your_resource_group> --name AllowAllAzureIps --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0`). 
 
-- In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-valuesyaml).
+- In the **Essentials** page of your instance, find the full **server name** and **admin username** that will be required in your [values.yaml](#update-your-yaml-values).
 
 ![Instance overview page](../images/azure_postgresql_overview.png)
 
 ### Create Your Databases
 After your instance is created, you will need to create Pachyderm's database(s).
       
-If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../../enterprise/auth/enterprise-server/setup)), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
+If you plan to deploy a standalone cluster (i.e., if you do not plan to register your cluster with a separate [enterprise server](../../enterprise/auth/enterprise-server/setup.md), you will need to create a second database named "dex" in your PostgreSQL Server instance for Pachyderm's authentication service. Note that the database **must be named `dex`**. This second database is not needed when your cluster is managed by an enterprise server.
 
 !!! Note
     Read more about [dex on PostgreSQL in Dex's documentation](https://dexidp.io/docs/storage/#postgres){target=_blank}.
 
 Pachyderm will use the same user to connect to `pachyderm` as well as to `dex`. 
 
-### Update your values.yaml 
+### Update your yaml values
 Once your databases have been created, add the following fields to your Helm values:
 
 
@@ -491,7 +497,7 @@ pachd               {{ config.pach_latest_version }}
 
 Once your cluster is up and running, you can helm install JupyterHub on your Pachyderm cluster and experiment with your data in Pachyderm from your Notebook cells. 
 
-Check out our [JupyterHub and Pachyderm Mount Extension](../../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} page for installation instructions. 
+Check out our [JupyterHub and Pachyderm Mount Extension](../../how-tos/jupyterlab-extension/index.md){target=_blank} page for installation instructions. 
 
 Use Pachyderm's default image and values.yaml [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank} or follow the instructions to update your own.
 
