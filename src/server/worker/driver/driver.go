@@ -361,14 +361,6 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-	default:
-	}
 	err = cmd.Wait()
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
@@ -420,14 +412,6 @@ func (d *driver) RunUserErrorHandlingCode(
 	err := cmd.Start()
 	if err != nil {
 		return errors.EnsureStack(err)
-	}
-	select {
-	case <-ctx.Done():
-		err = ctx.Err()
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-	default:
 	}
 
 	err = cmd.Wait()
