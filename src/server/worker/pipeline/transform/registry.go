@@ -187,12 +187,12 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				err = errors.Unwrap(err)
 			}
 			pj.driver = reg.driver
-			pj.ji.Restart++
 			return backoff.RetryUntilCancel(reg.driver.PachClient().Ctx(), func() error {
 				// Reload the job's commits and info as they may have changed.
 				if err := pj.load(); err != nil {
 					return err
 				}
+				pj.ji.Restart++
 				return pj.writeJobInfo()
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
