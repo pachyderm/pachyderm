@@ -58,7 +58,7 @@ func getDSN() (string, error) {
 		Password:  password,
 	}
 
-	return sf.DSN(cfg)
+	return sf.DSN(cfg) //nolint:wrapcheck
 }
 
 func createTempStage(db *sqlx.DB, stage string) error {
@@ -184,7 +184,7 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 		in := "file://" + file
 		out := fmt.Sprintf("@%s/%s", stage, table) + filepath.Dir(file)
 		if _, err := db.Exec(fmt.Sprintf("PUT %s %s", in, out)); err != nil {
-			return err
+			return errors.Errorf("failed to upload file to stage: %v", err)
 		}
 	}
 
@@ -192,12 +192,12 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 	ctx := context.Background()
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 	defer tx.Rollback()
 
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s", table)); err != nil {
-		return err
+		return errors.Errorf("failed to clear table: %v", err)
 	}
 	copyIntoQuery := fmt.Sprintf("COPY INTO %s FROM @%s/%s", table, stage, table)
 	if fileFormat != "" {
@@ -208,11 +208,11 @@ func writeTable(db *sqlx.DB, files []string, table string) error {
 	}
 
 	if _, err := tx.ExecContext(ctx, copyIntoQuery); err != nil {
-		return err
+		return errors.Errorf("failed to load data from stage into table: %v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 	return nil
 }
@@ -229,7 +229,7 @@ func write(db *sqlx.DB) error {
 		// remember that /pfs/in has symbolic links so filepath.Walk() doesn't work
 		files, err := filepath.Glob(filepath.Join(inputDir, "/*/*"))
 		if err != nil {
-			return err
+			return errors.Errorf("failed to list files for writing to database: %v", err)
 		}
 		return writeTable(db, files, targetTable)
 	}
@@ -269,22 +269,29 @@ func main() {
 	sfLogger := sf.GetLogger()
 	switch os.Args[1] {
 	case "read":
-		readCmd.Parse(os.Args[2:])
+		if err := readCmd.Parse(os.Args[2:]); err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
 		if debug {
-			sfLogger.SetLogLevel("debug")
+			_ = sfLogger.SetLogLevel("debug")
 		}
 		if err := read(db); err != nil {
 			log.Fatal(err)
 		}
 	case "write":
-		writeCmd.Parse(os.Args[2:])
+		if err := writeCmd.Parse(os.Args[2:]); err != nil {
+			log.Fatal(err)
+			os.Exit(1)
+		}
 		if debug {
-			sfLogger.SetLogLevel("debug")
+			_ = sfLogger.SetLogLevel("debug")
 		}
 		if err := write(db); err != nil {
 			log.Fatal(err)
 		}
 	default:
 		log.Fatal("subcommand must be either 'read' or 'write'")
+		os.Exit(1)
 	}
 }
