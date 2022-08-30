@@ -1784,11 +1784,14 @@ func TestProvenance(t *testing.T) {
 }
 
 // TestProvenance2 tests the following DAG:
-//   A
-//  / \
+//
+//	 A
+//	/ \
+//
 // B   C
-//  \ /
-//   D
+//
+//	\ /
+//	 D
 func TestProvenance2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4027,6 +4030,81 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	jobInfos, err := c.ListJob(dPipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
+}
+
+// TestMetaAlias tracks https://github.com/pachyderm/pachyderm/pull/8116
+// DAG:
+//
+// A
+// |
+// B
+// |
+// C
+func TestMetaAlias(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+
+	aCommit, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(aRepo, "master", ""))
+
+	bPipeline := tu.UniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(aRepo, "/"),
+		"",
+		false,
+	))
+
+	cPipeline := tu.UniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", bPipeline)},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewPFSInput(bPipeline, "/"),
+		),
+		"",
+		false,
+	))
+
+	commitInfo, err := c.InspectCommit(cPipeline, "master", "")
+	require.NoError(t, err)
+
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 7, len(commitInfos))
+
+	c.StopPipeline(bPipeline)
+	c.StartPipeline(bPipeline)
+
+	cCommits, err := c.ListCommit(client.NewRepo(cPipeline), nil, nil, 0)
+
+	listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
+		Repo: client.NewSystemRepo(bPipeline, pfs.MetaRepoType),
+		All:  true,
+	})
+
+	allBmetaCommits, err := clientsdk.ListCommit(listClient)
+
+	require.Equal(t, allBmetaCommits[0].Commit.ID, cCommits[0].Commit.ID)
 }
 
 func TestJobDeletion(t *testing.T) {
