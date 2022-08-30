@@ -60,7 +60,6 @@ func WithConnMaxIdleTime(d time.Duration) Option {
 
 const (
 	SSLModeDisable = "disable"
-	SSLModeEnable  = "verify-full"
 
 	DefaultSSLMode = SSLModeDisable
 )
