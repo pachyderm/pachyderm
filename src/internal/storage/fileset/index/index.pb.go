@@ -23,9 +23,10 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// Index stores an index to and metadata about a file.
+// Index stores an index to and metadata about a file or range of file paths.
 type Index struct {
-	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Path string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	// range and file are mutually exclusive
 	Range                *Range   `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
 	File                 *File    `protobuf:"bytes,3,opt,name=file,proto3" json:"file,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -150,6 +151,8 @@ func (m *Range) GetChunkRef() *chunk.DataRef {
 	return nil
 }
 
+// File describes the metadata for a single file in PFS.
+// Note that in pachyderm a file is inherently associated with a datum. User-provided files will have the value "default".
 type File struct {
 	Datum                string           `protobuf:"bytes,1,opt,name=datum,proto3" json:"datum,omitempty"`
 	DataRefs             []*chunk.DataRef `protobuf:"bytes,2,rep,name=data_refs,json=dataRefs,proto3" json:"data_refs,omitempty"`

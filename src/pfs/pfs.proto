@@ -97,12 +97,20 @@ message Trigger {
   int64 commits = 5;
 }
 
-// These are the different places where a commit may be originated from
+// These are the different reasons a commit may have been created
 enum OriginKind {
   ORIGIN_KIND_UNKNOWN = 0;
+  // A user-originated commit, typically from modifying a source repo.
+  // Updating a pipeline also creates a USER commit on the pipeline's spec repo.
   USER = 1;
+  // A commit created from the provenance propagation algorithm, on a pipeline's output or meta repo.
   AUTO = 2;
+  // A commit created by fsck while restoring a broken invariant
   FSCK = 3;
+  // An alias commit is effectively a copy of another commit. Unlike the other kinds, aliases have special handling.
+  // Changes to an alias commit's parent state are automatically applied to the alias itself.
+  // Alias commits are created when moving a branch for deferred processing,
+  // as well as automatically to encode provenance relationships.
   ALIAS = 4;
 }
 

@@ -1,3 +1,12 @@
+/*
+Package txncontext manages the life cycle of transactions.
+It provides all the resources transactional operations generally require, and triggers deferred transaction steps.
+
+The transaction defer model is used to maintain various pachyderm invariants that have performance implications,
+unlike branch provenance lists which are updated after every individual operation.
+Rather than e.g. create new jobs after every individual state change, these operations happen once at the end.
+In most cases, callers must mark specific objects (branches or jobs) for processing during [TransactionContext.Finish].
+*/
 package txncontext
 
 import (
@@ -16,12 +25,18 @@ import (
 // TransactionContext is a helper type to encapsulate the state for a given
 // set of operations being performed in the Pachyderm API.  When a new
 // transaction is started, a context will be created for it containing these
-// objects, which will be threaded through to every API call:
+// objects, which will be threaded through to every API call.
+// Note: TransactionContext deliberately does not expose a context object.
+// This is to discourage interacting with external services or invoking API endpoints, during a transaction,
+// as these operations can lead to impossible-to-satisfy requests or accidental repetition of non-idempotent operations.
 type TransactionContext struct {
+	// username is the user running the transaction.
+	// It is computed once initially, and used to respond to subsequent WhoAmI requests.
 	username string
 	// SqlTx is the ongoing database transaction.
 	SqlTx *pachsql.Tx
 	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
+	// It is initialized to a random ID, unless overwritten (which should be done with great care).
 	CommitSetID string
 	// Timestamp is the canonical timestamp to be used for writes in this transaction.
 	Timestamp *types.Timestamp
@@ -29,8 +44,9 @@ type TransactionContext struct {
 	PfsPropagater PfsPropagater
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
-	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
-	PpsJobStopper  PpsJobStopper
+	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commit set
+	PpsJobStopper PpsJobStopper
+	// PpsJobFinisher changes Job states to SUCCESS or FAILURE based on the results of commit finishing
 	PpsJobFinisher PpsJobFinisher
 }
 

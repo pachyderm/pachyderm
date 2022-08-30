@@ -1,3 +1,19 @@
+/*
+Package datum handles datums, the core units of work in a pipeline.
+
+We use a specific file system structure to store datums, whether in meta commits or in temporary file sets during job processing.
+Every datum has a JSON-marshalled [datum.Meta] at the file path
+
+	/meta/<datum-ID>/meta
+
+When computing a job's list of datums, the ID is prefixed with an index via [datum.WithPrefixIndex] to ensure a cache-friendly ordering.
+Meta commits additionally track output files, so that they can be deleted per datum.
+These files are under
+
+	/pfs/<datum-ID>/out/
+
+with file structure identical to the output commit (or more specifically, to the state of the worker's file system after the datum).
+*/
 package datum
 
 import (

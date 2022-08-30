@@ -24,6 +24,12 @@ const (
 	DefaultMaxChunkSize = 20 * units.MB
 )
 
+// ComputeChunks splits a stream of data into chunks using a content-defined chunking algorithm.
+// DefaultAverageBits determines the typical chunk size by controlling the rarity of split points,
+// determined by the hash of a moving window of the input stream.
+// The motivation is for typical file modifications (insertions, changes, deletions)
+// to only affect a small number of chunks.
+//
 // TODO: Expose configuration.
 func ComputeChunks(r io.Reader, cb func([]byte) error) error {
 	buf := make([]byte, units.MB)
