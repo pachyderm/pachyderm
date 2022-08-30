@@ -299,7 +299,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
 
     r = requests.get(f"{BASE_URL}/datums")
     assert r.status_code == 200
-    assert json.loads(r.json()["input"]) == input_spec["input"]
+    assert r.json()["input"] == input_spec["input"]
     assert r.json()["num_datums"] == 4
 
     r = requests.put(f"{BASE_URL}/_unmount_all")
