@@ -959,6 +959,8 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
 
+		_, err = os.ReadDir(filepath.Join(mountPoint, "out")) // Loads "out" folder
+		require.NoError(t, err)
 		files, err = os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
 		require.Equal(t, 3, len(files)) // Need to account for "out" rw mount
