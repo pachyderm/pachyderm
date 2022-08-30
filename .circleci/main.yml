@@ -607,10 +607,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
             fi
   release-github:
     docker:
