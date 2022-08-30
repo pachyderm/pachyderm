@@ -33,9 +33,7 @@ func NewProjectRepo(projectName, repoName string) *pfs.Repo {
 
 // NewRepo creates a repository message in the default project.
 func NewRepo(repoName string) *pfs.Repo {
-	// FIXME: this needs to be pfs.DefaultProjectName after the data
-	// migration.
-	return NewProjectRepo("", repoName)
+	return NewProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
 // NewSystemRepo creates a pfs.Repo of the given type
