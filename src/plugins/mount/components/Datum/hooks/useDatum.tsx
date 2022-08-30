@@ -53,7 +53,7 @@ export const useDatum = (
 
   const callShowDatum = async () => {
     setLoading(true);
-    
+
     try {
       const res = await requestAPI<any>(
         `_show_datum?idx=${currentDatumIdx}`,
