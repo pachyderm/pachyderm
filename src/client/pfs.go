@@ -36,9 +36,18 @@ func NewRepo(repoName string) *pfs.Repo {
 	return NewProjectRepo(pfs.DefaultProjectName, repoName)
 }
 
+// NewSystemProjectRepo creates a pfs.Repo of the given type
+func NewSystemProjectRepo(projectName, repoName, repoType string) *pfs.Repo {
+	return &pfs.Repo{
+		Project: NewProject(projectName),
+		Name:    repoName,
+		Type:    repoType,
+	}
+}
+
 // NewSystemRepo creates a pfs.Repo of the given type
 func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName, Type: repoType}
+	return NewSystemProjectRepo(pfs.DefaultProjectName, repoName, repoType)
 }
 
 // NewProjectBranch creates a branch message in the given project.
