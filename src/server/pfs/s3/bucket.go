@@ -19,10 +19,10 @@ import (
 	"github.com/pachyderm/s2"
 )
 
-func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
+func (c *controller) newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return s2.Contents{}, err
+		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit), on error %s", err)
 	}
 
 	return s2.Contents{
@@ -122,7 +122,7 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			c, err := newContents(fileInfo)
+			c, err := c.newContents(fileInfo)
 			if err != nil {
 				return err
 			}
