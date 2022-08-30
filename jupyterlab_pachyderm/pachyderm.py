@@ -23,6 +23,9 @@ class MountInterface:
     async def show_datum(self, slug):
         pass
 
+    async def get_datums(self):
+        pass
+
     async def config(self, body):
         pass
 

@@ -161,6 +161,11 @@ class MountServerClient(MountInterface):
         )
         return response.body
 
+    async def get_datums(self):
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/datums")
+        return response.body
+
     async def config(self, body=None):
         await self._ensure_mount_server()
         if body is None:

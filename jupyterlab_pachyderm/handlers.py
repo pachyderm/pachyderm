@@ -144,6 +144,20 @@ class ShowDatumHandler(BaseHandler):
             raise tornado.web.HTTPError(
                 status_code=getattr(e, "code", 500), reason=f"Error showing datum {slug}: {e}."
             )
+
+
+class DatumsHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        try:
+            response = await self.mount_client.get_datums()
+            get_logger().debug(f"Datums info: {response}")
+            self.finish(response)
+        except Exception as e:
+            get_logger().error("Error getting datum info.", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=getattr(e, "code", 500), reason=f"Error getting datum info: {e}."
+            )
     
 
 class PFSHandler(ContentsHandler):
@@ -269,6 +283,7 @@ def setup_handlers(web_app):
         ("/_mount_datums", MountDatumsHandler),
         (r"/_show_datum", ShowDatumHandler),
         (r"/pfs%s" % path_regex, PFSHandler),
+        ("/datums", DatumsHandler),
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
