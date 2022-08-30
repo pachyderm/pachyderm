@@ -11,7 +11,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	sf "github.com/snowflakedb/gosnowflake"
 )
 
@@ -19,10 +19,6 @@ var (
 	header, debug                               bool
 	query, partitionBy, fileFormat, copyOptions string
 	inputDir, outputDir, targetTable            string
-)
-
-var (
-	log = logrus.StandardLogger()
 )
 
 func env(k string, failOnMissing bool) string {
