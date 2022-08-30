@@ -4092,17 +4092,20 @@ func TestMetaAlias(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 7, len(commitInfos))
 
-	c.StopPipeline(bPipeline)
-	c.StartPipeline(bPipeline)
+	require.NoError(t, c.StopPipeline(bPipeline))
+	require.NoError(t, c.StartPipeline(bPipeline))
 
 	cCommits, err := c.ListCommit(client.NewRepo(cPipeline), nil, nil, 0)
+	require.NoError(t, err)
 
 	listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
 		Repo: client.NewSystemRepo(bPipeline, pfs.MetaRepoType),
 		All:  true,
 	})
+	require.NoError(t, err)
 
 	allBmetaCommits, err := clientsdk.ListCommit(listClient)
+	require.NoError(t, err)
 
 	require.Equal(t, allBmetaCommits[0].Commit.ID, cCommits[0].Commit.ID)
 }
