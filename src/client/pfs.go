@@ -22,9 +22,20 @@ func NewProject(name string) *pfs.Project {
 	return &pfs.Project{Name: name}
 }
 
-// NewRepo creates a pfs.Repo.
+// NewProjectRepo creates a repository message in the given project.
+func NewProjectRepo(projectName, repoName string) *pfs.Repo {
+	return &pfs.Repo{
+		Project: NewProject(projectName),
+		Name:    repoName,
+		Type:    pfs.UserRepoType,
+	}
+}
+
+// NewRepo creates a repository message in the default project.
 func NewRepo(repoName string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
+	// FIXME: this needs to be pfs.DefaultProjectName after the data
+	// migration.
+	return NewProjectRepo("", repoName)
 }
 
 // NewSystemRepo creates a pfs.Repo of the given type
@@ -32,28 +43,43 @@ func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName, Type: repoType}
 }
 
-// NewBranch creates a pfs.Branch
-func NewBranch(repoName string, branchName string) *pfs.Branch {
+// NewProjectBranch creates a branch message in the given project.
+func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 	return &pfs.Branch{
-		Repo: NewRepo(repoName),
+		Repo: NewProjectRepo(projectName, repoName),
 		Name: branchName,
 	}
 }
 
-// NewCommit creates a pfs.Commit.
-func NewCommit(repoName string, branchName string, commitID string) *pfs.Commit {
+// NewBranch creates a branch message in the default project.
+func NewBranch(repoName, branchName string) *pfs.Branch {
+	return NewProjectBranch(pfs.DefaultProjectName, repoName, branchName)
+}
+
+// NewProject create a commit message in the given project.
+func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
-		Branch: NewBranch(repoName, branchName),
+		Branch: NewProjectBranch(projectName, repoName, branchName),
 		ID:     commitID,
 	}
 }
 
-// NewFile creates a pfs.File.
-func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
+// NewCommit creates a commit in the default project.
+func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
+	return NewProjectCommit(pfs.DefaultProjectName, repoName, branchName, commitID)
+}
+
+// NewProjectFile creates a file message in the given project.
+func NewProjectFile(projectName, repoName, branchName, commitID, path string) *pfs.File {
 	return &pfs.File{
-		Commit: NewCommit(repoName, branchName, commitID),
+		Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		Path:   path,
 	}
+}
+
+// NewFile creates a file message in the default project.
+func NewFile(repoName, branchName, commitID, path string) *pfs.File {
+	return NewProjectFile(pfs.DefaultProjectName, repoName, branchName, commitID, path)
 }
 
 // CreateRepo creates a new Repo object in pfs with the given name. Repos are

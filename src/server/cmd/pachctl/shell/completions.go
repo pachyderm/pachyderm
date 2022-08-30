@@ -88,10 +88,11 @@ func RepoCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, Cac
 	return result, samePart(parsePart(text))
 }
 
-// BranchCompletion completes branch parameters of the form <repo>@<branch>
-func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+// ProjectBranchCompletion completes branch parameters of the form
+// <repo>@<branch> in a project-aware fashion.
+func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	partialFile := cmdutil.ParsePartialFile(text)
+	partialFile := cmdutil.ParsePartialFile(project, text)
 	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
@@ -131,6 +132,11 @@ func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest
 	return result, samePart(part)
 }
 
+// BranchCompletion completes branch parameters of the form <repo>@<branch>
+func BranchCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+	return ProjectBranchCompletion(pfs.DefaultProjectName, flag, text, maxCompletions)
+}
+
 func ProjectCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	pis, err := c.ListProject()
@@ -160,10 +166,11 @@ func abs(i int) int {
 	return i
 }
 
-// FileCompletion completes file parameters of the form <repo>@<branch>:/file
-func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+// ProjectFileCompletion completes file parameters of the form
+// <repo>@<branch>:/file in a project-aware manner.
+func ProjectFileCompletion(project, flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	partialFile := cmdutil.ParsePartialFile(text)
+	partialFile := cmdutil.ParsePartialFile(project, text)
 	part := parsePart(text)
 	var result []prompt.Suggest
 	switch part {
@@ -187,11 +194,16 @@ func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, 
 		}
 	}
 	return result, AndCacheFunc(samePart(part), func(_, text string) (result bool) {
-		_partialFile := cmdutil.ParsePartialFile(text)
+		_partialFile := cmdutil.ParsePartialFile(project, text)
 		return path.Dir(_partialFile.Path) == path.Dir(partialFile.Path) &&
 			abs(len(_partialFile.Path)-len(partialFile.Path)) < filePathCacheLength
 
 	})
+}
+
+// FileCompletion completes file parameters of the form <repo>@<branch>:/file
+func FileCompletion(flag, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
+	return ProjectFileCompletion(pfs.DefaultProjectName, flag, text, maxCompletions)
 }
 
 // FilesystemCompletion completes file parameters from the local filesystem (not from pfs).
