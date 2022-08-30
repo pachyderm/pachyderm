@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
 
@@ -150,7 +151,7 @@ func TestMountParsing(t *testing.T) {
 			File: client.NewFile("repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
 		},
 	}
-	opts, err := parseRepoOpts([]string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
+	opts, err := parseRepoOpts(pfs.DefaultProjectName, []string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
 	require.NoError(t, err)
 	require.Equal(t, 4, len(opts))
 	fmt.Printf("%+v\n", opts)
