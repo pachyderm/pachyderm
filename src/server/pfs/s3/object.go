@@ -50,8 +50,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		if firstFile == nil {
 			firstFile = fi
 		}
-		// TODO: would be nice to stop iterating after the first one
-		return nil
+		return errutil.ErrBreak
 	})
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
