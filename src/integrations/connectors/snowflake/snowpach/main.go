@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	sf "github.com/snowflakedb/gosnowflake"
 )
