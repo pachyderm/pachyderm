@@ -1,7 +1,6 @@
 package common
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -26,16 +25,6 @@ const (
 
 func MetaFilePath(id string) string {
 	return path.Join(MetaPrefix, id, MetaFileName)
-}
-
-// IsDone returns true if the given context has been canceled, or false otherwise
-func IsDone(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return true
-	default:
-		return false
-	}
 }
 
 // DatumID computes the ID of a datum.
