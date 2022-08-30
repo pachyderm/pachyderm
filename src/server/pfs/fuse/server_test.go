@@ -1012,3 +1012,63 @@ func TestShowDatum(t *testing.T) {
 		require.Equal(t, 2, mdr.NumDatums)
 	})
 }
+
+func TestGetDatums(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	commit := client.NewCommit("repo", "dev", "")
+	err := c.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		resp, err := get("datums")
+		require.NoError(t, err)
+
+		dr := &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, 0, dr.NumDatums)
+
+		input := []byte("{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}")
+		resp, err = put("_mount_datums", bytes.NewReader(input))
+		require.NoError(t, err)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		datum1Id := mdr.Id
+		require.Equal(t, 2, mdr.NumDatums)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo_dev"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		resp, err = get("datums")
+		require.NoError(t, err)
+
+		dr = &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, 2, dr.NumDatums)
+		require.Equal(t, "repo", dr.Input.Pfs.Repo)
+		require.Equal(t, "dev", dr.Input.Pfs.Branch)
+		require.Equal(t, "/*", dr.Input.Pfs.Glob)
+
+		resp, err = put("_show_datum?idx=1", nil)
+		require.NoError(t, err)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 1, mdr.Idx)
+		require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+
+		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
+		require.NoError(t, err)
+
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		require.Equal(t, datum1Id, mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+	})
+}

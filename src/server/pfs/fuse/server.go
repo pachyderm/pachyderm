@@ -64,6 +64,11 @@ type MountDatumResponse struct {
 	NumDatums int    `json:"num_datums"`
 }
 
+type DatumsResponse struct {
+	NumDatums int        `json:"num_datums"`
+	Input     *pps.Input `json:"input"`
+}
+
 type MountInfo struct {
 	Name   string   `json:"name"`
 	Repo   string   `json:"repo"`
@@ -94,7 +99,8 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums []*pps.DatumInfo
+	Datums     []*pps.DatumInfo
+	DatumInput *pps.Input
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -584,6 +590,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 		mm.Datums = []*pps.DatumInfo{}
+		mm.DatumInput = &pps.Input{}
 	})
 	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -608,7 +615,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		mm.Datums, err = mm.Client.ListDatumInputAll(pipelineReq.Input)
+		mm.DatumInput = pipelineReq.Input
+		mm.Datums, err = mm.Client.ListDatumInputAll(mm.DatumInput)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -709,6 +717,31 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			Id:        di.Datum.ID,
 			Idx:       idx,
 			NumDatums: len(mm.Datums),
+		}
+		marshalled, err := jsonMarshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled) //nolint:errcheck
+	})
+	router.Methods("GET").Path("/datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+
+		var resp DatumsResponse
+		if len(mm.Datums) == 0 {
+			resp = DatumsResponse{
+				NumDatums: 0,
+			}
+		} else {
+			resp = DatumsResponse{
+				NumDatums: len(mm.Datums),
+				Input:     mm.DatumInput,
+			}
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
