@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/s2"
 )
@@ -19,9 +20,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	c.logger.Debugf("GetObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(file, "/") {
-		return nil, s2.NoSuchKeyError(r)
-	}
+	file = strings.TrimSuffix(file, "/")
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -43,14 +42,35 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		commitID = version
 	}
 
-	fileInfo, err := pc.InspectFile(bucket.Commit, file)
+	// We use listFileResult[0] rather than InspectFile result since InspectFile
+	// on a path that has both a file and a directory in it returns the
+	// directory. However, ListFile will show it as a file, if it exists.
+	var firstFile *pfs.FileInfo
+	err = pc.ListFile(bucket.Commit, file, func(fi *pfs.FileInfo) (retErr error) {
+		if firstFile == nil {
+			firstFile = fi
+		}
+		return errutil.ErrBreak
+	})
 	if err != nil {
 		return nil, maybeNotFoundError(r, err)
+	}
+	if firstFile == nil {
+		// we never set it, probably zero results
+		return nil, s2.NoSuchKeyError(r)
+	}
+	fileInfo := firstFile
+
+	// the exact object named does not exist, but perhaps is a "directory".
+	// "directories" do not actually exist, and certainly cannot be read.
+	// ("seeker can't seek")
+	if fileInfo.File.Path[1:] != file {
+		return nil, s2.NoSuchKeyError(r)
 	}
 
 	modTime, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return nil, err
+		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit), on error %s", err)
 	}
 
 	content, err := pc.GetFileReadSeeker(bucket.Commit, file)
@@ -73,9 +93,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	c.logger.Tracef("CopyObject: srcBucketName=%+v, srcFile=%+v, srcObj=%+v, destBucketName=%+v, destFile=%+v", srcBucketName, srcFile, srcObj, destBucketName, destFile)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(destFile, "/") {
-		return "", invalidFilePathError(r)
-	}
+	destFile = strings.TrimSuffix(destFile, "/")
 
 	srcBucket, err := c.driver.bucket(pc, r, srcBucketName)
 	if err != nil {
@@ -123,9 +141,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	c.logger.Debugf("PutObject: bucketName=%+v, file=%+v", bucketName, file)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(file, "/") {
-		return nil, invalidFilePathError(r)
-	}
+	file = strings.TrimSuffix(file, "/")
 
 	bucket, err := c.driver.bucket(pc, r, bucketName)
 	if err != nil {
@@ -169,9 +185,7 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 	c.logger.Debugf("DeleteObject: bucketName=%+v, file=%+v, version=%+v", bucketName, file, version)
 
 	pc := c.requestClient(r)
-	if strings.HasSuffix(file, "/") {
-		return nil, invalidFilePathError(r)
-	}
+	file = strings.TrimSuffix(file, "/")
 	if version != "" {
 		return nil, s2.NotImplementedError(r)
 	}
