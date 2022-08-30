@@ -4545,6 +4545,9 @@ func TestDatumStatusRestart(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	// TODO: (CORE-1015) Fix flaky test
+	t.Skip("Skipping flaky test")
+
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
