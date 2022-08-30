@@ -22,7 +22,7 @@ import (
 func (c *controller) newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit)")
+		c.logger.Debugf("Warning: using nil timestamp (file probably in open commit), on error %s", err)
 	}
 
 	return s2.Contents{
