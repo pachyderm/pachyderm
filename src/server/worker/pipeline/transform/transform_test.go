@@ -72,6 +72,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NoError(t, err)
 	branchInfo, err := env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch)})
 	require.NoError(t, err)
+	//commitInfo, err := env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: branchInfo.Head})
 	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
 	require.NoError(t, err)
 
@@ -79,17 +80,38 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
+	branch := metaRepo.NewBranch("master")
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-		Branch: metaRepo.NewBranch("master"),
+		Branch: branch,
 		Provenance: []*pfs.Branch{
-			pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch),
+			client.NewBranch(input.Repo, input.Branch),
+			specRepo.NewBranch("master"),
 		},
 	})
 	require.NoError(t, err)
 	// the worker needs all meta commits to have an output commit. we force close this so its skipped by worker code
 	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: metaRepo.NewBranch("master")})
 	require.NoError(t, err)
-	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true, Error: "force close"})
+	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
+	require.NoError(t, err)
+	//_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true, Error: "force close"})
+	//require.NoError(t, err)
+	specCommit, err = env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
+	require.NoError(t, err)
+	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: specCommit, Force: true})
+	require.NoError(t, err)
+
+	// close new head of meta repo
+	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: metaRepo.NewBranch("master")})
+	require.NoError(t, err)
+	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
+	require.NoError(t, err)
+
+	//output repo
+	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch)})
+	require.NoError(t, err)
+	//commitInfo, err := env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: branchInfo.Head})
+	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
 	require.NoError(t, err)
 
 	pipelineInfo.SpecCommit = specCommit
@@ -224,7 +246,7 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
 	commit := writeFiles(t, env, pi, files)
 	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = withTimeout(ctx, 10*time.Second)
+	ctx = withTimeout(ctx, 1000*time.Second)
 	<-ctx.Done()
 	// PFS master transitions the job from finishing to finished so dont test that here
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
@@ -263,7 +285,7 @@ func TestTransformPipeline(suite *testing.T) {
 		})
 	})
 
-	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
+	/*suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		egressURL := objC.BucketURL().String()
@@ -402,5 +424,5 @@ func TestTransformPipeline(suite *testing.T) {
 		files, err := env.PachClient.ListFileAll(jobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.Equal(t, len(files), 0)
-	})
+	})*/
 }
