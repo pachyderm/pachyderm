@@ -16,14 +16,10 @@ import (
 )
 
 var (
-	header, debug                           bool
-	fileFormat, copyOptions                 string // common between read and write
-	query, inputDir, outputDir, partitionBy string // read
-	targetTable                             string // write
+	header, debug                               bool
+	query, partitionBy, fileFormat, copyOptions string
+	inputDir, outputDir, targetTable            string
 )
-
-func init() {
-}
 
 var (
 	log = logrus.StandardLogger()
