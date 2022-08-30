@@ -272,6 +272,15 @@ func (s *stm) DelAll(prefix string) {
 	}
 }
 
+func (s *stm) Rev(key string) int64 {
+	s.Lock()
+	defer s.Unlock()
+	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
+		return resp.Kvs[0].ModRevision
+	}
+	return 0
+}
+
 func (s *stm) commit() *v3.TxnResponse {
 	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
 	defer tracing.FinishAnySpan(span)

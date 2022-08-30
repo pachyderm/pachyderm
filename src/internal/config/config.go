@@ -310,7 +310,7 @@ func WritePachTokenToConfig(token string, enterpriseContext bool) error {
 		return errors.Wrapf(err, "error reading Pachyderm config (for cluster address)")
 	}
 	return writePachTokenToConfig(token, cfg, configPath(), enterpriseContext)
-} //
+}
 
 func writePachTokenToConfig(token string, cfg *Config, path string, enterpriseContext bool) error {
 	if enterpriseContext {
