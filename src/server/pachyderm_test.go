@@ -1785,13 +1785,11 @@ func TestProvenance(t *testing.T) {
 
 // TestProvenance2 tests the following DAG:
 //
-//	 A
-//	/ \
-//
+//   A
+//  / \
 // B   C
-//
-//	\ /
-//	 D
+//  \ /
+//   D
 func TestProvenance2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
