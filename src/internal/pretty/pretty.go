@@ -32,7 +32,7 @@ func Since(timestamp *types.Timestamp) string {
 // human-readable string, and adds "ago" to the end.
 func Ago(timestamp *types.Timestamp) string {
 	if timestamp == nil {
-		return "N/A"
+		return "-"
 	}
 	since := Since(timestamp)
 	if since == "" {

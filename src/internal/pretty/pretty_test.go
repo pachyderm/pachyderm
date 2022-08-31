@@ -26,5 +26,5 @@ func TestCommafy(t *testing.T) {
 }
 
 func TestAgo(t *testing.T) {
-	require.Equal(t, "N/A", pretty.Ago(nil))
+	require.Equal(t, "-", pretty.Ago(nil))
 }

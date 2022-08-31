@@ -1784,11 +1784,14 @@ func TestProvenance(t *testing.T) {
 }
 
 // TestProvenance2 tests the following DAG:
-//   A
-//  / \
+//
+//	 A
+//	/ \
+//
 // B   C
-//  \ /
-//   D
+//
+//	\ /
+//	 D
 func TestProvenance2(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2496,7 +2499,7 @@ func TestPrettyPrinting(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0], false)))
 }
 
 func TestAuthPrettyPrinting(t *testing.T) {
@@ -2555,7 +2558,7 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0], false)))
 }
 
 func TestDeleteAll(t *testing.T) {
