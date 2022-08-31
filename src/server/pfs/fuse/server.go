@@ -67,6 +67,7 @@ type MountDatumResponse struct {
 type DatumsResponse struct {
 	NumDatums int        `json:"num_datums"`
 	Input     *pps.Input `json:"input"`
+	CurrIdx   int        `json:"curr_idx"`
 }
 
 type MountInfo struct {
@@ -99,8 +100,9 @@ type MountManager struct {
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
 
-	Datums     []*pps.DatumInfo
-	DatumInput *pps.Input
+	Datums       []*pps.DatumInfo
+	DatumInput   *pps.Input
+	CurrDatumIdx int
 
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
@@ -589,8 +591,10 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
+
 		mm.Datums = []*pps.DatumInfo{}
 		mm.DatumInput = &pps.Input{}
+		mm.CurrDatumIdx = -1
 	})
 	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
@@ -639,6 +643,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 		createLocalOutDir(mm)
+		mm.CurrDatumIdx = 0
 
 		resp := MountDatumResponse{
 			Id:        mm.Datums[0].Datum.ID,
@@ -712,6 +717,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 		}
 		createLocalOutDir(mm)
+		mm.CurrDatumIdx = idx
 
 		resp := MountDatumResponse{
 			Id:        di.Datum.ID,
@@ -741,6 +747,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			resp = DatumsResponse{
 				NumDatums: len(mm.Datums),
 				Input:     mm.DatumInput,
+				CurrIdx:   mm.CurrDatumIdx,
 			}
 		}
 		marshalled, err := jsonMarshal(resp)

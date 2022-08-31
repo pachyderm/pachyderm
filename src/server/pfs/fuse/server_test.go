@@ -1054,6 +1054,7 @@ func TestGetDatums(t *testing.T) {
 		require.Equal(t, "repo", dr.Input.Pfs.Repo)
 		require.Equal(t, "dev", dr.Input.Pfs.Branch)
 		require.Equal(t, "/*", dr.Input.Pfs.Glob)
+		require.Equal(t, 0, dr.CurrIdx)
 
 		resp, err = put("_show_datum?idx=1", nil)
 		require.NoError(t, err)
@@ -1062,6 +1063,13 @@ func TestGetDatums(t *testing.T) {
 		require.Equal(t, 1, mdr.Idx)
 		require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
+
+		resp, err = get("datums")
+		require.NoError(t, err)
+
+		dr = &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, 1, dr.CurrIdx)
 
 		resp, err = put(fmt.Sprintf("_show_datum?idx=1&id=%s", datum1Id), nil)
 		require.NoError(t, err)
