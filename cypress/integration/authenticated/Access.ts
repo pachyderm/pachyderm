@@ -20,7 +20,7 @@ describe('Access', () => {
       cy.findByText('Skip tutorial').click();
       cy.findAllByText(/^View(\sProject)*$/).eq(0).click();
       const edgeNodes = cy.findAllByText('edges', {timeout: 16000});
-      edgeNodes.should('have.length', 2);
+      edgeNodes.should('have.length', 1);
       edgeNodes.first().click();
       cy.url().should('not.include', 'edges');
       const imagesNode = cy.findByText('images');

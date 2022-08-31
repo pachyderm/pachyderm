@@ -63,6 +63,7 @@ enum NodeState {
   IDLE
   PAUSED
   BUSY
+  RUNNING
   ERROR
 }
 
@@ -244,7 +245,7 @@ type Vertex {
   access: Boolean!
   parents: [String!]!
   type: NodeType!
-  jobState: JobState
+  jobState: NodeState
   createdAt: Int
 }
 

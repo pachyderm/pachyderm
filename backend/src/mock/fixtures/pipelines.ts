@@ -197,6 +197,7 @@ const egress = [
 const customerTeam = [
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('likelihoods'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_STANDBY)
     .setDetails(
       new PipelineInfo.Details()
@@ -211,6 +212,7 @@ const customerTeam = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('models'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
@@ -221,6 +223,7 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('joint_call'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_FAILURE)
     .setDetails(
       new PipelineInfo.Details()
@@ -236,6 +239,7 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('split'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
@@ -246,13 +250,18 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('model'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_PAUSED)
     .setDetails(
       new PipelineInfo.Details()
         .setInput(
           new Input().setCrossList([
             new Input().setPfs(new PFSInput().setRepo('split')),
-            new Input().setPfs(new PFSInput().setRepo('parameters')),
+            new Input().setPfs(
+              new PFSInput().setRepo(
+                'parameters_pachyderm_version_alternate_replicant',
+              ),
+            ),
           ]),
         )
 
@@ -261,6 +270,7 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('test'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
@@ -276,6 +286,7 @@ const customerTeam = [
 
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('select'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
@@ -290,7 +301,10 @@ const customerTeam = [
     ),
 
   new PipelineInfo()
-    .setPipeline(new Pipeline().setName('detect'))
+    .setPipeline(
+      new Pipeline().setName('detect_pachyderm_repo_version_alternate'),
+    )
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setState(PipelineState.PIPELINE_RUNNING)
     .setDetails(
       new PipelineInfo.Details()
@@ -308,6 +322,7 @@ const customerTeam = [
 const cron = [
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('processor'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details()
         .setInput(new Input().setCron(new CronInput().setRepo('cron')))
@@ -318,6 +333,7 @@ const cron = [
 const traitDiscovery = [
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_orfs_blastdb'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('orfs')),
@@ -325,6 +341,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_refseqfasta'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('reference_sequences')),
@@ -332,6 +349,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_search'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -342,6 +360,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_candidates'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_trait_search')),
@@ -349,6 +368,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_atg_fasta'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('atgs')),
@@ -356,6 +376,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_completeness'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
@@ -363,6 +384,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_candidate_fasta'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_trait_candidates')),
@@ -370,6 +392,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_group_candidate_bam'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -380,6 +403,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_clustering'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -392,6 +416,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_quality_downselect'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_group_candidate_bam')),
@@ -399,6 +424,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_group_contig_candidates'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -409,6 +435,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_quality'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
@@ -427,6 +454,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_domainscan'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -439,6 +467,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_quality_check'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_trait_quality')),
@@ -446,6 +475,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_hmmscan'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -458,6 +488,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_promotion_status'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_trait_clustering')),
@@ -465,6 +496,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_group_geneclass_data'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -475,6 +507,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_patent_search'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -487,6 +520,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_geneclass'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
@@ -496,6 +530,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_patent_check'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_patent_search')),
@@ -503,6 +538,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_group_promo_data'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -523,6 +559,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_promotionfilter'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_group_promo_data')),
@@ -530,6 +567,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_group_promo_clstr'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setCrossList([
@@ -544,6 +582,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_promoclstr_filter'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_group_promo_clstr')),
@@ -551,6 +590,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_promotion'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(
@@ -560,6 +600,7 @@ const traitDiscovery = [
     ),
   new PipelineInfo()
     .setPipeline(new Pipeline().setName('pachy_trait_atgs'))
+    .setLastJobState(JobState.JOB_SUCCESS)
     .setDetails(
       new PipelineInfo.Details().setInput(
         new Input().setPfs(new PFSInput().setRepo('pachy_trait_promotion')),

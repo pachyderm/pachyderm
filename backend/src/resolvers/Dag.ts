@@ -48,6 +48,7 @@ const deriveVertices = (
         ? NodeType.OUTPUT_REPO
         : NodeType.INPUT_REPO,
     state: null,
+    jobState: null,
     access: hasRepoReadPermissions(r.authInfo?.permissionsList),
     createdAt: r.created?.seconds,
     // detect out output repos as those name matching a pipeline
@@ -69,7 +70,7 @@ const deriveVertices = (
               repoMap[p.pipeline.name]?.authInfo?.permissionsList,
             )
           : false,
-        jobState,
+        jobState: gqlJobStateToNodeState(jobState),
         createdAt: p.details?.createdAt?.seconds,
         parents: p.details?.input ? flattenPipelineInput(p.details?.input) : [],
       },
@@ -90,8 +91,8 @@ const deriveVertices = (
         type: NodeType.EGRESS,
         access: true,
         parents: [`${pipelineName}_repo`],
-        state: gqlPipelineStateToNodeState(state),
-        jobState,
+        state: null,
+        jobState: null,
         createdAt: p.details.createdAt?.seconds,
       });
     }
@@ -122,21 +123,19 @@ const dagResolver: DagResolver = {
   },
   Subscription: {
     dags: {
-      subscribe: (
-        _field,
-        {args: {projectId, jobSetId}},
-        {pachClient, log, account},
-      ) => {
+      subscribe: (_field, {args: {projectId, jobSetId}}, {pachClient, log}) => {
         let prevDataHash = '';
         let data: Vertex[] = [];
         const getDags = async () => {
           if (jobSetId) {
+            // if given a global ID, we want to construct a DAG using only
+            // nodes referred to by jobs sharing that global id
             const jobSet = await pachClient
               .pps()
               .inspectJobSet({id: jobSetId, projectId, details: false});
 
             // stabilize elkjs inputs.
-            // listRepo and listPipeline are both stabalized on 'name',
+            // listRepo and listPipeline are both stabilized on 'name',
             // but jobsets come back in a stream with random order.
             const sortedJobSet = sortJobInfos(
               await getJobsFromJobSet({
@@ -157,11 +156,12 @@ const dagResolver: DagResolver = {
                 : [];
 
               const inputRepoVertices: Vertex[] = inputs.map((input) => ({
-                parents: pipelineMap[input] ? [input] : [],
+                parents: [],
                 type: pipelineMap[input]
                   ? NodeType.OUTPUT_REPO
                   : NodeType.INPUT_REPO,
                 state: null,
+                jobState: null,
                 access: true,
                 name: `${input}_repo`,
               }));
@@ -171,7 +171,8 @@ const dagResolver: DagResolver = {
                 type: NodeType.PIPELINE,
                 access: true,
                 name: job.job?.pipeline?.name || '',
-                state: gqlJobStateToNodeState(toGQLJobState(job.state)),
+                state: null,
+                jobState: gqlJobStateToNodeState(toGQLJobState(job.state)),
               };
 
               const outputRepoVertex: Vertex = {

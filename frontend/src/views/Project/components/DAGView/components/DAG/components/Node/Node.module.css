@@ -1,18 +1,8 @@
-.node {
-  border-radius: 2px;
-  fill: var(--white);
-  stroke-width: 2px;
-  stroke: #a4a8ae;
+
+
+.line {
+  stroke: var(--border-grey);
   paint-order: stroke;
-  filter: url('#node-dropshadow');
-}
-
-.node.selected:not(.error) {
-  stroke: var(--banner-green);
-}
-
-.node.selected.error {
-  stroke: var(--error-red);
 }
 
 .node .label.egress {
@@ -22,14 +12,46 @@
   opacity: 0;
 }
 
-.nodeGroup.interactive:not(.access):hover {
+.statusRect {
+  fill: var(--white);
+  paint-order: stroke;
+  stroke-width: 2px;
+  stroke: var(--border-grey);
+}
+
+.buttonGroup rect {
+  fill: transparent;
+  paint-order: stroke;
+}
+
+.buttonGroup * {
+  user-select: none;
+}
+
+.buttonGroup.interactive.access:hover rect, .buttonGroup.selected rect {
+  stroke: var(--cyan);
+  stroke-width: 2px;
+}
+
+.buttonGroup.interactive.access:hover {
+  cursor: pointer;
+}
+
+.buttonGroup.interactive.access text {
+  fill: var(--pachyderm-plum);
+}
+.buttonGroup.interactive.access text tspan {
+  fill: var(--pachyderm-black);
+}
+
+.buttonGroup.interactive:not(.access):hover rect {
   cursor: not-allowed;
 }
 
-.nodeGroup.interactive.access:hover .node:not(.egress) {
-  filter: url('#hover-dropshadow');
-}
-
-.nodeGroup.interactive.access:hover .node:not(.egress):not(.selected) {
-  stroke: #26282a;
+rect.node{
+  fill: var(--white);
+  stroke-width: 2px;
+  stroke: var(--border-grey);
+  paint-order: stroke;
+  filter: url('#node-dropshadow');
 }

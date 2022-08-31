@@ -14,18 +14,12 @@ describe('Dag', () => {
   });
 
   it('should render the entire dag', () => {
-    const imageNode = cy.get("#GROUP_images_repo", { timeout: 10000 });
+    const imageNode = cy.get("#GROUP_images", { timeout: 10000 });
     imageNode.should("exist");
     imageNode.findByText("images").should("exist");
-    const edgesRepoNode = cy.get("#GROUP_edges_repo");
-    edgesRepoNode.should("exist");
-    edgesRepoNode.findAllByText("edges").should("exist");
     const edgesPipelineNode = cy.get('#GROUP_edges');
     edgesPipelineNode.should("exist");
     edgesPipelineNode.findAllByText("edges").should("exist");
-    const montageRepoNode = cy.get('#GROUP_montage_repo')
-    montageRepoNode.should('exist');
-    montageRepoNode.findAllByText("montage").should("exist");
     const montagePipelineNode = cy.get('#GROUP_montage');
     montagePipelineNode.should('exist');
     montagePipelineNode.findAllByText("montage").should("exist");
@@ -46,16 +40,16 @@ describe('Dag', () => {
       cy.findByText('Apply').click();
     });
 
-    cy.get("#GROUP_images_repo", { timeout: 10000 }).should("exist");
-    cy.get("#GROUP_edges_repo").should("exist");
-    cy.get('#GROUP_montage_repo', { timeout: 10000 }).should("not.exist");
+    cy.get("#GROUP_images", { timeout: 10000 }).should("exist");
+    cy.get("#GROUP_edges").should("exist");
+    cy.get('#GROUP_montage', { timeout: 10000 }).should("not.exist");
 
     cy.findByTestId('Node__state-ERROR', {timeout: 12000}).should('exist');
   });
 
   it('should derive the correct selected repo from the url', () => {
     cy.visit('/lineage/default/repos/images/branch/default');
-    const imageNode = cy.get("#GROUP_images_repo", { timeout: 10000 });
+    const imageNode = cy.get("#GROUP_images", { timeout: 10000 });
     imageNode.should('be.visible');
     cy.findByTestId("Title__name").should("have.text", "images");
   });
@@ -68,15 +62,21 @@ describe('Dag', () => {
   });
 
   it('should update the url correctly when selecting a repo', () => {
-    const imageNode = cy.get("#GROUP_images_repo", { timeout: 10000 });
+    const imageNode = cy.get("#GROUP_images", { timeout: 10000 });
     imageNode.click();
     cy.url().should("contain", "/lineage/default/repos/images/branch/default");
   });
 
   it('should update the url correctly when selecting a pipeline', () => {
     const edgesPipelineNode = cy.get("#GROUP_edges", { timeout: 10000 });
-    edgesPipelineNode.click();
+    edgesPipelineNode.within(() => cy.findByText('Pipeline').click());
     cy.url().should("contain", "/lineage/default/pipelines/edges");
+  });
+
+  it('should update the url correctly when selecting an output repo', () => {
+    const edgesPipelineNode = cy.get("#GROUP_edges", { timeout: 10000 });
+    edgesPipelineNode.within(() => cy.findByText('Output').click());
+    cy.url().should("contain", "/lineage/default/repos/edges/branch/default");
   });
 
   it('should not update the url when selecting an egress node', () => {
@@ -87,7 +87,8 @@ describe('Dag', () => {
   });
 
   it('should correctly reset the DAG when DAG nodes are deleted', () => {
-    cy.get("#GROUP_montage", { timeout: 10000 }).click();
+    const montagePipelineNode = cy.get("#GROUP_montage", { timeout: 10000 });
+    montagePipelineNode.within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
 

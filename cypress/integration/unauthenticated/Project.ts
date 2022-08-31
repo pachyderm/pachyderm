@@ -27,11 +27,11 @@ describe('Project', () => {
     cy.findByTestId('DeleteRepoButton__link').should('be.disabled');
     cy.findByLabelText('Close').click();
 
-    cy.findAllByText('edges').eq(1).click()  
+    cy.get("#GROUP_edges").within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').should('be.disabled');
     cy.findByLabelText('Close').click();
 
-    cy.findAllByText('montage').eq(1).click();
+    cy.get("#GROUP_montage").within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.get('[data-test-id="ModalFooter__confirm"').should('not.exist');
@@ -43,7 +43,7 @@ describe('Project', () => {
     cy.findByLabelText('Close').click();
 
     
-    cy.findAllByText('edges').eq(1).click();
+    cy.get("#GROUP_edges").within(() => cy.findByText('Pipeline').click());
     cy.findByTestId('DeletePipelineButton__link').click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.get('[data-test-id="ModalFooter__confirm"').should('not.exist');

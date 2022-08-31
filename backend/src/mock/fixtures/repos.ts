@@ -87,7 +87,11 @@ const customerTeam = [
     .setCreated(timestampFromObject({seconds: 1614726189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')]),
   new RepoInfo()
-    .setRepo(new Repo().setName('parameters').setType('user'))
+    .setRepo(
+      new Repo()
+        .setName('parameters_pachyderm_version_alternate_replicant')
+        .setType('user'),
+    )
     .setCreated(timestampFromObject({seconds: 1614626189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')]),
   new RepoInfo()
@@ -102,7 +106,11 @@ const customerTeam = [
     .setCreated(timestampFromObject({seconds: 1614326189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')]),
   new RepoInfo()
-    .setRepo(new Repo().setName('detect').setType('user'))
+    .setRepo(
+      new Repo()
+        .setName('detect_pachyderm_repo_version_alternate')
+        .setType('user'),
+    )
     .setCreated(timestampFromObject({seconds: 1614226189, nanos: 0}))
     .setBranchesList([new Branch().setName('master')]),
   new RepoInfo()

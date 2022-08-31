@@ -28,6 +28,7 @@ interface useProjectDagsDataProps extends DagQueryArgs {
 interface buildAndSetDagsProps
   extends Omit<useProjectDagsDataProps, 'projectId'> {
   data?: GetDagsSubscription;
+  projectMatch: boolean;
 }
 
 export const useProjectDagsData = ({
@@ -39,7 +40,7 @@ export const useProjectDagsData = ({
 }: useProjectDagsDataProps) => {
   const {repoId, pipelineId, projectId: routeProjectId} = useUrlState();
   const browserHistory = useHistory();
-  const projectMatch = useRouteMatch(PROJECT_PATH);
+  const projectMatch = !!useRouteMatch(PROJECT_PATH);
   const projectReposMatch = useRouteMatch(PROJECT_REPOS_PATH);
   const projectPipelinesMatch = useRouteMatch(PROJECT_PIPELINES_PATH);
   const [isFirstCall, setIsFirstCall] = useState(true);
@@ -98,6 +99,7 @@ export const useProjectDagsData = ({
     nodeWidth,
     nodeHeight,
     direction,
+    projectMatch,
   }: buildAndSetDagsProps) => {
     setIsFirstCall(false);
     if (data?.dags) {
@@ -107,11 +109,16 @@ export const useProjectDagsData = ({
         nodeHeight,
         direction,
         setDagError,
+        projectMatch,
       );
       setDags(dags);
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    setIsLoading(true);
+  }, [projectMatch]);
 
   useEffect(() => {
     if (!error) {
@@ -120,8 +127,14 @@ export const useProjectDagsData = ({
   }, [error, data]);
 
   useEffect(() => {
-    buildAndSetDags({data, nodeWidth, nodeHeight, direction});
-  }, [data, nodeHeight, nodeWidth, direction]);
+    buildAndSetDags({
+      data,
+      nodeWidth,
+      nodeHeight,
+      direction,
+      projectMatch,
+    });
+  }, [data, nodeHeight, nodeWidth, direction, projectMatch]);
 
   return {
     error: error || dagError,

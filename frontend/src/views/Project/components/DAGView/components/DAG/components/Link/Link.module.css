@@ -1,12 +1,3 @@
-@keyframes selected {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: 200;
-  }
-}
-
 @keyframes scaleDown {
   0% {
     transform: scale(0.5)
@@ -26,56 +17,7 @@
   stroke-linejoin: bevel;
 }
 
-.hoverLink {
-  stroke: transparent;
-  stroke-width: 12px;
-}
-
-.hoverLink:hover {
-  cursor: pointer;
-}
-
-.link.selected, .link.selected.link.busySource{
-  stroke-width: 1.5px;
-  stroke-dasharray: 2;
-  animation: selected linear 10s infinite reverse;
-  stroke: var(--cyan-6);
-  marker-end: url(#end-arrow-active);
-}
-
-.link.errorTarget.selected,
-.link.errorSource.selected {
-  stroke: var(--error-red);
-  marker-end: url(#end-arrow-error);
-}
-
-.link.busySource {
-  stroke-dasharray: 5;
-}
-
-.link.hovering {
-  stroke-dasharray: 3;
-  stroke-width: 2px;
-  stroke: var(--grey-7);
-}
-
 .circle {
-  fill: var(--cyan-6);
+  fill: var(--success-green);
   animation: scaleDown linear 0.8s infinite;
-}
-
-.fastForwardIcon {
-  pointer-events: none;
-}
-
-.fastForwardIconWrapper {
-  stroke-width: 2px;
-  stroke: var(--pachyderm-plum);
-  paint-order: stroke;
-  fill: var(--white);
-  filter: url(#node-dropshadow);
-}
-
-.fastForwardIconWrapper {
-  cursor: pointer;
 }

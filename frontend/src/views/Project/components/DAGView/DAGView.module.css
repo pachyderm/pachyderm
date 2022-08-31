@@ -1,5 +1,6 @@
 .view {
   padding: 0;
+  overflow: hidden;
 }
 
 .topSection {

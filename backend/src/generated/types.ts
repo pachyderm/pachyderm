@@ -441,6 +441,7 @@ export enum NodeState {
   ERROR = 'ERROR',
   IDLE = 'IDLE',
   PAUSED = 'PAUSED',
+  RUNNING = 'RUNNING',
   SUCCESS = 'SUCCESS',
 }
 
@@ -789,7 +790,7 @@ export type Vertex = {
   __typename?: 'Vertex';
   access: Scalars['Boolean'];
   createdAt?: Maybe<Scalars['Int']>;
-  jobState?: Maybe<JobState>;
+  jobState?: Maybe<NodeState>;
   name: Scalars['String'];
   parents: Array<Scalars['String']>;
   state?: Maybe<NodeState>;
@@ -1813,7 +1814,7 @@ export type VertexResolvers<
   access?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   createdAt?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   jobState?: Resolver<
-    Maybe<ResolversTypes['JobState']>,
+    Maybe<ResolversTypes['NodeState']>,
     ParentType,
     ContextType
   >;
@@ -2170,7 +2171,7 @@ export type GetDagQuery = {
     access: boolean;
     parents: Array<string>;
     type: NodeType;
-    jobState?: JobState | null;
+    jobState?: NodeState | null;
     createdAt?: number | null;
   }>;
 };
@@ -2188,7 +2189,7 @@ export type GetDagsSubscription = {
     access: boolean;
     parents: Array<string>;
     type: NodeType;
-    jobState?: JobState | null;
+    jobState?: NodeState | null;
     createdAt?: number | null;
   }>;
 };

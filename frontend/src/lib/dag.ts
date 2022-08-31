@@ -1,30 +1,13 @@
-import {NodeType, JobState, Vertex, Maybe} from '@graphqlTypes';
+import {NodeType, Vertex, NodeState} from '@graphqlTypes';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import flatten from 'lodash/flatten';
 import minBy from 'lodash/minBy';
 import objectHash from 'object-hash';
 
+import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
+
 import disconnectedComponents from './disconnectedComponents';
 import {LinkInputData, NodeInputData, Link, Node, DagDirection} from './types';
-
-interface DeriveTransferringStateOpts {
-  targetNodeType: NodeType;
-  targetNodeState?: Maybe<JobState>;
-}
-
-const deriveTransferringState = ({
-  targetNodeType,
-  targetNodeState,
-}: DeriveTransferringStateOpts) => {
-  // Should display transferring _from_ a corresponding egressing pipeline's output repo.
-  // Because repos do not have a "state", we need to use the target node's state instead.
-  return (
-    (targetNodeType === NodeType.EGRESS &&
-      targetNodeState === JobState.JOB_EGRESSING) ||
-    (targetNodeType !== NodeType.EGRESS &&
-      targetNodeState === JobState.JOB_RUNNING)
-  );
-};
 
 const normalizeDAGData = async (
   vertices: Vertex[],
@@ -52,7 +35,10 @@ const normalizeDAGData = async (
     vertices.map<LinkInputData[]>((node) => {
       if (node.type === NodeType.PIPELINE) {
         return node.parents.reduce<LinkInputData[]>((acc, parent) => {
-          const parentName = `${parent}_repo`;
+          const parentName =
+            correspondingIndex[`${parent}_repo`] > -1
+              ? `${parent}_repo`
+              : parent;
           const sourceIndex = correspondingIndex[parentName];
           const sourceVertex = vertices[sourceIndex];
 
@@ -60,17 +46,14 @@ const normalizeDAGData = async (
             return [
               ...acc,
               {
-                id: objectHash({node: node, parent}),
+                id: objectHash({node: node, parentName}),
                 sources: [parentName],
                 targets: [node.name],
                 state: sourceVertex?.jobState || undefined,
                 sourceState: sourceVertex?.state || undefined,
                 targetstate: node.state || undefined,
                 sections: [],
-                transferring: deriveTransferringState({
-                  targetNodeType: node.type,
-                  targetNodeState: node.jobState,
-                }),
+                transferring: node.jobState === NodeState.RUNNING,
               },
             ];
           } else {
@@ -81,7 +64,8 @@ const normalizeDAGData = async (
       }
 
       return node.parents.reduce<LinkInputData[]>((acc, parentName) => {
-        const sourceIndex = correspondingIndex[parentName || ''];
+        const nodeName = parentName.replace('_repo', '');
+        const sourceIndex = correspondingIndex[nodeName || ''];
         const sourceVertex = vertices[sourceIndex];
 
         return [
@@ -89,16 +73,13 @@ const normalizeDAGData = async (
           {
             // hashing here for consistency
             id: objectHash(`${parentName}-${node.name}`),
-            sources: [parentName],
+            sources: [nodeName],
             targets: [node.name],
             state: sourceVertex?.jobState || undefined,
             sourceState: sourceVertex?.state || undefined,
             targetstate: node.state || undefined,
             sections: [],
-            transferring: deriveTransferringState({
-              targetNodeType: sourceVertex?.type || undefined,
-              targetNodeState: sourceVertex?.jobState || undefined,
-            }),
+            transferring: node.jobState === NodeState.RUNNING,
           },
         ];
       }, []);
@@ -110,12 +91,13 @@ const normalizeDAGData = async (
     id: node.name,
     name: node.name,
     type: node.type,
-    state: node.state ? node.state : undefined,
+    state: node.state || undefined,
+    jobState: node.jobState || undefined,
     access: node.access,
     x: 0,
     y: 0,
     width: nodeWidth,
-    height: nodeHeight,
+    height: node.type === NodeType.INPUT_REPO ? NODE_INPUT_REPO : nodeHeight,
   }));
 
   const horizontal = direction === DagDirection.RIGHT;
@@ -176,6 +158,7 @@ const normalizeDAGData = async (
       name: node.name,
       type: node.type,
       state: node.state,
+      jobState: node.jobState,
       access: node.access,
     };
   });
@@ -237,21 +220,19 @@ const buildDags = async (
   nodeHeight: number,
   direction = DagDirection.DOWN,
   setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
+  showOutputRepos: boolean,
 ) => {
   try {
     const {nodes, links} = await normalizeDAGData(
-      vertices,
+      vertices.filter((n) => showOutputRepos || n.type !== 'OUTPUT_REPO'),
       nodeWidth,
       nodeHeight,
       direction,
     );
-    return disconnectedComponents(nodes, links).map((component) => {
+    const dags = disconnectedComponents(nodes, links).map((component) => {
       const componentRepos = vertices.filter((v) =>
         component.nodes.find(
-          (c) =>
-            (c.type === NodeType.OUTPUT_REPO ||
-              c.type === NodeType.INPUT_REPO) &&
-            c.name === v.name,
+          (c) => c.type === NodeType.INPUT_REPO && c.id === v.name,
         ),
       );
       const id = minBy(componentRepos, (r) => r.createdAt)?.name || '';
@@ -264,6 +245,7 @@ const buildDags = async (
         links: adjustedComponent.links,
       };
     });
+    return dags;
   } catch (e) {
     console.error(e);
     setDagError(`Unable to construct lineage from repos and pipelines.`);

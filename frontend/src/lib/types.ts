@@ -1,4 +1,4 @@
-import {JobState, NodeState, NodeType} from '@graphqlTypes';
+import {NodeState, NodeType} from '@graphqlTypes';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 import {CSSProperties} from 'react';
 
@@ -51,6 +51,7 @@ export type Node = {
   x: number;
   y: number;
   state?: NodeState;
+  jobState?: NodeState;
   access: boolean;
 };
 
@@ -60,7 +61,7 @@ export type Link = {
   sourceState?: NodeState;
   targetState?: NodeState;
   target: string;
-  state?: JobState;
+  state?: NodeState;
   bendPoints: Array<PointCoordinates>;
   startPoint: PointCoordinates;
   endPoint: PointCoordinates;

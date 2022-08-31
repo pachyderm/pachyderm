@@ -162,18 +162,10 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
             ))}
             <filter id="node-dropshadow">
               <feDropShadow
-                dx="0"
-                dy="1"
-                stdDeviation="2"
-                floodColor="#C6C6C6"
-              />
-            </filter>
-            <filter id="hover-dropshadow" filterUnits="userSpaceOnUse">
-              <feDropShadow
-                dx="1"
-                dy="1"
-                stdDeviation="6"
-                floodColor="#C6C6C6"
+                dx="2"
+                dy="2"
+                stdDeviation="4"
+                floodColor="#d6d6d7"
               />
             </filter>
           </defs>

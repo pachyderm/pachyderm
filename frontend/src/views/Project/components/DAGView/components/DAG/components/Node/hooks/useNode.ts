@@ -1,32 +1,33 @@
-import {NodeState, NodeType} from '@graphqlTypes';
+import {NodeType} from '@graphqlTypes';
 import {useClipboardCopy} from '@pachyderm/components';
 import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {useRouteMatch} from 'react-router';
 
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {Node} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/providers/HoveredNodeProvider/hooks/useHoveredNode';
-import {NODE_HEIGHT} from '@dash-frontend/views/Project/constants/nodeSizes';
-import {PROJECT_PIPELINE_JOB_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
 import useRouteController from 'hooks/useRouteController';
 import deriveRepoNameFromNode from 'lib/deriveRepoNameFromNode';
 
-const LABEL_WIDTH = 188;
+const LABEL_WIDTH = NODE_WIDTH - 24;
 
 const useNode = (node: Node, isInteractive: boolean) => {
-  const {navigateToNode, selectedNode} = useRouteController();
-  const match = useRouteMatch(PROJECT_PIPELINE_JOB_PATH);
+  const {
+    navigateToNode,
+    selectedPipeline,
+    selectedRepo,
+    pipelinePathMatch,
+    repoPathMatch,
+  } = useRouteController();
   const {hoveredNode, setHoveredNode} = useHoveredNode();
-  const {viewState} = useUrlQueryState();
   const [showSuccess, setShowSuccess] = useState(false);
-  const {copy, supported, copied, reset} = useClipboardCopy(node.name);
+  const {copy, supported, copied, reset} = useClipboardCopy(node.id);
 
   const isEgress = node.type === NodeType.EGRESS;
   const noAccess = !node.access;
 
   const groupName = useMemo(() => {
-    let nodeName = node.name;
+    let nodeName = deriveRepoNameFromNode(node);
     // Need to have a string that works as a valid query selector.
     // urls (and url-encoded urls) are not valid query selectors.
     if (node.name && node.type === NodeType.EGRESS) {
@@ -38,24 +39,19 @@ const useNode = (node: Node, isInteractive: boolean) => {
     return `GROUP_${nodeName}`;
   }, [node]);
 
-  const onClick = useCallback(() => {
-    if (noAccess) return;
-    if (isInteractive) navigateToNode(node);
-    if (isInteractive && isEgress && supported) copy();
-  }, [
-    node,
-    isInteractive,
-    navigateToNode,
-    isEgress,
-    supported,
-    copy,
-    noAccess,
-  ]);
+  const onClick = useCallback(
+    (destination: 'pipeline' | 'repo') => {
+      if (noAccess) return;
+      if (isInteractive) navigateToNode(node, destination);
+      if (isInteractive && isEgress && supported) copy();
+    },
+    [node, isInteractive, navigateToNode, isEgress, supported, copy, noAccess],
+  );
 
   const onMouseOver = useCallback(() => {
     if (isInteractive) {
       select(`#${groupName}`).raise();
-      setHoveredNode(node.name);
+      setHoveredNode(node.id);
     }
   }, [isInteractive, setHoveredNode, node, groupName]);
 
@@ -85,7 +81,6 @@ const useNode = (node: Node, isInteractive: boolean) => {
   }, [groupName, node]);
 
   useEffect(() => {
-    let tspanCount = 1;
     const text = select<SVGGElement, Node>(
       `#${groupName}`,
     ).select<SVGTextElement>('.nodeLabel');
@@ -94,90 +89,53 @@ const useNode = (node: Node, isInteractive: boolean) => {
     text.selectAll<SVGTSpanElement, unknown>('tspan').remove();
 
     // create tspans
-    let tspan = text
+    const tspan = text
       .append('tspan')
-      .attr('x', 36)
-      .attr('y', NODE_HEIGHT / 2);
+      .attr('x', node.type === NodeType.INPUT_REPO ? 34 : 12)
+      .attr('y', 24);
     const normalizedNodeName = deriveRepoNameFromNode(node);
     const nameChars = normalizedNodeName.split('').reverse();
-    let line: string[] = [];
-    let char: string | undefined = '';
+    const line: string[] = [];
+    const tspanNode = tspan.node();
+
+    const maxWidth =
+      node.type === NodeType.INPUT_REPO ? LABEL_WIDTH - 22 : LABEL_WIDTH;
+
     while (nameChars.length > 0) {
-      char = nameChars.pop();
+      const char = nameChars.pop();
       if (char) {
         line.push(char);
         tspan.text(line.join(''));
-        const tspanNode = tspan.node();
-        if (tspanNode && tspanNode.getComputedTextLength() > LABEL_WIDTH) {
-          line.pop();
-          if (tspanCount === 3) {
-            line.splice(line.length - 3, 3, '...');
-            tspan.text(line.join(''));
-            break;
-          } else {
-            tspan.text(line.join(''));
-            line = [char];
-            tspan = text
-              .append('tspan')
-              .text(char)
-              .attr('x', 36)
-              .attr('y', NODE_HEIGHT / 2);
-            tspanCount += 1;
-          }
+
+        if (tspanNode && tspanNode.getComputedTextLength() > maxWidth) {
+          line.splice(line.length - 3, 3, '...');
+          tspan.text(line.join(''));
+          break;
         }
       }
     }
-
-    // adjust tspan positioning
-    text
-      .selectAll<SVGTSpanElement, unknown>('tspan')
-      .attr('dy', (_d, i, nodes) => {
-        if (i === 0) return -10 * (nodes.length - 1);
-        if (i === 1) {
-          if (nodes.length === 2) return 10;
-          return 0;
-        } else {
-          return 20;
-        }
-      })
-      .attr('dx', 0);
   }, [node, groupName]);
 
   const isHovered = useMemo(
-    () => hoveredNode === node.name,
-    [hoveredNode, node.name],
+    () => hoveredNode === node.id,
+    [hoveredNode, node.id],
   );
 
-  const isJobPath = match?.isExact;
+  const repoSelected =
+    selectedRepo === deriveRepoNameFromNode(node) && !!repoPathMatch;
 
-  const nodeIconHref = useMemo(() => {
-    if (!node.access) {
-      return '/dag_no_access.svg';
-    }
-
-    switch (node.state) {
-      case NodeState.SUCCESS:
-        return '/dag_success.svg';
-      case NodeState.BUSY:
-        return '/dag_busy.svg';
-      case NodeState.ERROR:
-        return isJobPath ? '/dag_error.svg' : '/dag_pipeline_error.svg';
-      case NodeState.PAUSED:
-        return '/dag_paused.svg';
-    }
-  }, [node.access, node.state, isJobPath]);
+  const pipelineSelected = selectedPipeline === node.id && !!pipelinePathMatch;
 
   return {
     isHovered,
     onClick,
     onMouseOut,
     onMouseOver,
-    selectedNode,
+    repoSelected,
+    pipelineSelected,
     groupName,
     isEgress,
     showSuccess,
-    nodeIconHref,
-    viewState,
   };
 };
 
