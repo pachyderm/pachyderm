@@ -107,7 +107,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+				return pachClient.SubscribeCommit(&pfs.Repo{Project: pipelineInfo.Pipeline.Project, Name: pipeline, Type: pfs.UserRepoType}, "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
 				})
@@ -258,7 +258,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return err
 		}
 		parallelism := int(*currRC.Spec.Replicas)
-		workerStatus, err := workerserver.Status(ctx, pipeline, pipelineInfo.Version,
+		workerStatus, err := workerserver.Status(ctx, pipelineInfo.Pipeline.Project, pipeline, pipelineInfo.Version,
 			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
@@ -284,7 +284,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 
 func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
 	return pachClient.WithModifyFileClient(
-		client.NewRepo(cron.Repo).NewCommit("master", ""),
+		client.NewProjectRepo(cron.Project, cron.Repo).NewCommit("master", ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
@@ -335,7 +335,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
 	pachClient := env.GetPachClient(ctx)
-	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
 	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

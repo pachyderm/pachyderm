@@ -441,7 +441,7 @@ func rcIsFresh(pi *pps.PipelineInfo, rc *v1.ReplicationController) bool {
 		log.Errorf("PPS master: RC for %q is nil", pi.Pipeline.Name)
 		return false
 	}
-	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version)
+	expectedName := ppsutil.PipelineRcName(pi.Pipeline.Project, pi.Pipeline.Name, pi.Version)
 	// establish current RC properties
 	rcName := rc.ObjectMeta.Name
 	rcPachVersion := rc.ObjectMeta.Annotations[pachVersionAnnotation]

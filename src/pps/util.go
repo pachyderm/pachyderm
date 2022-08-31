@@ -120,8 +120,9 @@ func InputBranches(input *Input) []*pfs.Branch {
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{
-					Name: input.Pfs.Repo,
-					Type: input.Pfs.RepoType,
+					Project: &pfs.Project{Name: input.Pfs.Project},
+					Name:    input.Pfs.Repo,
+					Type:    input.Pfs.RepoType,
 				},
 				Name: input.Pfs.Branch,
 			})
@@ -129,8 +130,9 @@ func InputBranches(input *Input) []*pfs.Branch {
 		if input.Cron != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{
-					Name: input.Cron.Repo,
-					Type: pfs.UserRepoType,
+					Project: &pfs.Project{Name: input.Pfs.Project},
+					Name:    input.Cron.Repo,
+					Type:    pfs.UserRepoType,
 				},
 				Name: "master",
 			})

@@ -53,12 +53,14 @@ func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
 
 // PipelineRcName generates the name of the k8s replication controller that
 // manages a pipeline's workers
-func PipelineRcName(name string, version uint64) string {
+//
+// TODO: take a PipelineInfo.
+func PipelineRcName(project *pfs.Project, name string, version uint64) string {
 	// k8s won't allow RC names that contain upper-case letters
 	// or underscores
 	// TODO: deal with name collision
 	name = strings.ReplaceAll(name, "_", "-")
-	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
+	return fmt.Sprintf("pipeline-%s-%s-v%d", strings.ToLower(project.GetName()), strings.ToLower(name), version)
 }
 
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,

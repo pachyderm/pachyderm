@@ -31,6 +31,7 @@ const (
 	appLabel                     = "app"
 	pipelineNameLabel            = "pipelineName"
 	pipelineVersionLabel         = "pipelineVersion"
+	pipelineProjectLabel         = "pipelineProject"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
@@ -452,7 +453,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken: pointer.BoolPtr(true),
+		AutomountServiceAccountToken:  pointer.BoolPtr(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
@@ -594,7 +595,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	transform := pipelineInfo.Details.Transform
-	labels := pipelineLabels(pipelineName, pipelineVersion)
+	labels := pipelineLabels(pipelineInfo)
 	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
@@ -738,7 +739,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+		rcName:                ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project, pipelineName, pipelineVersion),
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,

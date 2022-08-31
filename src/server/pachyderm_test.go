@@ -6563,7 +6563,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("time", "", "*/1 * * * *", true, nil), // every minute
+			client.NewCronInputOpts(pfs.DefaultProjectName, "time", "", "*/1 * * * *", true, nil), // every minute
 			"",
 			false,
 		))
@@ -6666,7 +6666,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts("in", "", "@every 1h", true, start),
+			client.NewCronInputOpts(pfs.DefaultProjectName, "in", "", "@every 1h", true, start),
 			"",
 			false,
 		))

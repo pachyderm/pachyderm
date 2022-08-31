@@ -361,14 +361,14 @@ const (
 
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
 // to perform 'operation' on the pipeline in 'info'
-func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineOperation, input *pps.Input, output string) error {
+func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineOperation, input *pps.Input, project *pfs.Project, output string) error {
 	return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.authorizePipelineOpInTransaction(txnCtx, operation, input, output)
+		return a.authorizePipelineOpInTransaction(txnCtx, operation, input, project, output)
 	})
 }
 
 // authorizePipelineOpInTransaction is identical to authorizePipelineOp, but runs in the provided transaction
-func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.TransactionContext, operation pipelineOperation, input *pps.Input, output string) error {
+func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.TransactionContext, operation pipelineOperation, input *pps.Input, project *pfs.Project, output string) error {
 	_, err := txnCtx.WhoAmI()
 	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, skip authorization completely
@@ -413,7 +413,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 			required = auth.Permission_REPO_WRITE
 		case pipelineOpDelete:
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{
-				Repo: client.NewRepo(output),
+				Repo: client.NewProjectRepo(project.GetName(), output),
 			}); errutil.IsNotFoundError(err) {
 				// special case: the pipeline output repo has been deleted (so the
 				// pipeline is now invalid). It should be possible to delete the pipeline.
@@ -423,7 +423,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(txnCtx *txncontext.Transact
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Name: output}, required); err != nil {
+		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Project: project, Type: pfs.UserRepoType, Name: output}, required); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -825,7 +825,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// If the job is running, we fill in WorkerStatus field, otherwise
 	// we just return the jobInfo.
 	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		workerStatus, err := workerserver.Status(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, jobInfo.Job.Pipeline.Project, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -994,7 +994,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Project, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1178,14 +1178,18 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			}
 		}
 
+		// FIXME: cache project name
+		//
+		// FIXME: how to deal with historical pods?
+
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job
-		if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+		if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
 
 		// 3) Get pods for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project, pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Project, pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err != nil {
 			return err
 		}
@@ -1320,7 +1324,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	}
 
 	// 2) Check whether the caller is authorized to get logs from this pipeline/job
-	if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+	if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project, pipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
 	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
@@ -1965,7 +1969,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 	if update {
 		operation = pipelineOpUpdate
 	}
-	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Name); err != nil {
+	if err := a.authorizePipelineOpInTransaction(txnCtx, operation, newPipelineInfo.Details.Input, newPipelineInfo.Pipeline.Project, newPipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
 
@@ -2275,7 +2279,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 	} else {
 		kubeClient := a.env.KubeClient
 		if info.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
+			rcName := ppsutil.PipelineRcName(info.Pipeline.Project, info.Pipeline.Name, info.Version)
 			service, err := kubeClient.CoreV1().Services(a.namespace).Get(ctx, fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 			if err != nil {
 				if !errutil.IsNotFoundError(err) {
@@ -2286,7 +2290,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, name string, details bo
 			}
 		}
 
-		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Project, info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -2514,7 +2518,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		return errors.EnsureStack(err)
 	} else if err == nil {
 		// Check if the caller is authorized to delete this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), pipelineName); err != nil {
+		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpDelete, pipelineInfo.GetDetails().GetInput(), request.Pipeline.Project, pipelineName); err != nil {
 			return err
 		}
 	} else {
@@ -2630,7 +2634,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		// check if the caller is authorized to update this pipeline
-		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+		if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project, pipelineInfo.Pipeline.Name); err != nil {
 			return err
 		}
 
@@ -2674,7 +2678,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
 			// so we don't need to check any permissions
-			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
+			if err := a.authorizePipelineOpInTransaction(txnCtx, pipelineOpStartStop, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Project, pipelineInfo.Pipeline.Name); err != nil {
 				return err
 			}
 
@@ -3038,11 +3042,12 @@ func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
 	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
 }
 
-func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
+func (a *apiServer) rcPods(ctx context.Context, project *pfs.Project, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
 	pp, err := a.listPods(ctx, map[string]string{
 		appLabel:             "pipeline",
 		pipelineNameLabel:    pipelineName,
 		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		pipelineProjectLabel: project.GetName(),
 	})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -3052,7 +3057,7 @@ func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVer
 		// This long name could exceed 63 characters, which is why 2.4
 		// and later use separate labels for each component.
 		return a.listPods(ctx, map[string]string{
-			appLabel: ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+			appLabel: ppsutil.PipelineRcName(project, pipelineName, pipelineVersion),
 		})
 	}
 	return pp, nil
@@ -3072,11 +3077,12 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	return ci, nil
 }
 
-func pipelineLabels(pipelineName string, pipelineVersion uint64) map[string]string {
+func pipelineLabels(pi *pps.PipelineInfo) map[string]string {
 	return map[string]string{
 		appLabel:             "pipeline",
-		pipelineNameLabel:    pipelineName,
-		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
+		pipelineProjectLabel: pi.Pipeline.Project.GetName(),
+		pipelineNameLabel:    pi.Pipeline.Name,
+		pipelineVersionLabel: fmt.Sprint(pi.Version),
 		"suite":              suite,
 		"component":          "worker",
 	}
