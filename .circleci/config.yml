@@ -316,7 +316,6 @@ workflows:
             branches:
               only:
                 - master
-                - 2.1.x
     jobs:
       - nightly_load:
           matrix:
