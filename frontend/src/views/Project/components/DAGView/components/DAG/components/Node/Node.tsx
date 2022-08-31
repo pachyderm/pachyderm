@@ -19,6 +19,7 @@ import {Node as GraphQLNode} from '@dash-frontend/lib/types';
 import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
 
 import NodeTooltip from './components/NodeTooltip';
+import {ReactComponent as EgressSVG} from './DagEgress.svg';
 import useNode from './hooks/useNode';
 import styles from './Node.module.css';
 
@@ -128,16 +129,16 @@ const Node: React.FC<NodeProps> = ({
     return (
       <g
         id={groupName}
-        transform={`translate (${node.x}, ${node.y})`}
+        transform={`translate (${node.x + 70}, ${node.y - 30})`}
         onMouseOver={onMouseOver}
         onMouseOut={onMouseOut}
+        onClick={() => onClick('pipeline')}
       >
         <SuccessCheckmark show={showSuccess} x={155} y={10} />
         {NodeType.EGRESS === node.type && (
           <NodeTooltip node={node} show={isHovered} />
         )}
-
-        <image href="/dag_egress.svg" x={70} y={-30} />
+        <EgressSVG />
       </g>
     );
   }

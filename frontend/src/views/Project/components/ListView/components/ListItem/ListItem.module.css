@@ -8,6 +8,7 @@
   height: 3rem;
   color: var(--pachyderm-black);
   padding-right: 1rem;
+  padding-left: 0.25rem;
   transition: background-color 0.1s;
 }
 
@@ -28,7 +29,7 @@
 }
 
 .nodeImage {
-  margin-right: 0.75rem; 
+  margin: 0 0.25rem; 
 }
 
 .nodeName {
@@ -42,14 +43,14 @@
   margin-top: 0px;
 }
 .base:hover[href] .nodeImage, .base:active[href] .nodeImage, .base.selected .nodeImage {
-  margin-left: -1px;   
+  margin-left: calc(0.25rem - 1px);   
 }
 
 .status {
   color: var(--pachyderm-black);
 }
 
-.base.selected {
+.base.selected,  .base.selected:hover[href], .base.selected:active[href]{
   border: solid 1px var(--banner-green);
   border-right-width: 6px;
   padding-right: calc(1rem - 5px);

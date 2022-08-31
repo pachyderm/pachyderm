@@ -42,8 +42,8 @@ const useNode = (node: Node, isInteractive: boolean) => {
   const onClick = useCallback(
     (destination: 'pipeline' | 'repo') => {
       if (noAccess) return;
+      if (isInteractive && isEgress && supported) return copy();
       if (isInteractive) navigateToNode(node, destination);
-      if (isInteractive && isEgress && supported) copy();
     },
     [node, isInteractive, navigateToNode, isEgress, supported, copy, noAccess],
   );

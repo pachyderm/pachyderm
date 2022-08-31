@@ -20,7 +20,7 @@ import {
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import {
   readableJobState,
-  getJobStateHref,
+  getJobStateIcon,
   getVisualJobState,
 } from '@dash-frontend/lib/jobs';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
@@ -54,13 +54,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({showReadLogs = false}) => {
         <div className={styles.stateHeader}>
           <div className={styles.state}>
             {job ? (
-              <img
-                alt={`Pipeline job ${job.id} ${readableJobState(job.state)}:`}
-                className={styles.stateIcon}
-                src={getJobStateHref(getVisualJobState(job.state))}
-              />
+              <Icon>{getJobStateIcon(getVisualJobState(job.state))}</Icon>
             ) : null}
-            <span data-testid="InfoPanel__state">
+            <span data-testid="InfoPanel__state" className={styles.stateText}>
               <h6>{job?.state ? readableJobState(job?.state) : ''}</h6>
             </span>
           </div>

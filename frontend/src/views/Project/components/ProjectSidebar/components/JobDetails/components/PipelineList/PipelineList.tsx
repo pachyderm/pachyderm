@@ -1,14 +1,10 @@
 import {JobSet} from '@graphqlTypes';
-import {Tooltip} from '@pachyderm/components';
+import {Tooltip, Icon} from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
 import {NavLink} from 'react-router-dom';
 
-import {
-  readableJobState,
-  getJobStateHref,
-  getVisualJobState,
-} from '@dash-frontend/lib/jobs';
+import {getJobStateIcon, getVisualJobState} from '@dash-frontend/lib/jobs';
 import {jobRoute} from '@dash-frontend/views/Project/utils/routes';
 
 import styles from './PipelineList.module.css';
@@ -57,16 +53,10 @@ const PipelineList: React.FC<PipelineListProps> = ({
                   className={classnames(styles.pipelineLink, {
                     [styles.error]: jobVisualState === 'ERROR',
                     [styles.success]: jobVisualState === 'SUCCESS',
-                    [styles.busy]: jobVisualState === 'BUSY',
+                    [styles.busy]: jobVisualState === 'RUNNING',
                   })}
                 >
-                  <img
-                    alt={`Pipeline job ${job.id} ${readableJobState(
-                      job.state,
-                    )}:`}
-                    className={styles.pipelineIcon}
-                    src={getJobStateHref(jobVisualState)}
-                  />
+                  <Icon small>{getJobStateIcon(jobVisualState)}</Icon>
                   <div className={styles.pipelineLinkText}>
                     {job.pipelineName}
                   </div>

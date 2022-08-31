@@ -22,13 +22,14 @@
   overflow-x: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  margin-left: 0.25rem;
 }
 
 .pipelineLink {
   color: var(--pachyderm-black);
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.5rem;
   border-left: 2px solid transparent;
   box-sizing: border-box;
 }
@@ -53,10 +54,4 @@
 
 .pipelineLink.active.busy {
   border-left: 2px solid var(--border-grey);
-}
-
-.pipelineIcon {
-  height: 0.875rem;
-  width: 0.875rem;
-  margin-right: 0.4375rem;
 }

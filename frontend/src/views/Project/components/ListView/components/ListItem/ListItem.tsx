@@ -1,11 +1,12 @@
 import {NodeState, NodeType} from '@graphqlTypes';
 import {
   Link,
-  DocumentAddSVG,
   Icon,
   StatusBlockedSVG,
   StatusPausedSVG,
   CaptionTextSmall,
+  RepoSVG,
+  PipelineSVG,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -25,9 +26,9 @@ const getIcon = (node: Node) => {
   switch (node.type) {
     case NodeType.INPUT_REPO:
     case NodeType.OUTPUT_REPO:
-      return '/dag_repo.svg';
+      return <RepoSVG />;
     case NodeType.PIPELINE:
-      return '/dag_pipeline.svg';
+      return <PipelineSVG />;
     default:
       return undefined;
   }
@@ -49,15 +50,12 @@ const ListItem: React.FC<ListItemProps> = ({node, selectedItem, nodePath}) => {
         [styles.paused]: node.state === NodeState.PAUSED,
       })}
     >
-      <img className={styles.nodeImage} src={getIcon(node)} alt={node.type} />
+      <Icon className={styles.nodeImage} small>
+        {getIcon(node)}
+      </Icon>
       <span className={styles.nodeName}>{nodeName}</span>
       {NodeType.INPUT_REPO === node.type && (
-        <CaptionTextSmall className={styles.status}>
-          Input{' '}
-          <Icon small>
-            <DocumentAddSVG />
-          </Icon>
-        </CaptionTextSmall>
+        <CaptionTextSmall className={styles.status}>Input</CaptionTextSmall>
       )}
       {NodeType.PIPELINE === node.type && node.state === NodeState.ERROR && (
         <Icon small>

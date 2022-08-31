@@ -43,7 +43,7 @@ describe('Job Details', () => {
     const withinNavList = within(getByRole('list'));
 
     const likelihoodsLink = withinNavList.getByRole('link', {
-      name: `Pipeline job ${jobId} Failure: likelihoods`,
+      name: `likelihoods`,
     });
     expect(likelihoodsLink).toBeInTheDocument();
     expect(likelihoodsLink).toHaveAttribute(
@@ -52,7 +52,7 @@ describe('Job Details', () => {
     );
 
     const modelsLink = withinNavList.getByRole('link', {
-      name: `Pipeline job ${jobId} Egressing: models`,
+      name: `models`,
     });
     expect(modelsLink).toBeInTheDocument();
     expect(modelsLink).toHaveAttribute(
@@ -61,7 +61,7 @@ describe('Job Details', () => {
     );
 
     const jointCallLink = withinNavList.getByRole('link', {
-      name: `Pipeline job ${jobId} Killed: joint_call`,
+      name: `joint_call`,
     });
     expect(jointCallLink).toBeInTheDocument();
     expect(jointCallLink).toHaveAttribute(
@@ -70,7 +70,7 @@ describe('Job Details', () => {
     );
 
     const splitLink = withinNavList.getByRole('link', {
-      name: `Pipeline job ${jobId} Running: split`,
+      name: `split`,
     });
     expect(splitLink).toBeInTheDocument();
     expect(splitLink).toHaveAttribute(
@@ -79,7 +79,7 @@ describe('Job Details', () => {
     );
 
     const testLink = withinNavList.getByRole('link', {
-      name: `Pipeline job ${jobId} Starting: test`,
+      name: `test`,
     });
     expect(testLink).toBeInTheDocument();
     expect(testLink).toHaveAttribute(
