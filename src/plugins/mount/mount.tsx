@@ -16,6 +16,7 @@ import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
+import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_NAME = 'mount-browser:';
 
@@ -34,6 +35,8 @@ export class MountPlugin implements IMountPlugin {
   private _showConfig = false;
   private _showConfigSignal = new Signal<this, boolean>(this);
   private _showDatum = false;
+  private _keepMounted = false;
+  private _currentDatumInfo = null;
   private _showDatumSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
@@ -167,12 +170,17 @@ export class MountPlugin implements IMountPlugin {
             <Datum
               showDatum={showDatum ? showDatum : this._showDatum}
               setShowDatum={this.setShowDatum}
+              keepMounted={this._keepMounted}
+              setKeepMounted={this.setKeepMounted}
+              currentDatumInfo={this._currentDatumInfo}
               refresh={this.refresh}
+              pollRefresh={this._poller.refresh}
             />
           </>
         )}
       </UseSignal>,
     );
+    this._datum.addClass('pachyderm-mount-datum-wrapper');
 
     this._loader = ReactWidget.create(
       <>
@@ -206,7 +214,7 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._mountBrowser);
     SplitPanel.setStretch(this._mountedList, 1);
     SplitPanel.setStretch(this._unmountedList, 1);
-    SplitPanel.setStretch(this._datum, 2);
+    SplitPanel.setStretch(this._datum, 18);
     SplitPanel.setStretch(this._mountBrowser, 3);
 
     this._panel.addWidget(this._loader);
@@ -257,6 +265,10 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.setHidden(true);
     this._showDatum = shouldShow;
     this._showDatumSignal.emit(shouldShow);
+  };
+
+  setKeepMounted = (keep: boolean): void => {
+    this._keepMounted = keep;
   };
 
   setShowConfig = (shouldShow: boolean): void => {
@@ -310,12 +322,16 @@ export class MountPlugin implements IMountPlugin {
           this._poller.status.code !== 200,
       );
 
-      // TODO: if user refreshes window, show datum mode
-      // try {
-      //   const res = await requestAPI<any>(`_show_datum?idx=0`, 'PUT')
-      // } catch (e) {
-
-      // }
+      try {
+        const res = await requestAPI<any>('datums', 'GET');
+        if (res['num_datums'] > 0) {
+          this._keepMounted = true;
+          this._currentDatumInfo = res;
+          this.setShowDatum(true);
+        }
+      } catch (e) {
+        console.log(e);
+      }
     }
     this._loader.setHidden(true);
   };

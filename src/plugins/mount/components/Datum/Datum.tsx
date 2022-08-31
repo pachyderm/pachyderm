@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
@@ -6,54 +6,79 @@ import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
 type DatumProps = {
   showDatum: boolean;
   setShowDatum: (shouldShow: boolean) => void;
+  keepMounted: boolean;
+  setKeepMounted: (keep: boolean) => void;
+  currentDatumInfo: any;
   refresh: () => void;
+  pollRefresh: () => Promise<void>;
 };
 
-const placeholderText = 
-`{
+const placeholderText = `{
   "pfs": {
     "repo": "images",
     "branch": "dev",
     "glob": "/*",
   }
-}`
+}`;
 
+const Datum: React.FC<DatumProps> = ({
+  showDatum,
+  setShowDatum,
+  keepMounted,
+  setKeepMounted,
+  currentDatumInfo,
+  refresh,
+  pollRefresh,
+}) => {
   const {
     loading,
     shouldShowCycler,
+    setShouldShowCycler,
     currentDatumId,
     currentDatumIdx,
     setCurrentDatumIdx,
     numDatums,
+    setNumDatums,
     inputSpec,
     setInputSpec,
     callMountDatums,
     callUnmountAll,
-  } = useDatum(showDatum, refresh);
+  } = useDatum(showDatum, refresh, pollRefresh);
+
+  useEffect(() => {
+    if (showDatum && !keepMounted) {
+      callUnmountAll();
+    }
+    if (keepMounted) {
+      setShouldShowCycler(true);
+      setCurrentDatumIdx(currentDatumInfo['curr_idx']);
+      setNumDatums(currentDatumInfo['num_datums']);
+      setInputSpec(JSON.stringify(currentDatumInfo['input'], null, 2));
+    }
+  }, [showDatum]);
 
   return (
     <div className="pachyderm-mount-datum-base">
-        <div className="pachyderm-mount-datum-back">
-          <button
-            data-testid="Datum__back"
-            className="pachyderm-button-link"
-            onClick={() => {
-              callUnmountAll();
-              setShowDatum(false);
-            }}
-          >
-            Back{' '}
-            <closeIcon.react
-              tag="span"
-              className="pachyderm-mount-icon-padding"
-            />
-          </button>
-        </div>
+      <div className="pachyderm-mount-datum-back">
+        <button
+          data-testid="Datum__back"
+          className="pachyderm-button-link"
+          onClick={async () => {
+            await callUnmountAll();
+            setKeepMounted(false);
+            setShowDatum(false);
+          }}
+        >
+          Back{' '}
+          <closeIcon.react
+            tag="span"
+            className="pachyderm-mount-icon-padding"
+          />
+        </button>
+      </div>
 
-      <span className="pachyderm-mount-datum-subheading">
-        Test Datums
-      </span>
-  
+      <span className="pachyderm-mount-datum-subheading">Test Datums</span>
+
       <div className="pachyderm-mount-datum-input-wrapper">
         <label className="pachyderm-mount-datum-label" htmlFor="inputSpec">
           Input spec
@@ -81,7 +106,6 @@ const placeholderText =
         {shouldShowCycler && (
           <div className="pachyderm-mount-datum-cycler">
             Datum
-
             <div style={{display: 'flex'}}>
               <button
                 className="pachyderm-button-link"

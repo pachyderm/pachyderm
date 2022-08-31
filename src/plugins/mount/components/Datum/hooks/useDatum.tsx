@@ -4,10 +4,12 @@ import {useEffect, useState} from 'react';
 export type useDatumResponse = {
   loading: boolean;
   shouldShowCycler: boolean;
+  setShouldShowCycler: (shouldShow: boolean) => void;
   currentDatumId: string;
   currentDatumIdx: number;
   setCurrentDatumIdx: (idx: number) => void;
   numDatums: number;
+  setNumDatums: (idx: number) => void;
   inputSpec: string;
   setInputSpec: (input: string) => void;
   callMountDatums: () => Promise<void>;
@@ -17,6 +19,7 @@ export type useDatumResponse = {
 export const useDatum = (
   showDatum: boolean,
   refresh: () => void,
+  pollRefresh: () => Promise<void>,
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
@@ -35,7 +38,6 @@ export const useDatum = (
     setLoading(true);
 
     try {
-      await callUnmountAll();
       const res = await requestAPI<any>('_mount_datums', 'PUT', {
         input: JSON.parse(inputSpec),
       });
@@ -75,6 +77,7 @@ export const useDatum = (
       refresh();
       await requestAPI<any>('_unmount_all', 'PUT');
       refresh();
+      await pollRefresh();
       setCurrentDatumId('');
       setCurrentDatumIdx(-1);
       setNumDatums(0);
@@ -89,10 +92,12 @@ export const useDatum = (
   return {
     loading,
     shouldShowCycler,
+    setShouldShowCycler,
     currentDatumId,
     currentDatumIdx,
     setCurrentDatumIdx,
     numDatums,
+    setNumDatums,
     inputSpec,
     setInputSpec,
     callMountDatums,
