@@ -212,10 +212,11 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._unmountedList);
     this._panel.addWidget(this._datum);
     this._panel.addWidget(this._mountBrowser);
-    SplitPanel.setStretch(this._mountedList, 1);
-    SplitPanel.setStretch(this._unmountedList, 1);
-    SplitPanel.setStretch(this._datum, 18);
-    SplitPanel.setStretch(this._mountBrowser, 3);
+    // SplitPanel.setStretch(this._mountedList, 1);
+    // SplitPanel.setStretch(this._unmountedList, 1);
+    // SplitPanel.setStretch(this._datum, 5);
+    // SplitPanel.setStretch(this._mountBrowser, 3);
+    this._panel.setRelativeSizes([1, 1, 3, 3]);
 
     this._panel.addWidget(this._loader);
     this._panel.addWidget(this._config);
