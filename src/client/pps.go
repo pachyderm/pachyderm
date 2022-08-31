@@ -176,7 +176,11 @@ func NewCronInput(name string, spec string) *pps.Input {
 	}
 }
 
-func NewProjectCronInputOpts(project, name, repo, spec string, overwrite bool, start *types.Timestamp) *pps.Input {
+// NewCronInputOpts returns an input which will trigger based on a timed schedule.
+// It uses cron syntax to specify the schedule. The input will be exposed to
+// jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
+// e.g. `2006-01-02T15:04:05Z07:00`. It includes all the options.
+func NewCronInputOpts(name, repo, spec string, overwrite bool, start *types.Timestamp) *pps.Input {
 	return &pps.Input{
 		Cron: &pps.CronInput{
 			Name:      name,
@@ -186,14 +190,6 @@ func NewProjectCronInputOpts(project, name, repo, spec string, overwrite bool, s
 			Start:     start,
 		},
 	}
-}
-
-// NewCronInputOpts returns an input which will trigger based on a timed schedule.
-// It uses cron syntax to specify the schedule. The input will be exposed to
-// jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
-// e.g. `2006-01-02T15:04:05Z07:00`. It includes all the options.
-func NewCronInputOpts(name, repo, spec string, overwrite bool, start *types.Timestamp) *pps.Input {
-	return NewProjectCronInputOpts(pfs.DefaultProjectName, name, repo, spec, overwrite, start)
 }
 
 // NewJobInput creates a pps.JobInput.

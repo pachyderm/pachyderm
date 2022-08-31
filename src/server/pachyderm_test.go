@@ -2693,6 +2693,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
 	pipelineCommit := client.NewCommit(pipelineName, "master", "")
+	project := client.NewProject(pfs.DefaultProjectName)
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2740,29 +2741,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(project, pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(project, pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(project, pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(project, pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(project, pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(project, pipelineName, 2))
 		}
 		return nil
 	})
@@ -2814,29 +2815,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(project, pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(project, pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(project, pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(project, pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(project, pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(project, pipelineName, 2))
 		}
 		return nil
 	})
@@ -6563,7 +6564,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts(pfs.DefaultProjectName, "time", "", "*/1 * * * *", true, nil), // every minute
+			client.NewCronInputOpts("time", "", "*/1 * * * *", true, nil), // every minute
 			"",
 			false,
 		))
@@ -6666,7 +6667,7 @@ func TestCronPipeline(t *testing.T) {
 			[]string{"/bin/bash"},
 			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
-			client.NewCronInputOpts(pfs.DefaultProjectName, "in", "", "@every 1h", true, start),
+			client.NewCronInputOpts("in", "", "@every 1h", true, start),
 			"",
 			false,
 		))
@@ -10401,7 +10402,8 @@ func TestDatumSetCache(t *testing.T) {
 
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	project := client.NewProject(pfs.DefaultProjectName)
+	rcName := ppsutil.PipelineRcName(project, pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int
