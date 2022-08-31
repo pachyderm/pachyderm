@@ -1784,7 +1784,6 @@ func TestProvenance(t *testing.T) {
 }
 
 // TestProvenance2 tests the following DAG:
-//
 //   A
 //  / \
 // B   C
