@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
@@ -82,6 +83,21 @@ func TestJobEgressURL(t *testing.T) {
 			t.Errorf("could not find egress %s in detailed job info; expected %q", item, value)
 		}
 	}
+}
+
+func TestJobStarted(t *testing.T) {
+	jobInfo := &ppsclient.JobInfo{
+		Job: &ppsclient.Job{
+			ID:       "foo",
+			Pipeline: &ppsclient.Pipeline{Name: "Bar"},
+		},
+		Stats:   &ppsclient.ProcessStats{},
+		Details: &ppsclient.JobInfo_Details{},
+	}
+	printableJobInfo := pretty.NewPrintableJobInfo(jobInfo)
+	buf := new(bytes.Buffer)
+	require.NoError(t, pretty.PrintDetailedJobInfo(buf, printableJobInfo))
+	require.True(t, strings.Contains(buf.String(), "Started: N/A"))
 }
 
 func TestPipelineEgressTarget(t *testing.T) {
