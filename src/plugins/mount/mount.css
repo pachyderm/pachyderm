@@ -179,12 +179,12 @@
   height: 100%;
 }
 
-.pachyderm-mount-config-back .pachyderm-mount-datum-back {
+.pachyderm-mount-config-back {
   display: flex;
   justify-content: flex-end;
 }
 
-.pachyderm-mount-config-form-base .pachyderm-mount-datum-base {
+.pachyderm-mount-config-form-base {
   color: var(--jp-ui-font-color0);
   background-color: var(--jp-layout-color1);
   display: flex;
@@ -193,7 +193,7 @@
   flex-grow: 1;
 }
 
-.pachyderm-mount-config-heading .pachyderm-mount-datum-heading {
+.pachyderm-mount-config-heading {
   margin-top: 64px;
   padding: 16px;
   font-weight: 500;
@@ -202,7 +202,7 @@
   flex-direction: column;
 }
 
-.pachyderm-mount-config-subheading .pachyderm-mount-datum-subheading {
+.pachyderm-mount-config-subheading {
   font-size: medium;
   font-weight: 300;
 }
@@ -264,4 +264,55 @@
   margin-top: 1rem;
   display: flex;
   flex-direction: column;
+}
+
+/* === Datum === */
+
+.pachyderm-mount-datum-wrapper {
+  font-size: var(--jp-ui-font-size1);
+  min-height: 3.125rem;
+  min-width: 18.75rem;
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  border-bottom: 1px solid var(--jp-border-color2);
+}
+
+.pachyderm-mount-datum-base {
+  color: var(--jp-ui-font-color0);
+  background-color: var(--jp-layout-color1);
+  display: flex;
+  flex-direction: column;
+  margin: 0.25rem 16px;
+  height: 100%;
+}
+
+.pachyderm-mount-datum-back {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pachyderm-mount-datum-subheading {
+  font-size: medium;
+  font-weight: 300;
+  margin-bottom: 0.75rem;
+}
+
+.pachyderm-mount-datum-label {
+  font-weight: 500;
+}
+
+.pachyderm-mount-datum-input-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pachyderm-mount-datum-cycler {
+  display: flex;
+  justify-content: space-between;
 }

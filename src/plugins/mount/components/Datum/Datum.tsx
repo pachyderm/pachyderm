@@ -9,7 +9,15 @@ type DatumProps = {
   refresh: () => void;
 };
 
-const Datum: React.FC<DatumProps> = ({showDatum, setShowDatum, refresh}) => {
+const placeholderText = 
+`{
+  "pfs": {
+    "repo": "images",
+    "branch": "dev",
+    "glob": "/*",
+  }
+}`
+
   const {
     loading,
     shouldShowCycler,
@@ -24,8 +32,7 @@ const Datum: React.FC<DatumProps> = ({showDatum, setShowDatum, refresh}) => {
   } = useDatum(showDatum, refresh);
 
   return (
-    <>
-      <div className="pachyderm-mount-datum-base">
+    <div className="pachyderm-mount-datum-base">
         <div className="pachyderm-mount-datum-back">
           <button
             data-testid="Datum__back"
@@ -43,32 +50,39 @@ const Datum: React.FC<DatumProps> = ({showDatum, setShowDatum, refresh}) => {
           </button>
         </div>
 
-        <div className="pachyderm-mount-datum-heading">
-          Test Datums
-          <span className="pachyderm-mount-datum-subheading">
-            Input spec
-            <input
-              className="pachyderm-input"
-              data-testid="Datum__inputSpecInput"
-              name="pachd"
-              value={inputSpec}
-              onInput={(e: any) => {
-                setInputSpec(e.target.value);
-              }}
-              disabled={loading}
-              placeholder='{\n\t"pfs": {\n\t\t"repo": "images", \n\t\t"glob": "/*"\n\t}\n}'
-            ></input>
-            <button
-              data-testid="Datum__mountDatums"
-              className="pachyderm-button-link"
-              onClick={callMountDatums}
-            >
-              Mount Datums
-            </button>
-          </span>
-          {shouldShowCycler && (
-            <div className="pachyderm-mount-datum-cycler-title">
-              Datum
+      <span className="pachyderm-mount-datum-subheading">
+        Test Datums
+      </span>
+  
+      <div className="pachyderm-mount-datum-input-wrapper">
+        <label className="pachyderm-mount-datum-label" htmlFor="inputSpec">
+          Input spec
+        </label>
+        <textarea
+          className="pachyderm-input"
+          data-testid="Datum__inputSpecInput"
+          style={{minHeight: '200px'}}
+          name="inputSpec"
+          value={inputSpec}
+          onInput={(e: any) => {
+            setInputSpec(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderText}
+        ></textarea>
+        <button
+          data-testid="Datum__mountDatums"
+          className="pachyderm-button-link"
+          onClick={callMountDatums}
+          style={{padding: '0.5rem'}}
+        >
+          Mount Datums
+        </button>
+        {shouldShowCycler && (
+          <div className="pachyderm-mount-datum-cycler">
+            Datum
+
+            <div style={{display: 'flex'}}>
               <button
                 className="pachyderm-button-link"
                 disabled={currentDatumIdx <= 0}
@@ -99,10 +113,10 @@ const Datum: React.FC<DatumProps> = ({showDatum, setShowDatum, refresh}) => {
                 />
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
