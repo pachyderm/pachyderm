@@ -445,6 +445,24 @@ async def test_show_datum(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
+@patch("jupyterlab_pachyderm.handlers.DatumsHandler.mount_client", spec=MountInterface)
+async def test_get_datums(mock_client, jp_fetch):
+    mock_client.get_datums.return_value = json.dumps({
+        "input": {"pfs": {"repo": "repo", "branch": "dev", "glob": "/*"}},
+        "num_datums": 3,
+        "curr_idx": 2,
+    })
+
+    r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/datums")
+
+    assert json.loads(r.body) == {
+        "input": {"pfs": {"repo": "repo", "branch": "dev", "glob": "/*"}},
+        "num_datums": 3,
+        "curr_idx": 2,
+    }
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 @patch(
     "jupyterlab_pachyderm.handlers.ConfigHandler.mount_client",
     spec=MountInterface,
