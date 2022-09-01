@@ -69,7 +69,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.3.0-rc.1"
+    tag: "2.4.0-alpha.1"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
