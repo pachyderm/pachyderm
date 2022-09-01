@@ -61,8 +61,8 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres # Must match secret setup by postgres subchart or postgres-secret.yaml if using external postgres
-              key: postgresql-password
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
         {{- if and .Values.enterpriseServer.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
