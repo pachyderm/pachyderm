@@ -52,7 +52,7 @@ export const useDatum = (
 
   const callMountDatums = async () => {
     setLoading(true);
-    setErrorMessage('')
+    setErrorMessage('');
 
     try {
       const res = await requestAPI<any>('_mount_datums', 'PUT', {
