@@ -111,8 +111,8 @@ jobs:
             mkdir -p /home/circleci/.jupyter/labconfig
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
 
-            jupyter labextension develop . --overwrite
-            jupyter server extension enable jupyterlab_pachyderm
+            # jupyter labextension develop . --overwrite
+            jupyter server extension list
             npm ci
             npm run build
 
