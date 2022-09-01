@@ -12,8 +12,7 @@ builds:
       main: ./src/server/cmd/mount-server
       binary: mount-server
       ldflags:
-          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
-            "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
+          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }}
       gcflags:
           - "all=-trimpath={{.Env.GOBIN}}"
       env:
