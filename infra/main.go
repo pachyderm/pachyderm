@@ -104,7 +104,7 @@ func main() {
 								"extra_containers": pulumi.MapArray{
 									pulumi.Map{
 										"name":    pulumi.String("mount-server-manager"),
-										"image":   pulumi.String("pachyderm/mount-server:384d350f9ed7aa827543b2ffaa21ca87bd9666d6"),
+										"image":   pulumi.String("pachyderm/mount-server:7d2471590000c6ac847a64a77e3f6c0687e64f01"),
 										"command": pulumi.StringArray{pulumi.String("/bin/bash"), pulumi.String("-c"), pulumi.String("mount-server")},
 										"securityContext": pulumi.Map{
 											"privileged": pulumi.Bool(true),

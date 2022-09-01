@@ -95,6 +95,9 @@ def test_list_repos(pachyderm_resources, dev_server):
                 "mode",
                 "mountpoint",
                 "mount_key",
+                "actual_mounted_commit",
+                "latest_commit",
+                "how_many_commits_behind"
             }
 
 
