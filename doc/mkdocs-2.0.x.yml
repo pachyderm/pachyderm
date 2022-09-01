@@ -13,7 +13,7 @@ edit_uri: ""
 
 # Copyright
 copyright: 'Copyright Pachyderm Inc, 2022'
-pach_featured_version: '2.3.1'
+pach_featured_version: '2.3.2'
 pach_latest_version: '2.0.8'
 pach_major_minor_version: '2.0'
 search_index_version: '2.0.x'
