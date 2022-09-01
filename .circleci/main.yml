@@ -480,6 +480,7 @@ jobs:
                   additional=${v%%-*}
                   index=${#additional}
                   make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
+                  make release-mount-server GORELSNAP=--snapshot VERSION=${v}
             - persist_to_workspace:
                 root: ../
                 paths:
