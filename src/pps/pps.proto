@@ -89,10 +89,10 @@ message Spout {
 }
 
 message PFSInput {
+  string project = 14;
   string name = 1;
   string repo = 2;
   string repo_type = 13;
-  string project = 14;
   string branch = 3;
   string commit = 4;
   string glob = 5;
@@ -118,7 +118,6 @@ message PFSInput {
 message CronInput {
   string name = 1;
   string repo = 2;
-  string project = 7;
   string commit = 3;
   string spec = 4;
   // Overwrite, if true, will expose a single datum that gets overwritten each
@@ -314,8 +313,8 @@ message Worker {
 }
 
 message Pipeline {
-  string name = 1;
   pfs_v2.Project project = 2;
+  string name = 1;
 }
 
 enum PipelineState {
