@@ -4029,6 +4029,76 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.Equal(t, 2, len(jobInfos))
 }
 
+// TestMetaAlias tracks https://github.com/pachyderm/pachyderm/pull/8116
+// This test is so we don't regress a problem; where a pipeline in a DAG is started,
+// the pipeline should not get stuck due to a missing Meta Commit. with 8116 the meta
+// repo should get the alias commit.
+// DAG:
+//
+// A
+// |
+// B
+// |
+// C
+func TestStartInternalPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+	aCommit, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(aRepo, "master", ""))
+	bPipeline := tu.UniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(aRepo, "/"),
+		"",
+		false,
+	))
+	cPipeline := tu.UniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", bPipeline, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(bPipeline, "/"),
+		"",
+		false,
+	))
+	commitInfo, err := c.InspectCommit(cPipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 7, len(commitInfos))
+	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
+	require.NoError(t, c.StopPipeline(bPipeline))
+	require.NoError(t, c.StartPipeline(bPipeline))
+	// C's commit should be the same as b's meta commit
+	cCommits, err := c.ListCommit(client.NewRepo(cPipeline), nil, nil, 0)
+	require.NoError(t, err)
+	listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
+		Repo: client.NewSystemRepo(bPipeline, pfs.MetaRepoType),
+		All:  true,
+	})
+	require.NoError(t, err)
+	allBmetaCommits, err := clientsdk.ListCommit(listClient)
+	require.NoError(t, err)
+	require.Equal(t, allBmetaCommits[0].Commit.ID, cCommits[0].Commit.ID)
+}
+
 func TestJobDeletion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
