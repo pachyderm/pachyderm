@@ -35,6 +35,12 @@ export type Repo = {
   branches: string[];
 };
 
+export type DatumsResponse = {
+  num_datums: number;
+  input: Object;
+  curr_idx: number;
+}
+
 export type ListMountsResponse = {
   mounted: {[key: string]: Mount};
   unmounted: {[key: string]: Repo};

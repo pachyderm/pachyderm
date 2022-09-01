@@ -10,7 +10,7 @@ import {Signal} from '@lumino/signaling';
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
 import createCustomFileBrowser from './customFileBrowser';
-import {AuthConfig, IMountPlugin, Repo, Mount} from './types';
+import {AuthConfig, IMountPlugin, Repo, Mount, DatumsResponse} from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
 import SortableList from './components/SortableList/SortableList';
@@ -36,7 +36,7 @@ export class MountPlugin implements IMountPlugin {
   private _showConfigSignal = new Signal<this, boolean>(this);
   private _showDatum = false;
   private _keepMounted = false;
-  private _currentDatumInfo = null;
+  private _currentDatumInfo: DatumsResponse | undefined;
   private _showDatumSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
@@ -172,9 +172,9 @@ export class MountPlugin implements IMountPlugin {
               setShowDatum={this.setShowDatum}
               keepMounted={this._keepMounted}
               setKeepMounted={this.setKeepMounted}
-              currentDatumInfo={this._currentDatumInfo}
               refresh={this.refresh}
               pollRefresh={this._poller.refresh}
+              currentDatumInfo={this._currentDatumInfo}
             />
           </>
         )}

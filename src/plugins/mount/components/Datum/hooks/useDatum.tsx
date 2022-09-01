@@ -1,25 +1,28 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
+import {ServerConnection} from '@jupyterlab/services';
+import { DatumsResponse } from 'plugins/mount/types';
 
 export type useDatumResponse = {
   loading: boolean;
   shouldShowCycler: boolean;
-  setShouldShowCycler: (shouldShow: boolean) => void;
   currentDatumId: string;
   currentDatumIdx: number;
   setCurrentDatumIdx: (idx: number) => void;
   numDatums: number;
-  setNumDatums: (idx: number) => void;
   inputSpec: string;
   setInputSpec: (input: string) => void;
   callMountDatums: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
+  errorMessage: string;
 };
 
 export const useDatum = (
   showDatum: boolean,
+  keepMounted: boolean,
   refresh: () => void,
   pollRefresh: () => Promise<void>,
+  currentDatumInfo?: DatumsResponse,
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
@@ -27,6 +30,7 @@ export const useDatum = (
   const [currentDatumIdx, setCurrentDatumIdx] = useState(-1);
   const [numDatums, setNumDatums] = useState(-1);
   const [inputSpec, setInputSpec] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (showDatum && currentDatumIdx !== -1) {
@@ -34,8 +38,21 @@ export const useDatum = (
     }
   }, [currentDatumIdx, showDatum]);
 
+  useEffect(() => {
+    if (showDatum && !keepMounted) {
+      callUnmountAll();
+    }
+    if (keepMounted && currentDatumInfo) {
+      setShouldShowCycler(true);
+      setCurrentDatumIdx(currentDatumInfo.curr_idx);
+      setNumDatums(currentDatumInfo.num_datums);
+      setInputSpec(JSON.stringify(currentDatumInfo.input, null, 2));
+    }
+  }, [showDatum]);
+
   const callMountDatums = async () => {
     setLoading(true);
+    setErrorMessage('')
 
     try {
       const res = await requestAPI<any>('_mount_datums', 'PUT', {
@@ -46,8 +63,16 @@ export const useDatum = (
       setCurrentDatumIdx(res.idx);
       setNumDatums(res.num_datums);
       setShouldShowCycler(true);
+      setInputSpec(JSON.stringify(JSON.parse(inputSpec), null, 2))
     } catch (e) {
       console.log(e);
+      if (e instanceof ServerConnection.ResponseError) {
+        setErrorMessage('Bad data in input spec')
+      } else if (e instanceof SyntaxError) {
+        setErrorMessage('Poorly formatted json input spec')
+      } else {
+        setErrorMessage('Error mounting datums')
+      }
     }
 
     setLoading(false);
@@ -92,15 +117,14 @@ export const useDatum = (
   return {
     loading,
     shouldShowCycler,
-    setShouldShowCycler,
     currentDatumId,
     currentDatumIdx,
     setCurrentDatumIdx,
     numDatums,
-    setNumDatums,
     inputSpec,
     setInputSpec,
     callMountDatums,
     callUnmountAll,
+    errorMessage,
   };
 };

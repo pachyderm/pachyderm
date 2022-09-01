@@ -316,3 +316,7 @@
   display: flex;
   justify-content: space-between;
 }
+
+.pachyderm-mount-datum-error {
+  color: var(--jp-error-color0);
+}

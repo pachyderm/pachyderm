@@ -2,15 +2,16 @@ import React, {useEffect} from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
+import { DatumsResponse } from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
   setShowDatum: (shouldShow: boolean) => void;
   keepMounted: boolean;
   setKeepMounted: (keep: boolean) => void;
-  currentDatumInfo: any;
   refresh: () => void;
   pollRefresh: () => Promise<void>;
+  currentDatumInfo?: DatumsResponse;
 };
 
 const placeholderText = `{
@@ -33,29 +34,17 @@ const Datum: React.FC<DatumProps> = ({
   const {
     loading,
     shouldShowCycler,
-    setShouldShowCycler,
     currentDatumId,
     currentDatumIdx,
     setCurrentDatumIdx,
     numDatums,
-    setNumDatums,
     inputSpec,
     setInputSpec,
     callMountDatums,
     callUnmountAll,
-  } = useDatum(showDatum, refresh, pollRefresh);
+    errorMessage,
+  } = useDatum(showDatum, keepMounted, refresh, pollRefresh, currentDatumInfo);
 
-  useEffect(() => {
-    if (showDatum && !keepMounted) {
-      callUnmountAll();
-    }
-    if (keepMounted) {
-      setShouldShowCycler(true);
-      setCurrentDatumIdx(currentDatumInfo['curr_idx']);
-      setNumDatums(currentDatumInfo['num_datums']);
-      setInputSpec(JSON.stringify(currentDatumInfo['input'], null, 2));
-    }
-  }, [showDatum]);
 
   return (
     <div className="pachyderm-mount-datum-base">
@@ -95,6 +84,9 @@ const Datum: React.FC<DatumProps> = ({
           disabled={loading}
           placeholder={placeholderText}
         ></textarea>
+        <span className="pachyderm-mount-datum-error">
+          {errorMessage}
+        </span>
         <button
           data-testid="Datum__mountDatums"
           className="pachyderm-button-link"
