@@ -18,14 +18,6 @@ const (
 	mysqlUser     = "root"
 )
 
-// NewMySQL returns a pachsql.DB connected to a MySQL database
-// backed by a docker container.
-// The database is cleaned up after the test is closed.
-func NewMySQL(t testing.TB) *pachsql.DB {
-	u := NewMySQLURL(t)
-	return testutil.OpenDBURL(t, u, MySQLPassword)
-}
-
 func NewEphemeralMySQLDB(t testing.TB) (*pachsql.DB, string) {
 	name := testutil.GenerateEphemeralDBName(t)
 	return testutil.OpenDBURL(t, newMySQLEphemeralURL(t, name), MySQLPassword), name
