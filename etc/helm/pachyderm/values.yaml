@@ -241,7 +241,8 @@ loki-stack:
     enabled: false
   promtail:
     config:
-      lokiAddress: http://{{ .Release.Name }}-loki:3100/loki/api/v1/push
+      clients:
+        - url: "http://{{ .Release.Name }}-loki:3100/loki/api/v1/push"
       snippets:
         # The scrapeConfigs section is copied from loki-stack-2.6.4
         # The pipeline_stages.match stanza has been added to prevent multiple lokis in a cluster from mixing their logs.
@@ -339,6 +340,14 @@ loki-stack:
           # this gets all kubernetes labels as well
           - action: labelmap
             regex: __meta_kubernetes_pod_label_(.+)
+    livenessProbe:
+      failureThreshold: 5
+      tcpSocket:
+        port: http-metrics
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
 
 pachd:
   enabled: true
