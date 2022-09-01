@@ -180,9 +180,10 @@ type PrintableJobInfo struct {
 }
 
 // NewPrintableJobInfo constructs a PrintableJobInfo from just a JobInfo.
-func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
+func NewPrintableJobInfo(ji *ppsclient.JobInfo, full bool) *PrintableJobInfo {
 	return &PrintableJobInfo{
-		JobInfo: ji,
+		JobInfo:        ji,
+		FullTimestamps: full,
 	}
 }
 
@@ -191,7 +192,7 @@ func PrintDetailedJobInfo(w io.Writer, jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}}
 Pipeline: {{.Job.Pipeline.Name}}{{if .FullTimestamps}}
-Started: {{.Started}}{{else}}
+Started: {{jobStarted .Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
@@ -423,6 +424,13 @@ func JobState(jobState ppsclient.JobState) string {
 	return "-"
 }
 
+func jobStarted(started *types.Timestamp) string {
+	if started == nil {
+		return "-"
+	}
+	return started.GoString()
+}
+
 // Progress pretty prints the datum progress of a job.
 func Progress(ji *ppsclient.JobInfo) string {
 	if ji.DataRecovered != 0 {
@@ -544,6 +552,7 @@ func egress(e *ppsclient.Egress) string {
 
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
+	"jobStarted":           jobStarted,
 	"jobState":             JobState,
 	"datumState":           datumState,
 	"workerStatus":         workerStatus,
