@@ -2,7 +2,7 @@ import React, {useEffect} from 'react';
 import {closeIcon} from '@jupyterlab/ui-components';
 import {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
-import { DatumsResponse } from 'plugins/mount/types';
+import {DatumsResponse} from 'plugins/mount/types';
 
 type DatumProps = {
   showDatum: boolean;
@@ -45,7 +45,6 @@ const Datum: React.FC<DatumProps> = ({
     errorMessage,
   } = useDatum(showDatum, keepMounted, refresh, pollRefresh, currentDatumInfo);
 
-
   return (
     <div className="pachyderm-mount-datum-base">
       <div className="pachyderm-mount-datum-back">
@@ -84,9 +83,7 @@ const Datum: React.FC<DatumProps> = ({
           disabled={loading}
           placeholder={placeholderText}
         ></textarea>
-        <span className="pachyderm-mount-datum-error">
-          {errorMessage}
-        </span>
+        <span className="pachyderm-mount-datum-error">{errorMessage}</span>
         <button
           data-testid="Datum__mountDatums"
           className="pachyderm-button-link"

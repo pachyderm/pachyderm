@@ -37,9 +37,9 @@ export type Repo = {
 
 export type DatumsResponse = {
   num_datums: number;
-  input: Object;
+  input: {[key: string]: any};
   curr_idx: number;
-}
+};
 
 export type ListMountsResponse = {
   mounted: {[key: string]: Mount};

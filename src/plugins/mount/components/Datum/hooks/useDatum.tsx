@@ -1,7 +1,7 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
 import {ServerConnection} from '@jupyterlab/services';
-import { DatumsResponse } from 'plugins/mount/types';
+import {DatumsResponse} from 'plugins/mount/types';
 
 export type useDatumResponse = {
   loading: boolean;
@@ -63,15 +63,15 @@ export const useDatum = (
       setCurrentDatumIdx(res.idx);
       setNumDatums(res.num_datums);
       setShouldShowCycler(true);
-      setInputSpec(JSON.stringify(JSON.parse(inputSpec), null, 2))
+      setInputSpec(JSON.stringify(JSON.parse(inputSpec), null, 2));
     } catch (e) {
       console.log(e);
       if (e instanceof ServerConnection.ResponseError) {
-        setErrorMessage('Bad data in input spec')
+        setErrorMessage('Bad data in input spec');
       } else if (e instanceof SyntaxError) {
-        setErrorMessage('Poorly formatted json input spec')
+        setErrorMessage('Poorly formatted json input spec');
       } else {
-        setErrorMessage('Error mounting datums')
+        setErrorMessage('Error mounting datums');
       }
     }
 
