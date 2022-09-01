@@ -158,9 +158,9 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 			"loki-stack.promtail.initContainer[0].name":                       "init",
 			"loki-stack.promtail.initContainer[0].image":                      "docker.io/busybox:1.33",
 			"loki-stack.promtail.initContainer[0].imagePullPolicy":            "IfNotPresent",
-			"loki-stack.promtail.initContainer[0].securityContext.command[0]": "sh",
-			"loki-stack.promtail.initContainer[0].securityContext.command[1]": "-c",
-			"loki-stack.promtail.initContainer[0].securityContext.command[2]": "sysctl -w fs.inotify.max_user_instances=8000",
+			"loki-stack.promtail.initContainer[0].command[0]":                 "sh",
+			"loki-stack.promtail.initContainer[0].command[1]":                 "-c",
+			"loki-stack.promtail.initContainer[0].command[2]":                 "sysctl -w fs.inotify.max_user_instances=8000",
 			"loki-stack.promtail.initContainer[0].securityContext.privileged": "true",
 		},
 	}
