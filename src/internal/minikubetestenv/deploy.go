@@ -147,18 +147,21 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 	return &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 		SetValues: map[string]string{
-			"pachd.lokiDeploy":             "true",
-			"pachd.lokiLogging":            "true",
-			"loki-stack.loki.service.type": exposedServiceType(),
-			"loki-stack.promtail.initContainer.fsInotifyMaxUserInstances": "8000",
-			"loki-stack.loki.service.port":                                fmt.Sprintf("%v", port+9),
-			"loki-stack.loki.service.nodePort":                            fmt.Sprintf("%v", port+9),
-			"loki-stack.loki.config.server.http_listen_port":              fmt.Sprintf("%v", port+9),
-			"loki-stack.promtail.config.serverPort":                       fmt.Sprintf("%v", port+9),
-			"loki-stack.promtail.config.lokiAddress":                      fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+9),
-		},
-		SetStrValues: map[string]string{
-			"loki-stack.promtail.initContainer.enabled": "true",
+			"pachd.lokiDeploy":                                                "true",
+			"pachd.lokiLogging":                                               "true",
+			"loki-stack.loki.service.type":                                    exposedServiceType(),
+			"loki-stack.loki.service.port":                                    fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.service.nodePort":                                fmt.Sprintf("%v", port+9),
+			"loki-stack.loki.config.server.http_listen_port":                  fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.serverPort":                           fmt.Sprintf("%v", port+9),
+			"loki-stack.promtail.config.clients[0].url":                       fmt.Sprintf("http://%s-loki:%d/loki/api/v1/push", namespace, port+9),
+			"loki-stack.promtail.initContainer[0].name":                       "init",
+			"loki-stack.promtail.initContainer[0].image":                      "docker.io/busybox:1.33",
+			"loki-stack.promtail.initContainer[0].imagePullPolicy":            "IfNotPresent",
+			"loki-stack.promtail.initContainer[0].command[0]":                 "sh",
+			"loki-stack.promtail.initContainer[0].command[1]":                 "-c",
+			"loki-stack.promtail.initContainer[0].command[2]":                 "sysctl -w fs.inotify.max_user_instances=8000",
+			"loki-stack.promtail.initContainer[0].securityContext.privileged": "true",
 		},
 	}
 }
@@ -227,7 +230,7 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
 			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
-			"proxy.host":                       fmt.Sprintf("%s:%v", host, clientPort),
+			"proxy.host":                         fmt.Sprintf("%s:%v", host, clientPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
