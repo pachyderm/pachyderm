@@ -38,22 +38,6 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 	}
 }
 
-// RunCmdFixedArgs wraps a function in a function that checks its exact
-// argument count. The only difference between this and RunFixedArgs is that
-// this passes in the cobra command.
-func RunCmdFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
-	return func(cmd *cobra.Command, args []string) {
-		if len(args) != numArgs {
-			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
-			cmd.Usage()
-		} else {
-			if err := run(cmd, args); err != nil {
-				ErrorAndExit("%v", err)
-			}
-		}
-	}
-}
-
 // RunBoundedArgs wraps a function in a function
 // that checks its argument count is within a range.
 func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
@@ -258,20 +242,6 @@ func ParsePartialFile(arg string) *pfs.File {
 		return file
 	}
 	return client.NewFile(arg, "", "", "")
-}
-
-// ParseFiles converts all arguments to *pfs.Commit structs using the
-// semantics of ParseFile
-func ParseFiles(args []string) ([]*pfs.File, error) {
-	var results []*pfs.File
-	for _, arg := range args {
-		commit, err := ParseFile(arg)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, commit)
-	}
-	return results, nil
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"

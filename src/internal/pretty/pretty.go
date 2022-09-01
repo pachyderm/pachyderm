@@ -31,6 +31,9 @@ func Since(timestamp *types.Timestamp) string {
 // Ago pretty-prints the amount of time that has passed since timestamp as a
 // human-readable string, and adds "ago" to the end.
 func Ago(timestamp *types.Timestamp) string {
+	if timestamp == nil {
+		return "-"
+	}
 	since := Since(timestamp)
 	if since == "" {
 		return since
