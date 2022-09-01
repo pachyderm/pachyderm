@@ -1,4 +1,6 @@
 {
-  "pachyderm": "2.3.0",
+  "pachyderm": "2.3.2-a9b7db4ebf6daf4e752452ea49f53011798c9ced",
+  "pachReleaseCommit": "a9b7db4ebf6daf4e752452ea49f53011798c9ced",
+  "pachctl": "2.3.1",
   "kind": "0.12.0"
 }

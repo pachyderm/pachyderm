@@ -35,8 +35,8 @@ if [ ! -f cached-deps/kind ] ; then
         && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
 fi
 
-export PACHYDERM_VERSION="$(jq -r .pachyderm version.json)"
+export PACHCTL_VERSION="$(jq -r .pachctl version.json)"
 
 # Install Pachyderm
-curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v${PACHYDERM_VERSION}/pachctl_${PACHYDERM_VERSION}_amd64.deb
+curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v${PACHCTL_VERSION}/pachctl_${PACHCTL_VERSION}_amd64.deb
 sudo dpkg -i /tmp/pachctl.deb

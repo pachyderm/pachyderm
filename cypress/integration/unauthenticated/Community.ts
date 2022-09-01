@@ -19,11 +19,11 @@ describe('Community Edition', () => {
       cy.findByText('Pipelines: 0/16').should('exist');
 
       cy
-      .exec("jq -r .pachyderm version.json")
+      .exec("jq -r .pachReleaseCommit version.json")
       .then((res) => {
         cy.exec("pachctl create repo images")
           .exec(
-            `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v${res.stdout}/examples/opencv/edges.json`
+            `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.json`
           )})
 
       cy.findByText('Pipelines: 1/16', {timeout: 12000}).should('exist');
@@ -33,9 +33,9 @@ describe('Community Edition', () => {
       cy.findByText('Community Edition').should('exist');
       cy.findByText('Upgrade to Enterprise').parent().parent().should('have.attr', 'href', 'https://www.pachyderm.com/trial-console/?utm_source=console')
 
-      cy.exec("jq -r .pachyderm version.json").then((res) => {
-        cy.exec("echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate");
-      });
+  
+      cy.exec("echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate");
+      
       cy.reload();
       cy.findByText('Project Preview', {timeout: 12000}).should('exist');
       cy.findByText('Community Edition').should('not.exist');
