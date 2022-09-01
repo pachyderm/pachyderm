@@ -58,11 +58,20 @@ spec:
           value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
         - name: POSTGRES_USER
           value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+        {{- if .Values.global.postgresql.ssl }}
+        - name: POSTGRES_SSL
+          value: "require"
+        {{- end }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "Using-iamLogin"
+        {{- else }}
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
         {{- if and .Values.enterpriseServer.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
           value:  /pachd-tls-cert
