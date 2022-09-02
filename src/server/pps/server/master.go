@@ -62,7 +62,7 @@ func fromKey(k pipelineKey) (*pps.Pipeline, error) {
 }
 
 type pipelineEvent struct {
-	pipeline  string
+	pipeline  *pps.Pipeline
 	timestamp time.Time
 }
 
@@ -188,13 +188,14 @@ eventLoop:
 			func(e *pipelineEvent) {
 				m.pcMgr.Lock()
 				defer m.pcMgr.Unlock()
-				if pc, ok := m.pcMgr.pcs[e.pipeline]; ok {
+				key := toKey(e.pipeline)
+				if pc, ok := m.pcMgr.pcs[key]; ok {
 					pc.Bump(e.timestamp) // raises flag in pipelineController to run again whenever it finishes
 				} else {
 					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
 					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
-					m.pcMgr.pcs[e.pipeline] = pc
+					m.pcMgr.pcs[key] = pc
 					go pc.Start(e.timestamp)
 				}
 			}(e)

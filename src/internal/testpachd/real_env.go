@@ -13,10 +13,12 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -105,10 +107,20 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 	realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
 	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-		Use(func(txnctx *txncontext.TransactionContext, name string) (*pps.PipelineInfo, error) {
+		Use(func(txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
+			repo := &pfs.Repo{
+				Project: pipeline.Project,
+				Name:    pipeline.Name,
+				Type:    pfs.SpecRepoType,
+			}
+			curr := repo.NewCommit("master", "")
+			k, err := ppsdb.CommitKey(curr)
+			if err != nil {
+				return nil, err
+			}
 			return nil, col.ErrNotFound{
 				Type: "pipelines",
-				Key:  name,
+				Key:  k,
 			}
 		})
 

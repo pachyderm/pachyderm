@@ -48,12 +48,31 @@ var pipelinesIndexes = []*col.Index{
 	PipelinesNameIndex,
 }
 
-func ParsePipelineKey(key string) (string, string, error) {
+// ParsePipelineKey expects keys to either be of the form <pipeline>@<id> or
+// <project>/<pipeline>@<id>.
+func ParsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
 	parts := strings.Split(key, "@")
 	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
-		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>")
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
 	}
-	return parts[0], parts[1], nil
+	id = parts[1]
+	parts = strings.Split(parts[0], "/")
+	if len(parts) == 0 {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
+	}
+	pipelineName = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return
+	}
+	projectName = strings.Join(parts[0:len(parts)-1], "/")
+	return
+}
+
+func CommitKey(commit *pfs.Commit) (string, error) {
+	if commit.Branch.Repo.Type != pfs.SpecRepoType {
+		return "", errors.Errorf("commit %s is not from a spec repo", commit)
+	}
+	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines
@@ -74,7 +93,7 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 			return "", errors.New("must provide a spec commit")
 		}),
 		col.WithKeyCheck(func(key string) error {
-			_, _, err := ParsePipelineKey(key)
+			_, _, _, err := ParsePipelineKey(key)
 			return err
 		}),
 	)

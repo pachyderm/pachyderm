@@ -30,7 +30,10 @@ import (
 const (
 	appLabel                     = "app"
 	pipelineNameLabel            = "pipelineName"
+	pipelineProjectLabel         = "pipelineProject"
 	pipelineVersionLabel         = "pipelineVersion"
+	pipelineNameAnnotation       = "pipelineName"
+	pipelineProjectAnnotation    = "pipelineProject"
 	pachVersionAnnotation        = "pachVersion"
 	pipelineVersionAnnotation    = "pipelineVersion"
 	pipelineSpecCommitAnnotation = "specCommit"
@@ -452,7 +455,7 @@ func (kd *kubeDriver) workerPodSpec(options *workerOptions, pipelineInfo *pps.Pi
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken: pointer.BoolPtr(true),
+		AutomountServiceAccountToken:  pointer.BoolPtr(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,

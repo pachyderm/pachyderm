@@ -40,12 +40,12 @@ func max(is ...int) int {
 
 type pcManager struct {
 	sync.Mutex
-	pcs map[string]*pipelineController
+	pcs map[pipelineKey]*pipelineController
 }
 
 func newPcManager() *pcManager {
 	return &pcManager{
-		pcs: make(map[string]*pipelineController),
+		pcs: make(map[pipelineKey]*pipelineController),
 	}
 }
 
@@ -170,7 +170,7 @@ type pipelineController struct {
 	// master's context, and cancelled at the end of Start())
 	ctx                   context.Context
 	cancel                context.CancelFunc
-	pipeline              string
+	pipeline              *pps.Pipeline
 	env                   Env
 	etcdPrefix            string
 	monitorCancel         func()
@@ -190,7 +190,7 @@ var (
 	errStaleRC      = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
-func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.CancelFunc, pipeline string) *pipelineController {
+func (m *ppsMaster) newPipelineController(ctx context.Context, cancel context.CancelFunc, pipeline *pps.Pipeline) *pipelineController {
 	pc := &pipelineController{
 		ctx:    ctx,
 		cancel: cancel,
@@ -257,7 +257,7 @@ func (pc *pipelineController) tryFinish() {
 		pc.Bump(ts)
 	default:
 		pc.cancel()
-		delete(pc.pcMgr.pcs, pc.pipeline)
+		delete(pc.pcMgr.pcs, toKey(pc.pipeline))
 	}
 }
 

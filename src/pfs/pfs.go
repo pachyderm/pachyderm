@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 )
@@ -79,4 +80,10 @@ func (b *Branch) NewCommit(id string) *Commit {
 
 func (b *Branch) String() string {
 	return b.Repo.String() + "@" + b.Name
+}
+
+// ValidateProjectName returns an error if the project name is invalid.  Valid
+// names are composed of alphanumeric ASCII characters and underscores.
+func ValidateProjectName(s string) error {
+	return ancestry.ValidateName(s)
 }

@@ -85,8 +85,8 @@ func startMonitorThread(ctx context.Context, name string, f func(ctx context.Con
 }
 
 func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	pipeline := pipelineInfo.Pipeline.Name
-	log.Printf("PPS master: monitoring pipeline %q", pipeline)
+	pipelineName := pipelineInfo.Pipeline.Name
+	log.Printf("PPS master: monitoring pipeline %q", pipelineName)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
 		if in.Cron != nil {
@@ -107,12 +107,12 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+				return pachClient.SubscribeCommit(client.NewRepo(pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 					ciChan <- ci
 					return nil
 				})
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipeline))
+				backoff.NotifyCtx(ctx, "SubscribeCommit for "+pipelineName))
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
@@ -127,7 +127,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 				}()
 				// start span to capture & contextualize etcd state transition
 				childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-					pc.env.EtcdClient, pipeline,
+					pc.env.EtcdClient, pipelineInfo.Pipeline,
 					"/pps.Master/MonitorPipeline/Begin")
 				if err := pc.psDriver.TransitionState(ctx,
 					pipelineInfo.SpecCommit,
@@ -168,7 +168,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							continue
 						}
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-							pc.env.EtcdClient, pipeline,
+							pc.env.EtcdClient, pipelineInfo.Pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
 							"commit", ci.Commit.ID)
 
@@ -211,7 +211,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 									return nil // subscribeCommit exited, nothing left to do
 								}
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
-									pc.env.EtcdClient, pipeline,
+									pc.env.EtcdClient, pipelineInfo.Pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
 									"commit", ci.Commit.ID)
 							default:
@@ -241,7 +241,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
-				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipeline))
+				backoff.NotifyCtx(ctx, "monitorPipeline for "+pipelineName))
 		})
 	}
 	if err := eg.Wait(); err != nil {

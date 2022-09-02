@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 )
@@ -173,4 +174,20 @@ func IsTerminal(state JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
+}
+
+// ValidatePipelineName returns an error if its argument is not a valid pipeline
+// name.  Names must consist of alphanumeric ASCII characters, underscores and
+// dashes; they may not be more than 63 characters in length.
+func ValidatePipelineName(s string) error {
+	if len(s) == 0 {
+		return errors.New("must not be empty")
+	}
+	if len(s) > 63 {
+		return errors.New("must not exceed 63 characters")
+	}
+	if err := ancestry.ValidateName(s); err != nil {
+		return err
+	}
+	return nil
 }

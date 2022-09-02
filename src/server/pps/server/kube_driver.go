@@ -61,7 +61,7 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 
 // Deletes a pipeline's services, secrets, and replication controllers.
 // NOTE: It doesn't return a stepError, leaving retry behavior to the caller
-func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline string) (retErr error) {
+func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps.Pipeline) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipeline)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/DeletePipelineResources", "pipeline", pipeline)
