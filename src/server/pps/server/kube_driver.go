@@ -59,6 +59,14 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 	return nil
 }
 
+func pipelineSelector(p *pps.Pipeline) (selector string) {
+	selector = fmt.Sprintf("%s=%s", pipelineNameLabel, p.Name)
+	if projectName := p.Project.GetName(); projectName != "" {
+		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	}
+	return selector
+}
+
 // Deletes a pipeline's services, secrets, and replication controllers.
 // NOTE: It doesn't return a stepError, leaving retry behavior to the caller
 func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps.Pipeline) (retErr error) {
@@ -72,13 +80,10 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// Delete any services associated with pc.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipeline.Name)
-	if projectName := pipeline.Project.GetName(); projectName != "" {
-		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
-	}
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
+	selector := pipelineSelector(pipeline)
 	services, err := kd.kubeClient.CoreV1().Services(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list services")
@@ -122,9 +127,7 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
-	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(
-		ctx,
-		metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", pipelineNameLabel, pi.Pipeline.Name)})
+	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: pipelineSelector(pi.Pipeline)})
 	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline.Name)
 }
 
@@ -132,7 +135,7 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 // It includes all of the logic for writing an updated RC spec to kubernetes,
 // and updating/retrying if k8s rejects the write. It presents a strange API,
 // since the the RC being updated is already available to the caller, but update()
-// may be called muliple times if the k8s write fails. It may be helpful to think
+// may be called multiple times if the k8s write fails. It may be helpful to think
 // of the 'old' rc passed to update() as mutable.
 func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.ReplicationController, update func(rc *v1.ReplicationController) bool) error {
 	// Apply op's update to rc
