@@ -50,28 +50,6 @@ const askQuestion = (question) => {
 };
 // ------------------------------
 
-const checkPachVersion = async () => {
-  console.log('Checking pachd version...');
-  try {
-    const output = await executePachCommand('version');
-    const pachdVersion = output
-      .split('\n')
-      .find(line => line.includes('pachd'))
-      .replace('pachd', '')
-      .trim();
-
-    if (pachdVersion.startsWith('2')) {
-      console.log(`${pachdVersion} ✅`);
-    } else {
-      console.error('You must be using a 2.0 cluster!');
-      exit(1);
-    }
-  } catch (e) {
-    console.error('Problem checking pachd version:', e);
-    exit(1);
-  }
-}
-
 const writePachdAddress = async () => {
   console.log('Writing pachd address to .env.development.local...');
   try {
@@ -283,7 +261,6 @@ const configurePachClient = async () => {
 }
 
 const setup = async () => {
-  await checkPachVersion();
   await writePachdAddress();
   await activateAuth();
   await setupClusterAdmin();
