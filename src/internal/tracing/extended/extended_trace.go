@@ -2,11 +2,15 @@ package extended
 
 import (
 	"context"
+	fmt "fmt"
 	"os"
+	"strings"
 	"time"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -45,8 +49,30 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 		tracesCollectionPrefix,
 		nil, // no indexes
 		&TraceProto{},
-		nil, // no key check (keys are pipeline names)
-		nil) // no val check
+		checkTracesColKey, // no key check (keys are pipeline names)
+		nil)               // no val check
+}
+
+// checkTracesColKey returns an error if a key is not a proper traces key.
+// Pre-projects traces are keyed by their pipeline name; post-projects traces
+// are keyed by $projectName/$pipelineName.
+func checkTracesColKey(k string) error {
+	var parts = strings.Split(k, "/")
+	if len(parts) == 0 {
+		return errors.New("invalid traces key: must not be empty")
+	}
+	// the last item is the pipeline name; preceding items are the project
+	// name or path
+	if err := pps.ValidatePipelineName(parts[len(parts)-1]); err != nil {
+		return errors.Wrap(err, "invalid pipeline name")
+	}
+	if len(parts) == 1 {
+		return nil
+	}
+	if err := pfs.ValidateProjectName(strings.Join(parts[0:len(parts)-1], "/")); err != nil {
+		return errors.Wrap(err, "invalid project name")
+	}
+	return nil
 }
 
 // PersistAny copies any extended traces from the incoming RPC context in 'ctx'
@@ -110,18 +136,26 @@ func (t *TraceProto) isValid() bool {
 	return len(t.SerializedTrace) > 0
 }
 
+func toColKey(p *pps.Pipeline) string {
+	projectName := p.GetProject().GetName()
+	if projectName == "" {
+		return p.GetName()
+	}
+	return fmt.Sprintf("%s/%s", projectName, p.GetName)
+}
+
 // AddSpanToAnyPipelineTrace finds any extended traces associated with
 // 'pipeline', and if any such trace exists, it creates a new span associated
 // with that trace and returns it
 func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
-	pipeline, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
+	pipeline *pps.Pipeline, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
 	if !tracing.IsActive() {
 		return nil, ctx // no Jaeger instance to send trace info to
 	}
 
 	traceProto := &TraceProto{}
 	tracesCol := TracesCol(c).ReadOnly(ctx)
-	if err := tracesCol.Get(pipeline, traceProto); err != nil {
+	if err := tracesCol.Get(toColKey(pipeline), traceProto); err != nil {
 		if !col.IsErrNotFound(err) {
 			log.Errorf("error getting trace for pipeline %q: %v", pipeline, err)
 		}
@@ -142,7 +176,8 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	// return new span
 	span, ctx := opentracing.StartSpanFromContext(ctx,
 		operation, opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{Key: "pipeline", Value: pipeline})
+		opentracing.Tag{Key: "pipeline", Value: pipeline.GetName()},
+		opentracing.Tag{Key: "project", Value: pipeline.GetProject().GetName()})
 	tracing.TagAnySpan(span, kvs...)
 	return span, ctx
 }
