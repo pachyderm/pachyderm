@@ -9,6 +9,7 @@ import (
 func TestProjectNameValidation(t *testing.T) {
 	var cases = map[string]bool{
 		"prOject_0":          true,
+		"":                   true, // an empty project is okay
 		"project 1":          false,
 		"projectsß":          false,
 		"project/subproject": false, // this may change in the future

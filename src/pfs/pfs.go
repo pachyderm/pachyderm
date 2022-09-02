@@ -85,5 +85,8 @@ func (b *Branch) String() string {
 // ValidateProjectName returns an error if the project name is invalid.  Valid
 // names are composed of alphanumeric ASCII characters and underscores.
 func ValidateProjectName(s string) error {
+	if len(s) == 0 {
+		return nil
+	}
 	return ancestry.ValidateName(s)
 }
