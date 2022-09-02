@@ -96,6 +96,8 @@ jobs:
       image: ubuntu-2004:202111-01
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - install-test-deps
       - run:
           name: 'e2e tests'
@@ -104,17 +106,18 @@ jobs:
 
             python3 -m venv venv
             . venv/bin/activate
-            python -m pip install -r ci-requirements.txt
-            python -m pip install .
+            python -m pip install --upgrade pip
+
+            pip install jupyterlab==3.2.2
+            pip install `find dist/ -name \*.whl`
+
+            # Install just what need to run cypress tests
+            npm install cypress@^8.7.0
+            npm install start-server-and-test@^1.14.0
 
             # Enable the examples extension
             mkdir -p /home/circleci/.jupyter/labconfig
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
-
-            # jupyter labextension develop . --overwrite
-            jupyter server extension list
-            npm ci
-            npm run build
 
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
             
@@ -381,6 +384,8 @@ workflows:
             tags:
               only: /.*/
       - e2e-test:
+          requires:
+            - build
           filters:
             tags:
               only: /.*/
