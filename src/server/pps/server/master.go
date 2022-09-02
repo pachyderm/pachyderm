@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,6 +43,23 @@ var (
 	zero     int32 // used to turn down RCs in scaleDownWorkersForPipeline
 	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
+
+type pipelineKey string
+
+func toKey(p *pps.Pipeline) pipelineKey {
+	return pipelineKey(fmt.Sprintf("%s/%s", p.GetProject().GetName(), p.GetName()))
+}
+
+func fromKey(k pipelineKey) (*pps.Pipeline, error) {
+	parts := strings.Split(string(k), "/")
+	if len(parts) != 2 {
+		return nil, errors.Errorf("invalid pipeline key %s", k)
+	}
+	return &pps.Pipeline{
+		Project: &pfs.Project{Name: parts[0]},
+		Name:    parts[1],
+	}, nil
+}
 
 type pipelineEvent struct {
 	pipeline  string
