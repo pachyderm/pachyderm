@@ -72,8 +72,8 @@ Use the [S3_ENDPOINT](../../../deploy/environment-variables/#pipeline-worker-env
 
 ### If Authentication is Enabled
 
-If [auth is enabled](../../../enterprise/auth/) on the Pachyderm cluster, credentials must be passed with
-each S3 gateway endpoint (see the [**Configure Your S3 Client**](./configure-s3client/#set-your-credentials) page).
+If auth is enabled on the Pachyderm cluster, credentials must be passed with
+each S3 gateway endpoint.
 
 !!! Warning "Important"
     The `Access Key` must equal the `Secret Key`. 
