@@ -569,6 +569,7 @@ func hashAuthToken(token string) string {
 }
 
 func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+	projectName := pipelineInfo.Pipeline.Project.GetName()
 	pipelineName := pipelineInfo.Pipeline.Name
 	pipelineVersion := pipelineInfo.Version
 	var resourceRequests *v1.ResourceList
@@ -599,6 +600,9 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	transform := pipelineInfo.Details.Transform
 	labels := pipelineLabels(pipelineName, pipelineVersion)
 	labels[pipelineNameLabel] = pipelineName
+	if projectName != "" {
+		labels[pipelineProjectLabel] = projectName
+	}
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -683,11 +687,14 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	}
 
 	annotations := map[string]string{
-		pipelineNameLabel:            pipelineName,
+		pipelineNameAnnotation:       pipelineName,
 		pachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pipelineInfo.Version, 10),
 		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.ID,
 		hashedAuthTokenAnnotation:    hashAuthToken(pipelineInfo.AuthToken),
+	}
+	if projectName != "" {
+		annotations[pipelineProjectAnnotation] = projectName
 	}
 
 	// add the user's custom metadata (annotations and labels).

@@ -72,7 +72,10 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// Delete any services associated with pc.pipeline
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipeline)
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipeline.Name)
+	if projectName := pipeline.Project.GetName(); projectName != "" {
+		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	}
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
