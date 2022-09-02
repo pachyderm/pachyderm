@@ -141,7 +141,7 @@ func toColKey(p *pps.Pipeline) string {
 	if projectName == "" {
 		return p.GetName()
 	}
-	return fmt.Sprintf("%s/%s", projectName, p.GetName)
+	return fmt.Sprintf("%s/%s", projectName, p.GetName())
 }
 
 // AddSpanToAnyPipelineTrace finds any extended traces associated with
