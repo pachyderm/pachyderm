@@ -38,7 +38,10 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		ctx  = context.Background()
 		name = testutil.GenerateEphemeralDBName(t)
 	)
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
@@ -72,7 +75,10 @@ func NewEphemeralPostgresDB(t testing.TB) (*pachsql.DB, string) {
 		ctx  = context.Background()
 		name = testutil.GenerateEphemeralDBName(t)
 	)
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
@@ -90,7 +96,10 @@ func NewEphemeralPostgresDB(t testing.TB) (*pachsql.DB, string) {
 
 func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
@@ -101,7 +110,10 @@ func NewTestDBOptions(t testing.TB) []dbutil.Option {
 
 func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(postgresHost(), postgresPort),
