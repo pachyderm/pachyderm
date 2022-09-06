@@ -49,8 +49,8 @@ func TracesCol(c *etcd.Client) col.EtcdCollection {
 		tracesCollectionPrefix,
 		nil, // no indexes
 		&TraceProto{},
-		checkTracesColKey, // no key check (keys are pipeline names)
-		nil)               // no val check
+		checkTracesColKey,
+		nil) // no val check
 }
 
 // checkTracesColKey returns an error if a key is not a proper traces key.
@@ -176,8 +176,8 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	// return new span
 	span, ctx := opentracing.StartSpanFromContext(ctx,
 		operation, opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{Key: "pipeline", Value: pipeline.GetName()},
-		opentracing.Tag{Key: "project", Value: pipeline.GetProject().GetName()})
+		opentracing.Tag{Key: "project", Value: pipeline.GetProject().GetName()},
+		opentracing.Tag{Key: "pipeline", Value: pipeline.GetName()})
 	tracing.TagAnySpan(span, kvs...)
 	return span, ctx
 }
