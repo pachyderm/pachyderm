@@ -1,0 +1,15 @@
+{
+  "user_id": "b0a53554e4944a2a9ac5ca7eecc86bac",
+  "v2": {
+    "active_context": "local",
+    "contexts": {
+      "default": {
+        "cluster_deployment_id": "P0wZAyJN8fHXd0J95dtnpj2nmbx7QbD5"
+      },
+      "local": {
+        "pachd_address": "grpc://172.18.0.2:30650"
+      }
+    },
+    "metrics": true
+  }
+}
