@@ -26,9 +26,10 @@ func shard(ctx context.Context, fs FileSet, countThreshold, sizeThreshold int64,
 	pathRange := &index.PathRange{
 		Lower: basePathRange.Lower,
 	}
+	var prev string
 	var count, size int64
 	if err := fs.Iterate(ctx, func(f File) error {
-		if count >= countThreshold || size >= sizeThreshold {
+		if prev != f.Index().Path && (count >= countThreshold || size >= sizeThreshold) {
 			pathRange.Upper = f.Index().Path
 			shards = append(shards, pathRange)
 			pathRange = &index.PathRange{
@@ -37,6 +38,7 @@ func shard(ctx context.Context, fs FileSet, countThreshold, sizeThreshold int64,
 			count = 0
 			size = 0
 		}
+		prev = f.Index().Path
 		count++
 		size += index.SizeBytes(f.Index())
 		return nil
