@@ -17,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// TODO: Move fan-in configuration to fileset.Storage.
 type compactor struct {
 	storage  *fileset.Storage
 	maxFanIn int
@@ -30,85 +31,63 @@ func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
 }
 
 func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-	return c.storage.CompactLevelBased(ctx, ids, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+	return c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		return c.compact(ctx, taskDoer, ids, ttl)
 	})
 }
 
 func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-	ids, err := c.storage.Flatten(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
 	var tasks []*CompactTask
-	var taskLens []int
 	if err := miscutil.LogStep(ctx, fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
 		var err error
-		tasks, taskLens, err = c.createCompactTasks(ctx, taskDoer, ids)
+		tasks, err = c.createCompactTasks(ctx, taskDoer, ids)
 		return err
 	}); err != nil {
 		return nil, err
 	}
 	var id *fileset.ID
 	if err := c.storage.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *fileset.Renewer) error {
-		var compactResults []fileset.ID
+		var results []fileset.ID
 		if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
 			var err error
-			compactResults, err = c.processCompactTasks(ctx, taskDoer, renewer, tasks)
+			results, err = c.processCompactTasks(ctx, taskDoer, renewer, tasks)
 			return err
 		}); err != nil {
 			return err
 		}
-		var concatResults []fileset.ID
-		if err := miscutil.LogStep(ctx, fmt.Sprintf("concatenating %v file sets", len(compactResults)), func() error {
+		return miscutil.LogStep(ctx, fmt.Sprintf("concatenating %v file sets", len(results)), func() error {
 			var err error
-			concatResults, err = c.concat(ctx, taskDoer, renewer, compactResults, taskLens)
+			id, err = c.concat(ctx, taskDoer, renewer, results)
 			return err
-		}); err != nil {
-			return err
-		}
-		if len(concatResults) == 1 {
-			id = &concatResults[0]
-			return nil
-		}
-		id, err = c.compact(ctx, taskDoer, concatResults, ttl)
-		return err
+		})
 	}); err != nil {
 		return nil, err
 	}
 	return id, nil
 }
 
-// TODO: The task length stuff could probably be simplified.
-func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, []int, error) {
+func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, error) {
 	fs, err := c.storage.Open(ctx, ids)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	shards, err := fs.Shards(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	var inputs []*types.Any
-	for start := 0; start < len(ids); start += int(c.maxFanIn) {
-		end := start + int(c.maxFanIn)
-		if end > len(ids) {
-			end = len(ids)
+	for _, shard := range shards {
+		input, err := serializeShardTask(&ShardTask{
+			Inputs: fileset.IDsToHexStrings(ids),
+			PathRange: &PathRange{
+				Lower: shard.Lower,
+				Upper: shard.Upper,
+			},
+		})
+		if err != nil {
+			return nil, err
 		}
-		ids := ids[start:end]
-		for _, shard := range shards {
-			input, err := serializeShardTask(&ShardTask{
-				Inputs: fileset.IDsToHexStrings(ids),
-				PathRange: &PathRange{
-					Lower: shard.Lower,
-					Upper: shard.Upper,
-				},
-			})
-			if err != nil {
-				return nil, nil, err
-			}
-			inputs = append(inputs, input)
-		}
+		inputs = append(inputs, input)
 	}
 	results := make([][]*CompactTask, len(inputs))
 	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
@@ -122,18 +101,13 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 		results[i] = result.CompactTasks
 		return nil
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	var tasks []*CompactTask
-	var taskLens []int
-	for i := 0; i < len(results); i += len(shards) {
-		taskLen := len(tasks)
-		for j := range shards {
-			tasks = append(tasks, results[i+j]...)
-		}
-		taskLens = append(taskLens, len(tasks)-taskLen)
+	var compactTasks []*CompactTask
+	for _, result := range results {
+		compactTasks = append(compactTasks, result...)
 	}
-	return tasks, taskLens, nil
+	return compactTasks, nil
 }
 
 func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, tasks []*CompactTask) ([]fileset.ID, error) {
@@ -170,44 +144,33 @@ func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer,
 	return results, nil
 }
 
-func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, ids []fileset.ID, taskLens []int) ([]fileset.ID, error) {
-	var inputs []*types.Any
-	for _, taskLen := range taskLens {
-		var serInputs []string
-		for _, id := range ids[:taskLen] {
-			serInputs = append(serInputs, id.HexString())
-		}
-		ids = ids[taskLen:]
-		input, err := serializeConcatTask(&ConcatTask{
-			Inputs: serInputs,
-		})
-		if err != nil {
-			return nil, err
-		}
-		inputs = append(inputs, input)
+func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, ids []fileset.ID) (*fileset.ID, error) {
+	var serInputs []string
+	for _, id := range ids {
+		serInputs = append(serInputs, id.HexString())
 	}
-	results := make([]fileset.ID, len(inputs))
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
-		if err != nil {
-			return err
-		}
-		result, err := deserializeConcatTaskResult(output)
-		if err != nil {
-			return err
-		}
-		id, err := fileset.ParseID(result.Id)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, *id); err != nil {
-			return err
-		}
-		results[i] = *id
-		return nil
-	}); err != nil {
+	input, err := serializeConcatTask(&ConcatTask{
+		Inputs: serInputs,
+	})
+	if err != nil {
 		return nil, err
 	}
-	return results, nil
+	output, err := task.DoOne(ctx, taskDoer, input)
+	if err != nil {
+		return nil, err
+	}
+	result, err := deserializeConcatTaskResult(output)
+	if err != nil {
+		return nil, err
+	}
+	id, err := fileset.ParseID(result.Id)
+	if err != nil {
+		return nil, err
+	}
+	if err := renewer.Add(ctx, *id); err != nil {
+		return nil, err
+	}
+	return id, nil
 }
 
 func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (string, int64, error) {

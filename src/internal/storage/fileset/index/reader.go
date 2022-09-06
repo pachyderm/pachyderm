@@ -154,9 +154,8 @@ func atEnd(name string, filter *pathFilter) bool {
 }
 
 const (
-	// TODO: Change this to lower and upper bound to prevent traversal to the lowest level.
 	defaultCountThreshold = 1000000
-	defaultSizeThreshold  = 10 * units.GB
+	defaultSizeThreshold  = units.GB
 )
 
 func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
