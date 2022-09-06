@@ -80,7 +80,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 // that span multiple chunks.
 func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, cb func(*Index) (bool, error)) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	buf.Write(prependBytes) //nolint:errcheck
+	buf.Write(prependBytes)
 	if err := r.getChunk(ctx, idx, buf); err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				return leftoverBytes, nil
 			}
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		nextLevel, err := cb(idx)
 		if err != nil {

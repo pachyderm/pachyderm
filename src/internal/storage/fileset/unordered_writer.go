@@ -165,7 +165,6 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 		return fs.Iterate(uw.ctx, func(f File) error {
 			return uw.Delete(ctx, f.Index().Path, datum)
 		}, index.WithPrefix(p))
-		return errors.EnsureStack(err)
 	}
 	uw.buffer.Delete(p, datum)
 	if int64(uw.buffer.Count()) >= uw.fileThreshold {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"golang.org/x/sync/errgroup"
@@ -105,7 +106,7 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
 	var id *ID
 	if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
-		id, err = compact(ctx, ids[i:], ttl)
+		id, err = s.compactLevels(ctx, ids[i:], maxFanIn, ttl, compact)
 		return err
 	}); err != nil {
 		return nil, err
@@ -121,15 +122,14 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 // The file sets being compacted must be contiguous because the file operation order matters.
 // This algorithm ensures that we compact file sets with lower scores together first before compacting higher score file sets.
 func (s *Storage) compactLevels(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
-	for step := 0; len(ids) <= maxFanIn; step++ {
+	for step := 0; len(ids) > maxFanIn; step++ {
 		stepScore := s.stepScore(step)
 		var emptyStep bool
 		for !emptyStep {
 			emptyStep = true
 			nextIds := make([]ID, 0, len(ids))
 			var compactIds []ID
-			var eg *errgroup.Group
-			eg, ctx = errgroup.WithContext(ctx)
+			eg, ctx := errgroup.WithContext(ctx)
 			for _, id := range ids {
 				prim, err := s.getPrimitive(ctx, id)
 				if err != nil {
@@ -159,7 +159,7 @@ func (s *Storage) compactLevels(ctx context.Context, ids []ID, maxFanIn int, ttl
 			}
 			nextIds = append(nextIds, compactIds...)
 			if err := eg.Wait(); err != nil {
-				return nil, err
+				return nil, errors.EnsureStack(err)
 			}
 			ids = nextIds
 		}
