@@ -72,6 +72,10 @@ func CommitKey(commit *pfs.Commit) (string, error) {
 	if commit.Branch.Repo.Type != pfs.SpecRepoType {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
+	// FIXME: include project
+	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
+	}
 	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
 }
 
@@ -85,10 +89,7 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 		pipelinesIndexes,
 		col.WithKeyGen(func(key interface{}) (string, error) {
 			if commit, ok := key.(*pfs.Commit); ok {
-				if commit.Branch.Repo.Type != pfs.SpecRepoType {
-					return "", errors.Errorf("commit %s is not from a spec repo", commit)
-				}
-				return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+				return CommitKey(commit)
 			}
 			return "", errors.New("must provide a spec commit")
 		}),
