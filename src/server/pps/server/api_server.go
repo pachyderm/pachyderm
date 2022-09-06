@@ -2307,6 +2307,8 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		return nil, errors.New("cannot inspect future pipelines")
 	}
 
+	// The pipeline name was passed in ancestry syntax; convert it into a bare name.
+	pipeline.Name = name
 	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q", name)
