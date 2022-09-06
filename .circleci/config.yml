@@ -126,11 +126,8 @@ jobs:
             pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
             pachctl list repo
 
-            tail -F /tmp/pachctl-mount-server.log &
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
-            mount-server --mount-dir $PFS_MOUNT_DIR &
-            curl -XPUT -d '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' http://localhost:9002/config
             CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
   frontend-test:

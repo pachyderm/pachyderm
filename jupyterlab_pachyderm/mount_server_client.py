@@ -9,7 +9,7 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import JUPYTERLAB_CI_TESTS, SIDECAR_MODE
+from .env import SIDECAR_MODE
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -25,12 +25,6 @@ class MountServerClient(MountInterface):
         self.client = AsyncHTTPClient()
         self.mount_dir = mount_dir
         self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
-        if not JUPYTERLAB_CI_TESTS:
-            subprocess.run(
-                ["bash", "-c", "pkill -f mount-server"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
 
 
     async def _is_mount_server_running(self):
@@ -82,10 +76,7 @@ class MountServerClient(MountInterface):
                         "set -o pipefail; "
                         +f"mount-server --mount-dir {self.mount_dir}"
                         +" >> /tmp/pachctl-mount-server.log 2>&1",
-                    ],
-                    env={
-                        "KUBECONFIG": os.path.expanduser('~/.kube/config')
-                    }
+                    ]
                 )
                 
                 tries = 0
