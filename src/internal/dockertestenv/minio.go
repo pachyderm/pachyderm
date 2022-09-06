@@ -7,10 +7,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	docker "github.com/docker/docker/client"
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
@@ -22,7 +24,9 @@ const (
 func NewTestObjClient(t testing.TB) obj.Client {
 	dclient := newDockerClient()
 	defer dclient.Close()
-	err := ensureMinio(context.Background(), dclient)
+	err := backoff.Retry(func() error {
+		return ensureMinio(context.Background(), dclient)
+	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err)
 	endpoint := getMinioEndpoint()
 	id := "minioadmin"
