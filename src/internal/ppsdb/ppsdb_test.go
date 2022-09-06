@@ -64,7 +64,7 @@ func TestCommitKey(t *testing.T) {
 		{false, "", "repo", "0123456789ab40123456789abcdef012", "repo@0123456789ab40123456789abcdef012"},
 	}
 	for i, c := range cases {
-		if got, err := ppsdb.CommitKey(&pfs.Commit{
+		if got, err := ppsdb.PipelineCommitKey(&pfs.Commit{
 			Branch: &pfs.Branch{
 				Repo: &pfs.Repo{
 					Project: &pfs.Project{

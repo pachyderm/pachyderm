@@ -114,7 +114,7 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 				Type:    pfs.SpecRepoType,
 			}
 			curr := repo.NewCommit("master", "")
-			k, err := ppsdb.CommitKey(curr)
+			k, err := ppsdb.PipelineCommitKey(curr)
 			if err != nil {
 				return nil, err
 			}

@@ -68,7 +68,7 @@ func ParsePipelineKey(key string) (projectName, pipelineName, id string, err err
 	return
 }
 
-func CommitKey(commit *pfs.Commit) (string, error) {
+func PipelineCommitKey(commit *pfs.Commit) (string, error) {
 	if commit.Branch.Repo.Type != pfs.SpecRepoType {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
@@ -89,7 +89,7 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 		pipelinesIndexes,
 		col.WithKeyGen(func(key interface{}) (string, error) {
 			if commit, ok := key.(*pfs.Commit); ok {
-				return CommitKey(commit)
+				return PipelineCommitKey(commit)
 			}
 			return "", errors.New("must provide a spec commit")
 		}),
