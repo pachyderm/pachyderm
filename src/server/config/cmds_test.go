@@ -139,8 +139,14 @@ func TestUpdateContext(t *testing.T) {
 		pachctl config get context foo | match '"pachd_address": "grpc://foobar:9000"'
 		pachctl config update context foo --pachd-address=""
 		pachctl config get context foo | match -v pachd_address
-		pachctl config update context foo --project="current-project"
-		pachctl config get context foo | match '"project": "current-project"'
+	`))
+
+	require.YesError(t, run(t, `
+		pachctl config update context --project="current-project"
+	`))
+	require.NoError(t, run(t, `
+		pachctl create project current-project
+		pachctl config update context --project="current-project"
 	`))
 }
 
