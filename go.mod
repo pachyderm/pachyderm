@@ -76,7 +76,7 @@ require (
 	google.golang.org/api v0.87.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v0.23.1
@@ -175,7 +175,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/gruntwork-io/go-commons v0.8.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/huandu/xstrings v1.3.1 // indirect
 	github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd // indirect
 	github.com/imdario/mergo v0.3.12 // indirect

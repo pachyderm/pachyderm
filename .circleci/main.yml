@@ -518,6 +518,17 @@ jobs:
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
+  govulncheck:
+    executor: docker-go
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Install govulncheck
+          command: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run:
+          name: Check for known security vulnerabilities
+          command: govulncheck ./...
   push_redhat:
     executor: docker-go
     steps:
@@ -675,6 +686,7 @@ workflows:
       - check-prettier
       - jsonnet-lint
       - test-go
+      - govulncheck
       - test-envoy
       - integration-tests:
           matrix:
