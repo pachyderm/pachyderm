@@ -49,10 +49,10 @@ and an input repository name into the original pipeline specifications.
 
 See the full `edges.jsonnet` here:
 ```yaml
-{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', 'master') }}
+{{ gitsnippet('pachyderm/pachyderm', 'examples/opencv/jsonnet/edges.jsonnet', '2.3.x') }}
 ```
 
-Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/master/examples/opencv/jsonnet){target=_blank}.
+Or check our full ["jsonnet-ed" opencv example](https://github.com/pachyderm/pachyderm/tree/2.3.x/examples/opencv/jsonnet){target=_blank}.
 
 To create or update a pipeline using a jsonnet pipeline specification file:
 

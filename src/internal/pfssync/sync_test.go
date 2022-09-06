@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	//
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -117,7 +118,7 @@ func BenchmarkDownload(b *testing.B) {
 //	puller = pfssync.NewPuller()
 //	require.NoError(t, puller.Pull(env.PachClient, tmpDir2, repo1, "master", "/", true, false, 2, nil, ""))
 //
-//	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
+//	data, err := os.ReadFile(path.Join(tmpDir2, "dir/bar"))
 //	require.NoError(t, err)
 //	require.Equal(t, "bar\n", string(data))
 //

@@ -348,6 +348,34 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	return &types.Empty{}, nil
 }
 
+// CreateProject implements the protobuf pfs.CreateProject RPC
+func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (*types.Empty, error) {
+	if err := a.driver.createProject(ctx, request); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+// InspectProject implements the protobuf pfs.InspectProject RPC
+func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error) {
+	return a.driver.inspectProject(ctx, request.Project)
+}
+
+// ListProject implements the protobuf pfs.ListProject RPC
+func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) error {
+	return a.driver.listProject(srv.Context(), srv.Send)
+}
+
+// DeleteProject implements the protobuf pfs.DeleteProject RPC
+func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*types.Empty, error) {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.deleteProject(txnCtx, request.Project, request.Force)
+	}); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	commit, err := readCommit(server)
 	if err != nil {

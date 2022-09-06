@@ -11,7 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"math"
 	"net"
 	"net/http"
@@ -2496,7 +2496,7 @@ func TestPrettyPrinting(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0], false)))
 }
 
 func TestAuthPrettyPrinting(t *testing.T) {
@@ -2555,7 +2555,7 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil, -1, true)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0])))
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(os.Stdout, ppspretty.NewPrintableJobInfo(jobInfos[0], false)))
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -3851,6 +3851,13 @@ func TestPipelineThatSymlinks(t *testing.T) {
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
+// DAG:
+//
+// A
+// |
+// B  D
+// | /
+// C
 func TestChainedPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3911,7 +3918,7 @@ func TestChainedPipelines(t *testing.T) {
 
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(commitInfos))
+	require.Equal(t, 8, len(commitInfos))
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfo.Commit, "bFile", &buf))
@@ -4005,7 +4012,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, 9, len(commitInfos))
+	require.Equal(t, 11, len(commitInfos))
 
 	eCommit2, err := c.StartCommit(eRepo, "master")
 	require.NoError(t, err)
@@ -4014,12 +4021,82 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 
 	commitInfos, err = c.WaitCommitSetAll(eCommit2.ID)
 	require.NoError(t, err)
-	require.Equal(t, 10, len(commitInfos))
+	require.Equal(t, 11, len(commitInfos))
 
 	// Get number of jobs triggered in pipeline D
 	jobInfos, err := c.ListJob(dPipeline, nil, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
+}
+
+// TestMetaAlias tracks https://github.com/pachyderm/pachyderm/pull/8116
+// This test is so we don't regress a problem; where a pipeline in a DAG is started,
+// the pipeline should not get stuck due to a missing Meta Commit. with 8116 the meta
+// repo should get the alias commit.
+// DAG:
+//
+// A
+// |
+// B
+// |
+// C
+func TestStartInternalPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+	aCommit, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(aRepo, "master", ""))
+	bPipeline := tu.UniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(aRepo, "/"),
+		"",
+		false,
+	))
+	cPipeline := tu.UniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", bPipeline, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(bPipeline, "/"),
+		"",
+		false,
+	))
+	commitInfo, err := c.InspectCommit(cPipeline, "master", "")
+	require.NoError(t, err)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, 7, len(commitInfos))
+	// Stop and Start a pipeline was orginal trigger of bug so "reproduce" it here.
+	require.NoError(t, c.StopPipeline(bPipeline))
+	require.NoError(t, c.StartPipeline(bPipeline))
+	// C's commit should be the same as b's meta commit
+	cCommits, err := c.ListCommit(client.NewRepo(cPipeline), nil, nil, 0)
+	require.NoError(t, err)
+	listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
+		Repo: client.NewSystemRepo(bPipeline, pfs.MetaRepoType),
+		All:  true,
+	})
+	require.NoError(t, err)
+	allBmetaCommits, err := clientsdk.ListCommit(listClient)
+	require.NoError(t, err)
+	require.Equal(t, allBmetaCommits[0].Commit.ID, cCommits[0].Commit.ID)
 }
 
 func TestJobDeletion(t *testing.T) {
@@ -4537,6 +4614,9 @@ func TestDatumStatusRestart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+
+	// TODO: (CORE-1015) Fix flaky test
+	t.Skip("Skipping flaky test")
 
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
@@ -7043,7 +7123,7 @@ func TestService(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
 
 	annotations := map[string]string{"foo": "bar"}
@@ -7115,28 +7195,36 @@ func TestService(t *testing.T) {
 		require.NotEqual(t, "", address)
 		return address
 	}()
-
 	httpClient := &http.Client{
 		Timeout: 3 * time.Second,
 	}
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		content, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if string(content) != "foo" {
-			return errors.Errorf("wrong content for file1: expected foo, got %s", string(content))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	checkFile := func(expected string) {
+		require.NoError(t, backoff.Retry(func() error {
+			resp, err := httpClient.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
+			content, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			if string(content) != expected {
+				return errors.Errorf("wrong content for file1: expected %s, got %s", expected, string(content))
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	}
+	checkFile("foo")
 
+	// overwrite file, and check that we can access the new contents
+	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file1", strings.NewReader("bar")))
+	checkFile("bar")
 }
 
 func TestServiceEnvVars(t *testing.T) {
@@ -7230,7 +7318,7 @@ func TestServiceEnvVars(t *testing.T) {
 		if resp.StatusCode != 200 {
 			return errors.Errorf("GET returned %d", resp.StatusCode)
 		}
-		envValue, err = ioutil.ReadAll(resp.Body)
+		envValue, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

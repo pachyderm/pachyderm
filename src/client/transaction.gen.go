@@ -309,6 +309,10 @@ func (c *unsupportedPfsBuilderClient) CreateFileSet(_ context.Context, opts ...g
 	return nil, unsupportedError("CreateFileSet")
 }
 
+func (c *unsupportedPfsBuilderClient) CreateProject(_ context.Context, _ *pfs_v2.CreateProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("CreateProject")
+}
+
 func (c *unsupportedPfsBuilderClient) CreateRepo(_ context.Context, _ *pfs_v2.CreateRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("CreateRepo")
 }
@@ -319,6 +323,10 @@ func (c *unsupportedPfsBuilderClient) DeleteAll(_ context.Context, _ *types.Empt
 
 func (c *unsupportedPfsBuilderClient) DeleteBranch(_ context.Context, _ *pfs_v2.DeleteBranchRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DeleteBranch")
+}
+
+func (c *unsupportedPfsBuilderClient) DeleteProject(_ context.Context, _ *pfs_v2.DeleteProjectRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	return nil, unsupportedError("DeleteProject")
 }
 
 func (c *unsupportedPfsBuilderClient) DeleteRepo(_ context.Context, _ *pfs_v2.DeleteRepoRequest, opts ...grpc.CallOption) (*types.Empty, error) {
@@ -381,6 +389,10 @@ func (c *unsupportedPfsBuilderClient) InspectFile(_ context.Context, _ *pfs_v2.I
 	return nil, unsupportedError("InspectFile")
 }
 
+func (c *unsupportedPfsBuilderClient) InspectProject(_ context.Context, _ *pfs_v2.InspectProjectRequest, opts ...grpc.CallOption) (*pfs_v2.ProjectInfo, error) {
+	return nil, unsupportedError("InspectProject")
+}
+
 func (c *unsupportedPfsBuilderClient) InspectRepo(_ context.Context, _ *pfs_v2.InspectRepoRequest, opts ...grpc.CallOption) (*pfs_v2.RepoInfo, error) {
 	return nil, unsupportedError("InspectRepo")
 }
@@ -399,6 +411,10 @@ func (c *unsupportedPfsBuilderClient) ListCommitSet(_ context.Context, _ *pfs_v2
 
 func (c *unsupportedPfsBuilderClient) ListFile(_ context.Context, _ *pfs_v2.ListFileRequest, opts ...grpc.CallOption) (pfs_v2.API_ListFileClient, error) {
 	return nil, unsupportedError("ListFile")
+}
+
+func (c *unsupportedPfsBuilderClient) ListProject(_ context.Context, _ *pfs_v2.ListProjectRequest, opts ...grpc.CallOption) (pfs_v2.API_ListProjectClient, error) {
+	return nil, unsupportedError("ListProject")
 }
 
 func (c *unsupportedPfsBuilderClient) ListRepo(_ context.Context, _ *pfs_v2.ListRepoRequest, opts ...grpc.CallOption) (pfs_v2.API_ListRepoClient, error) {

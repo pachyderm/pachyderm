@@ -2,7 +2,6 @@ package obj
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -147,7 +146,7 @@ func secretFile(name string) string {
 }
 
 func readSecretFile(name string) (string, error) {
-	bytes, err := ioutil.ReadFile(secretFile(name))
+	bytes, err := os.ReadFile(secretFile(name))
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}

@@ -40,7 +40,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, opts ...index
 func (r *Reader) getPrimitive(ctx context.Context) (*Primitive, error) {
 	md, err := r.store.Get(ctx, r.id)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, err
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {

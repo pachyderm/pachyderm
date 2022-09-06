@@ -11,7 +11,7 @@ Refer to your provider's documentation.
 ## Overview
 
 Pachyderm state is stored in two main places
-(See our high-level [architecture diagram](../../../deploy-manage/#overview)):
+(See our high-level [architecture diagram](../../deploy-manage/index.md#overview)):
 
 - an **object-store** holding Pachyderm's data.
 - a PostgreSQL instance made up of **one or two databases**: `pachyderm` holding Pachyderm's metadata and `dex` holding authentication data. 
@@ -140,7 +140,7 @@ Depending on your scenario, pick all or a subset of the following steps:
 - Deploy Pachyderm into your new cluster
 
 !!! Info
-    Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, permissions setup, and Pachyderm deployment for each Cloud Provider in the [Deploy section of our Documentation](../../../deploy-manage/deploy/){target=_blank}
+    Find the detailed installations instructions of your PostgreSQL instance, bucket, Kubernetes cluster, permissions setup, and Pachyderm deployment for each Cloud Provider in the [Deploy section of our Documentation](../deploy/index.md){target=_blank}
 
 ### Restore The Databases And Objects
 
@@ -170,7 +170,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 ### Backup A Standalone Enterprise Server
 
 !!! Attention
-     Make sure that `pachctl` and `kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../../enterprise/auth/enterprise-server/setup/){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
+     Make sure that `pachctl` and `kubectl` are pointing to the right cluster. Check your [Enterprise Server](../../enterprise/auth/enterprise-server/setup.md){target=_blank} context: `pachctl config get active-enterprise-context`, or `pachctl config set active-enterprise-context <my-enterprise-context-name> --overwrite` to set it.
 
 - [Pause the Enterprise Server](#suspend-operations) like you would pause a regular cluster by running `pachctl enterprise pause` (Enterprise users), or using `kubectl`.
 
@@ -195,7 +195,7 @@ Backing up / restoring an Enterprise Server is similar to the back up / restore 
 
 - [Follow the steps above](#restore-pachyderm) while skipping all tasks related to creating and populating a new object-store.
 
-- Once your cluster is up and running, check that all [your clusters are automatically registered with your new Enterprise Server](../../../enterprise/auth/enterprise-server/manage/#list-all-registered-clusters){target=_blank}.
+- Once your cluster is up and running, check that all [your clusters are automatically registered with your new Enterprise Server](../../enterprise/auth/enterprise-server/manage.md#list-all-registered-clusters){target=_blank}.
 
 ## Additional Info
    

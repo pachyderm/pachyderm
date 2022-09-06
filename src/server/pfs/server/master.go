@@ -6,6 +6,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
+
+	"github.com/hashicorp/go-multierror"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -31,20 +35,24 @@ const (
 
 func (d *driver) master(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pfs-master")
-	masterLock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath))
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-		masterCtx, err := masterLock.Lock(ctx)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		defer masterLock.Unlock(masterCtx) //nolint:errcheck
-		eg, ctx := errgroup.WithContext(masterCtx)
+		eg, ctx := errgroup.WithContext(ctx)
 		trackerPeriod := time.Second * time.Duration(d.env.StorageConfig.StorageGCPeriod)
 		if trackerPeriod <= 0 {
 			d.log.Info("Skipping Storage GC")
 		} else {
-			d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
 			eg.Go(func() error {
+				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "storage-gc"))
+				d.log.Infof("Starting Storage GC with period=%v", trackerPeriod)
+				ctx, err := lock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				defer func() {
+					if err := lock.Unlock(ctx); err != nil {
+						d.log.Errorf("error unlocking in pfs master: %v", err)
+					}
+				}()
 				gc := d.storage.NewGC(trackerPeriod)
 				return gc.RunForever(ctx)
 			})
@@ -53,8 +61,18 @@ func (d *driver) master(ctx context.Context) {
 		if chunkPeriod <= 0 {
 			d.log.Info("Skipping Chunk Storage GC")
 		} else {
-			d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
 			eg.Go(func() error {
+				lock := dlock.NewDLock(d.etcdClient, path.Join(d.prefix, masterLockPath, "chunk-gc"))
+				d.log.Infof("Starting Chunk Storage GC with period=%v", chunkPeriod)
+				ctx, err := lock.Lock(ctx)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				defer func() {
+					if err := lock.Unlock(ctx); err != nil {
+						d.log.Errorf("error unlocking in pfs master: %v", err)
+					}
+				}()
 				gc := chunk.NewGC(d.storage.ChunkStorage(), chunkPeriod, d.log)
 				return gc.RunForever(ctx)
 			})
@@ -69,7 +87,9 @@ func (d *driver) master(ctx context.Context) {
 	})
 }
 
-func (d *driver) finishCommits(ctx context.Context) error {
+func (d *driver) finishCommits(ctx context.Context) (retErr error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	repos := make(map[string]context.CancelFunc)
 	defer func() {
 		for _, cancel := range repos {
@@ -77,34 +97,53 @@ func (d *driver) finishCommits(ctx context.Context) error {
 		}
 	}()
 	compactor := newCompactor(d.storage, d.env.StorageConfig.StorageCompactionMaxFanIn)
-	err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
-		if ev.Type == watch.EventError {
-			return ev.Err
-		}
-		key := string(ev.Key)
-		if ev.Type == watch.EventDelete {
-			if cancel, ok := repos[key]; ok {
-				cancel()
-			}
-			delete(repos, key)
-			return nil
-		}
-		if _, ok := repos[key]; ok {
-			return nil
-		}
-		ctx, cancel := context.WithCancel(ctx)
-		repos[key] = cancel
-		go func() {
-			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-				return d.finishRepoCommits(ctx, compactor, key)
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
+	return consistenthashing.WithRing(ctx, d.etcdClient, d.log, path.Join(d.prefix, masterLockPath, "ring"),
+		func(ctx context.Context, ring *consistenthashing.Ring) error {
+			err := d.repos.ReadOnly(ctx).WatchF(func(ev *watch.Event) error {
+				if ev.Type == watch.EventError {
+					return ev.Err
+				}
+				key := string(ev.Key)
+				lockPrefix := path.Join("repos", key)
+				if ev.Type == watch.EventDelete {
+					if cancel, ok := repos[key]; ok {
+						if err := ring.Unlock(lockPrefix); err != nil {
+							return err
+						}
+						cancel()
+					}
+					delete(repos, key)
+					return nil
+				}
+				if _, ok := repos[key]; ok {
+					return nil
+				}
+				ctx, cancel := context.WithCancel(ctx)
+				repos[key] = cancel
+				go func() {
+					backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+						ctx, cancel := context.WithCancel(ctx)
+						defer cancel()
+						lockCtx, err := ring.Lock(ctx, lockPrefix)
+						if err != nil {
+							return errors.Wrap(err, "error locking repo lock")
+						}
+						defer func() {
+							if err := ring.Unlock(lockPrefix); err != nil {
+								retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
+							}
+						}()
+						return d.finishRepoCommits(lockCtx, compactor, key)
+					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+						log.Errorf("error finishing commits for repo %v: %v, retrying in %v", key, err, d)
+						return nil
+					})
+				}()
 				return nil
 			})
-		}()
-		return nil
-	})
-	return errors.EnsureStack(err)
+			return errors.EnsureStack(err)
+		},
+	)
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, compactor *compactor, repoKey string) error {

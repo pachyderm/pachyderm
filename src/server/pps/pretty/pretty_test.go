@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	pfsclient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
@@ -41,7 +42,7 @@ func TestJobEgressTarget(t *testing.T) {
 			},
 		}
 	)
-	if err := pretty.PrintDetailedJobInfo(buf, pretty.NewPrintableJobInfo(ji)); err != nil {
+	if err := pretty.PrintDetailedJobInfo(buf, pretty.NewPrintableJobInfo(ji, false)); err != nil {
 		t.Fatal(err)
 	}
 	s := buf.String()
@@ -73,7 +74,7 @@ func TestJobEgressURL(t *testing.T) {
 			},
 		}
 	)
-	if err := pretty.PrintDetailedJobInfo(buf, pretty.NewPrintableJobInfo(ji)); err != nil {
+	if err := pretty.PrintDetailedJobInfo(buf, pretty.NewPrintableJobInfo(ji, false)); err != nil {
 		t.Fatal(err)
 	}
 	s := buf.String()
@@ -81,6 +82,39 @@ func TestJobEgressURL(t *testing.T) {
 		if !strings.Contains(s, value) {
 			t.Errorf("could not find egress %s in detailed job info; expected %q", item, value)
 		}
+	}
+}
+
+func TestJobStarted(t *testing.T) {
+	tests := map[string]struct {
+		full     bool
+		expected string
+	}{
+		"Full timestamp": {
+			full:     true,
+			expected: "Started: -",
+		},
+		"Pretty ago": {
+			full:     false,
+			expected: "Started: -",
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			jobInfo := &ppsclient.JobInfo{
+				Job: &ppsclient.Job{
+					ID:       "foo",
+					Pipeline: &ppsclient.Pipeline{Name: "Bar"},
+				},
+				Started: nil,
+				Stats:   &ppsclient.ProcessStats{},
+				Details: &ppsclient.JobInfo_Details{},
+			}
+			printableJobInfo := pretty.NewPrintableJobInfo(jobInfo, test.full)
+			buf := new(bytes.Buffer)
+			require.NoError(t, pretty.PrintDetailedJobInfo(buf, printableJobInfo))
+			require.True(t, strings.Contains(buf.String(), test.expected))
+		})
 	}
 }
 

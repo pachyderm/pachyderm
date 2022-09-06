@@ -46,9 +46,9 @@ func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, opts ...
 		}
 		return emit(p, f)
 	}
-	return errors.EnsureStack(s.x.Iterate(ctx, func(f File) error {
+	return s.x.Iterate(ctx, func(f File) error {
 		return emit(f.Index().Path, f)
-	}, opts...))
+	}, opts...)
 }
 
 func (s *dirInserter) IterateDeletes(_ context.Context, _ func(File) error, _ ...index.Option) error {

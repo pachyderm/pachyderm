@@ -3,7 +3,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"sort"
 
@@ -97,7 +97,7 @@ func runInternal(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse
 // request from stdin and writing a response to stdout.
 func run() error {
 	req := &plugin.CodeGeneratorRequest{}
-	if data, err := ioutil.ReadAll(os.Stdin); err != nil {
+	if data, err := io.ReadAll(os.Stdin); err != nil {
 		return err
 	} else if err := proto.Unmarshal(data, req); err != nil {
 		return err

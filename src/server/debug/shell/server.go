@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -535,7 +534,7 @@ func (d *debugDump) inspectJobSet(req *pps.InspectJobSetRequest, srv pps.API_Ins
 func (d *debugDump) getVersion(context.Context, *types.Empty) (*versionpb.Version, error) {
 	var version *versionpb.Version
 	err := d.globTar("pachd/*/pachd/version.txt", func(_ string, r io.Reader) error {
-		b, err := ioutil.ReadAll(r)
+		b, err := io.ReadAll(r)
 		if err != nil {
 			return err
 		}

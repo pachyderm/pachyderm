@@ -7,6 +7,11 @@ aliases:
       ignore: /.*/
     tags:
       only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  - &only-alpha-tags
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^v\d+\.\d+\.\d+-alpha+(\.[0-9A-Za-z-]+)*?$/
 
 orbs:
   go: circleci/go@1.7.1
@@ -20,7 +25,10 @@ parameters:
     default: ubuntu-2004:2022.04.2
   go-version:
     type: string
-    default: "1.18.4"
+    default: "1.19"
+  run_load_tests:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -142,6 +150,9 @@ jobs:
       - run:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
@@ -311,6 +322,9 @@ jobs:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
+      - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/rootless_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
           name: Dump debugging info in case of failure
@@ -359,6 +373,9 @@ jobs:
           paths:
             - /home/circleci/.gocache
       - run:
+          name: Wait for docker images to be built
+          command: etc/testing/circle/wait_for_docker_images.sh
+      - run:
           name: Run Tests
           command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
       - run:
@@ -377,20 +394,22 @@ jobs:
       appVersion:
         type: string
         default: "0.0.0"
-    resource_class: large
-    executor: docker-go
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    resource_class: xlarge
     steps:
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
+            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
             tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
             rm -rf goreleaser_Linux_x86_64.tar.gz
+            sudo apt update
+            sudo apt install qemu binfmt-support qemu-user-static
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -461,6 +480,7 @@ jobs:
                   additional=${v%%-*}
                   index=${#additional}
                   make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
+                  make release-mount-server GORELSNAP=--snapshot VERSION=${v}
             - persist_to_workspace:
                 root: ../
                 paths:
@@ -510,7 +530,7 @@ jobs:
           command: |
             curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
       - run: etc/redhat/push_images.sh
-  pachyderm-prerelease-testing:
+  gcp-prerelease-testing:
     resource_class: large
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -524,9 +544,51 @@ jobs:
             ls -la dist-pach/*
             ls -la cr-release-packages/*
       - run:
-          name: "test examples"
+          name: "test gcp examples"
           command: |
             etc/testing/circle/run_release_tests.sh
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
+  aws-prerelease-testing:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: echo bins
+          command: |
+            ls -la dist-pach/*
+            ls -la cr-release-packages/*
+      - run:
+          name: "test aws examples"
+          command: |
+            etc/testing/circle/run_release_tests.sh "aws"
+          no_output_timeout: 1h
+      - store_artifacts:
+          path: /tmp/debug-dump
+          destination: debug-dump
+  cust-prerelease-testing:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ./
+      - run:
+          name: echo bins
+          command: |
+            ls -la dist-pach/*
+            ls -la cr-release-packages/*
+      - run:
+          name: "test customer workload"
+          command: |
+            etc/testing/circle/run_cust_release_tests.sh
           no_output_timeout: 1h
       - store_artifacts:
           path: /tmp/debug-dump
@@ -546,10 +608,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
             fi
   release-github:
     docker:
@@ -577,20 +639,9 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          name: pull docker images
+          name: Push release manifests
           command: |
-            make VERSION=$CIRCLE_SHA1 docker-pull
-      - run:
-          name: retag docker images
-          command: |
-            docker tag pachyderm/pachd:$CIRCLE_SHA1 pachyderm/pachd:${CIRCLE_TAG:1}
-            docker tag pachyderm/worker:$CIRCLE_SHA1 pachyderm/worker:${CIRCLE_TAG:1}
-            docker tag pachyderm/pachctl:$CIRCLE_SHA1 pachyderm/pachctl:${CIRCLE_TAG:1}
-            docker tag pachyderm/mount-server:$CIRCLE_SHA1 pachyderm/mount-server:${CIRCLE_TAG:1}
-      - run:
-          name: push docker images
-          command: |
-            make VERSION=${CIRCLE_TAG:1} docker-push
+            make UNDERLYING=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-push
   release-hombrew-tap:
     executor: docker-go
     steps:
@@ -649,17 +700,12 @@ workflows:
     jobs:
       - helm-tests
   nightly_load_tests:
-    triggers:
-      - schedule:
-          cron: "0 6 * * *"
-          filters:
-            branches:
-              only:
-                - master
-                - 2.1.x
-                - 2.2.x
+    when: << pipeline.parameters.run_load_tests >>
     jobs:
+      - build-docker-images
       - nightly-load:
+          requires:
+            - build-docker-images
           matrix:
             parameters:
               bucket:
@@ -737,8 +783,22 @@ workflows:
           filters: *only-release-tags
           requires:
             - build-pachctl-bin
-      - pachyderm-prerelease-testing:
+      - gcp-prerelease-testing:
           filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - aws-prerelease-testing:
+          filters: *only-release-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - cust-prerelease-testing:
+          filters: *only-alpha-tags
           requires:
             - build-docker-images
             - build-pachctl-bin

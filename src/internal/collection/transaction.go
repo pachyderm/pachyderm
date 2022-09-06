@@ -225,14 +225,14 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 func (s *stm) PutLease(key, val string, lease v3.LeaseID, ptr uintptr) error {
 	s.Lock()
 	defer s.Unlock()
-	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, v3.WithLease(lease)), ptr}
+	s.wset[key] = stmPut{val, DefaultTTL, v3.OpPut(key, val, v3.WithLease(lease)), ptr}
 	return nil
 }
 
 func (s *stm) PutIgnoreLease(key, val string, ptr uintptr) error {
 	s.Lock()
 	defer s.Unlock()
-	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, v3.WithIgnoreLease()), ptr}
+	s.wset[key] = stmPut{val, DefaultTTL, v3.OpPut(key, val, v3.WithIgnoreLease()), ptr}
 	return nil
 }
 

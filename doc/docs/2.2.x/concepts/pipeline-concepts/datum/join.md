@@ -143,7 +143,7 @@ All files with indices from `1` to `5` match. The files
 with indices from `6` to `8` do not match. Therefore, you only get five
 datums for this job.
 
-To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+To experiment further, see the full [joins example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank}.
 
 ## Outer Join
 
@@ -194,16 +194,11 @@ join. The change to the pipeline spec is simple:
  }
 ```
 
-Your code will see the joined pairs that it saw before. In addition to
-those five datums, your code will also see three new ones: one for each of the
-parameter files which didn't have a match. Note that this means that your code needs
-to handle (not crash) the case where some of the inputs are represented under `/pfs`.
-
-Your code will see the joined pairs that it saw before. In addition to
-those five datums, your code will also see three new ones: 
-one for each `parameters` file that didn't match. Note that this means that your code needs
-to handle (not crash) the case where some of the inputs are represented under `/pfs`.
+Your code will see the joined pairs that it saw before. In addition to those
+five datums, your code will also see three new ones: one for each of the files
+in `parameters` that didn't match. Note that this means that your code needs to
+handle (not crash) the case where input files are missing from `/pfs/readings`.
 
 
 
-To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/master/examples/joins){target=_blank}.
+To experiment further, see the full [join example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/joins){target=_blank}.

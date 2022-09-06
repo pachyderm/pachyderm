@@ -68,6 +68,36 @@ func ListRepoInfo(client pfs.API_ListRepoClient) ([]*pfs.RepoInfo, error) {
 	return results, nil
 }
 
+func ForEachProjectInfo(client pfs.API_ListProjectClient, cb func(*pfs.ProjectInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func ListProjectInfo(client pfs.API_ListProjectClient) ([]*pfs.ProjectInfo, error) {
+	var results []*pfs.ProjectInfo
+	if err := ForEachProjectInfo(client, func(x *pfs.ProjectInfo) error {
+		results = append(results, x)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
 func ForEachCommitSet(client pfs.API_ListCommitSetClient, cb func(*pfs.CommitSetInfo) error) error {
 	for {
 		x, err := client.Recv()

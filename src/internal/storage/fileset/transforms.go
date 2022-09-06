@@ -102,10 +102,9 @@ func (im *indexMap) Index() *index.Index {
 }
 
 func (im *indexMap) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
-	return errors.EnsureStack(im.inner.Content(ctx, w))
+	return im.inner.Content(ctx, w)
 }
 
 func (im *indexMap) Hash(ctx context.Context) ([]byte, error) {
-	res, err := im.inner.Hash(ctx)
-	return res, errors.EnsureStack(err)
+	return im.inner.Hash(ctx)
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -52,10 +51,14 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		meta.Job = jobInfo.Job
 		defer func() {
-			if common.IsDone(ctx) {
+			select {
+			case <-ctx.Done():
 				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_FINISHING, "")
+			default:
 			}
 		}()
+		// now that we're actually running the datum, use a pachClient which is bound to the job-scoped context
+		pachClient := pachClient.WithCtx(ctx)
 		storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())
 		return pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 			pachClient := pachClient.WithCtx(ctx)
@@ -87,6 +90,9 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 	var cancel func()
 	var eg *errgroup.Group
 	return pachClient.SubscribeJob(pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
+		if ji.State == pps.JobState_JOB_FINISHING {
+			return nil // don't pick up a "finishing" job
+		}
 		if cancel != nil {
 			logger.Logf("canceling previous service, new job ready")
 			cancel()

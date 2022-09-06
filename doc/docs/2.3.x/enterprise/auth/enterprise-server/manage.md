@@ -18,7 +18,7 @@ pachctl config get active-enterprise-context
 
 ## Configuring IDPs
 To configure IDP integrations, use `pachctl idp create-connector` as documented in 
-the [**Pachyderm Integration with Identity Providers**](../../authentication/idp-dex) page.
+the [**Pachyderm Integration with Identity Providers**](../authentication/idp-dex.md) page.
 
 ## Manage your Enterprise Server
 

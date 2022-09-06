@@ -25,7 +25,7 @@ Enabling Pachyderm's Enterprise Edition can be done in one of two flavors:
     !!! Attention 
         - When enabling the enterprise features through Helm, [**auth is automatically activated**](../auth).
 
-             In this case, a `pachyderm-auth` k8s secret is automatically created (Key: `rootToken`) containing an entry for your [rootToken](#activate-user-access-management). Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
+             In this case, a `pachyderm-auth` k8s secret is automatically created (Key: `rootToken`) containing an entry for your rootToken. Use `{{"kubectl get secret pachyderm-auth -o go-template='{{.data.rootToken | base64decode }}'"}}` to retrieve it and save it where you see fit.
 
         - Set the helm value `pachd.activateAuth` to false to prevent the bootstrap of auth on the cluster.
 

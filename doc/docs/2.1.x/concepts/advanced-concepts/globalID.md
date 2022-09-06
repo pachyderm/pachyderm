@@ -187,7 +187,7 @@ They have, however, contributed to the creation of the previous `AUTO` commits.
 To make sure that we have a complete view of all the data and pipeline versions involved in all the commits resulting from the initial 
 `put file`, their version is kept as `ALIAS` commits under the same global ID.
 
-For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/master/examples/globalID){target=_blank}.
+For a full view of GlobalID in action, take a look at our [GlobalID illustration](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/globalID){target=_blank}.
 
 ## Track Provenance Downstream
 
