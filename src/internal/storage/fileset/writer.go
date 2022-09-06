@@ -92,9 +92,13 @@ func (w *Writer) checkIndex(prevIdx, idx *index.Index) error {
 	if prevIdx == nil {
 		return nil
 	}
-	if prevIdx.Path == idx.Path && prevIdx.File.Datum == idx.File.Datum {
-		return errors.Errorf("cannot write same path (%s) and datum (%s) twice", idx.Path, idx.File.Datum)
-	}
+	// TODO: Readd if we should block this outright.
+	// We support this in the storage layer to allow the reading of invalid commits, but we may want to
+	// block it outright in the future. This check can no longer be used because compaction will write file sets
+	// like this in certain cases since validation happens after compaction.
+	//if prevIdx.Path == idx.Path && prevIdx.File.Datum == idx.File.Datum {
+	//	return errors.Errorf("cannot write same path (%s) and datum (%s) twice", idx.Path, idx.File.Datum)
+	//}
 	if prevIdx.Path > idx.Path {
 		return errors.Errorf("cannot write path (%s) after (%s)", idx.Path, prevIdx.Path)
 	}
