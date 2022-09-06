@@ -48,13 +48,14 @@ def dev_server():
     )
     # Give time for python test server to start
     time.sleep(3)
-     
-    r = requests.put(f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"}))
-    
+
+    payload = json.dumps({"pachd_address": "localhost:30650"})
+    r = requests.put(f"{BASE_URL}/config", data=payload)
+
     # Give time for mount server to start
     running = False
     for _ in range(15):
-        try: 
+        try:
             r = requests.get(f"{BASE_URL}/config", timeout=1)
             if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
                 running = True
@@ -62,7 +63,7 @@ def dev_server():
         except Exception:
             pass
         time.sleep(1)
-        
+
     if running:
         yield
 
@@ -97,7 +98,7 @@ def test_list_repos(pachyderm_resources, dev_server):
                 "mount_key",
                 "actual_mounted_commit",
                 "latest_commit",
-                "how_many_commits_behind"
+                "how_many_commits_behind",
             }
 
 
@@ -160,21 +161,25 @@ def test_unmount(pachyderm_resources, dev_server):
     for repo_info in r.json():
         if repo_info["repo"] == "images":
             assert repo_info["branches"][0]["mount"][0]["state"] == "unmounted"
-            
+
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
 def test_config(dev_server):
     # PUT request
     test_endpoint = "localhost:30650"
-    r = requests.put(f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint}))
+    r = requests.put(
+        f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
+    )
 
     config = json.load(open(os.path.expanduser(CONFIG_PATH)))
     active_context = config["v2"]["active_context"]
     try:
         endpoint_in_config = config["v2"]["contexts"][active_context]["pachd_address"]
     except:
-        endpoint_in_config = str(config["v2"]["contexts"][active_context]["port_forwarders"]["pachd"])
+        endpoint_in_config = str(
+            config["v2"]["contexts"][active_context]["port_forwarders"]["pachd"]
+        )
 
     assert r.status_code == 200
     assert r.json()["cluster_status"] != "INVALID"

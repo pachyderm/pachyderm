@@ -8,11 +8,7 @@ import tornado
 from .env import PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
 from .log import get_logger
-from .pachyderm import (
-    READ_ONLY,
-    READ_WRITE,
-    MountInterface
-)
+from .pachyderm import READ_ONLY, READ_WRITE, MountInterface
 from .mount_server_client import MountServerClient
 
 
@@ -104,7 +100,8 @@ class ReposUnmountHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error unmounting all repos.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error unmounting all repos: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error unmounting all repos: {e}.",
             )
 
 
@@ -157,13 +154,16 @@ class RepoMountHandler(BaseHandler):
 
         try:
             repo, branch, _ = _parse_pfs_path(path)
-            response = _transform_response(await self.mount_client.mount(repo, branch, mode, name))
+            response = _transform_response(
+                await self.mount_client.mount(repo, branch, mode, name)
+            )
             get_logger().debug(f"RepoMount: {response}")
             self.finish(json.dumps(response))
         except Exception as e:
             get_logger().error(f"Error mounting {(repo, branch, name)}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error mounting repo {repo}: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error mounting repo {repo}: {e}.",
             )
 
 
@@ -173,13 +173,16 @@ class RepoUnmountHandler(BaseHandler):
         name = self.get_required_query_param_name()
         repo, branch, _ = _parse_pfs_path(path)
         try:
-            response = _transform_response(await self.mount_client.unmount(repo, branch, name))
+            response = _transform_response(
+                await self.mount_client.unmount(repo, branch, name)
+            )
             get_logger().debug(f"RepoUnmount: {response}")
             self.finish(json.dumps(response))
         except Exception as e:
             get_logger().error(f"Error unmounting repo {repo}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error unmounting repo {repo}: {e}.",
+                status_code=getattr(e, "code", 500),
+                reason=f"Error unmounting repo {repo}: {e}.",
             )
 
 
@@ -240,10 +243,11 @@ class ConfigHandler(BaseHandler):
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",
-                exc_info=True)
+                exc_info=True,
+            )
             raise tornado.web.HTTPError(
                 status_code=500,
-                reason=f"Error updating config with endpoint {body['pachd_address']}: {e}."
+                reason=f"Error updating config with endpoint {body['pachd_address']}: {e}.",
             )
 
     @tornado.web.authenticated
@@ -254,8 +258,7 @@ class ConfigHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error getting config.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Error getting config: {e}."
+                status_code=500, reason=f"Error getting config: {e}."
             )
 
 
@@ -268,8 +271,7 @@ class AuthLoginHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error logging in to auth.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Error logging in to auth: {e}."
+                status_code=500, reason=f"Error logging in to auth: {e}."
             )
 
 
@@ -282,8 +284,7 @@ class AuthLogoutHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error logging out of auth.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Error logging out of auth: {e}."
+                status_code=500, reason=f"Error logging out of auth: {e}."
             )
 
 
@@ -296,8 +297,7 @@ class HealthHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Mount server not running.")
             raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Mount server not running."
+                status_code=500, reason=f"Mount server not running."
             )
 
 

@@ -1,8 +1,6 @@
 import json
 from pathlib import Path
 
-from ._version import __version__
-from .env import *
 from .handlers import setup_handlers
 
 

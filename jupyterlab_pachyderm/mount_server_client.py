@@ -26,7 +26,6 @@ class MountServerClient(MountInterface):
         self.mount_dir = mount_dir
         self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
 
-
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
         try:
@@ -38,7 +37,6 @@ class MountServerClient(MountInterface):
         get_logger().debug(f"Able to hit server at {self.address}")
         return True
 
-    
     def _unmount(self):
         if platform.system() == "Linux":
             subprocess.run(["bash", "-c", f"fusermount -uzq {self.mount_dir}"])
@@ -46,9 +44,8 @@ class MountServerClient(MountInterface):
             subprocess.run(
                 ["bash", "-c", f"umount {self.mount_dir}"],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
-
 
     async def _ensure_mount_server(self):
         """
@@ -58,7 +55,7 @@ class MountServerClient(MountInterface):
         successfully with the updated config.
         """
         # TODO: add --socket and --log-file stdout args
-        # TODO: add better error handling        
+        # TODO: add better error handling
         if await self._is_mount_server_running():
             return True
 
@@ -68,17 +65,18 @@ class MountServerClient(MountInterface):
 
         get_logger().info("Starting mount server...")
         async with lock:
-            if not await self._is_mount_server_running():                
+            if not await self._is_mount_server_running():
                 self._unmount()
                 subprocess.Popen(
                     [
-                        "bash", "-c",
+                        "bash",
+                        "-c",
                         "set -o pipefail; "
-                        +f"mount-server --mount-dir {self.mount_dir}"
-                        +" >> /tmp/pachctl-mount-server.log 2>&1",
+                        + f"mount-server --mount-dir {self.mount_dir}"
+                        + " >> /tmp/pachctl-mount-server.log 2>&1",
                     ]
                 )
-                
+
                 tries = 0
                 get_logger().debug("Waiting for mount server...")
                 while not await self._is_mount_server_running():
@@ -91,12 +89,10 @@ class MountServerClient(MountInterface):
 
         return True
 
-
     async def list(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(f"{self.address}/repos")
         return response.body
-        
 
     async def mount(self, repo, branch, mode, name):
         await self._ensure_mount_server()
@@ -119,9 +115,7 @@ class MountServerClient(MountInterface):
     async def unmount_all(self):
         await self._ensure_mount_server()
         response = await self.client.fetch(
-            f"{self.address}/repos/_unmount",
-            method="PUT",
-            body="{}"
+            f"{self.address}/repos/_unmount", method="PUT", body="{}"
         )
         return response.body
 
@@ -139,18 +133,24 @@ class MountServerClient(MountInterface):
                     return json.dumps({"cluster_status": "INVALID"})
                 raise e
         else:
-            response = await self.client.fetch(f"{self.address}/config", method="PUT", body=json.dumps(request))
-            
+            response = await self.client.fetch(
+                f"{self.address}/config", method="PUT", body=json.dumps(request)
+            )
+
         return response.body
 
     async def auth_login(self):
         await self._ensure_mount_server()
-        response = await self.client.fetch(f"{self.address}/auth/_login", method="PUT", body="{}")
+        response = await self.client.fetch(
+            f"{self.address}/auth/_login", method="PUT", body="{}"
+        )
         return response.body
 
     async def auth_logout(self):
         await self._ensure_mount_server()
-        return await self.client.fetch(f"{self.address}/auth/_logout", method="PUT", body="{}")
+        return await self.client.fetch(
+            f"{self.address}/auth/_logout", method="PUT", body="{}"
+        )
 
     async def health(self):
         response = await self.client.fetch(f"{self.address}/health")
