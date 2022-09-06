@@ -104,8 +104,7 @@ func draw(vertices []*vertex, lf layerer, of orderer) string {
 // precompute the box coordinates so that during rendering the edges can be filled between layers
 func assignCoordinates(layers [][]*vertex) {
 	maxWidth := rowWidth(layers)
-	for i := 0; i < len(layers); i++ {
-		l := layers[i]
+	for _, l := range layers {
 		boxCenterOffset := maxWidth / (len(l) + 1)
 		for j := 0; j < len(l); j++ {
 			l[j].rowOffset = (j + 1) * boxCenterOffset
@@ -159,7 +158,7 @@ func layerLongestPath(vs []*vertex) [][]*vertex {
 			func() {
 				if _, ok := assigned[v.id]; !ok {
 					var maxLevel int
-					// check this node isassignable
+					// check this node is assignable
 					for _, e := range v.edges {
 						u, eDone := assigned[e.id]
 						if !eDone {
@@ -259,26 +258,33 @@ type renderEdge struct {
 	dest int
 }
 
+func (re renderEdge) distance() int {
+	return abs(re.src - re.dest)
+}
+
 // render sets an edge character in the 'row' string, calculated using the re.src & re.dest (the edge's range along the x-axis),
-// and 'vertDist' (the height of the edge) and 'vertIdx' (how any lines down 'vertDist' we are)
+// and 'vertDist' (the height of the edge) and 'vertIdx' (how many lines down 'vertDist' we are)
 func (re renderEdge) render(row string, vertIdx, vertDist int) string {
-	setStrIdx := func(s string, i int, r rune) string {
-		return s[:i] + string(r) + s[i+1:]
-	}
-	c := '+' // set the coordinate to "+" if there's an edge crossing
-	if re.src == re.dest {
-		if row[re.src] == ' ' {
-			c = '|'
+	setEdgeChar := func(s string, i int, r rune) string {
+		if s[i] == byte(r) {
+			return s
 		}
-		return setStrIdx(row, re.src, c)
+		if s[i] == ' ' {
+			return s[:i] + string(r) + s[i+1:]
+		}
+		return s[:i] + "+" + s[i+1:] // set the coordinate to "+" if there's an edge crossing
 	}
-	const srcEdgeCenterOffset = 1 // start drawing a diagonal edge one space away from the center of a node
-	// verical line
-	if vertDist > abs(re.src-re.dest) && vertIdx != vertDist/2 {
-		return setStrIdx(row, (re.src+re.dest)/2, '|')
+	if re.src == re.dest {
+		return setEdgeChar(row, re.src, '|')
+	}
+	const srcEdgeCenterOffset = 1                        // start drawing a diagonal edge one space away from the center of a node
+	adjustedXDist := re.distance() - srcEdgeCenterOffset // number of horizontal spaces we must fill with edges
+	// vertical line
+	if vertDist > adjustedXDist && vertIdx >= adjustedXDist/2 && vertIdx < vertDist-adjustedXDist/2 {
+		return setEdgeChar(row, (re.src+re.dest)/2, '|')
 	}
 	// horizontal line
-	if vertDist < abs(re.src-re.dest) && vertIdx == vertDist/2 {
+	if vertDist < re.distance() && vertIdx == vertDist/2 {
 		start, end := func(a, b int) (int, int) {
 			if a < b {
 				return a, b
@@ -288,27 +294,22 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 		diagCoverage := ceilDiv(vertDist, 2)
 		start, end = start+diagCoverage, end-diagCoverage
 		for i := start; i <= end; i++ {
-			row = setStrIdx(row, i, '-')
+			row = setEdgeChar(row, i, '-')
 		}
 		return row
 	}
 	// diagonal line
 	offset := vertIdx + srcEdgeCenterOffset
+	// calculate offset based on distance from the end in case we're on the bottom half of the edge
 	if vertIdx > vertDist/2 {
-		offset = offset + abs(re.src-re.dest) - vertDist - 1
+		offset = adjustedXDist - (vertDist - offset)
 	}
 	if re.src > re.dest {
 		i := re.src - offset
-		if row[i] == ' ' || row[i] == '/' {
-			c = '/'
-		}
-		return setStrIdx(row, i, c)
+		return setEdgeChar(row, i, '/')
 	} else {
 		i := re.src + offset
-		if row[i] == ' ' || row[i] == '\\' {
-			c = '\\'
-		}
-		return setStrIdx(row, i, c)
+		return setEdgeChar(row, i, '\\')
 	}
 }
 
