@@ -921,9 +921,6 @@ workflows:
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
           filters: *only-nightly-tags
-          requires:
-            - helm-tests
-            - integration-tests
       - build-pachctl-bin:
           version: ${CIRCLE_TAG:1}
           filters: *only-nightly-tags
@@ -948,10 +945,6 @@ workflows:
             - publish-chart-preview
             - release-github-draft
       - release-docker-hub:
-          filters: *only-nightly-tags
-          requires:
-            - gcp-prerelease-testing
-      - push_redhat:
           filters: *only-nightly-tags
           requires:
             - gcp-prerelease-testing
