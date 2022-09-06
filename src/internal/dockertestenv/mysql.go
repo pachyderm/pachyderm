@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -34,15 +35,17 @@ func newMySQLEphemeralURL(t testing.TB, name string) pachsql.URL {
 	log := logrus.StandardLogger()
 
 	dclient := newDockerClient()
-	err := ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
-		Image: "mysql:latest",
-		PortMap: map[uint16]uint16{
-			mysqlPort: 3306,
-		},
-		Env: map[string]string{
-			"MYSQL_ROOT_PASSWORD": MySQLPassword,
-		},
-	})
+	err := backoff.Retry(func() error {
+		return ensureContainer(ctx, dclient, "pach_test_mysql", containerSpec{
+			Image: "mysql:latest",
+			PortMap: map[uint16]uint16{
+				mysqlPort: 3306,
+			},
+			Env: map[string]string{
+				"MYSQL_ROOT_PASSWORD": MySQLPassword,
+			},
+		})
+	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err)
 	u := pachsql.URL{
 		Protocol: pachsql.ProtocolMySQL,
