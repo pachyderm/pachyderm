@@ -2691,6 +2691,7 @@ func TestUpdatePipeline(t *testing.T) {
 	// create repos and create the pipeline
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
+	projectName := ""
 	pipelineName := tu.UniqueString("pipeline")
 	pipelineCommit := client.NewCommit(pipelineName, "master", "")
 	require.NoError(t, c.CreatePipeline(
@@ -2740,29 +2741,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(projectName, pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(projectName, pipelineName, 2))
 		}
 		return nil
 	})
@@ -2814,29 +2815,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(projectName, pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName(projectName, pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(projectName, pipelineName, 2))
 		}
 		return nil
 	})
@@ -4800,6 +4801,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
+			// FIXME: can this use pps_server.Selector?
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{
@@ -4875,6 +4877,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
+			// FIXME: can this use pps_server.Selector?
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{
@@ -4944,6 +4947,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
+			// FIXME: can this use pps_server.Selector?
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{
@@ -5202,6 +5206,7 @@ func TestPodOpts(t *testing.T) {
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
+				// FIXME: can this use pps_server.Selector?
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 						map[string]string{
@@ -5267,6 +5272,7 @@ func TestPodOpts(t *testing.T) {
 		err = backoff.Retry(func() error {
 			podList, err := kubeClient.CoreV1().Pods(ns).List(
 				context.Background(),
+				// FIXME: can this use pps_server.Selector?
 				metav1.ListOptions{
 					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 						map[string]string{
@@ -9160,6 +9166,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(ns).List(
 			context.Background(),
+			// FIXME: can this use pps_server.Selector?
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{
@@ -10014,6 +10021,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineAutoscaling_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
+	project := ""
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
@@ -10048,7 +10056,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 		if replicas > 4 {
 			replicas = 4
 		}
-		monitorReplicas(t, c, ns, pipeline, replicas)
+		monitorReplicas(t, c, ns, project, pipeline, replicas)
 	}
 	commitNFiles(1)
 	commitNFiles(3)
@@ -10472,9 +10480,9 @@ func TestDatumSetCache(t *testing.T) {
 	}
 }
 
-func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
+func monitorReplicas(t testing.TB, c *client.APIClient, namespace, project, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	rcName := ppsutil.PipelineRcName(project, pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int

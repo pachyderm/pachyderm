@@ -6,10 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +13,13 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 var (
@@ -122,15 +125,13 @@ func DeletePod(t testing.TB, app, ns string) {
 
 // DeletePipelineRC deletes the RC belonging to the pipeline 'pipeline'. This
 // can be used to test PPS's robustness
-func DeletePipelineRC(t testing.TB, pipeline, namespace string) {
+func DeletePipelineRC(t testing.TB, pipelineName, namespace string) {
 	kubeClient := GetKubeClient(t)
-	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(
-		context.Background(),
-		metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-				map[string]string{"pipelineName": pipeline},
-			)),
-		})
+	pipeline := &pps.Pipeline{
+		Name: pipelineName,
+	}
+	selector := pps_server.Selector(pipeline)
+	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: selector})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rcs.Items))
 	require.NoError(t, kubeClient.CoreV1().ReplicationControllers(namespace).Delete(
@@ -139,18 +140,12 @@ func DeletePipelineRC(t testing.TB, pipeline, namespace string) {
 			GracePeriodSeconds: &zero,
 		}))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(
-			context.Background(),
-			metav1.ListOptions{
-				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-					map[string]string{"pipelineName": pipeline},
-				)),
-			})
+		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: selector})
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		if len(rcs.Items) != 0 {
-			return errors.Errorf("RC %q not deleted yet", pipeline)
+			return errors.Errorf("RC %q not deleted yet", pipelineName)
 		}
 		return nil
 	})

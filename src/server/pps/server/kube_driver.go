@@ -59,10 +59,34 @@ func (kd *kubeDriver) CreatePipelineResources(ctx context.Context, pi *pps.Pipel
 	return nil
 }
 
-func pipelineSelector(p *pps.Pipeline) (selector string) {
+func Selector(p *pps.Pipeline) (selector string) {
+	// TODO: use metav1.FormatLabelSelector or similar
+	//
+	// FIXME: should this include app=pipeline?
+	//
+	// FIXME: should this include the pipeline version?
+	//
+	/*
+		   metav1.FormatLabelSelector(&metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"suite": "pachyderm",
+				},
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "component",
+						Operator: metav1.LabelSelectorOpNotIn,
+						// Worker and pachd logs are collected by separate
+						// functions.
+						Values: []string{"worker", "pachd"},
+					},
+				},
+			})
+	*/
 	selector = fmt.Sprintf("%s=%s", pipelineNameLabel, p.Name)
 	if projectName := p.Project.GetName(); projectName != "" {
 		selector = fmt.Sprintf("%s,%s=%s", selector, pipelineProjectLabel, projectName)
+	} else {
+		selector = fmt.Sprintf("%s,!%s", selector, pipelineProjectLabel)
 	}
 	return selector
 }
@@ -83,7 +107,7 @@ func (kd *kubeDriver) DeletePipelineResources(ctx context.Context, pipeline *pps
 	opts := metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	selector := pipelineSelector(pipeline)
+	selector := Selector(pipeline)
 	services, err := kd.kubeClient.CoreV1().Services(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return errors.Wrapf(err, "could not list services")
@@ -127,7 +151,7 @@ func (kd *kubeDriver) ReadReplicationController(ctx context.Context, pi *pps.Pip
 	kd.limiter.Acquire()
 	defer kd.limiter.Release()
 	// List all RCs, so stale RCs from old pipelines are noticed and deleted
-	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: pipelineSelector(pi.Pipeline)})
+	rc, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).List(ctx, metav1.ListOptions{LabelSelector: Selector(pi.Pipeline)})
 	return rc, errors.Wrapf(err, "failed to read rc for pipeline %s", pi.Pipeline.Name)
 }
 

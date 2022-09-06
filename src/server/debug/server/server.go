@@ -244,24 +244,24 @@ func (s *debugServer) forEachWorker(ctx context.Context, pipelineInfo *pps.Pipel
 }
 
 func (s *debugServer) getWorkerPods(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]v1.Pod, error) {
-	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(
-		ctx,
-		metav1.ListOptions{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ListOptions",
-				APIVersion: "v1",
-			},
-			LabelSelector: metav1.FormatLabelSelector(
-				metav1.SetAsLabelSelector(
-					map[string]string{
-						"app":             "pipeline",
-						"pipelineName":    pipelineInfo.Pipeline.Name,
-						"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
-					},
-				),
-			),
+	// FIXME: can this use pps_server.Selector?
+	labels := map[string]string{
+		"app":             "pipeline",
+		"pipelineName":    pipelineInfo.Pipeline.Name,
+		"pipelineVersion": fmt.Sprint(pipelineInfo.Version),
+	}
+
+	if projectName := pipelineInfo.Pipeline.Project.GetName(); projectName != "" {
+		labels["pipelineProject"] = projectName
+	}
+	options := metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
 		},
-	)
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
+	}
+	podList, err := s.env.GetKubeClient().CoreV1().Pods(s.env.Config().Namespace).List(ctx, options)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return s.getLegacyWorkerPods(ctx, pipelineInfo)
@@ -285,7 +285,7 @@ func (s *debugServer) getLegacyWorkerPods(ctx context.Context, pipelineInfo *pps
 			LabelSelector: metav1.FormatLabelSelector(
 				metav1.SetAsLabelSelector(
 					map[string]string{
-						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+						"app": ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 					},
 				),
 			),

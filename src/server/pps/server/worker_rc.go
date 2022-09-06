@@ -599,10 +599,10 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	transform := pipelineInfo.Details.Transform
 	labels := pipelineLabels(pipelineName, pipelineVersion)
-	labels[pipelineNameLabel] = pipelineName
 	if projectName != "" {
 		labels[pipelineProjectLabel] = projectName
 	}
+	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -748,7 +748,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+		rcName:                ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
 		s3GatewayPort:         s3GatewayPort,
 		specCommit:            pipelineInfo.SpecCommit.ID,
 		labels:                labels,
@@ -801,7 +801,10 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 		},
 	}
 	labels := s.GetLabels()
-	labels["pipelineName"] = pipelineInfo.Pipeline.Name
+	if projectName := pipelineInfo.Pipeline.Project.GetName(); projectName != "" {
+		labels[pipelineProjectLabel] = projectName
+	}
+	labels[pipelineNameLabel] = pipelineInfo.Pipeline.Name
 	s.SetLabels(labels)
 
 	// send RPC to k8s to create the secret there

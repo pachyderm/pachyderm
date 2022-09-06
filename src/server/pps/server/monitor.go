@@ -250,7 +250,8 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	pipeline := pipelineInfo.Pipeline.Name
+	projectName := pipelineInfo.Pipeline.Project.GetName()
+	pipelineName := pipelineInfo.Pipeline.Name
 	ctx, cancelInner := context.WithCancel(ctx)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		currRC, _, err := pc.getRC(ctx, pipelineInfo)
@@ -258,7 +259,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 			return err
 		}
 		parallelism := int(*currRC.Spec.Replicas)
-		workerStatus, err := workerserver.Status(ctx, pipeline, pipelineInfo.Version,
+		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, pipelineInfo.Version,
 			pc.env.EtcdClient, pc.etcdPrefix, pc.env.Config.PPSWorkerPort)
 		if err != nil {
 			return errors.Wrap(err, "could not check if all workers are up")
@@ -274,7 +275,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 		}
 		return nil // loop again to check for new workers
 	}), backoff.NewConstantBackOff(pc.crashingBackoff),
-		backoff.NotifyContinue("monitorCrashingPipeline for "+pipeline),
+		backoff.NotifyContinue("monitorCrashingPipeline for "+pipelineName),
 	); err != nil && ctx.Err() == nil {
 		// retryUntilCancel should exit iff 'ctx' is cancelled, so this should be
 		// unreachable (restart master if not)
