@@ -52,7 +52,7 @@ class BaseDriver:
 
         await asyncio.gather(*pull_images)
 
-        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local", "pachyderm/testuser:local"]
+        push_images = [ETCD_IMAGE, "pachyderm/pachd:local", "pachyderm/worker:local"]
 
         await asyncio.gather(*[self.push_image(i) for i in push_images])
         await run("kubectl", "apply", "-f", "etc/testing/minio.yaml", "--namespace=default")
