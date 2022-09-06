@@ -95,6 +95,9 @@ message Context {
     // A boolean that records whether the context points at an enterprise server.
     // If false, the context points at a stand-alone pachd.
     bool enterprise_server = 11;
+
+    // The current project.
+    string project = 12;
 }
 
 enum ContextSource {
