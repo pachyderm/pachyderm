@@ -14,9 +14,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -127,10 +124,17 @@ func DeletePod(t testing.TB, app, ns string) {
 // can be used to test PPS's robustness
 func DeletePipelineRC(t testing.TB, pipelineName, namespace string) {
 	kubeClient := GetKubeClient(t)
-	pipeline := &pps.Pipeline{
-		Name: pipelineName,
-	}
-	selector := pps_server.Selector(pipeline)
+	selector := metav1.FormatLabelSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"pipelineName": pipelineName,
+		},
+		MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      "pipelineProject",
+				Operator: metav1.LabelSelectorOpDoesNotExist,
+			},
+		},
+	})
 	rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: selector})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(rcs.Items))
