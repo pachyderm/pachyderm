@@ -278,7 +278,8 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	}
 	defer tracing.FinishAnySpan(span, "err", retErr)
 	// derive the latest pipelineInfo with a corresponding auth'd context
-	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
+	pipeline := client.NewPipeline(pc.pipeline)
+	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pipeline)
 	if err != nil {
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
 		log.Errorf("PPS master: failed to set up step data to handle event for pipeline '%s': %v", pc.pipeline, errors.Wrapf(err, "failing pipeline %q", pc.pipeline))
