@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  browser-tools: circleci/browser-tools@1.2.3
-
 parameters:
   pachctl_version:
     type: string
