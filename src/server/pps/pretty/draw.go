@@ -2,7 +2,6 @@ package pretty
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 
@@ -11,11 +10,24 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-const (
-	// maxLabelLen        = 10 // TODO: How do we handle long pipeline names?
-	boxWidth           = 11
-	layerVerticalSpace = 5
-)
+type renderConfig struct {
+	boxWidth   int
+	edgeHeight int
+}
+
+type RenderOption func(*renderConfig)
+
+func BoxWidthOption(boxWidth int) RenderOption {
+	return func(ro *renderConfig) {
+		ro.boxWidth = boxWidth
+	}
+}
+
+func EdgeHeightOption(verticalSpace int) RenderOption {
+	return func(ro *renderConfig) {
+		ro.edgeHeight = verticalSpace
+	}
+}
 
 type vertex struct {
 	id        string
@@ -42,18 +54,21 @@ func (v *vertex) removeEdge(u *vertex) {
 	delete(v.edges, u.id)
 }
 
-func (v *vertex) String() string {
-	return v.label
-}
-
 type layerer func([]*vertex) [][]*vertex
 type orderer func([][]*vertex)
 
-func Draw(pis []*pps.PipelineInfo) (string, error) {
+func Draw(pis []*pps.PipelineInfo, opts ...RenderOption) (string, error) {
+	ro := &renderConfig{
+		boxWidth:   11,
+		edgeHeight: 5,
+	}
+	for _, o := range opts {
+		o(ro)
+	}
 	if g, err := makeGraph(pis); err != nil {
 		return "", err
 	} else {
-		return draw(g, layerLongestPath, orderGreedy), nil
+		return draw(g, layerLongestPath, orderGreedy, ro), nil
 	}
 }
 
@@ -92,18 +107,18 @@ func makeGraph(pis []*pps.PipelineInfo) ([]*vertex, error) {
 	return vs, nil
 }
 
-func draw(vertices []*vertex, lf layerer, of orderer) string {
+func draw(vertices []*vertex, lf layerer, of orderer, ro *renderConfig) string {
 	// Assign Layers
 	layers := lf(vertices)
 	of(layers)
-	assignCoordinates(layers)
-	picture := renderPicture(layers)
+	assignCoordinates(layers, ro)
+	picture := renderPicture(layers, ro)
 	return picture
 }
 
 // precompute the box coordinates so that during rendering the edges can be filled between layers
-func assignCoordinates(layers [][]*vertex) {
-	maxWidth := rowWidth(layers)
+func assignCoordinates(layers [][]*vertex, ro *renderConfig) {
+	maxWidth := rowWidth(layers, ro)
 	for _, l := range layers {
 		boxCenterOffset := maxWidth / (len(l) + 1)
 		for j := 0; j < len(l); j++ {
@@ -205,9 +220,9 @@ func orderGreedy(layers [][]*vertex) {
 // ==================================================
 // Rendering algorithm
 
-func renderPicture(layers [][]*vertex) string {
+func renderPicture(layers [][]*vertex, ro *renderConfig) string {
 	picture := ""
-	maxRowWidth := rowWidth(layers)
+	maxRowWidth := rowWidth(layers, ro)
 	// traverse the layers starting with source repos
 	for i := len(layers) - 1; i >= 0; i-- {
 		l := layers[i]
@@ -221,28 +236,32 @@ func renderPicture(layers [][]*vertex) string {
 			if v.red {
 				colorSprint = color.New(color.FgHiRed).SprintFunc()
 			}
-			spacing := v.rowOffset - (boxWidth+2)/2 - written
-			boxPadLeft := strings.Repeat(" ", (boxWidth-len(v.String()))/2)
-			boxPadRight := strings.Repeat(" ", boxWidth-len(v.String())-len(boxPadLeft))
+			spacing := v.rowOffset - (ro.boxWidth+2)/2 - written
+			label := v.label
+			if len(label) > ro.boxWidth {
+				label = label[:ro.boxWidth-2] + ".."
+			}
+			boxPadLeft := strings.Repeat(" ", (ro.boxWidth-len(label))/2)
+			boxPadRight := strings.Repeat(" ", ro.boxWidth-len(label)-len(boxPadLeft))
 			if v.label == "*" {
 				hiddenRow := fmt.Sprintf("%s %s%s%s ", strings.Repeat(" ", spacing), boxPadLeft, "|", boxPadRight)
 				border += hiddenRow
 				row += hiddenRow
 			} else {
-				border += colorSprint(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", boxWidth)))
-				row += colorSprint(fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, v, boxPadRight))
+				border += colorSprint(fmt.Sprintf("%s+%s+", strings.Repeat(" ", spacing), strings.Repeat("-", ro.boxWidth)))
+				row += colorSprint(fmt.Sprintf("%s|%s%s%s|", strings.Repeat(" ", spacing), boxPadLeft, label, boxPadRight))
 			}
-			written += spacing + len(boxPadLeft) + len(v.String()) + len(boxPadRight) + 2
+			written += spacing + len(boxPadLeft) + len(label) + len(boxPadRight) + 2
 			for _, u := range v.edges {
 				renderEdges = append(renderEdges, renderEdge{src: v.rowOffset, dest: u.rowOffset})
 			}
 		}
 		picture += fmt.Sprintf("%s\n%s\n%s\n", border, row, border)
 		// print up to `layerVerticalSpace` rows that will contain edge drawings
-		for j := 0; j < layerVerticalSpace; j++ {
+		for j := 0; j < ro.edgeHeight; j++ {
 			row := strings.Repeat(" ", maxRowWidth)
 			for _, re := range renderEdges {
-				row = re.render(row, j, layerVerticalSpace)
+				row = re.render(row, j, ro.edgeHeight)
 			}
 			picture += fmt.Sprint(row)
 			picture += "\n"
@@ -284,17 +303,16 @@ func (re renderEdge) render(row string, vertIdx, vertDist int) string {
 		return setEdgeChar(row, (re.src+re.dest)/2, '|')
 	}
 	// horizontal line
-	if vertDist < re.distance() && vertIdx == vertDist/2 {
-		start, end := func(a, b int) (int, int) {
-			if a < b {
-				return a, b
-			}
-			return b, a
-		}(re.src, re.dest)
-		diagCoverage := ceilDiv(vertDist, 2)
-		start, end = start+diagCoverage, end-diagCoverage
-		for i := start; i <= end; i++ {
-			row = setEdgeChar(row, i, '-')
+	if vertDist < adjustedXDist && vertIdx == vertDist/2 {
+		step := 1
+		if re.src > re.dest {
+			step = -1
+		}
+		diagCoverage := (vertDist / 2) * step
+		tmp := re.src + diagCoverage
+		for tmp != re.dest-diagCoverage-(step*vertDist%2) {
+			tmp += step
+			row = setEdgeChar(row, tmp, '-')
 		}
 		return row
 	}
@@ -325,9 +343,9 @@ func leaves(vs []*vertex) []*vertex {
 	return ls
 }
 
-func rowWidth(layers [][]*vertex) int {
+func rowWidth(layers [][]*vertex, ro *renderConfig) int {
 	mlw := maxLayerWidth(layers)
-	return mlw * (boxWidth + 2) * 2
+	return mlw * (ro.boxWidth + 2) * 2
 }
 
 func maxLayerWidth(layers [][]*vertex) int {
@@ -350,8 +368,4 @@ func abs(x int) int {
 		return x * -1
 	}
 	return x
-}
-
-func ceilDiv(x, y int) int {
-	return int(math.Ceil(float64(x) / float64(y)))
 }

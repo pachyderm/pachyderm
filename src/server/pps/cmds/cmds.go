@@ -942,6 +942,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var commitSet string
+	var boxWidth int
+	var edgeHeight int
 	draw := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Draw a DAG",
@@ -966,7 +968,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			if picture, err := pretty.Draw(pipelineInfos); err != nil {
+			if picture, err := pretty.Draw(pipelineInfos, pretty.BoxWidthOption(boxWidth), pretty.EdgeHeightOption(edgeHeight)); err != nil {
 				return err
 			} else {
 				fmt.Print(picture)
@@ -975,6 +977,8 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		}),
 	}
 	draw.Flags().StringVarP(&commitSet, "commit", "c", "", "Commit at which you would to draw the DAG")
+	draw.Flags().IntVar(&boxWidth, "box-width", 11, "Character width of each box in the DAG")
+	draw.Flags().IntVar(&edgeHeight, "edge-height", 5, "Number of vertical lines spanned by each edge")
 	commands = append(commands, cmdutil.CreateAlias(draw, "draw"))
 
 	var (

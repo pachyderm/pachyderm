@@ -242,8 +242,11 @@ func drawMultiAlgos(t testing.TB, vs []*vertex, expected string) {
 	layerers := []layerer{
 		layerLongestPath,
 	}
+	rc := &renderConfig{
+		boxWidth: 11, edgeHeight: 5,
+	}
 	for _, lyr := range layerers {
-		picture := draw(vs, lyr, orderGreedy)
+		picture := draw(vs, lyr, orderGreedy, rc)
 		require.Equal(t, strings.Trim(expected, "\n "), strings.Trim(picture, "\n "))
 		fmt.Print(picture)
 	}
