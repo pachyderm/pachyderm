@@ -9,7 +9,7 @@ parameters:
     # Includes https://github.com/pachyderm/pachyderm/pull/7836
 
 jobs:
-  test:
+  jupyter-extension-test:
     parameters:
       python-version:
         type: string
@@ -61,7 +61,7 @@ jobs:
 
             check-manifest -v
 
-  integration-test:
+  jupyter-extension-integration-test:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202107-02
@@ -87,7 +87,7 @@ jobs:
             # Run integration tests
             pytest -v jupyterlab_pachyderm/tests/test_integrations.py
 
-  e2e-test:
+  jupyter-extension-e2e-test:
     resource_class: xlarge
     machine:
       image: ubuntu-2004:202111-01
@@ -127,7 +127,7 @@ jobs:
             export PFS_MOUNT_DIR=$(pwd)/pfs
             CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
 
-  frontend-test:
+  jupyter-extension-frontend-test:
     resource_class: xlarge
     docker:
       - image: cimg/node:16.11.0
@@ -136,7 +136,7 @@ jobs:
       - run: npm ci
       - run: npm run test
 
-  build:
+  jupyter-extension-build:
     executor: python
     steps:
       - checkout
@@ -182,7 +182,7 @@ jobs:
           paths:
             - dist
 
-  test-publish:
+  jupyter-extension-test-publish:
     executor: python
     steps:
       - checkout
@@ -215,7 +215,7 @@ jobs:
             . venv/bin/activate
             twine upload --repository testpypi dist/*
 
-  publish:
+  jupyter-extension-publish:
     executor: python
     steps:
       - checkout
@@ -248,7 +248,7 @@ jobs:
             . venv/bin/activate
             twine upload dist/*
 
-  docker-build:
+  jupyter-extension-docker-build:
     executor: python
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -268,7 +268,7 @@ jobs:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
 
-  docker-build-tag:
+  jupyter-extension-docker-build-tag:
     executor: python
     docker:
       - image: circleci/buildpack-deps:stretch
@@ -287,7 +287,7 @@ jobs:
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_TAG
-  preview:
+  jupyter-extension-preview:
     parameters:
       gcp-project:
         type: string
@@ -362,76 +362,76 @@ jobs:
 workflows:
   build-workflow:
     jobs:
-      - test:
+      - jupyter-extension-test:
           matrix:
             parameters:
               python-version: ['3.7', '3.8', '3.9', '3.10']
           filters:
             tags:
               only: /.*/
-      - frontend-test:
+      - jupyter-extension-frontend-test:
           filters:
             tags:
               only: /.*/
-      - integration-test:
+      - jupyter-extension-integration-test:
           filters:
             tags:
               only: /.*/
-      - e2e-test:
+      - jupyter-extension-e2e-test:
           requires:
-            - build
+            - jupyter-extension-build
           filters:
             tags:
               only: /.*/
-      - build:
+      - jupyter-extension-build:
           filters:
             tags:
               only: /.*/
-      - docker-build:
+      - jupyter-extension-docker-build:
           requires:
-            - build
-      - docker-build-tag:
+            - jupyter-extension-build
+      - jupyter-extension-docker-build-tag:
           requires:
-            - build
+            - jupyter-extension-build
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /.*/
-      - preview:
+      - jupyter-extension-preview:
           gcp-project: pulumi-ci-334619
           gcp-compute-zone: us-east1-b
           gcloud-sdk-version: "363.0.0"
           pulumi-version: v3.22.1
           requires:
-            - docker-build
+            - jupyter-extension-docker-build
           filters:
             branches:
               ignore: main
-      - test-publish:
+      - jupyter-extension-test-publish:
           requires:
-            - build
-            - test
-            - frontend-test
-            - integration-test
-            - e2e-test
+            - jupyter-extension-build
+            - jupyter-extension-test
+            - jupyter-extension-frontend-test
+            - jupyter-extension-integration-test
+            - jupyter-extension-e2e-test
           filters:
             tags:
               only: /^v\d+\.\d+\.\d.*/
             branches:
               ignore: /.*/
-      - approve-release:
+      - jupyter-extension-approve-release:
           type: approval
           requires:
-            - test-publish
+            - jupyter-extension-test-publish
           filters:
             tags:
               only: /^v\d+\.\d+\.\d.*/
             branches:
               ignore: /.*/
-      - publish:
+      - jupyter-extension-publish:
           requires:
-            - approve-release
+            - jupyter-extension-approve-release
           filters:
             tags:
               only: /^v\d+\.\d+\.\d.*/
