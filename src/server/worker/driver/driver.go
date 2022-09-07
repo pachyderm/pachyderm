@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	
+
 	"os"
+	"os/exec"
 	"os/user"
 	"path"
 	"path/filepath"
@@ -19,7 +20,6 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/exec"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -361,24 +361,8 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	// A context with a deadline will successfully cancel/kill
-	// the running process (minus zombies)
-	state, err := cmd.Process.Wait()
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	if common.IsDone(ctx) {
-		if err = ctx.Err(); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
+	err = cmd.Wait()
 
-	// Because of this issue: https://github.com/golang/go/issues/18874
-	// We forked os/exec so that we can call just the part of cmd.Wait() that
-	// happens after blocking on the process. Unfortunately calling
-	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
-	// close the IO using this helper
-	err = cmd.WaitIO(state, err)
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
 	// Stdin. This is a fairly common thing to do, bash by default ignores
@@ -429,23 +413,8 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	// A context w a deadline will successfully cancel/kill
-	// the running process (minus zombies)
-	state, err := cmd.Process.Wait()
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	if common.IsDone(ctx) {
-		if err = ctx.Err(); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	// Because of this issue: https://github.com/golang/go/issues/18874
-	// We forked os/exec so that we can call just the part of cmd.Wait() that
-	// happens after blocking on the process. Unfortunately calling
-	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
-	// close the IO using this helper
-	err = cmd.WaitIO(state, err)
+
+	err = cmd.Wait()
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
 	// Stdin. This is a fairly common thing to do, bash by default ignores
