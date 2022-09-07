@@ -54,6 +54,9 @@ jobs:
 # our single workflow, that triggers the setup job defined above
 workflows:
   setup:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - setup:
           filters:
