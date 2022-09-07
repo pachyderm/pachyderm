@@ -42,6 +42,9 @@ var PipelinesNameIndex = &col.Index{
 	Name: "name",
 	Extract: func(val proto.Message) string {
 		info := val.(*pps.PipelineInfo)
+		if projectName := info.Pipeline.Project.GetName(); projectName != "" {
+			return fmt.Sprintf("%s/%s", projectName, info.Pipeline.Name)
+		}
 		return info.Pipeline.Name
 	},
 }
@@ -51,13 +54,35 @@ var pipelinesIndexes = []*col.Index{
 	PipelinesNameIndex,
 }
 
-// FIXME: support projects
+// ParsePipelineKey expects keys to either be of the form <pipeline>@<id> or
+// <project>/<pipeline>@<id>.
 func ParsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
 	parts := strings.Split(key, "@")
 	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
-		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>")
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
 	}
-	return parts[0], parts[1], nil
+	id = parts[1]
+	parts = strings.Split(parts[0], "/")
+	if len(parts) == 0 {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
+	}
+	pipelineName = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return
+	}
+	projectName = strings.Join(parts[0:len(parts)-1], "/")
+	return
+}
+
+func pipelineCommitKey(commit *pfs.Commit) (string, error) {
+	if commit.Branch.Repo.Type != pfs.SpecRepoType {
+		return "", errors.Errorf("commit %s is not from a spec repo", commit)
+	}
+	// FIXME: include project
+	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
+	}
+	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
 }
 
 // Pipelines returns a PostgresCollection of pipelines
@@ -70,15 +95,12 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 		pipelinesIndexes,
 		col.WithKeyGen(func(key interface{}) (string, error) {
 			if commit, ok := key.(*pfs.Commit); ok {
-				if commit.Branch.Repo.Type != pfs.SpecRepoType {
-					return "", errors.Errorf("commit %s is not from a spec repo", commit)
-				}
-				return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+				return pipelineCommitKey(commit)
 			}
 			return "", errors.New("must provide a spec commit")
 		}),
 		col.WithKeyCheck(func(key string) error {
-			_, _, err := ParsePipelineKey(key)
+			_, _, _, err := ParsePipelineKey(key)
 			return err
 		}),
 	)
@@ -88,11 +110,18 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 var JobsPipelineIndex = &col.Index{
 	Name: "pipeline",
 	Extract: func(val proto.Message) string {
-		return val.(*pps.JobInfo).Job.Pipeline.Name
+		jobInfo := val.(*pps.JobInfo)
+		if projectName := jobInfo.Job.Pipeline.Project.GetName(); projectName != "" {
+			return fmt.Sprintf("%s/%s", projectName, jobInfo.Job.Pipeline.Name)
+		}
+		return jobInfo.Job.Pipeline.Name
 	},
 }
 
 func JobTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
+	if projectName := pipeline.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s_%v", projectName, pipeline.Name, isTerminal)
+	}
 	return fmt.Sprintf("%s_%v", pipeline.Name, isTerminal)
 }
 

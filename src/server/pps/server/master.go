@@ -60,8 +60,8 @@ func fromKey(k pipelineKey) (*pps.Pipeline, error) {
 	return newPipeline(parts[0], parts[1]), nil
 }
 
-func newPipeline(projectName, pipelineName string) *pps.Project {
-	return &pps.Project{
+func newPipeline(projectName, pipelineName string) *pps.Pipeline {
+	return &pps.Pipeline{
 		Project: &pfs.Project{Name: projectName},
 		Name:    pipelineName,
 	}
@@ -200,7 +200,7 @@ eventLoop:
 				} else {
 					// pc's ctx is cancelled in pipelineController.tryFinish(), to avoid leaking resources
 					pcCtx, pcCancel := context.WithCancel(m.masterCtx)
-					pc = m.newPipelineController(pcCtx, pcCancel, key)
+					pc = m.newPipelineController(pcCtx, pcCancel, e.pipeline)
 					m.pcMgr.pcs[key] = pc
 					go pc.Start(e.timestamp)
 				}

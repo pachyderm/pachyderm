@@ -786,6 +786,7 @@ func (a *apiServer) listJob(
 }
 
 func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) error {
+	projectName := jobInfo.Job.Pipeline.Project.GetName()
 	pipelineName := jobInfo.Job.Pipeline.Name
 
 	if err := a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Type: pfs.UserRepoType, Name: pipelineName}, auth.Permission_PIPELINE_LIST_JOB); err != nil && !auth.IsErrNotActivated(err) {
@@ -798,7 +799,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
 		ppsdb.PipelinesVersionIndex,
-		ppsdb.VersionKey(pipelineName, jobInfo.PipelineVersion),
+		ppsdb.VersionKey(projectName, pipelineName, jobInfo.PipelineVersion),
 		pipelineInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -825,7 +826,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// If the job is running, we fill in WorkerStatus field, otherwise
 	// we just return the jobInfo.
 	if jobInfo.State == pps.JobState_JOB_RUNNING {
-		workerStatus, err := workerserver.Status(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, projectName, pipelineName, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -994,7 +995,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerserver.Cancel(ctx, jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1187,8 +1188,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		}
 
 		// 3) Get pods for this pipeline
-		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		rcName = ppsutil.PipelineRcName(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		pods, err = a.rcPods(apiGetLogsServer.Context(), pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		if err != nil {
 			return err
 		}
@@ -2278,7 +2279,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, projectName, pipelineAn
 	} else {
 		kubeClient := a.env.KubeClient
 		if info.Details.Service != nil {
-			rcName := ppsutil.PipelineRcName(info.Pipeline.Name, info.Version)
+			rcName := ppsutil.PipelineRcName(info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version)
 			service, err := kubeClient.CoreV1().Services(a.namespace).Get(ctx, fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 			if err != nil {
 				if !errutil.IsNotFoundError(err) {
@@ -2289,7 +2290,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, projectName, pipelineAn
 			}
 		}
 
-		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
+		workerStatus, err := workerserver.Status(ctx, info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version, a.env.EtcdClient, a.etcdPrefix, a.workerGrpcPort)
 		if err != nil {
 			logrus.Errorf("failed to get worker status with err: %s", err.Error())
 		} else {
@@ -2334,7 +2335,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		if targetVersion < 1 {
 			return nil, errors.Errorf("pipeline %q/%q has only %d versions, not enough to find ancestor %d", projectName, name, pipelineInfo.Version, ancestors)
 		}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(name, uint64(targetVersion)), pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(projectName, name, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	}
@@ -3042,12 +3043,16 @@ func (a *apiServer) pachdPods(ctx context.Context) ([]v1.Pod, error) {
 	return a.listPods(ctx, map[string]string{appLabel: "pachd"})
 }
 
-func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
-	pp, err := a.listPods(ctx, map[string]string{
+func (a *apiServer) rcPods(ctx context.Context, projectName, pipelineName string, pipelineVersion uint64) ([]v1.Pod, error) {
+	labels := map[string]string{
 		appLabel:             "pipeline",
 		pipelineNameLabel:    pipelineName,
 		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
-	})
+	}
+	if projectName != "" {
+		labels[pipelineProjectLabel] = projectName
+	}
+	pp, err := a.listPods(ctx, labels)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -3056,7 +3061,7 @@ func (a *apiServer) rcPods(ctx context.Context, pipelineName string, pipelineVer
 		// This long name could exceed 63 characters, which is why 2.4
 		// and later use separate labels for each component.
 		return a.listPods(ctx, map[string]string{
-			appLabel: ppsutil.PipelineRcName(pipelineName, pipelineVersion),
+			appLabel: ppsutil.PipelineRcName(projectName, pipelineName, pipelineVersion),
 		})
 	}
 	return pp, nil
