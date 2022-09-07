@@ -153,7 +153,7 @@ func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID
 							logger := logger.WithFields(log.Fields{
 								"batch": uuid.NewWithoutDashes(),
 							})
-							return miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting batch"), func() error {
+							return miscutil.LogStep(ctx, logger, "compacting batch", func() error {
 								id, err := compact(ctx, logger, ids, ttl)
 								if err != nil {
 									return err
