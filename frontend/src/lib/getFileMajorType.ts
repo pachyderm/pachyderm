@@ -17,6 +17,7 @@ const getFileMajorType = (fileType: string) => {
     case 'yml':
     case 'yaml':
     case 'txt':
+    case 'textpb':
       fileMajorType = 'document';
       break;
     case 'apng':

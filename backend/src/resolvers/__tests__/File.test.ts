@@ -27,7 +27,7 @@ describe('File Resolver', () => {
 
       const files = data?.files.files;
       expect(errors?.length).toBe(0);
-      expect(files?.length).toEqual(16);
+      expect(files?.length).toEqual(17);
       expect(data?.files.diff?.size).toBe(58644);
       expect(data?.files.diff?.sizeDisplay).toBe('58.65 kB');
       expect(data?.files.diff?.filesAdded).toBe(1);
@@ -89,7 +89,7 @@ describe('File Resolver', () => {
       });
 
       expect(errors?.length).toBe(0);
-      expect(data?.files.files.length).toEqual(16);
+      expect(data?.files.files.length).toEqual(17);
 
       const {errors: mutationErrors = []} =
         await executeMutation<PutFilesFromUrLsMutation>(
@@ -123,7 +123,7 @@ describe('File Resolver', () => {
           },
         });
       expect(updatedErrors.length).toBe(0);
-      expect(updatedFiles?.files.files.length).toEqual(17);
+      expect(updatedFiles?.files.files.length).toEqual(18);
     });
   });
 });

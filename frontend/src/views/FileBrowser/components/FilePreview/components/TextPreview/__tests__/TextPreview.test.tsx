@@ -40,4 +40,17 @@ describe('Text Preview', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('should support .textpb file extensions', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/project/3/repos/cron/branch/master/commit/0918ac9d5daa76b86e3bb5e88e4c43a4/carriers_list.textpb',
+    );
+    const {findByText} = render(<FileBrowser />);
+    expect(
+      await findByText('carrier_name: "T-Mobile - US"'),
+    ).toBeInTheDocument();
+    expect(await findByText('mccmnc_tuple: "310026"')).toBeInTheDocument();
+  });
 });

@@ -10,6 +10,8 @@ import {
 
 import FileBrowserComponent from '../FileBrowser';
 
+const TOTAL_FILES = 17;
+
 describe('File Browser', () => {
   beforeEach(() => {
     window.history.replaceState(
@@ -45,7 +47,7 @@ describe('File Browser', () => {
       expect(await findByText('liberty.png')).toBeInTheDocument();
       expect(await findByText('AT-AT.png')).toBeInTheDocument();
       expect(await findByText('cats')).toBeInTheDocument();
-      expect(await findAllByRole('row')).toHaveLength(17);
+      expect(await findAllByRole('row')).toHaveLength(TOTAL_FILES + 1);
 
       userEvent.type(searchBar, 'lib');
 
@@ -66,7 +68,7 @@ describe('File Browser', () => {
         {timeout: 10000},
       );
 
-      expect(await findAllByRole('row')).toHaveLength(17);
+      expect(await findAllByRole('row')).toHaveLength(TOTAL_FILES + 1);
 
       click(diffToggle);
 
@@ -74,7 +76,7 @@ describe('File Browser', () => {
 
       click(diffToggle);
 
-      expect(await findAllByRole('row')).toHaveLength(17);
+      expect(await findAllByRole('row')).toHaveLength(TOTAL_FILES + 1);
     });
 
     it('should show an empty state when there are no results', async () => {
@@ -204,7 +206,7 @@ describe('File Browser', () => {
       const {findByTestId, findAllByTestId} = render(<FileBrowser />);
 
       const deleteButton = await findAllByTestId('DeleteFileButton__link');
-      expect(mockServer.getState().files['3']['/']).toHaveLength(16);
+      expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
 
       click(deleteButton[0]);
 
@@ -213,7 +215,9 @@ describe('File Browser', () => {
       click(deleteConfirm);
 
       await waitFor(() =>
-        expect(mockServer.getState().files['3']['/']).toHaveLength(15),
+        expect(mockServer.getState().files['3']['/']).toHaveLength(
+          TOTAL_FILES - 1,
+        ),
       );
     });
 
@@ -289,7 +293,7 @@ describe('File Browser', () => {
       const {findByTestId, findAllByTestId} = render(<FileBrowser />);
 
       const deleteButton = await findAllByTestId('DeleteFileButton__link');
-      expect(mockServer.getState().files['3']['/']).toHaveLength(16);
+      expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
 
       click(deleteButton[0]);
 
@@ -298,7 +302,9 @@ describe('File Browser', () => {
       click(deleteConfirm);
 
       await waitFor(() =>
-        expect(mockServer.getState().files['3']['/']).toHaveLength(15),
+        expect(mockServer.getState().files['3']['/']).toHaveLength(
+          TOTAL_FILES - 1,
+        ),
       );
     });
 
@@ -359,7 +365,7 @@ describe('File Browser', () => {
       const {findByTestId} = render(<FileBrowser />);
 
       const deleteButton = await findByTestId('DeleteFileButton__link');
-      expect(mockServer.getState().files['3']['/']).toHaveLength(16);
+      expect(mockServer.getState().files['3']['/']).toHaveLength(TOTAL_FILES);
 
       click(deleteButton);
 
@@ -368,7 +374,9 @@ describe('File Browser', () => {
       click(deleteConfirm);
 
       await waitFor(() =>
-        expect(mockServer.getState().files['3']['/']).toHaveLength(15),
+        expect(mockServer.getState().files['3']['/']).toHaveLength(
+          TOTAL_FILES - 1,
+        ),
       );
     });
 

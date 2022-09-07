@@ -16,6 +16,7 @@ const SUPPORTED_PREVIEW_MAJOR_TYPES: FileMajorType[] = [
 const SUPPORTED_PREVIEW_MINOR_TYPES: string[] = [
   'json',
   'jsonl',
+  'textpb',
   'csv',
   'tsv',
   'tab',

@@ -62,6 +62,17 @@ const allFiles = {
       committed: {seconds: 1633119338, nanos: 0},
       file: {
         commitId: '531f844bd184e913b050d49856e8d438',
+        path: '/carriers_list.textpb',
+        branch: {name: 'master', repo: {name: 'samples'}},
+      },
+      fileType: FileType.FILE,
+      hash: '1aa5784d52481911bc44df0e8b6a8fd581b0518c',
+      sizeBytes: 41700,
+    }),
+    fileInfoFromObject({
+      committed: {seconds: 1633119338, nanos: 0},
+      file: {
+        commitId: '531f844bd184e913b050d49856e8d438',
         path: '/csv_commas.csv',
         branch: {name: 'master', repo: {name: 'samples'}},
       },

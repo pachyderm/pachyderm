@@ -55,6 +55,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({file}) => {
             return <YAMLPreview downloadLink={fileLink} />;
           case 'txt':
           case 'jsonl':
+          case 'textpb':
             return <TextPreview downloadLink={fileLink} />;
           case 'html':
           case 'htm':
