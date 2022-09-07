@@ -47,8 +47,6 @@ func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer
 // WriteIndex writes an index entry.
 func (w *Writer) WriteIndex(idx *Index) error {
 	idx = proto.Clone(idx).(*Index)
-	idx.NumFiles = 1
-	idx.SizeBytes = SizeBytes(idx)
 	return w.writeIndex(idx, 0)
 }
 

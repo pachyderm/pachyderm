@@ -361,7 +361,7 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 				result.First = idx
 			}
 			result.Last = idx
-			if prev != nil && result.Error == "" {
+			if result.Error == "" {
 				result.Error = checkIndex(prev, idx)
 			}
 			prev = idx
@@ -378,6 +378,9 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 }
 
 func checkIndex(prev, curr *index.Index) string {
+	if prev == nil || curr == nil {
+		return ""
+	}
 	if curr.Path == prev.Path {
 		return fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, curr.Path, curr.File.Datum)
 	}

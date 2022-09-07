@@ -172,6 +172,8 @@ func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 			pathRange = &PathRange{
 				Lower: idx.Path,
 			}
+			count = 0
+			size = 0
 		}
 		if idx.Range != nil && (count+idx.NumFiles > defaultCountThreshold || size+idx.SizeBytes > defaultSizeThreshold) {
 			return true, nil
