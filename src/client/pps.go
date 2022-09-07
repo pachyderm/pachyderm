@@ -681,11 +681,11 @@ func (c APIClient) CreatePipeline(
 }
 
 // InspectPipeline returns info about a specific pipeline.
-func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
+func (c APIClient) InspectPipeline(pipelineAncestry string, details bool) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
-			Pipeline: NewPipeline(pipelineName),
+			Pipeline: NewPipeline(pipelineAncestry),
 			Details:  details,
 		},
 	)
