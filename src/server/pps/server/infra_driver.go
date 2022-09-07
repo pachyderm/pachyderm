@@ -40,25 +40,25 @@ const (
 )
 
 type mockInfraDriver struct {
-	rcs          map[string]v1.ReplicationController // indexed by pipeline name
-	calls        map[string]map[mockInfraOp]int      // indexed by pipeline name
-	scaleHistory map[string][]int32                  // indexed by pipeline name
+	rcs          map[pipelineKey]v1.ReplicationController // indexed by pipeline name
+	calls        map[pipelineKey]map[mockInfraOp]int      // indexed by pipeline name
+	scaleHistory map[pipelineKey][]int32                  // indexed by pipeline name
 }
 
 func newMockInfraDriver() *mockInfraDriver {
 	d := &mockInfraDriver{
-		rcs:          make(map[string]v1.ReplicationController),
-		calls:        make(map[string]map[mockInfraOp]int),
-		scaleHistory: make(map[string][]int32),
+		rcs:          make(map[pipelineKey]v1.ReplicationController),
+		calls:        make(map[pipelineKey]map[mockInfraOp]int),
+		scaleHistory: make(map[pipelineKey][]int32),
 	}
 	return d
 }
 
 func (d *mockInfraDriver) CreatePipelineResources(ctx context.Context, pi *pps.PipelineInfo) error {
-	d.rcs[pi.Pipeline.Name] = *d.makeRC(pi)
+	d.rcs[toKey(pi.Pipeline)] = *d.makeRC(pi)
 	d.incCall(pi.Pipeline.Name, mockInfraOp_CREATE)
-	if _, ok := d.scaleHistory[pi.Pipeline.Name]; !ok {
-		d.scaleHistory[pi.Pipeline.Name] = make([]int32, 0)
+	if _, ok := d.scaleHistory[toKey(pi.Pipeline)]; !ok {
+		d.scaleHistory[toKey(pi.Pipeline)] = make([]int32, 0)
 	}
 	return nil
 }
@@ -73,7 +73,7 @@ func (d *mockInfraDriver) DeletePipelineResources(ctx context.Context, pipeline 
 
 func (d *mockInfraDriver) ReadReplicationController(ctx context.Context, pi *pps.PipelineInfo) (*v1.ReplicationControllerList, error) {
 	d.incCall(pi.Pipeline.Name, mockInfraOp_READ)
-	if rc, ok := d.rcs[pi.Pipeline.Name]; !ok {
+	if rc, ok := d.rcs[toKey(pi.Pipeline)]; !ok {
 		return &v1.ReplicationControllerList{
 			Items: []v1.ReplicationController{},
 		}, errors.New("rc for pipeline not found")
@@ -121,7 +121,7 @@ func (d *mockInfraDriver) resetRCs() {
 func (d *mockInfraDriver) makeRC(pi *pps.PipelineInfo) *v1.ReplicationController {
 	return &v1.ReplicationController{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ppsutil.PipelineRcName(pi.Pipeline.Name, pi.Version),
+			Name: ppsutil.PipelineRcName(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Version),
 			Annotations: map[string]string{
 				pipelineVersionAnnotation:    strconv.FormatUint(pi.Version, 10),
 				pipelineSpecCommitAnnotation: pi.SpecCommit.ID,

@@ -3076,14 +3076,18 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 	return ci, nil
 }
 
-func pipelineLabels(pipelineName string, pipelineVersion uint64) map[string]string {
-	return map[string]string{
+func pipelineLabels(projectName, pipelineName string, pipelineVersion uint64) map[string]string {
+	labels := map[string]string{
 		appLabel:             "pipeline",
 		pipelineNameLabel:    pipelineName,
 		pipelineVersionLabel: fmt.Sprint(pipelineVersion),
 		"suite":              suite,
 		"component":          "worker",
 	}
+	if projectName != "" {
+		labels[pipelineProjectLabel] = projectName
+	}
+	return labels
 }
 
 func spoutLabels(pipelineName string) map[string]string {

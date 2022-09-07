@@ -21,7 +21,7 @@ import (
 )
 
 type pipelineTest struct {
-	pipeline       string
+	key            pipelineKey
 	expectedStates []pps.PipelineState
 }
 
@@ -52,10 +52,10 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 	return sDriver, iDriver, mockEnv.MockPachd
 }
 
-func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline string, state pps.PipelineState) {
+func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline *pps.Pipeline, state pps.PipelineState) {
 	require.NoErrorWithinT(t, 10*time.Second, func() error {
 		return backoff.Retry(func() error {
-			actualStates := stateDriver.states[pipeline]
+			actualStates := stateDriver.states[toKey(pipeline)]
 			for _, s := range actualStates {
 				if s == state {
 					return nil
@@ -95,42 +95,44 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 	for _, test := range tests {
 		require.NoErrorWithinT(t, 10*time.Second, func() error {
 			return backoff.Retry(func() error {
-				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.pipeline])
+				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.key])
 			}, backoff.NewTestingBackOff())
 		})
 		require.Equal(t, 1, len(iDriver.rcs))
-		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.currentPipelineInfo(test.pipeline))
+		rc, err := iDriver.ReadReplicationController(context.Background(), sDriver.currentPipelineInfo(test.key))
 		require.NoError(t, err)
-		require.True(t, rcIsFresh(sDriver.currentPipelineInfo(test.pipeline), &rc.Items[0]))
+		require.True(t, rcIsFresh(sDriver.currentPipelineInfo(test.key), &rc.Items[0]))
 	}
 }
 
 func TestBasic(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
 	})
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 }
 
 func TestDeletePipeline(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	pi := &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
@@ -138,21 +140,21 @@ func TestDeletePipeline(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 	// clear state and trigger the delete event
 	stateDriver.reset()
 	defer stateDriver.cancelWatch()
 	stateDriver.pushWatchEvent(pi, watch.EventDelete)
 	require.NoErrorWithinT(t, 5*time.Second, func() error {
 		return backoff.Retry(func() error {
-			if infraDriver.calls[pipeline][mockInfraOp_DELETE] == 1 {
+			if infraDriver.calls[toKey(pipeline)][mockInfraOp_DELETE] == 1 {
 				return nil
 			}
 			return errors.New("change hasn't reflected")
@@ -162,9 +164,10 @@ func TestDeletePipeline(t *testing.T) {
 
 func TestDeleteRC(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	pi := &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
@@ -172,21 +175,21 @@ func TestDeleteRC(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 	// remove RCs, and nudge with an event
 	infraDriver.resetRCs()
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	// verify restart side effects were requested
 	require.NoErrorWithinT(t, 5*time.Second, func() error {
 		return backoff.Retry(func() error {
-			if infraDriver.calls[pipeline][mockInfraOp_CREATE] == 2 {
+			if infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE] == 2 {
 				return nil
 			}
 			return errors.New("change hasn't reflected")
@@ -197,11 +200,12 @@ func TestDeleteRC(t *testing.T) {
 
 func TestAutoscalingBasic(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	done := mockJobRunning(mockPachd, 1, 1)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
 			Autoscaling: true,
@@ -213,7 +217,7 @@ func TestAutoscalingBasic(t *testing.T) {
 	})
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -222,12 +226,13 @@ func TestAutoscalingBasic(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 }
 
 func TestAutoscalingManyCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	done := mockJobRunning(mockPachd, 1, 100)
 	defer close(done)
 	inspectCount := 0
@@ -236,7 +241,7 @@ func TestAutoscalingManyCommits(t *testing.T) {
 		return &pfs.CommitInfo{}, nil
 	})
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
 			Autoscaling: true,
@@ -248,7 +253,7 @@ func TestAutoscalingManyCommits(t *testing.T) {
 	})
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -257,21 +262,22 @@ func TestAutoscalingManyCommits(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 	// 2 * number of commits, to capture the user + meta repos
 	require.Equal(t, 200, inspectCount)
 }
 
 func TestAutoscalingManyTasks(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	done := mockJobRunning(mockPachd, 100, 1)
 	defer close(done)
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		// wait for pipeline replica scale to update before closing the commit
 		// the first two elements should always be [0, 1]
 		require.NoError(t, backoff.Retry(func() error {
-			if len(infraDriver.scaleHistory[pipeline]) > 2 {
+			if len(infraDriver.scaleHistory[toKey(pipeline)]) > 2 {
 				return nil
 			}
 			return errors.New("waiting for scaleHistory to update")
@@ -279,7 +285,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 		return &pfs.CommitInfo{}, nil
 	})
 	pi := &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
 			Autoscaling: true,
@@ -292,7 +298,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -301,17 +307,18 @@ func TestAutoscalingManyTasks(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
-	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.scaleHistory[pi.Pipeline.Name])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
+	require.ElementsEqual(t, []int32{0, 1, 100, 0}, infraDriver.scaleHistory[toKey(pi.Pipeline)])
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	done := mockJobRunning(mockPachd, 0, 0)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
 			Autoscaling: true,
@@ -323,21 +330,22 @@ func TestAutoscalingNoCommits(t *testing.T) {
 	})
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 }
 
 func TestPause(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	pi := &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
@@ -345,7 +353,7 @@ func TestPause(t *testing.T) {
 	spec := stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -355,13 +363,13 @@ func TestPause(t *testing.T) {
 	// pause pipeline
 	stateDriver.specCommits[spec.ID].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
-	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
+	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
 	stateDriver.specCommits[spec.ID].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -374,11 +382,12 @@ func TestPause(t *testing.T) {
 
 func TestPauseAutoscaling(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	done := mockJobRunning(mockPachd, 1, 1)
 	defer close(done)
 	pi := &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details: &pps.PipelineInfo_Details{
 			Autoscaling: true,
@@ -391,7 +400,7 @@ func TestPauseAutoscaling(t *testing.T) {
 	spec := stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -411,13 +420,13 @@ func TestPauseAutoscaling(t *testing.T) {
 	// pause pipeline
 	stateDriver.specCommits[spec.ID].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
-	waitForPipelineState(t, stateDriver, pi.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED)
+	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
 	stateDriver.specCommits[spec.ID].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_STANDBY,
@@ -432,9 +441,10 @@ func TestPauseAutoscaling(t *testing.T) {
 
 func TestStaleRestart(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t)
-	pipeline := tu.UniqueString(t.Name())
+	pipelineName := tu.UniqueString(t.Name())
+	pipeline := client.NewPipeline(pipelineName)
 	pi := &pps.PipelineInfo{
-		Pipeline: client.NewPipeline(pipeline),
+		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
 		Details:  &pps.PipelineInfo_Details{},
 		Version:  1,
@@ -442,20 +452,20 @@ func TestStaleRestart(t *testing.T) {
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
 			},
 		},
 	})
-	require.Equal(t, 1, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 1, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 	pi.Version = 2
 	pi.State = pps.PipelineState_PIPELINE_RUNNING
 	stateDriver.upsertPipeline(pi)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
-			pipeline: pipeline,
+			key: toKey(pipeline),
 			expectedStates: []pps.PipelineState{
 				pps.PipelineState_PIPELINE_STARTING,
 				pps.PipelineState_PIPELINE_RUNNING,
@@ -465,7 +475,7 @@ func TestStaleRestart(t *testing.T) {
 			},
 		},
 	})
-	require.Equal(t, 2, infraDriver.calls[pipeline][mockInfraOp_CREATE])
+	require.Equal(t, 2, infraDriver.calls[toKey(pipeline)][mockInfraOp_CREATE])
 
 }
 

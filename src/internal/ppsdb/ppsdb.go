@@ -25,13 +25,16 @@ var PipelinesVersionIndex = &col.Index{
 	Name: "version",
 	Extract: func(val proto.Message) string {
 		info := val.(*pps.PipelineInfo)
-		return VersionKey(info.Pipeline.Name, info.Version)
+		return VersionKey(info.Pipeline.Project.GetName(), info.Pipeline.Name, info.Version)
 	},
 }
 
-func VersionKey(pipeline string, version uint64) string {
+func VersionKey(projectName, pipelineName string, version uint64) string {
 	// zero pad in case we want to sort
-	return fmt.Sprintf("%s@%08d", pipeline, version)
+	if projectName == "" {
+		return fmt.Sprintf("%s@%08d", pipelineName, version) // pre-projects style
+	}
+	return fmt.Sprintf("%s/%s@%08d", projectName, pipelineName, version) // projects style
 }
 
 // PipelinesNameIndex records the name of pipelines
@@ -48,7 +51,8 @@ var pipelinesIndexes = []*col.Index{
 	PipelinesNameIndex,
 }
 
-func ParsePipelineKey(key string) (string, string, error) {
+// FIXME: support projects
+func ParsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
 	parts := strings.Split(key, "@")
 	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
 		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>")
