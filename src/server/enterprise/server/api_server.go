@@ -422,8 +422,8 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 // ConfigMap and the '$(MODE)' reference is verbatim.
 func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 	var (
-		kc        *kubernetes.Clientset = a.env.getKubeClient()
-		namespace                       = a.env.namespace
+		kc        = a.env.getKubeClient()
+		namespace = a.env.namespace
 	)
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
@@ -508,7 +508,7 @@ func newPachdConfigMap(namespace, unpausedMode string) *v1.ConfigMap {
 	}
 }
 
-func scaleDownWorkers(ctx context.Context, kc *kubernetes.Clientset, namespace string) error {
+func scaleDownWorkers(ctx context.Context, kc kubernetes.Interface, namespace string) error {
 	rc := kc.CoreV1().ReplicationControllers(namespace)
 	ww, err := rc.List(ctx, metav1.ListOptions{
 		LabelSelector: "suite=pachyderm,component=worker",
