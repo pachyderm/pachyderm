@@ -2307,6 +2307,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, projectName, pipelineAn
 }
 
 func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, projectName, pipelineAncestry string) (*pps.PipelineInfo, error) {
+	// The pipeline name arrived in ancestry format; need to turn it into a simple name.
 	name, ancestors, err := ancestry.Parse(pipelineAncestry)
 	if err != nil {
 		return nil, err
@@ -2316,8 +2317,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		return nil, errors.New("cannot inspect future pipelines")
 	}
 
-	// The pipeline name arrived in ancestry format; need to turn it into a simple name.
-	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, projectName, pipelineAncestry, "")
+	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, projectName, name, "")
 	if err != nil {
 		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q/%q", projectName, name)
 	}
