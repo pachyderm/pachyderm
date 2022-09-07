@@ -20,7 +20,7 @@ const (
 	RootToken = "iamroot"
 )
 
-func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
+func TSProtoOrDie(t testing.TB, ts time.Time) *types.Timestamp {
 	proto, err := types.TimestampProto(ts)
 	require.NoError(t, err)
 	return proto

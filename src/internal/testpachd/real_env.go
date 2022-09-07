@@ -6,6 +6,8 @@ import (
 	"path"
 	"testing"
 
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
@@ -20,9 +22,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
-	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
@@ -98,17 +99,16 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	txnEnv := txnenv.New()
 	// AUTH
-	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
+	authEnv := authserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
+	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
 
 	// ENTERPRISE
-	entEnv := server.EnvFromServiceEnv(
-		realEnv.ServiceEnv,
-		path.Join("", "enterprise"),
-		txnEnv,
-	)
-	realEnv.EnterpriseServer, err = server.NewEnterpriseServer(entEnv, true)
+	entEnv := enterpriseserver.EnvFromServiceEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
+	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, true)
 	require.NoError(t, err)
+	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
 
 	// LICENSE
 	licenseEnv := licenseserver.EnvFromServiceEnv(realEnv.ServiceEnv)
