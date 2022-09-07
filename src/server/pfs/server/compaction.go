@@ -20,25 +20,27 @@ import (
 // TODO: Move fan-in configuration to fileset.Storage.
 type compactor struct {
 	storage  *fileset.Storage
+	logger   *log.Entry
 	maxFanIn int
 }
 
-func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
+func newCompactor(storage *fileset.Storage, logger *log.Entry, maxFanIn int) *compactor {
 	return &compactor{
 		storage:  storage,
+		logger:   logger,
 		maxFanIn: maxFanIn,
 	}
 }
 
 func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-	return c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-		return c.compact(ctx, taskDoer, ids, ttl)
+	return c.storage.CompactLevelBased(ctx, c.logger, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, logger *log.Entry, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+		return c.compact(ctx, taskDoer, logger, ids, ttl)
 	})
 }
 
-func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, logger *log.Entry, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 	var tasks []*CompactTask
-	if err := miscutil.LogStep(ctx, fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
+	if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
 		var err error
 		tasks, err = c.createCompactTasks(ctx, taskDoer, ids)
 		return err
@@ -48,14 +50,14 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []files
 	var id *fileset.ID
 	if err := c.storage.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var results []fileset.ID
-		if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
+		if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting %v tasks", len(tasks)), func() error {
 			var err error
 			results, err = c.processCompactTasks(ctx, taskDoer, renewer, tasks)
 			return err
 		}); err != nil {
 			return err
 		}
-		return miscutil.LogStep(ctx, fmt.Sprintf("concatenating %v file sets", len(results)), func() error {
+		return miscutil.LogStep(ctx, logger, fmt.Sprintf("concatenating %v file sets", len(results)), func() error {
 			var err error
 			id, err = c.concat(ctx, taskDoer, renewer, results)
 			return err
@@ -262,7 +264,7 @@ func compactionWorker(ctx context.Context, taskSource task.Source, storage *file
 
 func processShardTask(ctx context.Context, storage *fileset.Storage, task *ShardTask) (*types.Any, error) {
 	result := &ShardTaskResult{}
-	if err := miscutil.LogStep(ctx, "processing shard task", func() error {
+	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing shard task", func() error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
 		if err != nil {
 			return err
@@ -293,7 +295,7 @@ func processShardTask(ctx context.Context, storage *fileset.Storage, task *Shard
 
 func processCompactTask(ctx context.Context, storage *fileset.Storage, task *CompactTask) (*types.Any, error) {
 	result := &CompactTaskResult{}
-	if err := miscutil.LogStep(ctx, "processing compact task", func() error {
+	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing compact task", func() error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
 		if err != nil {
 			return err
@@ -316,7 +318,7 @@ func processCompactTask(ctx context.Context, storage *fileset.Storage, task *Com
 
 func processConcatTask(ctx context.Context, storage *fileset.Storage, task *ConcatTask) (*types.Any, error) {
 	result := &ConcatTaskResult{}
-	if err := miscutil.LogStep(ctx, "processing concat task", func() error {
+	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing concat task", func() error {
 		ids, err := fileset.HexStringsToIDs(task.Inputs)
 		if err != nil {
 			return err
@@ -337,7 +339,7 @@ func processConcatTask(ctx context.Context, storage *fileset.Storage, task *Conc
 // rather than a linear scan through all of the files.
 func processValidateTask(ctx context.Context, storage *fileset.Storage, task *ValidateTask) (*types.Any, error) {
 	result := &ValidateTaskResult{}
-	if err := miscutil.LogStep(ctx, "processing validate task", func() error {
+	if err := miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "processing validate task", func() error {
 		id, err := fileset.ParseID(task.Id)
 		if err != nil {
 			return err

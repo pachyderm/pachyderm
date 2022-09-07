@@ -10,6 +10,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -88,10 +90,10 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 }
 
 // CompactCallback is the standard callback signature for a compaction operation.
-type CompactCallback func(context.Context, []ID, time.Duration) (*ID, error)
+type CompactCallback func(context.Context, *log.Entry, []ID, time.Duration) (*ID, error)
 
 // CompactLevelBased performs a level-based compaction on the passed in file sets.
-func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
+func (s *Storage) CompactLevelBased(ctx context.Context, logger *log.Entry, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
 	ids, err := s.Flatten(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -105,13 +107,13 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 	}
 	i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
 	var id *ID
-	if err := miscutil.LogStep(ctx, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
-		id, err = s.compactLevels(ctx, ids[i:], maxFanIn, ttl, compact)
+	if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting %v levels out of %v", len(ids)-i, len(ids)), func() error {
+		id, err = s.compactLevels(ctx, logger, ids[i:], maxFanIn, ttl, compact)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return s.CompactLevelBased(ctx, append(ids[:i], *id), maxFanIn, ttl, compact)
+	return s.CompactLevelBased(ctx, logger, append(ids[:i], *id), maxFanIn, ttl, compact)
 }
 
 // compactLevels compacts a list of levels.
@@ -121,53 +123,66 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 // For each step, this process is repeated until there are no more ranges eligible for compaction in the step.
 // The file sets being compacted must be contiguous because the file operation order matters.
 // This algorithm ensures that we compact file sets with lower scores together first before compacting higher score file sets.
-func (s *Storage) compactLevels(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
+func (s *Storage) compactLevels(ctx context.Context, logger *log.Entry, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
 	for step := 0; len(ids) > maxFanIn; step++ {
-		stepScore := s.stepScore(step)
-		var emptyStep bool
-		for !emptyStep {
-			emptyStep = true
-			nextIds := make([]ID, 0, len(ids))
-			var compactIds []ID
-			eg, ctx := errgroup.WithContext(ctx)
-			for _, id := range ids {
-				prim, err := s.getPrimitive(ctx, id)
-				if err != nil {
-					return nil, err
+		if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("processing step %v", step), func() error {
+			stepScore := s.stepScore(step)
+			var emptyStep bool
+			for !emptyStep {
+				emptyStep = true
+				nextIds := make([]ID, 0, len(ids))
+				var compactIds []ID
+				eg, ctx := errgroup.WithContext(ctx)
+				for _, id := range ids {
+					prim, err := s.getPrimitive(ctx, id)
+					if err != nil {
+						return err
+					}
+					compactIds = append(compactIds, id)
+					if compactionScore(prim) > stepScore {
+						nextIds = append(nextIds, compactIds...)
+						compactIds = nil
+						continue
+					}
+					if len(compactIds) == maxFanIn {
+						emptyStep = false
+						ids := compactIds
+						i := len(nextIds)
+						nextIds = append(nextIds, ID{})
+						eg.Go(func() error {
+							logger := logger.WithFields(log.Fields{
+								"batch": uuid.NewWithoutDashes(),
+							})
+							return miscutil.LogStep(ctx, logger, fmt.Sprintf("compacting batch"), func() error {
+								id, err := compact(ctx, logger, ids, ttl)
+								if err != nil {
+									return err
+								}
+								nextIds[i] = *id
+								return nil
+							})
+						})
+						compactIds = nil
+					}
 				}
-				compactIds = append(compactIds, id)
-				if compactionScore(prim) > stepScore {
-					nextIds = append(nextIds, compactIds...)
-					compactIds = nil
-					continue
+				nextIds = append(nextIds, compactIds...)
+				if err := eg.Wait(); err != nil {
+					return errors.EnsureStack(err)
 				}
-				if len(compactIds) == maxFanIn {
-					emptyStep = false
-					ids := compactIds
-					i := len(nextIds)
-					nextIds = append(nextIds, ID{})
-					eg.Go(func() error {
-						id, err := compact(ctx, ids, ttl)
-						if err != nil {
-							return err
-						}
-						nextIds[i] = *id
-						return nil
-					})
-					compactIds = nil
-				}
+				ids = nextIds
 			}
-			nextIds = append(nextIds, compactIds...)
-			if err := eg.Wait(); err != nil {
-				return nil, errors.EnsureStack(err)
-			}
-			ids = nextIds
+			return nil
+		}); err != nil {
+			return nil, err
 		}
 	}
 	if len(ids) == 1 {
 		return &ids[0], nil
 	}
-	return compact(ctx, ids, ttl)
+	logger = logger.WithFields(log.Fields{
+		"batch": uuid.NewWithoutDashes(),
+	})
+	return compact(ctx, logger, ids, ttl)
 }
 
 func (s *Storage) stepScore(step int) int64 {

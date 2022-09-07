@@ -42,7 +42,7 @@ func Worker(pachClient *client.APIClient, taskService task.Service) error {
 
 func processPutFileTask(pachClient *client.APIClient, task *PutFileTask) (*types.Any, error) {
 	result := &PutFileTaskResult{}
-	if err := miscutil.LogStep(pachClient.Ctx(), "processing put file task", func() error {
+	if err := miscutil.LogStep(pachClient.Ctx(), log.NewEntry(log.StandardLogger()), "processing put file task", func() error {
 		pachClient.SetAuthToken(task.AuthToken)
 		client := NewValidatorClient(NewPachClient(pachClient))
 		fileSource := NewFileSource(task.FileSource, rand.New(rand.NewSource(task.Seed)))
