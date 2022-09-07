@@ -1158,12 +1158,13 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
-		var pipelineInfo *pps.PipelineInfo
+		var (
+			pipelineInfo              *pps.PipelineInfo
+			projectName, pipelineName string
+		)
 		if request.Pipeline != nil && request.Job == nil {
-			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
-			}
+			projectName = request.Pipeline.Project.GetName()
+			pipelineName = request.Pipeline.Name
 		} else if request.Job != nil {
 			// If user provides a job, lookup the pipeline from the JobInfo, and then
 			// get the pipeline RC
@@ -1172,10 +1173,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 			}
-			pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline, true)
-			if err != nil {
-				return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline.Name)
-			}
+			projectName = jobInfo.Job.Pipeline.Project.GetName()
+			pipelineName = jobInfo.Job.Pipeline.Name
+		} // not possible for request.{Pipeline,Job} to both be nil due to previous check above
+		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), projectName, pipelineName, true)
+		if err != nil {
+			return errors.Wrapf(err, "could not get pipeline information for %s/%s", projectName, pipelineName)
 		}
 
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job
@@ -1301,9 +1304,9 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	var pipelineInfo *pps.PipelineInfo
 
 	if request.Pipeline != nil && request.Job == nil {
-		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline, true)
+		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline.Project.GetName(), request.Pipeline.Name, true)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline.Name)
+			return errors.Wrapf(err, "could not get pipeline information for %s/%s", request.Pipeline.Project.GetName(), request.Pipeline.Name)
 		}
 	} else if request.Job != nil {
 		// If user provides a job, lookup the pipeline from the JobInfo, and then
@@ -1313,9 +1316,9 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.ID)
 		}
-		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline, true)
+		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, true)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline.Name)
+			return errors.Wrapf(err, "could not get pipeline information for %s/%s", jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name)
 		}
 	}
 
@@ -1323,6 +1326,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if err := a.authorizePipelineOp(apiGetLogsServer.Context(), pipelineOpGetLogs, pipelineInfo.Details.Input, pipelineInfo.Pipeline.Name); err != nil {
 		return err
 	}
+	// TODO (CORE-1039): make project-aware
 	query := fmt.Sprintf(`{pipelineName=%q, container="user"}`, pipelineInfo.Pipeline.Name)
 	if request.Master {
 		query += contains("master")
@@ -1519,7 +1523,7 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 }
 
 func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
-	if _, err := a.inspectPipeline(ctx, req.Pipeline, false); err == nil {
+	if _, err := a.inspectPipeline(ctx, req.Pipeline.Project.GetName(), req.Pipeline.Name, false); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
@@ -1912,12 +1916,10 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 	return pipelineInfo, nil
 }
 
-func (a *apiServer) CreatePipelineInTransaction(
-	txnCtx *txncontext.TransactionContext,
-	request *pps.CreatePipelineRequest,
-) error {
+func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
+	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
-	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, projectName, pipelineName)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		// silently ignore pipeline not found, old info will be nil
 		return err
@@ -1948,7 +1950,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Cron.Repo),
-					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline.Name),
+					Description: fmt.Sprintf("Cron tick repo for pipeline %s/%s.", projectName, pipelineName),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
 				return errors.EnsureStack(err)
@@ -1992,7 +1994,7 @@ func (a *apiServer) CreatePipelineInTransaction(
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
-				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline.Name),
+				Description: fmt.Sprintf("Output repo for pipeline %s/%s.", projectName, pipelineName),
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 		} else if errutil.IsAlreadyExistError(err) {
@@ -2001,10 +2003,10 @@ func (a *apiServer) CreatePipelineInTransaction(
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
-				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline.Name),
+				Description: fmt.Sprintf("Spec repo for pipeline %s/%s.", projectName, pipelineName),
 				Update:      true,
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
-			return errors.Wrapf(err, "error creating spec repo for %s", pipelineName)
+			return errors.Wrapf(err, "error creating spec repo for %s/%s", projectName, pipelineName)
 		}
 	}
 
@@ -2236,12 +2238,12 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 
 func (a *apiServer) updatePipeline(
 	txnCtx *txncontext.TransactionContext,
-	pipeline *pps.Pipeline,
+	projectName, pipelineName string,
 	info *pps.PipelineInfo,
 	cb func() error) error {
 
 	// get most recent pipeline key
-	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
+	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, projectName, pipelineName, "")
 	if err != nil {
 		return err
 	}
@@ -2251,17 +2253,18 @@ func (a *apiServer) updatePipeline(
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
-	return a.inspectPipeline(ctx, request.Pipeline, request.Details)
+	return a.inspectPipeline(ctx, request.Pipeline.Project.GetName(), request.Pipeline.Name, request.Details)
 }
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
 // Many functions (GetLogs, ListPipeline) need to inspect a pipeline, so they
-// call this instead of making an RPC
-func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline, details bool) (*pps.PipelineInfo, error) {
+// call this instead of making an RPC.  PipelineAncestry may be either a bare
+// pipeline name or a name with ancestry syntax.
+func (a *apiServer) inspectPipeline(ctx context.Context, projectName, pipelineAncestry string, details bool) (*pps.PipelineInfo, error) {
 	var info *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		info, err = a.InspectPipelineInTransaction(txnCtx, pipeline)
+		info, err = a.InspectPipelineInTransaction(txnCtx, projectName, pipelineAncestry)
 		return err
 	}); err != nil {
 		return nil, err
@@ -2303,8 +2306,8 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 	return info, nil
 }
 
-func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
-	name, ancestors, err := ancestry.Parse(pipeline.Name)
+func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, projectName, pipelineAncestry string) (*pps.PipelineInfo, error) {
+	name, ancestors, err := ancestry.Parse(pipelineAncestry)
 	if err != nil {
 		return nil, err
 	}
@@ -2314,23 +2317,22 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	}
 
 	// The pipeline name arrived in ancestry format; need to turn it into a simple name.
-	pipeline.Name = name
-	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
+	key, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, projectName, pipelineAncestry, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q", name)
+		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q/%q", projectName, name)
 	}
 
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(key, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, errors.Errorf("pipeline \"%s\" not found", name)
+			return nil, errors.Errorf("pipeline %q/%q not found", projectName, name)
 		}
 		return nil, errors.EnsureStack(err)
 	}
 	if ancestors > 0 {
 		targetVersion := int(pipelineInfo.Version) - ancestors
 		if targetVersion < 1 {
-			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", name, pipelineInfo.Version, ancestors)
+			return nil, errors.Errorf("pipeline %q/%q has only %d versions, not enough to find ancestor %d", projectName, name, pipelineInfo.Version, ancestors)
 		}
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(name, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
@@ -2501,7 +2503,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	pipelineInfo := &pps.PipelineInfo{}
 	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
 	// we will still try to delete what we can because we know there is a pipeline
-	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, request.Pipeline, ""); err == nil {
+	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, request.Pipeline.Project.GetName(), request.Pipeline.Name, ""); err == nil {
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
@@ -2626,7 +2628,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline.Project.GetName(), request.Pipeline.Name)
 		if err != nil {
 			return err
 		}
@@ -2654,7 +2656,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		newPipelineInfo := &pps.PipelineInfo{}
-		return a.updatePipeline(txnCtx, pipelineInfo.Pipeline, newPipelineInfo, func() error {
+		return a.updatePipeline(txnCtx, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
 			newPipelineInfo.Stopped = false
 			return nil
 		})
@@ -2671,7 +2673,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
+		pipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline.Project.GetName(), request.Pipeline.Name)
 		if err == nil {
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
@@ -2697,7 +2699,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}
 
 			newPipelineInfo := &pps.PipelineInfo{}
-			if err := a.updatePipeline(txnCtx, pipelineInfo.Pipeline, newPipelineInfo, func() error {
+			if err := a.updatePipeline(txnCtx, pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, newPipelineInfo, func() error {
 				newPipelineInfo.Stopped = true
 				return nil
 			}); err != nil {
@@ -2722,7 +2724,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 }
 
 func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (response *types.Empty, retErr error) {
-	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline, true)
+	pipelineInfo, err := a.inspectPipeline(ctx, request.Pipeline.Project.GetName(), request.Pipeline.Name, true)
 	if err != nil {
 		return nil, err
 	}
@@ -2778,11 +2780,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
-		pipeline := &pps.Pipeline{
-			Project: commitInfo.Commit.Branch.Repo.Project,
-			Name:    commitInfo.Commit.Branch.Repo.Name,
-		}
-		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pipeline); err != nil {
+		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, commitInfo.Commit.Branch.Repo.Project.GetName(), commitInfo.Commit.Branch.Repo.Name); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
@@ -2949,15 +2947,15 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
 		}
-		if err := a.updatePipeline(txnCtx, pi.Pipeline, pi, func() error {
+		if err := a.updatePipeline(txnCtx, pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi, func() error {
 			pi.AuthToken = token
 			return nil
 		}); err != nil {
-			return errors.Wrapf(err, "could not update %q with new auth token", pi.Pipeline.Name)
+			return errors.Wrapf(err, "could not update %q/%q with new auth token", pi.Pipeline.Project.GetName(), pi.Pipeline.Name)
 		}
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pi, nil); err != nil {
-			return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pi.Pipeline.Name)
+			return errors.Wrapf(err, "fix repo ACLs for pipeline %q/%q", pi.Pipeline.Project.GetName(), pi.Pipeline.Name)
 		}
 		return nil
 	}); err != nil {

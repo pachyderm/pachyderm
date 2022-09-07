@@ -141,12 +141,12 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
-				pipeline, err, d)
+			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q/%q: %v; retrying in %v",
+				pipeline.Project.GetName(), pipeline.Name, err, d)
 			return nil
 		}
 		return stepError{
-			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", pipeline),
+			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q/%q", pipeline.Project.GetName(), pipeline.Name),
 			retry: false,
 		}
 	})
@@ -154,12 +154,14 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 }
 
 func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, message *pps.PipelineInfo) error {
-	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, sd.pfsApi, *sd.txEnv, pipeline)
+	projectName := pipeline.Project.GetName()
+	pipelineName := pipeline.Name
+	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, sd.pfsApi, *sd.txEnv, projectName, pipelineName)
 	if err != nil {
-		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
+		return errors.Wrapf(err, "could not find spec commit for pipeline %q/%q", projectName, pipelineName)
 	}
 	if err := sd.pipelines.ReadOnly(ctx).Get(specCommit, message); err != nil {
-		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
+		return errors.Wrapf(err, "could not retrieve pipeline info for %q/%q", projectName, pipelineName)
 	}
 	return nil
 }
@@ -215,8 +217,8 @@ func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.C
 	return errors.New("pipeline does not exist")
 }
 
-func (d *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error) {
-	if spec, ok := d.pipelines[pipeline]; ok {
+func (d *mockStateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
+	if spec, ok := d.pipelines[pipeline.Name]; ok {
 		if pi, ok := d.specCommits[spec]; ok {
 			return pi, ctx, nil
 		}
