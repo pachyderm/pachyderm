@@ -14,9 +14,9 @@ parameters:
   run_nightly_tag:
     type: boolean
     default: false
-  run_ci:
-    type: boolean
-    default: true
+  working-pachyderm-version:
+    type: string
+    default: "v2.4.0"
 
 # our defined job, and its steps
 jobs:
@@ -29,6 +29,27 @@ jobs:
       #    command: |
       - continuation/continue:
           configuration_path: .circleci/main.yml # use newly generated config to continue
+  create-nightly-tag:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "4c:1c:ff:56:c1:d0:07:03:23:08:08:2e:e6:16:30:1d"
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"
+      - run:
+          name: create nightly tag
+          command: |
+            TIMESTAMP=$(date +'%Y%m%d')
+            WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
+            NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
+            git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
+            git push origin ${NIGHTLY}
 
 # our single workflow, that triggers the setup job defined above
 workflows:
@@ -38,3 +59,7 @@ workflows:
           filters:
             tags:
               only: /.*/
+  create-nightly-tag:
+    when: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - create-nightly-tag
