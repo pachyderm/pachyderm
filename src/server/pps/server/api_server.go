@@ -734,13 +734,13 @@ func (a *apiServer) listJob(
 	}
 
 	// pipelineVersions holds the versions of pipelines that we're interested in
-	versionKey := func(name string, version uint64) string {
-		return fmt.Sprintf("%s-%v", name, version)
+	versionKey := func(projectName, pipelineName string, version uint64) string {
+		return fmt.Sprintf("%s/%s-%v", projectName, pipelineName, version)
 	}
 	pipelineVersions := make(map[string]bool)
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, history,
 		func(ptr *pps.PipelineInfo) error {
-			pipelineVersions[versionKey(ptr.Pipeline.Name, ptr.Version)] = true
+			pipelineVersions[versionKey(ptr.Pipeline.Project.GetName(), ptr.Pipeline.Name, ptr.Version)] = true
 			return nil
 		}); err != nil {
 		return err
@@ -765,7 +765,7 @@ func (a *apiServer) listJob(
 			}
 		}
 
-		if !pipelineVersions[versionKey(jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)] {
+		if !pipelineVersions[versionKey(jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name, jobInfo.PipelineVersion)] {
 			return nil
 		}
 
