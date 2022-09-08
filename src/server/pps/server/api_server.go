@@ -2481,20 +2481,22 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 }
 
 func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) error {
+	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
+	pipelinesNameKey := ppsdb.PipelinesNameKey(&pps.PipelineInfo{Pipeline: request.Pipeline})
 
 	// make sure the pipeline exists
 	var foundPipeline bool
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetByIndex(
 		ppsdb.PipelinesNameIndex,
-		pipelineName,
+		pipelinesNameKey,
 		&pps.PipelineInfo{},
 		col.DefaultOptions(),
 		func(_ string) error {
 			foundPipeline = true
 			return nil
 		}); err != nil {
-		return errors.Wrapf(err, "error checking if pipeline %s exists", pipelineName)
+		return errors.Wrapf(err, "error checking if pipeline %s/%s exists", projectName, pipelineName)
 	}
 	if !foundPipeline {
 		// nothing to delete
@@ -2504,7 +2506,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	pipelineInfo := &pps.PipelineInfo{}
 	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
 	// we will still try to delete what we can because we know there is a pipeline
-	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, request.Pipeline.Project.GetName(), request.Pipeline.Name, ""); err == nil {
+	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, projectName, request.Pipeline.Name, ""); err == nil {
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
@@ -2559,7 +2561,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	}
 
 	// Delete all past PipelineInfos
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelineName); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
 		return errors.Wrapf(err, "collection.Delete")
 	}
 

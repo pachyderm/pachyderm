@@ -46,11 +46,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
-// PipelineRepo creates a pfs repo for a given pipeline.
-func PipelineRepo(pipeline *pps.Pipeline) *pfs.Repo {
-	return client.NewRepo(pipeline.Name)
-}
-
 // PipelineRcName generates the name of the k8s replication controller that
 // manages a pipeline's workers
 func PipelineRcName(projectName, pipelineName string, version uint64) string {
@@ -479,11 +474,11 @@ func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, 
 	return curr, nil
 }
 
-// ListPipelineInfo enumerates all PPS pipelines in the database, filters them
-// based on 'request', and then calls 'f' on each value
+// ListPipelineInfo calls f on each pipeline in the database matching filter (on
+// all pipelines, if filter is nil).
 func ListPipelineInfo(ctx context.Context,
 	pipelines collection.PostgresCollection,
-	pipeline *pps.Pipeline,
+	filter *pps.Pipeline,
 	history int64,
 	f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
@@ -511,10 +506,10 @@ func ListPipelineInfo(ctx context.Context,
 
 		return f(p)
 	}
-	if pipeline != nil {
+	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,
-			pipeline.Name,
+			ppsdb.PipelinesNameKey(&pps.PipelineInfo{Pipeline: filter}),
 			p,
 			col.DefaultOptions(),
 			checkPipelineVersion); err != nil {
@@ -522,7 +517,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		if len(versionMap) == 0 {
 			// pipeline didn't exist after all
-			return ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
+			return ppsServer.ErrPipelineNotFound{Pipeline: filter}
 		}
 		return nil
 	}

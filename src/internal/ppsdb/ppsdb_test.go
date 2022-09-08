@@ -184,3 +184,28 @@ func TestJobKey(t *testing.T) {
 		}
 	}
 }
+
+func TestPipelinesNameKey(t *testing.T) {
+	var cases = map[string]struct {
+		projectName, pipelineName string
+	}{
+		"foo": {
+			pipelineName: "foo",
+		},
+		"foo/bar": {
+			projectName:  "foo",
+			pipelineName: "bar",
+		},
+	}
+	for expected, c := range cases {
+		var j = &pps.PipelineInfo{
+			Pipeline: &pps.Pipeline{
+				Project: &pfs.Project{Name: c.projectName},
+				Name:    c.pipelineName,
+			},
+		}
+		if got := PipelinesNameKey(j); expected != got {
+			t.Errorf("expected %q but got %q (%v)", expected, got, c)
+		}
+	}
+}
