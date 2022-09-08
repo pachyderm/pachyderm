@@ -15,7 +15,11 @@ Use the [JupyterLab extension](https://pypi.org/project/jupyterlab-pachyderm/) t
 ## Before You Start 
 
 - You must have a Pachyderm cluster running.
-
+- You must install the Jupyterlab Helm chart
+    ```sh
+    helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+    helm repo update
+    ```
 --- 
 
 ## Install The Extension 
@@ -36,7 +40,7 @@ You can choose between Pachyderm's pre-built image (a GPU-enabled version of [`j
     ```
 3. Open the UI using the link provided in the terminal following:
     ```sh 
-    Jupyter Server 1.16.0 is running at:
+    Jupyter Server [...] is running at:
     ```
 4. Navigate to the connection tab. You will need to provide a link formatted like the following:
     ```sh
@@ -44,17 +48,13 @@ You can choose between Pachyderm's pre-built image (a GPU-enabled version of [`j
     ```
 5. Open another terminal and run the following to get the IP address and port number:
      ```sh 
-     kubectl get all
+     kubectl get services | grep -w "pachd "
      ```
 6. Find the `servic/pachd` line item and copy the **IP address** and first **port number**.
+    
     ```sh
-    NAME                          TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                                            
-   service/console               ClusterIP      10.100.151.205   <none>        4000/TCP                                            
-   service/etcd                  ClusterIP      10.96.65.89      <none>        2379/TCP                                            
-   service/etcd-headless         ClusterIP      None             <none>        2380/TCP                                            
-   service/hub                   ClusterIP      10.100.54.13     <none>        8081/TCP                                            
-   service/kubernetes            ClusterIP      10.96.0.1        <none>        443/TCP                                             
-   service/pachd                 ClusterIP      10.106.225.116   <none>        30650/TCP,30657/TCP,30658/TCP,30600/TCP,30656/TCP
+       NAME                          TYPE           CLUSTER-IP       EXTERNAL-IP   PORT
+       pachd                         ClusterIP      10.106.225.116   <none>        30650/TCP,30657/TCP,30658/TCP,30600/TCP,30656/TCP
     ```
 7. Input the full connection URL (`grpc://10.106.225.116:30650`).
 8. Navigate to the **Launcher** view in Jupyter and select **Terminal**.
@@ -98,7 +98,16 @@ Then, [build, tag, and push your image](../developer-workflow/working-with-pipel
 
 ### Install to JupyterHub With Helm
 
-You can use our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml)) instead of completing the following steps. 
+#### Option 1: Pachyderm Defaults
+
+1. Open a terminal.
+2. Run the following:
+   ```sh
+   helm upgrade --cleanup-on-fail \
+   --install jupyter jupyterhub/jupyterhub \
+   --values https://raw.githubusercontent.com/pachyderm/pachyderm/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml
+   ```
+#### Option 2: Custom
 
 1. Add the following to your Jupyterhub helm chart `values.YAML` file:
     ```yaml
@@ -150,6 +159,63 @@ You can use our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyd
     ``` shell
     umount /pfs
     ```
+
+##### Automate Cluster Details
+
+You can specify your `pachd` cluster details in your Helm chart via `extraFiles` to avoid having to provide them every time Jupyter Hub starts. The `mountPath` input is required, however the location does not matter.
+
+```yaml
+singleuser:
+    defaultUrl: "/lab"
+    image:
+        name: pachyderm/notebooks-user
+        tag: <latest-release>
+    extraEnv:
+        "SIDECAR_MODE": "True"
+    extraContainers:
+        - name: mount-server-manager
+          image: pachyderm/mount-server:<latest-release> 
+          command: ["/bin/bash"]
+          args: ["-c", "mkdir -p ~/.pachyderm && cp /config/config.json ~/.pachyderm && mount-server"]
+          volumeMounts:
+              - name: shared-pfs
+                mountPath: /pfs
+                mountPropagation: Bidirectional
+              - name: files
+                mountPath: /config
+          securityContext:
+              privileged: true
+              runAsUser: 0
+    storage:
+        extraVolumeMounts:
+            - name: shared-pfs
+              mountPath: /pfs
+              mountPropagation: HostToContainer
+        extraVolumes:
+            - name: shared-pfs
+              emptyDir: {}
+    extraFiles:
+      config.json:
+        mountPath: </any/path/file.json>
+        data:
+          v2:
+            active_context: mount-server
+            contexts:
+              mount-server:
+                source: 2
+                pachd_address: <cluster_endpoint>
+                server_cas: <b64e_cert_string>
+                session_token: <token>
+            metrics: true
+```
+
+
+<!--
+// the following can be used if you do not know your cluster IP address (production)
+```
+docker run -it -v ~/.pachyderm/config.json:/home/jovyan/.pachyderm/config.json -p 8888:8888 -e GRANT_SUDO=yes --user root --device /dev/fuse --privileged --entrypoint /opt/conda/bin/jupyter pachyderm/notebooks-user:v0.6.0 lab --allow-root
+``` 
+-->
 
 --- 
 
