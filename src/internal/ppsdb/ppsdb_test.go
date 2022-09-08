@@ -149,7 +149,7 @@ func TestJobTerminalKey(t *testing.T) {
 			Project: &pfs.Project{Name: c.projectName},
 			Name:    c.pipelineName,
 		}
-		if got := JobTerminalKey(p, c.isTerminal); expected != got {
+		if got := JobsTerminalKey(p, c.isTerminal); expected != got {
 			t.Errorf("expected %q but got %q (%v)", expected, got, c)
 		}
 	}

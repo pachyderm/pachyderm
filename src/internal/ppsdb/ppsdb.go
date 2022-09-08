@@ -130,7 +130,7 @@ var JobsPipelineIndex = &col.Index{
 	},
 }
 
-func JobTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
+func JobsTerminalKey(pipeline *pps.Pipeline, isTerminal bool) string {
 	if projectName := pipeline.Project.GetName(); projectName != "" {
 		return fmt.Sprintf("%s/%s_%v", projectName, pipeline.Name, isTerminal)
 	}
@@ -141,7 +141,7 @@ var JobsTerminalIndex = &col.Index{
 	Name: "job_state",
 	Extract: func(val proto.Message) string {
 		jobInfo := val.(*pps.JobInfo)
-		return JobTerminalKey(jobInfo.Job.Pipeline, pps.IsTerminal(jobInfo.State))
+		return JobsTerminalKey(jobInfo.Job.Pipeline, pps.IsTerminal(jobInfo.State))
 	},
 }
 

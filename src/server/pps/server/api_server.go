@@ -868,7 +868,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 	// keep track of the jobs that have been sent
 	seen := map[string]struct{}{}
 
-	err := a.jobs.ReadOnly(ctx).WatchByIndexF(ppsdb.JobsTerminalIndex, ppsdb.JobTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
+	err := a.jobs.ReadOnly(ctx).WatchByIndexF(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
 		var key string
 		jobInfo := &pps.JobInfo{}
 		if err := ev.Unmarshal(&key, jobInfo); err != nil {
@@ -2231,7 +2231,7 @@ func (a *apiServer) stopAllJobsInPipeline(txnCtx *txncontext.TransactionContext,
 	// postgres connection and possibly deadlocking).
 	jobInfo := &pps.JobInfo{}
 	sort := &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}
-	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
+	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
 		return a.stopJob(txnCtx, jobInfo.Job, "pipeline updated")
 	})
 	return errors.EnsureStack(err)
