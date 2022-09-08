@@ -5,7 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -177,8 +176,8 @@ func IsTerminal(state JobState) bool {
 }
 
 // RepoPipeline returns a Pipeline with the same project and name as the repo.
-func RepoPipeline(r *pfs.Repo) *pps.Pipeline {
-	return &pps.Pipeline{
+func RepoPipeline(r *pfs.Repo) *Pipeline {
+	return &Pipeline{
 		Project: r.Project,
 		Name:    r.Name,
 	}
