@@ -205,3 +205,9 @@ func (m *ppsMaster) cancelPCs() {
 		pc.cancel()
 	}
 }
+
+func MockMaster(ctx context.Context, env Env, iDriver InfraDriver, sDriver PipelineStateDriver) {
+	master := newMaster(ctx, env, env.EtcdPrefix, iDriver, sDriver)
+	master.scaleUpInterval = 2 * time.Second
+	go master.run()
+}
