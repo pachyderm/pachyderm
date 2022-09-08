@@ -680,12 +680,13 @@ func (c APIClient) CreatePipeline(
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectPipeline returns info about a specific pipeline.
-func (c APIClient) InspectPipeline(pipelineAncestry string, details bool) (*pps.PipelineInfo, error) {
+// InspectPipeline returns info about a specific pipeline.  The name may include
+// ancestry syntax or be a bare name.
+func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
-			Pipeline: NewPipeline(pipelineAncestry),
+			Pipeline: NewPipeline(pipelineName),
 			Details:  details,
 		},
 	)
