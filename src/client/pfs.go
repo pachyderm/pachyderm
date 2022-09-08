@@ -26,7 +26,7 @@ func NewProject(name string) *pfs.Project {
 //
 // Deprecated: use NewProjectRepo instead.
 func NewRepo(repoName string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName, Type: pfs.UserRepoType}
+	return NewProjectRepo("", repoName)
 }
 
 func NewProjectRepo(projectName, repoName string) *pfs.Repo {
