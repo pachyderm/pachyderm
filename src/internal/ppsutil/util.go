@@ -488,7 +488,7 @@ func ListPipelineInfo(ctx context.Context,
 		// won't use this function to get their auth token)
 		p.AuthToken = ""
 		// TODO: this is kind of silly - callers should just make a version range for each pipeline?
-		if last, ok := versionMap[p.Pipeline.Name]; ok {
+		if last, ok := versionMap[p.Pipeline.Project.GetName()+"/"+p.Pipeline.Name]; ok {
 			if p.Version < last {
 				// don't send, exit early
 				return nil
@@ -501,7 +501,7 @@ func ListPipelineInfo(ctx context.Context,
 			} else {
 				lastVersionToSend = p.Version - uint64(history)
 			}
-			versionMap[p.Pipeline.Name] = lastVersionToSend
+			versionMap[p.Pipeline.Project.GetName()+"/"+p.Pipeline.Name] = lastVersionToSend
 		}
 
 		return f(p)
