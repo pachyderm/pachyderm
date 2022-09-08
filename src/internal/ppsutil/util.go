@@ -537,10 +537,10 @@ func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, se
 			}
 
 			// Filter out log lines that don't match on pipeline or job
-			if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+			if request.Pipeline != nil && (request.Pipeline.Project.GetName() != msg.ProjectName || request.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
-			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Name != msg.PipelineName) {
+			if request.Job != nil && (request.Job.ID != msg.JobID || request.Job.Pipeline.Project.GetName() != msg.ProjectName || request.Job.Pipeline.Name != msg.PipelineName) {
 				continue
 			}
 			if request.Datum != nil && request.Datum.ID != msg.DatumID {
