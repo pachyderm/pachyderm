@@ -1,18 +1,11 @@
-//go:build k8s
-
-package server
+package server_test
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
-	"crypto/sha256"
+	"context"
 	"fmt"
-	"io"
-	"net"
-	"os"
-	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -24,62 +17,54 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clientsdk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-
-	minio "github.com/minio/minio-go/v6"
 )
 
-func getRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.RoleBinding {
-	t.Helper()
-	resp, err := c.GetRepoRoleBinding(repo)
-	require.NoError(t, err)
-	return resp
-}
-
-// CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
-func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
-	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewRepo(repo))
-	require.NoError(t, err)
-	return len(commitList)
-}
-
-// PipelineNames returns the names of all pipelines that 'c' gets from
-// ListPipeline
-func PipelineNames(t *testing.T, c *client.APIClient) []string {
-	t.Helper()
-	ps, err := c.ListPipeline(false)
-	require.NoError(t, err)
-	result := make([]string, len(ps))
-	for i, p := range ps {
-		result[i] = p.Pipeline.Name
-	}
-	return result
+func envWithAuth(t *testing.T) *testpachd.RealEnv {
+	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateLicense(t, env.PachClient, peerPort)
+	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
+		&enterprise.ActivateRequest{
+			LicenseServer: "grpc://localhost:" + peerPort,
+			Id:            "localhost",
+			Secret:        "localhost",
+		})
+	require.NoError(t, err, "activate client should work")
+	_, err = env.AuthServer.Activate(env.PachClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+	require.NoError(t, err, "activate server should work")
+	env.PachClient.SetAuthToken(tu.RootToken)
+	require.NoError(t, config.WritePachTokenToConfig(tu.RootToken, false))
+	client := env.PachClient.WithCtx(context.Background())
+	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
+	require.NoError(t, err, "should be able to activate auth")
+	_, err = client.PpsAPIClient.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
+	require.NoError(t, err, "should be able to activate auth")
+	return env
 }
 
 // TestGetSetBasic creates two users, alice and bob, and gives bob gradually
 // escalating privileges, checking what bob can and can't do after each change
 func TestGetSetBasic(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewCommit(dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
@@ -99,18 +84,18 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("lorem ipsum"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	_, err = bobClient.StartCommit(dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
@@ -123,18 +108,18 @@ func TestGetSetBasic(t *testing.T) {
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	_, err = bobClient.StartCommit(dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 1, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
@@ -146,18 +131,18 @@ func TestGetSetBasic(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err := bobClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 3, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as an owner
@@ -169,36 +154,33 @@ func TestGetSetBasic(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
 	// check that ACL was updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole),
-		getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 }
 
 // TestGetSetReverse creates two users, alice and bob, and gives bob gradually
 // shrinking privileges, checking what bob can and can't do after each change
 func TestGetSetReverse(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewCommit(dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
@@ -221,22 +203,22 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("2"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 2, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 3, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole}))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole}))
 	// check that ACL was updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, robot("carol"), auth.RepoReaderRole),
-		getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// clear carol
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
@@ -248,18 +230,18 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("3"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.Equal(t, 4, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, bobClient.FinishCommit(dataRepo, commit.Branch.Name, commit.ID))
-	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
@@ -271,18 +253,18 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can't write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
-	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	_, err = bobClient.StartCommit(dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice revokes all of bob's privileges
@@ -294,37 +276,34 @@ func TestGetSetReverse(t *testing.T) {
 	// bob can't write
 	err = bobClient.PutFile(dataCommit, "/file", strings.NewReader("4"), client.WithAppendPutFile())
 	require.YesError(t, err)
-	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that a new commit was created
 	_, err = bobClient.StartCommit(dataRepo, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, 5, CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
+	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(dataRepo, robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(dataRepo, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 }
 
 // TestCreateAndUpdateRepo tests that if CreateRepo(foo, update=true) is
 // called, and foo exists, then the ACL for foo won't be modified.
 func TestCreateAndUpdateRepo(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewCommit(dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
@@ -337,7 +316,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	// bob can read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -356,7 +335,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	require.Equal(t, description, repoInfo.Description)
 	// buildBindings haven't changed
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	// bob can still read
 	buf.Reset()
 	require.NoError(t, bobClient.GetFile(dataCommit, "/file", buf))
@@ -367,13 +346,10 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 // called, and foo doesn't exist, then the ACL for foo will still be created and
 // initialized to the correct value
 func TestCreateRepoWithUpdateFlag(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// create repo, and check that alice is the owner of the new repo
@@ -385,7 +361,7 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewCommit(dataRepo, "master", "")
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err = aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"))
@@ -396,12 +372,9 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 }
 
 func TestCreateAndUpdatePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	type createArgs struct {
 		client     *client.APIClient
 		name, repo string
@@ -419,14 +392,14 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			args.update,
 		)
 	}
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
 	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 	dataCommit := client.NewCommit(dataRepo, "master", "")
 
 	// alice can create a pipeline (she owns the input repo)
@@ -436,10 +409,10 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		name:   pipeline,
 		repo:   dataRepo,
 	}))
-	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	err := aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
@@ -459,7 +432,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEquals(t, badPipeline, PipelineNames(t, aliceClient))
+	require.NoneEquals(t, badPipeline, tu.PipelineNames(t, aliceClient))
 
 	// alice adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
@@ -471,10 +444,10 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		name:   goodPipeline,
 		repo:   dataRepo,
 	}))
-	require.OneOfEquals(t, goodPipeline, PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, goodPipeline, tu.PipelineNames(t, aliceClient))
 	// check that bob owns the output repo too)
 	require.Equal(t,
-		buildBindings(bob, auth.RepoOwnerRole, pl(goodPipeline), auth.RepoWriterRole), getRepoRoleBinding(t, bobClient, goodPipeline))
+		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(goodPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, bobClient, goodPipeline))
 
 	// Make sure bob's pipeline runs successfully
 	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
@@ -504,13 +477,13 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	// of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, pl(pipeline), auth.RepoWriterRole),
-		getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, tu.Pl(pipeline), auth.RepoWriterRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole, pl(goodPipeline), auth.RepoReaderRole),
-		getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole, tu.Pl(goodPipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// bob still can't update alice's pipeline
 	infoBefore, err = aliceClient.InspectPipeline(pipeline, true)
@@ -530,8 +503,8 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	// alice re-adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, pl(pipeline), auth.RepoReaderRole, pl(goodPipeline), auth.RepoReaderRole),
-		getRepoRoleBinding(t, aliceClient, dataRepo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pipeline), auth.RepoReaderRole, tu.Pl(goodPipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, dataRepo))
 
 	// now bob can update alice's pipeline
 	infoBefore, err = aliceClient.InspectPipeline(pipeline, true)
@@ -590,10 +563,9 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 }
 
 func TestPipelineMultipleInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
+	env := envWithAuth(t)
+	c := env.PachClient
 	type createArgs struct {
 		client *client.APIClient
 		name   string
@@ -612,9 +584,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			args.update,
 		)
 	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create two repos, and check that alice is the owner of the new repos
@@ -623,9 +593,9 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
 	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo1))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo1))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo2))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, dataRepo2))
 
 	// alice can create a cross-pipeline with both inputs
 	aliceCrossPipeline := tu.UniqueString("alice-cross")
@@ -637,10 +607,10 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewPFSInput(dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, aliceCrossPipeline, PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, aliceCrossPipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(aliceCrossPipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, aliceCrossPipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(aliceCrossPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, aliceCrossPipeline))
 
 	// alice can create a union-pipeline with both inputs
 	aliceUnionPipeline := tu.UniqueString("alice-union")
@@ -652,10 +622,10 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewPFSInput(dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, aliceUnionPipeline, PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, aliceUnionPipeline, tu.PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(aliceUnionPipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, aliceUnionPipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(aliceUnionPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, aliceUnionPipeline))
 
 	// alice adds bob as a reader of one of the input repos, but not the other
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(dataRepo1, bob, []string{auth.RepoReaderRole}))
@@ -672,7 +642,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEquals(t, bobCrossPipeline, PipelineNames(t, aliceClient))
+	require.NoneEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient))
 
 	// bob cannot create a union-pipeline with both inputs
 	bobUnionPipeline := tu.UniqueString("bob-union")
@@ -686,7 +656,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEquals(t, bobUnionPipeline, PipelineNames(t, aliceClient))
+	require.NoneEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
 
 	// alice adds bob as a writer of her pipeline's output
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceCrossPipeline, bob, []string{auth.RepoWriterRole}))
@@ -754,7 +724,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewPFSInput(dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, bobCrossPipeline, PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient))
 
 	// bob can create a union-pipeline with both inputs
 	require.NoError(t, createPipeline(createArgs{
@@ -765,147 +735,21 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			client.NewPFSInput(dataRepo2, "/*"),
 		),
 	}))
-	require.OneOfEquals(t, bobUnionPipeline, PipelineNames(t, aliceClient))
+	require.OneOfEquals(t, bobUnionPipeline, tu.PipelineNames(t, aliceClient))
 
-}
-
-// TestPipelineRevoke tests revoking the privileges of a pipeline's creator as
-// well as revoking the pipeline itself.
-//
-// When pipelines inherited privileges from their creator, revoking the owner's
-// access to the pipeline's inputs would cause pipelines to stop running, but
-// now it does not. In general, this should actually be more secure--it used to
-// be that any pipeline Bob created could access any repo that Bob could, even
-// if the repo was unrelated to the pipeline (making pipelines a powerful
-// vector for privilege escalation). Now pipelines are their own principals,
-// and they can only read from their inputs and write to their outputs.
-//
-// Ideally both would be required: if either the pipeline's access to its inputs
-// or bob's access to the pipeline's inputs are revoked, the pipeline should
-// stop, but for now it's required to revoke the pipeline's access directly
-func TestPipelineRevoke(t *testing.T) {
-	t.Skip("TestPipelineRevoke is broken")
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	// alice creates a repo, and adds bob as a reader
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
-	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
-	commit := client.NewCommit(repo, "master", "")
-
-	// bob creates a pipeline
-	pipeline := tu.UniqueString("bob-pipeline")
-	require.NoError(t, bobClient.CreatePipeline(
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-	require.Equal(t,
-		buildBindings(bob, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, bobClient, pipeline))
-	// bob adds alice as a reader of the pipeline's output repo, so alice can
-	// flush input commits (which requires her to inspect commits in the output)
-	// and update the pipeline
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(pipeline, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t,
-		buildBindings(bob, auth.RepoOwnerRole, alice, auth.RepoWriterRole, pl(pipeline), auth.RepoWriterRole),
-		getRepoRoleBinding(t, bobClient, pipeline))
-
-	// alice commits to the input repo, and the pipeline runs successfully
-	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
-	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := bobClient.WaitCommit(pipeline, "master", commit.ID)
-		return err
-	})
-
-	// alice removes bob as a reader of her repo, and then commits to the input
-	// repo, but bob's pipeline still runs (it has its own principal--it doesn't
-	// inherit bob's privileges)
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
-	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
-	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
-	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
-		return err
-	})
-
-	// alice revokes the pipeline's access to 'repo' directly, and the pipeline
-	// stops running
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, pl(pipeline), []string{}))
-	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
-	doneCh := make(chan struct{})
-	go func() {
-		defer close(doneCh)
-		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
-		require.NoError(t, err)
-	}()
-	select {
-	case <-doneCh:
-		t.Fatal("pipeline should not be able to finish with no access")
-	case <-time.After(45 * time.Second):
-	}
-
-	// alice updates bob's pipline, but the pipeline still doesn't run
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(repo, "/*"),
-		"", // default output branch: master
-		true,
-	))
-	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
-	doneCh = make(chan struct{})
-	go func() {
-		defer close(doneCh)
-		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
-		require.NoError(t, err)
-	}()
-	select {
-	case <-doneCh:
-		t.Fatal("pipeline should not be able to finish with no access")
-	case <-time.After(45 * time.Second):
-	}
-
-	// alice restores the pipeline's access to its input repo, and now the
-	// pipeline runs successfully
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, pl(pipeline), []string{auth.RepoReaderRole}))
-	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", commit.ID)
-		return err
-	})
 }
 
 func TestStopAndDeletePipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -921,31 +765,31 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// alice stops the pipeline (owner of the input and output repos can stop)
 	require.NoError(t, aliceClient.StopPipeline(pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
-	require.Nil(t, getRepoRoleBinding(t, aliceClient, pipeline).Entries)
+	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, pipeline).Entries)
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
 	require.NoError(t, aliceClient.DeleteRepo(repo, false))
-	require.Nil(t, getRepoRoleBinding(t, aliceClient, repo).Entries)
+	require.Nil(t, tu.GetRepoRoleBinding(t, aliceClient, repo).Entries)
 
 	// alice creates another repo
 	repo = tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// alice creates another pipeline
 	pipeline = tu.UniqueString("alice-pipeline")
@@ -971,8 +815,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// alice adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, pl(pipeline), auth.RepoReaderRole),
-		getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// bob still can't stop or delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -987,11 +831,11 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{}))
 
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, pl(pipeline), auth.RepoWriterRole),
-		getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole, tu.Pl(pipeline), auth.RepoWriterRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// bob can now start and stop the pipeline, but can't delete it
 	require.NoError(t, bobClient.StopPipeline(pipeline))
@@ -1002,8 +846,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// alice re-adds bob as a reader of the input repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, pl(pipeline), auth.RepoReaderRole),
-		getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole, tu.Pl(pipeline), auth.RepoReaderRole),
+		tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// no change to bob's capabilities
 	require.NoError(t, bobClient.StopPipeline(pipeline))
@@ -1015,8 +859,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// alice adds bob as an owner of the output repo
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoOwnerRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole),
-		getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole),
+		tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// finally bob can delete alice's pipeline
 	err = bobClient.DeletePipeline(pipeline, false)
@@ -1025,20 +869,17 @@ func TestStopAndDeletePipeline(t *testing.T) {
 
 // TestStopJob just confirms that the StopJob API works when auth is on
 func TestStopJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	commit := client.NewCommit(repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 
@@ -1056,9 +897,9 @@ func TestStopJob(t *testing.T) {
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 
 	// Stop the first job in 'pipeline'
 	var jobID string
@@ -1092,13 +933,10 @@ func TestStopJob(t *testing.T) {
 // TODO(msteffen): This should maybe go in pachyderm_test, since ListRepo isn't
 // an auth API call
 func TestListAndInspectRepo(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo and makes Bob a writer
@@ -1106,20 +944,20 @@ func TestListAndInspectRepo(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoWriter, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, repoWriter))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
 	repoReader := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoReader))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoReader, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repoReader))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
 	repoNone := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoNone))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repoNone))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repoNone))
 
 	// put a file in the repo Bob can't access - we need to be able to get the size of the commits
 	err := aliceClient.PutFile(client.NewCommit(repoNone, "master", ""), "/test", strings.NewReader("test"))
@@ -1128,7 +966,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	// bob creates a repo
 	repoOwner := tu.UniqueString(t.Name())
 	require.NoError(t, bobClient.CreateRepo(repoOwner))
-	require.Equal(t, buildBindings(bob, auth.RepoOwnerRole), getRepoRoleBinding(t, bobClient, repoOwner))
+	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, bobClient, repoOwner))
 
 	// Bob calls ListRepo, and the response must indicate the correct access scope
 	// for each repo (because other tests have run, we may see repos besides the
@@ -1199,90 +1037,40 @@ func TestListAndInspectRepo(t *testing.T) {
 	}
 }
 
-// TestGetPermissions tests that GetPermissions and GetPermissionsForPrincipal work for repos and the cluster itself
-func TestGetPermissions(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// alice creates a repo and makes Bob a writer
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoWriterRole}))
-
-	// alice can get her own permissions on the cluster (none) and on the repo (repoOwner)
-	permissions, err := aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
-	require.NoError(t, err)
-	require.Nil(t, permissions.Roles)
-
-	permissions, err = aliceClient.GetPermissions(aliceClient.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}})
-	require.NoError(t, err)
-	require.Equal(t, []string{"repoOwner"}, permissions.Roles)
-
-	// the root user can get bob's permissions
-	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
-	require.NoError(t, err)
-	require.Nil(t, permissions.Roles)
-
-	permissions, err = rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
-	require.NoError(t, err)
-	require.Equal(t, []string{"repoWriter"}, permissions.Roles)
-
-	// alice cannot get bob's permissions
-	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}, Principal: bob})
-	require.YesError(t, err)
-	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
-
-	_, err = aliceClient.GetPermissionsForPrincipal(aliceClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{Resource: &auth.Resource{Type: auth.ResourceType_REPO, Name: repo}, Principal: bob})
-	require.YesError(t, err)
-	require.Matches(t, "is not authorized to perform this operation - needs permissions", err.Error())
-}
-
 func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// bob calls SetScope(bob, OWNER) on alice's repo. This should fail
 	err := bobClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoOwnerRole})
 	require.YesError(t, err)
 	// make sure ACL wasn't updated
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 }
 
 // TestListRepoNotLoggedInError makes sure that if a user isn't logged in, and
 // they call ListRepo(), they get an error.
 func TestListRepoNotLoggedInError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	client, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, client)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	client := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, anonClient := tu.AuthenticateClient(t, client, alice), tu.UnauthenticatedPachClient(t, client)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
@@ -1296,15 +1084,11 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 // TestListRepoNoAuthInfoIfDeactivated tests that if auth isn't activated, then
 // ListRepo returns RepoInfos where AuthInfo isn't set (i.e. is nil)
 func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	// Dont't run this test in parallel, since it deactivates the auth system
 	// globally, so any tests running concurrently will fail
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -1344,13 +1128,10 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 // exists gives you an error to that effect, even when auth is already
 // activated (rather than "access denied")
 func TestCreateRepoAlreadyExistsError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
@@ -1367,12 +1148,9 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 // TestCreateRepoNotLoggedInError makes sure that if a user isn't logged in, and
 // they call CreateRepo(), they get an error.
 func TestCreateRepoNotLoggedInError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	anonClient := tu.UnauthenticatedPachClient(t, c)
 
 	// anonClient tries and fails to create a repo
@@ -1384,13 +1162,10 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 
 // Creating a pipeline when the output repo already exists gives is not allowed
 func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
@@ -1433,13 +1208,10 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 // TestAuthorizedEveryone tests that Authorized(user, repo, NONE) tests that the
 // `allClusterUsers` binding  for an ACL sets the minimum authorized scope
 func TestAuthorizedEveryone(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
@@ -1495,53 +1267,13 @@ func TestAuthorizedEveryone(t *testing.T) {
 	require.True(t, resp.Authorized)
 }
 
-// TestDeleteAll tests that you must be a cluster admin to call DeleteAll
-func TestDeleteAll(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// admin creates a repo
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, adminClient.CreateRepo(repo))
-
-	// alice calls DeleteAll, but it fails
-	err := aliceClient.DeleteAll()
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// admin makes alice an fs admin
-	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
-
-	// wait until alice shows up in admin list
-	resp, err := aliceClient.GetClusterRoleBinding()
-	require.NoError(t, err)
-	require.Equal(t, buildClusterBindings(alice, auth.RepoOwnerRole), resp)
-
-	// alice calls DeleteAll but it fails because she's only an fs admin
-	err = aliceClient.DeleteAll()
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// admin calls DeleteAll and succeeds
-	require.NoError(t, adminClient.DeleteAll())
-}
-
 // TestDeleteAllRepos tests that when you delete all repos,
 // only the repos you are authorized to delete are deleted
 func TestDeleteAllRepos(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin creates a repo
@@ -1563,109 +1295,15 @@ func TestDeleteAllRepos(t *testing.T) {
 	require.Equal(t, adminRepo, listResp[0].Repo.Name)
 }
 
-// TestListDatum tests that you must have READER access to all of job's
-// input repos to call ListDatum on that job
-func TestListDatum(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
-
-	// alice creates a repo
-	repoA := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoA))
-	repoB := tu.UniqueString(t.Name())
-	require.NoError(t, aliceClient.CreateRepo(repoB))
-
-	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewCrossInput(
-			client.NewPFSInput(repoA, "/*"),
-			client.NewPFSInput(repoB, "/*"),
-		),
-		"", // default output branch: master
-		false,
-	))
-
-	// alice commits to the input repos, and the pipeline runs successfully
-	for i, repo := range []string{repoA, repoB} {
-		var err error
-		file := fmt.Sprintf("/file%d", i+1)
-		err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), file, strings.NewReader("test"))
-		require.NoError(t, err)
-	}
-	require.NoErrorWithinT(t, 90*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pipeline, "master", "")
-		return err
-	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true /* full */)
-	require.NoError(t, err)
-	require.Equal(t, 3, len(jobs))
-	jobID := jobs[0].Job.ID
-
-	// bob cannot call ListDatum
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
-	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-
-	// alice adds bob to repoA, but bob still can't call GetLogs
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
-	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-
-	// alice removes bob from repoA and adds bob to repoB, but bob still can't
-	// call ListDatum
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{}))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoB, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
-	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-
-	// alice adds bob to repoA, and now bob can call ListDatum
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repoA, bob, []string{auth.RepoReaderRole}))
-	_, err = bobClient.ListDatumAll(pipeline, jobID)
-	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-
-	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pipeline, bob, []string{auth.RepoReaderRole}))
-	dis, err := bobClient.ListDatumAll(pipeline, jobID)
-	require.NoError(t, err)
-	files := make(map[string]struct{})
-	for _, di := range dis {
-		for _, f := range di.Data {
-			files[path.Base(f.File.Path)] = struct{}{}
-		}
-	}
-	require.Equal(t, map[string]struct{}{
-		"file1": struct{}{},
-		"file2": struct{}{},
-	}, files)
-}
-
 // TestListJob tests that you must have READER access to a pipeline's output
 // repo to call ListJob on that pipeline, but a blank ListJob always succeeds
 // (but doesn't return a given job if you don't have access to the job's output
 // repo)
 func TestListJob(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
@@ -1734,13 +1372,10 @@ func TestListJob(t *testing.T) {
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
 func TestInspectDatum(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates a repo
@@ -1790,162 +1425,11 @@ func TestInspectDatum(t *testing.T) {
 	})
 }
 
-// TODO: Make logs work with V2.
-// TestGetLogs tests that you must have READER access to all of a job's input
-// repos and READER access to its output repo to call GetLogs()
-//func TestGetLogs(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//	tu.DeleteAll(t)
-//	defer tu.DeleteAll(t)
-//	alice, bob := robot(tu.UniqueString("alice")), robot(tu.UniqueString("bob"))
-//	aliceClient, bobClient := tu.GetAuthenticatedPachClient(t, alice), tu.GetAuthenticatedPachClient(t, bob)
-//
-//	// alice creates a repo
-//	repo := tu.UniqueString(t.Name())
-//	require.NoError(t, aliceClient.CreateRepo(repo))
-//
-//	// alice creates a pipeline
-//	pipeline := tu.UniqueString("pipeline")
-//	require.NoError(t, aliceClient.CreatePipeline(
-//		pipeline,
-//		"", // default image: DefaultUserImage
-//		[]string{"bash"},
-//		[]string{"cp /pfs/*/* /pfs/out/"},
-//		&pps.ParallelismSpec{Constant: 1},
-//		client.NewPFSInput(repo, "/*"),
-//		"", // default output branch: master
-//		false,
-//	))
-//
-//	// alice commits to the input repos, and the pipeline runs successfully
-//	err := aliceClient.PutFile(repo, "master", "/file1", strings.NewReader("test"))
-//	require.NoError(t, err)
-//	commitIter, err := aliceClient.WaitCommit(pipeline, "master", "")
-//	require.NoError(t, err)
-//	require.NoErrorWithinT(t, 60*time.Second, func() error {
-//		_, err := commitIter.Next()
-//		return err
-//	})
-//
-//	// bob cannot call GetLogs
-//	iter := bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
-//	require.False(t, iter.Next())
-//	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
-//
-//	// bob also can't call GetLogs for the master process
-//	iter = bobClient.GetLogs(pipeline, "", nil, "", true, false, 0)
-//	require.False(t, iter.Next())
-//	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
-//
-//	// alice adds bob to the input repo, but bob still can't call GetLogs
-//	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-//		Username: bob,
-//		Scope:    auth.Scope_READER,
-//		Repo:     repo,
-//	})
-//	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
-//	require.False(t, iter.Next())
-//	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
-//
-//	// alice removes bob from the input repo and adds bob to the output repo, but
-//	// bob still can't call GetLogs
-//	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-//		Username: bob,
-//		Scope:    auth.Scope_NONE,
-//		Repo:     repo,
-//	})
-//	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-//		Username: bob,
-//		Scope:    auth.Scope_READER,
-//		Repo:     pipeline,
-//	})
-//	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
-//	require.False(t, iter.Next())
-//	require.YesError(t, iter.Err())
-//	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
-//
-//	// alice adds bob to the output repo, and now bob can call GetLogs
-//	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-//		Username: bob,
-//		Scope:    auth.Scope_READER,
-//		Repo:     repo,
-//	})
-//	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
-//	iter.Next()
-//	require.NoError(t, iter.Err())
-//
-//	// bob can also call GetLogs for the master process
-//	iter = bobClient.GetLogs(pipeline, "", nil, "", true, false, 0)
-//	iter.Next()
-//	require.NoError(t, iter.Err())
-//}
-//
-//// TestGetLogsFromStats tests that GetLogs still works even when stats are
-//// enabled
-//func TestGetLogsFromStats(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping integration tests in short mode")
-//	}
-//	tu.DeleteAll(t)
-//	defer tu.DeleteAll(t)
-//	alice := robot(tu.UniqueString("alice"))
-//	aliceClient := tu.GetAuthenticatedPachClient(t, alice)
-//
-//	// alice creates a repo
-//	repo := tu.UniqueString(t.Name())
-//	require.NoError(t, aliceClient.CreateRepo(repo))
-//
-//	// alice creates a pipeline (we must enable stats for InspectDatum, which
-//	// means calling the grpc client function directly)
-//	pipeline := tu.UniqueString("alice")
-//	_, err := aliceClient.PpsAPIClient.CreatePipeline(aliceClient.Ctx(),
-//		&pps.CreatePipelineRequest{
-//			Pipeline: &pps.Pipeline{Name: pipeline},
-//			Transform: &pps.Transform{
-//				Cmd:   []string{"bash"},
-//				Stdin: []string{"cp /pfs/*/* /pfs/out/"},
-//			},
-//			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-//			Input:           client.NewPFSInput(repo, "/*"),
-//		})
-//	require.NoError(t, err)
-//
-//	// alice commits to the input repo, and the pipeline runs successfully
-//	err = aliceClient.PutFile(repo, "master", "/file1", strings.NewReader("test"))
-//	require.NoError(t, err)
-//	commitItr, err := aliceClient.WaitCommit(pipeline, "master", "")
-//	require.NoError(t, err)
-//	require.NoErrorWithinT(t, 3*time.Minute, func() error {
-//		_, err := commitItr.Next()
-//		return err
-//	})
-//	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, -1 /*history*/, true)
-//	require.NoError(t, err)
-//	require.Equal(t, 1, len(jobs))
-//	jobID := jobs[0].Job.ID
-//
-//	iter := aliceClient.GetLogs(pipeline, jobID, nil, "", false, false, 0)
-//	require.True(t, iter.Next())
-//	require.NoError(t, iter.Err())
-//
-//	iter = aliceClient.GetLogs(pipeline, jobID, nil, "", true, false, 0)
-//	iter.Next()
-//	require.NoError(t, iter.Err())
-//}
-
 func TestPipelineNewInput(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates three repos and commits to them
@@ -1953,7 +1437,7 @@ func TestPipelineNewInput(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		repo = append(repo, tu.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
 		require.NoError(t, aliceClient.CreateRepo(repo[i]))
-		require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[i]))
+		require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[i]))
 
 		// Commit to repo
 		err := aliceClient.PutFile(
@@ -1978,14 +1462,14 @@ func TestPipelineNewInput(t *testing.T) {
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo[0]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[0]))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo[1]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[1]))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 	// repo[2] is not on pipeline -- doesn't include 'pipeline'
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[2]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[2]))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
@@ -2009,14 +1493,14 @@ func TestPipelineNewInput(t *testing.T) {
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo[1]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[1]))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo[2]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, repo[2]))
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole, pl(pipeline), auth.RepoWriterRole), getRepoRoleBinding(t, aliceClient, pipeline))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pipeline))
 	// repo[0] is not on pipeline -- doesn't include 'pipeline'
 	require.Equal(t,
-		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo[0]))
+		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo[0]))
 
 	// make sure the pipeline still runs
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
@@ -2026,14 +1510,11 @@ func TestPipelineNewInput(t *testing.T) {
 }
 
 func TestModifyMembers(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
-	bob := robot(tu.UniqueString("bob"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
+	bob := tu.Robot(tu.UniqueString("bob"))
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
@@ -2152,13 +1633,10 @@ func TestModifyMembers(t *testing.T) {
 }
 
 func TestSetGroupsForUser(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
@@ -2243,13 +1721,10 @@ func TestSetGroupsForUser(t *testing.T) {
 }
 
 func TestGetOwnGroups(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
@@ -2275,20 +1750,17 @@ func TestGetOwnGroups(t *testing.T) {
 // TestGetJobsBugFix tests the fix for https://github.com/pachyderm/pachyderm/v2/issues/2879
 // where calling pps.ListJob when not logged in would delete all old jobs
 func TestGetJobsBugFix(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, anonClient := tu.AuthenticateClient(t, c, alice), tu.UnauthenticatedPachClient(t, c)
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
 	commit := client.NewCommit(repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("lorem ipsum"))
 	require.NoError(t, err)
 
@@ -2326,64 +1798,13 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
-func TestS3GatewayAuthRequests(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	// generate auth credentials
-	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
-	alice := tu.UniqueString("alice")
-	authResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{
-		Robot: alice,
-	})
-	require.NoError(t, err)
-	authToken := authResp.Token
-
-	ip := os.Getenv("VM_IP")
-	if ip == "" {
-		ip = "127.0.0.1"
-	}
-	// Port set dynamically in src/internal/minikubetestenv/deploy.go
-	address := net.JoinHostPort(ip, fmt.Sprint(c.GetAddress().Port+3))
-
-	// anon login via V2 - should fail
-	minioClientV2, err := minio.NewV2(address, "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.YesError(t, err)
-
-	// anon login via V4 - should fail
-	minioClientV4, err := minio.NewV4(address, "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV4.ListBuckets()
-	require.YesError(t, err)
-
-	// proper login via V2 - should succeed
-	minioClientV2, err = minio.NewV2(address, authToken, authToken, false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
-
-	// proper login via V4 - should succeed
-	minioClientV2, err = minio.NewV4(address, authToken, authToken, false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
-}
-
 // TestDeleteFailedPipeline creates a pipeline with an invalid image and then
 // tries to delete it (which shouldn't be blocked by the auth system)
 func TestDeleteFailedPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
@@ -2422,13 +1843,10 @@ func TestDeleteFailedPipeline(t *testing.T) {
 // and output repos, and then confirms that DeletePipeline still works
 // (i.e. the missing repos/ACLs don't cause an auth error).
 func TestDeletePipelineMissingRepos(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
+	env := envWithAuth(t)
+	c := env.PachClient
+	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
@@ -2465,241 +1883,10 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 	}
 }
 
-// TestDeactivateFSAdmin tests that users with the FS admin role can't call Deactivate
-func TestDeactivateFSAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// admin makes alice an fs admin
-	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
-
-	// wait until alice shows up in admin list
-	resp, err := aliceClient.GetClusterRoleBinding()
-	require.NoError(t, err)
-	require.Equal(t, buildClusterBindings(alice, auth.RepoOwnerRole), resp)
-
-	// alice tries to deactivate, but doesn't have permission as an FS admin
-	_, err = aliceClient.Deactivate(aliceClient.Ctx(), &auth.DeactivateRequest{})
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-}
-
-// TestExtractAuthToken tests that admins can extract hashed robot auth tokens
-func TestExtractAuthToken(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// alice can't extract auth tokens because she's not an admin
-	_, err := aliceClient.ExtractAuthTokens(aliceClient.Ctx(), &auth.ExtractAuthTokensRequest{})
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// Create a token with a TTL and confirm it is extracted with an expiration
-	tokenResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "other", TTL: 1000})
-	require.NoError(t, err)
-
-	// Create a token without a TTL and confirm it is extracted
-	tokenRespTwo, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{Robot: "otherTwo"})
-	require.NoError(t, err)
-
-	// admins can extract auth tokens
-	resp, err := adminClient.ExtractAuthTokens(adminClient.Ctx(), &auth.ExtractAuthTokensRequest{})
-	require.NoError(t, err)
-
-	// only robot tokens are extracted, so only the admin token (not the alice one) should be included
-	containsToken := func(plaintext, subject string, expires bool) error {
-		hash := auth.HashToken(plaintext)
-		for _, token := range resp.Tokens {
-			if token.HashedToken == hash {
-				require.Equal(t, subject, token.Subject)
-				if expires {
-					require.True(t, token.Expiration.After(time.Now()))
-				} else {
-					require.Nil(t, token.Expiration)
-				}
-				return nil
-			}
-		}
-		return errors.Errorf("didn't find a token with hash %q", hash)
-	}
-
-	require.NoError(t, containsToken(tokenResp.Token, "robot:other", true))
-	require.NoError(t, containsToken(tokenRespTwo.Token, "robot:otherTwo", false))
-}
-
-// TestRestoreAuthToken tests that admins can restore hashed auth tokens that have been extracted
-func TestRestoreAuthToken(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	// Create a request to restore a token with known plaintext
-	req := &auth.RestoreAuthTokenRequest{
-		Token: &auth.TokenInfo{
-			HashedToken: fmt.Sprintf("%x", sha256.Sum256([]byte("an-auth-token"))),
-			Subject:     "robot:restored",
-		},
-	}
-
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// alice can't restore auth tokens because she's not an admin
-	_, err := aliceClient.RestoreAuthToken(aliceClient.Ctx(), req)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// admins can restore auth tokens
-	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
-	require.NoError(t, err)
-
-	req.Token.Subject = "robot:overwritten"
-	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
-	require.YesError(t, err)
-	require.Equal(t, "rpc error: code = Unknown desc = error restoring auth token: cannot overwrite existing token with same hash", err.Error())
-
-	// now we can authenticate with the restored token
-	aliceClient.SetAuthToken("an-auth-token")
-	whoAmIResp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, "robot:restored", whoAmIResp.Username)
-	require.Nil(t, whoAmIResp.Expiration)
-
-	// restore a token with an expiration date in the past
-	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expired-token")))
-	pastExpiration := time.Now().Add(-1 * time.Minute)
-	req.Token.Expiration = &pastExpiration
-
-	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
-	require.YesError(t, err)
-	require.True(t, auth.IsErrExpiredToken(err))
-
-	// restore a token with an expiration date in the future
-	req.Token.HashedToken = fmt.Sprintf("%x", sha256.Sum256([]byte("expiring-token")))
-	futureExpiration := time.Now().Add(10 * time.Minute)
-	req.Token.Expiration = &futureExpiration
-
-	_, err = adminClient.RestoreAuthToken(adminClient.Ctx(), req)
-	require.NoError(t, err)
-
-	aliceClient.SetAuthToken("expiring-token")
-	whoAmIResp, err = aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-
-	// Relying on time.Now is gross but the token should have a TTL in the
-	// next 10 minutes
-	require.True(t, whoAmIResp.Expiration.After(time.Now()))
-	require.True(t, whoAmIResp.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
-}
-
-// TODO: This test mirrors TestDebug in src/server/pachyderm_test.go.
-// Need to restructure testing such that we have the implementation of this
-// test in one place while still being able to test auth enabled and disabled clusters.
-func TestDebug(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	// Get all the authenticated clients at the beginning of the test.
-	// GetAuthenticatedPachClient will always re-activate auth, which
-	// causes PPS to rotate all the pipeline tokens. This makes the RCs
-	// change and recreates all the pods, which used to race with collecting logs.
-	alice := robot(tu.UniqueString("alice"))
-	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	dataRepo := tu.UniqueString("TestDebug_data")
-	require.NoError(t, aliceClient.CreateRepo(dataRepo))
-
-	expectedFiles, pipelines := tu.DebugFiles(t, dataRepo)
-
-	for _, p := range pipelines {
-		require.NoError(t, aliceClient.CreatePipeline(
-			p,
-			"",
-			[]string{"bash"},
-			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-				"sleep 45",
-			},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewPFSInput(dataRepo, "/*"),
-			"",
-			false,
-		))
-	}
-
-	commit1, err := aliceClient.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
-	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit1.Branch.Name, commit1.ID))
-
-	jobInfos, err := aliceClient.WaitJobSetAll(commit1.ID, false)
-	require.NoError(t, err)
-	require.Equal(t, 3, len(jobInfos))
-
-	require.YesError(t, aliceClient.Dump(nil, 0, &bytes.Buffer{}))
-
-	require.NoErrorWithinT(t, time.Minute, func() error {
-		// Only admins can collect a debug dump.
-		buf := &bytes.Buffer{}
-		require.NoError(t, adminClient.Dump(nil, 0, buf))
-		gr, err := gzip.NewReader(buf)
-		if err != nil {
-			return err //nolint:wrapcheck
-		}
-		defer func() {
-			require.NoError(t, gr.Close())
-		}()
-		// Check that all of the expected files were returned.
-		tr := tar.NewReader(gr)
-		for {
-			hdr, err := tr.Next()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err //nolint:wrapcheck
-			}
-			for pattern, g := range expectedFiles {
-				if g.Match(hdr.Name) {
-					delete(expectedFiles, pattern)
-					break
-				}
-			}
-		}
-		if len(expectedFiles) > 0 {
-			return errors.Errorf("Debug dump hasn't produced the exepcted files: %v", expectedFiles)
-		}
-		return nil
-	})
-}
-
 func TestDeleteExpiredAuthTokens(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	// generate auth credentials
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -2759,12 +1946,9 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 }
 
 func TestExpiredClusterLocksOutUsers(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	alice := tu.UniqueString("robot:alice")
@@ -2822,75 +2006,12 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	require.Equal(t, 1, len(repoInfo))
 }
 
-// asserts that retrieval of Pachd logs requires additional permissions granted to the PachdLogReader role
-func TestGetPachdLogsRequiresPerm(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
-	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
-
-	alice := tu.UniqueString("robot:alice")
-	aliceClient := tu.AuthenticateClient(t, c, alice)
-
-	aliceRepo := tu.UniqueString("alice_repo")
-	err := aliceClient.CreateRepo(aliceRepo)
-	require.NoError(t, err)
-
-	// create pipeline
-	alicePipeline := tu.UniqueString("pipeline_for_logs")
-	err = aliceClient.CreatePipeline(
-		alicePipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(aliceRepo, "/*"),
-		"", // default output branch: master
-		false,
-	)
-	require.NoError(t, err)
-
-	// wait for the pipeline pod to come up
-	time.Sleep(time.Second * 10)
-
-	// must be authorized to access pachd logs
-	pachdLogsIter := aliceClient.GetLogs("", "", nil, "", false, false, 0)
-	pachdLogsIter.Next()
-	require.YesError(t, pachdLogsIter.Err())
-	require.True(t, strings.Contains(pachdLogsIter.Err().Error(), "is not authorized to perform this operation"))
-
-	// alice can view the pipeline logs
-	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		pipelineLogsIter := aliceClient.GetLogs(alicePipeline, "", nil, "", false, false, 0)
-		pipelineLogsIter.Next()
-		return pipelineLogsIter.Err()
-	}, "alice can view the pipeline logs")
-
-	// PachdLogReaderRole grants authorized retrieval of pachd logs
-	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
-		&auth.ModifyRoleBindingRequest{
-			Principal: alice,
-			Roles:     []string{auth.PachdLogReaderRole},
-			Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
-		})
-	require.NoError(t, err)
-	pachdLogsIter = aliceClient.GetLogs("", "", nil, "", false, false, 0)
-	pachdLogsIter.Next()
-	require.NoError(t, pachdLogsIter.Err())
-}
-
 // TestRolesForPermission tests all users can look up the roles that correspond to
 // a given permission.
 func TestRolesForPermission(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.GetRolesForPermission(aliceClient.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission_REPO_READ})
@@ -2908,12 +2029,9 @@ func TestRolesForPermission(t *testing.T) {
 // Need to restructure testing such that we have the implementation of this
 // test in one place while still being able to test auth enabled and disabled clusters.
 func TestLoad(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateAuthClient(t, c)
+	env := envWithAuth(t)
+	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.PfsAPIClient.RunLoadTestDefault(aliceClient.Ctx(), &types.Empty{})
