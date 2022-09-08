@@ -45,7 +45,7 @@ if [ ! -f cached-deps/minikube ] ; then
 fi
 
 # Install kubeval
-if [ ! -f cached-deps/kubeval ]; then
+if [ ! -f cached-deps/kubeval ] && [ "$ARCH" = "amd64" ]; then
   KUBEVAL_VERSION=0.15.0
   curl -L https://github.com/instrumenta/kubeval/releases/download/${KUBEVAL_VERSION}/kubeval-linux-${ARCH}.tar.gz \
       | tar xzf - kubeval
