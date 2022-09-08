@@ -112,7 +112,7 @@ etcd:
   dynamicNodes: 1
   image:
     repository: "pachyderm/etcd"
-    tag: "v3.5.1"
+    tag: "v3.5.2"
     pullPolicy: "IfNotPresent"
   # maxTxnOps sets the --max-txn-ops in the container args
   maxTxnOps: 10000
@@ -674,7 +674,7 @@ pgbouncer:
   tolerations: []
   image:
     repository: pachyderm/pgbouncer
-    tag: 1.16.1-debian-10-r82
+    tag: 1.17.0
   resources:
     {}
     #limits:
