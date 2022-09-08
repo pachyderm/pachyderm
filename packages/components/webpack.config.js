@@ -3,7 +3,6 @@
 const path = require('path');
 
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const postcssNormalize = require('postcss-normalize');
 const getCSSModuleLocalIdent = require('react-dev-utils/getCSSModuleLocalIdent');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
@@ -26,7 +25,8 @@ const postcssLoader = {
         },
         stage: 3,
       }),
-      postcssNormalize(),
+      require('postcss-normalize'),
+      require('postcss-custom-media'),
     ],
     sourceMap: process.env.NODE_ENV === 'production',
   },

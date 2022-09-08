@@ -113,8 +113,9 @@
   --z-index-application-banner: 101;
   --z-index-modal-overlay: 1040;
   --z-index-modal: 1050;
-  --z-index-notification-banner: 1051;
-  --z-index-dropdown-menu: 1052;
+  --z-index-modal-left-panel: 1051;
+  --z-index-notification-banner: 1052;
+  --z-index-dropdown-menu: 1053;
 
   /*  font variables are deprecated in 3.0.0 and only used in hub */
   --font-size-page-heading: 1.375rem;

@@ -2,7 +2,13 @@ import React, {useState} from 'react';
 
 import {Button} from './../Button';
 
-import {BasicModal, useModal, WizardModal, FullPageModal} from './';
+import {
+  BasicModal,
+  useModal,
+  WizardModal,
+  FullPageModal,
+  FullPagePanelModal,
+} from './';
 
 export default {
   title: 'Modal',
@@ -148,6 +154,27 @@ export const FullPage = () => {
       <FullPageModal show={isOpen} onHide={closeModal} hideType="exit">
         This is a full page modal
       </FullPageModal>
+    </>
+  );
+};
+
+export const FullPagePanel = () => {
+  const {isOpen, openModal, closeModal} = useModal();
+
+  return (
+    <>
+      <Button onClick={openModal}>Open Modal</Button>
+      <FullPagePanelModal show={isOpen} onHide={closeModal} hideType="exit">
+        <FullPagePanelModal.LeftPanel>
+          This is the LeftPanel
+        </FullPagePanelModal.LeftPanel>
+        <FullPagePanelModal.Body>
+          Here is the body of the modal
+        </FullPagePanelModal.Body>
+        <FullPagePanelModal.RightPanel>
+          This is the RightPanel
+        </FullPagePanelModal.RightPanel>
+      </FullPagePanelModal>
     </>
   );
 };
