@@ -326,6 +326,13 @@ func (d *driver) deleteAllBranchesFromRepos(txnCtx *txncontext.TransactionContex
 	return nil
 }
 
+func repoPipeline(r *pfs.Repo) *pps.Pipeline {
+	return &pps.Pipeline{
+		Project: r.Project,
+		Name:    r.Name,
+	}
+}
+
 func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, force bool) error {
 	repos := d.repos.ReadWrite(txnCtx.SqlTx)
 
@@ -346,7 +353,7 @@ func (d *driver) deleteRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	}
 
 	if !force {
-		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, repo.Project.GetName(), repo.Name); err == nil {
+		if _, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, repoPipeline(repo)); err == nil {
 			return errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
 		} else if err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
@@ -609,9 +616,7 @@ func (d *driver) finishCommit(txnCtx *txncontext.TransactionContext, commit *pfs
 		return errors.Errorf("cannot finish an alias commit: %s", commitInfo.Commit)
 	}
 	if !force && len(commitInfo.DirectProvenance) > 0 {
-		projectName := commit.Branch.Repo.Project.GetName()
-		pipelineName := commit.Branch.Repo.Name
-		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, projectName, pipelineName); err != nil && !errutil.IsNotFoundError(err) {
+		if info, err := d.env.GetPPSServer().InspectPipelineInTransaction(txnCtx, repoPipeline(commit.Branch.Repo)); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
