@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -172,5 +173,13 @@ func IsTerminal(state JobState) bool {
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
+	}
+}
+
+// RepoPipeline returns a Pipeline with the same project and name as the repo.
+func RepoPipeline(r *pfs.Repo) *pps.Pipeline {
+	return &pps.Pipeline{
+		Project: r.Project,
+		Name:    r.Name,
 	}
 }

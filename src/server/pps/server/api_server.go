@@ -2761,13 +2761,6 @@ func (a *apiServer) RunCron(ctx context.Context, request *pps.RunCronRequest) (r
 	return &types.Empty{}, nil
 }
 
-func repoPipeline(r *pfs.Repo) *pps.Pipeline {
-	return &pps.Pipeline{
-		Project: r.Project,
-		Name:    r.Name,
-	}
-}
-
 func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 	commitInfos, err := a.env.PFSServer.InspectCommitSetInTransaction(txnCtx, client.NewCommitSet(txnCtx.CommitSetID))
 	if err != nil {
@@ -2787,7 +2780,7 @@ func (a *apiServer) propagateJobs(txnCtx *txncontext.TransactionContext) error {
 
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
-		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, repoPipeline(commitInfo.Commit.Branch.Repo)); err != nil {
+		if pipelineInfo, err = a.InspectPipelineInTransaction(txnCtx, pps.RepoPipeline(commitInfo.Commit.Branch.Repo)); err != nil {
 			if col.IsErrNotFound(err) {
 				continue
 			}
