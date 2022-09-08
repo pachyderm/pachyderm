@@ -115,18 +115,18 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 	)
 }
 
-func jobsPipelineKey(j *pps.Job) string {
-	if projectName := j.Pipeline.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s", projectName, j.Pipeline.Name)
+func JobsPipelineKey(p *pps.Pipeline) string {
+	if projectName := p.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s", projectName, p.Name)
 	}
-	return j.Pipeline.Name
+	return p.Name
 }
 
 // JobsPipelineIndex maps pipeline to Jobs started by the pipeline
 var JobsPipelineIndex = &col.Index{
 	Name: "pipeline",
 	Extract: func(val proto.Message) string {
-		return jobsPipelineKey(val.(*pps.JobInfo).Job)
+		return JobsPipelineKey(val.(*pps.JobInfo).Job.Pipeline)
 	},
 }
 

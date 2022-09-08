@@ -777,7 +777,7 @@ func (a *apiServer) listJob(
 		return f(jobInfo)
 	}
 	if pipeline != nil {
-		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline.Name, jobInfo, col.DefaultOptions(), _f)
+		err := jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, col.DefaultOptions(), _f)
 		return errors.EnsureStack(err)
 	} else {
 		err := jobs.List(jobInfo, col.DefaultOptions(), _f)
@@ -2358,7 +2358,7 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 	var job pps.JobInfo
 	err := a.jobs.ReadOnly(ctx).GetByIndex(
 		ppsdb.JobsPipelineIndex,
-		info.Pipeline.Name,
+		ppsdb.JobsPipelineKey(info.Pipeline),
 		&job,
 		opts, func(_ string) error {
 			info.LastJobState = job.State
@@ -2549,7 +2549,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
 	// new jobs since the pipeline has already been stopped.
 	jobInfo := &pps.JobInfo{}
-	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pipelineName, jobInfo, col.DefaultOptions(), func(string) error {
+	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(request.Pipeline), jobInfo, col.DefaultOptions(), func(string) error {
 		job := proto.Clone(jobInfo.Job).(*pps.Job)
 		err := a.deleteJobInTransaction(txnCtx, &pps.DeleteJobRequest{Job: job})
 		if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {

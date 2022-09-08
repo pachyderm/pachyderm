@@ -120,13 +120,11 @@ func TestJobsPipelineKey(t *testing.T) {
 		},
 	}
 	for expected, c := range cases {
-		var j = &pps.Job{
-			Pipeline: &pps.Pipeline{
-				Project: &pfs.Project{Name: c.projectName},
-				Name:    c.pipelineName,
-			},
+		var p = &pps.Pipeline{
+			Project: &pfs.Project{Name: c.projectName},
+			Name:    c.pipelineName,
 		}
-		if got := jobsPipelineKey(j); expected != got {
+		if got := JobsPipelineKey(p); expected != got {
 			t.Errorf("expected %q but got %q (%v)", expected, got, c)
 		}
 	}
