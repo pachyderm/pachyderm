@@ -106,10 +106,10 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 	realEnv.MockPPSTransactionServer = NewMockPPSTransactionServer()
 	realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.api)
 	realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-		Use(func(txnctx *txncontext.TransactionContext, projectName, pipelineName string) (*pps.PipelineInfo, error) {
+		Use(func(txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 			return nil, col.ErrNotFound{
 				Type: "pipelines",
-				Key:  fmt.Sprintf("%s/%s", projectName, pipelineName),
+				Key:  fmt.Sprintf("%s/%s", pipeline.Project.GetName(), pipeline.Name),
 			}
 		})
 

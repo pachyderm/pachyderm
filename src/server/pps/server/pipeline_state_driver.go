@@ -156,7 +156,7 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, message *pps.PipelineInfo) error {
 	projectName := pipeline.Project.GetName()
 	pipelineName := pipeline.Name
-	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, sd.pfsApi, *sd.txEnv, projectName, pipelineName)
+	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, sd.pfsApi, *sd.txEnv, pipeline)
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q/%q", projectName, pipelineName)
 	}

@@ -174,3 +174,11 @@ func IsTerminal(state JobState) bool {
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
 }
+
+// RepoPipeline returns a Pipeline with the same project and name as the repo.
+func RepoPipeline(r *pfs.Repo) *Pipeline {
+	return &Pipeline{
+		Project: r.Project,
+		Name:    r.Name,
+	}
+}
