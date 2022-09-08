@@ -72,7 +72,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch),
 		Provenance: []*pfs.Branch{
-			client.NewBranch(input.Repo, input.Branch),
+			client.NewProjectBranch("", input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})

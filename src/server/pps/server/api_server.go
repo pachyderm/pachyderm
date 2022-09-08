@@ -1678,10 +1678,10 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	var result []*pfs.Branch
 	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
 		if input.Pfs != nil {
-			result = append(result, client.NewBranch(input.Pfs.Repo, input.Pfs.Branch))
+			result = append(result, client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch))
 		}
 		if input.Cron != nil {
-			result = append(result, client.NewBranch(input.Cron.Repo, "master"))
+			result = append(result, client.NewProjectBranch(input.Pfs.Project, input.Cron.Repo, "master"))
 		}
 		return nil
 	})
@@ -1986,7 +1986,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		// provenance for the pipeline's output branch (includes the spec branch)
 		provenance = append(branchProvenance(newPipelineInfo.Details.Input),
 			client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
-		outputBranch = client.NewBranch(pipelineName, newPipelineInfo.Details.OutputBranch)
+		outputBranch = client.NewProjectBranch(projectName, pipelineName, newPipelineInfo.Details.OutputBranch)
 		metaBranch   = client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
 	)
 
@@ -2118,7 +2118,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
 			var prevHead *pfs.Commit
 			if branchInfo, err := a.env.PFSServer.InspectBranchInTransaction(txnCtx, &pfs.InspectBranchRequest{
-				Branch: client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+				Branch: client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
 			}); err != nil {
 				if !errutil.IsNotFoundError(err) {
 					return errors.EnsureStack(err)
@@ -2128,7 +2128,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			}
 
 			err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:  client.NewBranch(input.Pfs.Repo, input.Pfs.Branch),
+				Branch:  client.NewProjectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch),
 				Head:    prevHead,
 				Trigger: input.Pfs.Trigger,
 			})
@@ -2593,7 +2593,7 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			// need details for output branch, presumably if we don't have them the spec repo is gone, anyway
 			if pipelineInfo.Details != nil {
 				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-					Branch: client.NewBranch(pipelineName, pipelineInfo.Details.OutputBranch),
+					Branch: client.NewProjectBranch(projectName, pipelineName, pipelineInfo.Details.OutputBranch),
 				}); err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -2658,7 +2658,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		provenance := append(branchProvenance(pipelineInfo.Details.Input),
 			client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
 		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+			Branch:     client.NewProjectBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 			Provenance: provenance,
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -2700,7 +2700,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 
 			// Remove branch provenance to prevent new output and meta commits from being created
 			if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+				Branch:     client.NewProjectBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 				Provenance: nil,
 			}); err != nil {
 				return errors.EnsureStack(err)

@@ -45,7 +45,7 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 			}
 			// First source repo will be the target of the PFS load test.
 			if retBranch == nil {
-				retBranch = client.NewBranch(repo, "master")
+				retBranch = client.NewProjectBranch("", repo, "master")
 			}
 			continue
 		}
