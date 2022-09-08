@@ -10,7 +10,7 @@ aliases:
       only: /^v\d+\.\d+\.\d+(-(?!nightly)[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
   - &only-nightly-tags
     branches:
-      only: master
+      ignore: /.*/
     tags:
       only: /^v\d+\.\d+\.\d+-(nightly)+(\.[0-9A-Za-z-]+)*?$/
   - &only-alpha-tags
