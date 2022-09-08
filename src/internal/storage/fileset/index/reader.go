@@ -46,9 +46,6 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	if r.topIdx == nil {
 		return nil
 	}
-	if r.topIdx.File != nil {
-		return cb(r.topIdx)
-	}
 	traverseCb := func(idx *Index) (bool, error) {
 		if atEnd(idx.Path, r.filter) {
 			return false, errutil.ErrBreak
@@ -76,9 +73,13 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 // for each index entry encountered (range and file type).
 // The callback can return true to traverse into the next level, otherwise
 // the traversal will continue on the same level.
-// The prependBytes and appendBytes logic is needed to handle index entries
+// The prependBytes and leftoverBytes logic is needed to handle index entries
 // that span multiple chunks.
 func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, cb func(*Index) (bool, error)) ([]byte, error) {
+	if idx.File != nil {
+		_, err := cb(idx)
+		return []byte{}, err
+	}
 	buf := &bytes.Buffer{}
 	buf.Write(prependBytes)
 	if err := r.getChunk(ctx, idx, buf); err != nil {
@@ -159,7 +160,7 @@ const (
 )
 
 func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
-	if r.topIdx == nil || r.topIdx.File != nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
+	if r.topIdx == nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
 		return []*PathRange{{}}, nil
 	}
 	var shards []*PathRange

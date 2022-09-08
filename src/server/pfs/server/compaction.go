@@ -42,7 +42,7 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, logger *log
 	var tasks []*CompactTask
 	if err := miscutil.LogStep(ctx, logger, fmt.Sprintf("sharding %v file sets", len(ids)), func() error {
 		var err error
-		tasks, err = c.createCompactTasks(ctx, taskDoer, ids)
+		tasks, err = c.createCompactTasks(ctx, taskDoer, logger, ids)
 		return err
 	}); err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, logger *log
 	return id, nil
 }
 
-func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, error) {
+func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, logger *log.Entry, ids []fileset.ID) ([]*CompactTask, error) {
 	fs, err := c.storage.Open(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -76,6 +76,9 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	shards, err := fs.Shards(ctx)
 	if err != nil {
 		return nil, err
+	}
+	for _, shard := range shards {
+		logger.Infof("created file set shard [%v,%v)", shard.Lower, shard.Upper)
 	}
 	var inputs []*types.Any
 	for _, shard := range shards {
@@ -107,6 +110,9 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	}
 	var compactTasks []*CompactTask
 	for _, result := range results {
+		for _, task := range result {
+			logger.Infof("created compaction shard [%v,%v)", task.PathRange.Lower, task.PathRange.Upper)
+		}
 		compactTasks = append(compactTasks, result...)
 	}
 	return compactTasks, nil
