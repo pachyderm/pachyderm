@@ -509,7 +509,7 @@ func ListPipelineInfo(ctx context.Context,
 	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,
-			ppsdb.PipelinesNameKey(&pps.PipelineInfo{Pipeline: filter}),
+			ppsdb.PipelinesNameKey(filter),
 			p,
 			col.DefaultOptions(),
 			checkPipelineVersion); err != nil {

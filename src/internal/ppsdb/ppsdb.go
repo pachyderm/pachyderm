@@ -43,18 +43,18 @@ func VersionKey(projectName, pipelineName string, version uint64) string {
 
 // PipelinesNameKey returns the key used by PipelinesNameIndex to index a
 // PipelineInfo.
-func PipelinesNameKey(pi *pps.PipelineInfo) string {
-	if projectName := pi.Pipeline.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s", projectName, pi.Pipeline.Name)
+func PipelinesNameKey(p *pps.Pipeline) string {
+	if projectName := p.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s", projectName, p.Name)
 	}
-	return pi.Pipeline.Name
+	return p.Name
 }
 
 // PipelinesNameIndex records the name of pipelines
 var PipelinesNameIndex = &col.Index{
 	Name: "name",
 	Extract: func(val proto.Message) string {
-		return PipelinesNameKey(val.(*pps.PipelineInfo))
+		return PipelinesNameKey(val.(*pps.PipelineInfo).Pipeline)
 	},
 }
 

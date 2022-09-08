@@ -2483,7 +2483,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.DeletePipelineRequest) error {
 	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
-	pipelinesNameKey := ppsdb.PipelinesNameKey(&pps.PipelineInfo{Pipeline: request.Pipeline})
+	pipelinesNameKey := ppsdb.PipelinesNameKey(request.Pipeline)
 
 	// make sure the pipeline exists
 	var foundPipeline bool
