@@ -60,7 +60,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, err)
 
 	// Create the spec system repo and create the initial spec commit
-	specRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
+	specRepo := client.NewSystemProjectRepo("", pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	specCommit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
@@ -79,7 +79,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, err)
 
 	// Create the meta system repo and set up the branch provenance
-	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	metaRepo := client.NewSystemProjectRepo("", pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{

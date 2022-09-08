@@ -275,7 +275,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// commitInfo, err := c.PfsAPIClient.InspectCommit(
 		// 	c.Ctx(),
 		// 	&pfs.InspectCommitRequest{
-		// 		Commit: client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", ""),
+		// 		Commit: client.NewSystemProjectRepo("",pipeline, pfs.SpecRepoType).NewCommit("master", ""),
 		// 		Wait:   pfs.CommitState_STARTED,
 		// 	})
 		// require.NoError(t, err)
@@ -369,7 +369,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 
 		// and we want to make sure that these commits all have provenance on the spec repo
-		specBranch := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewBranch("master")
+		specBranch := client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType).NewBranch("master")
 		countBreakFunc := newCountBreakFunc(3)
 		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {

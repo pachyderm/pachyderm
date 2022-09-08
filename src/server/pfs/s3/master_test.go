@@ -3,7 +3,7 @@ package s3
 import (
 	"fmt"
 	"io"
-	
+
 	"os"
 	"strings"
 	"testing"
@@ -449,10 +449,10 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 func masterListSystemRepoBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("listsystemrepo")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
+	specRepo := client.NewSystemProjectRepo("", repo, pfs.SpecRepoType)
 	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
-	metaRepo := client.NewSystemRepo(repo, pfs.MetaRepoType)
+	metaRepo := client.NewSystemProjectRepo("", repo, pfs.MetaRepoType)
 	_, err = pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 
@@ -489,7 +489,7 @@ func masterResolveSystemRepoBucket(t *testing.T, pachClient *client.APIClient, m
 	require.NoError(t, pachClient.CreateBranch(repo, branch, "", "", nil))
 
 	// as well as a branch named "master" on an associated repo of type "spec"
-	specRepo := client.NewSystemRepo(repo, pfs.SpecRepoType)
+	specRepo := client.NewSystemProjectRepo("", repo, pfs.SpecRepoType)
 	_, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	_, err = pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), &pfs.CreateBranchRequest{Branch: specRepo.NewBranch("master")})

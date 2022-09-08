@@ -1951,7 +1951,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if input.Pfs != nil {
 			if _, err := a.env.PFSServer.InspectRepoInTransaction(txnCtx,
 				&pfs.InspectRepoRequest{
-					Repo: client.NewSystemRepo(input.Pfs.Repo, input.Pfs.RepoType),
+					Repo: client.NewSystemProjectRepo(input.Pfs.Project, input.Pfs.Repo, input.Pfs.RepoType),
 				},
 			); err != nil {
 				return errors.EnsureStack(err)
@@ -1985,9 +1985,9 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	var (
 		// provenance for the pipeline's output branch (includes the spec branch)
 		provenance = append(branchProvenance(newPipelineInfo.Details.Input),
-			client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"))
+			client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
 		outputBranch = client.NewBranch(pipelineName, newPipelineInfo.Details.OutputBranch)
-		metaBranch   = client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
+		metaBranch   = client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
 	)
 
 	// Get the expected number of workers for this pipeline
@@ -2013,7 +2013,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		}
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
-				Repo:        client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
+				Repo:        client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType),
 				Description: fmt.Sprintf("Spec repo for pipeline %s/%s.", projectName, pipelineName),
 				Update:      true,
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
@@ -2039,7 +2039,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 	} else {
 		// create an empty spec commit to mark the update
 		newPipelineInfo.SpecCommit, err = a.env.PFSServer.StartCommitInTransaction(txnCtx, &pfs.StartCommitRequest{
-			Branch: client.NewSystemRepo(pipelineName, pfs.SpecRepoType).NewBranch("master"),
+			Branch: client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"),
 		})
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -2599,13 +2599,13 @@ func (a *apiServer) deletePipelineInTransaction(txnCtx *txncontext.TransactionCo
 				}
 			}
 			if err := a.env.PFSServer.DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-				Repo:  client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
+				Repo:  client.NewSystemProjectRepo(projectName, pipelineName, pfs.SpecRepoType),
 				Force: request.Force,
 			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
 				return errors.EnsureStack(err)
 			}
 			if err := a.env.PFSServer.DeleteRepoInTransaction(txnCtx, &pfs.DeleteRepoRequest{
-				Repo:  client.NewSystemRepo(pipelineName, pfs.MetaRepoType),
+				Repo:  client.NewSystemProjectRepo(projectName, pipelineName, pfs.MetaRepoType),
 				Force: request.Force,
 			}); err != nil && !col.IsErrNotFound(err) && !auth.IsErrNoRoleBinding(err) {
 				return errors.EnsureStack(err)
@@ -2656,7 +2656,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 		// Restore branch provenance, which may create a new output commit/job
 		provenance := append(branchProvenance(pipelineInfo.Details.Input),
-			client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
+			client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
 		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
 			Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
 			Provenance: provenance,
@@ -2665,7 +2665,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 		// restore same provenance to meta repo
 		if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+			Branch:     client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 			Provenance: provenance,
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -2707,7 +2707,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 			}
 			if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
 				if err := a.env.PFSServer.CreateBranchInTransaction(txnCtx, &pfs.CreateBranchRequest{
-					Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+					Branch:     client.NewSystemProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
 					Provenance: nil,
 				}); err != nil {
 					return errors.EnsureStack(err)

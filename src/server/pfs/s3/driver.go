@@ -83,7 +83,7 @@ func (d *MasterDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 	return nil
 }
 
-// FIXME: support projects here
+// FIXME: support projects here.  Need to turn commit ID into a project name.
 func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
 	var id string
 	branch := "master"
@@ -103,7 +103,7 @@ func (d *MasterDriver) bucket(pc *client.APIClient, r *http.Request, name string
 	if len(parts) == 1 {
 		repo = client.NewProjectRepo("", parts[0])
 	} else {
-		repo = client.NewSystemRepo(parts[1], parts[0])
+		repo = client.NewSystemProjectRepo("", parts[1], parts[0])
 	}
 
 	return &Bucket{

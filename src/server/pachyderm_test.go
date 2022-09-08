@@ -148,9 +148,9 @@ func TestSimplePipeline(t *testing.T) {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
 	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
@@ -4090,7 +4090,7 @@ func TestStartInternalPipeline(t *testing.T) {
 	cCommits, err := c.ListCommit(client.NewProjectRepo("", cPipeline), nil, nil, 0)
 	require.NoError(t, err)
 	listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
-		Repo: client.NewSystemRepo(bPipeline, pfs.MetaRepoType),
+		Repo: client.NewSystemProjectRepo("", bPipeline, pfs.MetaRepoType),
 		All:  true,
 	})
 	require.NoError(t, err)
@@ -6387,7 +6387,7 @@ func TestMetaRepoContents(t *testing.T) {
 			fmt.Sprintf("/pfs/%v/out/%v", datumID, inputFile):          {},
 		}
 		metaCommit := &pfs.Commit{
-			Branch: client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master"),
+			Branch: client.NewSystemProjectRepo("", pipelineName, pfs.MetaRepoType).NewBranch("master"),
 			ID:     commitID,
 		}
 		var files []string
@@ -8167,7 +8167,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 	_, err := c.PfsAPIClient.DeleteRepo(
 		c.Ctx(),
 		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+			Repo: client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType),
 		})
 	require.YesError(t, err)
 }
@@ -9394,13 +9394,13 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
-		Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		Repo: client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType),
 	})
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 
 	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
-		Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+		Repo: client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType),
 	})
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
@@ -10210,9 +10210,9 @@ func TestNonrootPipeline(t *testing.T) {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
 	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
@@ -10928,9 +10928,9 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
 	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
@@ -10976,9 +10976,9 @@ func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
 	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
@@ -11022,7 +11022,7 @@ func TestZombieCheck(t *testing.T) {
 		if _, err := c.StartCommit(pipeline, "master"); err != nil {
 			return errors.EnsureStack(err)
 		}
-		metaBranch := client.NewSystemRepo(pipeline, pfs.MetaRepoType).NewBranch("master")
+		metaBranch := client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType).NewBranch("master")
 		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
 			return errors.EnsureStack(err)
 		}

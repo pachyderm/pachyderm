@@ -58,7 +58,7 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pachClient,
 			a.env.DB,
 			a.env.Listener,
-			a.env.Config.PPSPipelineName,
+			client.NewPipeline(a.env.Config.PPSPipelineName),
 			a.env.Config.PPSSpecCommitID,
 		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")
@@ -171,7 +171,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	err := pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
-				Commit: client.NewSystemRepo(in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
+				Commit: client.NewSystemProjectRepo(in.Pfs.Project, in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
 				Name:   in.Pfs.Name,
 			})
 		}

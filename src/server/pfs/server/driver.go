@@ -542,7 +542,7 @@ func (d *driver) startCommit(
 	spoutName, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
 	spoutCommit, ok2 := os.LookupEnv("PPS_SPEC_COMMIT")
 	if ok1 && ok2 {
-		specBranch := client.NewSystemRepo(spoutName, pfs.SpecRepoType).NewBranch("master")
+		specBranch := client.NewSystemProjectRepo(branch.Repo.Project.GetName(), spoutName, pfs.SpecRepoType).NewBranch("master")
 		specCommit := specBranch.NewCommit(spoutCommit)
 		log.Infof("Adding spout spec commit to current commitset: %s", specCommit)
 		if _, err := d.aliasCommit(txnCtx, specCommit, specBranch); err != nil {
@@ -865,7 +865,7 @@ func (d *driver) propagateBranches(txnCtx *txncontext.TransactionContext, branch
 			// if this is a pipeline output branch, we need to also create an alias commit on the meta branch
 			// to maintain pipeline system invariants.
 			if provOfSubvBI.Branch.Repo.Type == pfs.UserRepoType {
-				metaBranch := client.NewSystemRepo(provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
+				metaBranch := client.NewSystemProjectRepo(provOfSubvBI.Branch.Repo.Project.GetName(), provOfSubvBI.Branch.Repo.Name, pfs.MetaRepoType).
 					NewBranch(provOfSubvBI.Branch.Name)
 				metaBI, err := getBranchInfo(metaBranch)
 				if err != nil {
