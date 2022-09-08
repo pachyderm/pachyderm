@@ -517,8 +517,20 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 	ctx := server.Context()
 	pachClient := a.env.GetPachClient(ctx)
 
-	cb := func(pipeline string) error {
-		jobInfo, err := pachClient.InspectJob(pipeline, request.JobSet.ID, request.Details)
+	cb := func(projectName, pipelineName string) error {
+		//jobInfo, err := pachClient.InspectJob(pipeline, request.JobSet.ID, request.Details)
+		jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+			Job: &pps.Job{
+				Pipeline: &pps.Pipeline{
+					Project: &pfs.Project{
+						Name: projectName,
+					},
+					Name: pipelineName,
+				},
+				ID: request.JobSet.ID,
+			},
+			Details: request.Details,
+		})
 		if err != nil {
 			// Not all commits are guaranteed to have an associated job - skip over it
 			if errutil.IsNotFoundError(err) {
@@ -533,22 +545,22 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 		if ci.Commit.Branch.Repo.Type != pfs.UserRepoType || ci.Origin.Kind == pfs.OriginKind_ALIAS {
 			return nil
 		}
-		return cb(ci.Commit.Branch.Repo.Name)
+		return cb(ci.Commit.Branch.Repo.Project.GetName(), ci.Commit.Branch.Repo.Name)
 	}); err != nil {
 		if pfsServer.IsCommitSetNotFoundErr(err) {
 			// There are no commits for this ID, but there may still be jobs, query
 			// the jobs table directly and don't worry about the topological sort
 			// Load all the jobs eagerly to avoid a nested query
-			pipelines := []string{}
+			pipelines := []*pps.Pipeline{}
 			jobInfo := &pps.JobInfo{}
 			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(ppsdb.JobsJobSetIndex, request.JobSet.ID, jobInfo, col.DefaultOptions(), func(string) error {
-				pipelines = append(pipelines, jobInfo.Job.Pipeline.Name)
+				pipelines = append(pipelines, jobInfo.Job.Pipeline)
 				return nil
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
 			for _, pipeline := range pipelines {
-				if err := cb(pipeline); err != nil {
+				if err := cb(pipeline.Project.GetName(), pipeline.Name); err != nil {
 					return err
 				}
 			}
