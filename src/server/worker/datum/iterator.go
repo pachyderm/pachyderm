@@ -192,17 +192,17 @@ func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit) Iterato
 }
 
 // NewFileSetIterator creates a new fileset iterator.
-func NewFileSetIterator(pachClient *client.APIClient, fsID string) Iterator {
+func NewFileSetIterator(pachClient *client.APIClient, project *pfs.Project, fsID string) Iterator {
 	return &fileSetIterator{
 		pachClient: pachClient,
-		commit:     client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID),
+		commit:     client.NewProjectRepo(project.GetName(), client.FileSetsRepoName).NewCommit("", fsID),
 	}
 }
 
 func newFileSetMultiIterator(pachClient *client.APIClient, fsID string) Iterator {
 	return &fileSetMultiIterator{
 		pachClient: pachClient,
-		commit:     client.NewRepo(client.FileSetsRepoName).NewCommit("", fsID),
+		commit:     client.NewProjectRepo("", client.FileSetsRepoName).NewCommit("", fsID),
 	}
 }
 

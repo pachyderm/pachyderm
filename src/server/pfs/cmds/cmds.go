@@ -73,7 +73,7 @@ or type (e.g. csv, binary, images, etc).`,
 	}
 	commands = append(commands, cmdutil.CreateDocsAliases(repoDocs, "repo", " repo$", repos))
 
-	var description string
+	var description, project string
 	createRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
@@ -89,7 +89,7 @@ or type (e.g. csv, binary, images, etc).`,
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfs.CreateRepoRequest{
-						Repo:        client.NewRepo(args[0]),
+						Repo:        client.NewProjectRepo(project, args[0]),
 						Description: description,
 					},
 				)
@@ -99,6 +99,7 @@ or type (e.g. csv, binary, images, etc).`,
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	createRepo.Flags().StringVar(&project, "project", "", "The project in which to create the repo.")
 	commands = append(commands, cmdutil.CreateAliases(createRepo, "create repo", repos))
 
 	updateRepo := &cobra.Command{

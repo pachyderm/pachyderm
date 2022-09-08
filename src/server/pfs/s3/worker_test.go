@@ -2,7 +2,7 @@ package s3
 
 import (
 	"fmt"
-	
+
 	"os"
 	"strings"
 	"testing"
@@ -280,7 +280,7 @@ func TestWorkerDriver(t *testing.T) {
 			},
 		},
 		&Bucket{
-			Commit: client.NewRepo(outputRepo).NewCommit(outputBranch, ""),
+			Commit: client.NewProjectRepo("", outputRepo).NewCommit(outputBranch, ""),
 			Name:   "out",
 		},
 	)

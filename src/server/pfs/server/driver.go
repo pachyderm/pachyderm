@@ -199,7 +199,7 @@ func (d *driver) createRepo(txnCtx *txncontext.TransactionContext, repo *pfs.Rep
 	} else {
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
-			baseRepo := client.NewRepo(repo.Name)
+			baseRepo := client.NewProjectRepo(repo.Project.GetName(), repo.Name)
 			err = repos.Get(baseRepo, &existingRepoInfo)
 			if err != nil && col.IsErrNotFound(err) {
 				return errors.Errorf("cannot create a system repo without a corresponding 'user' repo")

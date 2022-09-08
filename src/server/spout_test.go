@@ -64,7 +64,7 @@ func TestSpoutPachctl(t *testing.T) {
 		countBreakFunc := newCountBreakFunc(6)
 		var prevLength int64
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -122,7 +122,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// get 6 successive commits
 		countBreakFunc := newCountBreakFunc(6)
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -156,7 +156,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// get 6 successive commits
 		countBreakFunc = newCountBreakFunc(6)
 		count = 0
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -226,7 +226,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(6)
 		var prevLength int64
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -319,7 +319,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(6)
 		var count int
 		var prevLength int64
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -371,7 +371,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		// and we want to make sure that these commits all have provenance on the spec repo
 		specBranch := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewBranch("master")
 		countBreakFunc := newCountBreakFunc(3)
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.DirectProvenance))
 				require.Equal(t, specBranch, ci.DirectProvenance[0])
@@ -400,7 +400,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, err)
 
 		countBreakFunc = newCountBreakFunc(6)
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.DirectProvenance))
 				require.Equal(t, specBranch, ci.DirectProvenance[0])
@@ -498,7 +498,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}, backoff.NewTestingBackOff())
 
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewRepo(pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo("", pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			count++
 			if count == 1 {
 				return nil // Empty head commit

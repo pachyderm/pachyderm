@@ -326,7 +326,7 @@ func (pj *pendingJob) withSerialDatums(ctx context.Context, taskDoer task.Doer, 
 		if err := pj.logger.LogStep("deleting old datum outputs", func() error {
 			pachClient := pachClient.WithCtx(ctx)
 			return pj.withDeleter(pachClient, func(deleter datum.Deleter) error {
-				dit := datum.NewFileSetIterator(pachClient, deleteFileSetID)
+				dit := datum.NewFileSetIterator(pachClient, pj.ji.Job.Pipeline.Project, deleteFileSetID)
 				return errors.EnsureStack(dit.Iterate(func(meta *datum.Meta) error {
 					return deleter(meta)
 				}))

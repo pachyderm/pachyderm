@@ -45,7 +45,7 @@ func getRepoRoleBinding(t *testing.T, c *client.APIClient, repo string) *auth.Ro
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
 func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
 	t.Helper()
-	commitList, err := c.ListCommitByRepo(client.NewRepo(repo))
+	commitList, err := c.ListCommitByRepo(client.NewProjectRepo("", repo))
 	require.NoError(t, err)
 	return len(commitList)
 }
@@ -346,7 +346,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	/// alice updates the repo
 	description := "This request updates the description to force a write"
 	_, err = aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:        client.NewRepo(dataRepo),
+		Repo:        client.NewProjectRepo("", dataRepo),
 		Description: description,
 		Update:      true,
 	})
@@ -380,7 +380,7 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name())
 	/// alice creates the repo with Update set
 	_, err := aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
-		Repo:   client.NewRepo(dataRepo),
+		Repo:   client.NewProjectRepo("", dataRepo),
 		Update: true,
 	})
 	require.NoError(t, err)
@@ -1192,7 +1192,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
 		inspectResp, err := bobClient.PfsAPIClient.InspectRepo(bobClient.Ctx(),
 			&pfs.InspectRepoRequest{
-				Repo: client.NewRepo(name),
+				Repo: client.NewProjectRepo("", name),
 			})
 		require.NoError(t, err)
 		require.ElementsEqual(t, expectedPermissions[name], inspectResp.AuthInfo.Permissions)

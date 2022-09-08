@@ -373,7 +373,7 @@ func processDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer tas
 		inputChan := make(chan *types.Any)
 		eg.Go(func() error {
 			defer close(inputChan)
-			commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", fileSetID)
+			commit := client.NewProjectRepo("", client.FileSetsRepoName).NewCommit("", fileSetID)
 			r, err := pachClient.GetFileTAR(commit, "/*")
 			if err != nil {
 				return err

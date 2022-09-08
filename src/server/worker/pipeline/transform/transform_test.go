@@ -55,7 +55,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, env.PachClient.CreateBranch(input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
-	pipelineRepo := client.NewRepo(pipelineInfo.Pipeline.Name)
+	pipelineRepo := client.NewProjectRepo("", pipelineInfo.Pipeline.Name)
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: pipelineRepo})
 	require.NoError(t, err)
 
