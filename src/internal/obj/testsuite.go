@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
-	"io/ioutil"
 	"path"
 	"testing"
 
@@ -56,7 +55,7 @@ func TestSuite(t *testing.T, newClient func(t testing.TB) Client) {
 		t.Parallel()
 		client := newClient(t)
 		name := "prefix/test-object"
-		expectedData, err := ioutil.ReadAll(io.LimitReader(rand.Reader, 1<<20))
+		expectedData, err := io.ReadAll(io.LimitReader(rand.Reader, 1<<20))
 		require.NoError(t, err)
 		expectedHash := pachhash.Sum(expectedData)
 		require.NoError(t, client.Put(ctx, name, bytes.NewReader(expectedData)))

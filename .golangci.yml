@@ -27,3 +27,7 @@ linters-settings:
       - .WithStack(
     ignorePackageGlobs:
       - github.com/pachyderm/pachyderm/v2/src/*
+    ignoreInterfaceRegexps:
+      - ^fileset\.
+      - ^collection\.
+      - ^track\.

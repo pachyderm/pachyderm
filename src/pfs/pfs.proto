@@ -21,6 +21,7 @@ message Repo {
   option (gogoproto.goproto_stringer) = false;
   string name = 1;
   string type = 2;
+  Project project = 3;
 }
 
 message Branch {
@@ -164,6 +165,15 @@ message FileInfo {
   bytes hash = 5;
 }
 
+message Project {
+  string name = 1;
+}
+
+message ProjectInfo {
+  Project project = 1;
+  string description = 2;
+}
+
 // PFS API
 
 message CreateRepoRequest {
@@ -281,6 +291,23 @@ message ListBranchRequest {
 
 message DeleteBranchRequest {
   Branch branch = 1;
+  bool force = 2;
+}
+
+message CreateProjectRequest {
+  Project project = 1;
+  string description = 2;
+  bool update = 3;
+}
+
+message InspectProjectRequest {
+  Project project = 1;
+}
+
+message ListProjectRequest {}
+
+message DeleteProjectRequest {
+  Project project = 1;
   bool force = 2;
 }
 
@@ -604,4 +631,14 @@ service API {
 
   // Egress writes data from a commit to an external system
   rpc Egress(EgressRequest) returns (EgressResponse) {}
+
+  // Project API
+  // CreateProject creates a new project.
+  rpc CreateProject(CreateProjectRequest) returns (google.protobuf.Empty) {}
+  // InspectProject returns info about a project.
+  rpc InspectProject(InspectProjectRequest) returns (ProjectInfo) {}
+  // ListProject returns info about all projects.
+  rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
+  // DeleteProject deletes a project.
+  rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty) {}
 }

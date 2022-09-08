@@ -38,7 +38,10 @@ func NewTestDBConfig(t testing.TB) serviceenv.ConfigOption {
 		ctx  = context.Background()
 		name = testutil.GenerateEphemeralDBName(t)
 	)
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
@@ -72,7 +75,10 @@ func NewEphemeralPostgresDB(t testing.TB) (*pachsql.DB, string) {
 		ctx  = context.Background()
 		name = testutil.GenerateEphemeralDBName(t)
 	)
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
@@ -88,19 +94,12 @@ func NewEphemeralPostgresDB(t testing.TB) (*pachsql.DB, string) {
 	), name
 }
 
-func NewTestDirectDB(t testing.TB) *pachsql.DB {
-	return testutil.OpenDB(t, NewTestDirectDBOptions(t)...)
-}
-
-// NewPostgres will always return a direct connection to an ephemeral Postgres
-// backed by the stock Postgres image.
-func NewPostgres(t testing.TB) *pachsql.DB {
-	return testutil.OpenDB(t, NewTestDBOptions(t)...)
-}
-
 func NewTestDBOptions(t testing.TB) []dbutil.Option {
 	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
@@ -111,7 +110,10 @@ func NewTestDBOptions(t testing.TB) []dbutil.Option {
 
 func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
 	ctx := context.Background()
-	require.NoError(t, ensureDBEnv(t, ctx))
+	err := backoff.Retry(func() error {
+		return ensureDBEnv(t, ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	return testutil.NewTestDBOptions(t, []dbutil.Option{
 		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
 		dbutil.WithHostPort(postgresHost(), postgresPort),

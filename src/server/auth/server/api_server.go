@@ -125,7 +125,9 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 		go s.clusterRoleBindingCache.Watch()
 	}
 
-	s.deleteExpiredTokensRoutine()
+	if err := s.deleteExpiredTokensRoutine(); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -1577,13 +1579,22 @@ func (a *apiServer) RevokeAuthTokensForUser(ctx context.Context, req *auth.Revok
 	return &auth.RevokeAuthTokensForUserResponse{}, nil
 }
 
-func (a *apiServer) deleteExpiredTokensRoutine() {
+func (a *apiServer) deleteExpiredTokensRoutine() error {
+	if _, err := a.DeleteExpiredAuthTokens(context.Background(), &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
+		return err
+	}
+
 	go func(ctx context.Context) {
-		for {
-			time.Sleep(time.Duration(cleanupIntervalHours) * time.Hour)
-			a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}) //nolint:errcheck
+		ticker := backoff.NewTicker(backoff.NewConstantBackOff(time.Duration(cleanupIntervalHours) * time.Hour))
+		defer ticker.Stop()
+		for range ticker.C {
+			if _, err := a.DeleteExpiredAuthTokens(ctx, &auth.DeleteExpiredAuthTokensRequest{}); err != nil {
+				logrus.Errorf("could not delete expired tokens: %v", err)
+			}
 		}
 	}(context.Background())
+
+	return nil
 }
 
 // we interpret an expiration value of NULL as "lives forever".

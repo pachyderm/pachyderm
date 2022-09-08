@@ -185,9 +185,8 @@ Run 9: /pfs/A/3.txt
     inputs cannot have the same name. This could cause file system collisions.
 
 !!! note "See Also:"
-
-- [Cross Input in a pipeline specification](../../../../reference/pipeline-spec/#cross-input)
-- [Union Input in a pipeline specification](../../../../reference/pipeline-spec/#union-input)
-- [Distributed hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter){target=_blank}
+        - [Cross Input in a pipeline specification](../../../../reference/pipeline-spec/#cross-input)
+        - [Union Input in a pipeline specification](../../../../reference/pipeline-spec/#union-input)
+        - [Distributed hyperparameter tuning example](https://github.com/pachyderm/pachyderm/tree/{{ config.pach_branch }}/examples/ml/hyperparameter){target=_blank}
 
 

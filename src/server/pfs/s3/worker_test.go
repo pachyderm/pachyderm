@@ -2,7 +2,7 @@ package s3
 
 import (
 	"fmt"
-	"io/ioutil"
+	
 	"os"
 	"strings"
 	"testing"
@@ -100,7 +100,7 @@ func workerRemoveObjectInputRepo(t *testing.T, s *workerTestState) {
 // Tests inserting and getting files over 64mb in size
 func workerLargeObjects(t *testing.T, s *workerTestState) {
 	// create a temporary file to put ~65mb of contents into it
-	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
+	inputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-input-*")
 	require.NoError(t, err)
 	defer os.Remove(inputFile.Name())
 	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
@@ -128,7 +128,7 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
 
 	// get the file that does exist, doesn't work because we're reading from
 	// an output repo
-	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
+	outputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
 	err = s.minioClient.FGetObject("out", "file", outputFile.Name(), minio.GetObjectOptions{})

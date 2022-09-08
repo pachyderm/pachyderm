@@ -89,7 +89,7 @@
   force = true
 
 [[redirects]]
-  from = "/2.2.x/*"
+  from = "/2.3.x/*"
   to = "/latest/:splat"
   status = 301
   force = true

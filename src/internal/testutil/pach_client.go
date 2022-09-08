@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 )
 
-const DefaultTransformImage = "pachyderm/testuser:local"
+const DefaultTransformImage = "ubuntu:20.04"
 
 // NewPachClient gets a pachyderm client for use in tests. It works for tests
 // running both inside and outside the cluster. Unlike GetPachClient,

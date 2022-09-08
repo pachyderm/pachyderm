@@ -23,14 +23,13 @@ Note that each web UI addresses different use cases:
       installation as described in [Deploy Pachyderm](../../deploy-manage/deploy/).  
       New Kubernetes nodes cannot be added to this single-node cluster.   
   
-  
 Pachyderm uses `Helm` for all deployments.  
 
 !!! Attention 
     We are now shipping Pachyderm with an **optional embedded proxy** 
     allowing your cluster to expose one single port externally. This deployment setup is optional.
     
-    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-w-proxy/).  
+    If you choose to deploy Pachyderm with a Proxy, check out our new recommended architecture and [deployment instructions](../deploy-manage/deploy/deploy-w-proxy.md).
 
 ## Prerequisites  
 
@@ -111,28 +110,53 @@ by following these steps:
   
 `pachctl` is a command-line tool that you can use to interact  
 with a Pachyderm cluster in your terminal.  
+
+!!! Attention
+      Pachyderm now offers **universal Multi-Arch docker images that can serve both ARM and AMD users**.
+      
+      - Brew users: The download of the package matching your architecture is automatic—nothing specific to do.
+      - Debian-based and other Linux flavors users not relying on [Homebrew](https://docs.brew.sh/Homebrew-on-Linux){target=_blank}:
+
+        Run `uname -m` to identify your architecture, then choose the command in the `AMD` section below if the output is `x86_64` , or `ARM` if it is `aarch64`.
+
   
 1. Run the corresponding steps for your operating system:  
   
-      * For macOS, run:  
+      * For **macOS or Brew users**, run:  
   
-      ```shell  
-      brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}  
-      ```  
+        ```shell  
+        brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@{{ config.pach_major_minor_version }}  
+        ```  
   
-      * For a Debian-based Linux 64-bit or Windows 10 or later running on  
-      WSL:  
-  
-      ```shell  
-      curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb  
-      ```  
-  
-      * For all other Linux flavors:  
-  
-      ```shell  
-      curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin  
-      ```  
-  
+      * For a **Debian-based Linux 64-bit or Windows 10 or later running on  
+      WSL** (Choose the command matching your architecture):  
+            
+        - AMD Architectures (amd64):
+             
+        ```shell  
+        curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_amd64.deb && sudo dpkg -i /tmp/pachctl.deb  
+        ``` 
+
+        - ARM Architectures (arm64):
+
+        ```shell  
+        curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_arm64.deb && sudo dpkg -i /tmp/pachctl.deb  
+        ```  
+
+      * For all **other Linux flavors** (Choose the command matching your architecture):  
+
+        - AMD Architectures (amd64):
+                  
+        ```shell  
+        curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_amd64/pachctl /usr/local/bin 
+        ``` 
+
+        - ARM Architectures (arm64):
+
+        ```shell  
+        curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v{{ config.pach_latest_version }}/pachctl_{{ config.pach_latest_version }}_linux_arm64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_{{ config.pach_latest_version }}_linux_arm64/pachctl /usr/local/bin 
+        ```  
+            
 1. Verify that installation was successful by running `pachctl version --client-only`:  
   
       ```shell  
@@ -297,7 +321,7 @@ authenticate again (to Pachyderm this time) with the mock User (username: `admin
 !!! Note
       You do not need a local Pachyderm cluster already running to install Pachyderm JupyterLab Mount Extension. However, **you need a running cluster to connect your Mount Extension to**; therefore, we recommend that you [install Pachyderm locally](#local-installation) first.
 
-- To install [JupyterHub and the Mount Extension](../../how-tos/jupyterlab-extension/#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
+- To install [JupyterHub and the Mount Extension](../how-tos/jupyterlab-extension/index.md#pachyderm-jupyterlab-mount-extension){target=_blank} on your local cluster,  run the following commands. You will be using our default [`jupyterhub-ext-values.yaml`](https://github.com/pachyderm/pachyderm/blob/{{ config.pach_branch }}/etc/helm/examples/jupyterhub-ext-values.yaml){target=_blank}:
 
       ```shell
       helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
