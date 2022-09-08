@@ -753,8 +753,10 @@ workflows:
   deploy-tests:
     jobs:
       - deploy-tests:
+          name: amd64 deploy tests
           resource_class: xlarge # amd64
       - deploy-tests:
+          name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
   release:
     jobs:
