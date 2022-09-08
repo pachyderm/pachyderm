@@ -29,6 +29,10 @@ var PipelinesVersionIndex = &col.Index{
 	},
 }
 
+// VersionKey return a unique key for the given project, pipeline & version.  If
+// the project is the empty string it will return an old-style key without a
+// project; otherwise the key will include the project.  The version is
+// zero-padded in order to facilitate sorting.
 func VersionKey(projectName, pipelineName string, version uint64) string {
 	// zero pad in case we want to sort
 	if projectName == "" {
@@ -106,15 +110,18 @@ func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollec
 	)
 }
 
+func jobsPipelineKey(j *pps.Job) string {
+	if projectName := j.Pipeline.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s", projectName, j.Pipeline.Name)
+	}
+	return j.Pipeline.Name
+}
+
 // JobsPipelineIndex maps pipeline to Jobs started by the pipeline
 var JobsPipelineIndex = &col.Index{
 	Name: "pipeline",
 	Extract: func(val proto.Message) string {
-		jobInfo := val.(*pps.JobInfo)
-		if projectName := jobInfo.Job.Pipeline.Project.GetName(); projectName != "" {
-			return fmt.Sprintf("%s/%s", projectName, jobInfo.Job.Pipeline.Name)
-		}
-		return jobInfo.Job.Pipeline.Name
+		return jobsPipelineKey(val.(*pps.JobInfo).Job)
 	},
 }
 
@@ -142,9 +149,14 @@ var JobsJobSetIndex = &col.Index{
 
 var jobsIndexes = []*col.Index{JobsPipelineIndex, JobsTerminalIndex, JobsJobSetIndex}
 
-// JobKey is the string representation of a Job suitable for use as an indexing key
-func JobKey(job *pps.Job) string {
-	return job.String()
+// JobKey is a string representation of a Job suitable for use as an indexing
+// key.  It will include the project if the project name is not the empty
+// string.
+func JobKey(j *pps.Job) string {
+	if projectName := j.Pipeline.Project.GetName(); projectName != "" {
+		return fmt.Sprintf("%s/%s@%s", projectName, j.Pipeline.Name, j.ID)
+	}
+	return fmt.Sprintf("%s@%s", j.Pipeline.Name, j.ID)
 }
 
 // Jobs returns a PostgresCollection of Jobs
