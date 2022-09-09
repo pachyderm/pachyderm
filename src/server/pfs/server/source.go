@@ -21,8 +21,9 @@ type Source interface {
 }
 
 type source struct {
-	commitInfo *pfs.CommitInfo
-	fileSet    fileset.FileSet
+	commitInfo                  *pfs.CommitInfo
+	fileSet                     fileset.FileSet
+	dirIndexOpts, fileIndexOpts []index.Option
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
@@ -31,14 +32,34 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	for _, opt := range opts {
 		opt(sc)
 	}
-	fs = fileset.NewDirInserter(fs)
-	if sc.filter != nil {
-		fs = sc.filter(fs)
-	}
-	return &source{
+	s := &source{
 		commitInfo: commitInfo,
-		fileSet:    fs,
+		fileSet:    fileset.NewDirInserter(fs, sc.prefix),
+		dirIndexOpts: []index.Option{
+			index.WithPrefix(sc.prefix),
+			index.WithDatum(sc.datum),
+		},
+		fileIndexOpts: []index.Option{
+			index.WithPrefix(sc.prefix),
+			index.WithDatum(sc.datum),
+		},
 	}
+	if sc.pathRange != nil {
+		s.fileSet = fileset.NewDirInserter(fs, sc.pathRange.Lower)
+		// The directory index options have no upper bound because the directory
+		// may extend past the upper bound of the path range.
+		s.dirIndexOpts = append(s.dirIndexOpts, index.WithRange(&index.PathRange{
+			Lower: sc.pathRange.Lower,
+		}))
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(&index.PathRange{
+			Lower: sc.pathRange.Lower,
+			Upper: sc.pathRange.Upper,
+		}))
+	}
+	if sc.filter != nil {
+		s.fileSet = sc.filter(s.fileSet)
+	}
+	return s
 }
 
 // Iterate calls cb for each File in the underlying fileset.FileSet, with a FileInfo computed
@@ -46,7 +67,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
-	iter := fileset.NewIterator(ctx, s.fileSet)
+	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.dirIndexOpts...)
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
@@ -80,8 +101,8 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			return errors.EnsureStack(err)
 		}
 		return nil
-	})
-	return err
+	}, s.fileIndexOpts...)
+	return errors.EnsureStack(err)
 }
 
 func (s *source) checkFileInfoCache(ctx context.Context, cache map[string]*pfs.FileInfo, f fileset.File) (*pfs.FileInfo, bool, error) {

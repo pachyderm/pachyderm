@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 )
 
 type cache struct {
@@ -32,36 +33,31 @@ func (c *cache) Get(ctx context.Context, key string) (*types.Any, error) {
 func (c *cache) Put(ctx context.Context, key string, output *types.Any) error {
 	var fileSetIds []string
 	switch {
-	case types.Is(output, &UploadDatumsTaskResult{}):
-		udt, err := deserializeUploadDatumsTaskResult(output)
+	case datum.IsTaskResult(output):
+		var err error
+		fileSetIds, err = datum.TaskResultFileSets(output)
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, udt.FileSetId)
-	case types.Is(output, &ComputeParallelDatumsTaskResult{}):
-		cpdt, err := deserializeComputeParallelDatumsTaskResult(output)
+	case types.Is(output, &CreateParallelDatumsTaskResult{}):
+		cpdt, err := deserializeCreateParallelDatumsTaskResult(output)
 		if err != nil {
 			return err
 		}
 		fileSetIds = append(fileSetIds, cpdt.FileSetId)
-	case types.Is(output, &ComputeSerialDatumsTaskResult{}):
-		csdt, err := deserializeComputeSerialDatumsTaskResult(output)
+	case types.Is(output, &CreateSerialDatumsTaskResult{}):
+		csdt, err := deserializeCreateSerialDatumsTaskResult(output)
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.DeleteFileSetId)
+		fileSetIds = append(fileSetIds, csdt.FileSetId, csdt.OutputDeleteFileSetId, csdt.MetaDeleteFileSetId)
 	case types.Is(output, &CreateDatumSetsTaskResult{}):
-		cdst, err := deserializeCreateDatumSetsTaskResult(output)
+	case types.Is(output, &DatumSetTaskResult{}):
+		dst, err := deserializeDatumSetTaskResult(output)
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, cdst.FileSetId, cdst.InputFileSetsId)
-	case types.Is(output, &DatumSet{}):
-		ds, err := deserializeDatumSet(output)
-		if err != nil {
-			return err
-		}
-		fileSetIds = append(fileSetIds, ds.FileSetId, ds.OutputFileSetId, ds.MetaFileSetId)
+		fileSetIds = append(fileSetIds, dst.OutputFileSetId, dst.MetaFileSetId)
 	default:
 		return errors.Errorf("unrecognized any type (%v) in transform cache", output.TypeUrl)
 	}

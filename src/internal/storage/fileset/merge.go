@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -26,22 +27,15 @@ func newMergeReader(chunks *chunk.Storage, fileSets []FileSet) *MergeReader {
 }
 
 // Iterate iterates over the files in the merge reader.
-func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, deletive ...bool) error {
-	if len(deletive) > 0 && deletive[0] {
-		return mr.iterateDeletive(ctx, cb)
-	}
-	return mr.iterate(ctx, cb)
-}
-
-func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
+func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	var ss []stream.Stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs, true),
+			iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
 			deletive: true,
 		})
 		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs),
+			iterator: NewIterator(ctx, fs.Iterate, opts...),
 		})
 	}
 	pq := stream.NewPriorityQueue(ss, compare)
@@ -73,11 +67,11 @@ func (mr *MergeReader) iterate(ctx context.Context, cb func(File) error) error {
 	})
 }
 
-func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error) error {
+func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	var ss []stream.Stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs, true),
+			iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
 		})
 	}
 	pq := stream.NewPriorityQueue(ss, compare)
@@ -85,6 +79,13 @@ func (mr *MergeReader) iterateDeletive(ctx context.Context, cb func(File) error)
 		fs := ss[0].(*fileStream)
 		return cb(newFileReader(mr.chunks, fs.file.Index()))
 	})
+}
+
+// TODO: Look at the sizes?
+// TODO: Come up with better heuristics for sharding.
+func (mr *MergeReader) Shards(ctx context.Context) ([]*index.PathRange, error) {
+	shards, err := mr.fileSets[0].Shards(ctx)
+	return shards, errors.EnsureStack(err)
 }
 
 // MergeFileReader is an abstraction for reading a merged file.
