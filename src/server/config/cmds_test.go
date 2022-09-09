@@ -6,15 +6,15 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-func run(t *testing.T, cmd string) error {
+func run(t *testing.T, client *client.APIClient, cmd string) error {
 	t.Helper()
-
-	require.NoError(t, tu.BashCmd(`echo 'y' | pachctl delete all`).Run())
 
 	tmpfile, err := os.CreateTemp("", "test-pach-config-*.json")
 	require.NoError(t, err)
@@ -25,7 +25,12 @@ func run(t *testing.T, cmd string) error {
 	// remove the config file when done
 	defer os.Remove(tmpfile.Name())
 
-	return errors.EnsureStack(tu.BashCmd(`
+	// clean up any resources from previous runs
+	require.NoError(t, tu.PachctlBashCmd(t, client, `
+		export PACH_CONFIG={{.config}}
+		echo 'y' | pachctl delete all
+		`, "config", tmpfile.Name()).Run())
+	return errors.EnsureStack(tu.PachctlBashCmd(t, client, `
 		export PACH_CONFIG={{.config}}
 		{{.cmd}}
 		`,
@@ -38,8 +43,9 @@ func TestInvalidEnvValue(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		export PACH_CONTEXT=foobar
 		pachctl config get active-context
 	`))
@@ -49,8 +55,9 @@ func TestEnvValue(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo --overwrite
 		echo '{}' | pachctl config set context bar --overwrite
 		pachctl config set active-context bar
@@ -63,8 +70,9 @@ func TestMetrics(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		pachctl config get metrics | match true
 		pachctl config set metrics false
 		pachctl config get metrics | match false
@@ -77,12 +85,13 @@ func TestActiveContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		pachctl config set active-context foo 2>&1 | match "context does not exist: foo"
 	`))
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo --overwrite
 		pachctl config set active-context foo
 		pachctl config get active-context | match "foo"
@@ -93,12 +102,13 @@ func TestActiveEnterpriseContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		pachctl config set active-enterprise-context foo 2>&1 | match "context does not exist: foo"
 	`))
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo --overwrite
 		pachctl config set active-enterprise-context foo
 		pachctl config get active-enterprise-context | match "foo"
@@ -109,17 +119,18 @@ func TestSetContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		echo 'malformed_json' | pachctl config set context foo
 	`))
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo
 		echo '{}' | pachctl config set context foo
 	`))
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo
 		echo '{"pachd_address": "foobar:9000"}' | pachctl config set context foo --overwrite
 		pachctl config get context foo | match '"pachd_address": "grpc://foobar:9000"'
@@ -130,12 +141,13 @@ func TestUpdateContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		pachctl config update context foo --pachd-address=bar
 	`))
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo
 		pachctl config update context foo --pachd-address="foobar:9000"
 		pachctl config get context foo | match '"pachd_address": "grpc://foobar:9000"'
@@ -143,13 +155,13 @@ func TestUpdateContext(t *testing.T) {
 		pachctl config get context foo | match -v pachd_address
 	`))
 
-	// updating projects in context makes RPC call to server
-	require.YesError(t, run(t, `
-		pachctl config update context --project="current-project"
-	`))
-	require.NoError(t, run(t, `
-		pachctl create project current-project
-		pachctl config update context --project="current-project"
+	// expect error when setting a project that doesn't exist
+	require.YesError(t, run(t, c, `pachctl config update context --project=doesnotexist`))
+
+	require.NoError(t, run(t, c, `
+		pachctl create project myproject
+		pachctl config update context default --project=myproject
+		pachctl config get context default | match '"project": "myproject"'
 	`))
 }
 
@@ -157,12 +169,13 @@ func TestDeleteContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.YesError(t, run(t, `
+	require.YesError(t, run(t, c, `
 		pachctl config delete context foo
 	`))
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo
 		pachctl config delete context foo
 	`))
@@ -172,8 +185,10 @@ func TestConfigListContext(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+
 	// Verify the * marker exists for the active-context when enterprise is disabled and the enterprise context isn't set
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		echo '{}' | pachctl config set context foo
 		echo '{}' | pachctl config set context bar
 		pachctl config set active-context bar
@@ -198,8 +213,9 @@ func TestImportKube(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	require.NoError(t, run(t, `
+	require.NoError(t, run(t, c, `
 		pachctl config import-kube imported
 		pachctl config get active-context | match 'imported'
 		pachctl config get context imported | match "\"cluster_name\": \"$(kubectl config current-context)\""
