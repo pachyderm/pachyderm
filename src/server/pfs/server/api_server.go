@@ -486,7 +486,7 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
+		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
 		}
@@ -509,7 +509,7 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
-		src, err := a.driver.getFile(ctx, request.File)
+		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
 			return 0, err
 		}
@@ -615,7 +615,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
 func (a *apiServer) GlobFile(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileServer) (retErr error) {
-	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, request.PathRange, func(fi *pfs.FileInfo) error {
 		return errors.EnsureStack(respServer.Send(fi))
 	})
 }
@@ -699,6 +699,20 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 	}, nil
 }
 
+func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
+	fsid, err := fileset.ParseID(req.FileSetId)
+	if err != nil {
+		return nil, err
+	}
+	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.ShardFileSetResponse{
+		Shards: shards,
+	}, nil
+}
+
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(txnCtx, req)
@@ -741,7 +755,7 @@ func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetR
 		}
 		fsids = append(fsids, *fsid)
 	}
-	filesetID, err := a.driver.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second)
+	filesetID, err := a.driver.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second, req.Compact)
 	if err != nil {
 		return nil, err
 	}
@@ -933,7 +947,7 @@ func readCommit(srv pfs.API_ModifyFileServer) (*pfs.Commit, error) {
 }
 
 func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.EgressResponse, error) {
-	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"))
+	src, err := a.driver.getFile(ctx, req.Commit.NewFile("/"), nil)
 	if err != nil {
 		return nil, err
 	}

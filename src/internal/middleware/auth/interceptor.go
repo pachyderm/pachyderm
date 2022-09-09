@@ -161,6 +161,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/AddFileSet":         authDisabledOr(authenticated),
 	"/pfs_v2.API/RenewFileSet":       authDisabledOr(authenticated),
 	"/pfs_v2.API/ComposeFileSet":     authDisabledOr(authenticated),
+	"/pfs_v2.API/ShardFileSet":       authDisabledOr(authenticated),
 	"/pfs_v2.API/CheckStorage":       authDisabledOr(authenticated),
 	"/pfs_v2.API/PutCache":           authDisabledOr(authenticated),
 	"/pfs_v2.API/GetCache":           authDisabledOr(authenticated),

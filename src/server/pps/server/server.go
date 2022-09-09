@@ -82,6 +82,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		logrus.Warning("Preflight checks are disabled. This is not recommended.")
 	}
 	go apiServer.master()
+	go apiServer.worker()
 	return apiServer, nil
 }
 

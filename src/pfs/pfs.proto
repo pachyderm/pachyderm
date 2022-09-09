@@ -331,6 +331,7 @@ message GetFileRequest {
   File file = 1;
   string URL = 2;
   int64 offset = 3;
+  PathRange path_range = 4;
 // TODO:
 //  int64 size_bytes = 3;
 }
@@ -369,6 +370,7 @@ message WalkFileRequest {
 message GlobFileRequest {
   Commit commit = 1;
   string pattern = 2;
+  PathRange path_range = 3;
 }
 
 message DiffFileRequest {
@@ -419,6 +421,20 @@ message RenewFileSetRequest {
 message ComposeFileSetRequest {
   repeated string file_set_ids = 1;
   int64 ttl_seconds = 2;
+  bool compact = 3;
+}
+
+message ShardFileSetRequest {
+  string file_set_id = 1;
+}
+
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+message ShardFileSetResponse {
+  repeated PathRange shards = 1;
 }
 
 message CheckStorageRequest {
@@ -588,6 +604,7 @@ service API {
   rpc RenewFileSet(RenewFileSetRequest) returns (google.protobuf.Empty) {}
   // ComposeFileSet composes a file set from a list of file sets.
   rpc ComposeFileSet(ComposeFileSetRequest) returns (CreateFileSetResponse) {}
+  rpc ShardFileSet(ShardFileSetRequest) returns (ShardFileSetResponse) {}
   // CheckStorage runs integrity checks for the storage layer.
   rpc CheckStorage(CheckStorageRequest) returns (CheckStorageResponse) {}
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}

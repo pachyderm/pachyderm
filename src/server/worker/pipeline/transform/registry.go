@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -17,12 +16,10 @@ import (
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -285,21 +282,28 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	ctx := pachClient.Ctx()
 	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.ID, pj.cache)
-	if err := func() error {
-		if err := pj.writeDatumCount(ctx, taskDoer); err != nil {
+	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetID, err := pj.createParallelDatums(ctx, taskDoer)
+		if err != nil {
 			return err
 		}
-		if err := pj.withParallelDatums(ctx, taskDoer, func(ctx context.Context, fileSetID string) error {
-			return reg.processDatums(ctx, pj, taskDoer, fileSetID)
-		}); err != nil {
+		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
-		return pj.withSerialDatums(ctx, taskDoer, func(ctx context.Context, fileSetID string) error {
-			return reg.processDatums(ctx, pj, taskDoer, fileSetID)
-		})
-	}(); err != nil {
+		pachClient := pachClient.WithCtx(ctx)
+		if err := reg.processDatums(pachClient, pj, taskDoer, fileSetID); err != nil {
+			return err
+		}
+		fileSetID, err = pj.createSerialDatums(ctx, taskDoer)
+		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, fileSetID); err != nil {
+			return err
+		}
+		return reg.processDatums(pachClient, pj, taskDoer, fileSetID)
+	}); err != nil {
 		if errors.Is(err, errutil.ErrBreak) {
 			return nil
 		}
@@ -312,17 +316,59 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer task.Doer, fileSetID string) error {
-	pachClient := pj.driver.PachClient().WithCtx(ctx)
-	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		datumSetsFileSetID, err := createDatumSets(ctx, pj, taskDoer, renewer, fileSetID)
+func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string) error {
+	datumSets, err := createDatumSets(pachClient, pj, taskDoer, fileSetID)
+	if err != nil {
+		return err
+	}
+	var inputs []*types.Any
+	for _, datumSet := range datumSets {
+		input, err := serializeDatumSetTask(&DatumSetTask{
+			Job:          pj.ji.Job,
+			FileSetId:    fileSetID,
+			PathRange:    datumSet,
+			OutputCommit: pj.commitInfo.Commit,
+		})
 		if err != nil {
 			return err
 		}
-		return processDatumSets(pachClient.WithCtx(ctx), pj, taskDoer, datumSetsFileSetID, stats)
+		inputs = append(inputs, input)
+	}
+	ctx := pachClient.Ctx()
+	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
+	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+		if err != nil {
+			return err
+		}
+		result, err := deserializeDatumSetTaskResult(output)
+		if err != nil {
+			return err
+		}
+		if _, err := pachClient.PfsAPIClient.AddFileSet(
+			ctx,
+			&pfs.AddFileSetRequest{
+				Commit:    pj.commitInfo.Commit,
+				FileSetId: result.OutputFileSetId,
+			},
+		); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if _, err := pachClient.PfsAPIClient.AddFileSet(
+			ctx,
+			&pfs.AddFileSetRequest{
+				Commit:    pj.metaCommitInfo.Commit,
+				FileSetId: result.MetaFileSetId,
+			},
+		); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := datum.MergeStats(stats, result.Stats); err != nil {
+			return err
+		}
+		pj.saveJobStats(result.Stats)
+		return pj.writeJobInfo()
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return err
 	}
 	if stats.FailedID != "" {
 		if err := reg.failJob(pj, fmt.Sprintf("datum %v failed", stats.FailedID)); err != nil {
@@ -333,111 +379,69 @@ func (reg *registry) processDatums(ctx context.Context, pj *pendingJob, taskDoer
 	return nil
 }
 
-func createDatumSets(ctx context.Context, pj *pendingJob, taskDoer task.Doer, renewer *renew.StringSet, fileSetID string) (string, error) {
-	var datumSetsFileSetID string
-	if err := pj.logger.LogStep("creating datum sets", func() error {
-		input, err := serializeCreateDatumSetsTask(&CreateDatumSetsTask{
-			Job:          pj.ji.Job,
-			OutputCommit: pj.ji.OutputCommit,
-			FileSetId:    fileSetID,
-		})
-		if err != nil {
-			return err
-		}
-		output, err := task.DoOne(ctx, taskDoer, input)
-		if err != nil {
-			return err
-		}
-		result, err := deserializeCreateDatumSetsTaskResult(output)
-		if err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.FileSetId); err != nil {
-			return err
-		}
-		if err := renewer.Add(ctx, result.InputFileSetsId); err != nil {
-			return err
-		}
-		datumSetsFileSetID = result.FileSetId
-		return nil
-	}); err != nil {
-		return "", errors.EnsureStack(err)
+func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string) ([]*pfs.PathRange, error) {
+	setSpec, err := createSetSpec(pj)
+	if err != nil {
+		return nil, err
 	}
-	return datumSetsFileSetID, nil
-}
-
-func processDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string, stats *datum.Stats) error {
-	return errors.EnsureStack(pj.logger.LogStep("processing datum sets", func() error {
-		eg, ctx := errgroup.WithContext(pachClient.Ctx())
-		pachClient := pachClient.WithCtx(ctx)
-		inputChan := make(chan *types.Any)
-		eg.Go(func() error {
-			defer close(inputChan)
-			commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", fileSetID)
-			r, err := pachClient.GetFileTAR(commit, "/*")
+	var datumSets []*pfs.PathRange
+	if err := pj.logger.LogStep("creating datum sets", func() error {
+		shards, err := pachClient.ShardFileSet(fileSetID)
+		if err != nil {
+			return err
+		}
+		var inputs []*types.Any
+		for _, shard := range shards {
+			input, err := serializeCreateDatumSetsTask(&CreateDatumSetsTask{
+				FileSetId: fileSetID,
+				PathRange: shard,
+				SetSpec:   setSpec,
+			})
 			if err != nil {
 				return err
 			}
-			if err := tarutil.Iterate(r, func(f tarutil.File) error {
-				buf := &bytes.Buffer{}
-				if err := f.Content(buf); err != nil {
-					return errors.EnsureStack(err)
-				}
-				input := &types.Any{}
-				if err := proto.Unmarshal(buf.Bytes(), input); err != nil {
-					return errors.EnsureStack(err)
-				}
-				select {
-				case inputChan <- input:
-				case <-ctx.Done():
-					return errors.EnsureStack(ctx.Err())
-				}
-				return nil
-			}, true); err != nil && !pfsserver.IsFileNotFoundErr(err) {
+			inputs = append(inputs, input)
+		}
+		return task.DoBatch(pachClient.Ctx(), taskDoer, inputs, func(_ int64, output *types.Any, err error) error {
+			if err != nil {
 				return err
 			}
+			result, err := deserializeCreateDatumSetsTaskResult(output)
+			if err != nil {
+				return err
+			}
+			datumSets = append(datumSets, result.DatumSets...)
 			return nil
 		})
-		eg.Go(func() error {
-			return errors.EnsureStack(taskDoer.Do(
-				ctx,
-				inputChan,
-				func(_ int64, output *types.Any, err error) error {
-					if err != nil {
-						return err
-					}
-					data, err := deserializeDatumSet(output)
-					if err != nil {
-						return err
-					}
-					if _, err := pachClient.PfsAPIClient.AddFileSet(
-						pachClient.Ctx(),
-						&pfs.AddFileSetRequest{
-							Commit:    pj.commitInfo.Commit,
-							FileSetId: data.OutputFileSetId,
-						},
-					); err != nil {
-						return grpcutil.ScrubGRPC(err)
-					}
-					if _, err := pachClient.PfsAPIClient.AddFileSet(
-						pachClient.Ctx(),
-						&pfs.AddFileSetRequest{
-							Commit:    pj.metaCommitInfo.Commit,
-							FileSetId: data.MetaFileSetId,
-						},
-					); err != nil {
-						return grpcutil.ScrubGRPC(err)
-					}
-					if err := datum.MergeStats(stats, data.Stats); err != nil {
-						return err
-					}
-					pj.saveJobStats(data.Stats)
-					return pj.writeJobInfo()
-				},
-			))
-		})
-		return errors.EnsureStack(eg.Wait())
-	}))
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return datumSets, nil
+}
+
+func createSetSpec(pj *pendingJob) (*datum.SetSpec, error) {
+	var setSpec *datum.SetSpec
+	datumSetsPerWorker := defaultDatumSetsPerWorker
+	if pj.driver.PipelineInfo().Details.DatumSetSpec != nil {
+		setSpec = &datum.SetSpec{
+			Number:    pj.driver.PipelineInfo().Details.DatumSetSpec.Number,
+			SizeBytes: pj.driver.PipelineInfo().Details.DatumSetSpec.SizeBytes,
+		}
+		datumSetsPerWorker = pj.driver.PipelineInfo().Details.DatumSetSpec.PerWorker
+	}
+	// When the datum set spec is not set, evenly distribute the datums.
+	if setSpec == nil || (setSpec.Number == 0 && setSpec.SizeBytes == 0) {
+		concurrency, err := pj.driver.ExpectedNumWorkers()
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		numDatums := pj.ji.DataTotal - pj.ji.DataSkipped
+		setSpec = &datum.SetSpec{Number: numDatums / (int64(concurrency) * datumSetsPerWorker)}
+		if setSpec.Number == 0 {
+			setSpec.Number = 1
+		}
+	}
+	return setSpec, nil
 }
 
 func serializeCreateDatumSetsTask(task *CreateDatumSetsTask) (*types.Any, error) {
@@ -459,20 +463,23 @@ func deserializeCreateDatumSetsTaskResult(taskAny *types.Any) (*CreateDatumSetsT
 	return task, nil
 }
 
-func serializeDatumSet(data *DatumSet) (*types.Any, error) {
-	serialized, err := types.MarshalAny(data)
+func serializeDatumSetTask(task *DatumSetTask) (*types.Any, error) {
+	data, err := proto.Marshal(task)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return serialized, nil
+	return &types.Any{
+		TypeUrl: "/" + proto.MessageName(task),
+		Value:   data,
+	}, nil
 }
 
-func deserializeDatumSet(any *types.Any) (*DatumSet, error) {
-	data := &DatumSet{}
-	if err := types.UnmarshalAny(any, data); err != nil {
+func deserializeDatumSetTaskResult(taskAny *types.Any) (*DatumSetTaskResult, error) {
+	task := &DatumSetTaskResult{}
+	if err := types.UnmarshalAny(taskAny, task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return data, nil
+	return task, nil
 }
 
 func (reg *registry) processJobEgressing(pj *pendingJob) error {

@@ -3,8 +3,11 @@ syntax = "proto3";
 package pfsserver;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/server/pfs/server";
 
+import "internal/storage/fileset/index/index.proto";
+
 message ShardTask {
   repeated string inputs = 1;
+  PathRange path_range = 2;
 }
 
 message ShardTaskResult {
@@ -14,8 +17,6 @@ message ShardTaskResult {
 message PathRange {
   string lower = 1;
   string upper = 2;
-  string lower_datum = 3;
-  string upper_datum = 4;
 }
 
 message CompactTask {
@@ -37,9 +38,12 @@ message ConcatTaskResult {
 
 message ValidateTask {
   string id = 1;
+  PathRange path_range = 2;
 }
 
 message ValidateTaskResult {
-  int64 size_bytes = 1;
-  string error = 2;
+  index.Index first = 1;
+  index.Index last = 2;
+  string error = 3;
+  int64 size_bytes = 4;
 }

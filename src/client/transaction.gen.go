@@ -429,6 +429,10 @@ func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *t
 	return nil, unsupportedError("RunLoadTestDefault")
 }
 
+func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {
+	return nil, unsupportedError("ShardFileSet")
+}
+
 func (c *unsupportedPfsBuilderClient) SquashCommitSet(_ context.Context, _ *pfs_v2.SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("SquashCommitSet")
 }

@@ -135,3 +135,22 @@ func ForEachSubscribeCommit(client pfs.API_SubscribeCommitClient, cb func(*pfs.C
 	}
 	return nil
 }
+
+func ForEachGlobFile(client pfs.API_GlobFileClient, cb func(*pfs.FileInfo) error) error {
+	for {
+		x, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return errors.EnsureStack(err)
+		}
+		if err := cb(x); err != nil {
+			if errors.Is(err, pacherr.ErrBreak) {
+				err = nil
+			}
+			return err
+		}
+	}
+	return nil
+}
