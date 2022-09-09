@@ -4,7 +4,9 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -17,6 +19,12 @@ const (
 	// RootToken is the hard-coded admin token used on all activated test clusters
 	RootToken = "iamroot"
 )
+
+func TSProtoOrDie(t testing.TB, ts time.Time) *types.Timestamp {
+	proto, err := types.TimestampProto(ts)
+	require.NoError(t, err)
+	return proto
+}
 
 func activateAuthHelper(tb testing.TB, client *client.APIClient) {
 	client.SetAuthToken(RootToken)
