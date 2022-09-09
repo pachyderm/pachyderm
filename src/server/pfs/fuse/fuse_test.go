@@ -344,7 +344,7 @@ func TestOpenCommit(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("in"))
 	require.NoError(t, env.PachClient.CreateRepo("out"))
-	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
 	require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
 	_, err := env.PachClient.StartCommit("in", "master")
 	require.NoError(t, err)
