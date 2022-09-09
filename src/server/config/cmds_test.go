@@ -143,9 +143,8 @@ func TestUpdateContext(t *testing.T) {
 		pachctl config get context foo | match -v pachd_address
 	`))
 
-	// updating projects in context makes RPC call to server, so
+	// updating projects in context makes RPC call to server
 	require.YesError(t, run(t, `
-		pachctl delete project current-project
 		pachctl config update context --project="current-project"
 	`))
 	require.NoError(t, run(t, `

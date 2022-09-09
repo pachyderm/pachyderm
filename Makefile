@@ -245,7 +245,7 @@ test-cmds:
 	CGOENABLED=0 go test -v -count=1 -tags=k8s ./src/server/cmd/pachctl/cmd
 	go test -v -count=1 -tags=k8s ./src/server/pfs/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	go test -v -count=1 -tags=k8s ./src/server/pps/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
-	go test -v -count=1 -tags=k8s ./src/server/config -timeout $(TIMEOUT) $(TESTFLAGS)
+	go test -v -count=1 -tags=k8s ./src/server/config -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	@# TODO(msteffen) does this test leave auth active? If so it must run last
 	go test -v -count=1 -tags=k8s ./src/server/auth/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 	go test -v -count=1 -tags=k8s ./src/server/enterprise/cmds -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
