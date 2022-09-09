@@ -3,6 +3,7 @@ package testutil
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -21,31 +22,35 @@ func GetTestEnterpriseCode(t testing.TB) string {
 
 // ActivateEnterprise activates enterprise in Pachyderm (if it's not on already.)
 func ActivateEnterprise(t testing.TB, c *client.APIClient) {
-	code := GetTestEnterpriseCode(t)
-
-	_, err := c.License.Activate(c.Ctx(),
-		&license.ActivateRequest{
-			ActivationCode: code,
-		})
-	require.NoError(t, err)
-
-	_, err = c.License.AddCluster(c.Ctx(),
-		&license.AddClusterRequest{
-			Id:               "localhost",
-			Secret:           "localhost",
-			Address:          "grpc://localhost:1650",
-			UserAddress:      "grpc://localhost:1650",
-			EnterpriseServer: true,
-		})
-	if err != nil && !license.IsErrDuplicateClusterID(err) {
-		require.NoError(t, err)
-	}
-
-	_, err = c.Enterprise.Activate(c.Ctx(),
+	ActivateLicense(t, c, "1650")
+	_, err := c.Enterprise.Activate(c.Ctx(),
 		&enterprise.ActivateRequest{
 			Id:            "localhost",
 			Secret:        "localhost",
 			LicenseServer: "grpc://localhost:1650",
 		})
 	require.NoError(t, err)
+}
+
+func ActivateLicense(t testing.TB, c *client.APIClient, port string, expireTime ...time.Time) {
+	code := GetTestEnterpriseCode(t)
+	activateReq := &license.ActivateRequest{
+		ActivationCode: code,
+	}
+	if len(expireTime) != 0 {
+		activateReq.Expires = TSProtoOrDie(t, expireTime[0])
+	}
+	_, err := c.License.Activate(c.Ctx(), activateReq)
+	require.NoError(t, err)
+	_, err = c.License.AddCluster(c.Ctx(),
+		&license.AddClusterRequest{
+			Id:               "localhost",
+			Secret:           "localhost",
+			Address:          "grpc://localhost:" + port,
+			UserAddress:      "grpc://localhost:" + port,
+			EnterpriseServer: true,
+		})
+	if err != nil && !license.IsErrDuplicateClusterID(err) {
+		require.NoError(t, err)
+	}
 }
