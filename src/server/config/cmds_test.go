@@ -14,6 +14,8 @@ import (
 func run(t *testing.T, cmd string) error {
 	t.Helper()
 
+	require.NoError(t, tu.BashCmd(`echo 'y' | pachctl delete all`).Run())
+
 	tmpfile, err := os.CreateTemp("", "test-pach-config-*.json")
 	require.NoError(t, err)
 
@@ -141,7 +143,9 @@ func TestUpdateContext(t *testing.T) {
 		pachctl config get context foo | match -v pachd_address
 	`))
 
+	// updating projects in context makes RPC call to server, so
 	require.YesError(t, run(t, `
+		pachctl delete project current-project
 		pachctl config update context --project="current-project"
 	`))
 	require.NoError(t, run(t, `
@@ -199,11 +203,11 @@ func TestImportKube(t *testing.T) {
 	require.NoError(t, run(t, `
 		pachctl config import-kube imported
 		pachctl config get active-context | match 'imported'
-		pachctl config get context imported | match '"cluster_name": "minikube"'
+		pachctl config get context imported | match "\"cluster_name\": \"$(kubectl config current-context)\""
 		pachctl config get context imported | match '"namespace": "default"'
 		pachctl config import-kube enterprise-kube --overwrite --namespace enterprise --enterprise
 		pachctl config get active-enterprise-context | match 'enterprise-kube'
-		pachctl config get context enterprise-kube | match '"cluster_name": "minikube"'
+		pachctl config get context enterprise-kube | match "\"cluster_name\": \"$(kubectl config current-context)\""
 		pachctl config get context enterprise-kube | match '"namespace": "enterprise"'
 
 	`))
