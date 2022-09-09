@@ -69,8 +69,8 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
-              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+              name: {{ default "postgres" .Values.global.postgresql.postgresqlExistingSecretName }}
+              key: {{ default "postgresql-password" .Values.global.postgresql.postgresqlExistingSecretKey }}
         {{- end }}
         {{- if and .Values.enterpriseServer.tls.enabled .Values.global.customCaCerts }}
         - name: SSL_CERT_DIR
