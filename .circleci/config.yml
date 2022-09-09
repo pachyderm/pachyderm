@@ -141,6 +141,20 @@ jobs:
     steps:
       - checkout
 
+      - run:
+          name: Install JQ
+          command: |
+            wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+            chmod +x jq-linux64
+            mv jq-linux64 /home/circleci/bin/jq
+      - run:
+          name: Set version
+          command: | 
+            if [[ -v $CIRCLE_TAG ]];
+            then
+                contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
+            fi
+
       # Install and cache Python dependencies
       - restore_cache:
           key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
