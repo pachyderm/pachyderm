@@ -25,9 +25,8 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
-  const {toggleDropdown, isOpen, handleKeyDown, sideOpen} = useDropdownButton(
-    dropdownButtonRef,
-  );
+  const {toggleDropdown, isOpen, handleKeyDown, sideOpen} =
+    useDropdownButton(dropdownButtonRef);
   const mergedClasses = classnames(styles.base, className);
 
   const Icon = useMemo<

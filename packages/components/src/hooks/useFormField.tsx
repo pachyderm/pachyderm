@@ -1,5 +1,5 @@
 import React, {useCallback} from 'react';
-import {FieldError, useFormContext} from 'react-hook-form';
+import {useFormContext} from 'react-hook-form';
 
 import {ErrorText} from '../Text';
 
@@ -12,7 +12,7 @@ const useFormField = (name: string) => {
     formState: {errors, touchedFields},
   } = useFormContext();
 
-  const fieldError: FieldError | undefined = errors[name];
+  const fieldError = errors[name];
   const hasError = Boolean(fieldError);
   const hasErrorMessage = Boolean(hasError && fieldError?.message);
   const errorId = hasErrorMessage ? `${name}-error` : undefined;

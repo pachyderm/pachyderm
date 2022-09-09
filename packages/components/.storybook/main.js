@@ -1,47 +1,24 @@
-const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
-
-const baseConfig = require('../webpack.config.js');
+const {mergeConfig, loadConfigFromFile} = require('vite');
+const path = require('path');
 
 module.exports = {
-  stories: ['../src/**/*.stories.tsx'],
-  webpackFinal: (config) => {
-    const cssModuleRule = baseConfig.module.rules[0].oneOf.find(
-      (rule) => rule.test && rule.test.toString() === '/\\.module\\.css$/'
+  async viteFinal(config) {
+    const { config: userConfig } = await loadConfigFromFile(
+      path.resolve(__dirname, "../vite.config.ts")
     );
-    const cssRule = config.module.rules.find(
-      (rule) => rule.test && rule.test.toString() === '/\\.css$/'
-    );
-
-    cssRule.exclude = cssModuleRule.test;
-    config.module.rules.push(cssModuleRule);
-    config.plugins.push(...baseConfig.plugins);
-
-    const fileLoaderRule = config.module.rules.find(
-      (rule) => !Array.isArray(rule.test) && rule.test.test(".svg"),
-    );
-    fileLoaderRule.exclude = /\.svg$/;
-    config.module.rules.push({
-      test: /\.svg$/,
-      use: [{
-        loader: '@svgr/webpack',
-        options: {
-          svgoConfig: {
-            plugins: {
-              removeViewBox: false
-            }
-          }
-        }
-      }, "url-loader"],
-    });
-
-    config.resolve.plugins.push(new TsconfigPathsPlugin());
-
-    return config;
+    return mergeConfig(config, userConfig);
   },
+  stories: ['../src/**/*.stories.tsx'],
   addons: [
-    '@storybook/addon-actions',
     "@storybook/addon-essentials",
     '@storybook/addon-links',
-    '@storybook/addon-controls'
   ],
+  framework: "@storybook/react",
+  core: {
+    builder: "@storybook/builder-vite"
+  },
+  staticDirs: ['../public'],
+  features: {
+    "storyStoreV7": true
+  },
 };

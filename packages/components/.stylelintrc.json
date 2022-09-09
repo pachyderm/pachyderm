@@ -1,3 +1,8 @@
 {
-  "extends": "@pachyderm/config/stylelint.config.json"
+  "rules": {
+    "selector-class-pattern": [
+      "^[a-z][a-zA-Z0-9]+$",
+      {"resolveNestedSelectors": true, "severity": "warning"}
+    ]
+  }
 }

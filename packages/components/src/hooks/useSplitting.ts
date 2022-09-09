@@ -7,6 +7,7 @@ const useSplitting = () => {
   }, []);
 
   const props = {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     'data-splitting': '',
   };
 

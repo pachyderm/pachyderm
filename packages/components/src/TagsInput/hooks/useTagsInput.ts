@@ -106,9 +106,10 @@ export const useTagsInput = ({
     [values],
   );
 
-  const ariaDescribedBy = useMemo(() => ariaDescribedByIds.join(' '), [
-    ariaDescribedByIds,
-  ]);
+  const ariaDescribedBy = useMemo(
+    () => ariaDescribedByIds.join(' '),
+    [ariaDescribedByIds],
+  );
 
   useEffect(() => {
     if (errors.some((error) => error)) {

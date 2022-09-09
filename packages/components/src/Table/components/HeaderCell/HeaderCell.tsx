@@ -57,7 +57,7 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
       {...rest}
       role="columnheader"
       aria-sort={sortDir}
-      tab-index={0}
+      tabIndex={0}
     >
       {sortable ? (
         <button

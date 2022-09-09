@@ -30,6 +30,11 @@ const TestComponent = () => {
   );
 };
 
+const runTimers = () =>
+  act(() => {
+    jest.runAllTimers();
+  });
+
 describe('Modal', () => {
   it('should be able to open and close the modal', async () => {
     const {findByText, getByText, queryByText} = render(<TestComponent />);
@@ -38,13 +43,12 @@ describe('Modal', () => {
     const closeButton = getByText('Close');
 
     userEvent.click(openButton);
+    runTimers();
     await findByText('Header');
 
     userEvent.click(closeButton);
 
-    act(() => {
-      jest.runAllTimers();
-    });
+    runTimers();
 
     await waitFor(() => expect(queryByText('Header')).toBeNull());
   });
@@ -56,15 +60,14 @@ describe('Modal', () => {
 
     const openButton = getByText('Open');
     userEvent.click(openButton);
+    runTimers();
 
     await findByText('Header');
 
     const closeIcon = await findByTestId('Modal__close');
     userEvent.click(closeIcon);
 
-    act(() => {
-      jest.runAllTimers();
-    });
+    runTimers();
 
     await waitFor(() => expect(queryByText('Header')).toBeNull());
   });
@@ -74,15 +77,14 @@ describe('Modal', () => {
 
     const openButton = getByText('Open');
     userEvent.click(openButton);
+    runTimers();
 
     await findByText('Header');
 
     const cancelButton = await findByText('Skip');
     userEvent.click(cancelButton);
 
-    act(() => {
-      jest.runAllTimers();
-    });
+    runTimers();
 
     await waitFor(() => expect(queryByText('Header')).toBeNull());
   });
@@ -92,6 +94,7 @@ describe('Modal', () => {
 
     const openButton = getByText('Open');
     userEvent.click(openButton);
+    runTimers();
 
     const confirmButton = await findByText('Confirm');
 

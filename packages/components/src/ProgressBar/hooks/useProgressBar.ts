@@ -3,9 +3,8 @@ import {useContext, useCallback} from 'react';
 import ProgressBarContext from '../contexts/ProgressBarContext';
 
 const useProgressBar = () => {
-  const {visit, complete, visited, completed, isVertical, clear} = useContext(
-    ProgressBarContext,
-  );
+  const {visit, complete, visited, completed, isVertical, clear} =
+    useContext(ProgressBarContext);
 
   const isVisited = useCallback(
     (id: string) => {

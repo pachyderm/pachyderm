@@ -1,13 +1,12 @@
 import path from 'path';
 
 import svgr from '@svgr/rollup';
+import customMedia from 'postcss-custom-media';
+import flexbugFixes from 'postcss-flexbugs-fixes';
+import normalize from 'postcss-normalize';
+import presetEnv from 'postcss-preset-env';
 import {defineConfig} from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
-
-import packageJson from './package.json';
-
-const isExternal = (id: string) =>
-  Object.keys(packageJson.peerDependencies).includes(id);
 
 export default defineConfig(() => ({
   build: {
@@ -16,7 +15,6 @@ export default defineConfig(() => ({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: isExternal,
       output: {
         // Since we publish our ./src folder, there's no point
         // in bloating sourcemaps with another copy of it.
@@ -27,6 +25,11 @@ export default defineConfig(() => ({
     target: 'ES2018',
     // Leave minification up to applications.
     minify: false,
+  },
+  css: {
+    postcss: {
+      plugins: [customMedia(), normalize(), flexbugFixes(), presetEnv()],
+    },
   },
   plugins: [tsconfigPaths(), svgr()],
 }));

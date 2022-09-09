@@ -21,8 +21,7 @@ describe('FeatureFlags', () => {
 
   it('should show a component with a flag on', async () => {
     xhrMock.get(/.*/, {
-      body:
-        '{"test-flag":{"flagVersion":5,"trackEvents":false,"value":true,"variation":0,"version":5}}',
+      body: '{"test-flag":{"flagVersion":5,"trackEvents":false,"value":true,"variation":0,"version":5}}',
       headers: {
         'content-type': 'application/json',
       },
@@ -48,8 +47,7 @@ describe('FeatureFlags', () => {
 
   it('should show a component with a flag off', async () => {
     xhrMock.get(/.*/, {
-      body:
-        '{"test-flag":{"flagVersion":5,"trackEvents":false,"value":false,"variation":0,"version":5}}',
+      body: '{"test-flag":{"flagVersion":5,"trackEvents":false,"value":false,"variation":0,"version":5}}',
       headers: {
         'content-type': 'application/json',
       },
@@ -75,8 +73,7 @@ describe('FeatureFlags', () => {
 
   it('should not render either variation when a flag does not exist', async () => {
     xhrMock.get(/.*/, {
-      body:
-        '{"test-flag":{"flagVersion":5,"trackEvents":false,"value":true,"variation":0,"version":5}}',
+      body: '{"test-flag":{"flagVersion":5,"trackEvents":false,"value":true,"variation":0,"version":5}}',
       headers: {
         'content-type': 'application/json',
       },

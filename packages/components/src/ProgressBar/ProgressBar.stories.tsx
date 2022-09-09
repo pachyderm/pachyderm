@@ -11,10 +11,10 @@ const Buttons: React.FC = () => {
     completeStep(currentStep.toString());
     setCurrentStep((prevValue) => prevValue + 1);
   }, [completeStep, currentStep]);
-  const visit = useCallback(() => visitStep(currentStep.toString()), [
-    visitStep,
-    currentStep,
-  ]);
+  const visit = useCallback(
+    () => visitStep(currentStep.toString()),
+    [visitStep, currentStep],
+  );
 
   return (
     <>

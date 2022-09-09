@@ -55,7 +55,7 @@ describe('NotificationBanner', () => {
     expect(banner).not.toBeNull();
 
     act(() => {
-      jest.advanceTimersByTime(2000);
+      jest.advanceTimersByTime(2001);
     });
 
     banner = queryByText('Test Banner');

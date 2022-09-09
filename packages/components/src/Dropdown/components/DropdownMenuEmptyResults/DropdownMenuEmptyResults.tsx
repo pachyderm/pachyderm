@@ -19,10 +19,10 @@ const DropdownMenuEmptyResults: React.FC<HTMLAttributes<HTMLDivElement>> = ({
 
   const searchValue = watch('search');
 
-  const shown = useMemo(() => searchValue && filteredResults.length === 0, [
-    searchValue,
-    filteredResults,
-  ]);
+  const shown = useMemo(
+    () => searchValue && filteredResults.length === 0,
+    [searchValue, filteredResults],
+  );
 
   if (!shown) {
     return null;

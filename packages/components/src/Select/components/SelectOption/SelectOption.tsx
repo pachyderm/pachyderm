@@ -10,14 +10,8 @@ export interface SelectOptionProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const SelectOption: React.FC<SelectOptionProps> = ({value, children}) => {
-  const {
-    activeOptionRef,
-    htmlId,
-    isActive,
-    isSelected,
-    onClick,
-    onMouseDown,
-  } = useSelectOption(value, children);
+  const {activeOptionRef, htmlId, isActive, isSelected, onClick, onMouseDown} =
+    useSelectOption(value, children);
 
   return (
     <div

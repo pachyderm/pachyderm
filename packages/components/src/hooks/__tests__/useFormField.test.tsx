@@ -11,9 +11,12 @@ import {Label} from '../../Label';
 
 describe('useFormField', () => {
   const FormField = () => {
-    const {register, error: ErrorComponent, errorId, hasError} = useFormField(
-      'test',
-    );
+    const {
+      register,
+      error: ErrorComponent,
+      errorId,
+      hasError,
+    } = useFormField('test');
 
     return (
       <>

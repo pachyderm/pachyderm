@@ -1,6 +1,6 @@
 import noop from 'lodash/noop';
 import React from 'react';
-import {UseFormReturn, SubmitHandler} from 'react-hook-form';
+import {UseFormReturn, SubmitHandler, FieldValues} from 'react-hook-form';
 
 import {LoadingDots} from 'LoadingDots';
 
@@ -12,7 +12,7 @@ import ModalStatus from '../components/ModalStatus';
 
 import {Form} from './../../Form';
 
-export interface FormModalProps<T> {
+export interface FormModalProps<T extends FieldValues> {
   children: React.ReactNode;
   isOpen?: boolean;
   onHide?: () => void;
@@ -28,7 +28,7 @@ export interface FormModalProps<T> {
   disabled?: boolean;
 }
 
-const FormModal = <T,>({
+const FormModal = <T extends FieldValues>({
   children,
   isOpen = false,
   onHide = noop,

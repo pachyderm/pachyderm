@@ -27,12 +27,10 @@ const useDropdownMenuItem = ({
 
   const searchValue = watch('search');
 
-  const shown = useMemo(() => filter({id, value}, searchValue), [
-    searchValue,
-    filter,
-    id,
-    value,
-  ]);
+  const shown = useMemo(
+    () => filter({id, value}, searchValue),
+    [searchValue, filter, id, value],
+  );
 
   useEffect(() => {
     if (shown) {

@@ -28,11 +28,8 @@ describe('useLoginWindow', () => {
   const onSuccess = jest.fn();
 
   const Login: React.FC = () => {
-    const {
-      initiateOauthFlow,
-      loginWindowError,
-      loginWindowSucceeded,
-    } = useLoginWindow({onSuccess});
+    const {initiateOauthFlow, loginWindowError, loginWindowSucceeded} =
+      useLoginWindow({onSuccess});
 
     const [firstRenderError] = useState(loginWindowError);
     const [firstRenderSucceeded] = useState(loginWindowSucceeded);

@@ -10,11 +10,10 @@ export interface NotificationBannerContextInterface {
   remove: (id: string) => void;
 }
 
-const NotificationBannerContext = createContext<NotificationBannerContextInterface>(
-  {
+const NotificationBannerContext =
+  createContext<NotificationBannerContextInterface>({
     add: noop,
     remove: noop,
-  },
-);
+  });
 
 export default NotificationBannerContext;

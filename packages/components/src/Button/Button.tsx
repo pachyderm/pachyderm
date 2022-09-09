@@ -47,10 +47,10 @@ export const Button: FunctionComponent<ButtonProps> = ({
   buttonRef,
   ...props
 }) => {
-  const iconOnly = useMemo(() => IconSVG && Children.count(children) === 0, [
-    IconSVG,
-    children,
-  ]);
+  const iconOnly = useMemo(
+    () => IconSVG && Children.count(children) === 0,
+    [IconSVG, children],
+  );
 
   const classes = classNames(styles.base, className, {
     [styles.dropdown]: buttonType === 'dropdown',

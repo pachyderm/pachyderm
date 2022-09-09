@@ -2,9 +2,9 @@
 /* eslint-disable testing-library/consistent-data-testid */
 import {captureException} from '@sentry/react';
 import {render, waitFor} from '@testing-library/react';
+import {mocked} from 'jest-mock';
 import Cookies from 'js-cookie';
 import React from 'react';
-import {mocked} from 'ts-jest/utils';
 
 import {click} from 'testHelpers';
 

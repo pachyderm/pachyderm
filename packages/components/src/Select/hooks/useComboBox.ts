@@ -24,9 +24,10 @@ const useComboBox = () => {
     placeholder,
   } = useContext(SelectContext);
 
-  const onClick = useCallback(() => setIsOpen((prevState) => !prevState), [
-    setIsOpen,
-  ]);
+  const onClick = useCallback(
+    () => setIsOpen((prevState) => !prevState),
+    [setIsOpen],
+  );
 
   const onBlur = useCallback(() => {
     if (ignoreBlur) {

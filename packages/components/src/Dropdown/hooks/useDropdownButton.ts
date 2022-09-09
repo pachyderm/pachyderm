@@ -6,13 +6,8 @@ import {Keys} from 'lib/types';
 import useDropdown from './useDropdown';
 
 const useDropdownButton = (ref: React.RefObject<HTMLButtonElement>) => {
-  const {
-    toggleDropdown,
-    isOpen,
-    openDropdown,
-    closeDropdown,
-    sideOpen,
-  } = useDropdown();
+  const {toggleDropdown, isOpen, openDropdown, closeDropdown, sideOpen} =
+    useDropdown();
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
