@@ -36,7 +36,7 @@ func NewProjectRepo(projectName, repoName string) *pfs.Repo {
 // NewSystemRepo creates a pfs.Repo of the given type.
 //
 // Deprecated: use NewSystemProjectRepo instead.
-func NewSystemRepo(repoName, repoType string) *pfs.Repo {
+func NewSystemRepo(repoName string, repoType string) *pfs.Repo {
 	return NewSystemProjectRepo("", repoName, repoType)
 }
 
@@ -46,17 +46,10 @@ func NewSystemProjectRepo(projectName, repoName, repoType string) *pfs.Repo {
 	return &pfs.Repo{Project: NewProject(projectName), Name: repoName, Type: repoType}
 }
 
-// NewBranch creates a pfs.Branch.
-//
-// Deprecated: use NewProjectBranch instead.
+// NewBranch creates a pfs.Branch
 func NewBranch(repoName string, branchName string) *pfs.Branch {
-	return NewProjectBranch("", repoName, branchName)
-}
-
-// NewProjectBranch creates a pfs.Branch in the given project and repo.
-func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 	return &pfs.Branch{
-		Repo: NewProjectRepo(projectName, repoName),
+		Repo: NewRepo(repoName),
 		Name: branchName,
 	}
 }

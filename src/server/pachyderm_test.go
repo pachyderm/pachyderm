@@ -7731,7 +7731,7 @@ func TestCommitDescription(t *testing.T) {
 
 	// Test putting a message in StartCommit
 	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewProjectBranch("", dataRepo, "master"),
+		Branch:      client.NewBranch(dataRepo, "master"),
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
@@ -7756,7 +7756,7 @@ func TestCommitDescription(t *testing.T) {
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewProjectBranch("", dataRepo, "master"),
+		Branch:      client.NewBranch(dataRepo, "master"),
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
