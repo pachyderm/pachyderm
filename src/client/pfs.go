@@ -67,10 +67,26 @@ func NewCommit(repoName string, branchName string, commitID string) *pfs.Commit 
 	}
 }
 
+// NewCommit creates a pfs.Commit in the given project, repo & branch.
+func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
+	return &pfs.Commit{
+		Branch: NewProjectBranch(projectName, repoName, branchName),
+		ID:     commitID,
+	}
+}
+
 // NewFile creates a pfs.File.
 func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
 		Commit: NewCommit(repoName, branchName, commitID),
+		Path:   path,
+	}
+}
+
+// NewProjectFile creates a pfs.File.
+func NewProjectFile(projectName, repoName, branchName, commitID, path string) *pfs.File {
+	return &pfs.File{
+		Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		Path:   path,
 	}
 }
