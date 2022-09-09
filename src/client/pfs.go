@@ -186,7 +186,7 @@ func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commi
 	return c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch("", repoName, branchName),
 		},
 	)
 }
@@ -210,7 +210,7 @@ func (c APIClient) StartCommitParent(repoName string, branchName string, parentB
 		c.Ctx(),
 		&pfs.StartCommitRequest{
 			Parent: NewCommit(repoName, parentBranch, parentCommit),
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch("", repoName, branchName),
 		},
 	)
 	if err != nil {
@@ -335,7 +335,7 @@ func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:     NewBranch(repoName, branchName),
+			Branch:     NewProjectBranch("", repoName, branchName),
 			Head:       head,
 			Provenance: provenance,
 		},
@@ -354,7 +354,7 @@ func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commi
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:  NewBranch(repoName, branchName),
+			Branch:  NewProjectBranch("", repoName, branchName),
 			Head:    head,
 			Trigger: trigger,
 		},
@@ -367,7 +367,7 @@ func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.Branc
 	branchInfo, err := c.PfsAPIClient.InspectBranch(
 		c.Ctx(),
 		&pfs.InspectBranchRequest{
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch("", repoName, branchName),
 		},
 	)
 	return branchInfo, grpcutil.ScrubGRPC(err)
@@ -400,7 +400,7 @@ func (c APIClient) DeleteBranch(repoName string, branchName string, force bool) 
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{
-			Branch: NewBranch(repoName, branchName),
+			Branch: NewProjectBranch("", repoName, branchName),
 			Force:  force,
 		},
 	)
