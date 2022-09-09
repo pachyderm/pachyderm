@@ -6,8 +6,9 @@ import (
 	"path"
 	"testing"
 
-	units "github.com/docker/go-units"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 
+	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -17,14 +18,19 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
-	authtesting "github.com/pachyderm/pachyderm/v2/src/server/auth/testing"
+	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
+	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
 // RealEnv contains a setup for running end-to-end pachyderm tests locally.  It
@@ -36,8 +42,11 @@ type RealEnv struct {
 
 	ServiceEnv               serviceenv.ServiceEnv
 	AuthServer               authapi.APIServer
+	EnterpriseServer         enterprise.APIServer
+	LicenseServer            license.APIServer
 	PFSServer                pfsapi.APIServer
 	TransactionServer        txnserver.APIServer
+	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
 	MockPPSTransactionServer *MockPPSTransactionServer
 }
@@ -90,8 +99,21 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 
 	txnEnv := txnenv.New()
 	// AUTH
-	realEnv.AuthServer = &authtesting.InactiveAPIServer{}
+	authEnv := authserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
+	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
+
+	// ENTERPRISE
+	entEnv := enterpriseserver.EnvFromServiceEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
+	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, true)
+	require.NoError(t, err)
+	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
+
+	// LICENSE
+	licenseEnv := licenseserver.EnvFromServiceEnv(realEnv.ServiceEnv)
+	realEnv.LicenseServer, err = licenseserver.New(licenseEnv)
+	require.NoError(t, err)
 
 	// PFS
 	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
@@ -112,15 +134,22 @@ func NewRealEnv(t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
 			}
 		})
 
+	// TRANSACTION
 	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
+
+	// VERSION
+	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
 	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
+	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
+	linkServers(&realEnv.MockPachd.License, realEnv.LicenseServer)
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
+	linkServers(&realEnv.MockPachd.Version, realEnv.VersionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
 
 	return realEnv
