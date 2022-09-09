@@ -381,27 +381,7 @@ func Cmds() []*cobra.Command {
 				context.Namespace = namespace
 			}
 			if updateContext.Flags().Changed("project") {
-				c, err := client.NewOnUserMachine("user")
-				if err != nil {
-					return err
-				}
-				defer c.Close()
-				pis, err := c.ListProject()
-				if err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-				var found bool
-				for _, pi := range pis {
-					if pi.Project.Name == project {
-						found = true
-						break
-					}
-				}
-				if found {
-					context.Project = project
-				} else {
-					return errors.Errorf("project does not exist: %s.", project)
-				}
+				context.Project = project
 			}
 			if removeClusterDeploymentID {
 				context.ClusterDeploymentID = ""
