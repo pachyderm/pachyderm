@@ -99,7 +99,7 @@ func (c APIClient) CreateRepo(repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo: NewProjectRepo("", repoName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -110,7 +110,7 @@ func (c APIClient) UpdateRepo(repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:   NewRepo(repoName),
+			Repo:   NewProjectRepo("", repoName),
 			Update: true,
 		},
 	)
@@ -125,7 +125,7 @@ func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) 
 	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo: NewProjectRepo("", repoName),
 		},
 	)
 }
@@ -160,7 +160,7 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 // This argument should be used with care.
 func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	request := &pfs.DeleteRepoRequest{
-		Repo:  NewRepo(repoName),
+		Repo:  NewProjectRepo("", repoName),
 		Force: force,
 	}
 	_, err := c.PfsAPIClient.DeleteRepo(
@@ -379,7 +379,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	defer cf()
 	var repo *pfs.Repo
 	if repoName != "" {
-		repo = NewRepo(repoName)
+		repo = NewProjectRepo("", repoName)
 	}
 	client, err := c.PfsAPIClient.ListBranch(
 		ctx,
