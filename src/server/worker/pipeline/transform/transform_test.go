@@ -261,6 +261,42 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
+	pipelineRepo := client.NewRepo(pi.Pipeline.Name)
+	outputCi, err := env.PachClient.ListCommitByRepo(pipelineRepo)
+	require.NotNil(t, outputCi)
+
+	for _, commit := range outputCi {
+		fi, err := env.PachClient.ListFileAll(commit.Commit, "/")
+		if fi != nil {
+			fmt.Println("Hello")
+		}
+		require.NoError(t, err)
+	}
+
+	pipelineRepo = client.NewRepo(pi.Details.Input.Pfs.Repo)
+	inputCi, err := env.PachClient.ListCommitByRepo(pipelineRepo)
+	require.NotNil(t, outputCi)
+
+	for _, commit := range inputCi {
+		fi, err := env.PachClient.ListFileAll(commit.Commit, "/")
+		if fi != nil {
+			fmt.Println("Hello")
+		}
+		require.NoError(t, err)
+	}
+
+	metaRepo := client.NewSystemRepo(pi.Pipeline.Name, pfs.MetaRepoType)
+	metaCi, err := env.PachClient.ListCommitByRepo(metaRepo)
+	require.NotNil(t, outputCi)
+
+	for _, commit := range metaCi {
+		fi, err := env.PachClient.ListFileAll(commit.Commit, "/")
+		if fi != nil {
+			fmt.Println("Hello")
+		}
+		require.NoError(t, err)
+	}
+
 	if files != nil {
 		r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
@@ -277,15 +313,15 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
 
-	suite.Run("TestJobSuccess", func(t *testing.T) {
+	/*suite.Run("TestJobSuccess", func(t *testing.T) {
 		pi := defaultPipelineInfo()
 		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
-	})
+	})*/
 
-	/*suite.Run("TestJobSuccessEgress", func(t *testing.T) {
+	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		egressURL := objC.BucketURL().String()
@@ -312,7 +348,7 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 	})
 
-	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
+	/*suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
