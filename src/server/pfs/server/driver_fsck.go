@@ -367,16 +367,16 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit), index.WithPrefix("/"+common.MetaPrefix))
+		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
 		if err != nil {
 			return err
 		}
 		var streams []stream.Stream
 		streams = append(streams, &fileStream{
-			iterator:   fileset.NewIterator(ctx, datumsFS),
+			iterator:   fileset.NewIterator(ctx, datumsFS.Iterate),
 			fromOutput: true,
 		}, &fileStream{
-			iterator: fileset.NewIterator(ctx, metaFS),
+			iterator: fileset.NewIterator(ctx, metaFS.Iterate, index.WithPrefix("/"+common.MetaPrefix)),
 		})
 		pq := stream.NewPriorityQueue(streams, compare)
 		return errors.EnsureStack(pq.Iterate(func(ss []stream.Stream) error {
