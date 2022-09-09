@@ -29,8 +29,10 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		if err := driver.UpdateJobState(jobInfo.Job, pps.JobState_JOB_RUNNING, ""); err != nil {
 			return errors.EnsureStack(err)
 		}
+		// TODO: Add cache?
+		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
 		jobInput := ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
-		di, err := datum.NewIterator(pachClient, jobInput)
+		di, err := datum.NewIterator(pachClient, taskDoer, jobInput)
 		if err != nil {
 			return err
 		}
