@@ -653,6 +653,7 @@ jobs:
           name: Push release manifests
           command: |
             make UNDERLYING=$CIRCLE_SHA1 VERSION=${CIRCLE_TAG:1} docker-push
+            # Retag jupyter image from sha to tag
   release-hombrew-tap:
     executor: docker-go
     steps:
@@ -816,9 +817,30 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
+      #- jupyter-extension-build:
+      #    filters: *only-release-tags
+      #- jupyter-extension-test:
+      #    filters: *only-release-tags
+      #- jupyter-extension-integration-test:
+      #    filters: *only-release-tags
+      #- jupyter-extension-e2e-test:
+      #    filters: *only-release-tags
+      #    requires:
+      #      - jupyter-extension-build
+      #- jupyter-extension-frontend-test:
+      #    filters: *only-release-tags
+#
+      #- jupyter-extension-test-publish:
+      #    filters: *only-release-tags
+      #    requires:
+      #      - jupyter-extension-build
+      #      - jupyter-extension-test
+      #      - jupyter-extension-integration-test
+      #      - jupyter-extension-e2e-test
       - sign-off:
           filters: *only-release-tags
           type: approval
+          when: always
           requires:
             - build-docker-images
             - build-pachctl-bin
@@ -845,3 +867,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - sign-off
+      #- jupyter-extension-publish:
+      #    requires:
+      #      - sign-off
+      #    filters: *only-release-tags
