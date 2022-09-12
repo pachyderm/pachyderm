@@ -68,7 +68,7 @@ func NewEnv(t testing.TB) *Env {
 	baseLevel := zapcore.DebugLevel // The log level after startup (whose messages we try to suppress).
 	level := zap.NewAtomicLevelAt(baseLevel)
 	logger := zaptest.NewLogger(t, zaptest.Level(level))
-	//etcdConfig.ZapLoggerBuilder = embed.NewZapLoggerBuilder(logger.Named("etcd-server"))
+	etcdConfig.ZapLoggerBuilder = embed.NewZapLoggerBuilder(logger.Named("etcd-server"))
 
 	// We want to assign a random unused port to etcd, but etcd doesn't give us a
 	// way to read it back out later. We can work around this by creating our own
