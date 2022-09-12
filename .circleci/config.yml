@@ -150,7 +150,7 @@ jobs:
       - run:
           name: Set version
           command: | 
-            if [[ -v $CIRCLE_TAG ]];
+            if [[ ! -z $CIRCLE_TAG ]];
             then
                 contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
             fi
