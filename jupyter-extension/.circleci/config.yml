@@ -1,0 +1,516 @@
+version: 2.1
+
+parameters:
+  pachctl_version:
+    type: string
+    # update this to build a different e.g. branch build of pachctl based on the git hash
+    # must be a git hash of pachyderm/pachyderm, NOT a version number or branch name
+    default: 7d2471590000c6ac847a64a77e3f6c0687e64f01
+    # Includes https://github.com/pachyderm/pachyderm/pull/7836
+
+jobs:
+  jupyter-extension-test:
+    parameters:
+      python-version:
+        type: string
+    docker:
+      - image: cimg/python:<< parameters.python-version >>-node
+    steps:
+      - checkout
+      # Install and cache Python dependencies
+      - restore_cache:
+          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -r ci-requirements.txt
+      - save_cache:
+          key: pip<< parameters.python-version >>-cache-v11-<< pipeline.git.branch >>-{{ checksum "ci-requirements.txt" }}
+          paths:
+            - 'venv'
+
+      # Install and cache Node dependencies
+      - restore_cache:
+          keys:
+            - node-cache-v3-{{ checksum "package-lock.json" }}
+            - node-cache-v3
+      - run:
+          name: 'Install npm packages'
+          command: |
+            npm ci
+      - save_cache:
+          key: node-cache-v3-{{ checksum "package-lock.json" }}
+          paths:
+            - 'node_modules'
+      - run:
+          name: 'Build and test the extension'
+          command: |
+            set -eux
+
+            . venv/bin/activate
+            npm run eslint:check
+            python -m pip install -e '.[dev]'
+
+            tail -F /tmp/pachctl-mount-server.log &
+
+            # Run Python unit tests
+            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py jupyterlab_pachyderm
+
+            check-manifest -v
+
+  jupyter-extension-integration-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202107-02
+    steps:
+      - checkout
+      - install-test-deps
+      - run:
+          name: 'Integration tests'
+          command: |
+            set -eux
+
+            python3 -m venv venv
+            . venv/bin/activate
+            python3 -m pip install -e '.[dev]'
+
+            nohup pachctl port-forward &
+
+            tail -F /tmp/pachctl-mount-server.log &
+
+            mkdir pfs
+            export PFS_MOUNT_DIR=$(pwd)/pfs
+
+            # Run integration tests
+            pytest -v jupyterlab_pachyderm/tests/test_integrations.py
+
+  jupyter-extension-e2e-test:
+    resource_class: xlarge
+    machine:
+      image: ubuntu-2004:202111-01
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - install-test-deps
+      - run:
+          name: 'e2e tests'
+          command: |
+            set -eux
+
+            python3 -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+
+            pip install jupyterlab==3.2.2
+            pip install `find dist/ -name \*.whl`
+
+            # Install just what need to run cypress tests
+            npm install cypress@^8.7.0
+            npm install start-server-and-test@^1.14.0
+
+            # Enable the examples extension
+            mkdir -p /home/circleci/.jupyter/labconfig
+            cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
+
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
+            
+            pachctl create repo images
+            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
+            pachctl list repo
+
+            mkdir pfs
+            export PFS_MOUNT_DIR=$(pwd)/pfs
+            CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
+
+  jupyter-extension-frontend-test:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:16.11.0
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run test
+
+  jupyter-extension-build:
+    executor: python
+    steps:
+      - checkout
+
+      - run:
+          name: Install JQ
+          command: |
+            wget https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64
+            chmod +x jq-linux64
+            mv jq-linux64 /home/circleci/bin/jq
+      - run:
+          name: Set version
+          command: | 
+            if [[ ! -z $CIRCLE_TAG ]];
+            then
+                contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
+            fi
+
+      # Install and cache Python dependencies
+      - restore_cache:
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -r ci-requirements.txt
+      - save_cache:
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          paths:
+            - 'venv'
+
+      # Install and cache Node dependencies
+      - restore_cache:
+          keys:
+            - node-cache-v3-{{ checksum "package-lock.json" }}
+            - node-cache-v3
+      - run:
+          name: 'Install npm packages'
+          command: |
+            npm ci
+      - save_cache:
+          key: node-cache-v3-{{ checksum "package-lock.json" }}
+          paths:
+            - 'node_modules'
+
+      - run:
+          name: build
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m build
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  jupyter-extension-test-publish:
+    executor: python
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      # Install and cache Python dependencies
+      - restore_cache:
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -r ci-requirements.txt
+      - save_cache:
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          paths:
+            - 'venv'
+      - run:
+          name: Init .pypirc
+          command: |
+            echo -e "[testpypi]" >> ~/.pypirc
+            echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+            echo -e "password = $TEST_PYPI_PASSWORD" >> ~/.pypirc
+      - run:
+          name: Publish
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            twine upload --repository testpypi dist/*
+
+  jupyter-extension-publish:
+    executor: python
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      # Install and cache Python dependencies
+      - restore_cache:
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+      - run:
+          name: 'Install Python dependencies'
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            python -m pip install --upgrade pip
+            python -m pip install -r ci-requirements.txt
+      - save_cache:
+          key: pip3.10-cache-v11-{{ checksum "ci-requirements.txt" }}
+          paths:
+            - 'venv'
+      - run:
+          name: Init .pypirc
+          command: |
+            echo -e "[pypi]" >> ~/.pypirc
+            echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+            echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+      - run:
+          name: Publish
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            twine upload dist/*
+
+  jupyter-extension-docker-build:
+    executor: python
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: docker login
+          command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker image
+          command: docker build --build-arg PACHCTL_VERSION=<<pipeline.parameters.pachctl_version>> -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
+      - run:
+          name: Docker push
+          command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
+
+  jupyter-extension-docker-push-tag:
+    executor: python
+    docker:
+      - image: circleci/buildpack-deps:stretch
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: docker login
+          command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: docker pull
+          command: docker pull pachyderm/notebooks-user:$CIRCLE_SHA1
+      - run:
+          name: tag docker image
+          command: docker tag pachyderm/notebooks-user:$CIRCLE_SHA1 pachyderm/notebooks-user:$CIRCLE_TAG
+      - run:
+          name: Docker push
+          command: docker push pachyderm/notebooks-user:$CIRCLE_TAG
+  jupyter-extension-preview:
+    parameters:
+      gcp-project:
+        type: string
+      gcp-compute-zone:
+        type: string
+      gcloud-sdk-version:
+        type: string
+      pulumi-version:
+        type: string
+    docker:
+      - image: cimg/go:1.17.5
+    steps:
+      - checkout
+      - run:
+          name: Set up pulumi
+          command: |
+            wget https://get.pulumi.com/releases/sdk/pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
+            tar xvf pulumi-<<parameters.pulumi-version>>-linux-x64.tar.gz
+            # Add to PATH
+            echo 'export PATH=${HOME}/project/pulumi:$PATH' >> $BASH_ENV
+            source $BASH_ENV
+            pulumi login --non-interactive
+      - run:
+          name: Setup gcloud
+          command: |
+            # NOTE: Needed to enable cloud resource manager in the project
+            # https://console.cloud.google.com/apis/api/cloudresourcemanager.googleapis.com/overview?project=pulumi-ci-334619
+            cd ~/
+            curl -Ss --retry 5 https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-<<parameters.gcloud-sdk-version>>-linux-x86_64.tar.gz | tar xz
+            
+            ./google-cloud-sdk/install.sh -q
+            echo 'source ~/google-cloud-sdk/path.bash.inc' >> $BASH_ENV
+            source $BASH_ENV
+
+            # Initialize gcloud CLI
+            gcloud --quiet config set core/disable_usage_reporting true
+            gcloud --quiet config set component_manager/disable_update_check true
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            gcloud --quiet config set project <<parameters.gcp-project>>
+            gcloud --quiet config set compute/zone <<parameters.gcp-compute-zone>>
+
+      - run:
+          name: Preview Stack
+          command: |
+            cd infra
+            pulumi stack select -c $CIRCLE_BRANCH --non-interactive
+            pulumi config set gcp:zone <<parameters.gcp-compute-zone>>
+            pulumi config set gcp:project <<parameters.gcp-project>>
+            pulumi config set sha $CIRCLE_SHA1
+            pulumi config set branch $CIRCLE_BRANCH
+            pulumi config set --secret client_id $AUTH0_CLIENT_ID
+            pulumi config set --secret client_secret $AUTH0_CLIENT_SECRET
+            pulumi config set --secret auth0_domain $AUTH0_DOMAIN
+            # pulumi preview
+            pulumi up --yes
+            # pulumi destroy --yes
+      - run:
+          name: Comment on PR
+          command: |
+            wget https://github.com/chainlink/onecomment/releases/download/v0.2.0/onecomment_0.2.0_Linux_x86_64.tar.gz
+            tar xvf onecomment_0.2.0_Linux_x86_64.tar.gz
+
+            # Setup GH token env var in circle project
+            ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
+            -owner pachyderm -repo jupyterlab-pachyderm \
+            -includes '<!-- Created by one-comment -->' \
+            -message "PR Preview available at [https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io](https://jh-$CIRCLE_BRANCH.clusters-ci.pachyderm.io)
+            Enter any username to login (Each user will be assigned a new workspace)
+            You may need to shutdown and relaunch your Jupyterlab instance if new code has been pushed since you last launched it.
+            You can connect to pach by entering grpc://pachd-peer:30653 into the extension connection screen."
+
+workflows:
+  build-workflow:
+    jobs:
+      - jupyter-extension-test:
+          matrix:
+            parameters:
+              python-version: ['3.7', '3.8', '3.9', '3.10']
+          filters:
+            tags:
+              only: /.*/
+      - jupyter-extension-frontend-test:
+          filters:
+            tags:
+              only: /.*/
+      - jupyter-extension-integration-test:
+          filters:
+            tags:
+              only: /.*/
+      - jupyter-extension-e2e-test:
+          requires:
+            - jupyter-extension-build
+          filters:
+            tags:
+              only: /.*/
+      - jupyter-extension-build:
+          filters:
+            tags:
+              only: /.*/
+      - jupyter-extension-docker-build:
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - jupyter-extension-build
+      - jupyter-extension-docker-push-tag:
+          requires:
+            - jupyter-extension-approve-release
+            - jupyter-extension-docker-build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /.*/
+      - jupyter-extension-preview:
+          gcp-project: pulumi-ci-334619
+          gcp-compute-zone: us-east1-b
+          gcloud-sdk-version: "363.0.0"
+          pulumi-version: v3.22.1
+          requires:
+            - jupyter-extension-docker-build
+          filters:
+            branches:
+              ignore: main
+      - jupyter-extension-test-publish:
+          requires:
+            - jupyter-extension-build
+            - jupyter-extension-test
+            - jupyter-extension-frontend-test
+            - jupyter-extension-integration-test
+            - jupyter-extension-e2e-test
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d.*/
+            branches:
+              ignore: /.*/
+      - jupyter-extension-approve-release:
+          type: approval
+          requires:
+            - jupyter-extension-test-publish
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d.*/
+            branches:
+              ignore: /.*/
+      - jupyter-extension-publish:
+          requires:
+            - jupyter-extension-approve-release
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d.*/
+            branches:
+              ignore: /.*/
+
+executors:
+  python:
+    docker:
+      - image: cimg/python:3.10-node
+
+commands:
+  install-test-deps:
+    steps:
+      - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
+      - run:
+          name: Fuse options
+          command: echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
+      - run:
+            name: Install kind
+            command: |
+              curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+              && chmod +x ./kind-linux-amd64 \
+              && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
+      - run:
+          name: Install helm
+          command: |
+            wget https://get.helm.sh/helm-v3.7.1-linux-amd64.tar.gz && \
+            tar -zxvf helm-v3.7.1-linux-amd64.tar.gz && \
+            chmod +x linux-amd64/helm && \
+            sudo mv linux-amd64/helm /usr/local/bin/helm
+      - run:
+          name: Install kubectl
+          command: |
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+            chmod +x kubectl && \
+            sudo mv kubectl /usr/local/bin/kubectl
+      - run:
+          name: Install pachctl
+          command: curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv pachctl.tar.gz && sudo mv pachctl_<<pipeline.parameters.pachctl_version>>_linux_amd64/pachctl /usr/local/bin/
+      - run:
+          name: Install mount-server
+          command: curl -f -o mount-server.tar.gz -L https://storage.googleapis.com/pachyderm-builds/mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64.tar.gz && tar zxfv mount-server.tar.gz && sudo mv mount-server_<<pipeline.parameters.pachctl_version>>_linux_amd64/mount-server /usr/local/bin/
+      - run:
+          name: Setup helm
+          command: helm repo add pach https://helm.pachyderm.com && helm repo update
+      - run:
+          name: Start kind
+          command: kind create cluster && kubectl config set current-context kind-kind
+      - run:
+          name: Install pach
+          command: helm install pachd pach/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            pachctl version
+      - run:
+          name: Setup pach # Get Kind node IP and pass that to pachctl
+          command: |-
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
+            pachctl config set active-context local
