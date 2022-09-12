@@ -10482,8 +10482,10 @@ func TestDatumSetCache(t *testing.T) {
 	}()
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+		return err
+	})
 	for i := 0; i < 5; i++ {
 		_, err := c.InspectFile(commitInfo.Commit, strconv.Itoa(i))
 		require.NoError(t, err)
