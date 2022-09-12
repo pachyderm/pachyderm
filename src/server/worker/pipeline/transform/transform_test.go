@@ -55,12 +55,13 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	require.NoError(t, env.PachClient.CreateBranch(input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
-	pipelineRepo := client.NewProjectRepo("", pipelineInfo.Pipeline.Name)
+	projectName := pipelineInfo.Pipeline.Project.GetName()
+	pipelineRepo := client.NewProjectRepo(projectName, pipelineInfo.Pipeline.Name)
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: pipelineRepo})
 	require.NoError(t, err)
 
 	// Create the spec system repo and create the initial spec commit
-	specRepo := client.NewSystemProjectRepo("", pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
+	specRepo := client.NewSystemProjectRepo(projectName, pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	specCommit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
@@ -72,7 +73,7 @@ func newWorkerSpawnerPair(t *testing.T, dbConfig serviceenv.ConfigOption, pipeli
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch),
 		Provenance: []*pfs.Branch{
-			client.NewBranch(input.Repo, input.Branch),
+			client.NewProjectBranch(projectName, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})

@@ -47,6 +47,8 @@ func NewSystemProjectRepo(projectName, repoName, repoType string) *pfs.Repo {
 }
 
 // NewBranch creates a pfs.Branch
+//
+// Deprecated: use NewProjectBranch instead.
 func NewBranch(repoName string, branchName string) *pfs.Branch {
 	return NewProjectBranch("", repoName, branchName)
 }
