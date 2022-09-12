@@ -5,7 +5,8 @@ import (
 	"context"
 	"io"
 
-	proto "github.com/gogo/protobuf/proto"
+	"github.com/docker/go-units"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -45,83 +46,104 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	if r.topIdx == nil {
 		return nil
 	}
-	// Setup top level reader.
-	pbr := r.topLevel()
-	levels := []pbutil.Reader{pbr}
+	traverseCb := func(idx *Index) (bool, error) {
+		if atEnd(idx.Path, r.filter) {
+			return false, errutil.ErrBreak
+		}
+		if idx.File != nil {
+			if !atStart(idx.Path, r.filter) || !(r.datum == "" || r.datum == idx.File.Datum) {
+				return false, nil
+			}
+			return false, cb(idx)
+		}
+		if !atStart(idx.Range.LastPath, r.filter) {
+			return false, nil
+		}
+		return true, nil
+	}
+	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)
+	if errors.Is(err, errutil.ErrBreak) {
+		err = nil
+	}
+	return err
+}
+
+// traverse implements traversal through a multilevel index.
+// Traversal starts at the provided index and the callback is executed
+// for each index entry encountered (range and file type).
+// The callback can return true to traverse into the next level, otherwise
+// the traversal will continue on the same level.
+// The prependBytes and leftoverBytes logic is needed to handle index entries
+// that span multiple chunks.
+func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, cb func(*Index) (bool, error)) ([]byte, error) {
+	if idx.File != nil {
+		_, err := cb(idx)
+		return []byte{}, err
+	}
+	buf := &bytes.Buffer{}
+	buf.Write(prependBytes)
+	if err := r.getChunk(ctx, idx, buf); err != nil {
+		return nil, err
+	}
+	pbr := pbutil.NewReader(buf)
+	nextPrependBytes := []byte{}
 	for {
-		pbr := levels[len(levels)-1]
+		leftoverBytes := buf.Bytes()
 		idx := &Index{}
 		if err := pbr.Read(idx); err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				return leftoverBytes, nil
 			}
-			return errors.EnsureStack(err)
+			return nil, errors.EnsureStack(err)
 		}
-		var indexDatum string
-		if idx.File != nil {
-			// a range index will include multiple datums,
-			// so only do datum range comparisons if we have a single file
-			indexDatum = idx.File.Datum
+		nextLevel, err := cb(idx)
+		if err != nil {
+			return nil, err
 		}
-		// Return if done.
-		if atEnd(idx.Path, indexDatum, r.filter) {
-			return nil
-		}
-		// Handle lowest level index.
-		if idx.Range == nil {
-			// Skip to the starting index.
-			if !atStart(idx.Path, indexDatum, r.filter) {
-				continue
+		if nextLevel {
+			nextPrependBytes, err = r.traverse(ctx, idx, nextPrependBytes, cb)
+			if err != nil {
+				return nil, err
 			}
-			if r.datum == "" || r.datum == idx.File.Datum {
-				if err := cb(idx); err != nil {
-					if errors.Is(err, errutil.ErrBreak) {
-						return nil
-					}
-					return err
-				}
-			}
-			continue
 		}
-		// Skip to the starting index.
-		if !atStart(idx.Range.LastPath, indexDatum, r.filter) {
-			continue
-		}
-		levels = append(levels, pbutil.NewReader(newLevelReader(ctx, r, pbr, idx)))
 	}
 }
 
-func (r *Reader) topLevel() pbutil.Reader {
-	buf := bytes.Buffer{}
-	pbw := pbutil.NewWriter(&buf)
-	pbw.Write(r.topIdx) //nolint:errcheck
-	return pbutil.NewReader(&buf)
+func (r *Reader) getChunk(ctx context.Context, idx *Index, w io.Writer) error {
+	chunkRef := proto.Clone(idx.Range.ChunkRef).(*chunk.DataRef)
+	// Skip offset bytes to get to first index entry in chunk.
+	// NOTE: Indexes can no longer span multiple chunks, but older
+	// versions of Pachyderm could write indexes that span multiple chunks.
+	chunkRef.OffsetBytes = idx.Range.Offset
+	if r.cache != nil {
+		return r.cache.Get(ctx, chunkRef, r.filter, w)
+	}
+	cr := r.chunks.NewReader(ctx, []*chunk.DataRef{idx.Range.ChunkRef})
+	return cr.Get(w)
 }
 
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
-// For a range filter, this means the name is >= to the lower bound or the datum (if provided)
-// is >= the lower bound datum at the lower bound path itself
+// For a range filter, this means the name is >= to the lower bound.
 // For a prefix filter, this means the name is >= to the prefix.
-func atStart(name, datum string, filter *pathFilter) bool {
+func atStart(name string, filter *pathFilter) bool {
 	if filter == nil {
 		return true
 	}
 	if filter.pathRange != nil {
-		return filter.pathRange.atStart(name, datum)
+		return filter.pathRange.atStart(name)
 	}
 	return name >= filter.prefix
 }
 
 // atEnd returns true when the name is past the valid range for a filter (always false if no filter is set).
-// For a range filter, this means the name is > than the upper bound, or the datum (if provided)
-// is > the upper bound datum at the upper bound path
+// For a range filter, this means the name is >= to the upper bound.
 // For a prefix filter, this means the name does not have the prefix and a name with the prefix cannot show up after it.
-func atEnd(name, datum string, filter *pathFilter) bool {
+func atEnd(name string, filter *pathFilter) bool {
 	if filter == nil {
 		return false
 	}
 	if filter.pathRange != nil {
-		return filter.pathRange.atEnd(name, datum)
+		return filter.pathRange.atEnd(name)
 	}
 	// Name is past a prefix when the first len(prefix) bytes are greater than the prefix
 	// (use len(name) bytes for comparison when len(name) < len(prefix)).
@@ -132,65 +154,39 @@ func atEnd(name, datum string, filter *pathFilter) bool {
 	return name[:cmpSize] > filter.prefix[:cmpSize]
 }
 
-type levelReader struct {
-	ctx    context.Context
-	r      *Reader
-	parent pbutil.Reader
-	idx    *Index
-	buf    *bytes.Buffer
-}
+const (
+	defaultCountThreshold = 1000000
+	defaultSizeThreshold  = units.GB
+)
 
-func newLevelReader(ctx context.Context, r *Reader, parent pbutil.Reader, idx *Index) *levelReader {
-	return &levelReader{
-		ctx:    ctx,
-		r:      r,
-		parent: parent,
-		idx:    idx,
+func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
+	if r.topIdx == nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
+		return []*PathRange{{}}, nil
 	}
-}
-
-// Read reads data from an index level.
-func (lr *levelReader) Read(data []byte) (int, error) {
-	if err := lr.setup(); err != nil {
-		return 0, err
-	}
-	var bytesRead int
-	for len(data) > 0 {
-		if lr.buf.Len() == 0 {
-			if err := lr.next(); err != nil {
-				return bytesRead, err
+	var shards []*PathRange
+	pathRange := &PathRange{}
+	var count, size int64
+	traverseCb := func(idx *Index) (bool, error) {
+		if count >= defaultCountThreshold || size >= defaultSizeThreshold {
+			pathRange.Upper = idx.Path
+			shards = append(shards, pathRange)
+			pathRange = &PathRange{
+				Lower: idx.Path,
 			}
+			count = 0
+			size = 0
 		}
-		n, _ := lr.buf.Read(data)
-		bytesRead += n
-		data = data[n:]
-	}
-	return bytesRead, nil
-}
-
-func (lr *levelReader) setup() error {
-	if lr.buf == nil {
-		lr.buf = &bytes.Buffer{}
-		chunkRef := proto.Clone(lr.idx.Range.ChunkRef).(*chunk.DataRef)
-		// Skip offset bytes to get to first index entry in chunk.
-		// NOTE: Indexes can no longer span multiple chunks, but older
-		// versions of Pachyderm could write indexes that span multiple chunks.
-		chunkRef.OffsetBytes = lr.idx.Range.Offset
-		if lr.r.cache != nil {
-			return lr.r.cache.Get(lr.ctx, chunkRef, lr.r.filter, lr.buf)
+		if idx.Range != nil && (count+idx.NumFiles > defaultCountThreshold || size+idx.SizeBytes > defaultSizeThreshold) {
+			return true, nil
 		}
-		cr := lr.r.chunks.NewReader(lr.ctx, []*chunk.DataRef{chunkRef})
-		return cr.Get(lr.buf)
+		count += idx.NumFiles
+		size += idx.SizeBytes
+		return false, nil
 	}
-	return nil
-}
-
-func (lr *levelReader) next() error {
-	lr.idx.Reset()
-	if err := lr.parent.Read(lr.idx); err != nil {
-		return errors.EnsureStack(err)
+	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)
+	if err != nil {
+		return nil, err
 	}
-	r := lr.r.chunks.NewReader(lr.ctx, []*chunk.DataRef{lr.idx.Range.ChunkRef})
-	lr.buf.Reset()
-	return r.Get(lr.buf)
+	shards = append(shards, pathRange)
+	return shards, nil
 }

@@ -26,18 +26,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-
-	"github.com/gogo/protobuf/types"
 )
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
-}
-
-func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
-	proto, err := types.TimestampProto(ts)
-	require.NoError(t, err)
-	return proto
 }
 
 func user(email string) string {
@@ -660,7 +652,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	_, err = rootClient.License.Activate(rootClient.Ctx(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
-			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
+			Expires:        tu.TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	require.NoError(t, err)
 	_, err = rootClient.Enterprise.Activate(rootClient.Ctx(),
