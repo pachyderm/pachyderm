@@ -403,11 +403,15 @@ workflows:
             tags:
               only: /.*/
       - jupyter-extension-docker-build:
+          filters:
+            tags:
+              only: /.*/
           requires:
             - jupyter-extension-build
       - jupyter-extension-docker-push-tag:
           requires:
             - jupyter-extension-approve-release
+            - jupyter-extension-docker-build
           filters:
             branches:
               ignore: /.*/
