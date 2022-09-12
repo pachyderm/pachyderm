@@ -1,0 +1,42 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`help plugin should execute the contact-support command 1`] = `
+<div
+  className="pachyderm-help-title"
+>
+  <SvgPachydermLogo
+    className="pachyderm-help-title-logo"
+  />
+   
+  <h2>
+    Pachyderm Support
+  </h2>
+</div>
+`;
+
+exports[`help plugin should execute the contact-support command 2`] = `
+<div
+  className="pachyderm-help-body"
+>
+  <span>
+    Chat with us on
+     
+    <a
+      className="pachyderm-help-link"
+      href="https://slack.pachyderm.io"
+    >
+      Slack
+    </a>
+  </span>
+  <span>
+    Email us at
+     
+    <a
+      className="pachyderm-help-link"
+      href="mailto:support@pachyderm.com"
+    >
+      support@pachyderm.com
+    </a>
+  </span>
+</div>
+`;
