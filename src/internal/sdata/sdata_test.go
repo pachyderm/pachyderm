@@ -8,13 +8,12 @@ import (
 	"io"
 	"math/rand"
 	"reflect"
-	"strings"
 	"testing"
 
 	fuzz "github.com/google/gofuzz"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil"
 )
 
 // TestFormatParse is a round trip from a Tuple through formatting and parsing
@@ -60,7 +59,7 @@ func TestFormatParse(t *testing.T) {
 			buf := &bytes.Buffer{}
 			fz := fuzz.New()
 			fz.RandSource(rand.NewSource(0))
-			addFuzzFuncs(fz)
+			testutil.AddFuzzFuncs(fz)
 
 			var expected []Tuple
 			w := tc.NewW(buf, fieldNames)
@@ -91,114 +90,6 @@ func TestFormatParse(t *testing.T) {
 	}
 }
 
-type setIDer interface {
-	SetID(int16)
-}
-
-func generateTestData(db *pachsql.DB, tableName string, n int, row setIDer) error {
-	fz := fuzz.New()
-	addFuzzFuncs(fz)
-	var insertStatement string
-	if db.DriverName() == "snowflake" {
-		var process func(reflect.Type, int) []string
-		process = func(t reflect.Type, acc int) []string {
-			var asClauses []string
-			if t.Kind() == reflect.Ptr {
-				return process(t.Elem(), acc)
-			}
-			for i := 0; i < t.NumField(); i++ {
-				var asClause string
-				f := t.Field(i)
-				if f.Anonymous && f.Type.Kind() == reflect.Struct {
-					asClauses = append(asClauses, process(f.Type, acc+len(asClauses))...)
-					continue
-				}
-				if f.Type.Kind() == reflect.Interface && f.Type.NumMethod() == 0 {
-					asClause = fmt.Sprintf(`to_variant(COLUMN%d) as %s`, acc+len(asClauses)+1, f.Tag.Get("column"))
-				} else {
-					asClause = fmt.Sprintf(`COLUMN%d as %s`, acc+len(asClauses)+1, f.Tag.Get("column"))
-				}
-				asClauses = append(asClauses, asClause)
-			}
-			return asClauses
-		}
-		insertStatement = fmt.Sprintf(`INSERT INTO %s SELECT %s FROM VALUES %s`, tableName, strings.Join(process(reflect.TypeOf(row), 0), ","), formatValues(row, db))
-	} else {
-		insertStatement = fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
-
-	}
-	for i := 0; i < n; i++ {
-		fz.Fuzz(row)
-		row.SetID(int16(i))
-		if _, err := db.Exec(insertStatement, makeArgs(row)...); err != nil {
-			return errors.EnsureStack(err)
-		}
-	}
-	return nil
-}
-
-func formatColumns(x interface{}) string {
-	var process func(reflect.Type) []string
-	process = func(t reflect.Type) []string {
-		var cols []string
-		if t.Kind() == reflect.Ptr {
-			return process(t.Elem())
-		}
-
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-			if field.Anonymous && field.Type.Kind() == reflect.Struct {
-				cols = append(cols, process(field.Type)...)
-				continue
-			}
-			col := field.Tag.Get("column")
-			cols = append(cols, col)
-		}
-		return cols
-	}
-	return "(" + strings.Join(process(reflect.TypeOf(x)), ", ") + ")"
-}
-
-func formatValues(x interface{}, db *pachsql.DB) string {
-	var process func(reflect.Type) []string
-	process = func(t reflect.Type) []string {
-		var cols []string
-		if t.Kind() == reflect.Ptr {
-			return process(t.Elem())
-		}
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-			if field.Anonymous && field.Type.Kind() == reflect.Struct {
-				cols = append(cols, process(field.Type)...)
-				continue
-			}
-			cols = append(cols, pachsql.Placeholder(db.DriverName(), i))
-		}
-		return cols
-	}
-	return fmt.Sprintf("(%s)", strings.Join(process(reflect.TypeOf(x)), ", "))
-}
-
-func makeArgs(x interface{}) []interface{} {
-	var process func(reflect.Value) []interface{}
-	process = func(v reflect.Value) []interface{} {
-		var vals []interface{}
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
-		}
-		for i := 0; i < v.NumField(); i++ {
-			field := v.Type().Field(i)
-			if field.Anonymous && field.Type.Kind() == reflect.Struct {
-				vals = append(vals, process(v.Field(i))...)
-				continue
-			}
-			vals = append(vals, v.Field(i).Interface())
-		}
-		return vals
-	}
-	return process(reflect.ValueOf(x))
-}
-
 // TestMaterializeSQL checks that rows can be materialized from all the supported databases,
 // with all the supported writers.
 // It does not check that the writers themselves output in the correct format.
@@ -220,14 +111,14 @@ func TestMaterializeSQL(t *testing.T) {
 			},
 		},
 	}
-	for _, dbSpec := range supportedDBSpecs {
+	for _, dbSpec := range testutil.SupportedDBSpecs {
 		for _, writerSpec := range writerSpecs {
 			testName := fmt.Sprintf("%v-%s", dbSpec, writerSpec.Name)
 			t.Run(testName, func(t *testing.T) {
-				db, _, tableName := dbSpec.create(t)
-				require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.testRow()))
+				db, _, tableName := dbSpec.Create(t)
+				require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.TestRow()))
 				nRows := 10
-				if err := generateTestData(db, tableName, nRows, dbSpec.testRow()); err != nil {
+				if err := testutil.GenerateTestData(db, tableName, nRows, dbSpec.TestRow()); err != nil {
 					t.Fatalf("could not setup database: %v", err)
 				}
 				rows, err := db.Query(fmt.Sprintf(`SELECT * FROM %s`, tableName))
@@ -246,14 +137,14 @@ func TestMaterializeSQL(t *testing.T) {
 }
 
 func TestSQLTupleWriter(t *testing.T) {
-	for _, dbSpec := range supportedDBSpecs {
+	for _, dbSpec := range testutil.SupportedDBSpecs {
 		t.Run(dbSpec.String(), func(t *testing.T) {
 			var (
 				ctx              = context.Background()
-				db, _, tableName = dbSpec.create(t)
+				db, _, tableName = dbSpec.Create(t)
 			)
-			require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.testRow()))
-			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", dbSpec.schema(), tableName))
+			require.NoError(t, pachsql.CreateTestTable(db, tableName, dbSpec.TestRow()))
+			tableInfo, err := pachsql.GetTableInfo(ctx, db, fmt.Sprintf("%s.%s", dbSpec.Schema(), tableName))
 
 			require.NoError(t, err)
 
@@ -264,9 +155,9 @@ func TestSQLTupleWriter(t *testing.T) {
 			// Generate fake data
 			fz := fuzz.New()
 			fz.RandSource(rand.NewSource(0))
-			addFuzzFuncs(fz)
+			testutil.AddFuzzFuncs(fz)
 
-			tuple := newTupleFromTestRow(dbSpec.testRow())
+			tuple := newTupleFromTestRow(dbSpec.TestRow())
 			w := NewSQLTupleWriter(tx, tableInfo)
 			nRows := 3
 			for i := 0; i < nRows; i++ {
