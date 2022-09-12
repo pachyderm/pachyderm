@@ -7,6 +7,10 @@ import {
   FlipSVG,
   Button,
   ButtonGroup,
+  DefaultDropdown,
+  OverflowSVG,
+  DropdownItem,
+  useBreakpoint,
 } from '@pachyderm/components';
 import classnames from 'classnames';
 import React from 'react';
@@ -19,6 +23,7 @@ import {
 import View from '@dash-frontend/components/View';
 import {DagDirection, Dag} from '@dash-frontend/lib/types';
 import HoveredNodeProvider from '@dash-frontend/providers/HoveredNodeProvider';
+import {LARGE} from 'constants/breakpoints';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 import DAGError from '../DAGError';
@@ -52,6 +57,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
+  const isResponsive = useBreakpoint(LARGE);
 
   const noDags = dags?.length === 0;
 
@@ -64,6 +70,40 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
       />
     );
   };
+
+  const onDropdownMenuSelect = (id: string) => {
+    switch (id) {
+      case 'flip-canvas':
+        return rotateDag();
+      case 'reset-canvas':
+        return zoomOut();
+      case 'center-selections':
+        return handleChangeCenterOnSelect(!!skipCenterOnSelect);
+      default:
+        return null;
+    }
+  };
+
+  const menuItems: DropdownItem[] = [
+    {
+      id: 'flip-canvas',
+      content: 'Flip Canvas',
+      disabled: noDags,
+      IconSVG: RotateSVG,
+    },
+    {
+      id: 'reset-canvas',
+      content: 'Reset Canvas',
+      disabled: noDags,
+      IconSVG: FullscreenSVG,
+    },
+    {
+      id: 'center-selections',
+      content: 'Center Selections',
+      disabled: noDags,
+      IconSVG: !skipCenterOnSelect ? CheckboxCheckedSVG : CheckboxSVG,
+    },
+  ];
 
   return (
     <View className={styles.view}>
@@ -78,60 +118,80 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
             value={sliderZoomValue * 100}
             disabled={noDags}
           />
-          <ButtonGroup>
-            <Button
-              className={styles.controlButton}
-              buttonType="ghost"
-              color="black"
-              IconSVG={RotateSVG}
-              disabled={noDags}
-              data-testid="DAGView__flipCanvas"
-              onClick={rotateDag}
-            >
-              Flip Canvas
-            </Button>
-            <Tooltip
-              className={styles.tooltip}
-              tooltipKey="zoomOut"
-              size="large"
-              placement="bottom"
-              tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
-            >
+          {isResponsive && (
+            <ButtonGroup>
+              <div className={styles.divider} />
+              <DefaultDropdown
+                items={menuItems}
+                onSelect={onDropdownMenuSelect}
+                buttonOpts={{
+                  hideChevron: true,
+                  buttonType: 'ghost',
+                  IconSVG: OverflowSVG,
+                  color: 'black',
+                }}
+                menuOpts={{pin: 'left'}}
+              />
+            </ButtonGroup>
+          )}
+          {!isResponsive && (
+            <ButtonGroup>
               <Button
                 className={styles.controlButton}
-                onClick={zoomOut}
-                disabled={noDags}
-                data-testid="DAGView__resetCanvas"
                 buttonType="ghost"
                 color="black"
-                IconSVG={FullscreenSVG}
-              >
-                Reset Canvas
-              </Button>
-            </Tooltip>
-            <Tooltip
-              className={styles.tooltip}
-              tooltipKey="skipCenter"
-              size="large"
-              placement="bottom"
-              tooltipText={`${
-                !skipCenterOnSelect ? 'Disable' : 'Enable'
-              } panning and zooming to a selection`}
-            >
-              <Button
-                onClick={() => {
-                  handleChangeCenterOnSelect(!!skipCenterOnSelect);
-                }}
+                IconSVG={RotateSVG}
                 disabled={noDags}
-                data-testid="DAGView__centerSelections"
-                buttonType="ghost"
-                color="black"
-                IconSVG={!skipCenterOnSelect ? CheckboxCheckedSVG : CheckboxSVG}
+                data-testid="DAGView__flipCanvas"
+                onClick={rotateDag}
               >
-                Center Selections
+                Flip Canvas
               </Button>
-            </Tooltip>
-          </ButtonGroup>
+              <Tooltip
+                className={styles.tooltip}
+                tooltipKey="zoomOut"
+                size="large"
+                placement="bottom"
+                tooltipText={`Click to reset canvas, or\nuse keyboard shortcut "Shift + 2"`}
+              >
+                <Button
+                  className={styles.controlButton}
+                  onClick={zoomOut}
+                  disabled={noDags}
+                  data-testid="DAGView__resetCanvas"
+                  buttonType="ghost"
+                  color="black"
+                  IconSVG={FullscreenSVG}
+                >
+                  Reset Canvas
+                </Button>
+              </Tooltip>
+              <Tooltip
+                className={styles.tooltip}
+                tooltipKey="skipCenter"
+                size="large"
+                placement="bottom"
+                tooltipText={`${
+                  !skipCenterOnSelect ? 'Disable' : 'Enable'
+                } panning and zooming to a selection`}
+              >
+                <Button
+                  onClick={() => {
+                    handleChangeCenterOnSelect(!!skipCenterOnSelect);
+                  }}
+                  disabled={noDags}
+                  data-testid="DAGView__centerSelections"
+                  buttonType="ghost"
+                  color="black"
+                  IconSVG={
+                    !skipCenterOnSelect ? CheckboxCheckedSVG : CheckboxSVG
+                  }
+                >
+                  Center Selections
+                </Button>
+              </Tooltip>
+            </ButtonGroup>
+          )}
         </div>
         <DAGError error={error} />
       </div>

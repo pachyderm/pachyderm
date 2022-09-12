@@ -21,7 +21,9 @@ describe('Project', () => {
       cy.exec(`pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/montage.json`);
     });
 
-    cy.findByTestId('DAGView__centerSelections', {timeout: 10000}).click();
+    cy.waitUntil(() => cy.findAllByTestId('DropdownButton__button').should('have.length', 2));
+    cy.findAllByTestId('DropdownButton__button').eq(1).click();
+    cy.findByText('Center Selections').click();
 
     cy.findByText('images').click();
     cy.findByTestId('DeleteRepoButton__link').should('be.disabled');

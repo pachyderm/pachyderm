@@ -40,3 +40,9 @@
 .base:active {
   cursor: grabbing;
 }
+
+.divider {
+  box-sizing: border-box;
+  height: 1.5rem;
+  border-right: 1px solid var(--line-grey);
+}

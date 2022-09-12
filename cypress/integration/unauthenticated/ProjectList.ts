@@ -39,6 +39,7 @@ describe('Project List', () => {
     cy.findByText('View Lineage').click();
 
     cy.findByText('Jobs');
+    cy.findAllByTestId('DropdownButton__button').eq(1).click();
     cy.findByText('Reset Canvas');
     cy.findByText('Flip Canvas');
     cy.findByText('Center Selections');
