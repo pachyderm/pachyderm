@@ -184,7 +184,31 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		PodPatch:         pi.Details.PodPatch,
 	}
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-		result := proto.Clone(jobInfo).(*pps.JobInfo)
+		if request.Job.ID == jobInfo.OutputCommit.ID {
+			result := proto.Clone(jobInfo).(*pps.JobInfo)
+			return result, nil
+		}
+		mockJI := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Name, request.Job.ID)}
+		mockJI.OutputCommit = client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
+		mockJI.Details = &pps.JobInfo_Details{
+			Transform:        pi.Details.Transform,
+			ParallelismSpec:  pi.Details.ParallelismSpec,
+			Egress:           pi.Details.Egress,
+			Service:          pi.Details.Service,
+			Spout:            pi.Details.Spout,
+			ResourceRequests: pi.Details.ResourceRequests,
+			ResourceLimits:   pi.Details.ResourceLimits,
+			Input:            ppsutil.JobInput(pi, client.NewCommit(pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, request.Job.ID)),
+			Salt:             pi.Details.Salt,
+			DatumSetSpec:     pi.Details.DatumSetSpec,
+			DatumTimeout:     pi.Details.DatumTimeout,
+			JobTimeout:       pi.Details.JobTimeout,
+			DatumTries:       pi.Details.DatumTries,
+			SchedulingSpec:   pi.Details.SchedulingSpec,
+			PodSpec:          pi.Details.PodSpec,
+			PodPatch:         pi.Details.PodPatch,
+		}
+		result := proto.Clone(mockJI).(*pps.JobInfo)
 		return result, nil
 	})
 
@@ -246,7 +270,7 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
 	commit := writeFiles(t, env, pi, files)
 	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = withTimeout(ctx, 1000*time.Second)
+	ctx = withTimeout(ctx, 15*time.Second)
 	<-ctx.Done()
 	// PFS master transitions the job from finishing to finished so dont test that here
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
@@ -313,13 +337,13 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 func TestTransformPipeline(suite *testing.T) {
 	suite.Parallel()
 
-	/*suite.Run("TestJobSuccess", func(t *testing.T) {
+	suite.Run("TestJobSuccess", func(t *testing.T) {
 		pi := defaultPipelineInfo()
 		env := setupPachAndWorker(t, dockertestenv.NewTestDBConfig(t), pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
-	})*/
+	})
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		objC := dockertestenv.NewTestObjClient(t)
@@ -348,7 +372,7 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 	})
 
-	/*suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
+	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
 		objC := dockertestenv.NewTestObjClient(t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
@@ -460,5 +484,5 @@ func TestTransformPipeline(suite *testing.T) {
 		files, err := env.PachClient.ListFileAll(jobInfo.OutputCommit, "/*")
 		require.NoError(t, err)
 		require.Equal(t, len(files), 0)
-	})*/
+	})
 }
