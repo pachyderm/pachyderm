@@ -72,7 +72,6 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NoError(t, err)
 	branchInfo, err := env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch)})
 	require.NoError(t, err)
-	//commitInfo, err := env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: branchInfo.Head})
 	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
 	require.NoError(t, err)
 
@@ -94,8 +93,6 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NoError(t, err)
 	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
 	require.NoError(t, err)
-	//_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true, Error: "force close"})
-	//require.NoError(t, err)
 	specCommit, err = env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
 	require.NoError(t, err)
 	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: specCommit, Force: true})
@@ -284,42 +281,6 @@ func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []ta
 	branchInfo, err := env.PachClient.InspectBranch(pi.Pipeline.Name, pi.Details.OutputBranch)
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
-
-	pipelineRepo := client.NewRepo(pi.Pipeline.Name)
-	outputCi, err := env.PachClient.ListCommitByRepo(pipelineRepo)
-	require.NotNil(t, outputCi)
-
-	for _, commit := range outputCi {
-		fi, err := env.PachClient.ListFileAll(commit.Commit, "/")
-		if fi != nil {
-			fmt.Println("Hello")
-		}
-		require.NoError(t, err)
-	}
-
-	pipelineRepo = client.NewRepo(pi.Details.Input.Pfs.Repo)
-	inputCi, err := env.PachClient.ListCommitByRepo(pipelineRepo)
-	require.NotNil(t, outputCi)
-
-	for _, commit := range inputCi {
-		fi, err := env.PachClient.ListFileAll(commit.Commit, "/")
-		if fi != nil {
-			fmt.Println("Hello")
-		}
-		require.NoError(t, err)
-	}
-
-	metaRepo := client.NewSystemRepo(pi.Pipeline.Name, pfs.MetaRepoType)
-	metaCi, err := env.PachClient.ListCommitByRepo(metaRepo)
-	require.NotNil(t, outputCi)
-
-	for _, commit := range metaCi {
-		fi, err := env.PachClient.ListFileAll(commit.Commit, "/")
-		if fi != nil {
-			fmt.Println("Hello")
-		}
-		require.NoError(t, err)
-	}
 
 	if files != nil {
 		r, err := env.PachClient.GetFileTAR(jobInfo.OutputCommit, "/*")
