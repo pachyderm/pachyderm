@@ -70,11 +70,8 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 		},
 	})
 	require.NoError(t, err)
-	branchInfo, err := env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch)})
+	err = closeHeadCommit(ctx, env, pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch))
 	require.NoError(t, err)
-	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
-	require.NoError(t, err)
-
 	// Create the meta system repo and set up the branch provenance
 	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
@@ -89,33 +86,22 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	})
 	require.NoError(t, err)
 	// the worker needs all meta commits to have an output commit. we force close this so its skipped by worker code
-	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: metaRepo.NewBranch("master")})
+	err = closeHeadCommit(ctx, env, metaRepo.NewBranch("master"))
 	require.NoError(t, err)
-	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
-	require.NoError(t, err)
+	// we create a new spec commit and CLOSE the corresponding meta and output commits so that the worker can process the base commit
 	specCommit, err = env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
 	require.NoError(t, err)
 	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: specCommit, Force: true})
 	require.NoError(t, err)
-
-	// close new head of meta repo
-	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: metaRepo.NewBranch("master")})
+	err = closeHeadCommit(ctx, env, metaRepo.NewBranch("master"))
 	require.NoError(t, err)
-	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
-	require.NoError(t, err)
-
-	//output repo
-	branchInfo, err = env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch)})
-	require.NoError(t, err)
-	//commitInfo, err := env.PachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{Commit: branchInfo.Head})
-	_, err = env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true})
+	err = closeHeadCommit(ctx, env, pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch))
 	require.NoError(t, err)
 
 	pipelineInfo.SpecCommit = specCommit
 	testEnv := newTestEnv(t, pipelineInfo, env)
 	testEnv.driver = testEnv.driver.WithContext(ctx)
 	testEnv.PachClient = testEnv.driver.PachClient()
-
 	// Put the pipeline info into the collection (which is read by the master)
 	err = testEnv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
 		rw := testEnv.driver.Pipelines().ReadWrite(sqlTx)
@@ -123,7 +109,6 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
-
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(testEnv.driver.PachClient().Ctx(), func() error {
 			return Worker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &Status{})
@@ -136,8 +121,18 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 		}
 		return nil
 	})
-
 	return testEnv
+}
+
+func closeHeadCommit(ctx context.Context, env *testpachd.RealEnv, branch *pfs.Branch) error {
+	branchInfo, err := env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: branch})
+	if err != nil {
+		return err
+	}
+	if _, err := env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
