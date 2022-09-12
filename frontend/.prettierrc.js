@@ -1,1 +1,1 @@
-module.exports = require('@pachyderm/config/prettier.config');
+module.exports = require('../.prettierrc.js');

@@ -20,7 +20,7 @@ const auth = () => {
 
           return callback(null, new AuthenticateResponse().setPachToken(id));
         },
-        whoAmI: async ({request}, callback) => {
+        whoAmI: async (_request, callback) => {
           return callback(createServiceError({code: Status.UNAUTHENTICATED}));
         },
       };

@@ -20,7 +20,6 @@ const pubsub = new PubSub();
 const withStream = <T, U>({
   triggerName,
   stream,
-  timeout, //TODO: Not implemented yet
   onData = (data) => identity(data),
   onError = noop,
   onClose = noop,

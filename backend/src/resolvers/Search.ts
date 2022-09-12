@@ -25,7 +25,7 @@ const searchResolver: SearchResolver = {
     searchResults: async (
       _parent,
       {args: {query, limit, projectId, globalIdFilter}},
-      {pachClient, log},
+      {pachClient},
     ) => {
       if (query) {
         const lowercaseQuery = query.toLowerCase();

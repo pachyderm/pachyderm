@@ -4,7 +4,6 @@ import React from 'react';
 import {render} from 'react-dom';
 import {load as loadRudderstack} from 'rudder-sdk-js';
 
-import '@pachyderm/polyfills';
 import '@pachyderm/components/dist/style.css';
 
 import 'styles/index.css';

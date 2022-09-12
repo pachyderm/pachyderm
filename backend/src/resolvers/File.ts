@@ -112,7 +112,7 @@ const fileResolver: FileResolver = {
     },
     deleteFile: async (
       _field,
-      {args: {repo, branch, filePath, force}},
+      {args: {repo, branch, filePath}},
       {pachClient},
     ) => {
       const fileClient = await pachClient.pfs().fileSet();

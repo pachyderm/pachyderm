@@ -221,7 +221,7 @@ const nestedFolders = (() => {
       ' ',
     );
   let path = '/';
-  return sampleWords.reduce((memo: {[key: string]: FileInfo[]}, word, i) => {
+  return sampleWords.reduce((memo: {[key: string]: FileInfo[]}, word) => {
     const nextPath = path + word + '/';
     memo[path] = [
       fileInfoFromObject({

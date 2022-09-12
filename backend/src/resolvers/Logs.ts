@@ -47,7 +47,7 @@ const calculateSince = (startTime?: Maybe<number>) => {
 
 const logsResolver: LogsResolver = {
   Query: {
-    workspaceLogs: async (_field, {args: {start}}, {pachClient, log}) => {
+    workspaceLogs: async (_field, {args: {start}}, {pachClient}) => {
       const logs = await pachClient
         .pps()
         .getLogs({since: calculateSince(start)});

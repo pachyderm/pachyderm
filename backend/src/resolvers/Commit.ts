@@ -71,7 +71,7 @@ const commitResolver: CommitResolver = {
     },
     commits: async (
       _parent,
-      {args: {repoName, branchName, number, originKind, pipelineName}},
+      {args: {repoName, branchName, number, originKind}},
       {pachClient},
     ) => {
       const jobSetIds = await getJobSetIds(pachClient);

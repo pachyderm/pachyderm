@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-const baseConfig = require('@pachyderm/config/jest.config');
 const {pathsToModuleNameMapper} = require('ts-jest/utils');
+
+const baseConfig = require('../jest.config.js');
 
 const tsConfig = require('./tsconfig.json');
 
@@ -12,7 +13,6 @@ const moduleNameMapper = pathsToModuleNameMapper(
 );
 
 baseConfig.moduleNameMapper = {
-  ...baseConfig.moduleNameMapper,
   ...moduleNameMapper,
 };
 

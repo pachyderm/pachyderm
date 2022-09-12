@@ -15,7 +15,7 @@ class FileUploads {
   private fileUploadInterval = setInterval(() => {
     for (const uploadId in this.fileUploads) {
       if (this.fileUploads[uploadId].expiration <= Date.now()) {
-        const {[uploadId]: temp, ...rest} = this.fileUploads;
+        const {[uploadId]: _temp, ...rest} = this.fileUploads;
         this.fileUploads = rest;
       }
     }
@@ -49,7 +49,7 @@ class FileUploads {
   }
 
   removeUpload(uploadId: string) {
-    const {[uploadId]: temp, ...rest} = this.fileUploads;
+    const {[uploadId]: _temp, ...rest} = this.fileUploads;
     this.fileUploads = rest;
   }
 

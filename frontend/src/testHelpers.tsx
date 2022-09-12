@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
 import {generateIdTokenForAccount} from '@dash-backend/testHelpers';

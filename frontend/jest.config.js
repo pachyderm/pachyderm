@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-
-const baseConfig = require('@pachyderm/config/jest.config');
 const {pathsToModuleNameMapper} = require('ts-jest');
+
+const baseConfig = require('../jest.config.js');
 
 const tsConfig = require('./tsconfig.json');
 
@@ -14,7 +14,9 @@ const moduleNameMapper = pathsToModuleNameMapper(
 );
 
 baseConfig.moduleNameMapper = {
-  ...baseConfig.moduleNameMapper,
+  '\\.(css)$': 'identity-obj-proxy',
+  '\\.(gif|jpg|png)$': '<rootDir>/jest.file.mock.js',
+  '\\.svg': '<rootDir>/jest.svg.mock.js',
   ...moduleNameMapper,
   d3: '<rootDir>/node_modules/d3/dist/d3.min.js',
   '^d3-(.*)$': `d3-$1/dist/d3-$1`,
