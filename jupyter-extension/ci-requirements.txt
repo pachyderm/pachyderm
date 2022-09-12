@@ -1,0 +1,10 @@
+black==21.10b0
+build==0.7.0
+check-manifest==0.47
+jupyterlab==3.2.2
+pytest-asyncio==0.16.0
+pytest-cov==3.0.0
+pytest-tornasync==0.6.0.post2
+pytest==6.2.5
+python-pachyderm==7.3.0
+twine==3.7.1
