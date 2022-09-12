@@ -60,14 +60,11 @@ func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 }
 
 // NewCommit creates a pfs.Commit.
-func NewCommit(repoName string, branchName string, commitID string) *pfs.Commit {
-	return &pfs.Commit{
-		Branch: NewBranch(repoName, branchName),
-		ID:     commitID,
-	}
+func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
+	return NewProjectCommit("", repoName, branchName, commitID)
 }
 
-// NewCommit creates a pfs.Commit in the given project, repo & branch.
+// NewProjectCommit creates a pfs.Commit in the given project, repo & branch.
 func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 	return &pfs.Commit{
 		Branch: NewProjectBranch(projectName, repoName, branchName),
@@ -76,11 +73,8 @@ func NewProjectCommit(projectName, repoName, branchName, commitID string) *pfs.C
 }
 
 // NewFile creates a pfs.File.
-func NewFile(repoName string, branchName string, commitID string, path string) *pfs.File {
-	return &pfs.File{
-		Commit: NewCommit(repoName, branchName, commitID),
-		Path:   path,
-	}
+func NewFile(repoName, branchName, commitID, path string) *pfs.File {
+	return NewProjectFile("", repoName, branchName, commitID, path)
 }
 
 // NewProjectFile creates a pfs.File.
@@ -205,12 +199,32 @@ func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commi
 // commit without affecting the contents of the parent Commit. You may pass ""
 // as parentCommit in which case the new Commit will have no parent and will
 // initially appear empty.
-func (c APIClient) StartCommitParent(repoName string, branchName string, parentBranch string, parentCommit string) (*pfs.Commit, error) {
+func (c APIClient) StartCommitParent(repoName, branchName, parentBranch, parentCommit string) (*pfs.Commit, error) {
+	return c.StartProjectCommitParent("", repoName, branchName, parentBranch, parentCommit)
+}
+
+// StartProjectCommitParent begins the process of committing data to a
+// Repo. Once started you can write to the Commit with PutFile and when all the
+// data has been written you must finish the Commit with FinishCommit.  NOTE,
+// data is not persisted until FinishCommit is called.
+//
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
+//
+// parentCommit specifies the parent Commit, upon creation the new Commit will
+// appear identical to the parent Commit, data can safely be added to the new
+// commit without affecting the contents of the parent Commit. You may pass ""
+// as parentCommit in which case the new Commit will have no parent and will
+// initially appear empty.
+func (c APIClient) StartProjectCommitParent(projectName, repoName, branchName, parentBranch, parentCommit string) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Parent: NewCommit(repoName, parentBranch, parentCommit),
-			Branch: NewProjectBranch("", repoName, branchName),
+			Parent: NewProjectCommit(projectName, repoName, parentBranch, parentCommit),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 		},
 	)
 	if err != nil {
@@ -223,34 +237,52 @@ func (c APIClient) StartCommitParent(repoName string, branchName string, parentB
 // Commit. Once a Commit is finished the data becomes immutable and future
 // attempts to write to it with PutFile will error.
 func (c APIClient) FinishCommit(repoName string, branchName string, commitID string) (retErr error) {
+	return c.FinishProjectCommit("", repoName, branchName, commitID)
+}
+
+// FinishProjectCommit ends the process of committing data to a Repo and
+// persists the Commit.  Once a Commit is finished the data becomes immutable and
+// future attempts to write to it with PutFile will error.
+func (c APIClient) FinishProjectCommit(projectName, repoName, branchName, commitID string) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	_, err := c.PfsAPIClient.FinishCommit(
 		c.Ctx(),
 		&pfs.FinishCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		},
 	)
 	return err
 }
 
 // InspectCommit returns info about a specific Commit.
-func (c APIClient) InspectCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
+func (c APIClient) InspectCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	return c.InspectProjectCommit("", repoName, branchName, commitID)
+}
+
+// InspectProjectCommit returns info about a specific Commit.
+func (c APIClient) InspectProjectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_STARTED)
+	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_STARTED)
 }
 
 // WaitCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
-func (c APIClient) WaitCommit(repoName string, branchName string, commitID string) (_ *pfs.CommitInfo, retErr error) {
-	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	return c.inspectCommit(repoName, branchName, commitID, pfs.CommitState_FINISHED)
+func (c APIClient) WaitCommit(repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	return c.WaitProjectCommit("", repoName, branchName, commitID)
 }
 
-func (c APIClient) inspectCommit(repoName string, branchName string, commitID string, wait pfs.CommitState) (*pfs.CommitInfo, error) {
+// WaitProjectCommit returns info about a specific Commit, but blocks until that
+// commit has been finished.
+func (c APIClient) WaitProjectCommit(projectName, repoName, branchName, commitID string) (_ *pfs.CommitInfo, retErr error) {
+	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
+	return c.inspectCommit(projectName, repoName, branchName, commitID, pfs.CommitState_FINISHED)
+}
+
+func (c APIClient) inspectCommit(projectName, repoName, branchName, commitID string, wait pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 			Wait:   wait,
 		},
 	)
@@ -328,14 +360,19 @@ func (c APIClient) ListCommitByRepo(repo *pfs.Repo) ([]*pfs.CommitInfo, error) {
 
 // CreateBranch creates a new branch
 func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch string, commitID string, provenance []*pfs.Branch) error {
+	return c.CreateProjectBranch("", repoName, branchName, commitBranch, commitID, provenance)
+}
+
+// CreateProjectBranch creates a new branch
+func (c APIClient) CreateProjectBranch(projectName, repoName, branchName, commitBranch, commitID string, provenance []*pfs.Branch) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
-		head = NewCommit(repoName, commitBranch, commitID)
+		head = NewProjectCommit(projectName, repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:     NewProjectBranch("", repoName, branchName),
+			Branch:     NewProjectBranch(projectName, repoName, branchName),
 			Head:       head,
 			Provenance: provenance,
 		},
@@ -347,14 +384,21 @@ func (c APIClient) CreateBranch(repoName string, branchName string, commitBranch
 // provenance are mutually exclusive. See the docs on triggers to learn more
 // about why this is.
 func (c APIClient) CreateBranchTrigger(repoName string, branchName string, commitBranch string, commitID string, trigger *pfs.Trigger) error {
+	return c.CreateProjectBranchTrigger("", repoName, branchName, commitBranch, commitID, trigger)
+}
+
+// CreateProjectBranchTrigger creates a branch with a trigger. Note: triggers
+// and provenance are mutually exclusive.  See the docs on triggers to learn more
+// about why this is.
+func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName, commitBranch, commitID string, trigger *pfs.Trigger) error {
 	var head *pfs.Commit
 	if commitBranch != "" || commitID != "" {
-		head = NewCommit(repoName, commitBranch, commitID)
+		head = NewProjectCommit(projectName, repoName, commitBranch, commitID)
 	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
-			Branch:  NewProjectBranch("", repoName, branchName),
+			Branch:  NewProjectBranch(projectName, repoName, branchName),
 			Head:    head,
 			Trigger: trigger,
 		},
@@ -603,13 +647,18 @@ func (c APIClient) SubscribeCommit(repo *pfs.Repo, branchName string, from strin
 
 // ClearCommit clears the state of an open commit.
 func (c APIClient) ClearCommit(repoName string, branchName string, commitID string) (retErr error) {
+	return c.ClearProjectCommit("", repoName, branchName, commitID)
+}
+
+// ClearProjectCommit clears the state of an open commit.
+func (c APIClient) ClearProjectCommit(projectName, repoName, branchName, commitID string) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	_, err := c.PfsAPIClient.ClearCommit(
 		c.Ctx(),
 		&pfs.ClearCommitRequest{
-			Commit: NewCommit(repoName, branchName, commitID),
+			Commit: NewProjectCommit(projectName, repoName, branchName, commitID),
 		},
 	)
 	return err
