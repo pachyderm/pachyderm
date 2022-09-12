@@ -282,22 +282,23 @@ jobs:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
 
-  jupyter-extension-docker-build-tag:
+  jupyter-extension-docker-push-tag:
     executor: python
     docker:
       - image: circleci/buildpack-deps:stretch
     steps:
       - checkout
-      - attach_workspace:
-          at: .
       - setup_remote_docker:
           version: 19.03.13
       - run:
           name: docker login
           command:  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          name: Build Docker image
-          command: docker build --build-arg PACHCTL_VERSION=<<pipeline.parameters.pachctl_version>> -t pachyderm/notebooks-user:$CIRCLE_TAG .
+          name: docker pull
+          command: docker pull pachyderm/notebooks-user:$CIRCLE_SHA1
+      - run:
+          name: tag docker image
+          command: docker tag pachyderm/notebooks-user:$CIRCLE_SHA1 pachyderm/notebooks-user:$CIRCLE_TAG
       - run:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_TAG
@@ -404,9 +405,9 @@ workflows:
       - jupyter-extension-docker-build:
           requires:
             - jupyter-extension-build
-      - jupyter-extension-docker-build-tag:
+      - jupyter-extension-docker-push-tag:
           requires:
-            - jupyter-extension-build
+            - jupyter-extension-approve-release
           filters:
             branches:
               ignore: /.*/
