@@ -2256,8 +2256,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
 // Many functions (GetLogs, ListPipeline) need to inspect a pipeline, so they
-// call this instead of making an RPC.  PipelineAncestry may be either a bare
-// pipeline name or a name with ancestry syntax.
+// call this instead of making an RPC.
 func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline, details bool) (*pps.PipelineInfo, error) {
 	var info *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
