@@ -1915,7 +1915,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 }
 
 func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
-	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
 	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
 	if err != nil && !errutil.IsNotFoundError(err) {
