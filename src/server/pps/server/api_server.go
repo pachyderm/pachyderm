@@ -1174,10 +1174,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
-		var (
-			pipelineInfo *pps.PipelineInfo
-			pipeline     *pps.Pipeline
-		)
+		var pipeline *pps.Pipeline
 		if request.Pipeline != nil && request.Job == nil {
 			pipeline = request.Pipeline
 		} else if request.Job != nil {
@@ -1190,9 +1187,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			}
 			pipeline = jobInfo.Job.Pipeline
 		} // not possible for request.{Pipeline,Job} to both be nil due to previous check above
-		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), pipeline, true)
+		pipelineInfo, err := a.inspectPipeline(apiGetLogsServer.Context(), pipeline, true)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline information for %s/%s", pipeline.Project.GetName(), pipeline.Name)
+			return errors.Wrapf(err, "could not get pipeline information for %s", pipeline)
 		}
 
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job
@@ -1320,7 +1317,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 	if request.Pipeline != nil && request.Job == nil {
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), request.Pipeline, true)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline information for %s/%s", request.Pipeline.Project.GetName(), request.Pipeline.Name)
+			return errors.Wrapf(err, "could not get pipeline information for %s", request.Pipeline)
 		}
 	} else if request.Job != nil {
 		// If user provides a job, lookup the pipeline from the JobInfo, and then
@@ -1332,7 +1329,7 @@ func (a *apiServer) getLogsLoki(request *pps.GetLogsRequest, apiGetLogsServer pp
 		}
 		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), jobInfo.Job.Pipeline, true)
 		if err != nil {
-			return errors.Wrapf(err, "could not get pipeline information for %s/%s", jobInfo.Job.Pipeline.Project.GetName(), jobInfo.Job.Pipeline.Name)
+			return errors.Wrapf(err, "could not get pipeline information for %s", jobInfo.Job.Pipeline)
 		}
 	}
 
@@ -1931,7 +1928,6 @@ func (a *apiServer) initializePipelineInfo(request *pps.CreatePipelineRequest, o
 }
 
 func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionContext, request *pps.CreatePipelineRequest) error {
-	projectName := request.Pipeline.Project.GetName()
 	pipelineName := request.Pipeline.Name
 	oldPipelineInfo, err := a.InspectPipelineInTransaction(txnCtx, request.Pipeline)
 	if err != nil && !errutil.IsNotFoundError(err) {
@@ -1964,7 +1960,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 			if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 				&pfs.CreateRepoRequest{
 					Repo:        client.NewRepo(input.Cron.Repo),
-					Description: fmt.Sprintf("Cron tick repo for pipeline %s/%s.", projectName, pipelineName),
+					Description: fmt.Sprintf("Cron tick repo for pipeline %s.", request.Pipeline),
 				},
 			); err != nil && !errutil.IsAlreadyExistError(err) {
 				return errors.EnsureStack(err)
@@ -2008,7 +2004,7 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewRepo(pipelineName),
-				Description: fmt.Sprintf("Output repo for pipeline %s/%s.", projectName, pipelineName),
+				Description: fmt.Sprintf("Output repo for pipeline %s.", request.Pipeline),
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
 			return errors.Wrapf(err, "error creating output repo for %s", pipelineName)
 		} else if errutil.IsAlreadyExistError(err) {
@@ -2017,10 +2013,10 @@ func (a *apiServer) CreatePipelineInTransaction(txnCtx *txncontext.TransactionCo
 		if err := a.env.PFSServer.CreateRepoInTransaction(txnCtx,
 			&pfs.CreateRepoRequest{
 				Repo:        client.NewSystemRepo(pipelineName, pfs.SpecRepoType),
-				Description: fmt.Sprintf("Spec repo for pipeline %s/%s.", projectName, pipelineName),
+				Description: fmt.Sprintf("Spec repo for pipeline %s.", request.Pipeline),
 				Update:      true,
 			}); err != nil && !errutil.IsAlreadyExistError(err) {
-			return errors.Wrapf(err, "error creating spec repo for %s/%s", projectName, pipelineName)
+			return errors.Wrapf(err, "error creating spec repo for %s", request.Pipeline)
 		}
 	}
 
@@ -2272,8 +2268,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
 // Many functions (GetLogs, ListPipeline) need to inspect a pipeline, so they
-// call this instead of making an RPC.  PipelineAncestry may be either a bare
-// pipeline name or a name with ancestry syntax.
+// call this instead of making an RPC.
 func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline, details bool) (*pps.PipelineInfo, error) {
 	var info *pps.PipelineInfo
 	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -2342,7 +2337,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, errors.Errorf("pipeline %q/%q not found", projectName, pipelineName)
+			return nil, errors.Errorf("pipeline %s not found", pipeline)
 		}
 		return nil, errors.EnsureStack(err)
 	}

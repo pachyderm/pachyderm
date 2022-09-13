@@ -10717,7 +10717,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 			"name": "egress-secret",
 			"creationTimestamp": null
 		}
-	}`, os.Getenv("SNOWFLAKE_PASSWORD")))
+	}`, os.Getenv("SNOWSQL_PWD")))
 	require.NoError(t, c.CreateSecret(b))
 
 	// create a pipeline with egress
