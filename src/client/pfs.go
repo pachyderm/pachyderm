@@ -478,11 +478,16 @@ func (c APIClient) InspectProjectBranch(projectName, repoName string, branchName
 
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
+	return c.ListProjectBranch("", repoName)
+}
+
+// ListProjectBranch lists the active branches on a Repo.
+func (c APIClient) ListProjectBranch(projectName, repoName string) ([]*pfs.BranchInfo, error) {
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
 	var repo *pfs.Repo
 	if repoName != "" {
-		repo = NewProjectRepo("", repoName)
+		repo = NewProjectRepo(projectName, repoName)
 	}
 	client, err := c.PfsAPIClient.ListBranch(
 		ctx,
