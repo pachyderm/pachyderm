@@ -96,10 +96,19 @@ func NewProjectFile(projectName, repoName, branchName, commitID, path string) *p
 // similar type. For example rather than having a single Repo for an entire
 // project you might have separate Repos for logs, metrics, database dumps etc.
 func (c APIClient) CreateRepo(repoName string) error {
+	return c.CreateProjectRepo("", repoName)
+}
+
+// CreateProjectRepo creates a new Repo object in pfs with the given name.
+// Repos are the top level data object in pfs and should be used to store data
+// of a similar type.  For example rather than having a single Repo for an
+// entire project you might have separate Repos for logs, metrics, database
+// dumps etc.
+func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo: NewProjectRepo("", repoName),
+			Repo: NewProjectRepo(projectName, repoName),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
