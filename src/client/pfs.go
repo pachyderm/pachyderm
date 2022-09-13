@@ -205,21 +205,36 @@ func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) e
 
 // StartCommit begins the process of committing data to a Repo. Once started
 // you can write to the Commit with PutFile and when all the data has been
-// written you must finish the Commit with FinishCommit. NOTE, data is not
+// written you must finish the Commit with FinishCommit.  NOTE, data is not
 // persisted until FinishCommit is called.
+//
 // branch is a more convenient way to build linear chains of commits. When a
 // commit is started with a non empty branch the value of branch becomes an
 // alias for the created Commit. This enables a more intuitive access pattern.
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
 func (c APIClient) StartCommit(repoName string, branchName string) (_ *pfs.Commit, retErr error) {
+	return c.StartProjectCommit("", repoName, branchName)
+}
+
+// StartProjectCommit begins the process of committing data to a Repo. Once
+// started you can write to the Commit with PutFile and when all the data has
+// been written you must finish the Commit with FinishCommit.  NOTE, data is not
+// persisted until FinishCommit is called.
+//
+// branch is a more convenient way to build linear chains of commits. When a
+// commit is started with a non empty branch the value of branch becomes an
+// alias for the created Commit. This enables a more intuitive access pattern.
+// When the commit is started on a branch the previous head of the branch is
+// used as the parent of the commit.
+func (c APIClient) StartProjectCommit(projectName, repoName string, branchName string) (_ *pfs.Commit, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	return c.PfsAPIClient.StartCommit(
 		c.Ctx(),
 		&pfs.StartCommitRequest{
-			Branch: NewProjectBranch("", repoName, branchName),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 		},
 	)
 }
