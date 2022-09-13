@@ -51,7 +51,7 @@ var pipelinesIndexes = []*col.Index{
 func ParsePipelineKey(key string) (string, string, error) {
 	parts := strings.Split(key, "@")
 	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
-		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>")
+		return "", "", errors.Errorf("key %s is not of form <pipeline>@<id>", key)
 	}
 	return parts[0], parts[1], nil
 }
