@@ -127,10 +127,10 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 func closeHeadCommit(ctx context.Context, env *testpachd.RealEnv, branch *pfs.Branch) error {
 	branchInfo, err := env.PachClient.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: branch})
 	if err != nil {
-		return fmt.Errorf("error inspecting branch: %v", err)
+		return errors.Wrap(err, "could not inspect branch")
 	}
 	if _, err := env.PachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{Commit: branchInfo.Head, Force: true}); err != nil {
-		return fmt.Errorf("error closing head commit: %v", err)
+		return errors.Wrap(err, "could not finish commit")
 	}
 	return nil
 }
