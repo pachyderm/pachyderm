@@ -151,17 +151,22 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 					}
 				}
 				log.WithFields(log.Fields{
-					"task-id": task.ID,
-					"error":   err,
+					"task-type": task.Input.TypeUrl,
+					"task-id":   task.ID,
+					"error":     err,
 				}).Print("task response received")
 				if err := cb(task.Index, task.Output, err); err != nil {
 					log.WithFields(log.Fields{
-						"task-id": task.ID,
-						"error":   err,
+						"task-type": task.Input.TypeUrl,
+						"task-id":   task.ID,
+						"error":     err,
 					}).Print("task callback failed")
 					return err
 				}
-				log.WithField("task-id", task.ID).Print("task callback complete")
+				log.WithFields(log.Fields{
+					"task-type": task.Input.TypeUrl,
+					"task-id":   task.ID,
+				}).Print("task callback complete")
 				atomic.AddInt64(&count, -1)
 				select {
 				case <-done:
@@ -200,11 +205,17 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if err != nil {
 					return err
 				}
-				log.WithField("task-id", taskID).Print("task created")
+				log.WithFields(log.Fields{
+					"task-type": input.TypeUrl,
+					"task-id":   taskID,
+				}).Print("task created")
 				if ed.cache != nil {
 					output, err := ed.cache.Get(ctx, taskID)
 					if err == nil {
-						log.WithField("task-id", taskID).Print("result cached")
+						log.WithFields(log.Fields{
+							"task-type": input.TypeUrl,
+							"task-id":   taskID,
+						}).Print("result cached")
 						if err := cb(index, output, nil); err != nil {
 							return err
 						}
@@ -223,7 +234,10 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *types.Any, cb Collec
 				if err := renewer.Put(ctx, taskKey, task); err != nil {
 					return err
 				}
-				log.WithField("task-id", taskID).Print("task submitted")
+				log.WithFields(log.Fields{
+					"task-type": input.TypeUrl,
+					"task-id":   taskID,
+				}).Print("task submitted")
 				atomic.AddInt64(&count, 1)
 			case <-ctx.Done():
 				return errors.EnsureStack(ctx.Err())
@@ -362,11 +376,15 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				return nil
 			}
 			err := es.claimCol.Claim(ctx, taskKey, &Claim{}, func(ctx context.Context) error {
-				log.WithField("task-id", task.ID).Println("task received")
+				log.WithFields(log.Fields{
+					"task-type": task.Input.TypeUrl,
+					"task-id":   task.ID,
+				}).Println("task received")
 				taskOutput, taskErr := cb(ctx, task.Input)
 				log.WithFields(log.Fields{
-					"task-id": task.ID,
-					"error":   taskErr,
+					"task-type": task.Input.TypeUrl,
+					"task-id":   task.ID,
+					"error":     taskErr,
 				}).Println("task completed")
 				// If the task context was canceled or the claim was lost, just return with no error.
 				if errors.Is(ctx.Err(), context.Canceled) {

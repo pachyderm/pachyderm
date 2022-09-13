@@ -19,6 +19,7 @@ import (
 // for a size zero file, then either not store references to them or ignore them at read time.
 
 // TODO: Might need to think a bit more about fileset sizes and whether deletes should be represented.
+// Also, we should consider removing the file set size field and leaning on the new index size field.
 
 // Writer provides functionality for writing a file set.
 type Writer struct {
@@ -47,7 +48,10 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 	w.uploader = storage.ChunkStorage().NewUploader(ctx, "chunk-uploader", false, func(meta interface{}, dataRefs []*chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		idx.File.DataRefs = dataRefs
-		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
+		idx.NumFiles = 1
+		size := index.SizeBytes(idx)
+		idx.SizeBytes = size
+		atomic.AddInt64(&w.sizeBytes, size)
 		return w.additive.WriteIndex(idx)
 	})
 	w.additiveBatched = index.NewWriter(ctx, storage.ChunkStorage(), "additive-batched-index-writer")
@@ -56,7 +60,10 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 		if dataRef != nil {
 			idx.File.DataRefs = []*chunk.DataRef{dataRef}
 		}
-		atomic.AddInt64(&w.sizeBytes, index.SizeBytes(idx))
+		idx.NumFiles = 1
+		size := index.SizeBytes(idx)
+		idx.SizeBytes = size
+		atomic.AddInt64(&w.sizeBytes, size)
 		return w.additiveBatched.WriteIndex(idx)
 	}))
 	w.deletive = index.NewWriter(ctx, storage.ChunkStorage(), "deletive-index-writer")
@@ -92,9 +99,13 @@ func (w *Writer) checkIndex(prevIdx, idx *index.Index) error {
 	if prevIdx == nil {
 		return nil
 	}
-	if prevIdx.Path == idx.Path && prevIdx.File.Datum == idx.File.Datum {
-		return errors.Errorf("cannot write same path (%s) and datum (%s) twice", idx.Path, idx.File.Datum)
-	}
+	// TODO: Readd if we should block this outright.
+	// We support this in the storage layer to allow the reading of invalid commits, but we may want to
+	// block it outright in the future. This check can no longer be used because compaction will write file sets
+	// like this in certain cases since validation happens after compaction.
+	//if prevIdx.Path == idx.Path && prevIdx.File.Datum == idx.File.Datum {
+	//	return errors.Errorf("cannot write same path (%s) and datum (%s) twice", idx.Path, idx.File.Datum)
+	//}
 	if prevIdx.Path > idx.Path {
 		return errors.Errorf("cannot write path (%s) after (%s)", idx.Path, prevIdx.Path)
 	}
@@ -108,6 +119,7 @@ func (w *Writer) Delete(path, datum string) error {
 		File: &index.File{
 			Datum: datum,
 		},
+		NumFiles: 1,
 	}
 	if err := w.checkIndex(w.deleteIdx, idx); err != nil {
 		return err

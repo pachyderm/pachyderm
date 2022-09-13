@@ -714,6 +714,7 @@ workflows:
                 - PPS8
                 - S3_AUTH
                 - EXAMPLES
+                - CONNECTORS
   helm-tests:
     jobs:
       - helm-tests

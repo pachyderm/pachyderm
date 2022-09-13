@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"math"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	log "github.com/sirupsen/logrus"
 )
 
 // UnorderedWriter allows writing Files, unordered by path, into multiple ordered filesets.
@@ -97,7 +97,7 @@ func (uw *UnorderedWriter) serialize(ctx context.Context) error {
 	if uw.buffer.Empty() {
 		return nil
 	}
-	return miscutil.LogStep(ctx, "UnorderedWriter.serialize", func() error {
+	return miscutil.LogStep(ctx, log.NewEntry(log.StandardLogger()), "UnorderedWriter.serialize", func() error {
 		return uw.withWriter(func(w *Writer) error {
 			if err := uw.buffer.WalkAdditive(func(path, datum string, r io.Reader) error {
 				return w.Add(path, datum, r)
@@ -159,13 +159,13 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 			}
 			ids = []ID{*parentID}
 		}
-		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...), index.WithPrefix(p))
+		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...))
 		if err != nil {
 			return err
 		}
 		return fs.Iterate(uw.ctx, func(f File) error {
 			return uw.Delete(ctx, f.Index().Path, datum)
-		})
+		}, index.WithPrefix(p))
 	}
 	uw.buffer.Delete(p, datum)
 	if int64(uw.buffer.Count()) >= uw.fileThreshold {
@@ -174,7 +174,7 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 	return nil
 }
 
-func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool) error {
+func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, appendFile bool, opts ...index.Option) error {
 	if datum == "" {
 		datum = DefaultFileDatum
 	}
@@ -187,7 +187,7 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 			return uw.serialize(ctx)
 		}
 		return nil
-	})
+	}, opts...)
 }
 
 // Close closes the writer.
@@ -196,36 +196,7 @@ func (uw *UnorderedWriter) Close(ctx context.Context) (*ID, error) {
 	if err := uw.serialize(ctx); err != nil {
 		return nil, err
 	}
-	if err := miscutil.LogStep(ctx, fmt.Sprintf("directly compacting %d file sets", len(uw.ids)), func() error {
-		return uw.compact()
-	}); err != nil {
-		return nil, err
-	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
 		Layers: idsToHex(uw.ids),
 	}, uw.ttl)
-}
-
-func (uw *UnorderedWriter) compact() error {
-	for len(uw.ids) > uw.maxFanIn {
-		var ids []ID
-		for start := 0; start < len(uw.ids); start += int(uw.maxFanIn) {
-			end := start + int(uw.maxFanIn)
-			if end > len(uw.ids) {
-				end = len(uw.ids)
-			}
-			id, err := uw.storage.Compact(uw.ctx, uw.ids[start:end], uw.ttl)
-			if err != nil {
-				return err
-			}
-			if uw.renewer != nil {
-				if err := uw.renewer.Add(uw.ctx, *id); err != nil {
-					return err
-				}
-			}
-			ids = append(ids, *id)
-		}
-		uw.ids = ids
-	}
-	return nil
 }

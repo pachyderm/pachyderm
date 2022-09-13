@@ -6,9 +6,6 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -16,12 +13,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 // linkServers can be used to default a mock server to make calls to a real api
@@ -345,6 +345,117 @@ func (api *authServerAPI) RotateRootToken(ctx context.Context, req *auth.RotateR
 	return nil, errors.Errorf("unhandled pachd mock auth.RotateRootToken")
 }
 
+/* License Server Mocks */
+type activateLicenseFunc func(context.Context, *license.ActivateRequest) (*license.ActivateResponse, error)
+type getActivationCodeLicenseFunc func(context.Context, *license.GetActivationCodeRequest) (*license.GetActivationCodeResponse, error)
+type deleteAllLicenseFunc func(context.Context, *license.DeleteAllRequest) (*license.DeleteAllResponse, error)
+type addClusterFunc func(context.Context, *license.AddClusterRequest) (*license.AddClusterResponse, error)
+type deleteClusterFunc func(context.Context, *license.DeleteClusterRequest) (*license.DeleteClusterResponse, error)
+type listClustersFunc func(context.Context, *license.ListClustersRequest) (*license.ListClustersResponse, error)
+type updateClusterFunc func(context.Context, *license.UpdateClusterRequest) (*license.UpdateClusterResponse, error)
+type heartbeatLicenseFunc func(context.Context, *license.HeartbeatRequest) (*license.HeartbeatResponse, error)
+type listUserClustersFunc func(context.Context, *license.ListUserClustersRequest) (*license.ListUserClustersResponse, error)
+
+type mockActivateLicense struct{ handler activateLicenseFunc }
+type mockGetActivationCodeLicense struct{ handler getActivationCodeLicenseFunc }
+type mockDeleteAllLicense struct{ handler deleteAllLicenseFunc }
+type mockAddCluster struct{ handler addClusterFunc }
+type mockDeleteCluster struct{ handler deleteClusterFunc }
+type mockListClusters struct{ handler listClustersFunc }
+type mockUpdateCluster struct{ handler updateClusterFunc }
+type mockHeartbeatLicense struct{ handler heartbeatLicenseFunc }
+type mockListUserClusters struct{ handler listUserClustersFunc }
+
+func (mock *mockActivateLicense) Use(cb activateLicenseFunc)                   { mock.handler = cb }
+func (mock *mockGetActivationCodeLicense) Use(cb getActivationCodeLicenseFunc) { mock.handler = cb }
+func (mock *mockDeleteAllLicense) Use(cb deleteAllLicenseFunc)                 { mock.handler = cb }
+func (mock *mockAddCluster) Use(cb addClusterFunc)                             { mock.handler = cb }
+func (mock *mockDeleteCluster) Use(cb deleteClusterFunc)                       { mock.handler = cb }
+func (mock *mockListClusters) Use(cb listClustersFunc)                         { mock.handler = cb }
+func (mock *mockUpdateCluster) Use(cb updateClusterFunc)                       { mock.handler = cb }
+func (mock *mockHeartbeatLicense) Use(cb heartbeatLicenseFunc)                 { mock.handler = cb }
+func (mock *mockListUserClusters) Use(cb listUserClustersFunc)                 { mock.handler = cb }
+
+type licenseServerAPI struct {
+	mock *mockLicenseServer
+}
+
+type mockLicenseServer struct {
+	api               licenseServerAPI
+	Activate          mockActivateLicense
+	GetActivationCode mockGetActivationCodeLicense
+	DeleteAll         mockDeleteAllLicense
+	AddCluster        mockAddCluster
+	DeleteCluster     mockDeleteCluster
+	ListClusters      mockListClusters
+	UpdateCluster     mockUpdateCluster
+	Heartbeat         mockHeartbeatLicense
+	ListUserClusters  mockListUserClusters
+}
+
+func (api *licenseServerAPI) Activate(ctx context.Context, req *license.ActivateRequest) (*license.ActivateResponse, error) {
+	if api.mock.Activate.handler != nil {
+		return api.mock.Activate.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.Activate")
+}
+
+func (api *licenseServerAPI) GetActivationCode(ctx context.Context, req *license.GetActivationCodeRequest) (*license.GetActivationCodeResponse, error) {
+	if api.mock.GetActivationCode.handler != nil {
+		return api.mock.GetActivationCode.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.GetActivationCode")
+}
+
+func (api *licenseServerAPI) DeleteAll(ctx context.Context, req *license.DeleteAllRequest) (*license.DeleteAllResponse, error) {
+	if api.mock.DeleteAll.handler != nil {
+		return api.mock.DeleteAll.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.Activate")
+}
+
+func (api *licenseServerAPI) AddCluster(ctx context.Context, req *license.AddClusterRequest) (*license.AddClusterResponse, error) {
+	if api.mock.AddCluster.handler != nil {
+		return api.mock.AddCluster.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.AddCluster")
+}
+
+func (api *licenseServerAPI) DeleteCluster(ctx context.Context, req *license.DeleteClusterRequest) (*license.DeleteClusterResponse, error) {
+	if api.mock.DeleteCluster.handler != nil {
+		return api.mock.DeleteCluster.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.DeleteCluster")
+}
+
+func (api *licenseServerAPI) ListClusters(ctx context.Context, req *license.ListClustersRequest) (*license.ListClustersResponse, error) {
+	if api.mock.ListClusters.handler != nil {
+		return api.mock.ListClusters.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.ListClusters")
+}
+
+func (api *licenseServerAPI) UpdateCluster(ctx context.Context, req *license.UpdateClusterRequest) (*license.UpdateClusterResponse, error) {
+	if api.mock.UpdateCluster.handler != nil {
+		return api.mock.UpdateCluster.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.UpdateCluster")
+}
+
+func (api *licenseServerAPI) Heartbeat(ctx context.Context, req *license.HeartbeatRequest) (*license.HeartbeatResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.Heartbeat.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.Heartbeat")
+}
+
+func (api *licenseServerAPI) ListUserClusters(ctx context.Context, req *license.ListUserClustersRequest) (*license.ListUserClustersResponse, error) {
+	if api.mock.ListUserClusters.handler != nil {
+		return api.mock.ListUserClusters.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock license.ListUserClusters")
+}
+
 /* Enterprise Server Mocks */
 
 type activateEnterpriseFunc func(context.Context, *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error)
@@ -352,18 +463,27 @@ type getStateFunc func(context.Context, *enterprise.GetStateRequest) (*enterpris
 type getActivationCodeFunc func(context.Context, *enterprise.GetActivationCodeRequest) (*enterprise.GetActivationCodeResponse, error)
 type deactivateEnterpriseFunc func(context.Context, *enterprise.DeactivateRequest) (*enterprise.DeactivateResponse, error)
 type heartbeatEnterpriseFunc func(context.Context, *enterprise.HeartbeatRequest) (*enterprise.HeartbeatResponse, error)
+type pauseFunc func(context.Context, *enterprise.PauseRequest) (*enterprise.PauseResponse, error)
+type pauseStatusFunc func(context.Context, *enterprise.PauseStatusRequest) (*enterprise.PauseStatusResponse, error)
+type unpauseFunc func(context.Context, *enterprise.UnpauseRequest) (*enterprise.UnpauseResponse, error)
 
 type mockActivateEnterprise struct{ handler activateEnterpriseFunc }
 type mockGetState struct{ handler getStateFunc }
 type mockGetActivationCode struct{ handler getActivationCodeFunc }
 type mockDeactivateEnterprise struct{ handler deactivateEnterpriseFunc }
 type mockHeartbeatEnterprise struct{ handler heartbeatEnterpriseFunc }
+type mockPause struct{ handler pauseFunc }
+type mockPauseStatus struct{ handler pauseStatusFunc }
+type mockUnpause struct{ handler unpauseFunc }
 
 func (mock *mockActivateEnterprise) Use(cb activateEnterpriseFunc)     { mock.handler = cb }
 func (mock *mockGetState) Use(cb getStateFunc)                         { mock.handler = cb }
 func (mock *mockGetActivationCode) Use(cb getActivationCodeFunc)       { mock.handler = cb }
 func (mock *mockDeactivateEnterprise) Use(cb deactivateEnterpriseFunc) { mock.handler = cb }
 func (mock *mockHeartbeatEnterprise) Use(cb heartbeatEnterpriseFunc)   { mock.handler = cb }
+func (mock *mockPause) Use(cb pauseFunc)                               { mock.handler = cb }
+func (mock *mockPauseStatus) Use(cb pauseStatusFunc)                   { mock.handler = cb }
+func (mock *mockUnpause) Use(cb unpauseFunc)                           { mock.handler = cb }
 
 type enterpriseServerAPI struct {
 	mock *mockEnterpriseServer
@@ -376,6 +496,9 @@ type mockEnterpriseServer struct {
 	GetActivationCode mockGetActivationCode
 	Deactivate        mockDeactivateEnterprise
 	Heartbeat         mockHeartbeatEnterprise
+	Pause             mockPause
+	PauseStatus       mockPauseStatus
+	Unpause           mockUnpause
 }
 
 func (api *enterpriseServerAPI) Activate(ctx context.Context, req *enterprise.ActivateRequest) (*enterprise.ActivateResponse, error) {
@@ -409,13 +532,22 @@ func (api *enterpriseServerAPI) Heartbeat(ctx context.Context, req *enterprise.H
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Heartbeat")
 }
 func (api *enterpriseServerAPI) Pause(ctx context.Context, req *enterprise.PauseRequest) (*enterprise.PauseResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.Pause.handler(ctx, req)
+	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.Pause")
 }
-func (api *enterpriseServerAPI) Unpause(ctx context.Context, req *enterprise.UnpauseRequest) (*enterprise.UnpauseResponse, error) {
-	return nil, errors.Errorf("unhandled pachd mock enterprise.Unpause")
-}
 func (api *enterpriseServerAPI) PauseStatus(ctx context.Context, req *enterprise.PauseStatusRequest) (*enterprise.PauseStatusResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.PauseStatus.handler(ctx, req)
+	}
 	return nil, errors.Errorf("unhandled pachd mock enterprise.PauseStatus")
+}
+func (api *enterpriseServerAPI) Unpause(ctx context.Context, req *enterprise.UnpauseRequest) (*enterprise.UnpauseResponse, error) {
+	if api.mock.Heartbeat.handler != nil {
+		return api.mock.Unpause.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock enterprise.Unpause")
 }
 
 /* PFS Server Mocks */
@@ -458,6 +590,7 @@ type addFileSetFunc func(context.Context, *pfs.AddFileSetRequest) (*types.Empty,
 type getFileSetFunc func(context.Context, *pfs.GetFileSetRequest) (*pfs.CreateFileSetResponse, error)
 type renewFileSetFunc func(context.Context, *pfs.RenewFileSetRequest) (*types.Empty, error)
 type composeFileSetFunc func(context.Context, *pfs.ComposeFileSetRequest) (*pfs.CreateFileSetResponse, error)
+type shardFileSetFunc func(context.Context, *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error)
 type checkStorageFunc func(context.Context, *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error)
 type putCacheFunc func(context.Context, *pfs.PutCacheRequest) (*types.Empty, error)
 type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResponse, error)
@@ -505,6 +638,7 @@ type mockAddFileSet struct{ handler addFileSetFunc }
 type mockGetFileSet struct{ handler getFileSetFunc }
 type mockRenewFileSet struct{ handler renewFileSetFunc }
 type mockComposeFileSet struct{ handler composeFileSetFunc }
+type mockShardFileSet struct{ handler shardFileSetFunc }
 type mockCheckStorage struct{ handler checkStorageFunc }
 type mockPutCache struct{ handler putCacheFunc }
 type mockGetCache struct{ handler getCacheFunc }
@@ -552,6 +686,7 @@ func (mock *mockAddFileSet) Use(cb addFileSetFunc)                 { mock.handle
 func (mock *mockGetFileSet) Use(cb getFileSetFunc)                 { mock.handler = cb }
 func (mock *mockRenewFileSet) Use(cb renewFileSetFunc)             { mock.handler = cb }
 func (mock *mockComposeFileSet) Use(cb composeFileSetFunc)         { mock.handler = cb }
+func (mock *mockShardFileSet) Use(cb shardFileSetFunc)             { mock.handler = cb }
 func (mock *mockCheckStorage) Use(cb checkStorageFunc)             { mock.handler = cb }
 func (mock *mockPutCache) Use(cb putCacheFunc)                     { mock.handler = cb }
 func (mock *mockGetCache) Use(cb getCacheFunc)                     { mock.handler = cb }
@@ -605,6 +740,7 @@ type mockPFSServer struct {
 	GetFileSet         mockGetFileSet
 	RenewFileSet       mockRenewFileSet
 	ComposeFileSet     mockComposeFileSet
+	ShardFileSet       mockShardFileSet
 	CheckStorage       mockCheckStorage
 	PutCache           mockPutCache
 	GetCache           mockGetCache
@@ -842,6 +978,12 @@ func (api *pfsServerAPI) ComposeFileSet(ctx context.Context, req *pfs.ComposeFil
 		return api.mock.ComposeFileSet.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.ComposeFileSet")
+}
+func (api *pfsServerAPI) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
+	if api.mock.ShardFileSet.handler != nil {
+		return api.mock.ShardFileSet.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ShardFileSet")
 }
 func (api *pfsServerAPI) CheckStorage(ctx context.Context, req *pfs.CheckStorageRequest) (*pfs.CheckStorageResponse, error) {
 	if api.mock.CheckStorage.handler != nil {
@@ -1353,6 +1495,7 @@ type MockPachd struct {
 	Auth        mockAuthServer
 	Transaction mockTransactionServer
 	Enterprise  mockEnterpriseServer
+	License     mockLicenseServer
 	Version     mockVersionServer
 	Admin       mockAdminServer
 	Proxy       mockProxyServer
@@ -1374,6 +1517,7 @@ func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
 	mock.Auth.api.mock = &mock.Auth
 	mock.Transaction.api.mock = &mock.Transaction
 	mock.Enterprise.api.mock = &mock.Enterprise
+	mock.License.api.mock = &mock.License
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
@@ -1401,6 +1545,7 @@ func NewMockPachd(ctx context.Context, port uint16) (*MockPachd, error) {
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
+	license.RegisterAPIServer(server.Server, &mock.License.api)
 
 	listener, err := server.ListenTCP("localhost", port)
 	if err != nil {
