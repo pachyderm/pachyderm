@@ -3,13 +3,19 @@
 package cmds
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
@@ -107,6 +113,59 @@ func TestPutFileSplit(t *testing.T) {
 		`,
 		"repo", tu.UniqueString("TestPutFileSplit-repo"),
 	).Run())
+}
+
+func TestPutFileTAR(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	// Test .tar file.
+	require.NoError(t, fsutil.WithTmpFile("pachyderm_test_put_file_tar", func(f *os.File) error {
+		require.NoError(t, tarutil.WithWriter(f, func(tw *tar.Writer) error {
+			for i := 0; i < 3; i++ {
+				name := strconv.Itoa(i)
+				require.NoError(t, tarutil.WriteFile(tw, tarutil.NewMemFile(name, []byte(name))))
+			}
+			return nil
+		}))
+		name := f.Name()
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+		pachctl put file {{.repo}}@master -f {{.name}} --untar
+		pachctl get file "{{.repo}}@master:/0" \
+		  | match "0"
+		pachctl get file "{{.repo}}@master:/1" \
+		  | match "1"
+		pachctl get file "{{.repo}}@master:/2" \
+		  | match "2"
+		`, "repo", tu.UniqueString("TestPutFileTAR"), "name", name).Run())
+		return nil
+	}, "tar"))
+	// Test .tar.gz. file.
+	require.NoError(t, fsutil.WithTmpFile("pachyderm_test_put_file_tar", func(f *os.File) error {
+		gw := gzip.NewWriter(f)
+		require.NoError(t, tarutil.WithWriter(gw, func(tw *tar.Writer) error {
+			for i := 0; i < 3; i++ {
+				name := strconv.Itoa(i)
+				require.NoError(t, tarutil.WriteFile(tw, tarutil.NewMemFile(name, []byte(name))))
+			}
+			return nil
+		}))
+		require.NoError(t, gw.Close())
+		name := f.Name()
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo {{.repo}}
+		pachctl put file {{.repo}}@master -f {{.name}} --untar
+		pachctl get file "{{.repo}}@master:/0" \
+		  | match "0"
+		pachctl get file "{{.repo}}@master:/1" \
+		  | match "1"
+		pachctl get file "{{.repo}}@master:/2" \
+		  | match "2"
+		`, "repo", tu.UniqueString("TestPutFileTAR"), "name", name).Run())
+		return nil
+	}, "tar", "gz"))
 }
 
 func TestPutFileNonexistentRepo(t *testing.T) {
