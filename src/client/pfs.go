@@ -154,7 +154,8 @@ func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
 	return c.ListRepoByType(pfs.UserRepoType)
 }
 
-// ListRepoByType returns info about Repos of the given type
+// ListRepoByType returns info about Repos of the given type.
+//
 // The if repoType is empty, all Repos will be included
 func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr error) {
 	ctx, cf := context.WithCancel(c.Ctx())
@@ -170,16 +171,29 @@ func (c APIClient) ListRepoByType(repoType string) (_ []*pfs.RepoInfo, retErr er
 	return clientsdk.ListRepoInfo(client)
 }
 
-// DeleteRepo deletes a repo and reclaims the storage space it was using. Note
+// DeleteRepo deletes a repo and reclaims the storage space it was using.  Note
 // that as of 1.0 we do not reclaim the blocks that the Repo was referencing,
 // this is because they may also be referenced by other Repos and deleting them
-// would make those Repos inaccessible. This will be resolved in later
+// would make those Repos inaccessible.  This will be resolved in later
 // versions.
+//
 // If "force" is set to true, the repo will be removed regardless of errors.
 // This argument should be used with care.
 func (c APIClient) DeleteRepo(repoName string, force bool) error {
+	return c.DeleteProjectRepo("", repoName, force)
+}
+
+// DeleteProjectRepo deletes a repo and reclaims the storage space it was using.
+// Note that as of 1.0 we do not reclaim the blocks that the Repo was
+// referencing, this is because they may also be referenced by other Repos and
+// deleting them would make those Repos inaccessible.  This will be resolved in
+// later versions.
+//
+// If "force" is set to true, the repo will be removed regardless of errors.
+// This argument should be used with care.
+func (c APIClient) DeleteProjectRepo(projectName, repoName string, force bool) error {
 	request := &pfs.DeleteRepoRequest{
-		Repo:  NewProjectRepo("", repoName),
+		Repo:  NewProjectRepo(projectName, repoName),
 		Force: force,
 	}
 	_, err := c.PfsAPIClient.DeleteRepo(
