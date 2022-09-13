@@ -3,6 +3,7 @@ package cmds
 import (
 	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -996,6 +997,7 @@ from commits with 'get file'.`,
 	var compress bool
 	var enableProgress bool
 	var fullPath bool
+	var untar bool
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/to/file>]",
 		Short: "Put a file into the filesystem.",
@@ -1116,13 +1118,13 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if !fullPath {
 							target = filepath.Base(source)
 						}
-						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
 						// We have a single source and the user has specified a path,
 						// we use the path and ignore source (in terms of naming the file).
-						if err := putFileHelper(mf, file.Path, source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, file.Path, source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					} else {
@@ -1132,7 +1134,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 						if !fullPath {
 							target = filepath.Base(source)
 						}
-						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile); err != nil {
+						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					}
@@ -1149,6 +1151,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Append to the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
 	putFile.Flags().BoolVar(&fullPath, "full-path", false, "If true, use the entire path provided to -f as the target filename in PFS. By default only the base of the path is used.")
+	putFile.Flags().BoolVar(&untar, "untar", false, "If true, file(s) with the extension .tar are untarred and put as a separate file for each file within the tar stream(s). gzipped (.tar.gz) tar file(s) are handled as well")
 	shell.RegisterCompletionFunc(putFile,
 		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
@@ -1711,7 +1714,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 	return commands
 }
 
-func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile bool) (retErr error) {
+func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendFile, untar bool) (retErr error) {
 	// Resolve the path and convert to unix path in case we're on windows.
 	path = filepath.ToSlash(filepath.Clean(path))
 	var opts []client.PutFileOption
@@ -1745,7 +1748,7 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 			// don't do a second recursive 'put file', just put the one file at
 			// filePath into childDest, and then this walk loop will go on to the
 			// next one
-			return putFileHelper(mf, childDest, filePath, false, appendFile)
+			return putFileHelper(mf, childDest, filePath, false, appendFile, untar)
 		})
 		return errors.EnsureStack(err)
 	}
@@ -1758,6 +1761,23 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 			retErr = err
 		}
 	}()
+	if untar {
+		switch {
+		case strings.HasSuffix(source, ".tar"):
+			return errors.EnsureStack(mf.PutFileTAR(f, opts...))
+		case strings.HasSuffix(source, ".tar.gz"):
+			r, err := gzip.NewReader(f)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			defer func() {
+				if err := r.Close(); retErr == nil {
+					retErr = err
+				}
+			}()
+			return errors.EnsureStack(mf.PutFileTAR(r, opts...))
+		}
+	}
 	return errors.EnsureStack(mf.PutFile(path, f, opts...))
 }
 
