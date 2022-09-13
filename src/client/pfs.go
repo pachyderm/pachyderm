@@ -462,7 +462,7 @@ func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName,
 
 // InspectBranch returns information on a specific PFS branch.
 func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.BranchInfo, error) {
-	return c.InspectBranch("", repoName, branchName)
+	return c.InspectProjectBranch("", repoName, branchName)
 }
 
 // InspectProjectBranch returns information on a specific PFS branch.
