@@ -1161,10 +1161,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		// 1) Lookup the PipelineInfo for this pipeline/job, for auth and to get the
 		// RC name
-		var (
-			pipelineInfo *pps.PipelineInfo
-			pipeline     *pps.Pipeline
-		)
+		var pipeline *pps.Pipeline
 		if request.Pipeline != nil && request.Job == nil {
 			pipeline = request.Pipeline
 		} else if request.Job != nil {
@@ -1177,7 +1174,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			}
 			pipeline = jobInfo.Job.Pipeline
 		} // not possible for request.{Pipeline,Job} to both be nil due to previous check above
-		pipelineInfo, err = a.inspectPipeline(apiGetLogsServer.Context(), pipeline, true)
+		pipelineInfo, err := a.inspectPipeline(apiGetLogsServer.Context(), pipeline, true)
 		if err != nil {
 			return errors.Wrapf(err, "could not get pipeline information for %s/%s", pipeline.Project.GetName(), pipeline.Name)
 		}
