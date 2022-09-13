@@ -29,4 +29,7 @@ find src -regex ".*\.pb\.go" \
 )"
 
 # Exit with error if code changed
-test "${orig_hash}" == "${new_hash}"
+if test "${orig_hash}" != "${new_hash}"; then
+  echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
+  exit 1
+fi

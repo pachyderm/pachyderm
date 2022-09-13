@@ -217,7 +217,7 @@ clean-launch: check-kubectl
 	kubectl delete pvc -l app=minio -n default
 
 test-proto-static:
-	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
+	./etc/proto/test_no_changes.sh
 
 proto: docker-build-proto
 	./etc/proto/build.sh
