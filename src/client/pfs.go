@@ -133,13 +133,18 @@ func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
 
 // InspectRepo returns info about a specific Repo.
 func (c APIClient) InspectRepo(repoName string) (_ *pfs.RepoInfo, retErr error) {
+	return c.InspectProjectRepo("", repoName)
+}
+
+// InspectRepo returns info about a specific Repo.
+func (c APIClient) InspectProjectRepo(projectName, repoName string) (_ *pfs.RepoInfo, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	return c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
-			Repo: NewProjectRepo("", repoName),
+			Repo: NewProjectRepo(projectName, repoName),
 		},
 	)
 }
