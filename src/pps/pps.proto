@@ -313,6 +313,7 @@ message Worker {
 }
 
 message Pipeline {
+  option (gogoproto.goproto_stringer) = false;
   pfs_v2.Project project = 2;
   string name = 1;
 }
