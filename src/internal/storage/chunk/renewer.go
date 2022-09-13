@@ -31,7 +31,3 @@ func (r *Renewer) Add(ctx context.Context, id ID) error {
 func (r *Renewer) Close() error {
 	return r.ss.Close()
 }
-
-func (r *Renewer) Context() context.Context {
-	return r.ss.Context()
-}

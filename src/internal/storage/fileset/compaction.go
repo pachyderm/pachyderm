@@ -9,15 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
-// IsCompacted returns true if the filesets are already in compacted form.
-func (s *Storage) IsCompacted(ctx context.Context, ids []ID) (bool, error) {
-	prims, err := s.flattenPrimitives(ctx, ids)
-	if err != nil {
-		return false, err
-	}
-	return isCompacted(s.compactionConfig, prims), nil
-}
-
 func isCompacted(config *CompactionConfig, prims []*Primitive) bool {
 	return config.FixedDelay > int64(len(prims)) || indexOfCompacted(config.LevelFactor, prims) == len(prims)
 }

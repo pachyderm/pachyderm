@@ -26,49 +26,6 @@ func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...i
 	}
 }
 
-// OneOfMatches checks whether one element of a slice matches a regular-expression.
-func OneOfMatches(tb testing.TB, expectedMatch string, actuals []string, msgAndArgs ...interface{}) {
-	tb.Helper()
-	r, err := regexp.Compile(expectedMatch)
-	if err != nil {
-		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", expectedMatch)
-	}
-	for _, actual := range actuals {
-		if r.MatchString(actual) {
-			return
-		}
-	}
-	fatal(tb, msgAndArgs, "None of actual strings (%v) match pattern (%v)", actuals, expectedMatch)
-
-}
-
-// NoneMatch checks whether any element of a slice matches a regular-expression
-// and returns an error if a match is found.
-func NoneMatch(tb testing.TB, shouldNotMatch string, actuals []string, msgAndArgs ...interface{}) {
-	tb.Helper()
-	r, err := regexp.Compile(shouldNotMatch)
-	if err != nil {
-		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", shouldNotMatch)
-	}
-	for _, actual := range actuals {
-		if r.MatchString(actual) {
-			fatal(tb, msgAndArgs, "string (%v) should not match pattern (%v)", actual, shouldNotMatch)
-		}
-	}
-}
-
-// NotMatch checks whether actual matches a regular-expression and returns an error if a match is found.
-func NotMatch(tb testing.TB, shouldNotMatch string, actual string, msgAndArgs ...interface{}) {
-	tb.Helper()
-	r, err := regexp.Compile(shouldNotMatch)
-	if err != nil {
-		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", shouldNotMatch)
-	}
-	if r.MatchString(actual) {
-		fatal(tb, msgAndArgs, "string (%v) should not match pattern (%v)", actual, shouldNotMatch)
-	}
-}
-
 // Equal checks the equality of two values
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
@@ -369,54 +326,6 @@ func oneOfEquals(sliceName string, slice interface{}, elem interface{}) (bool, e
 	return false, nil
 }
 
-// EqualOneOf checks if a value is equal to one of the elements of a slice. Note
-// that if expecteds and actual are a slice of pointers and a pointer
-// respectively, then the pointers are unwrapped before comparison (so this
-// functions works for e.g. *pfs.Commit and []*pfs.Commit)
-func EqualOneOf(tb testing.TB, expecteds interface{}, actual interface{}, msgAndArgs ...interface{}) {
-	tb.Helper()
-	equal, err := oneOfEquals("expecteds", expecteds, actual)
-	if err != nil {
-		fatal(tb, msgAndArgs, err.Error())
-	}
-	if !equal {
-		fatal(
-			tb,
-			msgAndArgs,
-			"None of : %#v (expecteds)\n"+
-				"              == %#v (actual)", expecteds, actual)
-	}
-}
-
-// OneOfEquals checks whether one element of a slice equals a value. Like
-// EqualsOneOf, OneOfEquals unwraps pointers
-func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
-	tb.Helper()
-	equal, err := oneOfEquals("actuals", actuals, expected)
-	if err != nil {
-		fatal(tb, msgAndArgs, err.Error())
-	}
-	if !equal {
-		fatal(tb, msgAndArgs,
-			"Not equal : %#v (expected)\n"+
-				" one of  != %#v (actuals)", expected, actuals)
-	}
-}
-
-// NoneEquals checks one element of a slice equals a value. Like
-// EqualsOneOf, NoneEquals unwraps pointers.
-func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
-	tb.Helper()
-	equal, err := oneOfEquals("actuals", actuals, expected)
-	if err != nil {
-		fatal(tb, msgAndArgs, err.Error())
-	}
-	if equal {
-		fatal(tb, msgAndArgs,
-			"Equal : %#v (expected)\n == one of %#v (actuals)", expected, actuals)
-	}
-}
-
 // NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	tb.Helper()
@@ -529,18 +438,6 @@ func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	if value {
 		fatal(tb, msgAndArgs, "Should be false.")
 	}
-}
-
-// YesPanic checks that the callback panics.
-func YesPanic(tb testing.TB, cb func(), msgAndArgs ...interface{}) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			fatal(tb, msgAndArgs, "Should have panicked.")
-		}
-	}()
-
-	cb()
 }
 
 // Len asserts the the provided object x has length l ( len(x) == l )

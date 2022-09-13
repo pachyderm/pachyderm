@@ -1,7 +1,6 @@
 package log
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -32,37 +31,6 @@ func formatServiceAndDuration(entry *logrus.Entry) {
 	if entry.Data["duration"] != nil {
 		entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
 	}
-}
-
-// Pretty formats a logrus entry like so:
-// ```
-// 2019-02-11T16:02:02Z INFO pfs.API.InspectRepo {"request":{"repo":{"name":"images"}}} []
-// ```
-func Pretty(entry *logrus.Entry) ([]byte, error) {
-	serialized := []byte(
-		fmt.Sprintf(
-			"%v %v ",
-			entry.Time.Format(time.RFC3339),
-			strings.ToUpper(entry.Level.String()),
-		),
-	)
-	if len(entry.Data) > 0 {
-		formatServiceAndDuration(entry)
-		if method, ok := entry.Data["method"].(string); ok {
-			serialized = append(serialized, []byte(method)...)
-			delete(entry.Data, "method")
-		}
-		data, err := json.Marshal(entry.Data)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal fields to JSON")
-		}
-		serialized = append(serialized, data...)
-		serialized = append(serialized, ' ')
-	}
-
-	serialized = append(serialized, []byte(entry.Message)...)
-	serialized = append(serialized, '\n')
-	return serialized, nil
 }
 
 var jsonFormatter = &logrus.JSONFormatter{

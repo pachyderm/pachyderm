@@ -31,11 +31,6 @@ func Disable() {
 	enabled = false
 }
 
-// Enable turns on printing of progress bars.
-func Enable() {
-	enabled = true
-}
-
 func initContainer() {
 	if enabled {
 		containerInit.Do(func() {

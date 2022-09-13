@@ -195,6 +195,7 @@ func (r ReaderWrapper) Read(p []byte) (int, error) {
 	return res, errors.EnsureStack(err)
 }
 
+// TODO: Unused. Remove?
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
 func WriteToStreamingBytesServer(reader io.Reader, server StreamingBytesServer) error {
 	return WithStreamingBytesWriter(server, func(w io.Writer) error {

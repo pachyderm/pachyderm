@@ -40,12 +40,6 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient) {
 	require.NoError(tb, err)
 }
 
-// ActivateAuthClient activates the auth service in the test cluster, if it isn't already enabled
-func ActivateAuthClient(tb testing.TB, c *client.APIClient) {
-	tb.Helper()
-	activateAuthHelper(tb, c)
-}
-
 // creates a new authenticated pach client, without re-activating
 func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
 	tb.Helper()
@@ -59,12 +53,6 @@ func AuthenticateClient(tb testing.TB, c *client.APIClient, subject string) *cli
 	client := UnauthenticatedPachClient(tb, c)
 	client.SetAuthToken(token.Token)
 	return client
-}
-
-func AuthenticatedPachClient(tb testing.TB, c *client.APIClient, subject string) *client.APIClient {
-	tb.Helper()
-	activateAuthHelper(tb, c)
-	return AuthenticateClient(tb, c, subject)
 }
 
 // GetUnauthenticatedPachClient returns a copy of the testing pach client with no auth token
