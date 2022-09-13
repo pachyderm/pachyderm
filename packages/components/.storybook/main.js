@@ -6,6 +6,7 @@ module.exports = {
     const { config: userConfig } = await loadConfigFromFile(
       path.resolve(__dirname, "../vite.config.ts")
     );
+    userConfig.build.lib = undefined;
     return mergeConfig(config, userConfig);
   },
   stories: ['../src/**/*.stories.tsx'],
