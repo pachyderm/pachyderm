@@ -62,7 +62,7 @@ func getMinioEndpoint() string {
 }
 
 func testBucketName(t testing.TB) string {
-	buf := make([]byte, 8)
+	buf := make([]byte, 4)
 	_, err := rand.Read(buf[:])
 	require.NoError(t, err)
 	tname := t.Name()
