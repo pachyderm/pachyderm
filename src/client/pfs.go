@@ -258,7 +258,7 @@ func (c APIClient) StartCommitParent(repoName, branchName, parentBranch, parentC
 }
 
 // StartProjectCommitParent begins the process of committing data to a
-// Repo. Once started you can write to the Commit with PutFile and when all the
+// Repo.  Once started you can write to the Commit with PutFile and when all the
 // data has been written you must finish the Commit with FinishCommit.  NOTE,
 // data is not persisted until FinishCommit is called.
 //
@@ -460,12 +460,17 @@ func (c APIClient) CreateProjectBranchTrigger(projectName, repoName, branchName,
 	return grpcutil.ScrubGRPC(err)
 }
 
-// InspectBranch returns information on a specific PFS branch
+// InspectBranch returns information on a specific PFS branch.
 func (c APIClient) InspectBranch(repoName string, branchName string) (*pfs.BranchInfo, error) {
+	return c.InspectBranch("", repoName, branchName)
+}
+
+// InspectProjectBranch returns information on a specific PFS branch.
+func (c APIClient) InspectProjectBranch(projectName, repoName string, branchName string) (*pfs.BranchInfo, error) {
 	branchInfo, err := c.PfsAPIClient.InspectBranch(
 		c.Ctx(),
 		&pfs.InspectBranchRequest{
-			Branch: NewProjectBranch("", repoName, branchName),
+			Branch: NewProjectBranch(projectName, repoName, branchName),
 		},
 	)
 	return branchInfo, grpcutil.ScrubGRPC(err)
