@@ -56,7 +56,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				// mount name is same as repo name, i.e. mount it at a directory
 				// named the same as the repo itself
 				Name:  ri.Repo.Name,
-				File:  client.NewFile(ri.Repo.Name, branch, "", ""),
+				File:  client.NewProjectFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", ""),
 				Write: write,
 			}
 		}

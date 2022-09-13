@@ -1127,9 +1127,10 @@ type ListMountResponse struct {
 type GetResponse RepoResponse
 
 type MountKey struct {
-	Repo   string `json:"repo"`
-	Branch string `json:"branch"`
-	Commit string `json:"commit"`
+	Project string `json:"project"`
+	Repo    string `json:"repo"`
+	Branch  string `json:"branch"`
+	Commit  string `json:"commit"`
 }
 
 func (m *MountKey) String() string {
@@ -1297,7 +1298,7 @@ func mountingState(m *MountStateMachine) StateFn {
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.MountState.Name] = &RepoOptions{
 			Name:  m.Name,
-			File:  client.NewFile(m.MountKey.Repo, m.MountKey.Branch, "", ""),
+			File:  client.NewProjectFile(m.MountKey.Project, m.MountKey.Repo, m.MountKey.Branch, "", ""),
 			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.MountKey.Branch
