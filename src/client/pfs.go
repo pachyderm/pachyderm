@@ -116,10 +116,15 @@ func (c APIClient) CreateProjectRepo(projectName, repoName string) error {
 
 // UpdateRepo upserts a repo with the given name.
 func (c APIClient) UpdateRepo(repoName string) error {
+	return c.UpdateProjectRepo("", repoName)
+}
+
+// UpdateProjectRepo upserts a repo with the given name.
+func (c APIClient) UpdateProjectRepo(projectName, repoName string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo:   NewProjectRepo("", repoName),
+			Repo:   NewProjectRepo(projectName, repoName),
 			Update: true,
 		},
 	)
