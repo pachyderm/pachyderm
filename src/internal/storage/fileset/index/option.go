@@ -3,12 +3,6 @@ package index
 // Option configures an index reader.
 type Option func(r *Reader)
 
-// PathRange is a range of paths.
-// The range is inclusive, exclusive: [Lower, Upper).
-type PathRange struct {
-	Lower, Upper string
-}
-
 // WithRange sets a range filter for the read.
 func WithRange(pathRange *PathRange) Option {
 	return func(r *Reader) {
@@ -30,16 +24,9 @@ func WithDatum(datum string) Option {
 	}
 }
 
-func (r *PathRange) atStart(path string) bool {
-	if r.Lower == "" {
-		return true
+// WithShardConfig sets the sharding configuration.
+func WithShardConfig(config *ShardConfig) Option {
+	return func(r *Reader) {
+		r.shardConfig = config
 	}
-	return path >= r.Lower
-}
-
-func (r *PathRange) atEnd(path string) bool {
-	if r.Upper == "" {
-		return false
-	}
-	return path >= r.Upper
 }

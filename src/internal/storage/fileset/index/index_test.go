@@ -2,6 +2,10 @@ package index
 
 import (
 	"context"
+	"fmt"
+	"math"
+	"math/rand"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -9,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 func write(tb testing.TB, chunks *chunk.Storage, fileNames []string) *Index {
@@ -120,6 +125,135 @@ func TestSingleLevel(t *testing.T) {
 
 func TestMultiLevel(t *testing.T) {
 	Check(t, "abcdefgh")
+}
+
+func TestConcatFuzz(t *testing.T) {
+	ctx := context.Background()
+	db := dockertestenv.NewTestDB(t)
+	tr := track.NewTestTracker(t, db)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
+	cache := NewCache(chunks, 5)
+	// Create ten file sets and concatenate them into one file set.
+	var topIdxs []*Index
+	var totalNumFiles int
+	for i := 0; i < 10; i++ {
+		iw := NewWriter(ctx, chunks, uuid.NewWithoutDashes())
+		numFiles := rand.Intn(100000)
+		for j := 0; j < numFiles; j++ {
+			idx := &Index{
+				Path:      fmt.Sprintf("%08d", totalNumFiles+j),
+				File:      &File{},
+				NumFiles:  1,
+				SizeBytes: 1,
+			}
+			require.NoError(t, iw.WriteIndex(idx))
+		}
+		topIdx, err := iw.Close()
+		require.NoError(t, err)
+		topIdxs = append(topIdxs, topIdx)
+		totalNumFiles += numFiles
+	}
+	iw := NewWriter(ctx, chunks, uuid.NewWithoutDashes())
+	for _, topIdx := range topIdxs {
+		require.NoError(t, iw.WriteIndex(topIdx))
+	}
+	topIdx, err := iw.Close()
+	require.NoError(t, err)
+	// Check that the correct files exist and that the index metadata is correct.
+	ir := NewReader(chunks, cache, topIdx)
+	var i int
+	require.NoError(t, ir.Iterate(ctx, func(idx *Index) error {
+		p, err := strconv.Atoi(idx.Path)
+		require.NoError(t, err)
+		require.Equal(t, i, p)
+		i++
+		return nil
+	}))
+	require.Equal(t, totalNumFiles, i)
+	require.Equal(t, int64(totalNumFiles), topIdx.NumFiles)
+	require.Equal(t, int64(totalNumFiles), topIdx.SizeBytes)
+}
+
+func TestShard(t *testing.T) {
+	ctx := context.Background()
+	db := dockertestenv.NewTestDB(t)
+	tr := track.NewTestTracker(t, db)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
+	cache := NewCache(chunks, 5)
+	numFiles := 100000
+	iw := NewWriter(context.Background(), chunks, uuid.NewWithoutDashes())
+	for i := 0; i < numFiles; i++ {
+		idx := &Index{
+			Path:      fmt.Sprintf("%08d", i),
+			File:      &File{},
+			NumFiles:  1,
+			SizeBytes: 1,
+		}
+		require.NoError(t, iw.WriteIndex(idx))
+	}
+	topIdx, err := iw.Close()
+	require.NoError(t, err)
+	// Check that the correct number of shards are created for a variety of shard configurations.
+	check := func(shardConfig *ShardConfig, expectedNumShards int) {
+		ir := NewReader(chunks, cache, topIdx, WithShardConfig(shardConfig))
+		shards, err := ir.Shards(ctx)
+		require.NoError(t, err)
+		require.Equal(t, expectedNumShards, len(shards))
+	}
+	for i := 1; i <= numFiles; i *= 10 {
+		check(&ShardConfig{
+			NumFiles:  int64(i),
+			SizeBytes: math.MaxInt64,
+		}, numFiles/i)
+		check(&ShardConfig{
+			NumFiles:  math.MaxInt64,
+			SizeBytes: int64(i),
+		}, numFiles/i)
+	}
+}
+
+func TestShardFuzz(t *testing.T) {
+	ctx := context.Background()
+	db := dockertestenv.NewTestDB(t)
+	tr := track.NewTestTracker(t, db)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
+	cache := NewCache(chunks, 5)
+	numFiles := 100000
+	iw := NewWriter(ctx, chunks, uuid.NewWithoutDashes())
+	for i := 0; i < numFiles; i++ {
+		idx := &Index{
+			Path:      fmt.Sprintf("%08d", i),
+			File:      &File{},
+			NumFiles:  rand.Int63n(100),
+			SizeBytes: rand.Int63n(100),
+		}
+		require.NoError(t, iw.WriteIndex(idx))
+	}
+	topIdx, err := iw.Close()
+	require.NoError(t, err)
+	// Check that the correct files exist for a variety of shard configurations.
+	check := func(shardConfig *ShardConfig) {
+		ir := NewReader(chunks, cache, topIdx, WithShardConfig(shardConfig))
+		shards, err := ir.Shards(ctx)
+		require.NoError(t, err)
+		var i int
+		for _, shard := range shards {
+			ir := NewReader(chunks, cache, topIdx, WithRange(shard))
+			require.NoError(t, ir.Iterate(ctx, func(idx *Index) error {
+				p, err := strconv.Atoi(idx.Path)
+				require.NoError(t, err)
+				require.Equal(t, i, p)
+				i++
+				return nil
+			}))
+		}
+	}
+	for i := 100; i <= numFiles; i *= 10 {
+		check(&ShardConfig{
+			NumFiles:  int64(i),
+			SizeBytes: int64(i),
+		})
+	}
 }
 
 func BenchmarkMultiLevel(b *testing.B) {
