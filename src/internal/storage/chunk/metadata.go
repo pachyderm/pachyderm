@@ -53,11 +53,6 @@ type Metadata struct {
 	PointsTo []ID
 }
 
-var (
-	// ErrChunkNotExists chunk does not exist
-	ErrChunkNotExists = errors.Errorf("chunk does not exist")
-)
-
 // Entry is an chunk object mapping
 type Entry struct {
 	ChunkID   ID     `db:"chunk_id"`

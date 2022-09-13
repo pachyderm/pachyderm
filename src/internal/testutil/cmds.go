@@ -8,12 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"testing"
 	"text/template"
 	"unicode"
-
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // dedent is a helper function that trims repeated, leading spaces from several
@@ -132,52 +128,4 @@ func BashCmd(cmd string, subs ...string) *exec.Cmd {
 	res.Stdin = bashCmd(cmd, subs...)
 	res.Env = os.Environ()
 	return res
-}
-func PachctlBashCmd(t *testing.T, c *client.APIClient, cmd string, subs ...string) *exec.Cmd {
-	t.Helper()
-
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(bashCmd(cmd, subs...))
-	require.NoError(t, err)
-
-	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
-	if _, err := os.Open(config); err != nil {
-		_, err = os.Create(config)
-		require.NoError(t, err)
-		// remove the empty file so that a config can be generated
-		require.NoError(t, os.Remove(config))
-		t.Cleanup(func() {
-			// since this call gets run multiple times, ignore error
-			_ = os.Remove(config)
-		})
-		return BashCmd(`
-		export PACH_CONFIG={{.config}}
-		pachctl config set context  --overwrite {{ .context }} <<EOF
-		{
-		  "source": 2,
-		  "session_token": "{{.token}}",
-		  "pachd_address": "grpc://{{.host}}:{{.port}}",
-		  "cluster_deployment_id": "dev"
-		}
-		EOF
-		pachctl config set active-context {{ .context }}
-		{{.cmd}}
-		`,
-			"config", config,
-			"context", t.Name(),
-			"token", c.AuthToken(),
-			"host", c.GetAddress().Host,
-			"port", fmt.Sprint(c.GetAddress().Port),
-			"cmd", buf.String(),
-		)
-	}
-	return BashCmd(`
-	export PACH_CONFIG={{.config}}
-	pachctl config set active-context {{ .context }}
-	{{.cmd}}
-	`,
-		"config", config,
-		"context", t.Name(),
-		"cmd", buf.String(),
-	)
 }

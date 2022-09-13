@@ -1,26 +1,16 @@
 package testutil
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"testing"
 
-	"golang.org/x/oauth2"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
-
-// DexMockConnectorEmail is the identity returned for all requests to the mock Dex connector
-// (see https://github.com/dexidp/dex/blob/c113df2730052e20881dd68561289f8ae121300b/connector/mock/connectortest.go#L21)
-// Kilgore Trout is a recurring character of Kurt Vonnegut's
-const DexMockConnectorEmail = `kilgore@kilgore.trout`
 
 // OIDCOIDCConfig is an auth config which can be used to connect to the identity service in tests
 func OIDCOIDCConfig(host, issuerPort, redirectPort string, local bool) *auth.OIDCConfig {

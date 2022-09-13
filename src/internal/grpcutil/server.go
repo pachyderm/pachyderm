@@ -93,17 +93,6 @@ func NewServer(ctx context.Context, publicPortTLSAllowed bool, options ...grpc.S
 	}, nil
 }
 
-func (s *Server) ListenSocket(path string) error {
-	listener, err := net.Listen("unix", path)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	s.eg.Go(func() error {
-		return errors.EnsureStack(s.Server.Serve(listener))
-	})
-	return nil
-}
-
 // ListenTCP causes the gRPC server to listen on a given TCP host and port
 func (s *Server) ListenTCP(host string, port uint16) (net.Listener, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))

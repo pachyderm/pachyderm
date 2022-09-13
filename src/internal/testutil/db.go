@@ -13,9 +13,6 @@ import (
 
 const (
 	DefaultPostgresHost     = "127.0.0.1"
-	DefaultPostgresPort     = 30228
-	DefaultPGBouncerHost    = DefaultPostgresHost
-	DefaultPGBouncerPort    = 30229
 	DefaultPostgresUser     = "pachyderm"
 	DefaultPostgresPassword = "correcthorsebatterystaple"
 	DefaultPostgresDatabase = "pachyderm"
@@ -43,13 +40,6 @@ func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
 	opts2 = append(opts2, opts...)
 	opts2 = append(opts2, dbutil.WithDBName(dbName))
 	return opts2
-}
-
-// NewTestDB connects to postgres using opts, creates a database
-// with a unique name then returns a pachsql.DB configured to use the newly created database.
-// After t finishes, the database is dropped.
-func NewTestDB(t testing.TB, opts []dbutil.Option) *pachsql.DB {
-	return OpenDB(t, NewTestDBOptions(t, opts)...)
 }
 
 // OpenDB connects to a database using opts and returns it.

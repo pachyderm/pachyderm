@@ -160,18 +160,6 @@ func (c *trackedClient) Close() error {
 	return nil
 }
 
-// Check checks that there are entries for the chunk and they have successfully uploaded objects.
-func (c *trackedClient) Check(ctx context.Context, id ID, readChunk bool) error {
-	_, last, err := c.CheckEntries(ctx, id, 1, readChunk)
-	if err != nil {
-		return err
-	}
-	if last == nil {
-		return errors.Errorf("no entries for chunk %v", id)
-	}
-	return nil
-}
-
 // CheckEntries runs an integrity check on the objects in object storage.
 // It lists through chunks with IDs >= first, lexicographically.
 func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit int, readChunks bool) (n int, last ID, _ error) {
