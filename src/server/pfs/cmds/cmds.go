@@ -1909,18 +1909,18 @@ func putFileHelper(mf client.ModifyFile, path, source string, recursive, appendF
 	if untar {
 		switch {
 		case strings.HasSuffix(source, ".tar"):
-			return mf.PutFileTAR(f, opts...)
+			return errors.EnsureStack(mf.PutFileTAR(f, opts...))
 		case strings.HasSuffix(source, ".tar.gz"):
 			r, err := gzip.NewReader(f)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			defer func() {
 				if err := r.Close(); retErr == nil {
 					retErr = err
 				}
 			}()
-			return mf.PutFileTAR(r, opts...)
+			return errors.EnsureStack(mf.PutFileTAR(r, opts...))
 		}
 	}
 	return errors.EnsureStack(mf.PutFile(path, f, opts...))
