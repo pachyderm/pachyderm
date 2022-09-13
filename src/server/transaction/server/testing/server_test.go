@@ -140,7 +140,7 @@ func TestTransactions(suite *testing.T) {
 		require.NoError(t, err)
 
 		_, err = txnClient.PfsAPIClient.FinishCommit(txnClient.Ctx(), &pfs.FinishCommitRequest{
-			Commit: client.NewCommit("foo", "master", ""),
+			Commit: client.NewProjectCommit("", "foo", "master", ""),
 		})
 		require.NoError(t, err)
 
@@ -494,7 +494,7 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")

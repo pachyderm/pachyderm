@@ -1167,7 +1167,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
-	err := c.PutFile(client.NewCommit(repo, "master", ""), "/file.1", strings.NewReader("1"))
+	err := c.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
@@ -1207,7 +1207,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 
 	// Create new input commit (to force pipeline out of standby) & make sure
 	// the pipeline either fails or restarts RC & finishes
-	err = c.PutFile(client.NewCommit(repo, "master", ""), "/file.2", strings.NewReader("1"))
+	err = c.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file.2", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := c.WaitCommit(pipeline, "master", "")
@@ -1236,7 +1236,7 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)

@@ -91,7 +91,7 @@ func TestUpgradeSimple(t *testing.T) {
 					"master",
 					false,
 				))
-			require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit("", inputRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFile("foo", strings.NewReader("foo")))
 			}))
 
@@ -114,7 +114,7 @@ func TestUpgradeSimple(t *testing.T) {
 			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			require.NoError(t, err)
 			require.Equal(t, enterprise.State_ACTIVE, state.State)
-			require.NoError(t, c.WithModifyFileClient(client.NewCommit(inputRepo, "master", ""), func(mf client.ModifyFile) error {
+			require.NoError(t, c.WithModifyFileClient(client.NewProjectCommit("", inputRepo, "master", ""), func(mf client.ModifyFile) error {
 				return errors.EnsureStack(mf.PutFile("bar", strings.NewReader("bar")))
 			}))
 

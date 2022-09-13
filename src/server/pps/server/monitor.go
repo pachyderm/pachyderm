@@ -305,7 +305,7 @@ func makeCronCommits(ctx context.Context, env Env, project *pfs.Project, in *pps
 		return errors.EnsureStack(err) // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	pachClient := env.GetPachClient(ctx)
-	latestTime, err := getLatestCronTime(ctx, env, in)
+	latestTime, err := getLatestCronTime(ctx, env, project, in)
 	if err != nil {
 		return err
 	}
@@ -334,10 +334,10 @@ func makeCronCommits(ctx context.Context, env Env, project *pfs.Project, in *pps
 // 'in's most recently executed cron tick was and returns it (or, if no cron
 // ticks are in 'in's cron repo, it retuns the 'Start' time set in 'in.Cron'
 // (typically set by 'pachctl extract')
-func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (time.Time, error) {
+func getLatestCronTime(ctx context.Context, env Env, project *pfs.Project, in *pps.Input) (time.Time, error) {
 	var latestTime time.Time
 	pachClient := env.GetPachClient(ctx)
-	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewProjectCommit(project.GetName(), in.Cron.Repo, "master", ""), "")
 	if err != nil {
 		return latestTime, err
 	} else if err != nil || len(files) == 0 {

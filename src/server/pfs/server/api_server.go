@@ -682,7 +682,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 		// list meta repos as a proxy for finding pipelines
 		return a.driver.listRepo(ctx, false, pfs.MetaRepoType, func(info *pfs.RepoInfo) error {
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
-			output := client.NewCommit(info.Repo.Name, "master", "")
+			output := client.NewProjectCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
 				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {

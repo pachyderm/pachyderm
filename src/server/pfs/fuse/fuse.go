@@ -18,7 +18,9 @@ import (
 )
 
 // Mount pfs to target, opts may be left nil.
-func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
+//
+// TODO: support mounting repos from more than one project.
+func Mount(c *client.APIClient, project, target string, opts *Options) (retErr error) {
 	if opts.RepoOptions == nil {
 		opts.RepoOptions = make(map[string]*RepoOptions)
 	}
@@ -33,6 +35,9 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 			return err
 		}
 		for _, ri := range ris {
+			if ri.Repo.Project.GetName() != project {
+				continue
+			}
 			// Behavior here is that we explicitly mount repos to mounts named
 			// by the repo name. This is different to `pachctl mount-server`
 			// which supports mounting different versions of the same repo at
@@ -113,7 +118,7 @@ func Mount(c *client.APIClient, target string, opts *Options) (retErr error) {
 		if mfc, ok := mfcs[repo]; ok {
 			return mfc, nil
 		}
-		mfc, err := c.NewModifyFileClient(client.NewCommit(repo, root.branch(repo), ""))
+		mfc, err := c.NewModifyFileClient(client.NewProjectCommit(project, repo, root.branch(repo), ""))
 		if err != nil {
 			return nil, err
 		}

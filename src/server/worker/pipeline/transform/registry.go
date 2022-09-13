@@ -528,7 +528,7 @@ func failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string,
 	}
 	visitErr := pps.VisitInput(jobInfo.Details.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Commit != "" {
-			if err := waitCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
+			if err := waitCommit(input.Pfs.Name, client.NewProjectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, input.Pfs.Commit)); err != nil {
 				return err
 			}
 		}

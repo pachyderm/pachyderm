@@ -71,7 +71,7 @@ func masterListBucketsBranchless(t *testing.T, pachClient *client.APIClient, min
 func masterGetObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("master.%s", repo), "file")
@@ -83,7 +83,7 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pachClient.CreateRepo(repo))
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", "", nil))
-	commit := client.NewCommit(repo, "branch", "")
+	commit := client.NewProjectCommit("", repo, "branch", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	fetchedContent, err := getObject(t, minioClient, fmt.Sprintf("branch.%s", repo), "file")
@@ -94,7 +94,7 @@ func masterGetObjectInBranch(t *testing.T, pachClient *client.APIClient, minioCl
 func masterStatObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	// `startTime` and `endTime` will be used to ensure that an object's
@@ -135,7 +135,7 @@ func masterPutObject(t *testing.T, pachClient *client.APIClient, minioClient *mi
 func masterRemoveObject(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 	repo := tu.UniqueString("testremoveobject")
 	require.NoError(t, pachClient.CreateRepo(repo))
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, pachClient.PutFile(commit, "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
@@ -342,7 +342,7 @@ func masterListObjectsPaginated(t *testing.T, pachClient *client.APIClient, mini
 		return nil
 	}))
 
-	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit("", repo, "branch", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 1001)
 		return nil
 	}))
@@ -407,14 +407,14 @@ func masterListObjectsRecursive(t *testing.T, pachClient *client.APIClient, mini
 	require.NoError(t, pachClient.CreateBranch(repo, "branch", "", "", nil))
 	require.NoError(t, pachClient.CreateBranch(repo, "emptybranch", "", "", nil))
 
-	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(repo, "master", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit("", repo, "master", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 0)
 		putListFileTestObject(t, mf, "rootdir/", 1)
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
 	}))
 
-	require.NoError(t, pachClient.WithModifyFileClient(client.NewCommit(repo, "branch", ""), func(mf client.ModifyFile) error {
+	require.NoError(t, pachClient.WithModifyFileClient(client.NewProjectCommit("", repo, "branch", ""), func(mf client.ModifyFile) error {
 		putListFileTestObject(t, mf, "", 3)
 		return nil
 	}))

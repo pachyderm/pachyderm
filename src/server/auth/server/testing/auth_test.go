@@ -80,7 +80,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err := aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
@@ -199,7 +199,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	commit, err := aliceClient.StartCommit(dataRepo, "master")
@@ -325,7 +325,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err := aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"))
@@ -386,7 +386,7 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	// Add data to repo (alice can write). Make sure alice can read also.
 	err = aliceClient.PutFile(dataCommit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// alice can create a pipeline (she owns the input repo)
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -800,7 +800,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		buildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), getRepoRoleBinding(t, aliceClient, repo))
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 
 	// bob creates a pipeline
 	pipeline := tu.UniqueString("bob-pipeline")
@@ -1036,7 +1036,7 @@ func TestStopJob(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("test"))
@@ -1122,7 +1122,7 @@ func TestListAndInspectRepo(t *testing.T) {
 		buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repoNone))
 
 	// put a file in the repo Bob can't access - we need to be able to get the size of the commits
-	err := aliceClient.PutFile(client.NewCommit(repoNone, "master", ""), "/test", strings.NewReader("test"))
+	err := aliceClient.PutFile(client.NewProjectCommit("", repoNone, "master", ""), "/test", strings.NewReader("test"))
 	require.NoError(t, err)
 
 	// bob creates a repo
@@ -1601,7 +1601,7 @@ func TestListDatum(t *testing.T) {
 	for i, repo := range []string{repoA, repoB} {
 		var err error
 		file := fmt.Sprintf("/file%d", i+1)
-		err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), file, strings.NewReader("test"))
+		err = aliceClient.PutFile(client.NewProjectCommit("", repo, "master", ""), file, strings.NewReader("test"))
 		require.NoError(t, err)
 	}
 	require.NoErrorWithinT(t, 90*time.Second, func() error {
@@ -1687,7 +1687,7 @@ func TestListJob(t *testing.T) {
 
 	// alice commits to the input repos, and the pipeline runs successfully
 	var err error
-	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
+	err = aliceClient.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
@@ -1763,7 +1763,7 @@ func TestInspectDatum(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice commits to the input repo, and the pipeline runs successfully
-	err = aliceClient.PutFile(client.NewCommit(repo, "master", ""), "/file", strings.NewReader("test"))
+	err = aliceClient.PutFile(client.NewProjectCommit("", repo, "master", ""), "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 2*time.Minute, func() error {
 		_, err := aliceClient.WaitCommit(pipeline, "master", "")
@@ -1957,7 +1957,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 		// Commit to repo
 		err := aliceClient.PutFile(
-			client.NewCommit(repo[i], "master", ""), "/"+repo[i], strings.NewReader(repo[i]))
+			client.NewProjectCommit("", repo[i], "master", ""), "/"+repo[i], strings.NewReader(repo[i]))
 		require.NoError(t, err)
 	}
 
@@ -2286,7 +2286,7 @@ func TestGetJobsBugFix(t *testing.T) {
 
 	// alice creates a repo
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, buildBindings(alice, auth.RepoOwnerRole), getRepoRoleBinding(t, aliceClient, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("lorem ipsum"))
@@ -2388,7 +2388,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
@@ -2433,7 +2433,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Create input repo w/ initial commit
 	repo := tu.UniqueString(t.Name())
-	commit := client.NewCommit(repo, "master", "")
+	commit := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)

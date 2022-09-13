@@ -126,12 +126,12 @@ func TestS3Input(t *testing.T) {
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
-	masterCommit := client.NewCommit(repo, "master", "")
+	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewCommit(pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
@@ -216,7 +216,7 @@ func TestS3Chain(t *testing.T) {
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	numPipelines := 5
 	pipelines := make([]string, numPipelines)
@@ -266,7 +266,7 @@ func TestS3Chain(t *testing.T) {
 	require.NoError(t, err)
 	for i := 0; i < numPipelines; i++ {
 		var buf bytes.Buffer
-		require.NoError(t, c.GetFile(client.NewCommit(pipelines[i], "master", ""), "/file", &buf))
+		require.NoError(t, c.GetFile(client.NewProjectCommit("", pipelines[i], "master", ""), "/file", &buf))
 		require.Equal(t, i+1, strings.Count(buf.String(), "1\n"))
 	}
 }
@@ -279,12 +279,12 @@ func TestNamespaceInEndpoint(t *testing.T) {
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
-	masterCommit := client.NewCommit(repo, "master", "")
+	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewCommit(pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
@@ -327,12 +327,12 @@ func TestS3Output(t *testing.T) {
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
-	masterCommit := client.NewCommit(repo, "master", "")
+	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewCommit(pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
@@ -411,12 +411,12 @@ func TestFullS3(t *testing.T) {
 
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(repo))
-	masterCommit := client.NewCommit(repo, "master", "")
+	masterCommit := client.NewProjectCommit("", repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("Pipeline")
-	pipelineCommit := client.NewCommit(pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
@@ -504,7 +504,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		pfsin := tu.UniqueString(name + "_pfs_data")
 		require.NoError(t, c.CreateRepo(pfsin))
 
-		s3Commit := client.NewCommit(s3in, "master", "")
+		s3Commit := client.NewProjectCommit("", s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
@@ -514,7 +514,7 @@ func TestS3SkippedDatums(t *testing.T) {
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
 		pipeline := tu.UniqueString("Pipeline")
-		pipelineCommit := client.NewCommit(pipeline, "master", "")
+		pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
@@ -572,7 +572,7 @@ func TestS3SkippedDatums(t *testing.T) {
 			require.NoError(t, c.FinishCommit(background, bgc.Branch.Name, bgc.ID))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
-			require.NoError(t, c.PutFile(client.NewCommit(pfsin, "master", ""), iS, strings.NewReader(iS)))
+			require.NoError(t, c.PutFile(client.NewProjectCommit("", pfsin, "master", ""), iS, strings.NewReader(iS)))
 
 			_, err = c.WaitCommit(pipeline, "master", "")
 			require.NoError(t, err)
@@ -715,8 +715,8 @@ func TestS3SkippedDatums(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		masterCommit := client.NewCommit(repo, "master", "")
-		pipelineCommit := client.NewCommit(pipeline, "master", "")
+		masterCommit := client.NewProjectCommit("", repo, "master", "")
+		pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 		// Add files to 'repo'. Old files in 'repo' should be reprocessed in every
 		// job, changing the 'background' field in the output
 		for i := 1; i <= 5; i++ {

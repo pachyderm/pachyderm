@@ -85,7 +85,7 @@ func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
 }
 
 func workerRemoveObject(t *testing.T, s *workerTestState) {
-	require.NoError(t, s.pachClient.PutFile(client.NewCommit(s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
+	require.NoError(t, s.pachClient.PutFile(client.NewProjectCommit("", s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
 	require.NoError(t, s.minioClient.RemoveObject("out", "file"))

@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -1529,17 +1529,20 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	if mfc, ok := mm.mfcs[name]; ok {
 		return mfc, nil
 	}
-	var repoName string
+	var repoName, projectName string
 	opts, ok := mm.root.repoOpts[name]
 	if !ok {
+		// assume that the project is the default project
+		projectName = ""
 		// assume the repo name is the same as the mount name, e.g in the
 		// pachctl mount (with no -r args) case where they all get mounted based
 		// on their name
 		repoName = name
 	} else {
+		projectName = opts.File.Commit.Branch.Repo.Project.GetName()
 		repoName = opts.File.Commit.Branch.Repo.Name
 	}
-	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(repoName, mm.root.branch(name), ""))
+	mfc, err := mm.Client.NewModifyFileClient(client.NewProjectCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err
 	}

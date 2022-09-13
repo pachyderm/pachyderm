@@ -62,6 +62,8 @@ func NewProjectBranch(projectName, repoName, branchName string) *pfs.Branch {
 }
 
 // NewCommit creates a pfs.Commit.
+//
+// Deprecated: use NewProjectCommit instead.
 func NewCommit(repoName, branchName, commitID string) *pfs.Commit {
 	return NewProjectCommit("", repoName, branchName, commitID)
 }
