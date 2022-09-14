@@ -2317,7 +2317,6 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 
 // InspectPipelineInTransaction implements the APIServer interface.
 func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
-	projectName := pipeline.Project.GetName()
 	// The pipeline pipelineName arrived in ancestry format; need to turn it into a simple pipelineName.
 	pipelineName, ancestors, err := ancestry.Parse(pipeline.Name)
 	if err != nil {
@@ -2331,7 +2330,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	pipeline.Name = pipelineName
 	commit, err := ppsutil.FindPipelineSpecCommitInTransaction(txnCtx, a.env.PFSServer, pipeline, "")
 	if err != nil {
-		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q/%q", projectName, pipelineName)
+		return nil, errors.Wrapf(err, "pipeline not found: couldn't find up to date spec for pipeline %q", pipeline)
 	}
 
 	pipelineInfo := &pps.PipelineInfo{}
@@ -2344,7 +2343,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 	if ancestors > 0 {
 		targetVersion := int(pipelineInfo.Version) - ancestors
 		if targetVersion < 1 {
-			return nil, errors.Errorf("pipeline %q/%q has only %d versions, not enough to find ancestor %d", projectName, pipelineName, pipelineInfo.Version, ancestors)
+			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", pipeline, pipelineInfo.Version, ancestors)
 		}
 		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(projectName, pipelineName, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
@@ -2965,11 +2964,11 @@ func (a *apiServer) ActivateAuthInTransaction(txnCtx *txncontext.TransactionCont
 			pi.AuthToken = token
 			return nil
 		}); err != nil {
-			return errors.Wrapf(err, "could not update %q/%q with new auth token", pi.Pipeline.Project.GetName(), pi.Pipeline.Name)
+			return errors.Wrapf(err, "could not update %q with new auth token", pi.Pipeline)
 		}
 		// put 'pipeline' on relevant ACLs
 		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pi, nil); err != nil {
-			return errors.Wrapf(err, "fix repo ACLs for pipeline %q/%q", pi.Pipeline.Project.GetName(), pi.Pipeline.Name)
+			return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pi.Pipeline)
 		}
 		return nil
 	}); err != nil {

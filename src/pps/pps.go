@@ -8,7 +8,7 @@ func (j *Job) String() string {
 
 func (p *Pipeline) String() string {
 	if p == nil {
-		return "nil"
+		return ""
 	}
 	projectName, pipelineName := p.Project.GetName(), p.Name
 	if projectName == "" {
