@@ -29,7 +29,7 @@ import (
 type PipelineStateDriver interface {
 	// returns PipelineInfo corresponding to the latest pipeline state, a context loaded with the pipeline's auth info, and error
 	// NOTE: returns nil, nil, nil if the step is found to be a delete operation
-	FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error)
+	FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error)
 	// setPipelineState set's pc's state in the collection to 'state'. This will trigger a
 	// collection watch event and cause step() to eventually run again.
 	SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error
@@ -64,7 +64,7 @@ func newPipelineStateDriver(
 }
 
 // takes pc.ctx
-func (sd *stateDriver) FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error) {
+func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
 	// query pipelineInfo
 	var pi *pps.PipelineInfo
 	var err error
@@ -131,7 +131,7 @@ func (sd *stateDriver) GetPipelineInfo(ctx context.Context, name string, version
 	return &pipelineInfo, nil
 }
 
-func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline string) (*pps.PipelineInfo, error) {
+func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 	pi := &pps.PipelineInfo{}
 	errCnt := 0
 	err := backoff.RetryNotify(func() error {
@@ -153,7 +153,7 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline s
 	return pi, err
 }
 
-func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline string, message *pps.PipelineInfo) error {
+func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, message *pps.PipelineInfo) error {
 	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, sd.pfsApi, *sd.txEnv, pipeline)
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
@@ -215,8 +215,8 @@ func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.C
 	return errors.New("pipeline does not exist")
 }
 
-func (d *mockStateDriver) FetchState(ctx context.Context, pipeline string) (*pps.PipelineInfo, context.Context, error) {
-	if spec, ok := d.pipelines[pipeline]; ok {
+func (d *mockStateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
+	if spec, ok := d.pipelines[pipeline.Name]; ok {
 		if pi, ok := d.specCommits[spec]; ok {
 			return pi, ctx, nil
 		}

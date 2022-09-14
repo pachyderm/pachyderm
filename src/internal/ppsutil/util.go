@@ -440,7 +440,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l colle
 	return pipelineInfo, nil
 }
 
-func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline string) (*pfs.Commit, error) {
+func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline *pps.Pipeline) (*pfs.Commit, error) {
 	var commit *pfs.Commit
 	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) (err error) {
 		commit, err = FindPipelineSpecCommitInTransaction(txnCtx, pfsServer, pipeline, "")
@@ -453,8 +453,12 @@ func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, 
 
 // FindPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
 // by startID. If startID is blank, find the current pipeline version
-func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline, startID string) (*pfs.Commit, error) {
-	curr := client.NewSystemRepo(pipeline, pfs.SpecRepoType).NewCommit("master", startID)
+func FindPipelineSpecCommitInTransaction(txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline *pps.Pipeline, startID string) (*pfs.Commit, error) {
+	curr := (&pfs.Repo{
+		Project: pipeline.Project,
+		Name:    pipeline.Name,
+		Type:    pfs.SpecRepoType,
+	}).NewCommit("master", startID)
 	commitInfo, err := pfsServer.InspectCommitInTransaction(txnCtx,
 		&pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {
