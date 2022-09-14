@@ -147,14 +147,14 @@ func TestSimplePipeline(t *testing.T) {
 	for _, info := range commitInfos {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
-	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo("", pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -190,10 +190,10 @@ func TestRepoSize(t *testing.T) {
 	))
 
 	// put a file without an open commit - should count towards repo size
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	// put a file on another branch - should not count towards repo size
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "develop", ""), "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "develop", ""), "file3", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	// put a file on an open commit - should count toward repo size
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -262,7 +262,7 @@ func TestPFSPipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	var buf bytes.Buffer
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 }
@@ -305,7 +305,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(outputCommit, fmt.Sprintf("file-%d", i), &buf))
@@ -354,7 +354,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
@@ -453,7 +453,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	var buf bytes.Buffer
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foo", buf.String())
 
@@ -469,7 +469,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buf.Reset()
-	outputCommit = client.NewCommit(pipeline, "master", commit2.ID)
+	outputCommit = client.NewProjectCommit("", pipeline, "master", commit2.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "bar", buf.String())
 
@@ -484,13 +484,13 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit = client.NewCommit(pipeline, "master", commit3.ID)
+	outputCommit = client.NewProjectCommit("", pipeline, "master", commit3.ID)
 	require.YesError(t, c.GetFile(outputCommit, "file", &buf))
 	buf.Reset()
 	require.NoError(t, c.GetFile(outputCommit, "file2", &buf))
 	require.Equal(t, "foo", buf.String())
 
-	commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline), client.NewProjectCommit("", pipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 }
@@ -535,7 +535,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	var buf bytes.Buffer
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foo\nfoo\n", buf.String())
 
@@ -549,7 +549,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buf.Reset()
-	outputCommit = client.NewCommit(pipeline, "master", commit2.ID)
+	outputCommit = client.NewProjectCommit("", pipeline, "master", commit2.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foo\nbar\nfoo\n", buf.String())
 
@@ -563,11 +563,11 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buf.Reset()
-	outputCommit = client.NewCommit(pipeline, "master", commit3.ID)
+	outputCommit = client.NewProjectCommit("", pipeline, "master", commit3.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
 
-	commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline), client.NewProjectCommit("", pipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 }
@@ -619,7 +619,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(commitInfos))
 	buffer := bytes.Buffer{}
-	outputCommit := client.NewCommit(pipeline, "master", commitB.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commitB.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
@@ -704,7 +704,7 @@ func TestRunPipeline(t *testing.T) {
 	//	// now run the pipeline with non-empty provenance
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewCommit(dataRepo, "branchA", commitA.ID),
+	//			client.NewProjectCommit("",dataRepo, "branchA", commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -739,8 +739,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline provenant on the old commits
 	//	require.NoError(t, c.RunPipeline(pipeline, []*pfs.Commit{
-	//		client.NewCommit(dataRepo, "branchA", commitA.ID),
-	//		client.NewCommit(dataRepo, "branchB", commitB2.ID),
+	//		client.NewProjectCommit("",dataRepo, "branchA", commitA.ID),
+	//		client.NewProjectCommit("",dataRepo, "branchB", commitB2.ID),
 	//	}, ""))
 
 	//	// and ensure that the file now has the info from the correct versions of the commits
@@ -829,7 +829,7 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline with unrelated provenance
 	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
-	//		client.NewCommit(dataRepo, "unrelated", commitU.ID)}, ""))
+	//		client.NewProjectCommit("",dataRepo, "unrelated", commitU.ID)}, ""))
 	//})
 
 	//// Test with downstream pipeline
@@ -902,7 +902,7 @@ func TestRunPipeline(t *testing.T) {
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewCommit(dataRepo, branchA, commitA.ID),
+	//			client.NewProjectCommit("",dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -995,7 +995,7 @@ func TestRunPipeline(t *testing.T) {
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewCommit(dataRepo, branchA, commitA.ID),
+	//			client.NewProjectCommit("",dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
@@ -1064,8 +1064,8 @@ func TestRunPipeline(t *testing.T) {
 
 	//	// now run the pipeline with provenance from the same branch
 	//	require.YesError(t, c.RunPipeline(pipeline, []*pfs.Commit{
-	//		client.NewCommit(dataRepo, branchA, commitA1.ID),
-	//		client.NewCommit(dataRepo, branchA, commitA2.ID),
+	//		client.NewProjectCommit("",dataRepo, branchA, commitA1.ID),
+	//		client.NewProjectCommit("",dataRepo, branchA, commitA2.ID),
 	//	}, ""))
 	//})
 	//// Test on pipeline that should always fail
@@ -1147,18 +1147,18 @@ func TestRunPipeline(t *testing.T) {
 	//	c.FinishCommit(dataRepo, commitA.Branch.Name, commitA.ID)
 
 	//	// wait for the commit to finish before calling RunPipeline
-	//	_, err = c.WaitCommitSetAll([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+	//	_, err = c.WaitCommitSetAll([]*pfs.Commit{client.NewProjectCommit("",dataRepo, commitA.ID)}, nil)
 	//	require.NoError(t, err)
 
 	//	// now run the pipeline
 	//	require.NoError(t, backoff.Retry(func() error {
 	//		return c.RunPipeline(pipeline, []*pfs.Commit{
-	//			client.NewCommit(dataRepo, branchA, commitA.ID),
+	//			client.NewProjectCommit("",dataRepo, branchA, commitA.ID),
 	//		}, "")
 	//	}, backoff.NewTestingBackOff()))
 
 	//	// make sure the pipeline didn't crash
-	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{client.NewCommit(dataRepo, commitA.ID)}, nil)
+	//	commitInfos, err := c.WaitCommitSetAll([]*pfs.Commit{client.NewProjectCommit("",dataRepo, commitA.ID)}, nil)
 	//	require.NoError(t, err)
 
 	//	// we'll know it crashed if this causes it to hang
@@ -1220,7 +1220,7 @@ func TestPPSEgressURLOnly(t *testing.T) {
 
 	repo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "file1", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), "file1", strings.NewReader("foo")))
 
 	pipeline := tu.UniqueString("egress")
 	pipelineReq := basicPipelineReq(pipeline, repo)
@@ -1401,7 +1401,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		dataRepo := tu.UniqueString("TestPipelineErrorHandling_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 
-		dataCommit := client.NewCommit(dataRepo, "master", "")
+		dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, c.PutFile(dataCommit, "file1", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 		require.NoError(t, c.PutFile(dataCommit, "file2", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 		require.NoError(t, c.PutFile(dataCommit, "file3", strings.NewReader("bar\n"), client.WithAppendPutFile()))
@@ -1464,7 +1464,7 @@ func TestPipelineErrorHandling(t *testing.T) {
 		dataRepo := tu.UniqueString("TestPipelineRecoveredDatums_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 
-		dataCommit := client.NewCommit(dataRepo, "master", "")
+		dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 		require.NoError(t, c.PutFile(dataCommit, "foo", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 
 		// In this pipeline, we'll have a command that fails the datum, and then recovers it
@@ -1588,7 +1588,7 @@ func TestLazyPipeline(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("TestLazyPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
@@ -1628,7 +1628,7 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buffer := bytes.Buffer{}
-	outputCommit := client.NewCommit(pipelineName, "master", commit.ID)
+	outputCommit := client.NewProjectCommit("", pipelineName, "master", commit.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 }
@@ -1642,7 +1642,7 @@ func TestEmptyFiles(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("TestShufflePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
@@ -1687,7 +1687,7 @@ func TestEmptyFiles(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buffer := bytes.Buffer{}
-	outputCommit := client.NewCommit(pipelineName, "master", commit.ID)
+	outputCommit := client.NewProjectCommit("", pipelineName, "master", commit.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file1", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
@@ -1768,17 +1768,17 @@ func TestProvenance(t *testing.T) {
 	}
 
 	// We should only see three commits in aRepo (empty head, commit1, commit2)
-	commitInfos, err = c.ListCommit(client.NewRepo(aRepo), client.NewCommit(aRepo, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", aRepo), client.NewProjectCommit("", aRepo, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
 	// There are three commits in the bPipeline repo (bPipeline created, commit1, commit2)
-	commitInfos, err = c.ListCommit(client.NewRepo(bPipeline), client.NewCommit(bPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", bPipeline), client.NewProjectCommit("", bPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
 	// There are three commits in the cPipeline repo (cPipeline created, commit1, commit2)
-	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", cPipeline), client.NewProjectCommit("", cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 }
@@ -1863,32 +1863,32 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, err)
 
 	// We should see 3 commits in aRepo (empty head two user commits)
-	commitInfos, err := c.ListCommit(client.NewRepo(aRepo), client.NewCommit(aRepo, "master", ""), nil, 0)
+	commitInfos, err := c.ListCommit(client.NewProjectRepo("", aRepo), client.NewProjectCommit("", aRepo, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
 	// We should see 3 commits in bPipeline (bPipeline creation and from the two user commits)
-	commitInfos, err = c.ListCommit(client.NewRepo(bPipeline), client.NewCommit(bPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", bPipeline), client.NewProjectCommit("", bPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
 	// We should see 3 commits in cPipeline (cPipeline creation and from the two user commits)
-	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", cPipeline), client.NewProjectCommit("", cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
 	// We should see 3 commits in dPipeline (dPipeline creation and from the two user commits)
-	commitInfos, err = c.ListCommit(client.NewRepo(dPipeline), client.NewCommit(dPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", dPipeline), client.NewProjectCommit("", dPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
 	buffer := bytes.Buffer{}
-	outputCommit := client.NewCommit(dPipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", dPipeline, "master", commit1.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "", buffer.String())
 
 	buffer.Reset()
-	outputCommit = client.NewCommit(dPipeline, "master", commit2.ID)
+	outputCommit = client.NewProjectCommit("", dPipeline, "master", commit2.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "", buffer.String())
 }
@@ -1945,22 +1945,22 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	require.Equal(t, 7, len(commitInfos))
 
 	// We should see 2 commits in aRepo (empty head and the user commit)
-	commitInfos, err = c.ListCommit(client.NewRepo(aRepo), client.NewCommit(aRepo, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", aRepo), client.NewProjectCommit("", aRepo, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
 	// We should see 2 commits in bPipeline (bPipeline creation and the user commit)
-	commitInfos, err = c.ListCommit(client.NewRepo(bPipeline), client.NewCommit(bPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", bPipeline), client.NewProjectCommit("", bPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
 	// We should see 2 commits in cPipeline (cPipeline creation and the user commit)
-	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", cPipeline), client.NewProjectCommit("", cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
 	require.NoError(t, c.StopPipeline(bPipeline))
-	commitInfos, err = c.ListCommit(client.NewRepo(cPipeline), client.NewCommit(cPipeline, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", cPipeline), client.NewProjectCommit("", cPipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 }
@@ -2692,7 +2692,7 @@ func TestUpdatePipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
-	pipelineCommit := client.NewCommit(pipelineName, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipelineName, "master", "")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2740,29 +2740,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		return nil
 	})
@@ -2814,29 +2814,29 @@ func TestUpdatePipeline(t *testing.T) {
 		var newServiceSeen bool
 		for _, svc := range svcs.Items {
 			switch svc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale service encountered: %q", svc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newServiceSeen = true
 			}
 		}
 		if !newServiceSeen {
-			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new service: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		rcs, err := kc.CoreV1().ReplicationControllers(ns).List(context.Background(), metav1.ListOptions{})
 		require.NoError(t, err)
 		var newRCSeen bool
 		for _, rc := range rcs.Items {
 			switch rc.ObjectMeta.Name {
-			case ppsutil.PipelineRcName(pipelineName, 1):
+			case ppsutil.PipelineRcName("", pipelineName, 1):
 				return errors.Errorf("stale RC encountered: %q", rc.ObjectMeta.Name)
-			case ppsutil.PipelineRcName(pipelineName, 2):
+			case ppsutil.PipelineRcName("", pipelineName, 2):
 				newRCSeen = true
 			}
 		}
 		require.True(t, newRCSeen)
 		if !newRCSeen {
-			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName(pipelineName, 2))
+			return errors.Errorf("did not find new RC: %q", ppsutil.PipelineRcName("", pipelineName, 2))
 		}
 		return nil
 	})
@@ -2969,7 +2969,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(client.NewCommit(pipelineName, "master", ""), "file", &buffer))
+	require.NoError(t, c.GetFile(client.NewProjectCommit("", pipelineName, "master", ""), "file", &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 }
 
@@ -2984,7 +2984,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	// create repo & pipeline
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	pipelineName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2999,14 +2999,14 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		false,
 	))
 
-	commits, err := c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err := c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 
 	// Add input data
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
-	commits, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
@@ -3032,7 +3032,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	commits, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
@@ -3066,7 +3066,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	commits, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
@@ -3081,12 +3081,12 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	commitInfos, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
-	commits, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commits))
 
 	var buf bytes.Buffer
-	outputCommit := client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
+	outputCommit := client.NewProjectCommit("", pipelineName, "master", commitInfo.Commit.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buf))
 	require.Equal(t, "foobar", buf.String())
 }
@@ -3189,7 +3189,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	numFiles := 20000
 	_, err := c.StartCommit(dataRepo, "master")
@@ -3245,7 +3245,7 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	jis, err := c.WaitJobSetAll(commit.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
-	fileInfos, err := c.ListFileAll(client.NewCommit(pipelineName, "master", ""), "")
+	fileInfos, err := c.ListFileAll(client.NewProjectCommit("", pipelineName, "master", ""), "")
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(fileInfos))
 }
@@ -3276,7 +3276,7 @@ func TestStopPipeline(t *testing.T) {
 	))
 
 	// We should just have the initial output branch head commit
-	commits, err := c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err := c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 1)
 
@@ -3291,14 +3291,14 @@ func TestStopPipeline(t *testing.T) {
 
 	// wait for 10 seconds and check that no new commit has been outputted
 	time.Sleep(10 * time.Second)
-	commits, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 1)
 
 	// Restart pipeline, and make sure a new output commit is generated
 	require.NoError(t, c.StartPipeline(pipelineName))
 
-	commits, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commits, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 2)
 
@@ -3322,7 +3322,7 @@ func TestAutoscalingStandby(t *testing.T) {
 
 		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
-		dataCommit := client.NewCommit(dataRepo, "master", "")
+		dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 		numPipelines := 10
 		pipelines := make([]string, numPipelines)
@@ -3399,7 +3399,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		require.NoError(t, c.DeleteAll())
 
 		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
-		dataCommit := client.NewCommit(dataRepo, "master", "")
+		dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 		pipeline := tu.UniqueString("TestAutoscalingStandby")
 		require.NoError(t, c.CreateRepo(dataRepo))
 		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -3430,7 +3430,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		}
 		require.Equal(t, 3, nonAliasCommits)
 		pod := ""
-		commitInfos, err = c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
+		commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline), client.NewProjectCommit("", pipeline, "master", ""), nil, 0)
 		require.NoError(t, err)
 		for i, ci := range commitInfos {
 			// the last commit accessed (the oldest commit) will not have any files in it
@@ -3462,7 +3462,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 
 	pipeline := tu.UniqueString(t.Name())
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -3549,7 +3549,7 @@ func TestStopStandbyPipeline(t *testing.T) {
 	})
 
 	// Finally, check that there's only three output commits
-	commitInfos, err := c.ListCommit(client.NewRepo(pipeline), client.NewCommit(pipeline, "master", ""), nil, 0)
+	commitInfos, err := c.ListCommit(client.NewProjectRepo("", pipeline), client.NewProjectCommit("", pipeline, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 }
@@ -3621,7 +3621,7 @@ func TestPipelineEnv(t *testing.T) {
 	require.NoError(t, err)
 
 	// Do first commit to repo
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 
 	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
@@ -3694,7 +3694,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	var buffer bytes.Buffer
-	outputCommit := client.NewCommit(pipelineName, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipelineName, "master", commit1.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 
@@ -3708,7 +3708,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buffer = bytes.Buffer{}
-	outputCommit = client.NewCommit(pipelineName, "master", commit2.ID)
+	outputCommit = client.NewProjectCommit("", pipelineName, "master", commit2.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
@@ -3758,12 +3758,12 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 
 	buffer := bytes.Buffer{}
-	outputCommit := client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
+	outputCommit := client.NewProjectCommit("", pipelineName, "master", commitInfo.Commit.ID)
 	require.NoError(t, c.GetFile(outputCommit, "file", &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
 
 	// Check that one output commit is created (processing the inputs' head commits)
-	commitInfos, err = c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 }
@@ -3820,7 +3820,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 
 		// Check that the output files are identical to the input files.
 		buffer := bytes.Buffer{}
-		outputCommit := client.NewCommit(pipelineName, "master", commitInfo.Commit.ID)
+		outputCommit := client.NewProjectCommit("", pipelineName, "master", commitInfo.Commit.ID)
 		require.NoError(t, c.GetFile(outputCommit, "foo", &buffer))
 		require.Equal(t, "foo", buffer.String())
 		buffer.Reset()
@@ -4087,10 +4087,10 @@ func TestStartInternalPipeline(t *testing.T) {
 	require.NoError(t, c.StopPipeline(bPipeline))
 	require.NoError(t, c.StartPipeline(bPipeline))
 	// C's commit should be the same as b's meta commit
-	cCommits, err := c.ListCommit(client.NewRepo(cPipeline), nil, nil, 0)
+	cCommits, err := c.ListCommit(client.NewProjectRepo("", cPipeline), nil, nil, 0)
 	require.NoError(t, err)
 	listClient, err := c.PfsAPIClient.ListCommit(c.Ctx(), &pfs.ListCommitRequest{
-		Repo: client.NewSystemRepo(bPipeline, pfs.MetaRepoType),
+		Repo: client.NewSystemProjectRepo("", bPipeline, pfs.MetaRepoType),
 		All:  true,
 	})
 	require.NoError(t, err)
@@ -4227,7 +4227,7 @@ func testGetLogs(t *testing.T, useLoki bool) {
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -4439,7 +4439,7 @@ func TestManyLogs(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	// create pipeline
 	numLogs := 10000
@@ -4497,7 +4497,7 @@ func TestLokiLogs(t *testing.T) {
 	// create repos
 	dataRepo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	numFiles := 10
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(dataCommit, fmt.Sprintf("file-%d", i), strings.NewReader("foo\n"), client.WithAppendPutFile()))
@@ -5388,11 +5388,11 @@ func TestJoinInput(t *testing.T) {
 
 	dataRepo0 := "TestJoinInputDirectory-0"
 	require.NoError(t, c.CreateRepo(dataRepo0))
-	masterCommit := client.NewCommit(dataRepo0, "master", "")
+	masterCommit := client.NewProjectCommit("", dataRepo0, "master", "")
 	require.NoError(t, c.PutFile(masterCommit, "/dir-01/foo", strings.NewReader("foo")))
 	dataRepo1 := "TestJoinInputDirectory-1"
 	require.NoError(t, c.CreateRepo(dataRepo1))
-	masterCommit = client.NewCommit(dataRepo1, "master", "")
+	masterCommit = client.NewProjectCommit("", dataRepo1, "master", "")
 	require.NoError(t, c.PutFile(masterCommit, "/dir-10/bar", strings.NewReader("bar")))
 
 	pipeline = tu.UniqueString("join-pipeline-directory")
@@ -5437,7 +5437,7 @@ func TestGroupInput(t *testing.T) {
 	t.Run("Basic", func(t *testing.T) {
 		repo := tu.UniqueString("TestGroupInput")
 		require.NoError(t, c.CreateRepo(repo))
-		commit := client.NewCommit(repo, "master", "")
+		commit := client.NewProjectCommit("", repo, "master", "")
 		numFiles := 16
 		for i := 0; i < numFiles; i++ {
 			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file.%4b", i), strings.NewReader(fmt.Sprintf("%d\n", i)), client.WithAppendPutFile()))
@@ -5515,7 +5515,7 @@ func TestGroupInput(t *testing.T) {
 		numFiles := 16
 		for r, repo := range repos {
 			for i := 0; i < numFiles; i++ {
-				require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)), client.WithAppendPutFile()))
+				require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)), client.WithAppendPutFile()))
 			}
 		}
 
@@ -5610,7 +5610,7 @@ func TestGroupInput(t *testing.T) {
 		numFiles := 16
 		for r, repo := range repos {
 			for i := 0; i < numFiles; i++ {
-				require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)), client.WithAppendPutFile()))
+				require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)), client.WithAppendPutFile()))
 			}
 		}
 
@@ -5674,7 +5674,7 @@ func TestGroupInput(t *testing.T) {
 		repo := tu.UniqueString("TestGroupInputSymlink")
 		require.NoError(t, c.CreateRepo(repo))
 
-		commit := client.NewCommit(repo, "master", "")
+		commit := client.NewProjectCommit("", repo, "master", "")
 
 		require.NoError(t, c.PutFile(commit, "/T1606331395-LIPID-PATID2-CLIA24D9871327.txt", strings.NewReader(""), client.WithAppendPutFile()))
 		require.NoError(t, c.PutFile(commit, "/T1606707579-LIPID-PATID3-CLIA24D9871327.txt", strings.NewReader(""), client.WithAppendPutFile()))
@@ -6387,7 +6387,7 @@ func TestMetaRepoContents(t *testing.T) {
 			fmt.Sprintf("/pfs/%v/out/%v", datumID, inputFile):          {},
 		}
 		metaCommit := &pfs.Commit{
-			Branch: client.NewSystemRepo(pipelineName, pfs.MetaRepoType).NewBranch("master"),
+			Branch: client.NewSystemProjectRepo("", pipelineName, pfs.MetaRepoType).NewBranch("master"),
 			ID:     commitID,
 		}
 		var files []string
@@ -6425,7 +6425,7 @@ func TestMetaRepoContents(t *testing.T) {
 	assertMetaContents(commit2.ID, "bar")
 	fileCount := 0
 	var fileName string
-	require.NoError(t, c.ListFile(client.NewCommit(pipelineName, "master", commit2.ID), "", func(fi *pfs.FileInfo) error {
+	require.NoError(t, c.ListFile(client.NewProjectCommit("", pipelineName, "master", commit2.ID), "", func(fi *pfs.FileInfo) error {
 		fileCount++
 		fileName = fi.File.Path
 		return nil
@@ -6469,7 +6469,7 @@ func TestCronPipeline(t *testing.T) {
 		))
 
 		// subscribe to the pipeline2 cron repo and wait for inputs
-		repo := client.NewRepo(pipeline2)
+		repo := client.NewProjectRepo("", pipeline2)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		// We'll look at four commits - with one initial head and one created in each tick
@@ -6509,7 +6509,7 @@ func TestCronPipeline(t *testing.T) {
 			"",
 			false,
 		))
-		repo := client.NewRepo(fmt.Sprintf("%s_time", pipeline3))
+		repo := client.NewProjectRepo("", fmt.Sprintf("%s_time", pipeline3))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		// We'll look at four commits - with one created in each tick
@@ -6560,10 +6560,10 @@ func TestCronPipeline(t *testing.T) {
 		))
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file", strings.NewReader("file"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("file"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(dataRepo, "master", ""))
 
-		repo := client.NewRepo(fmt.Sprintf("%s_time", pipeline4))
+		repo := client.NewProjectRepo("", fmt.Sprintf("%s_time", pipeline4))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(2)
@@ -6612,7 +6612,7 @@ func TestCronPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		// subscribe to the pipeline6 cron repo and wait for inputs
-		repo := client.NewRepo(pipeline6)
+		repo := client.NewProjectRepo("", pipeline6)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(4)
@@ -6668,7 +6668,7 @@ func TestCronPipeline(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
 		countBreakFunc := newCountBreakFunc(1)
-		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewProjectRepo("", repo), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second*120)
 				defer cancel() //cleanup resources
@@ -6676,7 +6676,7 @@ func TestCronPipeline(t *testing.T) {
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
 				countBreakFunc := newCountBreakFunc(nCronticks + 1)
-				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
+				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewProjectRepo("", repo), "master", ci.Commit.ID, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
 						_, err := c.WaitCommit(repo, "", ci.Commit.ID)
 						require.NoError(t, err)
@@ -6719,7 +6719,7 @@ func TestCronPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		// We should see an initial empty commit, exactly six from our RunCron calls (two each), and nothing else
-		commits, err := c.ListCommit(client.NewRepo(pipeline9), nil, nil, 0)
+		commits, err := c.ListCommit(client.NewProjectRepo("", pipeline9), nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(commits))
 	})
@@ -6744,7 +6744,7 @@ func TestCronPipeline(t *testing.T) {
 			false,
 		))
 
-		repo := client.NewRepo(fmt.Sprintf("%s_in", pipeline))
+		repo := client.NewProjectRepo("", fmt.Sprintf("%s_in", pipeline))
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 		count := 0
@@ -6988,7 +6988,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
@@ -7019,8 +7019,8 @@ func TestPipelineEnvVarJoinOn(t *testing.T) {
 	input.Join[0].Pfs.JoinOn = "$1"
 	input.Join[1].Pfs.JoinOn = "$1"
 
-	require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), "a", strings.NewReader("foo")))
-	require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), "a", strings.NewReader("bar")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo1, "master", ""), "a", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo2, "master", ""), "a", strings.NewReader("bar")))
 
 	// create pipeline
 	pipeline := tu.UniqueString("pipeline")
@@ -7223,7 +7223,7 @@ func TestService(t *testing.T) {
 	checkFile("foo")
 
 	// overwrite file, and check that we can access the new contents
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file1", strings.NewReader("bar")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file1", strings.NewReader("bar")))
 	checkFile("bar")
 }
 
@@ -7237,7 +7237,7 @@ func TestServiceEnvVars(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name() + "-input")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	pipeline := tu.UniqueString("pipelineservice")
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -7438,7 +7438,7 @@ func TestLongDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
-	outputCommit := client.NewCommit(pipeline, "master", commit1.ID)
+	outputCommit := client.NewProjectCommit("", pipeline, "master", commit1.ID)
 
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
@@ -7731,7 +7731,7 @@ func TestCommitDescription(t *testing.T) {
 
 	// Test putting a message in StartCommit
 	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewBranch(dataRepo, "master"),
+		Branch:      client.NewProjectBranch("", dataRepo, "master"),
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
@@ -7756,7 +7756,7 @@ func TestCommitDescription(t *testing.T) {
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewBranch(dataRepo, "master"),
+		Branch:      client.NewProjectBranch("", dataRepo, "master"),
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
@@ -7893,7 +7893,7 @@ func TestListJobInputCommits(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 
-	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master", ""), client.NewCommit(bRepo, "master", "")}, -1, true)
+	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewProjectCommit("", aRepo, "master", ""), client.NewProjectCommit("", bRepo, "master", "")}, -1, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 }
@@ -8112,7 +8112,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 
 	// 	// wait for job to run & check that all rows were processed
 	// 	var jobCount int
-	// 	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
 	// 		func(jobInfo *pps.JobInfo) error {
 	// 			jobCount++
 	// 			require.Equal(t, 1, jobCount)
@@ -8130,7 +8130,7 @@ func TestSquashCommitSetPropagation(t *testing.T) {
 	// 	// everything gets reprocessed (hashes all change even though the files
 	// 	// themselves weren't altered)
 	// 	jobCount = 0
-	// 	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
 	// 		func(jobInfo *pps.JobInfo) error {
 	// 			jobCount++
 	// 			require.Equal(t, 1, jobCount)
@@ -8167,7 +8167,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 	_, err := c.PfsAPIClient.DeleteRepo(
 		c.Ctx(),
 		&pfs.DeleteRepoRequest{
-			Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+			Repo: client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType),
 		})
 	require.YesError(t, err)
 }
@@ -8339,7 +8339,7 @@ func TestDatumTries(t *testing.T) {
 	dataRepo := tu.UniqueString("TestDatumTries_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	tries := int64(5)
 	pipeline := tu.UniqueString("TestSimplePipeline")
@@ -8391,7 +8391,7 @@ func TestInspectJob(t *testing.T) {
 
 	repo := tu.UniqueString("TestInspectJob")
 	require.NoError(t, c.CreateRepo(repo))
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 	ci, err := c.InspectCommit(repo, "master", "")
 	require.NoError(t, err)
 
@@ -8473,7 +8473,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//
 	//	// wait for job to run & check that all rows were processed
 	//	var jobCount int
-	//	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8489,7 +8489,7 @@ func TestSplitFileHeader(t *testing.T) {
 	//	// old data should be skipped, even though header was uploaded twice (new
 	//	// header shouldn't append or change the hash or anything)
 	//	jobCount = 0
-	//	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8534,7 +8534,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//
 	//	// wait for job to run & check that all rows were processed
 	//	var jobCount int
-	//	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8550,7 +8550,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	//	// everything gets reprocessed (hashes all change even though the files
 	//	// themselves weren't altered)
 	//	jobCount = 0
-	//	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+	//	c.FlushJob([]*pfs.Commit{client.NewProjectCommit("",repo, "master")}, nil,
 	//		func(jobInfo *pps.JobInfo) error {
 	//			jobCount++
 	//			require.Equal(t, 1, jobCount)
@@ -8573,7 +8573,7 @@ func TestDeferredCross(t *testing.T) {
 	// make repo for our dataset
 	dataSet := tu.UniqueString("dataset")
 	require.NoError(t, c.CreateRepo(dataSet))
-	dataCommit := client.NewCommit(dataSet, "master", "")
+	dataCommit := client.NewProjectCommit("", dataSet, "master", "")
 
 	downstreamPipeline := tu.UniqueString("downstream")
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -8690,7 +8690,7 @@ func TestDeferredProcessing(t *testing.T) {
 		false,
 	))
 
-	commit := client.NewCommit(dataRepo, "staging", "")
+	commit := client.NewProjectCommit("", dataRepo, "staging", "")
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	commitInfo, err := c.InspectCommit(dataRepo, "staging", "")
@@ -8738,7 +8738,7 @@ func TestPipelineHistory(t *testing.T) {
 		true,
 	))
 
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file", strings.NewReader("1"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("1"), client.WithAppendPutFile()))
 	commitInfo, err := c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
@@ -8762,13 +8762,13 @@ func TestPipelineHistory(t *testing.T) {
 		true,
 	))
 
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file", strings.NewReader("2"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("2"), client.WithAppendPutFile()))
 	commitInfo, err = c.InspectCommit(dataRepo, "master", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
 	require.NoError(t, err)
 
-	commitInfos, err := c.ListCommit(client.NewRepo(pipelineName), client.NewCommit(pipelineName, "master", ""), nil, 0)
+	commitInfos, err := c.ListCommit(client.NewProjectRepo("", pipelineName), client.NewProjectCommit("", pipelineName, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 
@@ -8907,8 +8907,8 @@ func TestFileHistory(t *testing.T) {
 		false,
 	))
 
-	commit1 := client.NewCommit(dataRepo1, "master", "")
-	commit2 := client.NewCommit(dataRepo2, "master", "")
+	commit1 := client.NewProjectCommit("", dataRepo1, "master", "")
+	commit2 := client.NewProjectCommit("", dataRepo2, "master", "")
 
 	require.NoError(t, c.PutFile(commit1, "A1", strings.NewReader(""), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit2, "B1", strings.NewReader(""), client.WithAppendPutFile()))
@@ -8997,7 +8997,7 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	// Create input data
 	dataRepo := tu.UniqueString(t.Name() + "-data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	// create pipeline
 	pipeline := tu.UniqueString("no-cmd-")
@@ -9116,7 +9116,7 @@ func TestPodPatchUnmarshalling(t *testing.T) {
 	dataRepo := tu.UniqueString(t.Name() + "-data-")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	// create pipeline
@@ -9287,11 +9287,11 @@ func TestCopyOutToIn(t *testing.T) {
 	dataRepo := tu.UniqueString("TestCopyOutToIn_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	pipeline := tu.UniqueString("TestCopyOutToIn")
-	pipelineCommit := client.NewCommit(pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -9360,11 +9360,11 @@ func TestKeepRepo(t *testing.T) {
 	dataRepo := tu.UniqueString("TestKeepRepo_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	pipeline := tu.UniqueString("TestKeepRepo")
-	pipelineCommit := client.NewCommit(pipeline, "master", "")
+	pipelineCommit := client.NewProjectCommit("", pipeline, "master", "")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -9394,13 +9394,13 @@ func TestKeepRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
-		Repo: client.NewSystemRepo(pipeline, pfs.SpecRepoType),
+		Repo: client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType),
 	})
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 
 	_, err = c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{
-		Repo: client.NewSystemRepo(pipeline, pfs.MetaRepoType),
+		Repo: client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType),
 	})
 	require.YesError(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
@@ -9479,7 +9479,7 @@ func TestMalformedPipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
@@ -9588,11 +9588,11 @@ func TestTrigger(t *testing.T) {
 
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	dataCommit := client.NewCommit(dataRepo, "master", "")
+	dataCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	pipeline1 := tu.UniqueString("TestTrigger1")
-	pipelineCommit1 := client.NewCommit(pipeline1, "master", "")
+	pipelineCommit1 := client.NewProjectCommit("", pipeline1, "master", "")
 	pipeline2 := tu.UniqueString("TestTrigger2")
-	pipelineCommit2 := client.NewCommit(pipeline2, "master", "")
+	pipelineCommit2 := client.NewProjectCommit("", pipeline2, "master", "")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
 		"",
@@ -9644,7 +9644,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.GetFile(pipelineCommit1, fmt.Sprintf("file%d", i), &buf))
 		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
 	}
-	_, err = c.ListCommit(client.NewRepo(pipeline1), client.NewCommit(pipeline1, "master", ""), nil, 0)
+	_, err = c.ListCommit(client.NewProjectRepo("", pipeline1), client.NewProjectCommit("", pipeline1, "master", ""), nil, 0)
 	require.NoError(t, err)
 	// Another 10 100 byte files = 2K, so the last file should trigger both pipelines.
 	for i := numFiles; i < 2*numFiles; i++ {
@@ -9664,10 +9664,10 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.GetFile(pipelineCommit2, fmt.Sprintf("file%d", i), &buf))
 		require.Equal(t, strings.Repeat("a", fileBytes), buf.String())
 	}
-	commitInfos, err = c.ListCommit(client.NewRepo(pipeline1), client.NewCommit(pipeline1, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline1), client.NewProjectCommit("", pipeline1, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-	commitInfos, err = c.ListCommit(client.NewRepo(pipeline2), client.NewCommit(pipeline2, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline2), client.NewProjectCommit("", pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
@@ -9694,7 +9694,7 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(bis))
 
-	commitInfos, err = c.ListCommit(client.NewRepo(pipeline2), client.NewCommit(pipeline2, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline2), client.NewProjectCommit("", pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 
@@ -9709,7 +9709,7 @@ func TestTrigger(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 9, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(client.NewRepo(pipeline2), client.NewCommit(pipeline2, "master", ""), nil, 0)
+	commitInfos, err = c.ListCommit(client.NewProjectRepo("", pipeline2), client.NewProjectCommit("", pipeline2, "master", ""), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
 }
@@ -9726,8 +9726,8 @@ func TestListDatum(t *testing.T) {
 
 	numFiles := 5
 	for i := 0; i < numFiles; i++ {
-		require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
-		require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo1, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
 
 	commitInfo, err := c.InspectCommit(repo1, "master", "")
@@ -9770,8 +9770,8 @@ func TestListDatumFilter(t *testing.T) {
 
 	numFiles := 5
 	for i := 0; i < numFiles; i++ {
-		require.NoError(t, c.PutFile(client.NewCommit(repo1, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
-		require.NoError(t, c.PutFile(client.NewCommit(repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo1, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo2, "master", ""), fmt.Sprintf("file-%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
 
 	commitInfo, err := c.InspectCommit(repo1, "master", "")
@@ -9924,10 +9924,10 @@ func TestUpdateMultiplePipelinesInTransaction(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	input := tu.UniqueString("in")
-	commit := client.NewCommit(input, "master", "")
+	commit := client.NewProjectCommit("", input, "master", "")
 	pipelineA := tu.UniqueString("A")
 	pipelineB := tu.UniqueString("B")
-	repoB := client.NewRepo(pipelineB)
+	repoB := client.NewProjectRepo("", pipelineB)
 
 	createPipeline := func(c *client.APIClient, input, pipeline string, update bool) error {
 		return c.CreatePipeline(
@@ -10227,14 +10227,14 @@ func TestNonrootPipeline(t *testing.T) {
 	for _, info := range commitInfos {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
-	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo("", pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -10282,7 +10282,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	}
 	require.NoError(t, create(false, dataRepo))
 
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "first", strings.NewReader("first")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "first", strings.NewReader("first")))
 	_, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
@@ -10296,8 +10296,8 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	// add new files to both repos
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "second", strings.NewReader("second")))
-	require.NoError(t, c.PutFile(client.NewCommit(laterRepo, "master", ""), "later", strings.NewReader("later")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "second", strings.NewReader("second")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", laterRepo, "master", ""), "later", strings.NewReader("later")))
 	_, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
@@ -10312,13 +10312,13 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.NotEqual(t, info.Commit.ID, oldCommit.Commit.ID)
 
 	// laterRepo has the same contents
-	files, err := c.ListFileAll(client.NewCommit(laterRepo, "master", info.Commit.ID), "/")
+	files, err := c.ListFileAll(client.NewProjectCommit("", laterRepo, "master", info.Commit.ID), "/")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
 	require.Equal(t, "/later", files[0].File.Path)
 
 	// which is reflected in the output
-	files, err = c.ListFileAll(client.NewCommit(pipeline, "master", info.Commit.ID), "/")
+	files, err = c.ListFileAll(client.NewProjectCommit("", pipeline, "master", info.Commit.ID), "/")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(files))
 	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
@@ -10357,7 +10357,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	require.NoError(t, c.PutFile(client.NewCommit(dataRepo, "master", ""), "foo", strings.NewReader("bar")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", dataRepo, "master", ""), "foo", strings.NewReader("bar")))
 	_, err = c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
 
@@ -10367,7 +10367,7 @@ func TestMoveBranchTrigger(t *testing.T) {
 	require.NoError(t, err)
 
 	// make sure the trigger triggered
-	files, err := c.ListFileAll(client.NewCommit(dataRepo, "trigger", ""), "/")
+	files, err := c.ListFileAll(client.NewProjectCommit("", dataRepo, "trigger", ""), "/")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
 	require.Equal(t, "/foo", files[0].File.Path)
@@ -10444,7 +10444,7 @@ func TestDatumSetCache(t *testing.T) {
 	c = c.WithDefaultTransformUser("1000")
 	dataRepo := tu.UniqueString("TestDatumSetCache_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	masterCommit := client.NewCommit(dataRepo, "master", "")
+	masterCommit := client.NewProjectCommit("", dataRepo, "master", "")
 	require.NoError(t, c.WithModifyFileClient(masterCommit, func(mfc client.ModifyFile) error {
 		for i := 0; i < 90; i++ {
 			require.NoError(t, mfc.PutFile(strconv.Itoa(i), strings.NewReader("")))
@@ -10482,8 +10482,10 @@ func TestDatumSetCache(t *testing.T) {
 	}()
 	commitInfo, err := c.InspectCommit(pipeline, "master", "")
 	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
-	require.NoError(t, err)
+	require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+		_, err = c.WaitCommitSetAll(commitInfo.Commit.ID)
+		return err
+	})
 	for i := 0; i < 5; i++ {
 		_, err := c.InspectFile(commitInfo.Commit, strconv.Itoa(i))
 		require.NoError(t, err)
@@ -10492,7 +10494,7 @@ func TestDatumSetCache(t *testing.T) {
 
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
-	rcName := ppsutil.PipelineRcName(pipeline, 1)
+	rcName := ppsutil.PipelineRcName("", pipeline, 1)
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int
@@ -10574,11 +10576,11 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 		"",
 		false,
 	))
-	require.NoError(t, c.PutFile(client.NewCommit("inA", "master", ""), "file", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", "inA", "master", ""), "file", strings.NewReader("foo")))
 	commitInfo, err := c.WaitCommit("A", "master", "")
 	require.NoError(t, err)
 	require.True(t, strings.Contains(commitInfo.Error, "failed"))
-	require.NoError(t, c.PutFile(client.NewCommit("inB", "master", ""), "file", strings.NewReader("foo")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", "inB", "master", ""), "file", strings.NewReader("foo")))
 }
 
 func TestTemporaryDuplicatedPath(t *testing.T) {
@@ -10595,18 +10597,18 @@ func TestTemporaryDuplicatedPath(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	require.NoError(t, c.CreateRepo(other))
 
-	require.NoError(t, c.PutFile(client.NewCommit(other, "master", ""), "empty",
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", other, "master", ""), "empty",
 		strings.NewReader("")))
 
 	// add an output file bigger than the sharding threshold so that two in a row
 	// will fall on either side of a naive shard division
 	bigSize := fileset.DefaultShardSizeThreshold * 5 / 4
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "a",
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), "a",
 		strings.NewReader(strconv.Itoa(bigSize/units.MB))))
 
 	// add some more files to push the fileset that deletes the old datums out of the first fan-in
 	for i := 0; i < 10; i++ {
-		require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), fmt.Sprintf("b-%d", i),
+		require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), fmt.Sprintf("b-%d", i),
 			strings.NewReader("1")))
 	}
 
@@ -10656,8 +10658,8 @@ func TestValidationFailure(t *testing.T) {
 
 	require.NoError(t, c.CreateRepo(repo))
 
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "foo", strings.NewReader("baz")))
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""), "bar", strings.NewReader("baz")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), "foo", strings.NewReader("baz")))
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""), "bar", strings.NewReader("baz")))
 
 	req := basicPipelineReq(pipeline, repo)
 	req.Transform.Stdin = []string{
@@ -10759,7 +10761,7 @@ func TestPPSEgressToSnowflake(t *testing.T) {
 	}
 
 	// Initial load
-	master := client.NewCommit(repo, "master", "")
+	master := client.NewProjectCommit("", repo, "master", "")
 	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
 	commitInfo, err := c.WaitCommit(pipeline, "master", "")
 	require.NoError(t, err)
@@ -10829,7 +10831,7 @@ func TestMissingSecretFailure(t *testing.T) {
 	require.NoError(t, kc.Delete(c.Ctx(), secret, metav1.DeleteOptions{}))
 	// force pipeline to come back up, and check for failure
 	require.NoError(t, c.PutFile(
-		client.NewCommit(repo, "master", ""), "foo", strings.NewReader("bar")))
+		client.NewProjectCommit("", repo, "master", ""), "foo", strings.NewReader("bar")))
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
 		info, err := c.InspectPipeline(pipeline, false)
 		if err != nil {
@@ -10945,14 +10947,14 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 	for _, info := range commitInfos {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
-	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo("", pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -10993,14 +10995,14 @@ func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
 	for _, info := range commitInfos {
 		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
 	}
-	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(dataRepo))
-	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipeline, pfs.SpecRepoType))
-	require.EqualOneOf(t, commitRepos[2:], client.NewRepo(pipeline))
-	require.EqualOneOf(t, commitRepos[2:], client.NewSystemRepo(pipeline, pfs.MetaRepoType))
+	require.EqualOneOf(t, commitRepos[:2], client.NewProjectRepo("", dataRepo))
+	require.EqualOneOf(t, commitRepos[:2], client.NewSystemProjectRepo("", pipeline, pfs.SpecRepoType))
+	require.EqualOneOf(t, commitRepos[2:], client.NewProjectRepo("", pipeline))
+	require.EqualOneOf(t, commitRepos[2:], client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType))
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipeline)) {
+		if proto.Equal(info.Commit.Branch.Repo, client.NewProjectRepo("", pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -11018,7 +11020,7 @@ func TestZombieCheck(t *testing.T) {
 	pipeline := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(repo))
 
-	require.NoError(t, c.PutFile(client.NewCommit(repo, "master", ""),
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", repo, "master", ""),
 		"foo", strings.NewReader("baz")))
 
 	req := basicPipelineReq(pipeline, repo)
@@ -11040,7 +11042,7 @@ func TestZombieCheck(t *testing.T) {
 		if _, err := c.StartCommit(pipeline, "master"); err != nil {
 			return errors.EnsureStack(err)
 		}
-		metaBranch := client.NewSystemRepo(pipeline, pfs.MetaRepoType).NewBranch("master")
+		metaBranch := client.NewSystemProjectRepo("", pipeline, pfs.MetaRepoType).NewBranch("master")
 		if _, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{Branch: metaBranch}); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -11049,7 +11051,7 @@ func TestZombieCheck(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// add a file to the output with a datum that doesn't exist
-	require.NoError(t, c.PutFile(client.NewCommit(pipeline, "master", ""),
+	require.NoError(t, c.PutFile(client.NewProjectCommit("", pipeline, "master", ""),
 		"zombie", strings.NewReader("zombie"), client.WithDatumPutFile("zombie")))
 	require.NoError(t, c.FinishCommit(pipeline, "master", ""))
 	_, err = c.WaitCommit(pipeline, "master", "")

@@ -30,7 +30,7 @@ const (
 func TestBasic(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	commit := client.NewProjectCommit("", "repo", "master", "")
 	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
@@ -61,7 +61,7 @@ func TestBasic(t *testing.T) {
 func TestChunkSize(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	err := env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
+	err := env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "file"))
@@ -75,7 +75,7 @@ func TestLargeFile(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	random.SeedRand(123)
 	src := random.String(GB + 17)
-	err := env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "file", strings.NewReader(src))
+	err := env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "file", strings.NewReader(src))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "file"))
@@ -89,7 +89,7 @@ func BenchmarkLargeFile(b *testing.B) {
 	require.NoError(b, env.PachClient.CreateRepo("repo"))
 	random.SeedRand(123)
 	src := random.String(GB)
-	err := env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "file", strings.NewReader(src))
+	err := env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -106,7 +106,7 @@ func TestSeek(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
 	data := strings.Repeat("foo", MB)
-	err := env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "file", strings.NewReader(data))
+	err := env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "file", strings.NewReader(data))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, nil, func(mountPoint string) {
 		f, err := os.Open(filepath.Join(mountPoint, "repo", "file"))
@@ -159,7 +159,7 @@ func TestReadOnly(t *testing.T) {
 func TestWrite(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	commit := client.NewCommit("repo", "master", "")
+	commit := client.NewProjectCommit("", "repo", "master", "")
 	// First, create a file
 	withMount(t, env.PachClient, &Options{
 		Fuse: &fs.Options{
@@ -271,7 +271,7 @@ func TestRepoOpts(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateRepo("repo1"))
 	require.NoError(t, env.PachClient.CreateRepo("repo2"))
 	require.NoError(t, env.PachClient.CreateRepo("repo3"))
-	file := client.NewFile("repo1", "master", "", "")
+	file := client.NewProjectFile("", "repo1", "master", "", "")
 	err := env.PachClient.PutFile(file.Commit, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
@@ -311,7 +311,7 @@ func TestRepoOpts(t *testing.T) {
 		require.Equal(t, "foo\n", string(data))
 		require.NoError(t, os.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
-	stagingCommit := client.NewCommit("repo1", "staging", "")
+	stagingCommit := client.NewProjectCommit("", "repo1", "staging", "")
 	err = env.PachClient.PutFile(stagingCommit, "buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
 	withMount(t, env.PachClient, &Options{
@@ -322,7 +322,7 @@ func TestRepoOpts(t *testing.T) {
 			},
 		},
 		RepoOptions: map[string]*RepoOptions{
-			"repo1": {Name: "repo1", File: client.NewFile("repo1", "staging", "", ""), Write: true},
+			"repo1": {Name: "repo1", File: client.NewProjectFile("", "repo1", "staging", "", ""), Write: true},
 		},
 	}, func(mountPoint string) {
 		repos, err := os.ReadDir(mountPoint)
@@ -344,7 +344,7 @@ func TestOpenCommit(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("in"))
 	require.NoError(t, env.PachClient.CreateRepo("out"))
-	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewBranch("in", "master")}))
+	require.NoError(t, env.PachClient.CreateBranch("out", "master", "", "", []*pfs.Branch{client.NewProjectBranch("", "in", "master")}))
 	require.NoError(t, env.PachClient.FinishCommit("out", "master", ""))
 	_, err := env.PachClient.StartCommit("in", "master")
 	require.NoError(t, err)
@@ -436,14 +436,14 @@ func TestMountCommit(t *testing.T) {
 func TestMountFile(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	require.NoError(t, env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "foo", strings.NewReader("foo")))
-	require.NoError(t, env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "bar", strings.NewReader("bar")))
-	require.NoError(t, env.PachClient.PutFile(client.NewCommit("repo", "master", ""), "buzz", strings.NewReader("buzz")))
+	require.NoError(t, env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "foo", strings.NewReader("foo")))
+	require.NoError(t, env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "bar", strings.NewReader("bar")))
+	require.NoError(t, env.PachClient.PutFile(client.NewProjectCommit("", "repo", "master", ""), "buzz", strings.NewReader("buzz")))
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
 				Name: "repo",
-				File: client.NewFile("repo", "master", "master^", "/foo"),
+				File: client.NewProjectFile("", "repo", "master", "master^", "/foo"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -466,7 +466,7 @@ func TestMountFile(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
 				Name: "repo",
-				File: client.NewFile("repo", "master", "", "/bar"),
+				File: client.NewProjectFile("", "repo", "master", "", "/bar"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -489,7 +489,7 @@ func TestMountFile(t *testing.T) {
 func TestMountDir(t *testing.T) {
 	env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t))
 	require.NoError(t, env.PachClient.CreateRepo("repo"))
-	err := env.PachClient.WithModifyFileClient(client.NewCommit("repo", "master", ""), func(mf client.ModifyFile) error {
+	err := env.PachClient.WithModifyFileClient(client.NewProjectCommit("", "repo", "master", ""), func(mf client.ModifyFile) error {
 		if err := mf.PutFile("dir/foo", strings.NewReader("foo")); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -503,7 +503,7 @@ func TestMountDir(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
 				Name: "repo",
-				File: client.NewFile("repo", "master", "", "/dir/foo"),
+				File: client.NewProjectFile("", "repo", "master", "", "/dir/foo"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -531,7 +531,7 @@ func TestMountDir(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
 				Name: "repo",
-				File: client.NewFile("repo", "master", "", "/dir/bar"),
+				File: client.NewProjectFile("", "repo", "master", "", "/dir/bar"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -559,7 +559,7 @@ func TestMountDir(t *testing.T) {
 		RepoOptions: map[string]*RepoOptions{
 			"repo": &RepoOptions{
 				Name: "repo",
-				File: client.NewFile("repo", "master", "", "/dir"),
+				File: client.NewProjectFile("", "repo", "master", "", "/dir"),
 			},
 		},
 	}, func(mountPoint string) {
@@ -615,7 +615,7 @@ func withMount(tb testing.TB, c *client.APIClient, opts *Options, f func(mountPo
 		}
 	}()
 	go func() {
-		mountErr = Mount(c, dir, opts)
+		mountErr = Mount(c, "", dir, opts)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.

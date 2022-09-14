@@ -46,7 +46,7 @@ func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadClose
 	if err := cc.renewer.Add(cc.APIClient.Ctx(), id); err != nil {
 		return nil, err
 	}
-	commit = client.NewCommit(client.FileSetsRepoName, "", id)
+	commit = client.NewProjectCommit(commit.Branch.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
 	cc.put(key, commit)
 	return cc.APIClient.GetFileTAR(commit, path)
 }

@@ -60,8 +60,8 @@ func mountCmds() []*cobra.Command {
 
 	var write bool
 	var debug bool
-	var project string
 	var repoOpts cmdutil.RepeatedStringArg
+	var project string
 	mount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
@@ -90,7 +90,7 @@ func mountCmds() []*cobra.Command {
 			}
 			// Prints a warning if we're on macOS
 			PrintWarning()
-			return fuse.Mount(c, mountPoint, opts)
+			return fuse.Mount(c, project, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&write, "write", "w", false, "Allow writing to pfs through the mount.")

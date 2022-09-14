@@ -48,12 +48,13 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	require.NoError(t, env.PachClient.CreateBranch(input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
-	pipelineRepo := client.NewRepo(pipelineInfo.Pipeline.Name)
+	projectName := pipelineInfo.Pipeline.Project.GetName()
+	pipelineRepo := client.NewProjectRepo(projectName, pipelineInfo.Pipeline.Name)
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: pipelineRepo})
 	require.NoError(t, err)
 
 	// Create the spec system repo and create the initial spec commit
-	specRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
+	specRepo := client.NewSystemProjectRepo(projectName, pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	specCommit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
@@ -65,7 +66,7 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch),
 		Provenance: []*pfs.Branch{
-			client.NewBranch(input.Repo, input.Branch),
+			client.NewProjectBranch(projectName, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})
@@ -73,14 +74,14 @@ func setupPachAndWorker(t *testing.T, dbConfig serviceenv.ConfigOption, pipeline
 	err = closeHeadCommit(ctx, env, pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch))
 	require.NoError(t, err)
 	// Create the meta system repo and set up the branch provenance
-	metaRepo := client.NewSystemRepo(pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	metaRepo := client.NewSystemProjectRepo("", pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 	branch := metaRepo.NewBranch("master")
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: branch,
 		Provenance: []*pfs.Branch{
-			client.NewBranch(input.Repo, input.Branch),
+			client.NewProjectBranch(input.Project, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})
@@ -156,7 +157,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
 	// Mock out the initial ListJob, and InspectJob calls
 	jobInfo := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Name, commit.ID)}
-	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
+	jobInfo.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
 	jobInfo.Details = &pps.JobInfo_Details{
 		Transform:        pi.Details.Transform,
 		ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -165,7 +166,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		Spout:            pi.Details.Spout,
 		ResourceRequests: pi.Details.ResourceRequests,
 		ResourceLimits:   pi.Details.ResourceLimits,
-		Input:            ppsutil.JobInput(pi, client.NewCommit(pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, commit.ID)),
+		Input:            ppsutil.JobInput(pi, client.NewProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, commit.ID)),
 		Salt:             pi.Details.Salt,
 		DatumSetSpec:     pi.Details.DatumSetSpec,
 		DatumTimeout:     pi.Details.DatumTimeout,
@@ -181,7 +182,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			return result, nil
 		}
 		mockJI := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Name, request.Job.ID)}
-		mockJI.OutputCommit = client.NewCommit(pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
+		mockJI.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
 		mockJI.Details = &pps.JobInfo_Details{
 			Transform:        pi.Details.Transform,
 			ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -190,7 +191,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			Spout:            pi.Details.Spout,
 			ResourceRequests: pi.Details.ResourceRequests,
 			ResourceLimits:   pi.Details.ResourceLimits,
-			Input:            ppsutil.JobInput(pi, client.NewCommit(pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, request.Job.ID)),
+			Input:            ppsutil.JobInput(pi, client.NewProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, request.Job.ID)),
 			Salt:             pi.Details.Salt,
 			DatumSetSpec:     pi.Details.DatumSetSpec,
 			DatumTimeout:     pi.Details.DatumTimeout,
