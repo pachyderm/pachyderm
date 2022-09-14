@@ -33,76 +33,59 @@ const (
 	defaultNumRetries = 3
 )
 
-// SetSpec specifies criteria for creating datum sets.
-type SetSpec struct {
-	Number    int64
-	SizeBytes int64
-}
-
-// CreateSets creates datum sets from the passed in datum iterator.
-func CreateSets(dit Iterator, storageRoot string, setSpec *SetSpec, upload func(func(client.ModifyFile) error) error) error {
-	var metas []*Meta
+func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
+	commit := client.NewRepo(client.FileSetsRepoName).NewCommit("", fileSetID)
+	pathRange := &pfs.PathRange{
+		Lower: basePathRange.Lower,
+	}
 	shouldCreateSet := shouldCreateSetFunc(setSpec)
-	if err := dit.Iterate(func(meta *Meta) error {
-		metas = append(metas, meta)
+	var sets []*pfs.PathRange
+	if err := iterateMeta(pachClient, commit, basePathRange, func(path string, meta *Meta) error {
 		if shouldCreateSet(meta) {
-			if err := createSet(metas, storageRoot, upload); err != nil {
-				return err
+			pathRange.Upper = path
+			sets = append(sets, pathRange)
+			pathRange = &pfs.PathRange{
+				Lower: path,
 			}
-			metas = nil
 		}
 		return nil
 	}); err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.EnsureStack(err)
 	}
-	if len(metas) > 0 {
-		return createSet(metas, storageRoot, upload)
-	}
-	return nil
+	pathRange.Upper = basePathRange.Upper
+	return append(sets, pathRange), nil
 }
 
 func shouldCreateSetFunc(setSpec *SetSpec) func(*Meta) bool {
+	if setSpec.Number == 0 && setSpec.SizeBytes == 0 {
+		setSpec.Number = 1
+	}
 	switch {
-	case setSpec.Number > 0:
-		var num int64
-		return func(meta *Meta) bool {
-			num++
-			if num >= setSpec.Number {
-				num = 0
-				return true
-			}
-			return false
-		}
 	case setSpec.SizeBytes > 0:
 		var size int64
 		return func(meta *Meta) bool {
+			var shouldCreate bool
+			if size >= setSpec.SizeBytes {
+				shouldCreate = true
+				size = 0
+			}
 			for _, input := range meta.Inputs {
 				size += int64(input.FileInfo.SizeBytes)
 			}
-			if size >= setSpec.SizeBytes {
-				size = 0
-				return true
-			}
-			return false
+			return shouldCreate
 		}
 	default:
+		var num int64
 		return func(meta *Meta) bool {
-			return true
+			var shouldCreate bool
+			if num >= setSpec.Number {
+				shouldCreate = true
+				num = 0
+			}
+			num++
+			return shouldCreate
 		}
 	}
-}
-
-func createSet(metas []*Meta, storageRoot string, upload func(func(client.ModifyFile) error) error) error {
-	return upload(func(mf client.ModifyFile) error {
-		return WithSet(nil, storageRoot, func(s *Set) error {
-			for _, meta := range metas {
-				if err := s.UploadMeta(meta, WithPrefixIndex()); err != nil {
-					return err
-				}
-			}
-			return nil
-		}, WithMetaOutput(mf))
-	})
 }
 
 // Set manages a set of datums.

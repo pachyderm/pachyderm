@@ -1,12 +1,13 @@
 package common
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"path"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -22,20 +23,11 @@ const (
 	OutputPrefix = "out"
 	// TmpFileName is the name of the tmp file.
 	TmpFileName = "tmp"
+	TTL         = 15 * time.Minute
 )
 
 func MetaFilePath(id string) string {
 	return path.Join(MetaPrefix, id, MetaFileName)
-}
-
-// IsDone returns true if the given context has been canceled, or false otherwise
-func IsDone(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return true
-	default:
-		return false
-	}
 }
 
 // DatumID computes the ID of a datum.
@@ -87,4 +79,19 @@ dataFilters:
 		break
 	}
 	return matchesData
+}
+
+// TODO: Trim non-meta file shards?
+func Shard(pachClient *client.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
+	var result []*pfs.PathRange
+	for _, fileSetID := range fileSetIDs {
+		shards, err := pachClient.ShardFileSet(fileSetID)
+		if err != nil {
+			return nil, err
+		}
+		if len(shards) > len(result) {
+			result = shards
+		}
+	}
+	return result, nil
 }

@@ -6,6 +6,7 @@ package server
 import (
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
+	index "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -23,10 +24,11 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type ShardTask struct {
-	Inputs               []string `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Inputs               []string   `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	PathRange            *PathRange `protobuf:"bytes,2,opt,name=path_range,json=pathRange,proto3" json:"path_range,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
 func (m *ShardTask) Reset()         { *m = ShardTask{} }
@@ -65,6 +67,13 @@ var xxx_messageInfo_ShardTask proto.InternalMessageInfo
 func (m *ShardTask) GetInputs() []string {
 	if m != nil {
 		return m.Inputs
+	}
+	return nil
+}
+
+func (m *ShardTask) GetPathRange() *PathRange {
+	if m != nil {
+		return m.PathRange
 	}
 	return nil
 }
@@ -119,8 +128,6 @@ func (m *ShardTaskResult) GetCompactTasks() []*CompactTask {
 type PathRange struct {
 	Lower                string   `protobuf:"bytes,1,opt,name=lower,proto3" json:"lower,omitempty"`
 	Upper                string   `protobuf:"bytes,2,opt,name=upper,proto3" json:"upper,omitempty"`
-	LowerDatum           string   `protobuf:"bytes,3,opt,name=lower_datum,json=lowerDatum,proto3" json:"lower_datum,omitempty"`
-	UpperDatum           string   `protobuf:"bytes,4,opt,name=upper_datum,json=upperDatum,proto3" json:"upper_datum,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -169,20 +176,6 @@ func (m *PathRange) GetLower() string {
 func (m *PathRange) GetUpper() string {
 	if m != nil {
 		return m.Upper
-	}
-	return ""
-}
-
-func (m *PathRange) GetLowerDatum() string {
-	if m != nil {
-		return m.LowerDatum
-	}
-	return ""
-}
-
-func (m *PathRange) GetUpperDatum() string {
-	if m != nil {
-		return m.UpperDatum
 	}
 	return ""
 }
@@ -384,10 +377,11 @@ func (m *ConcatTaskResult) GetId() string {
 }
 
 type ValidateTask struct {
-	Id                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Id                   string     `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	PathRange            *PathRange `protobuf:"bytes,2,opt,name=path_range,json=pathRange,proto3" json:"path_range,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
+	XXX_unrecognized     []byte     `json:"-"`
+	XXX_sizecache        int32      `json:"-"`
 }
 
 func (m *ValidateTask) Reset()         { *m = ValidateTask{} }
@@ -430,12 +424,21 @@ func (m *ValidateTask) GetId() string {
 	return ""
 }
 
+func (m *ValidateTask) GetPathRange() *PathRange {
+	if m != nil {
+		return m.PathRange
+	}
+	return nil
+}
+
 type ValidateTaskResult struct {
-	SizeBytes            int64    `protobuf:"varint,1,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	Error                string   `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	First                *index.Index `protobuf:"bytes,1,opt,name=first,proto3" json:"first,omitempty"`
+	Last                 *index.Index `protobuf:"bytes,2,opt,name=last,proto3" json:"last,omitempty"`
+	Error                string       `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
+	SizeBytes            int64        `protobuf:"varint,4,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
 }
 
 func (m *ValidateTaskResult) Reset()         { *m = ValidateTaskResult{} }
@@ -471,11 +474,18 @@ func (m *ValidateTaskResult) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ValidateTaskResult proto.InternalMessageInfo
 
-func (m *ValidateTaskResult) GetSizeBytes() int64 {
+func (m *ValidateTaskResult) GetFirst() *index.Index {
 	if m != nil {
-		return m.SizeBytes
+		return m.First
 	}
-	return 0
+	return nil
+}
+
+func (m *ValidateTaskResult) GetLast() *index.Index {
+	if m != nil {
+		return m.Last
+	}
+	return nil
 }
 
 func (m *ValidateTaskResult) GetError() string {
@@ -483,6 +493,13 @@ func (m *ValidateTaskResult) GetError() string {
 		return m.Error
 	}
 	return ""
+}
+
+func (m *ValidateTaskResult) GetSizeBytes() int64 {
+	if m != nil {
+		return m.SizeBytes
+	}
+	return 0
 }
 
 func init() {
@@ -500,30 +517,33 @@ func init() {
 func init() { proto.RegisterFile("server/pfs/server/pfsserver.proto", fileDescriptor_a5a92e512e703e9c) }
 
 var fileDescriptor_a5a92e512e703e9c = []byte{
-	// 369 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x52, 0xbd, 0x4e, 0xeb, 0x30,
-	0x14, 0x56, 0xda, 0x7b, 0x2b, 0xe5, 0xa4, 0xf7, 0x02, 0x51, 0x55, 0x65, 0x21, 0x14, 0x97, 0xa1,
-	0x53, 0x23, 0xb5, 0x03, 0x03, 0x5b, 0x0b, 0x03, 0x0b, 0x42, 0x01, 0x31, 0x74, 0x89, 0xdc, 0xc4,
-	0x34, 0x51, 0x7f, 0x6c, 0xd9, 0x4e, 0x51, 0x79, 0x42, 0x46, 0x1e, 0x01, 0xf5, 0x49, 0x90, 0xed,
-	0x90, 0x44, 0xa0, 0xb2, 0x9d, 0xef, 0xc7, 0xc7, 0xe7, 0x3b, 0x3a, 0x70, 0x2e, 0x08, 0xdf, 0x12,
-	0x1e, 0xb0, 0x67, 0x11, 0x54, 0xa5, 0xa9, 0x86, 0x8c, 0x53, 0x49, 0x5d, 0xbb, 0x24, 0x50, 0x1f,
-	0xec, 0x87, 0x14, 0xf3, 0xe4, 0x11, 0x8b, 0xa5, 0xdb, 0x85, 0x56, 0xb6, 0x61, 0xb9, 0x14, 0x9e,
-	0xd5, 0x6b, 0x0e, 0xec, 0xb0, 0x40, 0xe8, 0x0e, 0x8e, 0x4a, 0x53, 0x48, 0x44, 0xbe, 0x92, 0xee,
-	0x15, 0xfc, 0x8b, 0xe9, 0x9a, 0xe1, 0x58, 0x46, 0x12, 0x8b, 0xa5, 0x79, 0xe1, 0x8c, 0xba, 0xc3,
-	0xea, 0xaf, 0xa9, 0xd1, 0xf5, 0xa3, 0x76, 0x5c, 0x01, 0x81, 0x76, 0x60, 0xdf, 0x63, 0x99, 0x86,
-	0x78, 0xb3, 0x20, 0x6e, 0x07, 0xfe, 0xae, 0xe8, 0x0b, 0xe1, 0x9e, 0xd5, 0xb3, 0x06, 0x76, 0x68,
-	0x80, 0x62, 0x73, 0xc6, 0x08, 0xf7, 0x1a, 0x86, 0xd5, 0xc0, 0x3d, 0x03, 0x47, 0xcb, 0x51, 0x82,
-	0x65, 0xbe, 0xf6, 0x9a, 0x5a, 0x03, 0x4d, 0x5d, 0x2b, 0x46, 0x19, 0xb4, 0xb3, 0x30, 0xfc, 0x31,
-	0x06, 0x4d, 0x69, 0x03, 0x9a, 0x81, 0x53, 0x9b, 0xeb, 0x50, 0x62, 0x77, 0x0c, 0xc0, 0xb0, 0x4c,
-	0x23, 0xae, 0x46, 0xd4, 0x33, 0x38, 0xa3, 0x4e, 0x2d, 0x5b, 0x39, 0x7e, 0x68, 0xb3, 0xaf, 0x12,
-	0xf5, 0xe1, 0xa4, 0x9e, 0xd9, 0x2c, 0xea, 0x3f, 0x34, 0xb2, 0xa4, 0xc8, 0xd6, 0xc8, 0x12, 0x74,
-	0x01, 0x30, 0xa5, 0x9b, 0x18, 0xff, 0xfa, 0x3f, 0x42, 0x70, 0x5c, 0xb9, 0x0e, 0x74, 0xf2, 0xa1,
-	0xfd, 0x84, 0x57, 0x59, 0x82, 0x25, 0xd1, 0xbd, 0xbe, 0xeb, 0xb7, 0xe0, 0xd6, 0xf5, 0xa2, 0xcb,
-	0x29, 0x80, 0xc8, 0x5e, 0x49, 0x34, 0xdf, 0x49, 0x22, 0xb4, 0xbb, 0x19, 0xda, 0x8a, 0x99, 0x28,
-	0x42, 0xed, 0x9d, 0x70, 0x4e, 0xcb, 0xbd, 0x6b, 0x30, 0xb9, 0x79, 0xdb, 0xfb, 0xd6, 0xfb, 0xde,
-	0xb7, 0x3e, 0xf6, 0xbe, 0x35, 0xbb, 0x5c, 0x64, 0x32, 0xcd, 0xe7, 0xc3, 0x98, 0xae, 0x03, 0x86,
-	0xe3, 0x74, 0x97, 0x10, 0x5e, 0xaf, 0xb6, 0xa3, 0x40, 0xf0, 0x38, 0xf8, 0x71, 0x87, 0xf3, 0x96,
-	0x3e, 0xbf, 0xf1, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0x7c, 0x74, 0x04, 0x8f, 0xa3, 0x02, 0x00,
+	// 417 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0x4d, 0x6f, 0x13, 0x31,
+	0x10, 0x95, 0x93, 0xb6, 0x92, 0x27, 0xe1, 0xcb, 0xaa, 0xaa, 0x15, 0x12, 0xd1, 0x62, 0x38, 0x44,
+	0x1c, 0x62, 0x29, 0x3d, 0xf4, 0xc0, 0xad, 0x15, 0x07, 0x2e, 0x08, 0xb9, 0x08, 0xa1, 0x5e, 0x22,
+	0x67, 0x77, 0x92, 0xb5, 0xba, 0x5d, 0x5b, 0xb6, 0x53, 0x08, 0x7f, 0x82, 0xbf, 0xc5, 0x91, 0x9f,
+	0x80, 0xf2, 0x4b, 0xd0, 0xae, 0x97, 0xec, 0x02, 0x82, 0x03, 0xea, 0xc5, 0x9a, 0x37, 0xcf, 0x7e,
+	0xef, 0x8d, 0x6c, 0xc3, 0x53, 0x8f, 0xee, 0x16, 0x9d, 0xb0, 0x2b, 0x2f, 0xba, 0x32, 0x56, 0x33,
+	0xeb, 0x4c, 0x30, 0x8c, 0xee, 0x1b, 0x8f, 0x5f, 0xe8, 0x2a, 0xa0, 0xab, 0x54, 0x29, 0x7c, 0x30,
+	0x4e, 0xad, 0x51, 0xac, 0x74, 0x89, 0x1e, 0x83, 0xd0, 0x55, 0x8e, 0x9f, 0xe2, 0x1a, 0x8f, 0xf1,
+	0x0f, 0x40, 0x2f, 0x0b, 0xe5, 0xf2, 0x77, 0xca, 0x5f, 0xb3, 0x13, 0x38, 0xd2, 0x95, 0xdd, 0x04,
+	0x9f, 0x90, 0x74, 0x38, 0xa5, 0xb2, 0x45, 0xec, 0x14, 0xc0, 0xaa, 0x50, 0x2c, 0x9c, 0xaa, 0xd6,
+	0x98, 0x0c, 0x52, 0x32, 0x1d, 0xcd, 0x8f, 0x67, 0x5d, 0x82, 0xb7, 0x2a, 0x14, 0xb2, 0xe6, 0x24,
+	0xb5, 0x3f, 0x4b, 0xfe, 0x06, 0x1e, 0xec, 0x95, 0x25, 0xfa, 0x4d, 0x19, 0xd8, 0x4b, 0xb8, 0x97,
+	0x99, 0x1b, 0xab, 0xb2, 0xb0, 0x08, 0xca, 0x5f, 0x47, 0x9b, 0xd1, 0xfc, 0xa4, 0x27, 0x75, 0x11,
+	0xf9, 0xe6, 0xd0, 0x38, 0xeb, 0x80, 0xe7, 0x67, 0x40, 0xf7, 0x3e, 0xec, 0x18, 0x0e, 0x4b, 0xf3,
+	0x11, 0x5d, 0x42, 0x52, 0x32, 0xa5, 0x32, 0x82, 0xba, 0xbb, 0xb1, 0x16, 0x5d, 0x13, 0x91, 0xca,
+	0x08, 0xf8, 0x15, 0x8c, 0x7a, 0xaa, 0x77, 0x3b, 0xe4, 0x33, 0x78, 0xd4, 0x4f, 0x1c, 0xc7, 0xbc,
+	0x0f, 0x03, 0x9d, 0xb7, 0xc9, 0x06, 0x3a, 0xe7, 0xcf, 0x01, 0x2e, 0x4c, 0x95, 0xa9, 0x7f, 0xfa,
+	0x73, 0x0e, 0x0f, 0xbb, 0x5d, 0x7f, 0x51, 0xba, 0x84, 0xf1, 0x7b, 0x55, 0xea, 0x5c, 0x05, 0x6c,
+	0xb4, 0x7e, 0xe3, 0xff, 0x6f, 0x86, 0x2f, 0x04, 0x58, 0x5f, 0xb5, 0xf5, 0xe6, 0x70, 0xb8, 0xd2,
+	0xce, 0x87, 0x46, 0x7e, 0x34, 0x1f, 0xcf, 0xe2, 0xb3, 0x79, 0x5d, 0xaf, 0x32, 0x52, 0x2c, 0x85,
+	0x83, 0x52, 0xf9, 0xd0, 0x3a, 0xfd, 0xba, 0xa5, 0x61, 0xea, 0x2b, 0x41, 0xe7, 0x8c, 0x4b, 0x86,
+	0xf1, 0x4a, 0x1a, 0xc0, 0x9e, 0x00, 0x78, 0xfd, 0x19, 0x17, 0xcb, 0x6d, 0x40, 0x9f, 0x1c, 0xa4,
+	0x64, 0x3a, 0x94, 0xb4, 0xee, 0x9c, 0xd7, 0x8d, 0xf3, 0x57, 0x5f, 0x77, 0x13, 0xf2, 0x6d, 0x37,
+	0x21, 0xdf, 0x77, 0x13, 0x72, 0x75, 0xb6, 0xd6, 0xa1, 0xd8, 0x2c, 0x67, 0x99, 0xb9, 0x11, 0x56,
+	0x65, 0xc5, 0x36, 0x47, 0xd7, 0xaf, 0x6e, 0xe7, 0xc2, 0xbb, 0x4c, 0xfc, 0xf1, 0x45, 0x96, 0x47,
+	0xcd, 0x13, 0x3f, 0xfd, 0x11, 0x00, 0x00, 0xff, 0xff, 0x0a, 0x65, 0x57, 0xf0, 0x3e, 0x03, 0x00,
 	0x00,
 }
 
@@ -550,6 +570,18 @@ func (m *ShardTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.PathRange != nil {
+		{
+			size, err := m.PathRange.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPfsserver(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
 	if len(m.Inputs) > 0 {
 		for iNdEx := len(m.Inputs) - 1; iNdEx >= 0; iNdEx-- {
@@ -627,20 +659,6 @@ func (m *PathRange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	if m.XXX_unrecognized != nil {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	if len(m.UpperDatum) > 0 {
-		i -= len(m.UpperDatum)
-		copy(dAtA[i:], m.UpperDatum)
-		i = encodeVarintPfsserver(dAtA, i, uint64(len(m.UpperDatum)))
-		i--
-		dAtA[i] = 0x22
-	}
-	if len(m.LowerDatum) > 0 {
-		i -= len(m.LowerDatum)
-		copy(dAtA[i:], m.LowerDatum)
-		i = encodeVarintPfsserver(dAtA, i, uint64(len(m.LowerDatum)))
-		i--
-		dAtA[i] = 0x1a
 	}
 	if len(m.Upper) > 0 {
 		i -= len(m.Upper)
@@ -835,6 +853,18 @@ func (m *ValidateTask) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.PathRange != nil {
+		{
+			size, err := m.PathRange.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPfsserver(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	if len(m.Id) > 0 {
 		i -= len(m.Id)
 		copy(dAtA[i:], m.Id)
@@ -869,17 +899,41 @@ func (m *ValidateTaskResult) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.XXX_unrecognized)
 		copy(dAtA[i:], m.XXX_unrecognized)
 	}
+	if m.SizeBytes != 0 {
+		i = encodeVarintPfsserver(dAtA, i, uint64(m.SizeBytes))
+		i--
+		dAtA[i] = 0x20
+	}
 	if len(m.Error) > 0 {
 		i -= len(m.Error)
 		copy(dAtA[i:], m.Error)
 		i = encodeVarintPfsserver(dAtA, i, uint64(len(m.Error)))
 		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Last != nil {
+		{
+			size, err := m.Last.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPfsserver(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x12
 	}
-	if m.SizeBytes != 0 {
-		i = encodeVarintPfsserver(dAtA, i, uint64(m.SizeBytes))
+	if m.First != nil {
+		{
+			size, err := m.First.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPfsserver(dAtA, i, uint64(size))
+		}
 		i--
-		dAtA[i] = 0x8
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -906,6 +960,10 @@ func (m *ShardTask) Size() (n int) {
 			l = len(s)
 			n += 1 + l + sovPfsserver(uint64(l))
 		}
+	}
+	if m.PathRange != nil {
+		l = m.PathRange.Size()
+		n += 1 + l + sovPfsserver(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -942,14 +1000,6 @@ func (m *PathRange) Size() (n int) {
 		n += 1 + l + sovPfsserver(uint64(l))
 	}
 	l = len(m.Upper)
-	if l > 0 {
-		n += 1 + l + sovPfsserver(uint64(l))
-	}
-	l = len(m.LowerDatum)
-	if l > 0 {
-		n += 1 + l + sovPfsserver(uint64(l))
-	}
-	l = len(m.UpperDatum)
 	if l > 0 {
 		n += 1 + l + sovPfsserver(uint64(l))
 	}
@@ -1041,6 +1091,10 @@ func (m *ValidateTask) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovPfsserver(uint64(l))
 	}
+	if m.PathRange != nil {
+		l = m.PathRange.Size()
+		n += 1 + l + sovPfsserver(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1053,12 +1107,20 @@ func (m *ValidateTaskResult) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.SizeBytes != 0 {
-		n += 1 + sovPfsserver(uint64(m.SizeBytes))
+	if m.First != nil {
+		l = m.First.Size()
+		n += 1 + l + sovPfsserver(uint64(l))
+	}
+	if m.Last != nil {
+		l = m.Last.Size()
+		n += 1 + l + sovPfsserver(uint64(l))
 	}
 	l = len(m.Error)
 	if l > 0 {
 		n += 1 + l + sovPfsserver(uint64(l))
+	}
+	if m.SizeBytes != 0 {
+		n += 1 + sovPfsserver(uint64(m.SizeBytes))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1132,6 +1194,42 @@ func (m *ShardTask) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Inputs = append(m.Inputs, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PathRange", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.PathRange == nil {
+				m.PathRange = &PathRange{}
+			}
+			if err := m.PathRange.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1332,70 +1430,6 @@ func (m *PathRange) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Upper = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LowerDatum", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfsserver
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.LowerDatum = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field UpperDatum", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowPfsserver
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthPfsserver
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.UpperDatum = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1848,6 +1882,42 @@ func (m *ValidateTask) Unmarshal(dAtA []byte) error {
 			}
 			m.Id = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PathRange", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.PathRange == nil {
+				m.PathRange = &PathRange{}
+			}
+			if err := m.PathRange.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfsserver(dAtA[iNdEx:])
@@ -1900,10 +1970,10 @@ func (m *ValidateTaskResult) Unmarshal(dAtA []byte) error {
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field First", wireType)
 			}
-			m.SizeBytes = 0
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowPfsserver
@@ -1913,12 +1983,65 @@ func (m *ValidateTaskResult) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.SizeBytes |= int64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.First == nil {
+				m.First = &index.Index{}
+			}
+			if err := m.First.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Last", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthPfsserver
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Last == nil {
+				m.Last = &index.Index{}
+			}
+			if err := m.Last.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Error", wireType)
 			}
@@ -1950,6 +2073,25 @@ func (m *ValidateTaskResult) Unmarshal(dAtA []byte) error {
 			}
 			m.Error = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SizeBytes", wireType)
+			}
+			m.SizeBytes = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowPfsserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.SizeBytes |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipPfsserver(dAtA[iNdEx:])

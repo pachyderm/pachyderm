@@ -94,7 +94,6 @@ release-mount-server:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --rm-dist -f goreleaser/mount-server.yml
 
 docker-build:
-	docker build -f etc/test-images/Dockerfile.testuser -t pachyderm/testuser:local .
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker.yml
 
@@ -108,10 +107,13 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	docker build -t kafka-demo etc/testing/kafka
+	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t kafka-demo etc/testing/kafka
 
 docker-build-spout-test:
-	docker build -t spout-test etc/testing/spout
+	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
+
+docker-build-connectors:
+	docker build -t pachyderm/snowflake:local -f src/integrations/connectors/snowflake/Dockerfile .
 
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
@@ -215,7 +217,7 @@ clean-launch: check-kubectl
 	kubectl delete pvc -l app=minio -n default
 
 test-proto-static:
-	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run 'DOCKER_BUILD_FLAGS=--no-cache make proto'."
+	./etc/proto/test_no_changes.sh
 
 proto: docker-build-proto
 	./etc/proto/build.sh
@@ -310,6 +312,9 @@ test-worker: launch-stats test-worker-helper
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 -tags=k8s ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
+
+test-connectors: docker-build-connectors
+	go test -v -count=1 -tags=k8s ./src/integrations/connectors/... -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 

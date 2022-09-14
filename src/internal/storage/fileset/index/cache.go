@@ -92,7 +92,7 @@ func get(cachedChunk *cachedChunk, filter *pathFilter, w io.Writer) error {
 		return errors.EnsureStack(err)
 	}
 	i := sort.Search(len(cachedChunk.pathOffsets), func(i int) bool {
-		return atStart(cachedChunk.pathOffsets[i].upper, "", filter)
+		return atStart(cachedChunk.pathOffsets[i].upper, filter)
 	})
 	if i >= len(cachedChunk.pathOffsets) {
 		_, err := w.Write(cachedChunk.data[cachedChunk.pathOffsets[i-1].offset:])

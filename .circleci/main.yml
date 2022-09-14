@@ -6,7 +6,13 @@ aliases:
     branches:
       ignore: /.*/
     tags:
-      only: /^v\d+\.\d+\.\d+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+      # will ignore nightly
+      only: /^v\d+\.\d+\.\d+(-(?!nightly)[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$/
+  - &only-nightly-tags
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^v\d+\.\d+\.\d+-(nightly)+(\.[0-9A-Za-z-]+)*?$/
   - &only-alpha-tags
     branches:
       ignore: /.*/
@@ -55,7 +61,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=2 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            GOMAXPROCS=8 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --rerun-fails \
@@ -480,6 +486,7 @@ jobs:
                   additional=${v%%-*}
                   index=${#additional}
                   make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
+                  make release-mount-server GORELSNAP=--snapshot VERSION=${v}
             - persist_to_workspace:
                 root: ../
                 paths:
@@ -517,6 +524,17 @@ jobs:
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
+  govulncheck:
+    executor: docker-go
+    resource_class: large
+    steps:
+      - checkout
+      - run:
+          name: Install govulncheck
+          command: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run:
+          name: Check for known security vulnerabilities
+          command: govulncheck ./...
   push_redhat:
     executor: docker-go
     steps:
@@ -674,6 +692,7 @@ workflows:
       - check-prettier
       - jsonnet-lint
       - test-go
+      - govulncheck
       - test-envoy
       - integration-tests:
           matrix:
@@ -695,6 +714,7 @@ workflows:
                 - PPS8
                 - S3_AUTH
                 - EXAMPLES
+                - CONNECTORS
   helm-tests:
     jobs:
       - helm-tests
@@ -832,3 +852,76 @@ workflows:
           filters: *only-release-tags
           requires:
             - sign-off
+  nightly-release:
+    jobs:
+      - helm-tests:
+          filters: *only-nightly-tags
+      - integration-tests:
+          matrix:
+            parameters:
+              bucket:
+                - MISC
+                # If you want to update the number of PPS buckets, you'll need to
+                # update the value of PPS_BUCKETS above
+                - AUTH
+                - ENTERPRISE
+                - PFS
+                - PPS1
+                - PPS2
+                - PPS3
+                - PPS4
+                - PPS5
+                - PPS6
+                - PPS7
+                - PPS8
+                - S3_AUTH
+                - EXAMPLES
+          filters: *only-nightly-tags
+      - helm-build:
+          filters: *only-nightly-tags
+          requires:
+            - helm-tests
+            - integration-tests
+      - build-docker-images:
+          appVersion: ${CIRCLE_TAG:1}
+          filters: *only-nightly-tags
+      - build-pachctl-bin:
+          version: ${CIRCLE_TAG:1}
+          filters: *only-nightly-tags
+          requires:
+            - helm-tests
+            - integration-tests
+      - helm-publish:
+          name: publish-chart-preview
+          preview: true
+          filters: *only-nightly-tags
+          requires:
+            - helm-build
+      - release-github-draft:
+          filters: *only-nightly-tags
+          requires:
+            - build-pachctl-bin
+      - gcp-prerelease-testing:
+          filters: *only-nightly-tags
+          requires:
+            - build-docker-images
+            - build-pachctl-bin
+            - publish-chart-preview
+            - release-github-draft
+      - release-docker-hub:
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
+      - release-github:
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
+      - release-hombrew-tap:
+          filters: *only-nightly-tags
+          requires:
+            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+      - helm-publish:
+          name: publish-helm-chart
+          filters: *only-nightly-tags
+          requires:
+            - gcp-prerelease-testing
