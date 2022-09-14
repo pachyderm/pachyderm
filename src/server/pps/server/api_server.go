@@ -2345,7 +2345,7 @@ func (a *apiServer) InspectPipelineInTransaction(txnCtx *txncontext.TransactionC
 		if targetVersion < 1 {
 			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", pipeline, pipelineInfo.Version, ancestors)
 		}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(projectName, pipelineName, uint64(targetVersion)), pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline.Project.GetName(), pipelineName, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	}
