@@ -16,16 +16,12 @@ import (
 
 // Reader is used for reading a multilevel index.
 type Reader struct {
-	chunks *chunk.Storage
-	cache  *Cache
-	filter *pathFilter
-	topIdx *Index
-	datum  string
-}
-
-type pathFilter struct {
-	pathRange *PathRange
-	prefix    string
+	chunks      *chunk.Storage
+	cache       *Cache
+	filter      *pathFilter
+	topIdx      *Index
+	datum       string
+	shardConfig *ShardConfig
 }
 
 // NewReader create a new Reader.
@@ -34,6 +30,10 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 		chunks: chunks,
 		cache:  cache,
 		topIdx: topIdx,
+		shardConfig: &ShardConfig{
+			NumFiles:  1000000,
+			SizeBytes: units.GB,
+		},
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -122,6 +122,31 @@ func (r *Reader) getChunk(ctx context.Context, idx *Index, w io.Writer) error {
 	return cr.Get(w)
 }
 
+type pathFilter struct {
+	pathRange *PathRange
+	prefix    string
+}
+
+// PathRange is a range of paths.
+// The range is inclusive, exclusive: [Lower, Upper).
+type PathRange struct {
+	Lower, Upper string
+}
+
+func (r *PathRange) atStart(path string) bool {
+	if r.Lower == "" {
+		return true
+	}
+	return path >= r.Lower
+}
+
+func (r *PathRange) atEnd(path string) bool {
+	if r.Upper == "" {
+		return false
+	}
+	return path >= r.Upper
+}
+
 // atStart returns true when the name is in the valid range for a filter (always true if no filter is set).
 // For a range filter, this means the name is >= to the lower bound.
 // For a prefix filter, this means the name is >= to the prefix.
@@ -154,33 +179,40 @@ func atEnd(name string, filter *pathFilter) bool {
 	return name[:cmpSize] > filter.prefix[:cmpSize]
 }
 
-const (
-	defaultCountThreshold = 1000000
-	defaultSizeThreshold  = units.GB
-)
+// ShardConfig is a sharding configuration.
+// NumFiles is the number of files to target for each shard.
+// SizeBytes is the size, in bytes, to target for each shard.
+type ShardConfig struct {
+	NumFiles  int64
+	SizeBytes int64
+}
 
+// Shards creates shards for the index based on the sharding configuration provided to the reader.
+// Sharding takes advantage of the NumFiles and SizeBytes index metadata to efficiently traverse the multilevel index.
+// A subtree is traversed only when a split point exists within it, which we know based on the NumFiles and SizeBytes
+// values at the root of each subtree.
 func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 	if r.topIdx == nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
 		return []*PathRange{{}}, nil
 	}
 	var shards []*PathRange
 	pathRange := &PathRange{}
-	var count, size int64
+	var numFiles, sizeBytes int64
 	traverseCb := func(idx *Index) (bool, error) {
-		if count >= defaultCountThreshold || size >= defaultSizeThreshold {
+		if numFiles >= r.shardConfig.NumFiles || sizeBytes >= r.shardConfig.SizeBytes {
 			pathRange.Upper = idx.Path
 			shards = append(shards, pathRange)
 			pathRange = &PathRange{
 				Lower: idx.Path,
 			}
-			count = 0
-			size = 0
+			numFiles = 0
+			sizeBytes = 0
 		}
-		if idx.Range != nil && (count+idx.NumFiles > defaultCountThreshold || size+idx.SizeBytes > defaultSizeThreshold) {
+		if idx.Range != nil && (numFiles+idx.NumFiles > r.shardConfig.NumFiles || sizeBytes+idx.SizeBytes > r.shardConfig.SizeBytes) {
 			return true, nil
 		}
-		count += idx.NumFiles
-		size += idx.SizeBytes
+		numFiles += idx.NumFiles
+		sizeBytes += idx.SizeBytes
 		return false, nil
 	}
 	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)

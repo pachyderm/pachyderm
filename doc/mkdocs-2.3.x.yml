@@ -155,7 +155,7 @@ nav:
             - Job: concepts/pipeline-concepts/job.md
             - Datum:
                 - Overview: concepts/pipeline-concepts/datum/index.md
-                - Pileline Inputs:
+                - Pipeline Inputs:
                     - Glob Patterns: concepts/pipeline-concepts/datum/glob-pattern.md
                     - Cross and Union: concepts/pipeline-concepts/datum/cross-union.md
                     - Join: concepts/pipeline-concepts/datum/join.md
