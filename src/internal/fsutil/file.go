@@ -6,8 +6,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-func WithTmpFile(prefix string, cb func(*os.File) error) (retErr error) {
-	f, err := os.CreateTemp(os.TempDir(), prefix)
+func WithTmpFile(prefix string, cb func(*os.File) error, exts ...string) (retErr error) {
+	name := prefix + "-*"
+	for _, ext := range exts {
+		name += "." + ext
+	}
+	f, err := os.CreateTemp(os.TempDir(), name)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

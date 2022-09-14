@@ -26,18 +26,18 @@ func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker) *Storage {
 }
 
 // CopyFiles copies files from a file set to a file set writer.
-func CopyFiles(ctx context.Context, w *Writer, fs FileSet, deletive ...bool) error {
-	if len(deletive) > 0 && deletive[0] {
-		if err := fs.Iterate(ctx, func(f File) error {
-			idx := f.Index()
-			return w.Delete(idx.Path, idx.File.Datum)
-		}, deletive...); err != nil {
-			return err
-		}
-	}
-	return fs.Iterate(ctx, func(f File) error {
+func CopyFiles(ctx context.Context, w *Writer, fs FileSet, opts ...index.Option) error {
+	return errors.EnsureStack(fs.Iterate(ctx, func(f File) error {
 		return w.Copy(f, f.Index().File.Datum)
-	})
+	}, opts...))
+}
+
+// CopyDeletedFiles copies the deleted files from a file set to a file set writer.
+func CopyDeletedFiles(ctx context.Context, w *Writer, fs FileSet, opts ...index.Option) error {
+	return errors.EnsureStack(fs.IterateDeletes(ctx, func(f File) error {
+		idx := f.Index()
+		return w.Delete(idx.Path, idx.File.Datum)
+	}, opts...))
 }
 
 // WriteTarEntry writes an tar entry for f to w
@@ -95,19 +95,21 @@ type Iterator struct {
 	errChan  chan error
 }
 
-// NewIterator creates a new iterator.
-func NewIterator(ctx context.Context, fs FileSet, deletive ...bool) *Iterator {
+// iterFunc is a function for iterating over a file set.
+type iterFunc = func(ctx context.Context, cb func(File) error, opts ...index.Option) error
+
+func NewIterator(ctx context.Context, iter iterFunc, opts ...index.Option) *Iterator {
 	fileChan := make(chan File)
 	errChan := make(chan error, 1)
 	go func() {
-		if err := fs.Iterate(ctx, func(f File) error {
+		if err := iter(ctx, func(f File) error {
 			select {
 			case fileChan <- f:
 				return nil
 			case <-ctx.Done():
 				return errutil.ErrBreak
 			}
-		}, deletive...); err != nil {
+		}, opts...); err != nil {
 			errChan <- err
 			return
 		}

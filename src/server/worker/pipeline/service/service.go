@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
@@ -30,8 +29,10 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		if err := driver.UpdateJobState(jobInfo.Job, pps.JobState_JOB_RUNNING, ""); err != nil {
 			return errors.EnsureStack(err)
 		}
+		// TODO: Add cache?
+		taskDoer := driver.NewTaskDoer(jobInfo.Job.ID, nil)
 		jobInput := ppsutil.JobInput(pipelineInfo, jobInfo.OutputCommit)
-		di, err := datum.NewIterator(pachClient, jobInput)
+		di, err := datum.NewIterator(pachClient, taskDoer, jobInput)
 		if err != nil {
 			return err
 		}
@@ -50,8 +51,10 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 		}
 		meta.Job = jobInfo.Job
 		defer func() {
-			if common.IsDone(ctx) {
+			select {
+			case <-ctx.Done():
 				retErr = ppsutil.FinishJob(pachClient, jobInfo, pps.JobState_JOB_FINISHING, "")
+			default:
 			}
 		}()
 		// now that we're actually running the datum, use a pachClient which is bound to the job-scoped context
