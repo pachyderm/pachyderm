@@ -264,16 +264,16 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		// Setup file operation client for output meta commit.
-		resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
+		pachClient := pachClient.WithCtx(ctx)
+		cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+		resp, err := cacheClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 			// Setup file operation client for output PFS commit.
-			resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
+			resp, err := cacheClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) (retErr error) {
 				opts := []datum.SetOption{
 					datum.WithMetaOutput(mfMeta),
 					datum.WithPFSOutput(mfPFS),
 					datum.WithStats(stats),
 				}
-				pachClient := pachClient.WithCtx(ctx)
-				cacheClient := pfssync.NewCacheClient(pachClient, renewer)
 				// TODO: Can this just be refactored into the datum package such that we don't need to specify a storage root for the sets?
 				// The sets would just create a temporary directory under /tmp.
 				storageRoot := filepath.Join(driver.InputDir(), client.PPSScratchSpace, uuid.NewWithoutDashes())

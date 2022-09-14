@@ -4,6 +4,9 @@ import (
 	io "io"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -65,4 +68,46 @@ func (cc *CacheClient) put(key string, commit *pfs.Commit) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 	cc.cache.Add(key, commit)
+}
+
+func (cc *CacheClient) WithCreateFileSetClient(cb func(client.ModifyFile) error) (*pfs.CreateFileSetResponse, error) {
+	pachClient := pfsload.NewPachClient(cc.APIClient)
+	resp, err := pachClient.WithCreateFileSetClient(cc.Ctx(), func(mf client.ModifyFile) error {
+		ccfsc := &cacheCreateFileSetClient{
+			ModifyFile:  mf,
+			CacheClient: cc,
+		}
+		if err := cb(ccfsc); err != nil {
+			return err
+		}
+		return nil
+	})
+	return resp, errors.EnsureStack(err)
+}
+
+type cacheCreateFileSetClient struct {
+	client.ModifyFile
+	*CacheClient
+}
+
+func (ccfsc *cacheCreateFileSetClient) CopyFile(dst string, src *pfs.File, opts ...client.CopyFileOption) error {
+	newSrc := &pfs.File{
+		Path:  src.Path,
+		Datum: src.Datum,
+	}
+	key := pfsdb.CommitKey(src.Commit)
+	if c, ok := ccfsc.get(key); ok {
+		newSrc.Commit = c
+		return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
+	}
+	id, err := ccfsc.APIClient.GetFileSet(src.Commit.Branch.Repo.Name, src.Commit.Branch.Name, src.Commit.ID)
+	if err != nil {
+		return err
+	}
+	if err := ccfsc.CacheClient.renewer.Add(ccfsc.APIClient.Ctx(), id); err != nil {
+		return err
+	}
+	newSrc.Commit = client.NewCommit(client.FileSetsRepoName, "", id)
+	ccfsc.put(key, newSrc.Commit)
+	return errors.EnsureStack(ccfsc.ModifyFile.CopyFile(dst, newSrc, opts...))
 }
