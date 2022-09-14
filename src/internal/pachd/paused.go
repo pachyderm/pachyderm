@@ -81,7 +81,6 @@ func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 		pb.registerAuthServer,
 		pb.registerHealthServer,
 		pb.registerTransactionServer,
-		pb.initS3Server,
 		pb.initPrometheusServer,
 
 		pb.initTransaction,
