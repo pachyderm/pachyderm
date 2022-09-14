@@ -141,12 +141,12 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 		// Don't put the pipeline in a failing state if we're in the middle
 		// of activating auth, retry in a bit
 		if (auth.IsErrNotAuthorized(err) || auth.IsErrNotSignedIn(err)) && errCnt <= maxErrCount {
-			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q/%q: %v; retrying in %v",
-				pipeline.Project.GetName(), pipeline.Name, err, d)
+			log.Warnf("PPS master: could not retrieve pipelineInfo for pipeline %q: %v; retrying in %v",
+				pipeline, err, d)
 			return nil
 		}
 		return stepError{
-			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q/%q", pipeline.Project.GetName(), pipeline.Name),
+			error: errors.Wrapf(err, "could not load pipelineInfo for pipeline %q", pipeline),
 			retry: false,
 		}
 	})
@@ -154,14 +154,12 @@ func (sd *stateDriver) tryLoadLatestPipelineInfo(ctx context.Context, pipeline *
 }
 
 func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, message *pps.PipelineInfo) error {
-	projectName := pipeline.Project.GetName()
-	pipelineName := pipeline.Name
 	specCommit, err := ppsutil.FindPipelineSpecCommit(ctx, sd.pfsApi, *sd.txEnv, pipeline)
 	if err != nil {
-		return errors.Wrapf(err, "could not find spec commit for pipeline %q/%q", projectName, pipelineName)
+		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
 	}
 	if err := sd.pipelines.ReadOnly(ctx).Get(specCommit, message); err != nil {
-		return errors.Wrapf(err, "could not retrieve pipeline info for %q/%q", projectName, pipelineName)
+		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	return nil
 }
