@@ -697,6 +697,7 @@ postgresql:
   # dependency in Chart.yaml
   enabled: true
   image:
+    repository: pachyderm/postgresql
     tag: "13.3.0"
   # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
