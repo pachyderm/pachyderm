@@ -1,0 +1,23 @@
+.pachyderm-help-title {
+  display: flex;
+  align-items: baseline;
+}
+
+.pachyderm-help-title-logo {
+  height: 3.125rem;
+  width: 2.1875rem;
+}
+
+.pachyderm-help-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.pachyderm-help-link {
+  color: var(--jp-content-link-color);
+  cursor: pointer;
+}
+
+.pachyderm-help-link:hover {
+  text-decoration: underline;
+}
