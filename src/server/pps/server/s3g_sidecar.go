@@ -58,7 +58,7 @@ func (a *apiServer) ServeSidecarS3G() {
 			s.pachClient,
 			a.env.DB,
 			a.env.Listener,
-			client.NewPipeline(a.env.Config.PPSPipelineName),
+			client.NewProjectPipeline("", a.env.Config.PPSPipelineName),
 			a.env.Config.PPSSpecCommitID,
 		)
 		return errors.Wrapf(err, "sidecar s3 gateway: could not find pipeline")

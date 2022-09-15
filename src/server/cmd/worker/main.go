@@ -48,7 +48,7 @@ func do(ctx context.Context, config interface{}) error {
 		pachClient,
 		env.GetDBClient(),
 		env.GetPostgresListener(),
-		client.NewPipeline(env.Config().PPSPipelineName),
+		client.NewProjectPipeline("", env.Config().PPSPipelineName),
 		env.Config().PPSSpecCommitID,
 	) // get pipeline creds for pachClient
 	if err != nil {

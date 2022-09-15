@@ -44,7 +44,7 @@ func TestSpoutPachctl(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -104,7 +104,7 @@ func TestSpoutPachctl(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -207,7 +207,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -296,7 +296,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -353,7 +353,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -383,7 +383,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -436,7 +436,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Metadata: &pps.Metadata{
 					Annotations: annotations,
 				},
@@ -533,7 +533,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewPipeline(pipeline),
+				Pipeline: client.NewProjectPipeline("", pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{

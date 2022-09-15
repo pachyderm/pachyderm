@@ -209,8 +209,10 @@ func NewProjectJobInput(projectName, repoName, branchName, commitID, glob string
 }
 
 // NewPipeline creates a pps.Pipeline.
+//
+// Deprecated: use NewProjectPipeline instead.
 func NewPipeline(pipelineName string) *pps.Pipeline {
-	return &pps.Pipeline{Name: pipelineName}
+	return NewProjectPipeline("", pipelineName)
 }
 
 // NewProjectPipeline creates a pps.Pipeline.
@@ -357,7 +359,7 @@ func (c APIClient) ListJobFilterF(pipelineName string, inputCommit []*pfs.Commit
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
-		pipeline = NewPipeline(pipelineName)
+		pipeline = NewProjectPipeline("", pipelineName)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
@@ -397,7 +399,7 @@ func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.
 	client, err := c.PpsAPIClient.SubscribeJob(
 		ctx,
 		&pps.SubscribeJobRequest{
-			Pipeline: NewPipeline(pipelineName),
+			Pipeline: NewProjectPipeline("", pipelineName),
 			Details:  details,
 		})
 	if err != nil {
@@ -632,7 +634,7 @@ func (c APIClient) getLogs(
 		Since:          types.DurationProto(since),
 	}
 	if pipelineName != "" {
-		request.Pipeline = NewPipeline(pipelineName)
+		request.Pipeline = NewProjectPipeline("", pipelineName)
 	}
 	if jobID != "" {
 		request.Job = NewProjectJob("", pipelineName, jobID)
@@ -685,7 +687,7 @@ func (c APIClient) CreatePipeline(
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline("", name),
 			Transform: &pps.Transform{
 				Image: image,
 				Cmd:   cmd,
@@ -706,7 +708,7 @@ func (c APIClient) InspectPipeline(pipelineName string, details bool) (*pps.Pipe
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
 		c.Ctx(),
 		&pps.InspectPipelineRequest{
-			Pipeline: NewPipeline(pipelineName),
+			Pipeline: NewProjectPipeline("", pipelineName),
 			Details:  details,
 		},
 	)
@@ -739,7 +741,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 func (c APIClient) ListPipelineHistory(pipeline string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var _pipeline *pps.Pipeline
 	if pipeline != "" {
-		_pipeline = NewPipeline(pipeline)
+		_pipeline = NewProjectPipeline("", pipeline)
 	}
 	ctx, cf := context.WithCancel(c.Ctx())
 	defer cf()
@@ -760,7 +762,7 @@ func (c APIClient) ListPipelineHistory(pipeline string, history int64, details b
 // DeletePipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeletePipeline(name string, force bool) error {
 	req := &pps.DeletePipelineRequest{
-		Pipeline: NewPipeline(name),
+		Pipeline: NewProjectPipeline("", name),
 		Force:    force,
 	}
 	_, err := c.PpsAPIClient.DeletePipeline(
@@ -775,7 +777,7 @@ func (c APIClient) StartPipeline(name string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
 		c.Ctx(),
 		&pps.StartPipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline("", name),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -787,7 +789,7 @@ func (c APIClient) StopPipeline(name string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
 		c.Ctx(),
 		&pps.StopPipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline("", name),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -799,7 +801,7 @@ func (c APIClient) RunPipeline(name string, provenance []*pfs.Commit, jobID stri
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
 		&pps.RunPipelineRequest{
-			Pipeline:   NewPipeline(name),
+			Pipeline:   NewProjectPipeline("", name),
 			Provenance: provenance,
 			JobID:      jobID,
 		},
@@ -813,7 +815,7 @@ func (c APIClient) RunCron(name string) error {
 	_, err := c.PpsAPIClient.RunCron(
 		c.Ctx(),
 		&pps.RunCronRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline("", name),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -883,7 +885,7 @@ func (c APIClient) CreatePipelineService(
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: NewPipeline(name),
+			Pipeline: NewProjectPipeline("", name),
 			Metadata: &pps.Metadata{
 				Annotations: annotations,
 			},

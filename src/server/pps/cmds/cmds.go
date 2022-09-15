@@ -896,7 +896,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			request := &ppsclient.ListPipelineRequest{History: history, JqFilter: filter, Details: true}
 			if pipeline != "" {
-				request.Pipeline = pachdclient.NewPipeline(pipeline)
+				request.Pipeline = pachdclient.NewProjectPipeline(project, pipeline)
 			}
 			lpClient, err := client.PpsAPIClient.ListPipeline(client.Ctx(), request)
 			if err != nil {
@@ -941,6 +941,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().AddFlagSet(timestampFlags)
 	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	listPipeline.Flags().StringArrayVar(&stateStrs, "state", []string{}, "Return only pipelines with the specified state. Can be repeated to include multiple states")
+	listPipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing projects.")
 	commands = append(commands, cmdutil.CreateAliases(listPipeline, "list pipeline", pipelines))
 
 	var (
@@ -970,7 +971,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				KeepRepo: keepRepo,
 			}
 			if len(args) > 0 {
-				req.Pipeline = pachdclient.NewPipeline(args[0])
+				req.Pipeline = pachdclient.NewProjectPipeline(project, args[0])
 			}
 			if _, err = client.PpsAPIClient.DeletePipeline(client.Ctx(), req); err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -981,6 +982,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 	deletePipeline.Flags().BoolVar(&keepRepo, "keep-repo", false, "delete the pipeline, but keep the output repo data around (the pipeline cannot be recreated later with the same name unless the repo is deleted)")
+	deletePipeline.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Project containing project.")
 	commands = append(commands, cmdutil.CreateAliases(deletePipeline, "delete pipeline", pipelines))
 
 	startPipeline := &cobra.Command{
