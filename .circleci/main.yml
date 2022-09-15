@@ -1322,6 +1322,7 @@ workflows:
           filters: *only-release-tags
       - jupyter-extension-publish:
           requires:
+            - jupyter-extension-build
             - sign-off
           filters: *only-release-tags
       - jupyter-extension-docker-push-tag:
